@@ -2,8 +2,6 @@
 
 #include "Core/Span.hpp"
 
-#include <glm/matrix.hpp>
-
 class Buffer;
 class Mesh;
 class Material;
@@ -31,7 +29,6 @@ union Instruction
         size_t instance_count;
         std::optional<Buffer *> instance_buffer;
         glm::mat4 view_matrix;
-        ;
     } draw;
     struct
     {

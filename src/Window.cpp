@@ -18,11 +18,11 @@ Window::~Window()
     SDL_Quit();
 }
 
-WindowSize Window::size() const
+Extent2D Window::size() const
 {
     int w = 0, h = 0;
     SDL_GetWindowSizeInPixels(m_window, &w, &h);
-    return {.width = (uint32_t)w, .height = (uint32_t)h};
+    return Extent2D((uint32_t)w, (uint32_t)h);
 }
 
 std::optional<SDL_Event> Window::poll_event() const

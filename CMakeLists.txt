@@ -1,11 +1,15 @@
 cmake_minimum_required(VERSION 3.20)
-project(ft_vox)
-
-include(FetchContent)
 
 set(VERSION_MAJOR 1)
 set(VERSION_MINOR 0)
 set(VERSION_PATCH 0)
+
+set(TARGET_NAME ft_minecraft)
+
+project(${TARGET_NAME})
+
+include(FetchContent)
+include(cmake/AddShaders.cmake)
 
 option(BUILD_DOC "Build documentation" OFF)
 
@@ -49,51 +53,57 @@ endif()
 # Generate the `compile_commands.json`
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-add_executable(ft_vox ${SOURCES})
+add_executable(${TARGET_NAME} ${SOURCES})
 
-target_include_directories(ft_vox PRIVATE ${CMAKE_SOURCE_DIR}/src)
+# On every platforms expect web shaders need to be compiled.
+if(TARGET_IS_LINUX OR TARGET_IS_APPLE OR TARGET_IS_MSVC)
+    add_shaders("${TARGET_NAME}_shaders" ${RESOURCES_SHADERS})
+    add_dependencies(${TARGET_NAME} "${TARGET_NAME}_shaders")
+endif()
+
+target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/src)
 
 # Speed-up compilation by precompiling large most headers
-target_precompile_headers(ft_vox PUBLIC src/precompiled.hpp)
+target_precompile_headers(${TARGET_NAME} PUBLIC src/precompiled.hpp)
 
 # Disable exceptions
-target_compile_options(ft_vox PUBLIC -fno-exceptions -fno-rtti)
+target_compile_options(${TARGET_NAME} PUBLIC -fno-exceptions -fno-rtti)
 
 # Enable warnings
-target_compile_options(ft_vox PUBLIC -Wall -Wextra)
+target_compile_options(${TARGET_NAME} PUBLIC -Wall -Wextra)
 
 # Enable support for C++23
-set_property(TARGET ft_vox PROPERTY CXX_STANDARD 23)
+set_property(TARGET ${TARGET_NAME} PROPERTY CXX_STANDARD 23)
 
 if (TARGET_IS_LINUX)
-    target_compile_definitions(ft_vox PRIVATE __TARGET_LINUX__)
+    target_compile_definitions(${TARGET_NAME} PRIVATE __TARGET_LINUX__)
 elseif(TARGET_IS_APPLE)
-    target_compile_definitions(ft_vox PRIVATE __TARGET_APPLE__)
+    target_compile_definitions(${TARGET_NAME} PRIVATE __TARGET_APPLE__)
 elseif(TARGET_IS_MSVC)
-    target_compile_definitions(ft_vox PRIVATE __TARGET_MSVC__)
+    target_compile_definitions(${TARGET_NAME} PRIVATE __TARGET_MSVC__)
 endif()
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
-    target_compile_definitions(ft_vox PRIVATE __DEBUG__)
+    target_compile_definitions(${TARGET_NAME} PRIVATE __DEBUG__)
 
     # Enable the use of std::stacktrace on linux with gcc
     if (TARGET_IS_LINUX)
-        target_link_libraries(ft_vox PUBLIC stdc++exp)
+        target_link_libraries(${TARGET_NAME} PUBLIC stdc++exp)
     endif()
 endif()
 
 # Use mold when available to speed-up linking
 find_program(MOLD mold)
 if(MOLD)
-    target_link_options(ft_vox PUBLIC -fuse-ld=mold)
+    target_link_options(${TARGET_NAME} PUBLIC -fuse-ld=mold)
 endif()
 
 if(TARGET_IS_LINUX OR TARGET_IS_APPLE OR TARGET_IS_MSVC)
-    target_compile_definitions(ft_vox PRIVATE __USE_VULKAN__)
+    target_compile_definitions(${TARGET_NAME} PRIVATE __USE_VULKAN__)
 endif()
 
 if (TARGET_IS_LINUX OR TARGET_IS_APPLE)
-    target_compile_options(ft_vox PRIVATE -fdiagnostics-color)
+    target_compile_options(${TARGET_NAME} PRIVATE -fdiagnostics-color)
 endif()
 
 #
@@ -106,8 +116,8 @@ FetchContent_Declare(
     URL https://github.com/KhronosGroup/Vulkan-Headers/archive/v1.4.313.tar.gz
 )
 FetchContent_MakeAvailable(VulkanHeaders)
-target_link_libraries(ft_vox PRIVATE Vulkan::Headers)
-target_link_libraries(ft_vox PRIVATE vulkan)
+target_link_libraries(${TARGET_NAME} PRIVATE Vulkan::Headers)
+target_link_libraries(${TARGET_NAME} PRIVATE vulkan)
 
 # SDL
 set(SDL_STATIC ON)
@@ -118,7 +128,7 @@ FetchContent_Declare(
     GIT_TAG 8aa5b97bb5be8e8f62fd76c3181439e20f3de5e9
 )
 FetchContent_MakeAvailable(SDL)
-target_link_libraries(ft_vox PUBLIC SDL3::SDL3)
+target_link_libraries(${TARGET_NAME} PUBLIC SDL3::SDL3)
 
 # SDL_image
 FetchContent_Declare(
@@ -127,7 +137,7 @@ FetchContent_Declare(
     GIT_TAG 1c23b06a13161314f6f33e7ab35a2e5c601f1bc3
 )
 FetchContent_MakeAvailable(SDL_image)
-target_link_libraries(ft_vox PUBLIC SDL3_image::SDL3_image)
+target_link_libraries(${TARGET_NAME} PUBLIC SDL3_image::SDL3_image)
 
 # ImGui
 FetchContent_Declare(
@@ -136,7 +146,7 @@ FetchContent_Declare(
     GIT_TAG b5a73033ab54009186bb8e4c711e03e6b939cb91
 )
 FetchContent_MakeAvailable(ImGui)
-target_sources(ft_vox PRIVATE
+target_sources(${TARGET_NAME} PRIVATE
     ${imgui_SOURCE_DIR}/imgui.cpp
     ${imgui_SOURCE_DIR}/imgui_draw.cpp
     ${imgui_SOURCE_DIR}/imgui_tables.cpp
@@ -144,7 +154,7 @@ target_sources(ft_vox PRIVATE
     ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp
     ${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp
 )
-target_include_directories(ft_vox PRIVATE
+target_include_directories(${TARGET_NAME} PRIVATE
     ${imgui_SOURCE_DIR}
 )
 
@@ -155,7 +165,7 @@ FetchContent_Declare(
     GIT_TAG 2d4c4b4dd31fde06cfffad7915c2b3006402322f
 )
 FetchContent_MakeAvailable(glm)
-target_link_libraries(ft_vox PRIVATE glm::glm-header-only)
+target_link_libraries(${TARGET_NAME} PRIVATE glm::glm-header-only)
 
 # FreeType
 FetchContent_Declare(
@@ -164,7 +174,7 @@ FetchContent_Declare(
     GIT_TAG 8a152c824ae08fc3459df5c87e10770fc47f80b1
 )
 FetchContent_MakeAvailable(FreeType)
-target_link_libraries(ft_vox PRIVATE freetype)
+target_link_libraries(${TARGET_NAME} PRIVATE freetype)
 
 # tracy
 set(BUILD_SHARED_LIBS OFF)
@@ -175,7 +185,7 @@ FetchContent_Declare(
     GIT_TAG 5d542dc09f3d9378d005092a4ad446bd405f819a # v0.11.1
 )
 FetchContent_MakeAvailable(tracy)
-target_link_libraries(ft_vox PRIVATE TracyClient)
+target_link_libraries(${TARGET_NAME} PRIVATE TracyClient)
 
 # libbacktrace
 FetchContent_Declare(
@@ -204,15 +214,15 @@ if(TARGET_IS_LINUX OR TARGET_IS_APPLE)
     )
 
     # Install
-    execute_process(
-        OUTPUT_QUIET
-        COMMAND make install
-        WORKING_DIRECTORY ${libbacktrace_BINARY_DIR}
-    )
+    # execute_process(
+    #     OUTPUT_QUIET
+    #     COMMAND make install
+    #     WORKING_DIRECTORY ${libbacktrace_BINARY_DIR}
+    # )
 
-    target_link_directories(ft_vox PRIVATE ${libbacktrace_BINARY_DIR}/.libs)
-    target_link_libraries(ft_vox PRIVATE backtrace)
-    target_include_directories(ft_vox PRIVATE ${libbacktrace_SOURCE_DIR})
+    target_link_directories(${TARGET_NAME} PRIVATE ${libbacktrace_BINARY_DIR}/.libs)
+    target_link_libraries(${TARGET_NAME} PRIVATE backtrace)
+    target_include_directories(${TARGET_NAME} PRIVATE ${libbacktrace_SOURCE_DIR})
 endif()
 
 # MacOS dependencies

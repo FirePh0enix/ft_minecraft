@@ -41,7 +41,7 @@ Expected<Ref<Buffer>> RenderingDriver::create_buffer_from_data(size_t size, Span
     YEET(buffer_result);
 
     Ref<Buffer> buffer = buffer_result.value();
-    YEET(buffer->update(data, 0));
+    buffer->update(data, 0);
 
     return buffer;
 }

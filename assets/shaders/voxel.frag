@@ -36,7 +36,6 @@ void main() {
     vec3 R = normalize(-reflect(L, N));
     vec3 diffuse = max(dot(N, -L), ambient) * color.rgb;
 
-    // outColor = vec4(shadow * diffuse, 1.0);
-    outColor = vec4(diffuse, color.a);
-    // outColor = color;
+    // outColor = vec4(diffuse, color.a);
+    outColor = color;
 }

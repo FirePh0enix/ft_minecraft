@@ -64,6 +64,17 @@ public:
     {
     }
 
+    template <const size_t size = 0>
+    Span(const std::array<T, size>& array)
+        : m_data(array.data()), m_size(array.size())
+    {
+    }
+
+    Span(const std::initializer_list<T>& list)
+        : m_data(list.begin()), m_size(list.size())
+    {
+    }
+
     const T& operator[](size_t size) const
     {
         return m_data[size];

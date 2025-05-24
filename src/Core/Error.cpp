@@ -78,7 +78,7 @@ void signal_handler(int sig)
     const StackTrace& st = StackTrace::current();
 
     std::println(stderr, "Received signal: {}\n", signal_name);
-    st.print(stderr);
+    st.print(stderr, 0);
 
     exit(1);
 }
@@ -92,5 +92,6 @@ void initialize_error_handling(const char *filename)
 #if defined(__TARGET_LINUX__) || defined(__TARGET_APPLE__)
     signal(SIGSEGV, signal_handler);
     signal(SIGABRT, signal_handler);
+    signal(SIGILL, signal_handler);
 #endif
 }

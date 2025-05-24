@@ -29,7 +29,7 @@ public:
 
     template <typename Parent, typename = std::is_base_of<Parent, T>::value>
     Ref(const Ref<Parent>& other)
-        : m_value((T *)other.value()), m_references(other.references())
+        : m_value((T *)other.ptr()), m_references(other.references())
     {
         ref();
     }
@@ -41,7 +41,8 @@ public:
 
     ~Ref()
     {
-        unref();
+        if (!is_null())
+            unref();
     }
 
     void operator=(std::nullptr_t)
@@ -104,7 +105,7 @@ public:
         return m_value == nullptr;
     }
 
-    inline T *value() const
+    inline T *ptr() const
     {
         return m_value;
     }
@@ -125,18 +126,18 @@ private:
 
     void unref()
     {
-        *m_references -= 1;
+        // *m_references -= 1;
 
-        if (*m_references == 0)
-        {
-            delete m_value;
-            delete m_references;
-        }
+        // if (*m_references == 0)
+        // {
+        //     delete m_value;
+        //     delete m_references;
+        // }
     }
 };
 
 template <typename T, typename... Args>
-Ref<T> make_ref(Args... args)
+inline Ref<T> make_ref(Args... args)
 {
-    return Ref(new T(args...));
+    return Ref<T>(new T(args...));
 }

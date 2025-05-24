@@ -1,5 +1,8 @@
 #include "Render/DriverVulkan.hpp"
+#include "Core/StackVector.hpp"
 
+#include <chrono>
+#include <fstream>
 #include <print>
 
 #include <SDL3/SDL_vulkan.h>
@@ -61,6 +64,23 @@ static inline vk::Format convert_texture_format(TextureFormat format)
     }
 
     return vk::Format::eUndefined;
+}
+
+static inline vk::Format convert_shader_type(ShaderType type)
+{
+    switch (type)
+    {
+    case ShaderType::Float:
+        return vk::Format::eR32Sfloat;
+    case ShaderType::Vec2:
+        return vk::Format::eR32G32Sfloat;
+    case ShaderType::Vec3:
+        return vk::Format::eR32G32B32Sfloat;
+    case ShaderType::Vec4:
+        return vk::Format::eR32G32B32A32Sfloat;
+    case ShaderType::Uint:
+        return vk::Format::eR32Uint;
+    }
 }
 
 static inline vk::PolygonMode convert_polygon_mode(PolygonMode polygon_mode)
@@ -132,6 +152,38 @@ static vk::SamplerAddressMode convert_address_mode(AddressMode address_mode)
     return vk::SamplerAddressMode::eRepeat;
 }
 
+static vk::ShaderStageFlagBits convert_shader_stage(ShaderKind kind)
+{
+    switch (kind)
+    {
+    case ShaderKind::Vertex:
+        return vk::ShaderStageFlagBits::eVertex;
+    case ShaderKind::Fragment:
+        return vk::ShaderStageFlagBits::eFragment;
+    }
+
+    return {};
+}
+
+static vk::ImageLayout convert_texture_layout(TextureLayout layout)
+{
+    switch (layout)
+    {
+    case TextureLayout::Undefined:
+        return vk::ImageLayout::eUndefined;
+    case TextureLayout::DepthStencilAttachment:
+        return vk::ImageLayout::eDepthStencilAttachmentOptimal;
+    case TextureLayout::CopyDst:
+        return vk::ImageLayout::eTransferDstOptimal;
+    case TextureLayout::ShaderReadOnly:
+        return vk::ImageLayout::eShaderReadOnlyOptimal;
+    case TextureLayout::DepthStencilReadOnly:
+        return vk::ImageLayout::eDepthStencilReadOnlyOptimal;
+    }
+
+    return {};
+}
+
 static vk::SamplerCreateInfo convert_sampler(Sampler sampler)
 {
     return vk::SamplerCreateInfo(
@@ -145,6 +197,31 @@ static vk::SamplerCreateInfo convert_sampler(Sampler sampler)
         0.0, 0.0,
         vk::BorderColor::eIntOpaqueBlack,
         vk::False);
+}
+
+PipelineCache::PipelineCache()
+{
+}
+
+Expected<vk::Pipeline> PipelineCache::get_or_create(Material *material, vk::RenderPass render_pass)
+{
+    auto iter = m_pipelines.find({.material = material, .render_pass = render_pass});
+
+    if (iter != m_pipelines.end())
+    {
+        return iter->second;
+    }
+    else
+    {
+        MaterialVulkan *material_vk = (MaterialVulkan *)material;
+        Ref<MaterialLayoutVulkan> layout = material_vk->get_layout().cast_to<MaterialLayoutVulkan>();
+
+        auto pipeline_result = RenderingDriverVulkan::get()->create_graphics_pipeline(layout->m_shaders, layout->m_instance_layout, layout->m_polygon_mode, layout->m_cull_mode, layout->m_transparency, layout->m_always_draw_before, layout->m_pipeline_layout, render_pass);
+        YEET(pipeline_result);
+
+        m_pipelines[{.material = material, .render_pass = render_pass}] = pipeline_result.value();
+        return pipeline_result.value();
+    }
 }
 
 SamplerCache::SamplerCache()
@@ -169,14 +246,6 @@ Expected<vk::Sampler> SamplerCache::get_or_create(Sampler sampler)
     }
 }
 
-PipelineCache::PipelineCache()
-{
-}
-
-Expected<vk::Pipeline> PipelineCache::get_or_create(Material *material, vk::RenderPass render_pass)
-{
-}
-
 RenderingDriverVulkan::RenderingDriverVulkan()
 {
 }
@@ -193,9 +262,9 @@ RenderingDriverVulkan::~RenderingDriverVulkan()
 
         for (size_t i = 0; i < max_frames_in_flight; i++)
         {
-            m_device.destroySemaphore(m_image_available_semaphores[i]);
-            m_device.destroySemaphore(m_render_finished_semaphores[i]);
-            m_device.destroyFence(m_in_flight_fences[i]);
+            m_device.destroySemaphore(m_acquire_semaphores[i]);
+            m_device.destroySemaphore(m_submit_semaphores[i]);
+            m_device.destroyFence(m_frame_fences[i]);
         }
 
         m_device.freeCommandBuffers(m_graphics_command_pool, m_command_buffers);
@@ -310,8 +379,7 @@ std::expected<void, Error> RenderingDriverVulkan::initialize(const Window& windo
     vk::PhysicalDeviceFeatures device_features{};
 
     auto device_result = m_physical_device.createDevice(vk::DeviceCreateInfo({}, queue_infos.size(), queue_infos.data(), validation_layers.size(), validation_layers.data(), device_extensions.size(), device_extensions.data(), &device_features, &host_query_reset_features));
-    if (device_result.result != vk::Result::eSuccess)
-        return std::unexpected(device_result.result);
+    YEET_RESULT(device_result);
     m_device = device_result.value;
 
     m_graphics_queue = m_device.getQueue(m_graphics_queue_index, 0);
@@ -319,20 +387,32 @@ std::expected<void, Error> RenderingDriverVulkan::initialize(const Window& windo
 
     // Allocate enough command buffers and synchronization primitives for each frame in flight.
     auto gcp_result = m_device.createCommandPool(vk::CommandPoolCreateInfo(vk::CommandPoolCreateFlagBits::eResetCommandBuffer, m_graphics_queue_index));
-    if (device_result.result != vk::Result::eSuccess)
-        return std::unexpected(gcp_result.result);
+    YEET_RESULT(gcp_result);
     m_graphics_command_pool = gcp_result.value;
 
     auto buffer_alloc_result = m_device.allocateCommandBuffers(vk::CommandBufferAllocateInfo(m_graphics_command_pool, vk::CommandBufferLevel::ePrimary, max_frames_in_flight));
-    if (buffer_alloc_result.result != vk::Result::eSuccess)
-        return std::unexpected(buffer_alloc_result.result);
+    YEET_RESULT(buffer_alloc_result);
 
     for (size_t i = 0; i < max_frames_in_flight; i++)
     {
-        m_image_available_semaphores[i] = m_device.createSemaphore(vk::SemaphoreCreateInfo()).value;
-        m_render_finished_semaphores[i] = m_device.createSemaphore(vk::SemaphoreCreateInfo()).value;
-        m_in_flight_fences[i] = m_device.createFence(vk::FenceCreateInfo(vk::FenceCreateFlagBits::eSignaled)).value;
+        m_acquire_semaphores[i] = m_device.createSemaphore(vk::SemaphoreCreateInfo()).value;
+        m_frame_fences[i] = m_device.createFence(vk::FenceCreateInfo(vk::FenceCreateFlagBits::eSignaled)).value;
+        m_command_buffers[i] = buffer_alloc_result.value[i];
     }
+
+    m_swapchain_image_count = m_surface_capabilities.maxImageCount == 0 ? m_surface_capabilities.minImageCount + 1 : std::min(m_surface_capabilities.maxImageCount, m_surface_capabilities.minImageCount + 1);
+
+    // We need one submit semaphore per swapchain images.
+    m_submit_semaphores.resize(m_swapchain_image_count);
+
+    for (size_t i = 0; i < m_swapchain_image_count; i++)
+    {
+        m_submit_semaphores[i] = m_device.createSemaphore(vk::SemaphoreCreateInfo()).value;
+    }
+
+    auto transfer_buffer_result = m_device.allocateCommandBuffers(vk::CommandBufferAllocateInfo(m_graphics_command_pool, vk::CommandBufferLevel::ePrimary, 1));
+    YEET_RESULT(transfer_buffer_result);
+    m_transfer_buffer = transfer_buffer_result.value[0];
 
     m_timestamp_query_pool = m_device.createQueryPool(vk::QueryPoolCreateInfo({}, vk::QueryType::eTimestamp, max_frames_in_flight * 2)).value;
     for (size_t i = 0; i < max_frames_in_flight; i++)
@@ -350,7 +430,7 @@ std::expected<void, Error> RenderingDriverVulkan::initialize(const Window& windo
             vk::ImageLayout::eUndefined, vk::ImageLayout::ePresentSrcKHR),
         vk::AttachmentDescription(
             {},
-            vk::Format::eD32Sfloat, vk::SampleCountFlagBits::e1,
+            convert_texture_format(TextureFormat::D32), vk::SampleCountFlagBits::e1,
             vk::AttachmentLoadOp::eClear, vk::AttachmentStoreOp::eDontCare,
             vk::AttachmentLoadOp::eDontCare, vk::AttachmentStoreOp::eDontCare,
             vk::ImageLayout::eUndefined, vk::ImageLayout::eDepthStencilAttachmentOptimal),
@@ -372,6 +452,8 @@ std::expected<void, Error> RenderingDriverVulkan::initialize(const Window& windo
 
     YEET(configure_surface(window, VSync::On));
 
+    m_start_time = std::chrono::high_resolution_clock::now();
+
     return {};
 }
 
@@ -391,7 +473,7 @@ Expected<void> RenderingDriverVulkan::configure_surface(const Window& window, VS
         break;
     }
 
-    // Accordig to the vulkan spec only FIFO is required to be supported so we fallback on that if other modes are not supported.
+    // According to the vulkan spec only FIFO is required to be supported so we fallback on that if other modes are not supported.
     if (std::find(m_surface_present_modes.begin(), m_surface_present_modes.end(), present_mode) == m_surface_present_modes.end())
         present_mode = vk::PresentModeKHR::eFifo;
 
@@ -400,12 +482,10 @@ Expected<void> RenderingDriverVulkan::configure_surface(const Window& window, VS
     const vk::Extent2D surface_extent(std::clamp(size.width, m_surface_capabilities.minImageExtent.width, m_surface_capabilities.maxImageExtent.width),
                                       std::clamp(size.height, m_surface_capabilities.minImageExtent.height, m_surface_capabilities.maxImageExtent.height));
 
-    const uint32_t image_count = m_surface_capabilities.maxImageCount == 0 ? m_surface_capabilities.minImageCount + 1 : std::min(m_surface_capabilities.maxImageCount, m_surface_capabilities.minImageCount + 1);
-
     auto swapchain_result = m_device.createSwapchainKHR(vk::SwapchainCreateInfoKHR(
         {},
         m_surface,
-        image_count,
+        m_swapchain_image_count,
         m_surface_format.format, m_surface_format.colorSpace,
         surface_extent,
         1,
@@ -475,14 +555,25 @@ void RenderingDriverVulkan::destroy_swapchain()
     }
 }
 
+void RenderingDriverVulkan::limit_frames(uint32_t limit)
+{
+    m_frames_limit = limit;
+    m_time_between_frames = 1'000'000 / m_frames_limit;
+}
+
 Expected<Ref<Buffer>> RenderingDriverVulkan::create_buffer(size_t size, BufferUsage usage, BufferVisibility visibility)
 {
     vk::MemoryPropertyFlags memory_properties{};
 
-    if (visibility == BufferVisibility::GPUOnly)
+    switch (visibility)
+    {
+    case BufferVisibility::GPUOnly:
         memory_properties = vk::MemoryPropertyFlagBits::eDeviceLocal;
-    else if (visibility == BufferVisibility::GPUOnly)
+        break;
+    case BufferVisibility::GPUAndCPU:
         memory_properties = vk::MemoryPropertyFlagBits::eDeviceLocal | vk::MemoryPropertyFlagBits::eHostVisible;
+        break;
+    }
 
     auto buffer_result = m_device.createBuffer(vk::BufferCreateInfo({}, size, convert_buffer_usage(usage)));
     YEET_RESULT(buffer_result);
@@ -490,15 +581,7 @@ Expected<Ref<Buffer>> RenderingDriverVulkan::create_buffer(size_t size, BufferUs
     auto memory_result = allocate_memory_for_buffer(buffer_result.value, memory_properties);
     YEET(memory_result);
 
-    return new BufferVulkan(buffer_result.value, memory_result.value(), size);
-}
-
-void RenderingDriverVulkan::destroy_buffer(Buffer *buffer)
-{
-    BufferVulkan *buffer_vk = (BufferVulkan *)buffer;
-
-    m_device.freeMemory(buffer_vk->memory);
-    m_device.destroyBuffer(buffer_vk->buffer);
+    return make_ref<BufferVulkan>(buffer_result.value, memory_result.value(), size).cast_to<Buffer>();
 }
 
 Expected<Ref<Texture>> RenderingDriverVulkan::create_texture(uint32_t width, uint32_t height, TextureFormat format, TextureUsage usage)
@@ -521,12 +604,13 @@ Expected<Ref<Texture>> RenderingDriverVulkan::create_texture(uint32_t width, uin
     auto memory_result = allocate_memory_for_image(image_result.value, vk::MemoryPropertyFlagBits::eDeviceLocal);
     YEET(memory_result);
 
+    // TODO: format_to_aspect_mask()
     vk::ImageAspectFlags aspect_mask = format == TextureFormat::D32 ? vk::ImageAspectFlagBits::eDepth : vk::ImageAspectFlagBits::eColor;
 
     auto image_view_result = m_device.createImageView(vk::ImageViewCreateInfo({}, image_result.value, vk::ImageViewType::e2D, vk_format, {}, vk::ImageSubresourceRange(aspect_mask, 0, 1, 0, 1)));
     YEET_RESULT(image_view_result);
 
-    return new TextureVulkan(image_result.value, memory_result.value(), image_view_result.value, width, height, width * height * size_of(format), true);
+    return make_ref<TextureVulkan>(image_result.value, memory_result.value(), image_view_result.value, width, height, width * height * size_of(format), aspect_mask, 1, true).cast_to<Texture>();
 }
 
 Expected<Ref<Texture>> RenderingDriverVulkan::create_texture_array(uint32_t width, uint32_t height, TextureFormat format, TextureUsage usage, uint32_t layers)
@@ -549,12 +633,13 @@ Expected<Ref<Texture>> RenderingDriverVulkan::create_texture_array(uint32_t widt
     auto memory_result = allocate_memory_for_image(image_result.value, vk::MemoryPropertyFlagBits::eDeviceLocal);
     YEET(memory_result);
 
+    // TODO: format_to_aspect_mask()
     vk::ImageAspectFlags aspect_mask = format == TextureFormat::D32 ? vk::ImageAspectFlagBits::eDepth : vk::ImageAspectFlagBits::eColor;
 
-    auto image_view_result = m_device.createImageView(vk::ImageViewCreateInfo({}, image_result.value, vk::ImageViewType::e2D, vk_format, {}, vk::ImageSubresourceRange(aspect_mask, 0, 1, 0, 1)));
+    auto image_view_result = m_device.createImageView(vk::ImageViewCreateInfo({}, image_result.value, vk::ImageViewType::e2DArray, vk_format, {}, vk::ImageSubresourceRange(aspect_mask, 0, 1, 0, 1)));
     YEET_RESULT(image_view_result);
 
-    return new TextureVulkan(image_result.value, memory_result.value(), image_view_result.value, width, height, width * height * size_of(format), true);
+    return make_ref<TextureVulkan>(image_result.value, memory_result.value(), image_view_result.value, width, height, width * height * size_of(format), aspect_mask, layers, true).cast_to<Texture>();
 }
 
 Expected<Ref<Texture>> RenderingDriverVulkan::create_texture_cube(uint32_t width, uint32_t height, TextureFormat format, TextureUsage usage)
@@ -577,25 +662,13 @@ Expected<Ref<Texture>> RenderingDriverVulkan::create_texture_cube(uint32_t width
     auto memory_result = allocate_memory_for_image(image_result.value, vk::MemoryPropertyFlagBits::eDeviceLocal);
     YEET(memory_result);
 
+    // TODO: format_to_aspect_mask()
     vk::ImageAspectFlags aspect_mask = format == TextureFormat::D32 ? vk::ImageAspectFlagBits::eDepth : vk::ImageAspectFlagBits::eColor;
 
     auto image_view_result = m_device.createImageView(vk::ImageViewCreateInfo({}, image_result.value, vk::ImageViewType::eCube, vk_format, {}, vk::ImageSubresourceRange(aspect_mask, 0, 1, 0, 1)));
     YEET_RESULT(image_view_result);
 
-    return new TextureVulkan(image_result.value, memory_result.value(), image_view_result.value, width, height, width * height * size_of(format), true);
-}
-
-void RenderingDriverVulkan::destroy_texture(Texture *texture)
-{
-    TextureVulkan *texture_vk = (TextureVulkan *)texture;
-
-    m_device.destroyImageView(texture_vk->image_view);
-
-    if (texture_vk->owned)
-    {
-        m_device.freeMemory(texture_vk->memory);
-        m_device.destroyImage(texture_vk->image);
-    }
+    return make_ref<TextureVulkan>(image_result.value, memory_result.value(), image_view_result.value, width, height, width * height * size_of(format), aspect_mask, 1, true).cast_to<Texture>();
 }
 
 Expected<Ref<Mesh>> RenderingDriverVulkan::create_mesh(IndexType index_type, Span<uint8_t> indices, Span<glm::vec3> vertices, Span<glm::vec2> uvs, Span<glm::vec3> normals)
@@ -618,20 +691,15 @@ Expected<Ref<Mesh>> RenderingDriverVulkan::create_mesh(IndexType index_type, Spa
     YEET(normal_buffer_result);
     Ref<Buffer> normal_buffer = normal_buffer_result.value();
 
-    YEET(index_buffer->update(indices.as_bytes(), 0));
-    YEET(vertex_buffer->update(vertices.as_bytes(), 0));
-    YEET(uv_buffer->update(uvs.as_bytes(), 0));
-    YEET(normal_buffer->update(normals.as_bytes(), 0));
+    index_buffer->update(indices.as_bytes());
+    vertex_buffer->update(vertices.as_bytes());
+    uv_buffer->update(uvs.as_bytes());
+    normal_buffer->update(normals.as_bytes());
 
-    return new MeshVulkan(index_type, convert_index_type(index_type), vertex_count, index_buffer, vertex_buffer, uv_buffer, normal_buffer);
+    return make_ref<MeshVulkan>(index_type, convert_index_type(index_type), vertex_count, index_buffer, vertex_buffer, uv_buffer, normal_buffer).cast_to<Mesh>();
 }
 
-void RenderingDriverVulkan::destroy_mesh(Mesh *mesh)
-{
-    (void)mesh;
-}
-
-Expected<Ref<MaterialLayout>> RenderingDriverVulkan::create_material_layout(Span<ShaderRef> shaders, Span<MaterialParam> params, MaterialFlags flags, std::optional<InstanceLayout> instance_layout, CullMode cull_mode, PolygonMode polygon_mode)
+Expected<Ref<MaterialLayout>> RenderingDriverVulkan::create_material_layout(Span<ShaderRef> shaders, Span<MaterialParam> params, MaterialFlags flags, std::optional<InstanceLayout> instance_layout, CullMode cull_mode, PolygonMode polygon_mode, bool transparency, bool always_draw_before)
 {
     std::vector<vk::DescriptorSetLayoutBinding> bindings;
     bindings.reserve(params.size());
@@ -642,7 +710,7 @@ Expected<Ref<MaterialLayout>> RenderingDriverVulkan::create_material_layout(Span
     {
         vk::DescriptorType type = param.kind == MaterialParamKind::Texture ? vk::DescriptorType::eCombinedImageSampler : vk::DescriptorType::eUniformBuffer;
 
-        bindings.push_back(vk::DescriptorSetLayoutBinding(binding, type, 1, {}, {}));
+        bindings.push_back(vk::DescriptorSetLayoutBinding(binding, type, 1, convert_shader_stage(param.shader_kind), nullptr));
         binding += 1;
     }
 
@@ -653,19 +721,14 @@ Expected<Ref<MaterialLayout>> RenderingDriverVulkan::create_material_layout(Span
     YEET(pool_result);
 
     std::array<vk::PushConstantRange, 1> push_constant_ranges{
-        vk::PushConstantRange(vk::ShaderStageFlagBits::eFragment, 0, sizeof(PushConstants)),
+        vk::PushConstantRange(vk::ShaderStageFlagBits::eVertex, 0, sizeof(PushConstants)),
     };
     std::array<vk::DescriptorSetLayout, 1> descriptor_set_layouts{layout_result.value};
 
     auto pipeline_layout_result = RenderingDriverVulkan::get()->get_device().createPipelineLayout(vk::PipelineLayoutCreateInfo({}, descriptor_set_layouts, push_constant_ranges));
     YEET_RESULT(pipeline_layout_result);
 
-    return new MaterialLayoutVulkan(layout_result.value, pool_result.value(), shaders.to_vector(), instance_layout, params.to_vector(), convert_polygon_mode(polygon_mode), convert_cull_mode(cull_mode), flags, pipeline_layout_result.value);
-}
-
-void RenderingDriverVulkan::destroy_material_layout(MaterialLayout *layout)
-{
-    delete layout;
+    return make_ref<MaterialLayoutVulkan>(layout_result.value, pool_result.value(), shaders.to_vector(), instance_layout, params.to_vector(), convert_polygon_mode(polygon_mode), convert_cull_mode(cull_mode), flags, pipeline_layout_result.value, transparency, always_draw_before).cast_to<MaterialLayout>();
 }
 
 Expected<Ref<Material>> RenderingDriverVulkan::create_material(MaterialLayout *layout)
@@ -675,26 +738,51 @@ Expected<Ref<Material>> RenderingDriverVulkan::create_material(MaterialLayout *l
     auto set_result = layout_vk->m_descriptor_pool.allocate();
     YEET(set_result);
 
-    return new MaterialVulkan(layout, set_result.value());
-}
-
-void RenderingDriverVulkan::destroy_material(Material *material)
-{
-    delete material;
+    return make_ref<MaterialVulkan>(layout, set_result.value()).cast_to<Material>();
 }
 
 void RenderingDriverVulkan::draw_graph(const RenderGraph& graph)
 {
-    vk::Result result = m_device.waitForFences({m_in_flight_fences[m_current_frame]}, vk::True, std::numeric_limits<uint64_t>::max());
-    ERR_RESULT_E_RET(result, "");
+    constexpr uint64_t timeout = 500'000'000; // 500 ms
 
-    auto image_index_result = m_device.acquireNextImageKHR(m_swapchain, std::numeric_limits<uint64_t>::max(), m_image_available_semaphores[m_current_frame]);
-    if (image_index_result.result != vk::Result::eSuccess)
+    // Limit frame when `m_frames_limit != 0`.
+    if (m_frames_limit > 0)
+    {
+        uint64_t elapsed = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - m_start_time).count();
+
+        if (elapsed < m_time_between_frames)
+            return;
+
+        m_last_frame_limit_time = std::chrono::high_resolution_clock::now();
+    }
+
+    vk::Fence frame_fence = m_frame_fences[m_current_frame];
+
+    ERR_RESULT_E_RET(m_device.waitForFences({frame_fence}, true, timeout));
+    ERR_RESULT_E_RET(m_device.resetFences({frame_fence}));
+
+    vk::Semaphore acquire_semaphore = m_acquire_semaphores[m_current_frame];
+
+    auto image_index_result = m_device.acquireNextImageKHR(m_swapchain, timeout, acquire_semaphore, nullptr);
+
+    switch (image_index_result.result)
+    {
+    case vk::Result::eSuccess:
+        break;
+    case vk::Result::eSuboptimalKHR:
+    case vk::Result::eErrorOutOfDateKHR:
+        break;
+    default:
         return;
+    }
 
     uint32_t image_index = image_index_result.value;
-    vk::CommandBuffer cb = m_command_buffers[image_index];
     vk::Framebuffer fb = m_swapchain_framebuffers[image_index];
+
+    vk::CommandBuffer cb = m_command_buffers[m_current_frame];
+
+    ERR_RESULT_E_RET(cb.reset());
+    ERR_RESULT_E_RET(cb.begin(vk::CommandBufferBeginInfo(vk::CommandBufferUsageFlagBits::eOneTimeSubmit)));
 
     // TODO: Add synchronization
 
@@ -709,7 +797,7 @@ void RenderingDriverVulkan::draw_graph(const RenderGraph& graph)
                 vk::ClearDepthStencilValue(0.0),
             };
 
-            cb.beginRenderPass(vk::RenderPassBeginInfo(m_render_pass, fb, vk::Rect2D({}, vk::Extent2D(m_surface_extent.width, m_surface_extent.height)), clear_values), vk::SubpassContents::eInline);
+            cb.beginRenderPass(vk::RenderPassBeginInfo(m_render_pass, fb, vk::Rect2D(vk::Offset2D(0, 0), vk::Extent2D(m_surface_extent.width, m_surface_extent.height)), clear_values), vk::SubpassContents::eInline);
             break;
         }
         case InstructionKind::EndRenderPass:
@@ -722,12 +810,12 @@ void RenderingDriverVulkan::draw_graph(const RenderGraph& graph)
             MeshVulkan *mesh = (MeshVulkan *)instruction.draw.mesh;
 
             MaterialVulkan *material = (MaterialVulkan *)instruction.draw.material;
-            MaterialLayoutVulkan *material_layout = (MaterialLayoutVulkan *)material->get_layout();
+            const Ref<MaterialLayoutVulkan>& material_layout = material->get_layout().cast_to<MaterialLayoutVulkan>();
 
             std::optional<Buffer *> instance_buffer = instruction.draw.instance_buffer;
 
             auto pipeline_result = m_pipeline_cache.get_or_create(material, m_render_pass);
-            ERR_EXPECT_B(pipeline_result, "Failed to create");
+            ERR_EXPECT_B(pipeline_result, "Failed to create a pipeline for the material");
 
             cb.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline_result.value());
             cb.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, material_layout->m_pipeline_layout, 0, {material->descriptor_set}, {});
@@ -741,7 +829,9 @@ void RenderingDriverVulkan::draw_graph(const RenderGraph& graph)
             cb.bindVertexBuffers(0, {vertex_buffer->buffer, normal_buffer->buffer, uv_buffer->buffer}, {0, 0, 0});
 
             if (instance_buffer.has_value())
+            {
                 cb.bindVertexBuffers(3, {((BufferVulkan *)instance_buffer.value())->buffer}, {0});
+            }
 
             cb.setViewport(0, {vk::Viewport(0.0, 0.0, (float)m_surface_extent.width, (float)m_surface_extent.height, 0.0, 1.0)});
             cb.setScissor(0, {vk::Rect2D({0, 0}, {m_surface_extent.width, m_surface_extent.height})});
@@ -764,23 +854,136 @@ void RenderingDriverVulkan::draw_graph(const RenderGraph& graph)
         }
     }
 
-    result = cb.reset();
-    ERR_RESULT_E_RET(result, "");
+    ERR_RESULT_E_RET(cb.end());
 
-    result = cb.begin(vk::CommandBufferBeginInfo(vk::CommandBufferUsageFlagBits::eOneTimeSubmit));
-    ERR_RESULT_E_RET(result, "");
+    vk::PipelineStageFlags wait_stage_mask = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+    vk::Semaphore submit_semaphore = m_submit_semaphores[image_index];
 
-    // TODO: Process the render pass
+    ERR_RESULT_E_RET(m_graphics_queue.submit({vk::SubmitInfo({acquire_semaphore}, {wait_stage_mask}, {cb}, {submit_semaphore})}, m_frame_fences[m_current_frame]));
+    ERR_RESULT_E_RET(m_graphics_queue.presentKHR(vk::PresentInfoKHR({submit_semaphore}, {m_swapchain}, {image_index})));
 
-    result = cb.end();
-    ERR_RESULT_E_RET(result, "");
+    m_current_frame = (m_current_frame + 1) % max_frames_in_flight;
+}
 
-    vk::PipelineStageFlags flags = vk::PipelineStageFlagBits::eColorAttachmentOutput;
-    result = m_graphics_queue.submit({vk::SubmitInfo({m_image_available_semaphores[m_current_frame]}, {flags}, {cb}, {m_render_finished_semaphores[m_current_frame]})});
-    ERR_RESULT_E_RET(result, "");
+static std::vector<uint32_t> read_shader_code(const char *filename)
+{
+    std::ifstream ifs(filename, std::ios::binary | std::ios::ate);
+    ERR_COND_V(!ifs.is_open(), "Shader %s does not exists", filename);
 
-    result = m_graphics_queue.presentKHR(vk::PresentInfoKHR({m_image_available_semaphores[m_current_frame]}, {m_swapchain}, {image_index}));
-    ERR_RESULT_E_RET(result, "");
+    if (!ifs)
+    {
+        return {};
+    }
+
+    size_t size = ifs.tellg();
+
+    ifs.seekg(0, std::ios::beg);
+
+    std::vector<uint32_t> data(size);
+
+    ifs.read((char *)data.data(), (ssize_t)size);
+
+    return data;
+}
+
+Expected<vk::Pipeline> RenderingDriverVulkan::create_graphics_pipeline(Span<ShaderRef> shaders, std::optional<InstanceLayout> instance_layout, vk::PolygonMode polygon_mode, vk::CullModeFlags cull_mode, bool transparency, bool always_draw_before, vk::PipelineLayout pipeline_layout, vk::RenderPass render_pass)
+{
+    StackVector<vk::PipelineShaderStageCreateInfo, 4> shader_stages;
+
+    for (const auto& shader : shaders)
+    {
+        std::vector<uint32_t> code = read_shader_code(shader.filename);
+
+        auto shader_model_result = m_device.createShaderModule(vk::ShaderModuleCreateInfo({}, code.size(), code.data()));
+        YEET_RESULT(shader_model_result);
+
+        shader_stages.push_back(vk::PipelineShaderStageCreateInfo({}, convert_shader_stage(shader.kind), shader_model_result.value, "main"));
+    }
+
+    std::vector<vk::VertexInputBindingDescription> input_bindings;
+    input_bindings.reserve(instance_layout.has_value() ? 4 : 3);
+
+    std::vector<vk::VertexInputAttributeDescription> input_attribs;
+    input_attribs.reserve(3 + (instance_layout.has_value() ? instance_layout->inputs.size() : 0));
+
+    input_bindings.push_back(vk::VertexInputBindingDescription(0, sizeof(glm::vec3), vk::VertexInputRate::eVertex));
+    input_bindings.push_back(vk::VertexInputBindingDescription(1, sizeof(glm::vec3), vk::VertexInputRate::eVertex));
+    input_bindings.push_back(vk::VertexInputBindingDescription(2, sizeof(glm::vec2), vk::VertexInputRate::eVertex));
+
+    input_attribs.push_back(vk::VertexInputAttributeDescription(0, 0, vk::Format::eR32G32B32Sfloat, 0));
+    input_attribs.push_back(vk::VertexInputAttributeDescription(1, 1, vk::Format::eR32G32B32Sfloat, 0));
+    input_attribs.push_back(vk::VertexInputAttributeDescription(2, 2, vk::Format::eR32G32Sfloat, 0));
+
+    if (instance_layout.has_value())
+    {
+        input_bindings.push_back(vk::VertexInputBindingDescription(3, instance_layout->stride, vk::VertexInputRate::eInstance));
+
+        size_t location = 3;
+
+        for (const auto& input : instance_layout->inputs)
+        {
+            input_attribs.push_back(vk::VertexInputAttributeDescription(location, 3, convert_shader_type(input.type), input.offset));
+            location += 1;
+        }
+    }
+
+    std::array<vk::DynamicState, 2> dynamic_states{vk::DynamicState::eViewport, vk::DynamicState::eScissor};
+    vk::PipelineDynamicStateCreateInfo dynamic_state_info({}, dynamic_states.size(), dynamic_states.data());
+
+    vk::PipelineVertexInputStateCreateInfo vertex_input_info({}, input_bindings, input_attribs);
+    vk::PipelineInputAssemblyStateCreateInfo input_assembly_info({}, vk::PrimitiveTopology::eTriangleList, vk::False);
+    vk::PipelineViewportStateCreateInfo viewport_info({}, 1, nullptr, 1, nullptr);
+    vk::PipelineRasterizationStateCreateInfo rasterization_info({}, vk::False, vk::False, polygon_mode, cull_mode, vk::FrontFace::eCounterClockwise, vk::False, 0.0, 0.0, 0.0, 1.0);
+    vk::PipelineMultisampleStateCreateInfo multisample_info({}, vk::SampleCountFlagBits::e1, vk::False, 1.0, nullptr, vk::False, vk::False);
+
+    vk::PipelineColorBlendAttachmentState color_blend_state{};
+
+    if (!transparency)
+    {
+        color_blend_state.blendEnable = vk::False;
+        color_blend_state.srcColorBlendFactor = vk::BlendFactor::eOne;
+        color_blend_state.dstColorBlendFactor = vk::BlendFactor::eZero;
+        color_blend_state.colorBlendOp = vk::BlendOp::eAdd;
+        color_blend_state.srcAlphaBlendFactor = vk::BlendFactor::eOne;
+        color_blend_state.dstAlphaBlendFactor = vk::BlendFactor::eZero;
+        color_blend_state.alphaBlendOp = vk::BlendOp::eAdd;
+        color_blend_state.colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
+    }
+    else
+    {
+        color_blend_state.blendEnable = vk::True;
+        color_blend_state.srcColorBlendFactor = vk::BlendFactor::eSrcAlpha;
+        color_blend_state.dstColorBlendFactor = vk::BlendFactor::eOneMinusSrcAlpha;
+        color_blend_state.colorBlendOp = vk::BlendOp::eAdd;
+        color_blend_state.srcAlphaBlendFactor = vk::BlendFactor::eOne;
+        color_blend_state.dstAlphaBlendFactor = vk::BlendFactor::eZero;
+        color_blend_state.alphaBlendOp = vk::BlendOp::eAdd;
+        color_blend_state.colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
+    }
+
+    vk::PipelineColorBlendStateCreateInfo blend_info({}, vk::False, vk::LogicOp::eCopy, {color_blend_state});
+    vk::PipelineDepthStencilStateCreateInfo depth_info({}, vk::True, vk::True, always_draw_before ? vk::CompareOp::eLessOrEqual : vk::CompareOp::eLess, vk::False, vk::False);
+
+    auto pipeline_result = m_device.createGraphicsPipeline(nullptr, vk::GraphicsPipelineCreateInfo(
+                                                                        {},
+                                                                        shader_stages.size(),
+                                                                        shader_stages.data(),
+                                                                        &vertex_input_info,
+                                                                        &input_assembly_info,
+                                                                        nullptr, // tesselation
+                                                                        &viewport_info,
+                                                                        &rasterization_info,
+                                                                        &multisample_info,
+                                                                        &depth_info,
+                                                                        &blend_info,
+                                                                        &dynamic_state_info,
+                                                                        pipeline_layout,
+                                                                        render_pass,
+                                                                        0, // subpass
+                                                                        nullptr, 0));
+    YEET_RESULT(pipeline_result);
+
+    return pipeline_result.value;
 }
 
 Expected<Ref<Texture>> RenderingDriverVulkan::create_texture_from_vk_image(vk::Image image, uint32_t width, uint32_t height, vk::Format format)
@@ -790,7 +993,7 @@ Expected<Ref<Texture>> RenderingDriverVulkan::create_texture_from_vk_image(vk::I
     auto image_view_result = m_device.createImageView(vk::ImageViewCreateInfo({}, image, vk::ImageViewType::e2D, format, {}, vk::ImageSubresourceRange(aspect_mask, 0, 1, 0, 1)));
     YEET_RESULT(image_view_result);
 
-    return new TextureVulkan(image, nullptr, image_view_result.value, width, height, 0, false);
+    return make_ref<TextureVulkan>(image, nullptr, image_view_result.value, width, height, 0, aspect_mask, 1, false).cast_to<Texture>();
 }
 
 std::optional<uint32_t> RenderingDriverVulkan::find_memory_type_index(uint32_t type_bits, vk::MemoryPropertyFlags properties)
@@ -799,7 +1002,7 @@ std::optional<uint32_t> RenderingDriverVulkan::find_memory_type_index(uint32_t t
 
     for (size_t i = 0; i < m_memory_properties.memoryTypeCount; i++)
     {
-        if (bits & 1 && m_memory_properties.memoryTypes[i].propertyFlags & properties)
+        if (bits & 1 && (m_memory_properties.memoryTypes[i].propertyFlags & properties) == properties)
             return i;
         bits >>= 1;
     }
@@ -957,80 +1160,153 @@ std::optional<PhysicalDeviceWithInfo> RenderingDriverVulkan::pick_best_device(co
     return best_device;
 }
 
-Expected<void> BufferVulkan::update(Span<uint8_t> view, size_t offset)
+BufferVulkan::~BufferVulkan()
 {
-#ifdef __DEBUG__
-    if (view.size() > size_bytes - offset)
-        return std::unexpected(ErrorKind::OutOfBounds);
-#endif
+    RenderingDriverVulkan::get()->get_device().freeMemory(memory);
+    RenderingDriverVulkan::get()->get_device().destroyBuffer(buffer);
+}
+
+void BufferVulkan::update(Span<uint8_t> view, size_t offset)
+{
+    ERR_COND_VR(view.size() > m_size - offset, "Out of bounds: %zu vs %zu", view.size(), m_size - offset);
 
     if (view.size() == 0)
-        return {};
+        return;
 
-    auto buffer_result = RenderingDriverVulkan::get()->create_buffer(view.size());
-    YEET(buffer_result);
+    auto buffer_result = RenderingDriverVulkan::get()->create_buffer(view.size(), {.copy_src = true}, BufferVisibility::GPUAndCPU);
+    ERR_EXPECT_R(buffer_result, "failed to create the staging buffer");
 
     Ref<BufferVulkan> staging_buffer_vk = buffer_result.value().cast_to<BufferVulkan>();
 
     // Copy the data into the staging buffer.
     auto map_result = RenderingDriverVulkan::get()->get_device().mapMemory(staging_buffer_vk->memory, 0, view.size(), {});
-    YEET_RESULT(map_result);
+    ERR_RESULT_RET(map_result);
     std::memcpy(map_result.value, view.data(), view.size());
     RenderingDriverVulkan::get()->get_device().unmapMemory(staging_buffer_vk->memory);
 
     // Copy from the staging buffer to the final buffer
     vk::CommandBuffer cb = RenderingDriverVulkan::get()->get_transfer_buffer();
 
-    YEET_RESULT_E(cb.reset());
-    YEET_RESULT_E(cb.begin(vk::CommandBufferBeginInfo(vk::CommandBufferUsageFlagBits::eOneTimeSubmit)));
+    ERR_RESULT_E_RET(cb.reset());
+    ERR_RESULT_E_RET(cb.begin(vk::CommandBufferBeginInfo(vk::CommandBufferUsageFlagBits::eOneTimeSubmit)));
 
-    vk::BufferCopy region(0, offset, std::min(view.size(), size_bytes - offset));
+    vk::BufferCopy region(0, offset, std::min(view.size(), m_size - offset));
 
     cb.copyBuffer(staging_buffer_vk->buffer, buffer, {region});
-    YEET_RESULT_E(cb.end());
+    ERR_RESULT_E_RET(cb.end());
 
-    YEET_RESULT_E(RenderingDriverVulkan::get()->get_graphics_queue().submit({vk::SubmitInfo(0, nullptr, nullptr, 1, &cb)}));
-    YEET_RESULT_E(RenderingDriverVulkan::get()->get_graphics_queue().waitIdle());
+    ERR_RESULT_E_RET(RenderingDriverVulkan::get()->get_graphics_queue().submit({vk::SubmitInfo(0, nullptr, nullptr, 1, &cb)}));
+    ERR_RESULT_E_RET(RenderingDriverVulkan::get()->get_graphics_queue().waitIdle());
+}
+
+TextureVulkan::~TextureVulkan()
+{
+    RenderingDriverVulkan::get()->get_device().destroyImageView(image_view);
+
+    if (owned)
+    {
+        RenderingDriverVulkan::get()->get_device().freeMemory(memory);
+        RenderingDriverVulkan::get()->get_device().destroyImage(image);
+    }
+}
+
+void TextureVulkan::update(Span<uint8_t> view, uint32_t layer)
+{
+    ERR_COND(view.size() > size, "Out of bounds");
+
+    if (view.size() == 0)
+        return;
+
+    auto buffer_result = RenderingDriverVulkan::get()->create_buffer(view.size(), {.copy_src = true}, BufferVisibility::GPUAndCPU);
+    ERR_EXPECT_R(buffer_result, "failed to create the staging buffer");
+
+    Ref<BufferVulkan> staging_buffer_vk = buffer_result.value().cast_to<BufferVulkan>();
+
+    // Copy the data into the staging buffer.
+    auto map_result = RenderingDriverVulkan::get()->get_device().mapMemory(staging_buffer_vk->memory, 0, view.size(), {});
+    ERR_RESULT_RET(map_result);
+    std::memcpy(map_result.value, view.data(), view.size());
+    RenderingDriverVulkan::get()->get_device().unmapMemory(staging_buffer_vk->memory);
+
+    // Copy from the staging buffer to the final buffer
+    vk::CommandBuffer cb = RenderingDriverVulkan::get()->get_transfer_buffer();
+
+    ERR_RESULT_E_RET(cb.reset());
+    ERR_RESULT_E_RET(cb.begin(vk::CommandBufferBeginInfo(vk::CommandBufferUsageFlagBits::eOneTimeSubmit)));
+
+    vk::BufferImageCopy region(0, 0, 0, vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, 0, layer, 1), {}, vk::Extent3D(m_width, m_height, 1));
+
+    cb.copyBufferToImage(staging_buffer_vk->buffer, image, vk::ImageLayout::eTransferDstOptimal, {region});
+    ERR_RESULT_E_RET(cb.end());
+
+    ERR_RESULT_E_RET(RenderingDriverVulkan::get()->get_graphics_queue().submit({vk::SubmitInfo(0, nullptr, nullptr, 1, &cb)}));
+    ERR_RESULT_E_RET(RenderingDriverVulkan::get()->get_graphics_queue().waitIdle());
+}
+
+static vk::AccessFlags layout_to_access_mask(TextureLayout layout)
+{
+    switch (layout)
+    {
+    case TextureLayout::Undefined:
+        return {};
+    case TextureLayout::DepthStencilAttachment:
+        return vk::AccessFlagBits::eDepthStencilAttachmentRead;
+    case TextureLayout::CopyDst:
+        return vk::AccessFlagBits::eTransferWrite;
+    case TextureLayout::ShaderReadOnly:
+        return vk::AccessFlagBits::eShaderRead;
+    // TODO: DepthStencilReadOnly
+    default:
+        return {};
+    }
 
     return {};
 }
 
-Expected<void> TextureVulkan::update(Span<uint8_t> view, uint32_t layer)
+static vk::PipelineStageFlags layout_to_stage_mask(TextureLayout layout)
 {
-#ifdef __DEBUG__
-    if (view.size() > size)
-        return std::unexpected(ErrorKind::OutOfBounds);
-#endif
-
-    if (view.size() == 0)
+    switch (layout)
+    {
+    case TextureLayout::Undefined:
+        return vk::PipelineStageFlagBits::eTopOfPipe;
+    case TextureLayout::DepthStencilAttachment:
+        return vk::PipelineStageFlagBits::eEarlyFragmentTests;
+    case TextureLayout::CopyDst:
+        return vk::PipelineStageFlagBits::eTransfer;
+    case TextureLayout::ShaderReadOnly:
+        return vk::PipelineStageFlagBits::eFragmentShader;
+    // TODO: DepthStencilReadOnly
+    default:
+        std::println("dqkjwdjahdjhawjkd\n");
         return {};
-
-    auto buffer_result = RenderingDriverVulkan::get()->create_buffer(view.size());
-    YEET(buffer_result);
-
-    Ref<BufferVulkan> staging_buffer_vk = buffer_result.value().cast_to<BufferVulkan>();
-
-    // Copy the data into the staging buffer.
-    auto map_result = RenderingDriverVulkan::get()->get_device().mapMemory(staging_buffer_vk->memory, 0, view.size(), {});
-    YEET_RESULT(map_result);
-    std::memcpy(map_result.value, view.data(), view.size());
-    RenderingDriverVulkan::get()->get_device().unmapMemory(staging_buffer_vk->memory);
-
-    // Copy from the staging buffer to the final buffer
-    vk::CommandBuffer cb = RenderingDriverVulkan::get()->get_transfer_buffer();
-
-    YEET_RESULT_E(cb.reset());
-    YEET_RESULT_E(cb.begin(vk::CommandBufferBeginInfo(vk::CommandBufferUsageFlagBits::eOneTimeSubmit)));
-
-    vk::BufferImageCopy region(0, 0, 0, vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, 0, layer, 1));
-
-    cb.copyBufferToImage(staging_buffer_vk->buffer, image, vk::ImageLayout::eTransferDstOptimal, {region});
-    YEET_RESULT_E(cb.end());
-
-    YEET_RESULT_E(RenderingDriverVulkan::get()->get_graphics_queue().submit({vk::SubmitInfo(0, nullptr, nullptr, 1, &cb)}));
-    YEET_RESULT_E(RenderingDriverVulkan::get()->get_graphics_queue().waitIdle());
+    }
 
     return {};
+}
+
+void TextureVulkan::transition_layout(TextureLayout new_layout)
+{
+    vk::CommandBuffer cb = RenderingDriverVulkan::get()->get_transfer_buffer();
+
+    ERR_RESULT_E_RET(cb.begin(vk::CommandBufferBeginInfo()));
+
+    vk::ImageMemoryBarrier barrier(
+        layout_to_access_mask(m_layout), layout_to_access_mask(new_layout),
+        convert_texture_layout(m_layout), convert_texture_layout(new_layout),
+        0, 0,
+        image,
+        vk::ImageSubresourceRange(aspect_mask, 0, 1, 0, layers));
+
+    vk::PipelineStageFlags src_stage_mask = layout_to_stage_mask(m_layout);
+    vk::PipelineStageFlags dst_stage_mask = layout_to_stage_mask(new_layout);
+
+    cb.pipelineBarrier(src_stage_mask, dst_stage_mask, {}, {}, {}, {barrier});
+    ERR_RESULT_E_RET(cb.end());
+
+    ERR_RESULT_E_RET(RenderingDriverVulkan::get()->get_graphics_queue().submit({vk::SubmitInfo({}, {}, {cb}, {})}));
+    ERR_RESULT_E_RET(RenderingDriverVulkan::get()->get_graphics_queue().waitIdle());
+
+    m_layout = new_layout;
 }
 
 Expected<DescriptorPool> DescriptorPool::create(vk::DescriptorSetLayout layout, Span<MaterialParam> params)
@@ -1105,27 +1381,47 @@ std::optional<uint32_t> MaterialLayoutVulkan::get_param_binding(const std::strin
     return std::nullopt;
 }
 
-void MaterialVulkan::set_param(const std::string& name, Texture *texture)
+std::optional<MaterialParam> MaterialLayoutVulkan::get_param(const std::string& name)
 {
-    std::optional<uint32_t> binding_result = ((MaterialLayoutVulkan *)m_layout)->get_param_binding(name);
-    ERR_COND_V(binding_result.has_value(), "Invalid parameter name `%s`", name.c_str());
 
-    TextureVulkan *texture_vk = (TextureVulkan *)texture;
+    for (const auto& param : m_params)
+    {
+        if (!std::strcmp(name.c_str(), param.name))
+            return param;
+    }
 
-    vk::DescriptorImageInfo image_info(nullptr, texture_vk->image_view, vk::ImageLayout::eShaderReadOnlyOptimal);
+    return std::nullopt;
+}
+
+void MaterialVulkan::set_param(const std::string& name, Ref<Texture>& texture)
+{
+    Ref<MaterialLayoutVulkan> layout_vk = m_layout.cast_to<MaterialLayoutVulkan>();
+
+    std::optional<uint32_t> binding_result = layout_vk->get_param_binding(name);
+    std::optional<MaterialParam> param = layout_vk->get_param(name);
+    ERR_COND_V(!binding_result.has_value() || !param.has_value(), "Invalid parameter name `%s`", name.c_str());
+
+    Ref<TextureVulkan> texture_vk = texture.cast_to<TextureVulkan>();
+
+    auto sampler_result = RenderingDriverVulkan::get()->get_sampler_cache().get_or_create(param->image_opts.sampler);
+    ERR_COND_V(!sampler_result.has_value(), "Failed to create sampler for parameter `%s`", name.c_str());
+
+    vk::DescriptorImageInfo image_info(sampler_result.value(), texture_vk->image_view, vk::ImageLayout::eShaderReadOnlyOptimal);
     vk::WriteDescriptorSet write_image(descriptor_set, binding_result.value(), 0, 1, vk::DescriptorType::eCombinedImageSampler, &image_info, nullptr, nullptr);
 
     RenderingDriverVulkan::get()->get_device().updateDescriptorSets({write_image}, {});
 }
 
-void MaterialVulkan::set_param(const std::string& name, Buffer *buffer)
+void MaterialVulkan::set_param(const std::string& name, Ref<Buffer>& buffer)
 {
-    std::optional<uint32_t> binding_result = ((MaterialLayoutVulkan *)m_layout)->get_param_binding(name);
-    ERR_COND_V(binding_result.has_value(), "Invalid parameter name `%s`", name.c_str());
+    Ref<MaterialLayoutVulkan> layout_vk = m_layout.cast_to<MaterialLayoutVulkan>();
 
-    BufferVulkan *buffer_vk = (BufferVulkan *)buffer;
+    std::optional<uint32_t> binding_result = layout_vk->get_param_binding(name);
+    ERR_COND_V(!binding_result.has_value(), "Invalid parameter name `%s`", name.c_str());
 
-    vk::DescriptorBufferInfo buffer_info(buffer_vk->buffer, 0, buffer_vk->size_bytes);
+    Ref<BufferVulkan> buffer_vk = buffer.cast_to<BufferVulkan>();
+
+    vk::DescriptorBufferInfo buffer_info(buffer_vk->buffer, 0, buffer_vk->size());
     vk::WriteDescriptorSet write_image(descriptor_set, binding_result.value(), 0, 1, vk::DescriptorType::eCombinedImageSampler, nullptr, &buffer_info, nullptr);
 
     RenderingDriverVulkan::get()->get_device().updateDescriptorSets({write_image}, {});

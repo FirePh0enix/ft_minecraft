@@ -43,11 +43,6 @@ enum class ErrorKind : uint16_t
     OutOfMemory = 0x1,
 
     /**
-     * @brief Access out of bounds.
-     */
-    OutOfBounds = 0x2,
-
-    /**
      * @brief A generic error to indicate something went wrong while talking to the GPU.
      */
     BadDriver = 0x1000,
@@ -77,9 +72,6 @@ struct std::formatter<ErrorKind> : std::formatter<std::string>
             break;
         case ErrorKind::OutOfMemory:
             msg = "Out of memory";
-            break;
-        case ErrorKind::OutOfBounds:
-            msg = "Access out of bounds";
             break;
         case ErrorKind::BadDriver:
             msg = "Bad driver";
@@ -330,19 +322,52 @@ private:
 #define ERR_COND(COND, MESSAGE)                                            \
     do                                                                     \
     {                                                                      \
-        if (!(COND))                                                       \
+        if (COND)                                                          \
             std::println("error: {}:{}: {}", __FILE__, __LINE__, MESSAGE); \
+    } while (0)
+
+#define ERR_COND_R(COND, MESSAGE)                                          \
+    do                                                                     \
+    {                                                                      \
+        if (COND)                                                          \
+        {                                                                  \
+            std::println("error: {}:{}: {}", __FILE__, __LINE__, MESSAGE); \
+            return;                                                        \
+        }                                                                  \
     } while (0)
 
 #define ERR_COND_V(COND, MESSAGE, ...)                        \
     do                                                        \
     {                                                         \
-        if (!(COND))                                          \
+        if (COND)                                             \
         {                                                     \
             std::print("error: {}:{}: ", __FILE__, __LINE__); \
             std::printf(MESSAGE, __VA_ARGS__);                \
             std::print("\n");                                 \
         }                                                     \
+    } while (0)
+
+#define ERR_COND_VR(COND, MESSAGE, ...)                       \
+    do                                                        \
+    {                                                         \
+        if (COND)                                             \
+        {                                                     \
+            std::print("error: {}:{}: ", __FILE__, __LINE__); \
+            std::printf(MESSAGE, __VA_ARGS__);                \
+            std::print("\n");                                 \
+            return;                                           \
+        }                                                     \
+    } while (0)
+
+#define ERR_EXPECT_R(EXPECTED, MESSAGE)                                    \
+    do                                                                     \
+    {                                                                      \
+        auto __result = EXPECTED;                                          \
+        if (!__result.has_value())                                         \
+        {                                                                  \
+            std::println("error: {}:{}: {}", __FILE__, __LINE__, MESSAGE); \
+            return;                                                        \
+        }                                                                  \
     } while (0)
 
 #define ERR_EXPECT_B(EXPECTED, MESSAGE)                                    \
@@ -358,25 +383,26 @@ private:
 
 #ifdef __USE_VULKAN__
 
-#define ERR_RESULT_RET(RESULT, MESSAGE)                                    \
-    do                                                                     \
-    {                                                                      \
-        auto __result = RESULT;                                            \
-        if (__result.result != vk::Result::eSuccess)                       \
-        {                                                                  \
-            std::println("error: {}:{}: {}", __FILE__, __LINE__, MESSAGE); \
-            return;                                                        \
-        }                                                                  \
+#define ERR_RESULT_RET(RESULT)                                                                                 \
+    do                                                                                                         \
+    {                                                                                                          \
+        auto __result = RESULT;                                                                                \
+        if (__result.result != vk::Result::eSuccess)                                                           \
+        {                                                                                                      \
+            std::println("error: {}:{}: {}", __FILE__, __LINE__, string_vk_result((VkResult)__result.result)); \
+            return;                                                                                            \
+        }                                                                                                      \
     } while (0)
 
-#define ERR_RESULT_E_RET(RESULT, MESSAGE)                                  \
-    do                                                                     \
-    {                                                                      \
-        if (RESULT != vk::Result::eSuccess)                                \
-        {                                                                  \
-            std::println("error: {}:{}: {}", __FILE__, __LINE__, MESSAGE); \
-            return;                                                        \
-        }                                                                  \
+#define ERR_RESULT_E_RET(RESULT)                                                                        \
+    do                                                                                                  \
+    {                                                                                                   \
+        auto __result = RESULT;                                                                         \
+        if (__result != vk::Result::eSuccess)                                                           \
+        {                                                                                               \
+            std::println("error: {}:{}: {}", __FILE__, __LINE__, string_vk_result((VkResult)__result)); \
+            return;                                                                                     \
+        }                                                                                               \
     } while (0)
 
 #endif
@@ -395,3 +421,16 @@ template <typename T>
 using Expected = std::expected<T, Error>;
 
 void initialize_error_handling(const char *filename);
+
+/**
+ * Modern C++ version of C's assert.
+ */
+template <typename... Args>
+inline void assert_error(bool condition, std::format_string<Args...> format, Args... args)
+{
+    if (!condition)
+    {
+        std::println(stderr, format, args...);
+        std::abort();
+    }
+}
