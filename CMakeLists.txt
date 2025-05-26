@@ -14,12 +14,13 @@ include(cmake/AddShaders.cmake)
 option(BUILD_DOC "Build documentation" OFF)
 
 set(SOURCES
-    src/main.cpp
-
     src/Core/Error.cpp
     src/Render/Driver.cpp
     src/Render/DriverVulkan.cpp
     src/Render/Graph.cpp
+    src/Camera.cpp
+    src/Input.cpp
+    src/main.cpp
     src/Window.cpp
 )
 
@@ -67,7 +68,7 @@ endif()
 
 target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/src)
 
-# Speed-up compilation by precompiling large most headers
+# Speed-up compilation by precompiling large headers
 target_precompile_headers(${TARGET_NAME} PUBLIC src/precompiled.hpp)
 
 # Disable exceptions

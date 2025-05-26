@@ -1,3 +1,5 @@
+#include "Camera.hpp"
+#include "Input.hpp"
 #include "MeshPrimitives.hpp"
 #include "Render/Driver.hpp"
 #include "Render/DriverVulkan.hpp"
@@ -38,6 +40,8 @@ int main(int argc, char *argv[])
 
     auto init_result = RenderingDriver::get()->initialize(window);
     EXPECT(init_result);
+
+    Camera camera(glm::vec3(0.0, 0.0, 0.0), glm::vec3(), 0.05);
 
     auto instance_buffer_result = RenderingDriver::get()->create_buffer(sizeof(BlockInstanceData) * 1, {.copy_dst = true, .vertex = true});
     EXPECT(instance_buffer_result);
@@ -98,9 +102,6 @@ int main(int argc, char *argv[])
 
     RenderGraph graph;
 
-    glm::mat4 view_matrix = glm::perspective(glm::radians(70.0), (double)width / (double)height, 0.01, 10'000.0);
-    view_matrix[1][1] *= -1;
-
     while (window.is_running())
     {
         std::optional<SDL_Event> event;
@@ -115,12 +116,16 @@ int main(int argc, char *argv[])
             default:
                 break;
             }
+
+            Input::get().process_event(window, event.value());
         }
+
+        camera.tick();
 
         graph.reset();
 
         graph.begin_render_pass();
-        graph.add_draw(cube.ptr(), material.ptr(), view_matrix, 1, instance_buffer.ptr());
+        graph.add_draw(cube.ptr(), material.ptr(), camera.get_view_proj_matrix(), 1, instance_buffer.ptr());
         graph.end_render_pass();
 
         RenderingDriver::get()->draw_graph(graph);
