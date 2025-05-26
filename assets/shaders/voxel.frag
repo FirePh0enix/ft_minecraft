@@ -28,8 +28,6 @@ void main() {
         color *= vec4(13.0 / 255.0, 94.0 / 255.0, 21.0 / 255.0, 1.0);
     }
 
-    // float shadow = textureProj(shadowCoords / shadowCoords.w, vec2(0.0)); // filterPCF(shadowCoords / shadowCoords.w);
-
     vec3 N = normalize(normal);
     vec3 L = normalize(lightVec);
     vec3 V = normalize(position.xyz);
@@ -37,5 +35,5 @@ void main() {
     vec3 diffuse = max(dot(N, -L), ambient) * color.rgb;
 
     // outColor = vec4(diffuse, color.a);
-    outColor = vec4(1.0, 1.0, 1.0, 1.0);
+    outColor = color;
 }

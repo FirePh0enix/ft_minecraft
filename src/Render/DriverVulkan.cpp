@@ -1,5 +1,6 @@
 #include "Render/DriverVulkan.hpp"
 #include "Core/StackVector.hpp"
+#include "vulkan/vulkan_structs.hpp"
 
 #include <chrono>
 #include <fstream>
@@ -699,20 +700,20 @@ Expected<Ref<Mesh>> RenderingDriverVulkan::create_mesh(IndexType index_type, Spa
     YEET(vertex_buffer_result);
     Ref<Buffer> vertex_buffer = vertex_buffer_result.value();
 
-    auto uv_buffer_result = create_buffer(uvs.size() * sizeof(glm::vec2), {.copy_dst = 1, .vertex = 1});
-    YEET(uv_buffer_result);
-    Ref<Buffer> uv_buffer = uv_buffer_result.value();
-
     auto normal_buffer_result = create_buffer(normals.size() * sizeof(glm::vec3), {.copy_dst = 1, .vertex = 1});
     YEET(normal_buffer_result);
     Ref<Buffer> normal_buffer = normal_buffer_result.value();
 
+    auto uv_buffer_result = create_buffer(uvs.size() * sizeof(glm::vec2), {.copy_dst = 1, .vertex = 1});
+    YEET(uv_buffer_result);
+    Ref<Buffer> uv_buffer = uv_buffer_result.value();
+
     index_buffer->update(indices.as_bytes());
     vertex_buffer->update(vertices.as_bytes());
-    uv_buffer->update(uvs.as_bytes());
     normal_buffer->update(normals.as_bytes());
+    uv_buffer->update(uvs.as_bytes());
 
-    return make_ref<MeshVulkan>(index_type, convert_index_type(index_type), vertex_count, index_buffer, vertex_buffer, uv_buffer, normal_buffer).cast_to<Mesh>();
+    return make_ref<MeshVulkan>(index_type, convert_index_type(index_type), vertex_count, index_buffer, vertex_buffer, normal_buffer, uv_buffer).cast_to<Mesh>();
 }
 
 Expected<Ref<MaterialLayout>> RenderingDriverVulkan::create_material_layout(Span<ShaderRef> shaders, Span<MaterialParam> params, MaterialFlags flags, std::optional<InstanceLayout> instance_layout, CullMode cull_mode, PolygonMode polygon_mode, bool transparency, bool always_draw_before)
@@ -810,7 +811,7 @@ void RenderingDriverVulkan::draw_graph(const RenderGraph& graph)
         {
             std::array<vk::ClearValue, 2> clear_values{
                 vk::ClearColorValue(0.0f, 0.0f, 0.0f, 1.0f),
-                vk::ClearDepthStencilValue(0.0),
+                vk::ClearDepthStencilValue(1.0),
             };
 
             cb.beginRenderPass(vk::RenderPassBeginInfo(m_render_pass, fb, vk::Rect2D(vk::Offset2D(0, 0), vk::Extent2D(m_surface_extent.width, m_surface_extent.height)), clear_values), vk::SubpassContents::eInline);
@@ -944,7 +945,7 @@ Expected<vk::Pipeline> RenderingDriverVulkan::create_graphics_pipeline(Span<Shad
     }
 
     std::array<vk::DynamicState, 2> dynamic_states{vk::DynamicState::eViewport, vk::DynamicState::eScissor};
-    vk::PipelineDynamicStateCreateInfo dynamic_state_info({}, dynamic_states.size(), dynamic_states.data());
+    vk::PipelineDynamicStateCreateInfo dynamic_state_info({}, dynamic_states);
 
     vk::PipelineVertexInputStateCreateInfo vertex_input_info({}, input_bindings, input_attribs);
     vk::PipelineInputAssemblyStateCreateInfo input_assembly_info({}, vk::PrimitiveTopology::eTriangleList, vk::False);
@@ -978,7 +979,7 @@ Expected<vk::Pipeline> RenderingDriverVulkan::create_graphics_pipeline(Span<Shad
     }
 
     vk::PipelineColorBlendStateCreateInfo blend_info({}, vk::False, vk::LogicOp::eCopy, {color_blend_state});
-    vk::PipelineDepthStencilStateCreateInfo depth_info({}, vk::True, vk::True, always_draw_before ? vk::CompareOp::eLessOrEqual : vk::CompareOp::eLess, vk::False, vk::False);
+    vk::PipelineDepthStencilStateCreateInfo depth_info({}, vk::True, vk::True, always_draw_before ? vk::CompareOp::eLessOrEqual : vk::CompareOp::eLess, vk::False, vk::False, {}, {}, 0.0, 1.0);
 
     auto pipeline_result = m_device.createGraphicsPipeline(nullptr, vk::GraphicsPipelineCreateInfo(
                                                                         {},
@@ -998,6 +999,11 @@ Expected<vk::Pipeline> RenderingDriverVulkan::create_graphics_pipeline(Span<Shad
                                                                         0, // subpass
                                                                         nullptr, 0));
     YEET_RESULT(pipeline_result);
+
+    for (const auto& shader : std::span(shader_stages.data(), shader_stages.size()))
+    {
+        m_device.destroyShaderModule(shader.module);
+    }
 
     return pipeline_result.value;
 }

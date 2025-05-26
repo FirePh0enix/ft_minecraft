@@ -64,7 +64,7 @@ public:
     {
     }
 
-    template <const size_t size = 0>
+    template <const size_t size>
     Span(const std::array<T, size>& array)
         : m_data(array.data()), m_size(array.size())
     {

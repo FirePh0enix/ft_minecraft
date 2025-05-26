@@ -66,7 +66,7 @@ int main(int argc, char *argv[])
         ERR_COND(texture_stream == nullptr, "cannot load texture");
 
         texture_array->transition_layout(TextureLayout::CopyDst);
-        texture_array->update(Span((uint8_t *)texture_surface->pixels, texture_surface->w * texture_surface->h * 4));
+        texture_array->update(Span((uint8_t *)texture_surface->pixels, texture_surface->w * texture_surface->h * 4), 0);
         texture_array->transition_layout(TextureLayout::ShaderReadOnly);
 
         SDL_DestroySurface(texture_surface);
@@ -81,7 +81,8 @@ int main(int argc, char *argv[])
         InstanceLayoutInput{.type = ShaderType::Vec3, .offset = sizeof(glm::vec3) * 2},
         InstanceLayoutInput{.type = ShaderType::Uint, .offset = sizeof(glm::vec3) * 3},
     };
-    auto material_layout_result = RenderingDriverVulkan::get()->create_material_layout(shaders, params, {.transparency = true}, InstanceLayout(inputs, sizeof(BlockInstanceData)), CullMode::None, PolygonMode::Fill, false, false);
+    InstanceLayout instance_layout(inputs, sizeof(BlockInstanceData));
+    auto material_layout_result = RenderingDriverVulkan::get()->create_material_layout(shaders, params, {.transparency = true}, instance_layout, CullMode::None, PolygonMode::Fill, false, false);
     EXPECT(material_layout_result);
     Ref<MaterialLayout> material_layout = material_layout_result.value();
 
@@ -97,7 +98,7 @@ int main(int argc, char *argv[])
 
     RenderGraph graph;
 
-    glm::mat4 view_matrix = glm::perspective(glm::radians(70.0), 1920.0 / 720.0, 0.01, 10'000.0);
+    glm::mat4 view_matrix = glm::perspective(glm::radians(70.0), (double)width / (double)height, 0.01, 10'000.0);
     view_matrix[1][1] *= -1;
 
     while (window.is_running())
