@@ -1,11 +1,15 @@
 #include "Render/DriverVulkan.hpp"
 #include "Core/StackVector.hpp"
+#include "vulkan/vulkan_core.h"
+#include "vulkan/vulkan_enums.hpp"
 
 #include <chrono>
 #include <fstream>
 #include <print>
 
 #include <SDL3/SDL_vulkan.h>
+
+VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE;
 
 static inline vk::BufferUsageFlags convert_buffer_usage(BufferUsage usage)
 {
@@ -191,7 +195,7 @@ static vk::SamplerCreateInfo convert_sampler(Sampler sampler)
         convert_filter(sampler.mag_filter), convert_filter(sampler.min_filter),
         vk::SamplerMipmapMode::eLinear,
         convert_address_mode(sampler.address_mode.u), convert_address_mode(sampler.address_mode.v), convert_address_mode(sampler.address_mode.w),
-        1.0,
+        0.0,
         vk::False, 0.0,
         vk::False, vk::CompareOp::eEqual,
         0.0, 0.0,
@@ -282,6 +286,8 @@ RenderingDriverVulkan::~RenderingDriverVulkan()
 
 std::expected<void, Error> RenderingDriverVulkan::initialize(const Window& window)
 {
+    VULKAN_HPP_DEFAULT_DISPATCHER.init();
+
     Uint32 instance_extensions_count = 0;
     auto instance_extensions = SDL_Vulkan_GetInstanceExtensions(&instance_extensions_count);
 
@@ -293,15 +299,25 @@ std::expected<void, Error> RenderingDriverVulkan::initialize(const Window& windo
     validation_layers.push_back("VK_LAYER_KHRONOS_validation");
 #endif
 
-    std::vector<char *> required_instance_extensions(instance_extensions_count);
+    std::vector<const char *> required_instance_extensions(instance_extensions_count);
     for (size_t i = 0; i < instance_extensions_count; i++)
         required_instance_extensions[i] = (char *)instance_extensions[i];
 
-    auto instance_result = vk::createInstance(vk::InstanceCreateInfo({}, &app_info, validation_layers.size(), validation_layers.data(), required_instance_extensions.size(), required_instance_extensions.data()));
+    required_instance_extensions.push_back("VK_KHR_get_physical_device_properties2");
+
+#ifndef __TARGET_APPLE__
+    vk::InstanceCreateFlags instance_flags = {};
+#else
+    vk::InstanceCreateFlags instance_flags = vk::InstanceCreateFlagBits::eEnumeratePortabilityKHR;
+#endif
+
+    auto instance_result = vk::createInstance(vk::InstanceCreateInfo(instance_flags, &app_info, validation_layers, required_instance_extensions));
     YEET_RESULT(instance_result);
     if (instance_result.result != vk::Result::eSuccess)
         return std::unexpected(instance_result.result);
     m_instance = instance_result.value;
+
+    VULKAN_HPP_DEFAULT_DISPATCHER.init(m_instance);
 
     VkSurfaceKHR surface;
 
@@ -381,6 +397,8 @@ std::expected<void, Error> RenderingDriverVulkan::initialize(const Window& windo
     auto device_result = m_physical_device.createDevice(vk::DeviceCreateInfo({}, queue_infos.size(), queue_infos.data(), validation_layers.size(), validation_layers.data(), device_extensions.size(), device_extensions.data(), &device_features, &host_query_reset_features));
     YEET_RESULT(device_result);
     m_device = device_result.value;
+
+    VULKAN_HPP_DEFAULT_DISPATCHER.init(m_device);
 
     m_graphics_queue = m_device.getQueue(m_graphics_queue_index, 0);
     m_compute_queue = m_device.getQueue(m_compute_queue_index, 0);

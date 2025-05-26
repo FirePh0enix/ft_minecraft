@@ -11,6 +11,7 @@ function(add_shaders CURRENT_TARGET_NAME)
     foreach(SHADER_SOURCE IN LISTS SHADER_SOURCE_FILES)
         cmake_path(ABSOLUTE_PATH SHADER_SOURCE NORMALIZE)
         cmake_path(GET SHADER_SOURCE FILENAME SHADER_NAME)
+        cmake_path(GET SHADER_SOURCE PARENT_PATH SHADER_DIRECTORY)
 
         set(SHADER_PRODUCT "${CMAKE_CURRENT_BINARY_DIR}/assets/shaders/${SHADER_NAME}.spv")
 
@@ -18,6 +19,7 @@ function(add_shaders CURRENT_TARGET_NAME)
 
         add_custom_command(
             OUTPUT ${SHADER_PRODUCT}
+            COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/assets/shaders/${SHADER_DIRECTORY}"
             COMMAND "glslc" "--target-env=vulkan1.2" "${SHADER_SOURCE}" "-o" "${SHADER_PRODUCT}"
             DEPENDS ${SHADER_SOURCE}
         )

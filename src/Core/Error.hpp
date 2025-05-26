@@ -425,6 +425,8 @@ void initialize_error_handling(const char *filename);
 /**
  * Modern C++ version of C's assert.
  */
+#ifdef __DEBUG__
+
 template <typename... Args>
 inline void assert_error(bool condition, std::format_string<Args...> format, Args... args)
 {
@@ -434,3 +436,12 @@ inline void assert_error(bool condition, std::format_string<Args...> format, Arg
         std::abort();
     }
 }
+
+#else
+
+template <typename... Args>
+inline void assert_error(bool condition, std::format_string<Args...> format, Args... args)
+{
+}
+
+#endif

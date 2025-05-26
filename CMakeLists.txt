@@ -85,11 +85,6 @@ endif()
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     target_compile_definitions(${TARGET_NAME} PRIVATE __DEBUG__)
-
-    # Enable the use of std::stacktrace on linux with gcc
-    if (TARGET_IS_LINUX)
-        target_link_libraries(${TARGET_NAME} PUBLIC stdc++exp)
-    endif()
 endif()
 
 # Use mold when available to speed-up linking
@@ -117,7 +112,6 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(VulkanHeaders)
 target_link_libraries(${TARGET_NAME} PRIVATE Vulkan::Headers)
-target_link_libraries(${TARGET_NAME} PRIVATE vulkan)
 
 # SDL
 set(SDL_STATIC ON)
@@ -154,9 +148,8 @@ target_sources(${TARGET_NAME} PRIVATE
     ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp
     ${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp
 )
-target_include_directories(${TARGET_NAME} PRIVATE
-    ${imgui_SOURCE_DIR}
-)
+target_include_directories(${TARGET_NAME} PRIVATE ${imgui_SOURCE_DIR})
+target_compile_definitions(${TARGET_NAME} PRIVATE IMGUI_IMPL_VULKAN_NO_PROTOTYPES VK_NO_PROTOTYPES)
 
 # glm
 FetchContent_Declare(
@@ -234,8 +227,12 @@ if (TARGET_IS_APPLE)
     )
     FetchContent_MakeAvailable(MoltenVK)
 
-    configure_file(${moltenvk_SOURCE_DIR}/vulkan/icd.d/MoltenVK_icd.json ${CMAKE_BINARY_DIR}/vulkan/icd.d/MoltenVK_icd.json COPYONLY)
-    configure_file(${moltenvk_SOURCE_DIR}/vulkan/icd.d/libMoltenVK.dylib ${CMAKE_BINARY_DIR}/vulkan/icd.d/libMoltenVK.dylib COPYONLY)
+    configure_file(${moltenvk_SOURCE_DIR}/MoltenVK/dynamic/dylib/macOS/MoltenVK_icd.json ${CMAKE_BINARY_DIR}/vulkan/icd.d/MoltenVK_icd.json COPYONLY)
+    configure_file(${moltenvk_SOURCE_DIR}/MoltenVK/dynamic/dylib/macOS/libMoltenVK.dylib ${CMAKE_BINARY_DIR}/vulkan/icd.d/libMoltenVK.dylib COPYONLY)
+
+    # Link with libMoltenVK.so instead of vulkan
+    # target_link_libraries(${TARGET_NAME} PRIVATE MoltenVK)
+    # target_link_directories(${TARGET_NAME} PRIVATE ${moltenvk_SOURCE_DIR}/MoltenVK/dylib/macOS)
 endif()
 
 # Build documention if doxygen is installed

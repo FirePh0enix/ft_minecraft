@@ -3,6 +3,7 @@
 /**
  * @brief A `std::vector` stored on the stack backed by an `std::array`.
  */
+#include "Core/Error.hpp"
 template <typename T, const size_t capacity>
 class StackVector
 {
@@ -19,6 +20,8 @@ public:
 
     void push_back(const T& value)
     {
+        assert_error(m_size < m_data.size(), "StackVector: too many elements");
+
         m_data[m_size] = value;
         m_size += 1;
     }
