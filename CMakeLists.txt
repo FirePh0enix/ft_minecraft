@@ -50,6 +50,10 @@ elseif(WIN32)
     set(TARGET_IS_MSVC YES)
 endif()
 
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE "Debug")
+endif()
+
 # Generate the `compile_commands.json`
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 

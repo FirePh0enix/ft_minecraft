@@ -37,5 +37,5 @@ void main() {
     vec3 diffuse = max(dot(N, -L), ambient) * color.rgb;
 
     // outColor = vec4(diffuse, color.a);
-    outColor = color;
+    outColor = vec4(1.0, 1.0, 1.0, 1.0);
 }

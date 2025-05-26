@@ -1,7 +1,5 @@
 #include "Render/DriverVulkan.hpp"
 #include "Core/StackVector.hpp"
-#include "vulkan/vulkan_core.h"
-#include "vulkan/vulkan_enums.hpp"
 
 #include <chrono>
 #include <fstream>
@@ -291,7 +289,7 @@ std::expected<void, Error> RenderingDriverVulkan::initialize(const Window& windo
     Uint32 instance_extensions_count = 0;
     auto instance_extensions = SDL_Vulkan_GetInstanceExtensions(&instance_extensions_count);
 
-    vk::ApplicationInfo app_info("ft_vox", 0, "No engine", 0, VK_API_VERSION_1_2);
+    vk::ApplicationInfo app_info("ft_minecraft", 0, "No engine", 0, VK_API_VERSION_1_2);
 
     std::vector<const char *> validation_layers;
 
