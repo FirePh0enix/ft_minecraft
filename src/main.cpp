@@ -113,6 +113,16 @@ int main(int argc, char *argv[])
             case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
                 window.close();
                 break;
+            case SDL_EVENT_MOUSE_MOTION:
+            {
+                const float x_rel = event->motion.xrel;
+                const float y_rel = event->motion.yrel;
+
+                if (Input::get().is_mouse_grabbed())
+                    camera.rotate(x_rel, y_rel);
+
+                break;
+            }
             default:
                 break;
             }

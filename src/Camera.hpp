@@ -2,6 +2,8 @@
 
 #include "AABB.hpp"
 
+#include <print>
+
 class Frustum
 {
 public:
@@ -36,12 +38,12 @@ public:
         const glm::mat4 rotation = glm::mat4_cast(get_rotation_quat());
         const glm::mat4 translation = glm::translate(glm::mat4(1.0), -m_position);
 
-        return translation * rotation;
+        return rotation * translation;
     }
 
     glm::mat4 get_view_proj_matrix() const
     {
-        return get_view_matrix() * get_projection_matrix();
+        return get_projection_matrix() * get_view_matrix();
     }
 
     inline glm::mat4 get_projection_matrix() const
@@ -51,11 +53,11 @@ public:
 
     glm::quat get_rotation_quat() const
     {
-        glm::quat q_pitch = glm::rotate(glm::quat(), m_rotation.x, glm::vec3(1.0, 0.0, 0.0));
-        glm::quat q_yaw = glm::rotate(glm::quat(), m_rotation.y, glm::vec3(0.0, 1.0, 0.0));
-        glm::quat q_roll = glm::rotate(glm::quat(), m_rotation.z, glm::vec3(0.0, 0.0, 1.0));
+        glm::quat q_pitch = glm::rotate(glm::identity<glm::quat>(), m_rotation.x, glm::vec3(1.0, 0.0, 0.0));
+        glm::quat q_yaw = glm::rotate(glm::identity<glm::quat>(), m_rotation.y, glm::vec3(0.0, 1.0, 0.0));
+        glm::quat q_roll = glm::rotate(glm::identity<glm::quat>(), m_rotation.z, glm::vec3(0.0, 0.0, 1.0));
 
-        return glm::normalize(q_roll * q_yaw * q_pitch);
+        return glm::normalize(q_pitch * q_yaw * q_roll);
     }
 
 private:
