@@ -84,6 +84,8 @@ static inline vk::Format convert_shader_type(ShaderType type)
     case ShaderType::Uint:
         return vk::Format::eR32Uint;
     }
+
+    return {};
 }
 
 static inline vk::PolygonMode convert_polygon_mode(PolygonMode polygon_mode)

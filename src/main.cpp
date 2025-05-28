@@ -4,23 +4,13 @@
 #include "Render/Driver.hpp"
 #include "Render/DriverVulkan.hpp"
 #include "Window.hpp"
+#include "World/World.hpp"
 
 #include <tracy/Tracy.hpp>
 
 #include <SDL3_image/SDL_image.h>
 
 #include <print>
-
-struct BlockInstanceData
-{
-    glm::vec3 position;
-    glm::vec3 textures0;
-    glm::vec3 textures1;
-    uint8_t visibility;
-    uint8_t gradient;
-    uint8_t gradient_type;
-    uint8_t pad = 0;
-};
 
 int main(int argc, char *argv[])
 {
@@ -41,22 +31,7 @@ int main(int argc, char *argv[])
     auto init_result = RenderingDriver::get()->initialize(window);
     EXPECT(init_result);
 
-    Camera camera(glm::vec3(0.0, 0.0, 0.0), glm::vec3(), 0.05);
-
-    auto instance_buffer_result = RenderingDriver::get()->create_buffer(sizeof(BlockInstanceData) * 1, {.copy_dst = true, .vertex = true});
-    EXPECT(instance_buffer_result);
-    Ref<Buffer> instance_buffer = instance_buffer_result->ptr();
-
-    BlockInstanceData block_instance{
-        .position = glm::vec3(0.0, 0.0, -3.0),
-        .textures0 = glm::vec3(0.0, 0.0, 0.0),
-        .textures1 = glm::vec3(0.0, 0.0, 0.0),
-        .visibility = 0xff,
-        .gradient = 0,
-        .gradient_type = 0,
-    };
-    Span<BlockInstanceData> span{block_instance};
-    instance_buffer->update(span.as_bytes());
+    Camera camera(glm::vec3(10.0, 13.0, 10.0), glm::vec3(), 0.05);
 
     auto texture_array_result = RenderingDriver::get()->create_texture_array(16, 16, TextureFormat::RGBA8Srgb, {.copy_dst = true, .sampled = true}, 1);
     EXPECT(texture_array_result);
@@ -86,7 +61,7 @@ int main(int argc, char *argv[])
         InstanceLayoutInput{.type = ShaderType::Uint, .offset = sizeof(glm::vec3) * 3},
     };
     InstanceLayout instance_layout(inputs, sizeof(BlockInstanceData));
-    auto material_layout_result = RenderingDriverVulkan::get()->create_material_layout(shaders, params, {.transparency = true}, instance_layout, CullMode::None, PolygonMode::Fill, false, false);
+    auto material_layout_result = RenderingDriverVulkan::get()->create_material_layout(shaders, params, {.transparency = true}, instance_layout, CullMode::Back, PolygonMode::Fill, false, false);
     EXPECT(material_layout_result);
     Ref<MaterialLayout> material_layout = material_layout_result.value();
 
@@ -99,6 +74,12 @@ int main(int argc, char *argv[])
     auto cube_result = create_cube_with_separate_faces(glm::vec3(1.0)); // create_cube_with_separate_faces(glm::vec3(1.0), glm::vec3(-0.5));
     EXPECT(cube_result);
     Ref<Mesh> cube = cube_result.value();
+
+    BlockState dirt(1);
+
+    World world;
+    world.set_render_distance(10);
+    world.generate_flat(dirt);
 
     RenderGraph graph;
 
@@ -135,7 +116,7 @@ int main(int argc, char *argv[])
         graph.reset();
 
         graph.begin_render_pass();
-        graph.add_draw(cube.ptr(), material.ptr(), camera.get_view_proj_matrix(), 1, instance_buffer.ptr());
+        world.encode_draw_calls(graph, cube.ptr(), material.ptr(), camera);
         graph.end_render_pass();
 
         RenderingDriver::get()->draw_graph(graph);

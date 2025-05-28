@@ -370,16 +370,21 @@ private:
         }                                                                  \
     } while (0)
 
-#define ERR_EXPECT_B(EXPECTED, MESSAGE)                                    \
-    do                                                                     \
-    {                                                                      \
-        auto __result = EXPECTED;                                          \
-        if (!__result.has_value())                                         \
-        {                                                                  \
-            std::println("error: {}:{}: {}", __FILE__, __LINE__, MESSAGE); \
-            break;                                                         \
-        }                                                                  \
-    } while (0)
+#define ERR_EXPECT_B(EXPECTED, MESSAGE)                                \
+    auto __result = EXPECTED;                                          \
+    if (!__result.has_value())                                         \
+    {                                                                  \
+        std::println("error: {}:{}: {}", __FILE__, __LINE__, MESSAGE); \
+        break;                                                         \
+    }
+
+#define ERR_EXPECT_C(EXPECTED, MESSAGE)                                \
+    auto __result = EXPECTED;                                          \
+    if (!__result.has_value())                                         \
+    {                                                                  \
+        std::println("error: {}:{}: {}", __FILE__, __LINE__, MESSAGE); \
+        continue;                                                      \
+    }
 
 #ifdef __USE_VULKAN__
 

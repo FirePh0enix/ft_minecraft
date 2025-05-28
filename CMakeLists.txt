@@ -22,6 +22,8 @@ set(SOURCES
     src/Input.cpp
     src/main.cpp
     src/Window.cpp
+    src/World/Chunk.cpp
+    src/World/World.cpp
 )
 
 set(RESOURCES_COPY
