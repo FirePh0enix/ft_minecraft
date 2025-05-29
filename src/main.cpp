@@ -1,4 +1,5 @@
 #include "Camera.hpp"
+#include "Font.hpp"
 #include "Input.hpp"
 #include "MeshPrimitives.hpp"
 #include "Render/Driver.hpp"
@@ -6,9 +7,8 @@
 #include "Window.hpp"
 #include "World/World.hpp"
 
-#include <tracy/Tracy.hpp>
-
 #include <SDL3_image/SDL_image.h>
+#include <tracy/Tracy.hpp>
 
 #include <print>
 
@@ -55,10 +55,10 @@ int main(int argc, char *argv[])
     std::array<ShaderRef, 2> shaders{ShaderRef("assets/shaders/voxel.vert.spv", ShaderKind::Vertex), ShaderRef("assets/shaders/voxel.frag.spv", ShaderKind::Fragment)};
     std::array<MaterialParam, 1> params{MaterialParam::image(ShaderKind::Fragment, "textures", {.min_filter = Filter::Nearest, .mag_filter = Filter::Nearest})};
     std::array<InstanceLayoutInput, 4> inputs{
-        InstanceLayoutInput{.type = ShaderType::Vec3, .offset = 0},
-        InstanceLayoutInput{.type = ShaderType::Vec3, .offset = sizeof(glm::vec3)},
-        InstanceLayoutInput{.type = ShaderType::Vec3, .offset = sizeof(glm::vec3) * 2},
-        InstanceLayoutInput{.type = ShaderType::Uint, .offset = sizeof(glm::vec3) * 3},
+        InstanceLayoutInput(ShaderType::Vec3, 0),
+        InstanceLayoutInput(ShaderType::Vec3, sizeof(glm::vec3)),
+        InstanceLayoutInput(ShaderType::Vec3, sizeof(glm::vec3) * 2),
+        InstanceLayoutInput(ShaderType::Uint, sizeof(glm::vec3) * 3),
     };
     InstanceLayout instance_layout(inputs, sizeof(BlockInstanceData));
     auto material_layout_result = RenderingDriverVulkan::get()->create_material_layout(shaders, params, {.transparency = true}, instance_layout, CullMode::Back, PolygonMode::Fill, false, false);
@@ -74,6 +74,16 @@ int main(int argc, char *argv[])
     auto cube_result = create_cube_with_separate_faces(glm::vec3(1.0)); // create_cube_with_separate_faces(glm::vec3(1.0), glm::vec3(-0.5));
     EXPECT(cube_result);
     Ref<Mesh> cube = cube_result.value();
+
+    Font::init_library();
+
+    auto font_result = Font::create("../assets/fonts/Anonymous.ttf", 12);
+    EXPECT(font_result);
+    Ref<Font> font = font_result.value();
+
+    Text text("Hello world", font);
+    text.set_scale(glm::vec2(0.01, 0.01));
+    text.set_color(glm::vec4(1.0, 1.0, 1.0, 1.0));
 
     BlockState dirt(1);
 
@@ -117,6 +127,7 @@ int main(int argc, char *argv[])
 
         graph.begin_render_pass();
         world.encode_draw_calls(graph, cube.ptr(), material.ptr(), camera);
+        text.encode_draw_calls(graph);
         graph.end_render_pass();
 
         RenderingDriver::get()->draw_graph(graph);

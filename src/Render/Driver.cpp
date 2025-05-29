@@ -6,6 +6,8 @@ size_t size_of(const TextureFormat& format)
 {
     switch (format)
     {
+    case TextureFormat::R8Unorm:
+        return 1;
     case TextureFormat::R32Sfloat:
     case TextureFormat::RGBA8Srgb:
     case TextureFormat::BGRA8Srgb:

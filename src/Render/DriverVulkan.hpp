@@ -314,8 +314,8 @@ public:
         m_layout = layout;
     }
 
-    virtual void set_param(const std::string& name, Ref<Texture>& texture) override;
-    virtual void set_param(const std::string& name, Ref<Buffer>& buffer) override;
+    virtual void set_param(const std::string& name, const Ref<Texture>& texture) override;
+    virtual void set_param(const std::string& name, const Ref<Buffer>& buffer) override;
 
     vk::DescriptorSet descriptor_set;
 };

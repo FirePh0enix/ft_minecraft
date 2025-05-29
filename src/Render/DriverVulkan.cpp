@@ -50,6 +50,8 @@ static inline vk::Format convert_texture_format(TextureFormat format)
 {
     switch (format)
     {
+    case TextureFormat::R8Unorm:
+        return vk::Format::eR8Unorm;
     case TextureFormat::RGBA8Srgb:
         return vk::Format::eR8G8B8A8Srgb;
     case TextureFormat::BGRA8Srgb:
@@ -1417,7 +1419,7 @@ std::optional<MaterialParam> MaterialLayoutVulkan::get_param(const std::string& 
     return std::nullopt;
 }
 
-void MaterialVulkan::set_param(const std::string& name, Ref<Texture>& texture)
+void MaterialVulkan::set_param(const std::string& name, const Ref<Texture>& texture)
 {
     Ref<MaterialLayoutVulkan> layout_vk = m_layout.cast_to<MaterialLayoutVulkan>();
 
@@ -1436,7 +1438,7 @@ void MaterialVulkan::set_param(const std::string& name, Ref<Texture>& texture)
     RenderingDriverVulkan::get()->get_device().updateDescriptorSets({write_image}, {});
 }
 
-void MaterialVulkan::set_param(const std::string& name, Ref<Buffer>& buffer)
+void MaterialVulkan::set_param(const std::string& name, const Ref<Buffer>& buffer)
 {
     Ref<MaterialLayoutVulkan> layout_vk = m_layout.cast_to<MaterialLayoutVulkan>();
 
@@ -1446,7 +1448,7 @@ void MaterialVulkan::set_param(const std::string& name, Ref<Buffer>& buffer)
     Ref<BufferVulkan> buffer_vk = buffer.cast_to<BufferVulkan>();
 
     vk::DescriptorBufferInfo buffer_info(buffer_vk->buffer, 0, buffer_vk->size());
-    vk::WriteDescriptorSet write_image(descriptor_set, binding_result.value(), 0, 1, vk::DescriptorType::eCombinedImageSampler, nullptr, &buffer_info, nullptr);
+    vk::WriteDescriptorSet write_buffer(descriptor_set, binding_result.value(), 0, 1, vk::DescriptorType::eUniformBuffer, nullptr, &buffer_info, nullptr);
 
-    RenderingDriverVulkan::get()->get_device().updateDescriptorSets({write_image}, {});
+    RenderingDriverVulkan::get()->get_device().updateDescriptorSets({write_buffer}, {});
 }

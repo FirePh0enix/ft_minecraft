@@ -24,6 +24,7 @@ set(SOURCES
     src/Window.cpp
     src/World/Chunk.cpp
     src/World/World.cpp
+    src/Font.cpp
 )
 
 set(RESOURCES_COPY

@@ -43,7 +43,7 @@ public:
         m_actions[(size_t)action].value = value;
     }
 
-    glm::vec3 get_mouvement_vector() const
+    glm::vec3 get_movement_vector() const
     {
         return glm::vec3(get_action_value(Action::Right) - get_action_value(Action::Left), get_action_value(Action::Up) - get_action_value(Action::Down), get_action_value(Action::Forward) - get_action_value(Action::Backward));
     }

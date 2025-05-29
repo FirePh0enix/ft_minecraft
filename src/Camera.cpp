@@ -85,7 +85,7 @@ void Camera::tick()
     const glm::vec3 right = get_right();
     const glm::vec3 up(0.0, 1.0, 0.0);
 
-    const glm::vec3 dir = Input::get().get_mouvement_vector();
+    const glm::vec3 dir = Input::get().get_movement_vector();
     m_position += forward * dir.z * m_speed;
     m_position += up * dir.y * m_speed;
     m_position += right * dir.x * m_speed;

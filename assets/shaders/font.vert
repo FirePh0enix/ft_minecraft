@@ -15,7 +15,13 @@ layout(push_constant) uniform PushConst {
     mat4 projection;
 };
 
-void main(){
+layout(binding = 1) uniform FontUniform{
+    vec3 position;
+    vec2 scale;
+    vec4 color;
+};
+
+void main() {
     vec2 uv[4] = vec2[](
         vec2(inBounds.x, inBounds.z),
         vec2(inBounds.y, inBounds.z),
@@ -27,12 +33,12 @@ void main(){
         1.0, 0.0, 0.0, 0.0,
         0.0, 1.0, 0.0, 0.0,
         0.0, 0.0, 1.0, 0.0,
-        inCharPos.x, inCharPos.y, inCharPos.z, 1.0
+        inCharPos.x + position.x, inCharPos.y + position.y, inCharPos.z + position.z, 1.0
     );
 
     mat4 scaleMatrix = mat4(
-        inScale.x, 0.0, 0.0, 0.0,
-        0.0, inScale.y, 0.0, 0.0,
+        inScale.x * scale.x, 0.0, 0.0, 0.0,
+        0.0, inScale.y * scale.y, 0.0, 0.0,
         0.0, 0.0, 1.0, 0.0,
         0.0, 0.0, 0.0, 1.0
     );
@@ -42,4 +48,5 @@ void main(){
     gl_Position = projection * modelMatrix * vec4(inPos, 1.0);
 
     outTexCoords = uv[gl_VertexIndex];
+    outColor = color;
 }

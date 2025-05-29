@@ -65,7 +65,9 @@ struct BufferUsage
 
 enum class TextureFormat : uint8_t
 {
+    R8Unorm,
     RGBA8Srgb,
+
     BGRA8Srgb,
 
     R32Sfloat,
@@ -311,14 +313,19 @@ struct InstanceLayoutInput
 {
     ShaderType type;
     uint32_t offset;
+
+    InstanceLayoutInput(ShaderType type, uint32_t offset)
+        : type(type), offset(offset)
+    {
+    }
 };
 
 struct InstanceLayout
 {
-    std::span<InstanceLayoutInput> inputs;
+    Span<InstanceLayoutInput> inputs;
     size_t stride;
 
-    InstanceLayout(std::span<InstanceLayoutInput> inputs, size_t stride)
+    InstanceLayout(Span<InstanceLayoutInput> inputs, size_t stride)
         : inputs(inputs), stride(stride)
     {
     }
@@ -345,8 +352,8 @@ public:
 class Material
 {
 public:
-    virtual void set_param(const std::string& name, Ref<Buffer>& buffer) = 0;
-    virtual void set_param(const std::string& name, Ref<Texture>& texture) = 0;
+    virtual void set_param(const std::string& name, const Ref<Buffer>& buffer) = 0;
+    virtual void set_param(const std::string& name, const Ref<Texture>& texture) = 0;
 
     const Ref<MaterialLayout>& get_layout() const
     {

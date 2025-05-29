@@ -88,6 +88,7 @@ void signal_handler(int sig)
 void initialize_error_handling(const char *filename)
 {
     bt_state = backtrace_create_state(filename, 1, nullptr, nullptr);
+    ERR_COND(bt_state == nullptr, "Failed to initialize libbacktrace");
 
 #if defined(__TARGET_LINUX__) || defined(__TARGET_APPLE__)
     signal(SIGSEGV, signal_handler);
