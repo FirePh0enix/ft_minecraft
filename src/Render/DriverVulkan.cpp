@@ -329,13 +329,19 @@ std::expected<void, Error> RenderingDriverVulkan::initialize(const Window& windo
     m_surface = surface;
 
     // Select the best physical device
-    vk::PhysicalDeviceFeatures required_features = {};
-    vk::PhysicalDeviceFeatures optional_features = {};
+    // vk::PhysicalDeviceFeatures required_features = {};
+    // vk::PhysicalDeviceFeatures optional_features = {};
 
     std::vector<const char *> required_extensions;
     std::vector<const char *> optional_extensions;
 
     required_extensions.push_back("VK_KHR_swapchain");
+    required_extensions.push_back("VK_EXT_host_query_reset");
+
+#ifdef TRACY_ENABLE
+    // This is widely supported except for android. This is only needed when profiling with tracy anyway.
+    required_extensions.push_back("VK_EXT_calibrated_timestamps");
+#endif
 
 #ifdef __TARGET_APPLE__
     required_extensions.push_back("VK_KHR_portability_subset");
@@ -471,7 +477,10 @@ std::expected<void, Error> RenderingDriverVulkan::initialize(const Window& windo
     YEET_RESULT(render_pass_result);
     m_render_pass = render_pass_result.value;
 
-    YEET(configure_surface(window, VSync::On));
+    YEET(configure_surface(window, VSync::Off));
+
+    // This uses `VK_EXT_host_query_reset` & `VK_EXT_calibrated_timestamps`
+    m_tracy_context = TracyVkContextHostCalibrated(m_instance, m_physical_device, m_device, vk::detail::defaultDispatchLoaderDynamic.vkGetInstanceProcAddr, vk::detail::defaultDispatchLoaderDynamic.vkGetDeviceProcAddr);
 
     m_start_time = std::chrono::high_resolution_clock::now();
 
@@ -797,6 +806,8 @@ void RenderingDriverVulkan::draw_graph(const RenderGraph& graph)
         return;
     }
 
+    ZoneScoped;
+
     uint32_t image_index = image_index_result.value;
     vk::Framebuffer fb = m_swapchain_framebuffers[image_index];
 
@@ -805,10 +816,14 @@ void RenderingDriverVulkan::draw_graph(const RenderGraph& graph)
     ERR_RESULT_E_RET(cb.reset());
     ERR_RESULT_E_RET(cb.begin(vk::CommandBufferBeginInfo(vk::CommandBufferUsageFlagBits::eOneTimeSubmit)));
 
+    // TracyVkZone(m_tracy_context, cb, "DrawMesh");
+
     // TODO: Add synchronization
 
     for (const auto& instruction : graph.get_instructions())
     {
+        ZoneNamed(draw_graph_instruction, true);
+
         switch (instruction.kind)
         {
         case InstructionKind::BeginRenderPass:
@@ -874,6 +889,8 @@ void RenderingDriverVulkan::draw_graph(const RenderGraph& graph)
         }
         }
     }
+
+    // TracyVkCollect(m_tracy_context, cb);
 
     ERR_RESULT_E_RET(cb.end());
 
@@ -1194,7 +1211,7 @@ BufferVulkan::~BufferVulkan()
 
 void BufferVulkan::update(Span<uint8_t> view, size_t offset)
 {
-    ERR_COND_VR(view.size() > m_size - offset, "Out of bounds: %zu vs %zu", view.size(), m_size - offset);
+    ERR_COND_VR(view.size() > m_size - offset, "too big: {} but size is {}", view.size(), m_size - offset);
 
     if (view.size() == 0)
         return;

@@ -168,6 +168,8 @@ private:
     uint32_t m_time_between_frames;
     std::chrono::time_point<std::chrono::high_resolution_clock> m_last_frame_limit_time;
 
+    TracyVkCtx m_tracy_context;
+
     // Swapchain resources
     uint32_t m_swapchain_image_count;
     vk::SwapchainKHR m_swapchain = nullptr;

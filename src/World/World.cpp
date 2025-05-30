@@ -27,6 +27,8 @@ void World::set_render_distance(uint32_t distance)
 
 void World::encode_draw_calls(RenderGraph& graph, Mesh *mesh, Material *material, Camera& camera)
 {
+    ZoneScoped;
+
     for (Chunk& chunk : m_chunks)
     {
         Ref<Buffer> buffer = m_buffers[chunk.get_buffer_id()];

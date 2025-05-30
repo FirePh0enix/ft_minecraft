@@ -17,7 +17,6 @@ Expected<Ref<Font>> Font::create(const std::string& font_name, uint32_t font_siz
 
     if (FT_New_Face(g_lib, font_name.c_str(), 0, &face) != 0)
     {
-        std::println("Hello 1");
         return std::unexpected(ErrorKind::Unknown);
     }
 
@@ -60,24 +59,24 @@ Expected<Ref<Font>> Font::create(const std::string& font_name, uint32_t font_siz
 
     uint32_t xpos = 0;
 
-    for (auto i = 0; i < 128; i++)
+    for (size_t i = 0; i < 128; i++)
     {
         if (!font->m_characters.contains(i) || !data.contains(i))
         {
             continue;
         }
 
-        const auto character = font->m_characters[i];
-        const auto char_data = data[i];
+        const Font::Character character = font->m_characters[i];
+        const std::vector<char> char_data = data[i];
 
-        const auto width = character.size.x;
-        const auto height = character.size.y;
+        const int width = character.size.x;
+        const int height = character.size.y;
 
-        for (auto i = 0; i < height; i++)
+        for (int i = 0; i < width; i++)
         {
-            for (auto j = 0; j < width; j++)
+            for (int j = 0; j < height; j++)
             {
-                const auto byte = char_data[i + j * width];
+                const char byte = char_data[i + j * width];
                 buffer[(i + xpos) + j * bmp_width] = byte;
             }
         }
@@ -140,9 +139,10 @@ Expected<void> Font::init_library()
 
     g_ortho_matrix = glm::ortho(-1.0 * aspect_radio, 1.0 * aspect_radio, -1.0, 1.0, 0.01, 10.0);
 
-    std::array<InstanceLayoutInput, 3> inputs{InstanceLayoutInput(ShaderType::Vec4, 0),
-                                              InstanceLayoutInput(ShaderType::Vec3, sizeof(float) * 4),
-                                              InstanceLayoutInput(ShaderType::Vec2, sizeof(float) * 7)};
+    std::array<InstanceLayoutInput, 3> inputs = {InstanceLayoutInput(ShaderType::Vec4, 0),
+                                                 InstanceLayoutInput(ShaderType::Vec3, sizeof(float) * 4),
+                                                 InstanceLayoutInput(ShaderType::Vec2, sizeof(float) * 7)};
+    InstanceLayout instance_layout(inputs, sizeof(Instance));
 
     auto material_layout_result = RenderingDriver::get()->create_material_layout({
                                                                                      ShaderRef("assets/shaders/font.vert.spv", ShaderKind::Vertex),
@@ -152,7 +152,7 @@ Expected<void> Font::init_library()
                                                                                      MaterialParam::image(ShaderKind::Fragment, "bitmap", {.min_filter = Filter::Nearest, .mag_filter = Filter::Nearest}),
                                                                                      MaterialParam::uniform_buffer(ShaderKind::Vertex, "uniform"),
                                                                                  },
-                                                                                 {.transparency = true}, InstanceLayout(inputs, sizeof(Character)));
+                                                                                 {.transparency = true}, instance_layout);
     YEET(material_layout_result);
 
     g_material_layout = material_layout_result.value();
@@ -166,7 +166,7 @@ void Font::deinit_library()
 }
 
 Text::Text(size_t capacity, Ref<Font> font)
-    : m_font(font), m_capacity(capacity)
+    : m_font(font), m_capacity(capacity), m_size(0)
 {
     auto buffer_result = RenderingDriver::get()->create_buffer(m_capacity * sizeof(Font::Instance), {.copy_dst = true, .vertex = true});
     ERR_EXPECT_R(buffer_result, "Cannot create the instance buffer");
@@ -186,6 +186,8 @@ Text::Text(size_t capacity, Ref<Font> font)
 
 void Text::set(const std::string& text)
 {
+    ZoneScoped;
+
     float offset_x = 0;
 
     const size_t width = m_font->get_width();
@@ -194,8 +196,9 @@ void Text::set(const std::string& text)
     if (text.length() > m_capacity)
     {
         m_capacity = text.length();
-        auto m_instance_buffer = RenderingDriver::get()->create_buffer(m_capacity * sizeof(Font::Instance), {.copy_dst = true, .vertex = true});
-        ERR_EXPECT_R(m_instance_buffer, "Cannot create the instance buffer");
+        auto instance_buffer_result = RenderingDriver::get()->create_buffer(m_capacity * sizeof(Font::Instance), {.copy_dst = true, .vertex = true});
+        ERR_EXPECT_R(instance_buffer_result, "Cannot create the instance buffer");
+        m_instance_buffer = instance_buffer_result.value();
     }
 
     constexpr size_t batch_size = 32;
@@ -226,7 +229,7 @@ void Text::set(const std::string& text)
         {
             const size_t size = i + batch_size < text.size() ? batch_size : i - (i / batch_size) * batch_size + 1;
             Span<Font::Instance> span(instances.begin(), size);
-            m_instance_buffer->update(span.as_bytes(), batch_size * sizeof(Font::Instance) * i / batch_size);
+            m_instance_buffer->update(span.as_bytes(), batch_size * sizeof(Font::Instance) * (i / batch_size));
         }
 
         offset_x += float(ch.advance >> 6) / float(height);

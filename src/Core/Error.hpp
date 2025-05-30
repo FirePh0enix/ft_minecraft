@@ -203,6 +203,8 @@ string_vk_result(VkResult input_value)
 class Error
 {
 public:
+#ifdef __DEBUG__
+
     Error(ErrorKind kind, StackTrace stacktrace = StackTrace::current())
         : m_kind(kind), m_stacktrace(stacktrace)
     {
@@ -220,9 +222,7 @@ public:
         m_kind = kind_from_vk_result(result);
         m_vk_result = result;
 
-#ifdef __DEBUG__
         m_stacktrace = stacktrace;
-#endif
     }
 
     static ErrorKind kind_from_vk_result(vk::Result result)
@@ -248,22 +248,16 @@ public:
 
     void print(FILE *fp = stderr)
     {
-#ifdef __DEBUG__
-
 #ifdef __USE_VULKAN__
         std::println(fp, "Error: {} ({:x}) (from {})\n", (uint32_t)m_kind, (uint32_t)m_kind, string_vk_result((VkResult)m_vk_result));
 #endif
 
         m_stacktrace.print(fp);
-#else
-        std::println(fp, "Error: {} ({:x})\n", m_kind, (uint32_t)m_kind);
-#endif
     }
 
 private:
     ErrorKind m_kind;
 
-#ifdef __DEBUG__
     StackTrace m_stacktrace;
 
 #ifdef __USE_VULKAN__
@@ -273,8 +267,55 @@ private:
         : m_kind(kind), m_stacktrace(stacktrace), m_vk_result(result)
     {
     }
+
 #endif
 
+#else
+    Error(ErrorKind kind)
+        : m_kind(kind)
+    {
+    }
+
+    template <typename T>
+    static std::expected<T, Error> unexpected(ErrorKind kind)
+    {
+        return std::unexpected(Error(kind));
+    }
+
+#ifdef __USE_VULKAN__
+    Error(vk::Result result)
+    {
+        m_kind = kind_from_vk_result(result);
+    }
+
+    static ErrorKind kind_from_vk_result(vk::Result result)
+    {
+        ErrorKind kind;
+
+        switch (result)
+        {
+        case vk::Result::eErrorOutOfDeviceMemory:
+            kind = ErrorKind::OutOfDeviceMemory;
+            break;
+        case vk::Result::eErrorOutOfHostMemory:
+            kind = ErrorKind::OutOfMemory;
+            break;
+        default:
+            kind = ErrorKind::BadDriver;
+            break;
+        }
+
+        return kind;
+    }
+#endif
+
+    void print(FILE *fp = stderr)
+    {
+        std::println(fp, "Error: {} ({:x})\n", (uint32_t)m_kind, (uint32_t)m_kind);
+    }
+
+private:
+    ErrorKind m_kind;
 #endif
 };
 
@@ -317,7 +358,7 @@ private:
 
 #endif
 
-#ifdef __DEBUG__
+// #ifdef __DEBUG__
 
 #define ERR_COND(COND, MESSAGE)                                            \
     do                                                                     \
@@ -342,8 +383,7 @@ private:
         if (COND)                                             \
         {                                                     \
             std::print("error: {}:{}: ", __FILE__, __LINE__); \
-            std::printf(MESSAGE, __VA_ARGS__);                \
-            std::print("\n");                                 \
+            std::println(MESSAGE, __VA_ARGS__);               \
         }                                                     \
     } while (0)
 
@@ -353,8 +393,7 @@ private:
         if (COND)                                             \
         {                                                     \
             std::print("error: {}:{}: ", __FILE__, __LINE__); \
-            std::printf(MESSAGE, __VA_ARGS__);                \
-            std::print("\n");                                 \
+            std::println(MESSAGE, __VA_ARGS__);               \
             return;                                           \
         }                                                     \
     } while (0)
@@ -412,15 +451,21 @@ private:
 
 #endif
 
-#else
+// #else
 
-#define ERR_COND(COND, MESSAGE)
+// #define ERR_COND(COND, MESSAGE)
+// #define ERR_COND_V(COND, MESSAGE, ...)
+// #define ERR_COND_VR(COND, MESSAGE, ...)
+// #define ERR_EXPECT_R(EXPECTED, MESSAGE)
+// #define ERR_EXPECT_B(EXPECTED, MESSAGE)
+// #define ERR_EXPECT_C(EXPECTED, MESSAGE)
 
-#ifdef __USE_VULKAN__
-#define ERR_COND_RESULT_RET(RESULT, MESSAGE)
-#endif
+// #ifdef __USE_VULKAN__
+// #define ERR_RESULT_RET(RESULT)
+// #define ERR_RESULT_E_RET(RESULT)
+// #endif
 
-#endif
+// #endif
 
 template <typename T>
 using Expected = std::expected<T, Error>;

@@ -1,55 +1,11 @@
 #pragma once
 
+#include "Core/Vector.hpp"
+
 template <typename T>
 class Span
 {
 public:
-    class Iterator
-    {
-    public:
-        using difference_type = ssize_t;
-        using value_type = T;
-        using pointer = const T *;
-        using reference = const T&;
-        using iterator_category = std::forward_iterator_tag;
-
-        Iterator(const T *ptr)
-            : m_ptr(ptr)
-        {
-        }
-
-        Iterator& operator++()
-        {
-            m_ptr += 1;
-            return *this;
-        }
-
-        Iterator operator++(int)
-        {
-            Iterator val = *this;
-            m_ptr += 1;
-            return val;
-        }
-
-        bool operator==(Iterator other)
-        {
-            return m_ptr == other.m_ptr;
-        }
-
-        bool operator!=(Iterator other)
-        {
-            return !(*this == other);
-        }
-
-        T operator*()
-        {
-            return *m_ptr;
-        }
-
-    private:
-        const T *m_ptr;
-    };
-
     Span()
     {
     }
@@ -60,6 +16,11 @@ public:
     }
 
     Span(const std::vector<T>& vector)
+        : m_data(vector.data()), m_size(vector.size())
+    {
+    }
+
+    Span(const Vector<T>& vector)
         : m_data(vector.data()), m_size(vector.size())
     {
     }
@@ -95,14 +56,14 @@ public:
         return m_size;
     }
 
-    inline Iterator begin() const
+    inline ForwardIterator<T> begin() const
     {
-        return Iterator(data());
+        return ForwardIterator<T>(data());
     }
 
-    inline Iterator end() const
+    inline ForwardIterator<T> end() const
     {
-        return Iterator(data() + size());
+        return ForwardIterator<T>(data() + size());
     }
 
     Span<uint8_t> as_bytes() const

@@ -8,7 +8,6 @@
 #include "World/World.hpp"
 
 #include <SDL3_image/SDL_image.h>
-#include <tracy/Tracy.hpp>
 
 #include <print>
 
@@ -95,6 +94,9 @@ int main(int argc, char *argv[])
 
     while (window.is_running())
     {
+        FrameMark;
+        ZoneScopedN("main_loop_tick");
+
         std::optional<SDL_Event> event;
 
         while ((event = window.poll_event()))

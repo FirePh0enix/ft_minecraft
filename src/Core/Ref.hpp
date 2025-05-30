@@ -94,7 +94,7 @@ public:
     }
 
     template <typename Subclass>
-    Ref<Subclass> cast_to() const
+    inline Ref<Subclass> cast_to() const
     {
         return Ref<Subclass>(static_cast<Subclass *>(m_value), m_references);
     }

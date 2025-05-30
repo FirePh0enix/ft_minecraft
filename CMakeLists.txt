@@ -188,6 +188,10 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(tracy)
 target_link_libraries(${TARGET_NAME} PRIVATE TracyClient)
 
+if (ENABLE_TRACING)
+    target_compile_definitions(${TARGET_NAME} PRIVATE TRACY_ENABLE)
+endif()
+
 # libbacktrace
 FetchContent_Declare(
     libbacktrace

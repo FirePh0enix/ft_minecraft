@@ -4,7 +4,6 @@
 #include "Core/Ref.hpp"
 #include "Render/Driver.hpp"
 
-#include <iostream>
 #include <map>
 
 class Font
@@ -48,6 +47,11 @@ public:
         return m_height;
     }
 
+    inline Mesh *get_mesh() const
+    {
+        return m_mesh.ptr();
+    }
+
     inline std::optional<Character> get_character(uint8_t c)
     {
         if (!m_characters.contains(c))
@@ -63,6 +67,7 @@ public:
 private:
     Ref<Texture> m_bitmap;
     Ref<Buffer> m_buffer;
+    Ref<Mesh> m_mesh;
     std::map<uint8_t, Character> m_characters;
 
     size_t m_width;
@@ -77,6 +82,7 @@ public:
     Text(const std::string& text, Ref<Font> font)
         : Text(text.size(), font)
     {
+        set(text);
     }
 
     ~Text()

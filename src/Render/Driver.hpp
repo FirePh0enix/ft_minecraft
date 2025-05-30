@@ -322,11 +322,11 @@ struct InstanceLayoutInput
 
 struct InstanceLayout
 {
-    Span<InstanceLayoutInput> inputs;
+    std::vector<InstanceLayoutInput> inputs;
     size_t stride;
 
     InstanceLayout(Span<InstanceLayoutInput> inputs, size_t stride)
-        : inputs(inputs), stride(stride)
+        : inputs(inputs.to_vector()), stride(stride)
     {
     }
 };

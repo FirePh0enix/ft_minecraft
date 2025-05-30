@@ -79,6 +79,8 @@ bool Frustum::contains(const AABB& aabb) const
 
 void Camera::tick()
 {
+    ZoneScoped;
+
     m_frustum = Frustum(get_view_proj_matrix());
 
     const glm::vec3 forward = get_forward();
