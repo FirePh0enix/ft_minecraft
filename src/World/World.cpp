@@ -1,6 +1,7 @@
 #include "World.hpp"
 
-World::World()
+World::World(Ref<Mesh> mesh, Ref<Material> material)
+    : m_mesh(mesh), m_material(material)
 {
 }
 
@@ -25,17 +26,6 @@ void World::set_render_distance(uint32_t distance)
     }
 }
 
-void World::encode_draw_calls(RenderGraph& graph, Mesh *mesh, Material *material, Camera& camera)
-{
-    ZoneScoped;
-
-    for (Chunk& chunk : m_chunks)
-    {
-        Ref<Buffer> buffer = m_buffers[chunk.get_buffer_id()];
-        graph.add_draw(mesh, material, camera.get_view_proj_matrix(), chunk.get_block_count(), buffer.ptr());
-    }
-}
-
 void World::generate_flat(BlockState state)
 {
     size_t id = 0;
@@ -50,5 +40,16 @@ void World::generate_flat(BlockState state)
             m_chunks.push_back(chunk);
             id++;
         }
+    }
+}
+
+void World::encode_draw_calls(RenderGraph& graph, Camera& camera) const
+{
+    ZoneScoped;
+
+    for (const Chunk& chunk : m_chunks)
+    {
+        Ref<Buffer> buffer = m_buffers[chunk.get_buffer_id()];
+        graph.add_draw(m_mesh.ptr(), m_material.ptr(), camera.get_view_proj_matrix(), chunk.get_block_count(), buffer.ptr());
     }
 }

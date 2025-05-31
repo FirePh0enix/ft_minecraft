@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Core/Class.hpp"
 #include "Core/Error.hpp"
 #include "Core/Ref.hpp"
 #include "Core/Span.hpp"
@@ -133,8 +134,10 @@ enum class ShaderType : uint8_t
     Uint,
 };
 
-class Buffer
+class Buffer : public Object
 {
+    CLASS(Buffer, Object);
+
 public:
     /**
      * @brief Update the content of the buffer.
@@ -162,8 +165,10 @@ enum class TextureLayout : uint8_t
     DepthStencilReadOnly,
 };
 
-class Texture
+class Texture : public Object
 {
+    CLASS(Texture, Object);
+
 public:
     /**
      * @brief Update the content of a layer of the texture.
@@ -193,8 +198,10 @@ protected:
     TextureLayout m_layout;
 };
 
-class Mesh
+class Mesh : public Object
 {
+    CLASS(Mesh, Object);
+
 public:
     inline uint32_t vertex_count()
     {
@@ -343,14 +350,18 @@ struct MaterialFlags
  * This contains information about a type of material, allowing the reuse of information to create multiple
  * materials derived from it.
  */
-class MaterialLayout
+class MaterialLayout : public Object
 {
+    CLASS(MaterialLayout, Object);
+
 public:
     virtual ~MaterialLayout() {}
 };
 
-class Material
+class Material : public Object
 {
+    CLASS(Material, Object);
+
 public:
     virtual void set_param(const std::string& name, const Ref<Buffer>& buffer) = 0;
     virtual void set_param(const std::string& name, const Ref<Texture>& texture) = 0;
@@ -371,8 +382,10 @@ protected:
     Ref<MaterialLayout> m_layout;
 };
 
-class RenderingDriver
+class RenderingDriver : public Object
 {
+    CLASS(RenderingDriver, Object);
+
 public:
     RenderingDriver() {}
     virtual ~RenderingDriver() {}
