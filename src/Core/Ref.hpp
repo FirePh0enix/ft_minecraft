@@ -1,17 +1,19 @@
 #pragma once
 
+#include "Core/Error.hpp"
+
 template <typename T>
 class Ref
 {
 public:
     using ReferenceType = uint32_t;
 
-    Ref()
+    constexpr Ref()
         : m_value(nullptr), m_references(nullptr)
     {
     }
 
-    Ref(std::nullptr_t)
+    constexpr Ref(std::nullptr_t)
         : m_value(nullptr), m_references(nullptr)
     {
     }
@@ -24,14 +26,16 @@ public:
     Ref(const Ref& other)
         : m_value(other.m_value), m_references(other.references())
     {
-        ref();
+        if (!is_null())
+            ref();
     }
 
     template <typename Parent, typename = std::is_base_of<Parent, T>::value>
     Ref(const Ref<Parent>& other)
         : m_value((T *)other.ptr()), m_references(other.references())
     {
-        ref();
+        if (!is_null())
+            ref();
     }
 
     Ref(T *value, ReferenceType *references)
@@ -61,25 +65,26 @@ public:
         }
 
         if (!is_null())
-        {
             unref();
-        }
 
         m_value = other.m_value;
         m_references = other.m_references;
 
-        ref();
+        if (!is_null())
+            ref();
 
         return *this;
     }
 
     T *operator->()
     {
+        ERR_COND(is_null(), "Trying to deference a null pointer");
         return m_value;
     }
 
     const T *operator->() const
     {
+        ERR_COND(is_null(), "Trying to deference a null pointer");
         return m_value;
     }
 
@@ -93,10 +98,18 @@ public:
         return *m_value;
     }
 
+    operator bool() const
+    {
+        return !is_null();
+    }
+
+    // FIXME: Not really safe...
     template <typename Subclass>
     inline Ref<Subclass> cast_to() const
     {
-        return Ref<Subclass>(static_cast<Subclass *>(m_value), m_references);
+        if (T::template is_instance_of<Subclass>() || Subclass::template is_instance_of<T>())
+            return Ref<Subclass>(static_cast<Subclass *>(m_value), m_references);
+        return nullptr;
     }
 
     bool is_null() const

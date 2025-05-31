@@ -78,7 +78,7 @@ void signal_handler(int sig)
     const StackTrace& st = StackTrace::current();
 
     std::println(stderr, "Received signal: {}\n", signal_name);
-    st.print(stderr, 0);
+    st.print(stderr, 1);
 
     exit(1);
 }

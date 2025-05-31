@@ -14,10 +14,13 @@ include(cmake/AddShaders.cmake)
 option(BUILD_DOC "Build documentation" OFF)
 
 set(SOURCES
+    src/Core/Class.cpp
     src/Core/Error.cpp
     src/Render/Driver.cpp
     src/Render/DriverVulkan.cpp
     src/Render/Graph.cpp
+    src/Scene/Entity.cpp
+    src/Scene/Scene.cpp
     src/Camera.cpp
     src/Input.cpp
     src/main.cpp

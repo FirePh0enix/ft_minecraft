@@ -58,6 +58,8 @@ private:
 
 class RenderingDriverVulkan final : public RenderingDriver
 {
+    CLASS(RenderingDriverVulkan, RenderingDriver);
+
 public:
     RenderingDriverVulkan();
     virtual ~RenderingDriverVulkan() override;
@@ -192,6 +194,8 @@ private:
 
 class BufferVulkan : public Buffer
 {
+    CLASS(BufferVulkan, Buffer);
+
 public:
     BufferVulkan(vk::Buffer buffer, vk::DeviceMemory memory, size_t size)
         : buffer(buffer), memory(memory)
@@ -209,6 +213,8 @@ public:
 
 class TextureVulkan : public Texture
 {
+    CLASS(TextureVulkan, Texture);
+
 public:
     TextureVulkan(vk::Image image, vk::DeviceMemory memory, vk::ImageView image_view, uint32_t width, uint32_t height, size_t size, vk::ImageAspectFlags aspect_mask, uint32_t layers, bool owned)
         : image(image), memory(memory), image_view(image_view), size(size), aspect_mask(aspect_mask), layers(layers), owned(owned)
@@ -237,6 +243,8 @@ public:
 
 class MeshVulkan : public Mesh
 {
+    CLASS(MeshVulkan, Mesh);
+
 public:
     MeshVulkan(IndexType index_type, vk::IndexType index_type_vk, size_t vertex_count, Ref<Buffer> index_buffer, Ref<Buffer> vertex_buffer, Ref<Buffer> normal_buffer, Ref<Buffer> uv_buffer)
         : index_buffer(index_buffer), vertex_buffer(vertex_buffer), normal_buffer(normal_buffer), uv_buffer(uv_buffer), index_type_vk(index_type_vk)
@@ -282,6 +290,8 @@ private:
 
 class MaterialLayoutVulkan : public MaterialLayout
 {
+    CLASS(MaterialLayoutVulkan, MaterialLayout);
+
 public:
     MaterialLayoutVulkan(vk::DescriptorSetLayout m_descriptor_set_layout, DescriptorPool descriptor_pool, std::vector<ShaderRef> shaders, std::optional<InstanceLayout> instance_layout, std::vector<MaterialParam> params, vk::PolygonMode polygon_mode, vk::CullModeFlags cull_mode, MaterialFlags flags, vk::PipelineLayout pipeline_layout, bool transparency, bool always_draw_before)
         : m_descriptor_pool(descriptor_pool), m_descriptor_set_layout(m_descriptor_set_layout), m_shaders(shaders), m_instance_layout(instance_layout), m_params(params), m_polygon_mode(polygon_mode), m_cull_mode(cull_mode), m_flags(flags), m_pipeline_layout(pipeline_layout), m_transparency(transparency), m_always_draw_before(always_draw_before)
@@ -309,6 +319,8 @@ public:
 
 class MaterialVulkan : public Material
 {
+    CLASS(MaterialVulkan, Material);
+
 public:
     MaterialVulkan(MaterialLayout *layout, vk::DescriptorSet descriptor_set)
         : descriptor_set(descriptor_set)

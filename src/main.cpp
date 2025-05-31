@@ -4,12 +4,15 @@
 #include "MeshPrimitives.hpp"
 #include "Render/Driver.hpp"
 #include "Render/DriverVulkan.hpp"
+#include "Scene/Scene.hpp"
 #include "Window.hpp"
 #include "World/World.hpp"
 
 #include <SDL3_image/SDL_image.h>
 
 #include <print>
+
+static void register_all_classes();
 
 int main(int argc, char *argv[])
 {
@@ -19,6 +22,8 @@ int main(int argc, char *argv[])
     initialize_error_handling(argv[0]);
 
     tracy::SetThreadName("Main");
+
+    register_all_classes();
 
     static const int width = 1280;
     static const int height = 720;
@@ -30,7 +35,7 @@ int main(int argc, char *argv[])
     auto init_result = RenderingDriver::get()->initialize(window);
     EXPECT(init_result);
 
-    Camera camera(glm::vec3(10.0, 13.0, 10.0), glm::vec3(), 0.05);
+    Ref<Camera> camera = make_ref<Camera>(glm::vec3(10.0, 13.0, 10.0), glm::vec3(), 0.05);
 
     auto texture_array_result = RenderingDriver::get()->create_texture_array(16, 16, TextureFormat::RGBA8Srgb, {.copy_dst = true, .sampled = true}, 1);
     EXPECT(texture_array_result);
@@ -86,9 +91,16 @@ int main(int argc, char *argv[])
 
     BlockState dirt(1);
 
-    World world;
-    world.set_render_distance(10);
-    world.generate_flat(dirt);
+    Ref<World> world = make_ref<World>(cube, material);
+    world->set_render_distance(10);
+    world->generate_flat(dirt);
+
+    Ref<Entity> world_entity = make_ref<Entity>();
+    world_entity->add_component(world);
+
+    Scene scene;
+    scene.set_active_camera(camera);
+    scene.add_entity(world_entity);
 
     RenderGraph graph;
 
@@ -112,7 +124,7 @@ int main(int argc, char *argv[])
                 const float y_rel = event->motion.yrel;
 
                 if (Input::get().is_mouse_grabbed())
-                    camera.rotate(x_rel, y_rel);
+                    camera->rotate(x_rel, y_rel);
 
                 break;
             }
@@ -123,15 +135,39 @@ int main(int argc, char *argv[])
             Input::get().process_event(window, event.value());
         }
 
-        camera.tick();
+        camera->tick();
 
         graph.reset();
 
         graph.begin_render_pass();
-        world.encode_draw_calls(graph, cube.ptr(), material.ptr(), camera);
+        scene.encode_draw_calls(graph);
         text.encode_draw_calls(graph);
         graph.end_render_pass();
 
         RenderingDriver::get()->draw_graph(graph);
     }
+}
+
+static void register_all_classes()
+{
+    Object::register_class();
+
+    Component::register_class();
+    VisualComponent::register_class();
+
+    RenderingDriver::register_class();
+    Buffer::register_class();
+    Texture::register_class();
+    Mesh::register_class();
+    MaterialLayout::register_class();
+    Material::register_class();
+
+#ifdef __USE_VULKAN__
+    RenderingDriverVulkan::register_class();
+    BufferVulkan::register_class();
+    TextureVulkan::register_class();
+    MeshVulkan::register_class();
+    MaterialLayoutVulkan::register_class();
+    MaterialVulkan::register_class();
+#endif
 }
