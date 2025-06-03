@@ -93,14 +93,14 @@ public:
     virtual Expected<Ref<Mesh>> create_mesh(IndexType index_type, Span<uint8_t> indices, Span<glm::vec3> vertices, Span<glm::vec2> uvs, Span<glm::vec3> normals) override;
 
     [[nodiscard]]
-    virtual Expected<Ref<MaterialLayout>> create_material_layout(Span<ShaderRef> shaders, Span<MaterialParam> params = {}, MaterialFlags flags = {}, std::optional<InstanceLayout> instance_layout = std::nullopt, CullMode cull_mode = CullMode::Back, PolygonMode polygon_mode = PolygonMode::Fill) override;
+    virtual Expected<Ref<MaterialLayout>> create_material_layout(Shader shader, Span<MaterialParam> params = {}, MaterialFlags flags = {}, std::optional<InstanceLayout> instance_layout = std::nullopt, CullMode cull_mode = CullMode::Back, PolygonMode polygon_mode = PolygonMode::Fill) override;
 
     [[nodiscard]]
     virtual Expected<Ref<Material>> create_material(MaterialLayout *layout) override;
 
     virtual void draw_graph(const RenderGraph& graph) override;
 
-    Expected<vk::Pipeline> create_graphics_pipeline(Span<ShaderRef> shaders, std::optional<InstanceLayout> instance_layout, vk::PolygonMode polygon_mode, vk::CullModeFlags cull_mode, bool transparency, bool always_draw_before, vk::PipelineLayout pipeline_layout, vk::RenderPass render_pass);
+    Expected<vk::Pipeline> create_graphics_pipeline(Span<ShaderRef> shaders, std::optional<InstanceLayout> instance_layout, vk::PolygonMode polygon_mode, vk::CullModeFlags cull_mode, MaterialFlags flags, vk::PipelineLayout pipeline_layout, vk::RenderPass render_pass);
 
     inline vk::Device get_device() const
     {

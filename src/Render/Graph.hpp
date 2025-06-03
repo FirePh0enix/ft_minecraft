@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Core/Span.hpp"
-#include "Core/Vector.hpp"
 
 class Buffer;
 class Mesh;

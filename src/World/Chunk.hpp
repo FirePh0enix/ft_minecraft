@@ -10,11 +10,12 @@ public:
     static constexpr size_t height = 256;
     static constexpr size_t block_count = width * width * height;
 
-    static Chunk flat(uint32_t x, uint32_t z, BlockState state, uint32_t height);
+    static Chunk flat(ssize_t x, ssize_t z, BlockState state, uint32_t height);
 
-    Chunk(uint32_t x, uint32_t z)
+    Chunk(ssize_t x, ssize_t z)
         : m_x(x), m_z(z)
     {
+        m_blocks.resize(block_count);
     }
 
     inline BlockState get_block(size_t x, size_t y, size_t z)
@@ -55,7 +56,7 @@ public:
     void update_instance_buffer(Ref<Buffer> buffer);
 
 private:
-    std::array<BlockState, block_count> m_blocks;
+    std::vector<BlockState> m_blocks;
     ssize_t m_x;
     ssize_t m_z;
 

@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.20)
 
+# Build for the web:
+# - Run cmake with `CMAKE_TOOLCHAIN_FILE=/usr/lib/emscripten/cmake/Modules/Platform/Emscripten.cmake cmake .. -DWEB=1`
+
 set(VERSION_MAJOR 1)
 set(VERSION_MINOR 0)
 set(VERSION_PATCH 0)
@@ -17,7 +20,6 @@ set(SOURCES
     src/Core/Class.cpp
     src/Core/Error.cpp
     src/Render/Driver.cpp
-    src/Render/DriverVulkan.cpp
     src/Render/Graph.cpp
     src/Scene/Entity.cpp
     src/Scene/Scene.cpp
@@ -49,7 +51,9 @@ set(RESOURCES_SHADERS
     assets/shaders/voxel.vert
 )
 
-if (UNIX AND NOT APPLE)
+if (EMSCRIPTEN)
+    set(TARGET_IS_WEB YES)
+elseif (UNIX AND NOT APPLE)
     set(TARGET_IS_LINUX YES)
 elseif(APPLE)
     set(TARGET_IS_APPLE YES)
@@ -61,15 +65,28 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Debug")
 endif()
 
+if(WEB)
+    set(PLATFORM_SOURCES
+        src/Render/DriverWebGPU.cpp
+        src/Emscripten.cpp
+    )
+else()
+    set(PLATFORM_SOURCES
+        src/Render/DriverVulkan.cpp
+    )
+endif()
+
 # Generate the `compile_commands.json`
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-add_executable(${TARGET_NAME} ${SOURCES})
+add_executable(${TARGET_NAME} ${SOURCES} ${PLATFORM_SOURCES})
 
 # On every platforms expect web shaders need to be compiled.
 if(TARGET_IS_LINUX OR TARGET_IS_APPLE OR TARGET_IS_MSVC)
     add_shaders("${TARGET_NAME}_shaders" ${RESOURCES_SHADERS})
     add_dependencies(${TARGET_NAME} "${TARGET_NAME}_shaders")
+elseif(WEB)
+
 endif()
 
 target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/src)
@@ -87,11 +104,13 @@ target_compile_options(${TARGET_NAME} PUBLIC -Wall -Wextra)
 set_property(TARGET ${TARGET_NAME} PROPERTY CXX_STANDARD 23)
 
 if (TARGET_IS_LINUX)
-    target_compile_definitions(${TARGET_NAME} PRIVATE __TARGET_LINUX__)
+    target_compile_definitions(${TARGET_NAME} PRIVATE __platform_linux)
 elseif(TARGET_IS_APPLE)
-    target_compile_definitions(${TARGET_NAME} PRIVATE __TARGET_APPLE__)
+    target_compile_definitions(${TARGET_NAME} PRIVATE __platform_macos)
 elseif(TARGET_IS_MSVC)
-    target_compile_definitions(${TARGET_NAME} PRIVATE __TARGET_MSVC__)
+    target_compile_definitions(${TARGET_NAME} PRIVATE __platform_msvc)
+elseif(TARGET_IS_WEB)
+    target_compile_definitions(${TARGET_NAME} PRIVATE __platform_web)
 endif()
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
@@ -100,12 +119,28 @@ endif()
 
 # Use mold when available to speed-up linking
 find_program(MOLD mold)
-if(MOLD)
+if(MOLD AND NOT TARGET_IS_WEB)
     target_link_options(${TARGET_NAME} PUBLIC -fuse-ld=mold)
 endif()
 
+if(TARGET_IS_WEB)
+    configure_file(${CMAKE_SOURCE_DIR}/web/index.html ${CMAKE_BINARY_DIR}/index.html COPYONLY)
+
+    set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS "-sUSE_WEBGPU=1 -SUSE_SDL=2 -SsASYNCIFY=1 -sALLOW_MEMORY_GROWTH=1 --preload-file ../assets --bind") # --emrun
+
+    # Make clangd recognize emscripten paths
+    execute_process(COMMAND ${CMAKE_C_COMPILER} --cflags OUTPUT_VARIABLE CLANGD_FLAGS_TO_ADD)
+	separate_arguments(CLANGD_FLAGS_TO_ADD UNIX_COMMAND "${CLANGD_FLAGS_TO_ADD}")
+	list(JOIN CLANGD_FLAGS_TO_ADD ", " CLANGD_FLAGS_TO_ADD)
+	set(CLANGD_TEMPLATE ${CMAKE_SOURCE_DIR}/web/clangd.in)
+
+	configure_file(${CMAKE_SOURCE_DIR}/web/clangd.in ${CMAKE_SOURCE_DIR}/.clangd @ONLY)
+endif()
+
 if(TARGET_IS_LINUX OR TARGET_IS_APPLE OR TARGET_IS_MSVC)
-    target_compile_definitions(${TARGET_NAME} PRIVATE __USE_VULKAN__)
+    target_compile_definitions(${TARGET_NAME} PRIVATE __has_vulkan)
+elseif(TARGET_IS_WEB)
+    target_compile_definitions(${TARGET_NAME} PRIVATE __has_webgpu)
 endif()
 
 if (TARGET_IS_LINUX OR TARGET_IS_APPLE)
@@ -116,13 +151,15 @@ endif()
 # Fetch dependencies
 #
 
-# VulkanHeaders
-FetchContent_Declare(
-    VulkanHeaders
-    URL https://github.com/KhronosGroup/Vulkan-Headers/archive/v1.4.313.tar.gz
-)
-FetchContent_MakeAvailable(VulkanHeaders)
-target_link_libraries(${TARGET_NAME} PRIVATE Vulkan::Headers)
+if(TARGET_IS_LINUX OR TARGET_IS_APPLE OR TARGET_IS_MSVC)
+    # VulkanHeaders
+    FetchContent_Declare(
+        VulkanHeaders
+        URL https://github.com/KhronosGroup/Vulkan-Headers/archive/v1.4.313.tar.gz
+    )
+    FetchContent_MakeAvailable(VulkanHeaders)
+    target_link_libraries(${TARGET_NAME} PRIVATE Vulkan::Headers)
+endif()
 
 # SDL
 set(SDL_STATIC ON)
@@ -157,10 +194,15 @@ target_sources(${TARGET_NAME} PRIVATE
     ${imgui_SOURCE_DIR}/imgui_tables.cpp
     ${imgui_SOURCE_DIR}/imgui_widgets.cpp
     ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp
-    ${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp
 )
 target_include_directories(${TARGET_NAME} PRIVATE ${imgui_SOURCE_DIR})
 target_compile_definitions(${TARGET_NAME} PRIVATE IMGUI_IMPL_VULKAN_NO_PROTOTYPES VK_NO_PROTOTYPES)
+
+if(TARGET_IS_LINUX OR TARGET_IS_APPLE OR TARGET_IS_MSVC)
+    target_sources(${TARGET_NAME} PRIVATE ${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp)
+elseif(TARGET_IS_WEB)
+    target_sources(${TARGET_NAME} PRIVATE ${imgui_SOURCE_DIR}/backends/imgui_impl_wgpu.cpp)
+endif()
 
 # glm
 FetchContent_Declare(
@@ -231,6 +273,8 @@ if(TARGET_IS_LINUX OR TARGET_IS_APPLE)
     target_link_directories(${TARGET_NAME} PRIVATE ${libbacktrace_BINARY_DIR}/.libs)
     target_link_libraries(${TARGET_NAME} PRIVATE backtrace)
     target_include_directories(${TARGET_NAME} PRIVATE ${libbacktrace_SOURCE_DIR})
+
+    target_compile_definitions(${TARGET_NAME} PRIVATE __has_libbacktrace)
 endif()
 
 # MacOS dependencies
@@ -244,10 +288,6 @@ if (TARGET_IS_APPLE)
 
     configure_file(${moltenvk_SOURCE_DIR}/MoltenVK/dynamic/dylib/macOS/MoltenVK_icd.json ${CMAKE_BINARY_DIR}/vulkan/icd.d/MoltenVK_icd.json COPYONLY)
     configure_file(${moltenvk_SOURCE_DIR}/MoltenVK/dynamic/dylib/macOS/libMoltenVK.dylib ${CMAKE_BINARY_DIR}/vulkan/icd.d/libMoltenVK.dylib COPYONLY)
-
-    # Link with libMoltenVK.so instead of vulkan
-    # target_link_libraries(${TARGET_NAME} PRIVATE MoltenVK)
-    # target_link_directories(${TARGET_NAME} PRIVATE ${moltenvk_SOURCE_DIR}/MoltenVK/dylib/macOS)
 endif()
 
 # Build documention if doxygen is installed
@@ -265,6 +305,6 @@ if (DOXYGEN_FOUND AND BUILD_DOC)
         VERBATIM )
 endif()
 
-foreach(RESOURCE ${RESOURCE_COPY})
+foreach(RESOURCE IN LISTS RESOURCE_COPY)
     configure_file(${CMAKE_SOURCE_DIR}/${RESOURCE} ${CMAKE_BINARY_DIR}/${RESOURCE} COPYONLY)
 endforeach()

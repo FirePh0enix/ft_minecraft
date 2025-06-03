@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Core/Vector.hpp"
+#include "Core/Iterator.hpp"
 
 template <typename T>
 class Span
@@ -16,11 +16,6 @@ public:
     }
 
     Span(const std::vector<T>& vector)
-        : m_data(vector.data()), m_size(vector.size())
-    {
-    }
-
-    Span(const Vector<T>& vector)
         : m_data(vector.data()), m_size(vector.size())
     {
     }
@@ -41,7 +36,7 @@ public:
         return m_data[size];
     }
 
-    T& operator[](size_t size)
+    const T& operator[](size_t size)
     {
         return m_data[size];
     }

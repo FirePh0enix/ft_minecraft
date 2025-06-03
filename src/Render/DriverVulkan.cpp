@@ -308,7 +308,7 @@ std::expected<void, Error> RenderingDriverVulkan::initialize(const Window& windo
 
     required_instance_extensions.push_back("VK_KHR_get_physical_device_properties2");
 
-#ifndef __TARGET_APPLE__
+#ifndef __platform_macos
     vk::InstanceCreateFlags instance_flags = {};
 #else
     vk::InstanceCreateFlags instance_flags = vk::InstanceCreateFlagBits::eEnumeratePortabilityKHR;
@@ -343,7 +343,7 @@ std::expected<void, Error> RenderingDriverVulkan::initialize(const Window& windo
     //     required_extensions.push_back("VK_EXT_calibrated_timestamps");
     // #endif
 
-#ifdef __TARGET_APPLE__
+#ifdef __platform_macos
     required_extensions.push_back("VK_KHR_portability_subset");
 #endif
 
@@ -353,7 +353,7 @@ std::expected<void, Error> RenderingDriverVulkan::initialize(const Window& windo
     host_query_reset_features.hostQueryReset = vk::True;
 #endif
 
-#ifdef __TARGET_APPLE__
+#ifdef __platform_macos
     vk::PhysicalDevicePortabilitySubsetFeaturesKHR portability_subset_features;
     portability_subset_features.imageViewFormatSwizzle = vk::True;
 
@@ -924,7 +924,7 @@ static std::vector<uint32_t> read_shader_code(const char *filename)
     return data;
 }
 
-Expected<vk::Pipeline> RenderingDriverVulkan::create_graphics_pipeline(Span<ShaderRef> shaders, std::optional<InstanceLayout> instance_layout, vk::PolygonMode polygon_mode, vk::CullModeFlags cull_mode, bool transparency, bool always_draw_before, vk::PipelineLayout pipeline_layout, vk::RenderPass render_pass)
+Expected<vk::Pipeline> RenderingDriverVulkan::create_graphics_pipeline(Span<ShaderRef> shaders, std::optional<InstanceLayout> instance_layout, vk::PolygonMode polygon_mode, vk::CullModeFlags cull_mode, MaterialFlags flags, vk::PipelineLayout pipeline_layout, vk::RenderPass render_pass)
 {
     StackVector<vk::PipelineShaderStageCreateInfo, 4> shader_stages;
 
@@ -976,9 +976,7 @@ Expected<vk::Pipeline> RenderingDriverVulkan::create_graphics_pipeline(Span<Shad
 
     vk::PipelineColorBlendAttachmentState color_blend_state{};
 
-    std::println("{}", transparency);
-
-    if (!transparency)
+    if (!flags.transparency)
     {
         color_blend_state.blendEnable = vk::False;
         color_blend_state.srcColorBlendFactor = vk::BlendFactor::eOne;
@@ -1002,7 +1000,7 @@ Expected<vk::Pipeline> RenderingDriverVulkan::create_graphics_pipeline(Span<Shad
     }
 
     vk::PipelineColorBlendStateCreateInfo blend_info({}, vk::False, vk::LogicOp::eCopy, {color_blend_state});
-    vk::PipelineDepthStencilStateCreateInfo depth_info({}, vk::True, vk::True, always_draw_before ? vk::CompareOp::eLessOrEqual : vk::CompareOp::eLess, vk::False, vk::False, {}, {}, 0.0, 1.0);
+    vk::PipelineDepthStencilStateCreateInfo depth_info({}, vk::True, vk::True, flags.always_first ? vk::CompareOp::eLessOrEqual : vk::CompareOp::eLess, vk::False, vk::False, {}, {}, 0.0, 1.0);
 
     auto pipeline_result = m_device.createGraphicsPipeline(nullptr, vk::GraphicsPipelineCreateInfo(
                                                                         {},
@@ -1428,7 +1426,6 @@ std::optional<uint32_t> MaterialLayoutVulkan::get_param_binding(const std::strin
 
 std::optional<MaterialParam> MaterialLayoutVulkan::get_param(const std::string& name)
 {
-
     for (const auto& param : m_params)
     {
         if (!std::strcmp(name.c_str(), param.name))

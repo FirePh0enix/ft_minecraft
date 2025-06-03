@@ -1,7 +1,7 @@
 #include "World/Chunk.hpp"
 #include "World/World.hpp"
 
-Chunk Chunk::flat(uint32_t x, uint32_t z, BlockState state, uint32_t height)
+Chunk Chunk::flat(ssize_t x, ssize_t z, BlockState state, uint32_t height)
 {
     Chunk chunk(x, z);
 
