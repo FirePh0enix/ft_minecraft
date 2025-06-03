@@ -1,6 +1,10 @@
 #include "Error.hpp"
 
-#if defined(__TARGET_LINUX__) || defined(__TARGET_APPLE__)
+#ifdef __has_libbacktrace
+#include <backtrace.h>
+#endif
+
+#if defined(__platform_linux) || defined(__platform_macos)
 
 #include <csignal>
 #include <execinfo.h>
@@ -10,6 +14,8 @@
 #include <cxxabi.h>
 
 static thread_local StackTrace stacktrace;
+
+#ifdef __has_libbacktrace
 static backtrace_state *bt_state;
 
 int bt_callback(StackTrace *st, uintptr_t, const char *filename, int lineno, const char *function)
@@ -58,6 +64,15 @@ const StackTrace& StackTrace::current()
     return stacktrace;
 }
 
+#else
+
+const StackTrace& StackTrace::current()
+{
+    return stacktrace;
+}
+
+#endif
+
 void StackTrace::print(FILE *fp, size_t skip_frame) const
 {
     for (size_t i = skip_frame; i < length; i++)
@@ -70,7 +85,7 @@ void StackTrace::print(FILE *fp, size_t skip_frame) const
         std::println(fp, "(end)");
 }
 
-#if defined(__TARGET_LINUX__) || defined(__TARGET_APPLE__)
+#if defined(__platform_linux) || defined(__platform_macos)
 
 void signal_handler(int sig)
 {
@@ -87,10 +102,14 @@ void signal_handler(int sig)
 
 void initialize_error_handling(const char *filename)
 {
+    (void)filename;
+
+#ifdef __has_libbacktrace
     bt_state = backtrace_create_state(filename, 1, nullptr, nullptr);
     ERR_COND(bt_state == nullptr, "Failed to initialize libbacktrace");
+#endif
 
-#if defined(__TARGET_LINUX__) || defined(__TARGET_APPLE__)
+#if defined(__platform_linux) || defined(__platform_macos)
     signal(SIGSEGV, signal_handler);
     signal(SIGABRT, signal_handler);
     signal(SIGILL, signal_handler);

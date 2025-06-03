@@ -1,4 +1,4 @@
-PROJECT_NAME           = "ft_vox"
+PROJECT_NAME           = "ft_minecraft"
 
 PROJECT_NUMBER         = @VERSION_MAJOR@.@VERSION_MINOR@.@VERSION_PATCH@
 

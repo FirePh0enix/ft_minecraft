@@ -3,6 +3,7 @@ build
 
 # clangd
 .cache
+.clangd
 
 # macOS
 .DS_Store

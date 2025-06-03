@@ -77,6 +77,11 @@ private:
 class Text
 {
 public:
+    Text()
+        : m_font(nullptr), m_instance_buffer(nullptr), m_capacity(0)
+    {
+    }
+
     Text(size_t capacity, Ref<Font> font);
 
     Text(const std::string& text, Ref<Font> font)

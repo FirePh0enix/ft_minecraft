@@ -24,6 +24,8 @@ enum class EntityId : uint32_t
 
 class Entity : public Object
 {
+    CLASS(Entity, Object);
+
 public:
     Entity();
 
@@ -42,10 +44,16 @@ public:
     {
         for (const auto& comp : m_components)
         {
-            if (comp->is_instance_of<T>())
+            if (comp->is_instance_of(T::get_static_class_name()))
                 return comp.cast_to<T>();
         }
         return nullptr;
+    }
+
+    template <typename T>
+    Ref<T> get_component(size_t index) const
+    {
+        return m_components[index].cast_to<T>();
     }
 
     template <typename T>

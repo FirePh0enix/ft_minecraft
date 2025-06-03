@@ -1,11 +1,11 @@
-#ifdef __USE_VULKAN__
+#ifdef __has_vulkan
 
 #define VULKAN_HPP_NO_EXCEPTIONS
 #define VULKAN_HPP_DISPATCH_LOADER_DYNAMIC 1
 
 #define VULKAN_HPP_ASSERT_ON_RESULT(X)
 
-#ifdef __TARGET_APPLE__
+#ifdef __platform_macos
 #define VK_ENABLE_BETA_EXTENSIONS
 #endif
 
@@ -27,7 +27,7 @@
 
 #include <tracy/Tracy.hpp>
 
-#ifdef __USE_VULKAN__
+#ifdef __has_vulkan
 #define TRACY_VK_USE_SYMBOL_TABLE
 
 #include <tracy/TracyVulkan.hpp>

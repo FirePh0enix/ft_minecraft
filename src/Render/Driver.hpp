@@ -67,8 +67,9 @@ struct BufferUsage
 enum class TextureFormat : uint8_t
 {
     R8Unorm,
-    RGBA8Srgb,
+    RGBA8Unorm,
 
+    RGBA8Srgb,
     BGRA8Srgb,
 
     R32Sfloat,
@@ -83,6 +84,15 @@ enum class TextureFormat : uint8_t
 };
 
 size_t size_of(const TextureFormat& format);
+
+enum class TextureDimension : uint8_t
+{
+    D2D,
+    D2DArray,
+    D3D,
+    Cube,
+    CubeArray,
+};
 
 struct TextureUsage
 {
@@ -226,19 +236,43 @@ enum class ShaderKind : uint8_t
     Fragment,
 };
 
-struct ShaderRef
+struct Shader
 {
-    ShaderRef()
+public:
+    struct Stage
     {
+        ShaderKind kind;
+        std::string entry = "main";
+    };
+
+    struct Ref
+    {
+        std::string filename;
+        std::vector<Stage> stages;
+    };
+
+    static Shader create(const std::string& name);
+
+    inline const Ref& get_ref() const
+    {
+        return m_refs[0];
     }
 
-    ShaderRef(const char *filename, ShaderKind kind)
-        : filename(filename), kind(kind)
+    inline const std::string& get_entry(ShaderKind kind) const
     {
+        const Ref& ref = m_refs[0];
+
+        for (const auto& stage : ref.stages)
+        {
+            if (stage.kind == kind)
+                return stage.entry;
+        }
+
+        return ref.stages[0].entry;
     }
 
-    const char *filename;
-    ShaderKind kind;
+private:
+    std::vector<Ref> m_refs;
 };
 
 enum class MaterialParamKind : uint8_t
@@ -303,11 +337,12 @@ union MaterialParam
         ShaderKind shader_kind;
         const char *name;
         Sampler sampler;
+        TextureDimension dimension;
     } image_opts;
 
-    static MaterialParam image(ShaderKind shader_kind, const char *name, Sampler sampler)
+    static MaterialParam image(ShaderKind shader_kind, const char *name, Sampler sampler, TextureDimension dimension = TextureDimension::D2D)
     {
-        return {.image_opts = {.kind = MaterialParamKind::Texture, .shader_kind = shader_kind, .name = name, .sampler = sampler}};
+        return {.image_opts = {.kind = MaterialParamKind::Texture, .shader_kind = shader_kind, .name = name, .sampler = sampler, .dimension = dimension}};
     }
 
     static MaterialParam uniform_buffer(ShaderKind shader_kind, const char *name)
@@ -340,7 +375,15 @@ struct InstanceLayout
 
 struct MaterialFlags
 {
+    /**
+     * Enable transparent blending for the material.
+     */
     bool transparency : 1 = false;
+
+    /**
+     * Workaround to always draw the material before everything else.
+     * Can be used for skyboxes.
+     */
     bool always_first : 1 = false;
 };
 
@@ -452,7 +495,7 @@ public:
     virtual Expected<Ref<Mesh>> create_mesh(IndexType index_type, Span<uint8_t> indices, Span<glm::vec3> vertices, Span<glm::vec2> uvs, Span<glm::vec3> normals) = 0;
 
     [[nodiscard]]
-    virtual Expected<Ref<MaterialLayout>> create_material_layout(Span<ShaderRef> shaders, Span<MaterialParam> params = {}, MaterialFlags flags = {}, std::optional<InstanceLayout> instance_layout = std::nullopt, CullMode cull_mode = CullMode::Back, PolygonMode polygon_mode = PolygonMode::Fill, bool transparency = false, bool always_draw_before = false) = 0;
+    virtual Expected<Ref<MaterialLayout>> create_material_layout(Shader shader, Span<MaterialParam> params = {}, MaterialFlags flags = {}, std::optional<InstanceLayout> instance_layout = std::nullopt, CullMode cull_mode = CullMode::Back, PolygonMode polygon_mode = PolygonMode::Fill) = 0;
 
     [[nodiscard]]
     virtual Expected<Ref<Material>> create_material(MaterialLayout *layout) = 0;

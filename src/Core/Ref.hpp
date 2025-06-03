@@ -107,9 +107,9 @@ public:
     template <typename Subclass>
     inline Ref<Subclass> cast_to() const
     {
-        if (T::template is_instance_of<Subclass>() || Subclass::template is_instance_of<T>())
-            return Ref<Subclass>(static_cast<Subclass *>(m_value), m_references);
-        return nullptr;
+        // if (T::template is_instance_of<Subclass>() || Subclass::is_instance_of(m_value->get_class_name()))
+        return Ref<Subclass>(static_cast<Subclass *>(m_value), m_references);
+        // return nullptr;
     }
 
     bool is_null() const

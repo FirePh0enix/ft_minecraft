@@ -3,7 +3,6 @@
 
 RenderGraph::RenderGraph()
 {
-    m_instructions.reserve_more(500, {});
 }
 
 void RenderGraph::reset()
@@ -11,7 +10,7 @@ void RenderGraph::reset()
     ZoneScoped;
 
     m_renderpass = false;
-    m_instructions.clear_retain_capacity();
+    m_instructions.clear();
 }
 
 Span<Instruction> RenderGraph::get_instructions() const
@@ -34,6 +33,11 @@ void RenderGraph::end_render_pass()
 
 void RenderGraph::add_draw(Mesh *mesh, Material *material, glm::mat4 view_matrix, uint32_t instance_count, std::optional<Buffer *> instance_buffer)
 {
+    if (instance_count == 0)
+    {
+        return;
+    }
+
     ERR_COND(!m_renderpass, "Cannot draw outside of a renderpass");
     m_instructions.push_back({.draw = {.kind = InstructionKind::Draw, .mesh = mesh, .material = material, .instance_count = instance_count, .instance_buffer = instance_buffer, .view_matrix = view_matrix}});
 }

@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Core/Span.hpp"
-#include "Core/Vector.hpp"
 
 class Buffer;
 class Mesh;
@@ -62,6 +61,6 @@ public:
     void add_copy(Buffer *src, Buffer *dst, size_t size, size_t src_offset = 0, size_t dst_offset = 0);
 
 private:
-    Vector<Instruction> m_instructions;
+    std::vector<Instruction> m_instructions;
     bool m_renderpass;
 };

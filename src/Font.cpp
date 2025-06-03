@@ -48,7 +48,7 @@ Expected<Ref<Font>> Font::create(const std::string& font_name, uint32_t font_siz
             char_data.resize(face->glyph->bitmap.width * face->glyph->bitmap.rows);
             auto glyph_buffer = face->glyph->bitmap.buffer;
 
-            std::memcpy(char_data.data(), glyph_buffer, face->glyph->bitmap.width * face->glyph->bitmap.rows);
+            memcpy(char_data.data(), glyph_buffer, face->glyph->bitmap.width * face->glyph->bitmap.rows);
             data[c] = char_data;
         }
         bmp_width += face->glyph->bitmap.width;
@@ -144,10 +144,9 @@ Expected<void> Font::init_library()
                                                  InstanceLayoutInput(ShaderType::Vec2, sizeof(float) * 7)};
     InstanceLayout instance_layout(inputs, sizeof(Instance));
 
-    auto material_layout_result = RenderingDriver::get()->create_material_layout({
-                                                                                     ShaderRef("assets/shaders/font.vert.spv", ShaderKind::Vertex),
-                                                                                     ShaderRef("assets/shaders/font.frag.spv", ShaderKind::Fragment),
-                                                                                 },
+    Shader shader = Shader::create("font");
+
+    auto material_layout_result = RenderingDriver::get()->create_material_layout(shader,
                                                                                  {
                                                                                      MaterialParam::image(ShaderKind::Fragment, "bitmap", {.min_filter = Filter::Nearest, .mag_filter = Filter::Nearest}),
                                                                                      MaterialParam::uniform_buffer(ShaderKind::Vertex, "uniform"),
@@ -166,7 +165,7 @@ void Font::deinit_library()
 }
 
 Text::Text(size_t capacity, Ref<Font> font)
-    : m_font(font), m_capacity(capacity), m_size(0)
+    : m_font(font), m_instance_buffer(nullptr), m_capacity(capacity), m_size(0)
 {
     auto buffer_result = RenderingDriver::get()->create_buffer(m_capacity * sizeof(Font::Instance), {.copy_dst = true, .vertex = true});
     ERR_EXPECT_R(buffer_result, "Cannot create the instance buffer");
@@ -228,7 +227,7 @@ void Text::set(const std::string& text)
         if (i % batch_size == batch_size - 1 || i == text.size() - 1)
         {
             const size_t size = i + batch_size < text.size() ? batch_size : i - (i / batch_size) * batch_size + 1;
-            Span<Font::Instance> span(instances.begin(), size);
+            Span<Font::Instance> span(instances.data(), size);
             m_instance_buffer->update(span.as_bytes(), batch_size * sizeof(Font::Instance) * (i / batch_size));
         }
 

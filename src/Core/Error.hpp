@@ -3,8 +3,6 @@
 #include <expected>
 #include <print>
 
-#include <backtrace.h>
-
 #ifndef STACKTRACE_SIZE
 #define STACKTRACE_SIZE 8
 #endif
@@ -88,7 +86,7 @@ struct std::formatter<ErrorKind> : std::formatter<std::string>
     }
 };
 
-#ifdef __USE_VULKAN__
+#ifdef __has_vulkan
 
 static inline const char *
 string_vk_result(VkResult input_value)
@@ -216,7 +214,7 @@ public:
         return std::unexpected(Error(kind, stacktrace));
     }
 
-#ifdef __USE_VULKAN__
+#ifdef __has_vulkan
     Error(vk::Result result, StackTrace stacktrace = StackTrace::current())
     {
         m_kind = kind_from_vk_result(result);
@@ -248,7 +246,7 @@ public:
 
     void print(FILE *fp = stderr)
     {
-#ifdef __USE_VULKAN__
+#ifdef __has_vulkan
         std::println(fp, "Error: {} ({:x}) (from {})\n", (uint32_t)m_kind, (uint32_t)m_kind, string_vk_result((VkResult)m_vk_result));
 #endif
 
@@ -260,7 +258,7 @@ private:
 
     StackTrace m_stacktrace;
 
-#ifdef __USE_VULKAN__
+#ifdef __has_vulkan
     vk::Result m_vk_result = vk::Result::eErrorUnknown;
 
     Error(ErrorKind kind, vk::Result result, StackTrace stacktrace = StackTrace::current())
@@ -282,7 +280,7 @@ private:
         return std::unexpected(Error(kind));
     }
 
-#ifdef __USE_VULKAN__
+#ifdef __has_vulkan
     Error(vk::Result result)
     {
         m_kind = kind_from_vk_result(result);
@@ -338,7 +336,7 @@ private:
         }                             \
     } while (0)
 
-#ifdef __USE_VULKAN__
+#ifdef __has_vulkan
 
 #define YEET_RESULT_E(RESULT)                 \
     do                                        \
@@ -425,7 +423,7 @@ private:
         continue;                                                      \
     }
 
-#ifdef __USE_VULKAN__
+#ifdef __has_vulkan
 
 #define ERR_RESULT_RET(RESULT)                                                                                 \
     do                                                                                                         \
@@ -460,7 +458,7 @@ private:
 // #define ERR_EXPECT_B(EXPECTED, MESSAGE)
 // #define ERR_EXPECT_C(EXPECTED, MESSAGE)
 
-// #ifdef __USE_VULKAN__
+// #ifdef __has_vulkan
 // #define ERR_RESULT_RET(RESULT)
 // #define ERR_RESULT_E_RET(RESULT)
 // #endif
