@@ -74,13 +74,7 @@ private:
 
     glm::mat4 calculate_projection_matix() const
     {
-#ifdef __platform_web
         glm::mat4 projection_matrix = glm::perspectiveRH((float)glm::radians(m_fov), m_aspect_ratio, m_near, m_far);
-#else
-        glm::mat4 projection_matrix = glm::perspective((float)glm::radians(m_fov), m_aspect_ratio, m_near, m_far);
-        projection_matrix[1][1] *= -1;
-#endif
-
         return projection_matrix;
     }
 };

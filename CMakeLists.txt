@@ -44,11 +44,8 @@ set(RESOURCES_COPY
 )
 
 set(RESOURCES_SHADERS
-    assets/shaders/depth_only.frag
-    assets/shaders/font.frag
-    assets/shaders/font.vert
-    assets/shaders/voxel.frag
-    assets/shaders/voxel.vert
+    assets/shaders/font.wgsl
+    assets/shaders/voxel.wgsl
 )
 
 if (EMSCRIPTEN)
@@ -130,11 +127,11 @@ if(TARGET_IS_WEB)
 
     # Make clangd recognize emscripten paths
     execute_process(COMMAND ${CMAKE_C_COMPILER} --cflags OUTPUT_VARIABLE CLANGD_FLAGS_TO_ADD)
-	separate_arguments(CLANGD_FLAGS_TO_ADD UNIX_COMMAND "${CLANGD_FLAGS_TO_ADD}")
-	list(JOIN CLANGD_FLAGS_TO_ADD ", " CLANGD_FLAGS_TO_ADD)
-	set(CLANGD_TEMPLATE ${CMAKE_SOURCE_DIR}/web/clangd.in)
+    separate_arguments(CLANGD_FLAGS_TO_ADD UNIX_COMMAND "${CLANGD_FLAGS_TO_ADD}")
+    list(JOIN CLANGD_FLAGS_TO_ADD ", " CLANGD_FLAGS_TO_ADD)
+    set(CLANGD_TEMPLATE ${CMAKE_SOURCE_DIR}/web/clangd.in)
 
-	configure_file(${CMAKE_SOURCE_DIR}/web/clangd.in ${CMAKE_SOURCE_DIR}/.clangd @ONLY)
+    configure_file(${CMAKE_SOURCE_DIR}/web/clangd.in ${CMAKE_SOURCE_DIR}/.clangd @ONLY)
 endif()
 
 if(TARGET_IS_LINUX OR TARGET_IS_APPLE OR TARGET_IS_MSVC)
@@ -160,6 +157,15 @@ if(TARGET_IS_LINUX OR TARGET_IS_APPLE OR TARGET_IS_MSVC)
     FetchContent_MakeAvailable(VulkanHeaders)
     target_link_libraries(${TARGET_NAME} PRIVATE Vulkan::Headers)
 endif()
+
+# dawn (we only need tint for now)
+FetchContent_Declare(
+    dawn
+    GIT_REPOSITORY https://dawn.googlesource.com/dawn
+    GIT_TAG d09a21da0d0a33ac37ae1441862ec575680565eb
+)
+FetchContent_MakeAvailable(dawn)
+target_link_libraries(${TARGET_NAME} PUBLIC dawn::tint)
 
 # SDL
 set(SDL_STATIC ON)
