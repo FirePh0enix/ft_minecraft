@@ -187,7 +187,7 @@ static void tick()
 
     graph.begin_render_pass();
     scene.encode_draw_calls(graph);
-    // text.encode_draw_calls(graph);
+    text.encode_draw_calls(graph);
     graph.end_render_pass();
 
     RenderingDriver::get()->draw_graph(graph);
