@@ -1,13 +1,16 @@
 #pragma once
 
+#include "Core/Class.hpp"
 #include "Core/Types.hpp"
-
-#include <optional>
 
 #include <SDL3/SDL.h>
 
-class Window
+#include <optional>
+
+class Window : public Object
 {
+    CLASS(Window, Object);
+
 public:
     Window()
     {

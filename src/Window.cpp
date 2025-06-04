@@ -1,5 +1,7 @@
 #include "Window.hpp"
 
+#include <print>
+
 Window::Window(const std::string& title, uint32_t width, uint32_t height, bool resizable)
 {
 #ifdef __platform_web
@@ -12,7 +14,7 @@ Window::Window(const std::string& title, uint32_t width, uint32_t height, bool r
     SDL_WindowFlags flags = 0;
 
 #ifndef __platform_web
-    flags = SDL_WINDOW_VULKAN;
+    flags |= SDL_WINDOW_VULKAN;
 #endif
 
     if (resizable)
