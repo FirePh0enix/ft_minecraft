@@ -115,7 +115,7 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
 
     Font::init_library();
 
-    auto font_result = Font::create("../assets/fonts/Anonymous.ttf", 12);
+    auto font_result = Font::create("../assets/fonts/Anonymous.ttf", 20);
     EXPECT(font_result);
     Ref<Font> font = font_result.value();
 

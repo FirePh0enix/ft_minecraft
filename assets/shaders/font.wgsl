@@ -46,7 +46,7 @@ fn vertex_main(
         1.0, 0.0, 0.0, 0.0,
         0.0, 1.0, 0.0, 0.0,
         0.0, 0.0, 1.0, 0.0,
-        char_pos.x + data.position.x, char_pos.y + data.position.y, char_pos.z + data.position.z, 1.0
+        char_pos.x * data.scale.x + data.position.x, char_pos.y * data.scale.x + data.position.y, char_pos.z + data.position.z, 1.0
     );
 
     let scale_matrix = mat4x4<f32>(
