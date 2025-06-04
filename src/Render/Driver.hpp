@@ -452,7 +452,7 @@ public:
     virtual Expected<Ref<Mesh>> create_mesh(IndexType index_type, Span<uint8_t> indices, Span<glm::vec3> vertices, Span<glm::vec2> uvs, Span<glm::vec3> normals) = 0;
 
     [[nodiscard]]
-    virtual Expected<Ref<MaterialLayout>> create_material_layout(Span<ShaderRef> shaders, Span<MaterialParam> params = {}, MaterialFlags flags = {}, std::optional<InstanceLayout> instance_layout = std::nullopt, CullMode cull_mode = CullMode::Back, PolygonMode polygon_mode = PolygonMode::Fill, bool transparency = false, bool always_draw_before = false) = 0;
+    virtual Expected<Ref<MaterialLayout>> create_material_layout(Span<ShaderRef> shaders, Span<MaterialParam> params = {}, MaterialFlags flags = {}, std::optional<InstanceLayout> instance_layout = std::nullopt, CullMode cull_mode = CullMode::Back, PolygonMode polygon_mode = PolygonMode::Fill) = 0;
 
     [[nodiscard]]
     virtual Expected<Ref<Material>> create_material(MaterialLayout *layout) = 0;

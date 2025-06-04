@@ -3,7 +3,6 @@
 
 RenderGraph::RenderGraph()
 {
-    m_instructions.reserve_more(500, {});
 }
 
 void RenderGraph::reset()
@@ -11,7 +10,7 @@ void RenderGraph::reset()
     ZoneScoped;
 
     m_renderpass = false;
-    m_instructions.clear_retain_capacity();
+    m_instructions.clear();
 }
 
 Span<Instruction> RenderGraph::get_instructions() const

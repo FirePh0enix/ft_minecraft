@@ -93,7 +93,7 @@ public:
     virtual Expected<Ref<Mesh>> create_mesh(IndexType index_type, Span<uint8_t> indices, Span<glm::vec3> vertices, Span<glm::vec2> uvs, Span<glm::vec3> normals) override;
 
     [[nodiscard]]
-    virtual Expected<Ref<MaterialLayout>> create_material_layout(Span<ShaderRef> shaders, Span<MaterialParam> params = {}, MaterialFlags flags = {}, std::optional<InstanceLayout> instance_layout = std::nullopt, CullMode cull_mode = CullMode::Back, PolygonMode polygon_mode = PolygonMode::Fill, bool transparency = false, bool always_draw_before = false) override;
+    virtual Expected<Ref<MaterialLayout>> create_material_layout(Span<ShaderRef> shaders, Span<MaterialParam> params = {}, MaterialFlags flags = {}, std::optional<InstanceLayout> instance_layout = std::nullopt, CullMode cull_mode = CullMode::Back, PolygonMode polygon_mode = PolygonMode::Fill) override;
 
     [[nodiscard]]
     virtual Expected<Ref<Material>> create_material(MaterialLayout *layout) override;
@@ -293,8 +293,8 @@ class MaterialLayoutVulkan : public MaterialLayout
     CLASS(MaterialLayoutVulkan, MaterialLayout);
 
 public:
-    MaterialLayoutVulkan(vk::DescriptorSetLayout m_descriptor_set_layout, DescriptorPool descriptor_pool, std::vector<ShaderRef> shaders, std::optional<InstanceLayout> instance_layout, std::vector<MaterialParam> params, vk::PolygonMode polygon_mode, vk::CullModeFlags cull_mode, MaterialFlags flags, vk::PipelineLayout pipeline_layout, bool transparency, bool always_draw_before)
-        : m_descriptor_pool(descriptor_pool), m_descriptor_set_layout(m_descriptor_set_layout), m_shaders(shaders), m_instance_layout(instance_layout), m_params(params), m_polygon_mode(polygon_mode), m_cull_mode(cull_mode), m_flags(flags), m_pipeline_layout(pipeline_layout), m_transparency(transparency), m_always_draw_before(always_draw_before)
+    MaterialLayoutVulkan(vk::DescriptorSetLayout m_descriptor_set_layout, DescriptorPool descriptor_pool, std::vector<ShaderRef> shaders, std::optional<InstanceLayout> instance_layout, std::vector<MaterialParam> params, vk::PolygonMode polygon_mode, vk::CullModeFlags cull_mode, MaterialFlags flags, vk::PipelineLayout pipeline_layout)
+        : m_descriptor_pool(descriptor_pool), m_descriptor_set_layout(m_descriptor_set_layout), m_shaders(shaders), m_instance_layout(instance_layout), m_params(params), m_polygon_mode(polygon_mode), m_cull_mode(cull_mode), m_flags(flags), m_pipeline_layout(pipeline_layout)
     {
     }
 
@@ -312,9 +312,6 @@ public:
     vk::CullModeFlags m_cull_mode;
     MaterialFlags m_flags;
     vk::PipelineLayout m_pipeline_layout;
-
-    bool m_transparency;
-    bool m_always_draw_before;
 };
 
 class MaterialVulkan : public Material

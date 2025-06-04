@@ -83,6 +83,9 @@ Expected<Ref<Font>> Font::create(const std::string& font_name, uint32_t font_siz
         xpos += width;
     }
 
+    font->m_width = bmp_width;
+    font->m_height = bmp_height;
+
     auto texture_result = RenderingDriver::get()->create_texture(bmp_width, bmp_height, TextureFormat::R8Unorm, {.copy_dst = true, .sampled = true});
     YEET(texture_result);
     font->m_bitmap = texture_result.value();
@@ -152,7 +155,10 @@ Expected<void> Font::init_library()
                                                                                      MaterialParam::image(ShaderKind::Fragment, "bitmap", {.min_filter = Filter::Nearest, .mag_filter = Filter::Nearest}),
                                                                                      MaterialParam::uniform_buffer(ShaderKind::Vertex, "uniform"),
                                                                                  },
-                                                                                 {.transparency = true}, instance_layout);
+                                                                                 {
+                                                                                     .transparency = true,
+                                                                                 },
+                                                                                 instance_layout);
     YEET(material_layout_result);
 
     g_material_layout = material_layout_result.value();
@@ -207,6 +213,7 @@ void Text::set(const std::string& text)
     for (size_t i = 0; i < text.length(); i++)
     {
         const uint8_t c = text[i];
+
         const Font::Character ch = m_font->get_character(c).value_or(Font::Character{});
 
         const float offset = (float)ch.offset / (float)width;
@@ -232,7 +239,7 @@ void Text::set(const std::string& text)
             m_instance_buffer->update(span.as_bytes(), batch_size * sizeof(Font::Instance) * (i / batch_size));
         }
 
-        offset_x += float(ch.advance >> 6) / float(height);
+        offset_x += float(ch.advance >> 6) / float(height) * 0.5f; // 0.5f is the scale of the font, so need to use the scale given in shader,
     }
 
     m_size = text.size();

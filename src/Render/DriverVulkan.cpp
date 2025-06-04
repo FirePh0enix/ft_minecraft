@@ -223,7 +223,7 @@ Expected<vk::Pipeline> PipelineCache::get_or_create(Material *material, vk::Rend
         MaterialVulkan *material_vk = (MaterialVulkan *)material;
         Ref<MaterialLayoutVulkan> layout = material_vk->get_layout().cast_to<MaterialLayoutVulkan>();
 
-        auto pipeline_result = RenderingDriverVulkan::get()->create_graphics_pipeline(layout->m_shaders, layout->m_instance_layout, layout->m_polygon_mode, layout->m_cull_mode, layout->m_transparency, layout->m_always_draw_before, layout->m_pipeline_layout, render_pass);
+        auto pipeline_result = RenderingDriverVulkan::get()->create_graphics_pipeline(layout->m_shaders, layout->m_instance_layout, layout->m_polygon_mode, layout->m_cull_mode, layout->m_flags.transparency, layout->m_flags.always_first, layout->m_pipeline_layout, render_pass);
         YEET(pipeline_result);
 
         m_pipelines[{.material = material, .render_pass = render_pass}] = pipeline_result.value();
@@ -338,10 +338,10 @@ std::expected<void, Error> RenderingDriverVulkan::initialize(const Window& windo
     required_extensions.push_back("VK_KHR_swapchain");
     required_extensions.push_back("VK_EXT_host_query_reset");
 
-#ifdef TRACY_ENABLE
-    // This is widely supported except for android. This is only needed when profiling with tracy anyway.
-    required_extensions.push_back("VK_EXT_calibrated_timestamps");
-#endif
+    // #ifdef TRACY_ENABLE
+    //     // This is widely supported except for android. This is only needed when profiling with tracy anyway.
+    //     required_extensions.push_back("VK_EXT_calibrated_timestamps");
+    // #endif
 
 #ifdef __TARGET_APPLE__
     required_extensions.push_back("VK_KHR_portability_subset");
@@ -480,7 +480,7 @@ std::expected<void, Error> RenderingDriverVulkan::initialize(const Window& windo
     YEET(configure_surface(window, VSync::Off));
 
     // This uses `VK_EXT_host_query_reset` & `VK_EXT_calibrated_timestamps`
-    m_tracy_context = TracyVkContextHostCalibrated(m_instance, m_physical_device, m_device, vk::detail::defaultDispatchLoaderDynamic.vkGetInstanceProcAddr, vk::detail::defaultDispatchLoaderDynamic.vkGetDeviceProcAddr);
+    // m_tracy_context = TracyVkContextHostCalibrated(m_instance, m_physical_device, m_device, vk::detail::defaultDispatchLoaderDynamic.vkGetInstanceProcAddr, vk::detail::defaultDispatchLoaderDynamic.vkGetDeviceProcAddr);
 
     m_start_time = std::chrono::high_resolution_clock::now();
 
@@ -729,7 +729,7 @@ Expected<Ref<Mesh>> RenderingDriverVulkan::create_mesh(IndexType index_type, Spa
     return make_ref<MeshVulkan>(index_type, convert_index_type(index_type), vertex_count, index_buffer, vertex_buffer, normal_buffer, uv_buffer).cast_to<Mesh>();
 }
 
-Expected<Ref<MaterialLayout>> RenderingDriverVulkan::create_material_layout(Span<ShaderRef> shaders, Span<MaterialParam> params, MaterialFlags flags, std::optional<InstanceLayout> instance_layout, CullMode cull_mode, PolygonMode polygon_mode, bool transparency, bool always_draw_before)
+Expected<Ref<MaterialLayout>> RenderingDriverVulkan::create_material_layout(Span<ShaderRef> shaders, Span<MaterialParam> params, MaterialFlags flags, std::optional<InstanceLayout> instance_layout, CullMode cull_mode, PolygonMode polygon_mode)
 {
     std::vector<vk::DescriptorSetLayoutBinding> bindings;
     bindings.reserve(params.size());
@@ -758,7 +758,7 @@ Expected<Ref<MaterialLayout>> RenderingDriverVulkan::create_material_layout(Span
     auto pipeline_layout_result = RenderingDriverVulkan::get()->get_device().createPipelineLayout(vk::PipelineLayoutCreateInfo({}, descriptor_set_layouts, push_constant_ranges));
     YEET_RESULT(pipeline_layout_result);
 
-    return make_ref<MaterialLayoutVulkan>(layout_result.value, pool_result.value(), shaders.to_vector(), instance_layout, params.to_vector(), convert_polygon_mode(polygon_mode), convert_cull_mode(cull_mode), flags, pipeline_layout_result.value, transparency, always_draw_before).cast_to<MaterialLayout>();
+    return make_ref<MaterialLayoutVulkan>(layout_result.value, pool_result.value(), shaders.to_vector(), instance_layout, params.to_vector(), convert_polygon_mode(polygon_mode), convert_cull_mode(cull_mode), flags, pipeline_layout_result.value).cast_to<MaterialLayout>();
 }
 
 Expected<Ref<Material>> RenderingDriverVulkan::create_material(MaterialLayout *layout)
@@ -975,6 +975,8 @@ Expected<vk::Pipeline> RenderingDriverVulkan::create_graphics_pipeline(Span<Shad
     vk::PipelineMultisampleStateCreateInfo multisample_info({}, vk::SampleCountFlagBits::e1, vk::False, 1.0, nullptr, vk::False, vk::False);
 
     vk::PipelineColorBlendAttachmentState color_blend_state{};
+
+    std::println("{}", transparency);
 
     if (!transparency)
     {

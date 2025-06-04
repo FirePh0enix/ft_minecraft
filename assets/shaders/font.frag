@@ -9,4 +9,5 @@ layout(binding = 0) uniform sampler2D bitmap;
 
 void main(){
     outFragColor = inColor * vec4(1.0, 1.0, 1.0, texture(bitmap, inTextCoords).r);
+    // outFragColor = texture(bitmap, inTextCoords);
 }

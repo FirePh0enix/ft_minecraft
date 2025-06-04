@@ -65,7 +65,7 @@ int main(int argc, char *argv[])
         InstanceLayoutInput(ShaderType::Uint, sizeof(glm::vec3) * 3),
     };
     InstanceLayout instance_layout(inputs, sizeof(BlockInstanceData));
-    auto material_layout_result = RenderingDriverVulkan::get()->create_material_layout(shaders, params, {.transparency = true}, instance_layout, CullMode::Back, PolygonMode::Fill, false, false);
+    auto material_layout_result = RenderingDriverVulkan::get()->create_material_layout(shaders, params, {.transparency = true}, instance_layout, CullMode::Back, PolygonMode::Fill);
     EXPECT(material_layout_result);
     Ref<MaterialLayout> material_layout = material_layout_result.value();
 
@@ -81,13 +81,14 @@ int main(int argc, char *argv[])
 
     Font::init_library();
 
-    auto font_result = Font::create("../assets/fonts/Anonymous.ttf", 12);
+    auto font_result = Font::create("../assets/fonts/Anonymous.ttf", 20);
     EXPECT(font_result);
     Ref<Font> font = font_result.value();
 
     Text text("Hello world", font);
-    text.set_scale(glm::vec2(0.01, 0.01));
+    text.set_scale(glm::vec2(0.5f, 0.5f));
     text.set_color(glm::vec4(1.0, 1.0, 1.0, 1.0));
+    text.set_position(glm::vec3(-1.5f, 0.0f, 0.0f));
 
     BlockState dirt(1);
 
