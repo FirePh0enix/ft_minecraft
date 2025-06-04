@@ -1,12 +1,12 @@
-struct PushConstants
+struct Constants
 {
     view_matrix: mat4x4<f32>,
 }
 
-@group(0) @binding(0) var images_sampler: sampler;
-@group(0) @binding(1) var images: texture_2d_array<f32>;
+@group(0) @binding(0) var images: texture_2d_array<f32>;
+@group(0) @binding(1) var images_sampler: sampler;
 
-@group(1) @binding(0) var<uniform> push_constants: PushConstants;
+var<push_constant> constants: Constants;
 
 struct VertexOutput
 {
@@ -62,7 +62,7 @@ fn vertex_main(
         instance_pos.x, instance_pos.y, instance_pos.z, 1.0
     );
 
-    out.position = push_constants.view_matrix * model_matrix * vec4<f32>(position, 1.0);
+    out.position = constants.view_matrix * model_matrix * vec4<f32>(position, 1.0);
 
     out.frag_pos = model_matrix * vec4<f32>(position, 1.0);
     out.uv = uv;

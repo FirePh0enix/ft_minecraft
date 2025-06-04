@@ -740,10 +740,20 @@ Expected<Ref<MaterialLayout>> RenderingDriverVulkan::create_material_layout(Shad
 
     for (const auto& param : params)
     {
-        vk::DescriptorType type = param.kind == MaterialParamKind::Texture ? vk::DescriptorType::eCombinedImageSampler : vk::DescriptorType::eUniformBuffer;
-
-        bindings.push_back(vk::DescriptorSetLayoutBinding(binding, type, 1, convert_shader_stage(param.shader_kind), nullptr));
-        binding += 1;
+        switch (param.kind)
+        {
+        case MaterialParamKind::Texture:
+        {
+            bindings.push_back(vk::DescriptorSetLayoutBinding(binding++, vk::DescriptorType::eSampledImage, 1, convert_shader_stage(param.shader_kind), nullptr));
+            bindings.push_back(vk::DescriptorSetLayoutBinding(binding++, vk::DescriptorType::eSampler, 1, convert_shader_stage(param.shader_kind), nullptr));
+        }
+        break;
+        case MaterialParamKind::UniformBuffer:
+        {
+            bindings.push_back(vk::DescriptorSetLayoutBinding(binding++, vk::DescriptorType::eUniformBuffer, 1, convert_shader_stage(param.shader_kind), nullptr));
+        }
+        break;
+        }
     }
 
     auto layout_result = RenderingDriverVulkan::get()->get_device().createDescriptorSetLayout(vk::DescriptorSetLayoutCreateInfo({}, bindings));
@@ -929,17 +939,15 @@ static std::vector<uint32_t> read_shader_code(std::string filename)
 Expected<vk::Pipeline> RenderingDriverVulkan::create_graphics_pipeline(Shader shader, std::optional<InstanceLayout> instance_layout, vk::PolygonMode polygon_mode, vk::CullModeFlags cull_mode, MaterialFlags flags, vk::PipelineLayout pipeline_layout, vk::RenderPass render_pass)
 {
     StackVector<vk::PipelineShaderStageCreateInfo, 4> shader_stages;
+    const Shader::Ref& shader_ref = shader.get_ref();
 
-    for (const auto& shader : shader.get_refs())
+    std::vector<uint32_t> code = read_shader_code(shader_ref.filename);
+    auto shader_module_result = m_device.createShaderModule(vk::ShaderModuleCreateInfo({}, code.size(), code.data()));
+    YEET_RESULT(shader_module_result);
+
+    for (const auto& stage : shader_ref.stages)
     {
-        std::vector<uint32_t> code = read_shader_code(shader.filename);
-
-        auto shader_model_result = m_device.createShaderModule(vk::ShaderModuleCreateInfo({}, code.size(), code.data()));
-        YEET_RESULT(shader_model_result);
-
-        const Shader::Stage& stage = shader.stages[0];
-
-        shader_stages.push_back(vk::PipelineShaderStageCreateInfo({}, convert_shader_stage(stage.kind), shader_model_result.value, stage.entry.c_str()));
+        shader_stages.push_back(vk::PipelineShaderStageCreateInfo({}, convert_shader_stage(stage.kind), shader_module_result.value, stage.entry.c_str()));
     }
 
     std::vector<vk::VertexInputBindingDescription> input_bindings;
@@ -1025,10 +1033,7 @@ Expected<vk::Pipeline> RenderingDriverVulkan::create_graphics_pipeline(Shader sh
                                                                         nullptr, 0));
     YEET_RESULT(pipeline_result);
 
-    for (const auto& shader : std::span(shader_stages.data(), shader_stages.size()))
-    {
-        m_device.destroyShaderModule(shader.module);
-    }
+    m_device.destroyShaderModule(shader_module_result.value);
 
     return pipeline_result.value;
 }
@@ -1324,7 +1329,6 @@ static vk::PipelineStageFlags layout_to_stage_mask(TextureLayout layout)
         return vk::PipelineStageFlagBits::eFragmentShader;
     // TODO: DepthStencilReadOnly
     default:
-        std::println("dqkjwdjahdjhawjkd\n");
         return {};
     }
 
@@ -1376,7 +1380,10 @@ Expected<DescriptorPool> DescriptorPool::create(vk::DescriptorSetLayout layout, 
 
     std::vector<vk::DescriptorPoolSize> sizes;
     if (image_sampler_count > 0)
-        sizes.push_back(vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, image_sampler_count));
+    {
+        sizes.push_back(vk::DescriptorPoolSize(vk::DescriptorType::eSampledImage, image_sampler_count));
+        sizes.push_back(vk::DescriptorPoolSize(vk::DescriptorType::eSampler, image_sampler_count));
+    }
     if (uniform_buffer_count > 0)
         sizes.push_back(vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, uniform_buffer_count));
 
@@ -1422,7 +1429,7 @@ std::optional<uint32_t> MaterialLayoutVulkan::get_param_binding(const std::strin
         if (!std::strcmp(name.c_str(), param.name))
             return binding;
 
-        binding += 1;
+        binding += param.kind == MaterialParamKind::Texture ? 2 : 1; // sampler + texture
     }
 
     return std::nullopt;
@@ -1452,10 +1459,13 @@ void MaterialVulkan::set_param(const std::string& name, const Ref<Texture>& text
     auto sampler_result = RenderingDriverVulkan::get()->get_sampler_cache().get_or_create(param->image_opts.sampler);
     ERR_COND_V(!sampler_result.has_value(), "Failed to create sampler for parameter `%s`", name.c_str());
 
-    vk::DescriptorImageInfo image_info(sampler_result.value(), texture_vk->image_view, vk::ImageLayout::eShaderReadOnlyOptimal);
-    vk::WriteDescriptorSet write_image(descriptor_set, binding_result.value(), 0, 1, vk::DescriptorType::eCombinedImageSampler, &image_info, nullptr, nullptr);
+    vk::DescriptorImageInfo image_info(nullptr, texture_vk->image_view, vk::ImageLayout::eShaderReadOnlyOptimal);
+    vk::WriteDescriptorSet write_image(descriptor_set, binding_result.value(), 0, 1, vk::DescriptorType::eSampledImage, &image_info, nullptr, nullptr);
 
-    RenderingDriverVulkan::get()->get_device().updateDescriptorSets({write_image}, {});
+    vk::DescriptorImageInfo sampler_info(sampler_result.value(), nullptr, vk::ImageLayout::eShaderReadOnlyOptimal);
+    vk::WriteDescriptorSet write_sampler(descriptor_set, binding_result.value() + 1, 0, 1, vk::DescriptorType::eSampler, &sampler_info, nullptr, nullptr);
+
+    RenderingDriverVulkan::get()->get_device().updateDescriptorSets({write_image, write_sampler}, {});
 }
 
 void MaterialVulkan::set_param(const std::string& name, const Ref<Buffer>& buffer)

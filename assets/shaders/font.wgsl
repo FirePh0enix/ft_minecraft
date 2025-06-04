@@ -5,17 +5,17 @@ struct Data
     color: vec4<f32>,
 }
 
-struct PushConstants
+struct Constants
 {
     view_matrix: mat4x4<f32>,
 }
 
-@binding(0) @group(0) var bitmap_sampler: sampler;
-@binding(1) @group(0) var bitmap: texture_2d<f32>;
+@group(0) @binding(0) var bitmap_sampler: sampler;
+@group(0) @binding(1) var bitmap: texture_2d<f32>;
 
-@binding(2) @group(0) var<uniform> data: Data;
+@group(0) @binding(2) var<uniform> data: Data;
 
-@binding(0) @group(1) var<uniform> push_constants: PushConstants;
+var<push_constant> constants: Constants;
 
 struct VertexOutput
 {
@@ -59,7 +59,7 @@ fn vertex_main(
     let model_matrix = translation_matrix * scale_matrix;
 
     var out: VertexOutput;
-    out.position = push_constants.view_matrix * model_matrix * vec4<f32>(pos, 1.0);
+    out.position = constants.view_matrix * model_matrix * vec4<f32>(pos, 1.0);
     out.tex_coords = uvs[vertex_index];
     out.color = data.color;
     return out;

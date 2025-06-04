@@ -580,13 +580,6 @@ Expected<Ref<MaterialLayout>> RenderingDriverWebGPU::create_material_layout(Shad
         {
         case MaterialParamKind::Texture:
         {
-            wgpu::BindGroupLayoutEntry sampler_entry{};
-            sampler_entry.binding = binding++;
-            sampler_entry.visibility = convert_shader_stage(param.shader_kind);
-            sampler_entry.sampler.type = wgpu::SamplerBindingType::Filtering;
-
-            entries.push_back(sampler_entry);
-
             wgpu::BindGroupLayoutEntry entry{};
             entry.binding = binding++;
             entry.visibility = convert_shader_stage(param.shader_kind);
@@ -595,6 +588,13 @@ Expected<Ref<MaterialLayout>> RenderingDriverWebGPU::create_material_layout(Shad
             entry.texture.viewDimension = convert_texture_dimension(param.image_opts.dimension);
 
             entries.push_back(entry);
+
+            wgpu::BindGroupLayoutEntry sampler_entry{};
+            sampler_entry.binding = binding++;
+            sampler_entry.visibility = convert_shader_stage(param.shader_kind);
+            sampler_entry.sampler.type = wgpu::SamplerBindingType::Filtering;
+
+            entries.push_back(sampler_entry);
         }
         break;
         case MaterialParamKind::UniformBuffer:
@@ -862,6 +862,14 @@ wgpu::BindGroup MaterialWebGPU::get_bind_group()
         {
         case MaterialParamKind::Texture:
         {
+            ParamCache cache = caches[param.name];
+
+            wgpu::BindGroupEntry entry{};
+            entry.binding = binding++;
+            entry.textureView = cache.texture.texture->view;
+
+            entries.push_back(entry);
+
             auto sampler_result = RenderingDriverWebGPU::get()->get_sampler_cache().get_or_create(param.image_opts.sampler);
             ERR_EXPECT_B(sampler_result, "");
 
@@ -870,14 +878,6 @@ wgpu::BindGroup MaterialWebGPU::get_bind_group()
             sampler_entry.sampler = sampler_result.value();
 
             entries.push_back(sampler_entry);
-
-            ParamCache cache = caches[param.name];
-
-            wgpu::BindGroupEntry entry{};
-            entry.binding = binding++;
-            entry.textureView = cache.texture.texture->view;
-
-            entries.push_back(entry);
         }
         break;
         case MaterialParamKind::UniformBuffer:
@@ -902,20 +902,3 @@ wgpu::BindGroup MaterialWebGPU::get_bind_group()
     bind_group = RenderingDriverWebGPU::get()->get_device().CreateBindGroup(&desc);
     return bind_group;
 }
-
-template <typename T, typename Status>
-struct CallbackData
-{
-    T value = nullptr;
-    Status status;
-    bool has_error = false;
-    std::atomic_bool has_finished = false;
-
-    void wait()
-    {
-#ifdef __platform_web
-        while (!has_finished.load())
-            emscripten_sleep(100);
-#endif
-    }
-};
