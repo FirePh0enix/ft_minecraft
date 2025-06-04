@@ -83,6 +83,9 @@ Expected<Ref<Font>> Font::create(const std::string& font_name, uint32_t font_siz
         xpos += width;
     }
 
+    font->m_width = bmp_width;
+    font->m_height = bmp_height;
+
     auto texture_result = RenderingDriver::get()->create_texture(bmp_width, bmp_height, TextureFormat::R8Unorm, {.copy_dst = true, .sampled = true});
     YEET(texture_result);
     font->m_bitmap = texture_result.value();
@@ -138,6 +141,7 @@ Expected<void> Font::init_library()
     const float aspect_radio = (float)size.width / (float)size.height;
 
     g_ortho_matrix = glm::ortho(-1.0 * aspect_radio, 1.0 * aspect_radio, -1.0, 1.0, 0.01, 10.0);
+    g_ortho_matrix[1][1] *= -1;
 
     std::array<InstanceLayoutInput, 3> inputs = {InstanceLayoutInput(ShaderType::Vec4, 0),
                                                  InstanceLayoutInput(ShaderType::Vec3, sizeof(float) * 4),

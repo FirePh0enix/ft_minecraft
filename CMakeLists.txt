@@ -159,13 +159,13 @@ if(TARGET_IS_LINUX OR TARGET_IS_APPLE OR TARGET_IS_MSVC)
 endif()
 
 # dawn (we only need tint for now)
-FetchContent_Declare(
-    dawn
-    GIT_REPOSITORY https://dawn.googlesource.com/dawn
-    GIT_TAG d09a21da0d0a33ac37ae1441862ec575680565eb
-)
-FetchContent_MakeAvailable(dawn)
-target_link_libraries(${TARGET_NAME} PUBLIC dawn::tint)
+# FetchContent_Declare(
+#     dawn
+#     GIT_REPOSITORY https://dawn.googlesource.com/dawn
+#     GIT_TAG d09a21da0d0a33ac37ae1441862ec575680565eb
+# )
+# FetchContent_MakeAvailable(dawn)
+# target_link_libraries(${TARGET_NAME} PUBLIC dawn::tint)
 
 # SDL
 set(SDL_STATIC ON)

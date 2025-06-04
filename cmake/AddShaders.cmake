@@ -20,7 +20,7 @@ function(add_shaders CURRENT_TARGET_NAME)
         add_custom_command(
             OUTPUT ${SHADER_PRODUCT}
             COMMAND ${CMAKE_COMMAND} -E make_directory "${SHADER_DIRECTORY}"
-            COMMAND "naga" "${SHADER_SOURCE}.processed.wgsl" "${SHADER_PRODUCT}"
+            COMMAND "naga" "${SHADER_SOURCE}" "${SHADER_PRODUCT}"
             DEPENDS ${SHADER_SOURCE}
         )
     endforeach()

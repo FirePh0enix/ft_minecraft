@@ -120,7 +120,7 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     Ref<Font> font = font_result.value();
 
     text = Text("Hello world", font);
-    text.set_scale(glm::vec2(0.01, 0.01));
+    text.set_scale(glm::vec2(0.2, 0.2));
     text.set_color(glm::vec4(1.0, 1.0, 1.0, 1.0));
 
     BlockState dirt(1);
@@ -186,7 +186,7 @@ static void tick()
 
     graph.begin_render_pass();
     scene.encode_draw_calls(graph);
-    // text.encode_draw_calls(graph);
+    text.encode_draw_calls(graph);
     graph.end_render_pass();
 
     RenderingDriver::get()->draw_graph(graph);
