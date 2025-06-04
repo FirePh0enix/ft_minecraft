@@ -120,7 +120,7 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     Ref<Font> font = font_result.value();
 
     text = Text("Hello world", font);
-    text.set_scale(glm::vec2(0.01, 0.01));
+    text.set_scale(glm::vec2(0.2, 0.2));
     text.set_color(glm::vec4(1.0, 1.0, 1.0, 1.0));
     text.set_position(glm::vec3(-1.5f, 0.0f, 0.0f));
 

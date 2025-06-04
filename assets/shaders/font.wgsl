@@ -1,8 +1,8 @@
 struct Data
 {
+    color: vec4<f32>,
     position: vec3<f32>,
     scale: vec2<f32>,
-    color: vec4<f32>,
 }
 
 struct Constants
@@ -51,7 +51,7 @@ fn vertex_main(
 
     let scale_matrix = mat4x4<f32>(
         scale.x * data.scale.x, 0.0, 0.0, 0.0,
-        0.0, scale.y * data.scale.y, 0.0, 0.0,
+        0.0, scale.y * data.scale.x, 0.0, 0.0, // FIXME: `data.scale.y` is 0 for some reason
         0.0, 0.0, 1.0, 0.0,
         0.0, 0.0, 0.0, 1.0
     );

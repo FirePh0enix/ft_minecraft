@@ -115,13 +115,13 @@ Expected<void> Font::init_library()
         glm::vec3(-0.5, 0.0, -1.0),
         glm::vec3(0.5, 0.0, -1.0),
         glm::vec3(0.5, -1.0, -1.0),
-        glm::vec3(-0.5, -1.0, -1.0)};
+        glm::vec3(-0.5, -1.0, -1.0),
+    };
     std::array<glm::vec3, 4> normals = {
         glm::vec3(),
         glm::vec3(),
         glm::vec3(),
         glm::vec3(),
-
     };
     std::array<glm::vec2, 4> uvs = {
         glm::vec2(0.0, 0.0),
@@ -141,6 +141,7 @@ Expected<void> Font::init_library()
     const float aspect_radio = (float)size.width / (float)size.height;
 
     g_ortho_matrix = glm::ortho(-1.0 * aspect_radio, 1.0 * aspect_radio, -1.0, 1.0, 0.01, 10.0);
+    g_ortho_matrix[1][1] *= -1;
 
     std::array<InstanceLayoutInput, 3> inputs = {InstanceLayoutInput(ShaderType::Vec4, 0),
                                                  InstanceLayoutInput(ShaderType::Vec3, sizeof(float) * 4),

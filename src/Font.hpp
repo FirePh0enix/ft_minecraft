@@ -25,9 +25,9 @@ public:
 
     struct Uniform
     {
+        glm::vec4 color = glm::vec4(0.0, 0.0, 0.0, 1.0);
         glm::vec3 position = glm::vec3(0.0);
         glm::vec2 scale = glm::vec2(0.1);
-        glm::vec4 color = glm::vec4(0.0);
     };
 
     struct Instance
