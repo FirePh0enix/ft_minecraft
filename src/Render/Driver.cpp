@@ -54,7 +54,7 @@ Shader Shader::create(const std::string& name)
     // TODO: Add support for compute shaders.
 
 #ifdef __platform_web
-    std::string filename = std::format("../assets/shaders/wgsl/{}.wgsl", name);
+    std::string filename = std::format("../assets/shaders/{}.wgsl", name);
 
     Shader::Ref ref;
     ref.filename = filename;
@@ -66,20 +66,15 @@ Shader Shader::create(const std::string& name)
 
     return shader;
 #else
-    std::string vertex_filename = std::format("assets/shaders/{}.vert.spv", name);
-    std::string fragment_filename = std::format("assets/shaders/{}.frag.spv", name);
+    std::string filename = std::format("assets/shaders/{}.wgsl.spv", name);
 
-    Shader::Ref vertex_ref{};
-    vertex_ref.filename = vertex_filename;
-    vertex_ref.stages.push_back(Stage{.kind = ShaderKind::Vertex, .entry = "main"});
-
-    Shader::Ref fragment_ref{};
-    fragment_ref.filename = fragment_filename;
-    fragment_ref.stages.push_back(Stage{.kind = ShaderKind::Fragment, .entry = "main"});
+    Shader::Ref ref;
+    ref.filename = filename;
+    ref.stages.push_back(Stage{.kind = ShaderKind::Vertex, .entry = "vertex_main"});
+    ref.stages.push_back(Stage{.kind = ShaderKind::Fragment, .entry = "fragment_main"});
 
     Shader shader;
-    shader.m_refs.push_back(vertex_ref);
-    shader.m_refs.push_back(fragment_ref);
+    shader.m_refs.push_back(ref);
 
     return shader;
 #endif
