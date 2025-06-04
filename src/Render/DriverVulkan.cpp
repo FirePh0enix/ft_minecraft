@@ -52,6 +52,8 @@ static inline vk::Format convert_texture_format(TextureFormat format)
     {
     case TextureFormat::R8Unorm:
         return vk::Format::eR8Unorm;
+    case TextureFormat::RGBA8Unorm:
+        return vk::Format::eR8G8B8A8Unorm;
     case TextureFormat::RGBA8Srgb:
         return vk::Format::eR8G8B8A8Srgb;
     case TextureFormat::BGRA8Srgb:
@@ -223,7 +225,7 @@ Expected<vk::Pipeline> PipelineCache::get_or_create(Material *material, vk::Rend
         MaterialVulkan *material_vk = (MaterialVulkan *)material;
         Ref<MaterialLayoutVulkan> layout = material_vk->get_layout().cast_to<MaterialLayoutVulkan>();
 
-        auto pipeline_result = RenderingDriverVulkan::get()->create_graphics_pipeline(layout->m_shaders, layout->m_instance_layout, layout->m_polygon_mode, layout->m_cull_mode, layout->m_transparency, layout->m_always_draw_before, layout->m_pipeline_layout, render_pass);
+        auto pipeline_result = RenderingDriverVulkan::get()->create_graphics_pipeline(layout->m_shader, layout->m_instance_layout, layout->m_polygon_mode, layout->m_cull_mode, layout->m_flags, layout->m_pipeline_layout, render_pass);
         YEET(pipeline_result);
 
         m_pipelines[{.material = material, .render_pass = render_pass}] = pipeline_result.value();
@@ -729,7 +731,7 @@ Expected<Ref<Mesh>> RenderingDriverVulkan::create_mesh(IndexType index_type, Spa
     return make_ref<MeshVulkan>(index_type, convert_index_type(index_type), vertex_count, index_buffer, vertex_buffer, normal_buffer, uv_buffer).cast_to<Mesh>();
 }
 
-Expected<Ref<MaterialLayout>> RenderingDriverVulkan::create_material_layout(Span<ShaderRef> shaders, Span<MaterialParam> params, MaterialFlags flags, std::optional<InstanceLayout> instance_layout, CullMode cull_mode, PolygonMode polygon_mode, bool transparency, bool always_draw_before)
+Expected<Ref<MaterialLayout>> RenderingDriverVulkan::create_material_layout(Shader shader, Span<MaterialParam> params, MaterialFlags flags, std::optional<InstanceLayout> instance_layout, CullMode cull_mode, PolygonMode polygon_mode)
 {
     std::vector<vk::DescriptorSetLayoutBinding> bindings;
     bindings.reserve(params.size());
@@ -758,7 +760,7 @@ Expected<Ref<MaterialLayout>> RenderingDriverVulkan::create_material_layout(Span
     auto pipeline_layout_result = RenderingDriverVulkan::get()->get_device().createPipelineLayout(vk::PipelineLayoutCreateInfo({}, descriptor_set_layouts, push_constant_ranges));
     YEET_RESULT(pipeline_layout_result);
 
-    return make_ref<MaterialLayoutVulkan>(layout_result.value, pool_result.value(), shaders.to_vector(), instance_layout, params.to_vector(), convert_polygon_mode(polygon_mode), convert_cull_mode(cull_mode), flags, pipeline_layout_result.value, transparency, always_draw_before).cast_to<MaterialLayout>();
+    return make_ref<MaterialLayoutVulkan>(layout_result.value, pool_result.value(), shader, instance_layout, params.to_vector(), convert_polygon_mode(polygon_mode), convert_cull_mode(cull_mode), flags, pipeline_layout_result.value).cast_to<MaterialLayout>();
 }
 
 Expected<Ref<Material>> RenderingDriverVulkan::create_material(MaterialLayout *layout)
@@ -903,10 +905,10 @@ void RenderingDriverVulkan::draw_graph(const RenderGraph& graph)
     m_current_frame = (m_current_frame + 1) % max_frames_in_flight;
 }
 
-static std::vector<uint32_t> read_shader_code(const char *filename)
+static std::vector<uint32_t> read_shader_code(std::string filename)
 {
     std::ifstream ifs(filename, std::ios::binary | std::ios::ate);
-    ERR_COND_V(!ifs.is_open(), "Shader %s does not exists", filename);
+    ERR_COND_V(!ifs.is_open(), "Shader {} does not exists", filename);
 
     if (!ifs)
     {
@@ -924,18 +926,20 @@ static std::vector<uint32_t> read_shader_code(const char *filename)
     return data;
 }
 
-Expected<vk::Pipeline> RenderingDriverVulkan::create_graphics_pipeline(Span<ShaderRef> shaders, std::optional<InstanceLayout> instance_layout, vk::PolygonMode polygon_mode, vk::CullModeFlags cull_mode, MaterialFlags flags, vk::PipelineLayout pipeline_layout, vk::RenderPass render_pass)
+Expected<vk::Pipeline> RenderingDriverVulkan::create_graphics_pipeline(Shader shader, std::optional<InstanceLayout> instance_layout, vk::PolygonMode polygon_mode, vk::CullModeFlags cull_mode, MaterialFlags flags, vk::PipelineLayout pipeline_layout, vk::RenderPass render_pass)
 {
     StackVector<vk::PipelineShaderStageCreateInfo, 4> shader_stages;
 
-    for (const auto& shader : shaders)
+    for (const auto& shader : shader.get_refs())
     {
         std::vector<uint32_t> code = read_shader_code(shader.filename);
 
         auto shader_model_result = m_device.createShaderModule(vk::ShaderModuleCreateInfo({}, code.size(), code.data()));
         YEET_RESULT(shader_model_result);
 
-        shader_stages.push_back(vk::PipelineShaderStageCreateInfo({}, convert_shader_stage(shader.kind), shader_model_result.value, "main"));
+        const Shader::Stage& stage = shader.stages[0];
+
+        shader_stages.push_back(vk::PipelineShaderStageCreateInfo({}, convert_shader_stage(stage.kind), shader_model_result.value, stage.entry.c_str()));
     }
 
     std::vector<vk::VertexInputBindingDescription> input_bindings;

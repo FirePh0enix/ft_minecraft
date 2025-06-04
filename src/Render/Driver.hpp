@@ -258,7 +258,7 @@ public:
         return m_refs[0];
     }
 
-    inline const std::string& get_entry(ShaderKind kind) const
+    const std::string& get_entry(ShaderKind kind) const
     {
         const Ref& ref = m_refs[0];
 
@@ -269,6 +269,11 @@ public:
         }
 
         return ref.stages[0].entry;
+    }
+
+    inline const std::vector<Ref>& get_refs() const
+    {
+        return m_refs;
     }
 
 private:

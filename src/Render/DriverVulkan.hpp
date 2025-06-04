@@ -100,7 +100,7 @@ public:
 
     virtual void draw_graph(const RenderGraph& graph) override;
 
-    Expected<vk::Pipeline> create_graphics_pipeline(Span<ShaderRef> shaders, std::optional<InstanceLayout> instance_layout, vk::PolygonMode polygon_mode, vk::CullModeFlags cull_mode, MaterialFlags flags, vk::PipelineLayout pipeline_layout, vk::RenderPass render_pass);
+    Expected<vk::Pipeline> create_graphics_pipeline(Shader shader, std::optional<InstanceLayout> instance_layout, vk::PolygonMode polygon_mode, vk::CullModeFlags cull_mode, MaterialFlags flags, vk::PipelineLayout pipeline_layout, vk::RenderPass render_pass);
 
     inline vk::Device get_device() const
     {
@@ -293,8 +293,8 @@ class MaterialLayoutVulkan : public MaterialLayout
     CLASS(MaterialLayoutVulkan, MaterialLayout);
 
 public:
-    MaterialLayoutVulkan(vk::DescriptorSetLayout m_descriptor_set_layout, DescriptorPool descriptor_pool, std::vector<ShaderRef> shaders, std::optional<InstanceLayout> instance_layout, std::vector<MaterialParam> params, vk::PolygonMode polygon_mode, vk::CullModeFlags cull_mode, MaterialFlags flags, vk::PipelineLayout pipeline_layout)
-        : m_descriptor_pool(descriptor_pool), m_descriptor_set_layout(m_descriptor_set_layout), m_shaders(shaders), m_instance_layout(instance_layout), m_params(params), m_polygon_mode(polygon_mode), m_cull_mode(cull_mode), m_flags(flags), m_pipeline_layout(pipeline_layout)
+    MaterialLayoutVulkan(vk::DescriptorSetLayout m_descriptor_set_layout, DescriptorPool descriptor_pool, Shader shader, std::optional<InstanceLayout> instance_layout, std::vector<MaterialParam> params, vk::PolygonMode polygon_mode, vk::CullModeFlags cull_mode, MaterialFlags flags, vk::PipelineLayout pipeline_layout)
+        : m_descriptor_pool(descriptor_pool), m_descriptor_set_layout(m_descriptor_set_layout), m_shader(shader), m_instance_layout(instance_layout), m_params(params), m_polygon_mode(polygon_mode), m_cull_mode(cull_mode), m_flags(flags), m_pipeline_layout(pipeline_layout)
     {
     }
 
@@ -305,16 +305,13 @@ public:
     DescriptorPool m_descriptor_pool;
     vk::DescriptorSetLayout m_descriptor_set_layout;
 
-    std::vector<ShaderRef> m_shaders;
+    Shader m_shader;
     std::optional<InstanceLayout> m_instance_layout;
     std::vector<MaterialParam> m_params;
     vk::PolygonMode m_polygon_mode;
     vk::CullModeFlags m_cull_mode;
     MaterialFlags m_flags;
     vk::PipelineLayout m_pipeline_layout;
-
-    bool m_transparency;
-    bool m_always_draw_before;
 };
 
 class MaterialVulkan : public Material

@@ -35,7 +35,7 @@ static void register_all_classes();
 
 static void tick();
 
-Window window;
+Ref<Window> window;
 Ref<Camera> camera;
 RenderGraph graph;
 Scene scene;
@@ -55,7 +55,7 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     static const int width = 1280;
     static const int height = 720;
 
-    Window window("ft_minecraft", width, height);
+    window = make_ref<Window>("ft_minecraft", width, height);
 
 #ifdef __platform_web
     RenderingDriver::create_singleton<RenderingDriverWebGPU>();
@@ -63,7 +63,7 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     RenderingDriver::create_singleton<RenderingDriverVulkan>();
 #endif
 
-    auto init_result = RenderingDriver::get()->initialize(window);
+    auto init_result = RenderingDriver::get()->initialize(*window);
     EXPECT(init_result);
 
     camera = make_ref<Camera>(glm::vec3(10.0, 13.0, 10.0), glm::vec3(), 0.05);
@@ -139,7 +139,7 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     emscripten_set_main_loop_arg([](void *)
                                  { tick(); }, nullptr, 0, true);
 #else
-    while (window.is_running())
+    while (window->is_running())
     {
         tick();
     }
@@ -155,12 +155,13 @@ static void tick()
 
     std::optional<SDL_Event> event;
 
-    while ((event = window.poll_event()))
+    while ((event = window->poll_event()))
     {
+
         switch (event->type)
         {
         case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
-            window.close();
+            window->close();
             break;
         case SDL_EVENT_MOUSE_MOTION:
         {
@@ -176,7 +177,7 @@ static void tick()
             break;
         }
 
-        Input::get().process_event(window, event.value());
+        Input::get().process_event(*window, event.value());
     }
 
     camera->tick();

@@ -69,13 +69,17 @@ Shader Shader::create(const std::string& name)
     std::string vertex_filename = std::format("assets/shaders/{}.vert.spv", name);
     std::string fragment_filename = std::format("assets/shaders/{}.frag.spv", name);
 
-    Shader::Ref vertex_ref;
+    Shader::Ref vertex_ref{};
     vertex_ref.filename = vertex_filename;
     vertex_ref.stages.push_back(Stage{.kind = ShaderKind::Vertex, .entry = "main"});
-    vertex_ref.stages.push_back(Stage{.kind = ShaderKind::Fragment, .entry = "main"});
+
+    Shader::Ref fragment_ref{};
+    fragment_ref.filename = fragment_filename;
+    fragment_ref.stages.push_back(Stage{.kind = ShaderKind::Fragment, .entry = "main"});
 
     Shader shader;
-    shader.m_refs.push_back(ref);
+    shader.m_refs.push_back(vertex_ref);
+    shader.m_refs.push_back(fragment_ref);
 
     return shader;
 #endif
