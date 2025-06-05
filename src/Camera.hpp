@@ -75,6 +75,12 @@ private:
     glm::mat4 calculate_projection_matix() const
     {
         glm::mat4 projection_matrix = glm::perspectiveRH((float)glm::radians(m_fov), m_aspect_ratio, m_near, m_far);
+
+#ifndef __platform_web
+        // FIXME: For some reason this is needed on desktop and not web.
+        projection_matrix[1][1] *= -1;
+#endif
+
         return projection_matrix;
     }
 };

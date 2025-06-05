@@ -28,14 +28,14 @@ int bt_callback(StackTrace *st, uintptr_t, const char *filename, int lineno, con
 
     st->non_exhaustive = false;
 
-    if (st->eary_end)
+    if (st->early_end)
     {
         return 0;
     }
 
     if (function != nullptr && st->stop_at_main && !std::strcmp(function, "main"))
     {
-        st->eary_end = true;
+        st->early_end = true;
     }
 
     const char *func_name = function;

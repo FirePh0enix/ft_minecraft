@@ -5,6 +5,7 @@
 #include "Core/Ref.hpp"
 #include "Core/Span.hpp"
 #include "Render/Graph.hpp"
+#include "Render/Shader.hpp"
 #include "Window.hpp"
 
 #include <glm/vec2.hpp>
@@ -236,50 +237,6 @@ enum class ShaderKind : uint8_t
     Fragment,
 };
 
-struct Shader
-{
-public:
-    struct Stage
-    {
-        ShaderKind kind;
-        std::string entry = "main";
-    };
-
-    struct Ref
-    {
-        std::string filename;
-        std::vector<Stage> stages;
-    };
-
-    static Shader create(const std::string& name);
-
-    inline const Ref& get_ref() const
-    {
-        return m_refs[0];
-    }
-
-    const std::string& get_entry(ShaderKind kind) const
-    {
-        const Ref& ref = m_refs[0];
-
-        for (const auto& stage : ref.stages)
-        {
-            if (stage.kind == kind)
-                return stage.entry;
-        }
-
-        return ref.stages[0].entry;
-    }
-
-    inline const std::vector<Ref>& get_refs() const
-    {
-        return m_refs;
-    }
-
-private:
-    std::vector<Ref> m_refs;
-};
-
 enum class MaterialParamKind : uint8_t
 {
     Texture,
@@ -500,7 +457,7 @@ public:
     virtual Expected<Ref<Mesh>> create_mesh(IndexType index_type, Span<uint8_t> indices, Span<glm::vec3> vertices, Span<glm::vec2> uvs, Span<glm::vec3> normals) = 0;
 
     [[nodiscard]]
-    virtual Expected<Ref<MaterialLayout>> create_material_layout(Shader shader, Span<MaterialParam> params = {}, MaterialFlags flags = {}, std::optional<InstanceLayout> instance_layout = std::nullopt, CullMode cull_mode = CullMode::Back, PolygonMode polygon_mode = PolygonMode::Fill) = 0;
+    virtual Expected<Ref<MaterialLayout>> create_material_layout(Ref<Shader> shader, Span<MaterialParam> params = {}, MaterialFlags flags = {}, std::optional<InstanceLayout> instance_layout = std::nullopt, CullMode cull_mode = CullMode::Back, PolygonMode polygon_mode = PolygonMode::Fill) = 0;
 
     [[nodiscard]]
     virtual Expected<Ref<Material>> create_material(MaterialLayout *layout) = 0;

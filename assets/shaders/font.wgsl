@@ -1,3 +1,7 @@
+#ifdef __has_immediate
+enable chromium_experimental_immediate;
+#endif
+
 struct Data
 {
     color: vec4<f32>,
@@ -15,7 +19,11 @@ struct Constants
 
 @group(0) @binding(2) var<uniform> data: Data;
 
-var<push_constant> constants: Constants;
+#ifdef __has_immediate
+var<immediate> constants: Constants;
+#else
+@group(1) @binding(0) var<uniform> constants: Constants;
+#endif
 
 struct VertexOutput
 {

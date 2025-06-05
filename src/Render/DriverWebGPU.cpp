@@ -562,7 +562,7 @@ void RenderingDriverWebGPU::draw_graph(const RenderGraph& graph)
 #endif
 }
 
-Expected<Ref<MaterialLayout>> RenderingDriverWebGPU::create_material_layout(Shader shader, Span<MaterialParam> params, MaterialFlags flags, std::optional<InstanceLayout> instance_layout, CullMode cull_mode, PolygonMode polygon_mode)
+Expected<Ref<MaterialLayout>> RenderingDriverWebGPU::create_material_layout(Ref<Shader> shader, Span<MaterialParam> params, MaterialFlags flags, std::optional<InstanceLayout> instance_layout, CullMode cull_mode, PolygonMode polygon_mode)
 {
     // Changing `polygon_mode` is not supported on WebGPU.
     (void)polygon_mode;
@@ -665,7 +665,7 @@ static std::string file_to_string(const std::string& filename)
     return buf.str();
 }
 
-Expected<wgpu::RenderPipeline> RenderingDriverWebGPU::create_render_pipeline(const Shader& shader, std::optional<InstanceLayout> instance_layout, wgpu::CullMode cull_mode, MaterialFlags flags, wgpu::PipelineLayout pipeline_layout)
+Expected<wgpu::RenderPipeline> RenderingDriverWebGPU::create_render_pipeline(Ref<Shader> shader, std::optional<InstanceLayout> instance_layout, wgpu::CullMode cull_mode, MaterialFlags flags, wgpu::PipelineLayout pipeline_layout)
 {
     std::vector<wgpu::VertexBufferLayout> buffers;
     buffers.reserve(instance_layout.has_value() ? 4 : 3);
@@ -705,7 +705,7 @@ Expected<wgpu::RenderPipeline> RenderingDriverWebGPU::create_render_pipeline(con
         buffers.push_back(wgpu::VertexBufferLayout{.arrayStride = layout.stride, .stepMode = wgpu::VertexStepMode::Instance, .attributeCount = instance_attribs.size(), .attributes = instance_attribs.data()});
     }
 
-    std::string shader_code = file_to_string(shader.get_ref().filename);
+    std::string shader_code = shader->get_code();
 
     wgpu::ShaderModuleWGSLDescriptor wgsl_desc{};
     wgsl_desc.code = shader_code.c_str();
@@ -717,7 +717,7 @@ Expected<wgpu::RenderPipeline> RenderingDriverWebGPU::create_render_pipeline(con
     wgpu::VertexState vertex_state{};
     vertex_state.buffers = buffers.data();
     vertex_state.bufferCount = buffers.size();
-    vertex_state.entryPoint = shader.get_entry(ShaderKind::Vertex).c_str();
+    vertex_state.entryPoint = "vertex_main";
     vertex_state.module = module;
 
     wgpu::ColorTargetState color_state{};
@@ -752,7 +752,7 @@ Expected<wgpu::RenderPipeline> RenderingDriverWebGPU::create_render_pipeline(con
     wgpu::FragmentState fragment_state{};
     fragment_state.targets = states.data();
     fragment_state.targetCount = 1;
-    fragment_state.entryPoint = shader.get_entry(ShaderKind::Fragment).c_str();
+    fragment_state.entryPoint = "fragment_main";
     fragment_state.module = module;
 
     wgpu::DepthStencilState depth_state{};
