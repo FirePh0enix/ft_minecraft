@@ -35,12 +35,12 @@ Shader::Expected<std::string> preprocess(std::ifstream& ifs, const std::vector<s
             is_skipped = !contains(definitions, definition);
             continue;
         }
-        else if (line.starts_with("#ifndef"))
+        else if (line.starts_with("#ifndef "))
         {
             if (is_in_block)
                 return std::unexpected(Shader::ErrorKind::RecursiveDirective);
 
-            std::string definition = line.substr(7);
+            std::string definition = line.substr(8);
             is_in_block = true;
             is_skipped = contains(definitions, definition);
             continue;

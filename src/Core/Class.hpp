@@ -7,6 +7,8 @@ private:                                                                \
     static inline std::vector<const char *> s_classes;                  \
     static inline const char *s_class_name = STRINGIFY_CLASSNAME(NAME); \
                                                                         \
+    static_assert(sizeof(NAME *) || true);                              \
+                                                                        \
 public:                                                                 \
     static void register_class()                                        \
     {                                                                   \
