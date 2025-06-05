@@ -3,6 +3,7 @@
 #include "Input.hpp"
 #include "MeshPrimitives.hpp"
 #include "Render/Driver.hpp"
+#include "Render/Shader.hpp"
 #include "Scene/Scene.hpp"
 #include "Window.hpp"
 #include "World/World.hpp"
@@ -87,7 +88,8 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
         SDL_CloseIO(texture_stream);
     }
 
-    Shader shader = Shader::create("voxel");
+    auto shader_result = Shader::compile("../assets/shaders/voxel.wgsl", {});
+    Ref<Shader> shader = shader_result.value();
 
     std::array<MaterialParam, 1> params{
         MaterialParam::image(ShaderKind::Fragment, "textures", {.min_filter = Filter::Nearest, .mag_filter = Filter::Nearest}, TextureDimension::D2DArray),

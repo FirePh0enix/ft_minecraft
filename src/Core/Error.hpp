@@ -4,7 +4,7 @@
 #include <print>
 
 #ifndef STACKTRACE_SIZE
-#define STACKTRACE_SIZE 8
+#define STACKTRACE_SIZE 16
 #endif
 
 struct StackTrace
@@ -21,7 +21,7 @@ struct StackTrace
     std::array<Frame, STACKTRACE_SIZE> frames;
     size_t length = 0;
     bool non_exhaustive = false;
-    bool eary_end = false;
+    bool early_end = false;
 
     static const StackTrace& current();
 
@@ -54,6 +54,11 @@ enum class ErrorKind : uint16_t
      * @brief No GPU can be use by the engine.
      */
     NoSuitableDevice = 0x1002,
+
+    /**
+     * @brief A shader failed to compile.
+     */
+    ShaderCompilationFailed = 0x1002,
 };
 
 template <>

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 
 # Build for the web:
-# - Run cmake with `CMAKE_TOOLCHAIN_FILE=/usr/lib/emscripten/cmake/Modules/Platform/Emscripten.cmake cmake .. -DWEB=1`
+# - Run cmake with `emcmake cmake .. -DWEB=1`
 
 set(VERSION_MAJOR 1)
 set(VERSION_MINOR 0)
@@ -12,15 +12,15 @@ set(TARGET_NAME ft_minecraft)
 project(${TARGET_NAME})
 
 include(FetchContent)
-include(cmake/AddShaders.cmake)
 
 option(BUILD_DOC "Build documentation" OFF)
 
-set(SOURCES
+list(APPEND SOURCES
     src/Core/Class.cpp
     src/Core/Error.cpp
     src/Render/Driver.cpp
     src/Render/Graph.cpp
+    src/Render/Shader.cpp
     src/Scene/Entity.cpp
     src/Scene/Scene.cpp
     src/Camera.cpp
@@ -63,12 +63,12 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 if(WEB)
-    set(PLATFORM_SOURCES
+    list(APPEND SOURCES
         src/Render/DriverWebGPU.cpp
         src/Emscripten.cpp
     )
 else()
-    set(PLATFORM_SOURCES
+    list(APPEND SOURCES
         src/Render/DriverVulkan.cpp
     )
 endif()
@@ -76,15 +76,7 @@ endif()
 # Generate the `compile_commands.json`
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-add_executable(${TARGET_NAME} ${SOURCES} ${PLATFORM_SOURCES})
-
-# On every platforms expect web shaders need to be compiled.
-if(TARGET_IS_LINUX OR TARGET_IS_APPLE OR TARGET_IS_MSVC)
-    add_shaders("${TARGET_NAME}_shaders" ${RESOURCES_SHADERS})
-    add_dependencies(${TARGET_NAME} "${TARGET_NAME}_shaders")
-elseif(WEB)
-
-endif()
+add_executable(${TARGET_NAME} ${SOURCES})
 
 target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/src)
 
@@ -144,6 +136,9 @@ if (TARGET_IS_LINUX OR TARGET_IS_APPLE)
     target_compile_options(${TARGET_NAME} PRIVATE -fdiagnostics-color)
 endif()
 
+# Dont build shared libraries
+set(BUILD_SHARED_LIBS 0)
+
 #
 # Fetch dependencies
 #
@@ -158,14 +153,82 @@ if(TARGET_IS_LINUX OR TARGET_IS_APPLE OR TARGET_IS_MSVC)
     target_link_libraries(${TARGET_NAME} PRIVATE Vulkan::Headers)
 endif()
 
-# dawn (we only need tint for now)
-# FetchContent_Declare(
-#     dawn
-#     GIT_REPOSITORY https://dawn.googlesource.com/dawn
-#     GIT_TAG d09a21da0d0a33ac37ae1441862ec575680565eb
-# )
-# FetchContent_MakeAvailable(dawn)
-# target_link_libraries(${TARGET_NAME} PUBLIC dawn::tint)
+if(NOT TARGET_IS_WEB)
+    # Compile against `tint` only on desktop, on web we give WGSL shaders directly to WebGPU.
+
+    set(DAWN_BUILD_SAMPLES OFF)
+    set(DAWN_BUILD_TESTS OFF)
+
+    set(DAWN_ENABLE_D3D11 OFF)
+    set(DAWN_ENABLE_D3D12 OFF)
+    set(DAWN_ENABLE_METAL OFF)
+    set(DAWN_ENABLE_NULL OFF)
+    set(DAWN_ENABLE_DESKTOP_GL OFF)
+    set(DAWN_ENABLE_OPENGLES OFF)
+    set(DAWN_ENABLE_VULKAN OFF)
+
+    set(DAWN_USE_GLFW OFF)
+
+    set(TINT_BUILD_TESTS OFF)
+
+    set(TINT_BUILD_SPV_READER OFF)
+    set(TINT_BUILD_WGSL_READER ON)
+    set(TINT_BUILD_GLSL_WRITER OFF)
+    set(TINT_BUILD_HLSL_WRITER OFF)
+    set(TINT_BUILD_MSL_WRITER OFF)
+    set(TINT_BUILD_SPV_WRITER ON)
+
+    # This disable automatic validation and allow us to perform our own and set capabilities.
+    set(TINT_ENABLE_IR_VALIDATION OFF)
+
+    # abseil
+    FetchContent_Declare(
+        abseil
+        GIT_REPOSITORY https://github.com/abseil/abseil-cpp
+        GIT_TAG e430bb9b0833137c4365fee39dfa930657b408fc
+    )
+    FetchContent_MakeAvailable(abseil)
+
+    # SPIRV-Headers
+    FetchContent_Declare(
+        spirvheaders
+        GIT_REPOSITORY https://github.com/KhronosGroup/SPIRV-Headers
+        GIT_TAG origin/vulkan-sdk-1.4.313
+    )
+    FetchContent_MakeAvailable(spirvheaders)
+
+    # SPIRV-Tools
+    FetchContent_Declare(
+        spirvtools
+        GIT_REPOSITORY https://github.com/KhronosGroup/SPIRV-Tools
+        GIT_TAG origin/vulkan-sdk-1.4.313
+    )
+    FetchContent_MakeAvailable(spirvtools)
+
+    # glslang
+    FetchContent_Declare(
+        glslang
+        GIT_REPOSITORY https://github.com/KhronosGroup/glslang
+        GIT_TAG b888ebcee8ffaa59536b5f33277936536249d9be
+    )
+    FetchContent_MakeAvailable(glslang)
+
+    set(DAWN_THIRD_PARTY_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+    set(DAWN_ABSEIL_DIR ${abseil_SOURCE_DIR})
+    set(DAWN_SPIRV_TOOLS_DIR ${spirvtools_SOURCE_DIR})
+    set(DAWN_SPIRV_HEADERS_DIR ${spirvheaders_SOURCE_DIR})
+    set(DAWN_GLSLANG_DIR ${glslang_SOURCE_DIR})
+
+    FetchContent_Declare(
+        dawn
+        GIT_REPOSITORY https://dawn.googlesource.com/dawn
+        GIT_TAG 40dca384e6e6ad6afe3ed859017733455ee0b3d7
+        GIT_SUBMODULES ""
+    )
+    FetchContent_MakeAvailable(dawn)
+
+    target_link_libraries(${TARGET_NAME} PRIVATE tint_api tint_lang_spirv_writer_helpers)
+endif()
 
 # SDL
 set(SDL_STATIC ON)
@@ -229,8 +292,6 @@ FetchContent_MakeAvailable(FreeType)
 target_link_libraries(${TARGET_NAME} PRIVATE freetype)
 
 # tracy
-set(BUILD_SHARED_LIBS OFF)
-
 FetchContent_Declare(
     tracy
     GIT_REPOSITORY https://github.com/wolfpld/tracy

@@ -48,34 +48,3 @@ Expected<Ref<Buffer>> RenderingDriver::create_buffer_from_data(size_t size, Span
 
     return buffer;
 }
-
-Shader Shader::create(const std::string& name)
-{
-    // TODO: Add support for compute shaders.
-
-#ifdef __platform_web
-    std::string filename = std::format("../assets/shaders/{}.wgsl", name);
-
-    Shader::Ref ref;
-    ref.filename = filename;
-    ref.stages.push_back(Stage{.kind = ShaderKind::Vertex, .entry = "vertex_main"});
-    ref.stages.push_back(Stage{.kind = ShaderKind::Fragment, .entry = "fragment_main"});
-
-    Shader shader;
-    shader.m_refs.push_back(ref);
-
-    return shader;
-#else
-    std::string filename = std::format("assets/shaders/{}.wgsl.spv", name);
-
-    Shader::Ref ref;
-    ref.filename = filename;
-    ref.stages.push_back(Stage{.kind = ShaderKind::Vertex, .entry = "vertex_main"});
-    ref.stages.push_back(Stage{.kind = ShaderKind::Fragment, .entry = "fragment_main"});
-
-    Shader shader;
-    shader.m_refs.push_back(ref);
-
-    return shader;
-#endif
-}

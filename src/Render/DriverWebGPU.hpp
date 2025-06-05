@@ -83,14 +83,14 @@ public:
     virtual Expected<Ref<Mesh>> create_mesh(IndexType index_type, Span<uint8_t> indices, Span<glm::vec3> vertices, Span<glm::vec2> uvs, Span<glm::vec3> normals) override;
 
     [[nodiscard]]
-    virtual Expected<Ref<MaterialLayout>> create_material_layout(Shader shader, Span<MaterialParam> params = {}, MaterialFlags flags = {}, std::optional<InstanceLayout> instance_layout = std::nullopt, CullMode cull_mode = CullMode::Back, PolygonMode polygon_mode = PolygonMode::Fill) override;
+    virtual Expected<Ref<MaterialLayout>> create_material_layout(Ref<Shader> shader, Span<MaterialParam> params = {}, MaterialFlags flags = {}, std::optional<InstanceLayout> instance_layout = std::nullopt, CullMode cull_mode = CullMode::Back, PolygonMode polygon_mode = PolygonMode::Fill) override;
 
     [[nodiscard]]
     virtual Expected<Ref<Material>> create_material(MaterialLayout *layout) override;
 
     virtual void draw_graph(const RenderGraph& graph) override;
 
-    Expected<wgpu::RenderPipeline> create_render_pipeline(const Shader& shader, std::optional<InstanceLayout> instance_layout, wgpu::CullMode cull_mode, MaterialFlags flags, wgpu::PipelineLayout pipeline_layout);
+    Expected<wgpu::RenderPipeline> create_render_pipeline(Ref<Shader> shader, std::optional<InstanceLayout> instance_layout, wgpu::CullMode cull_mode, MaterialFlags flags, wgpu::PipelineLayout pipeline_layout);
 
     inline wgpu::Device get_device()
     {
@@ -195,7 +195,7 @@ class MaterialLayoutWebGPU : public MaterialLayout
     CLASS(MaterialLayoutWebGPU, MaterialLayout);
 
 public:
-    MaterialLayoutWebGPU(wgpu::BindGroupLayout layout, Shader shader, std::optional<InstanceLayout> instance_layout, std::vector<MaterialParam> params, wgpu::CullMode cull_mode, MaterialFlags flags, wgpu::PipelineLayout pipeline_layout)
+    MaterialLayoutWebGPU(wgpu::BindGroupLayout layout, Ref<Shader> shader, std::optional<InstanceLayout> instance_layout, std::vector<MaterialParam> params, wgpu::CullMode cull_mode, MaterialFlags flags, wgpu::PipelineLayout pipeline_layout)
         : layout(layout), shader(shader), instance_layout(instance_layout), params(params), cull_mode(cull_mode), flags(flags), pipeline_layout(pipeline_layout)
     {
     }
@@ -203,7 +203,7 @@ public:
     std::optional<MaterialParam> get_param(const std::string& name);
 
     wgpu::BindGroupLayout layout;
-    Shader shader;
+    Ref<Shader> shader;
     std::optional<InstanceLayout> instance_layout;
     std::vector<MaterialParam> params;
     wgpu::CullMode cull_mode;

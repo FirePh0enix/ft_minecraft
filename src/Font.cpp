@@ -141,14 +141,21 @@ Expected<void> Font::init_library()
     const float aspect_radio = (float)size.width / (float)size.height;
 
     g_ortho_matrix = glm::ortho(-1.0 * aspect_radio, 1.0 * aspect_radio, -1.0, 1.0, 0.01, 10.0);
+#ifdef __platform_web
+    // FIXME: For some reason this is needed on web and not desktop.
     g_ortho_matrix[1][1] *= -1;
+#endif
 
     std::array<InstanceLayoutInput, 3> inputs = {InstanceLayoutInput(ShaderType::Vec4, 0),
                                                  InstanceLayoutInput(ShaderType::Vec3, sizeof(float) * 4),
                                                  InstanceLayoutInput(ShaderType::Vec2, sizeof(float) * 7)};
     InstanceLayout instance_layout(inputs, sizeof(Instance));
 
-    Shader shader = Shader::create("font");
+    auto shader_result = Shader::compile("../assets/shaders/font.wgsl", {});
+    if (!shader_result.has_value())
+        return std::unexpected(ErrorKind::ShaderCompilationFailed);
+
+    Ref<Shader> shader = shader_result.value();
 
     auto material_layout_result = RenderingDriver::get()->create_material_layout(shader,
                                                                                  {

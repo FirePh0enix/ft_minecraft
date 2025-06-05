@@ -1,3 +1,7 @@
+#ifdef __has_immediate
+enable chromium_experimental_immediate;
+#endif
+
 struct Constants
 {
     view_matrix: mat4x4<f32>,
@@ -6,7 +10,11 @@ struct Constants
 @group(0) @binding(0) var images: texture_2d_array<f32>;
 @group(0) @binding(1) var images_sampler: sampler;
 
-var<push_constant> constants: Constants;
+#ifdef __has_immediate
+var<immediate> constants: Constants;
+#else
+@group(1) @binding(0) var<uniform> constants: Constants;
+#endif
 
 struct VertexOutput
 {

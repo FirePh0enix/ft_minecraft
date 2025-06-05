@@ -731,7 +731,7 @@ Expected<Ref<Mesh>> RenderingDriverVulkan::create_mesh(IndexType index_type, Spa
     return make_ref<MeshVulkan>(index_type, convert_index_type(index_type), vertex_count, index_buffer, vertex_buffer, normal_buffer, uv_buffer).cast_to<Mesh>();
 }
 
-Expected<Ref<MaterialLayout>> RenderingDriverVulkan::create_material_layout(Shader shader, Span<MaterialParam> params, MaterialFlags flags, std::optional<InstanceLayout> instance_layout, CullMode cull_mode, PolygonMode polygon_mode)
+Expected<Ref<MaterialLayout>> RenderingDriverVulkan::create_material_layout(Ref<Shader> shader, Span<MaterialParam> params, MaterialFlags flags, std::optional<InstanceLayout> instance_layout, CullMode cull_mode, PolygonMode polygon_mode)
 {
     std::vector<vk::DescriptorSetLayoutBinding> bindings;
     bindings.reserve(params.size());
@@ -915,40 +915,17 @@ void RenderingDriverVulkan::draw_graph(const RenderGraph& graph)
     m_current_frame = (m_current_frame + 1) % max_frames_in_flight;
 }
 
-static std::vector<uint32_t> read_shader_code(std::string filename)
-{
-    std::ifstream ifs(filename, std::ios::binary | std::ios::ate);
-    ERR_COND_V(!ifs.is_open(), "Shader {} does not exists", filename);
-
-    if (!ifs)
-    {
-        return {};
-    }
-
-    size_t size = ifs.tellg();
-
-    ifs.seekg(0, std::ios::beg);
-
-    std::vector<uint32_t> data(size);
-
-    ifs.read((char *)data.data(), (ssize_t)size);
-
-    return data;
-}
-
-Expected<vk::Pipeline> RenderingDriverVulkan::create_graphics_pipeline(Shader shader, std::optional<InstanceLayout> instance_layout, vk::PolygonMode polygon_mode, vk::CullModeFlags cull_mode, MaterialFlags flags, vk::PipelineLayout pipeline_layout, vk::RenderPass render_pass)
+Expected<vk::Pipeline> RenderingDriverVulkan::create_graphics_pipeline(Ref<Shader> shader, std::optional<InstanceLayout> instance_layout, vk::PolygonMode polygon_mode, vk::CullModeFlags cull_mode, MaterialFlags flags, vk::PipelineLayout pipeline_layout, vk::RenderPass render_pass)
 {
     StackVector<vk::PipelineShaderStageCreateInfo, 4> shader_stages;
-    const Shader::Ref& shader_ref = shader.get_ref();
 
-    std::vector<uint32_t> code = read_shader_code(shader_ref.filename);
-    auto shader_module_result = m_device.createShaderModule(vk::ShaderModuleCreateInfo({}, code.size(), code.data()));
+    std::vector<uint32_t> code = shader->get_code();
+    auto shader_module_result = m_device.createShaderModule(vk::ShaderModuleCreateInfo({}, code.size() * sizeof(uint32_t), code.data()));
     YEET_RESULT(shader_module_result);
 
-    for (const auto& stage : shader_ref.stages)
-    {
-        shader_stages.push_back(vk::PipelineShaderStageCreateInfo({}, convert_shader_stage(stage.kind), shader_module_result.value, stage.entry.c_str()));
-    }
+    // TODO: Support more shader stages ?
+    shader_stages.push_back(vk::PipelineShaderStageCreateInfo({}, vk::ShaderStageFlagBits::eVertex, shader_module_result.value, "vertex_main"));
+    shader_stages.push_back(vk::PipelineShaderStageCreateInfo({}, vk::ShaderStageFlagBits::eFragment, shader_module_result.value, "fragment_main"));
 
     std::vector<vk::VertexInputBindingDescription> input_bindings;
     input_bindings.reserve(instance_layout.has_value() ? 4 : 3);
