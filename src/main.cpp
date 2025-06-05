@@ -89,6 +89,12 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     }
 
     auto shader_result = Shader::compile("../assets/shaders/voxel.wgsl", {});
+    if (!shader_result.has_value())
+    {
+        auto error = std::expected<void, Error>(std::unexpected(ErrorKind::ShaderCompilationFailed));
+        EXPECT(error);
+    }
+
     Ref<Shader> shader = shader_result.value();
 
     std::array<MaterialParam, 1> params{

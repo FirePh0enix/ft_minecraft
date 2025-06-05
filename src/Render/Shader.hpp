@@ -5,7 +5,7 @@
 
 class Shader : public Object
 {
-    CLASS(Shader2, Object);
+    CLASS(Shader, Object);
 
 public:
     enum class ErrorKind : uint8_t

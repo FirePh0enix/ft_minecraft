@@ -58,7 +58,7 @@ enum class ErrorKind : uint16_t
     /**
      * @brief A shader failed to compile.
      */
-    ShaderCompilationFailed = 0x1002,
+    ShaderCompilationFailed = 0x1003,
 };
 
 template <>
