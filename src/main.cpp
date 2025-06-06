@@ -4,6 +4,7 @@
 #include "MeshPrimitives.hpp"
 #include "Render/Driver.hpp"
 #include "Render/Shader.hpp"
+#include "Render/WGSLParser.hpp"
 #include "Scene/Scene.hpp"
 #include "Window.hpp"
 #include "World/World.hpp"
@@ -96,18 +97,21 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     }
 
     Ref<Shader> shader = shader_result.value();
+#ifdef __platform_web
+    shader->set_binding("images", Binding{.kind = BindingKind::Texture, .shader_stage = ShaderStageKind::Fragment, .group = 0, .binding = 0, .dimension = TextureDimension::D2DArray});
+#endif
 
-    std::array<MaterialParam, 1> params{
-        MaterialParam::image(ShaderKind::Fragment, "textures", {.min_filter = Filter::Nearest, .mag_filter = Filter::Nearest}, TextureDimension::D2DArray),
-    };
-    std::array<InstanceLayoutInput, 4> inputs{
-        InstanceLayoutInput(ShaderType::Vec3, 0),
-        InstanceLayoutInput(ShaderType::Vec3, sizeof(glm::vec3)),
-        InstanceLayoutInput(ShaderType::Vec3, sizeof(glm::vec3) * 2),
-        InstanceLayoutInput(ShaderType::Uint, sizeof(glm::vec3) * 3),
-    };
+    shader->set_sampler("images", {.min_filter = Filter::Nearest, .mag_filter = Filter::Nearest});
+
+    std::array<InstanceLayoutInput, 4>
+        inputs{
+            InstanceLayoutInput(ShaderType::Vec3, 0),
+            InstanceLayoutInput(ShaderType::Vec3, sizeof(glm::vec3)),
+            InstanceLayoutInput(ShaderType::Vec3, sizeof(glm::vec3) * 2),
+            InstanceLayoutInput(ShaderType::Uint, sizeof(glm::vec3) * 3),
+        };
     InstanceLayout instance_layout(inputs, sizeof(BlockInstanceData));
-    auto material_layout_result = RenderingDriver::get()->create_material_layout(shader, params, {.transparency = true}, instance_layout, CullMode::Back, PolygonMode::Fill);
+    auto material_layout_result = RenderingDriver::get()->create_material_layout(shader, {.transparency = true}, instance_layout, CullMode::Back, PolygonMode::Fill);
     EXPECT(material_layout_result);
     Ref<MaterialLayout> material_layout = material_layout_result.value();
 
@@ -115,7 +119,7 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     EXPECT(material_result);
     Ref<Material> material = material_result.value();
 
-    material->set_param("textures", texture_array);
+    material->set_param("images", texture_array);
 
     auto cube_result = create_cube_with_separate_faces(glm::vec3(1.0)); // create_cube_with_separate_faces(glm::vec3(1.0), glm::vec3(-0.5));
     EXPECT(cube_result);
@@ -142,6 +146,10 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
 
     scene.set_active_camera(camera);
     scene.add_entity(world_entity);
+
+    WGSLModule module = WGSLModule::parse(R"(
+        @group(0) @binding(0) var image: texture_2d_array<f32>;
+        )");
 
 #ifdef __platform_web
     emscripten_set_main_loop_arg([](void *)

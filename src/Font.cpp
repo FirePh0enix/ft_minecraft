@@ -1,4 +1,5 @@
 #include "Font.hpp"
+
 #include <ft2build.h>
 #include FT_FREETYPE_H
 
@@ -157,12 +158,12 @@ Expected<void> Font::init_library()
 
     Ref<Shader> shader = shader_result.value();
 
-    auto material_layout_result = RenderingDriver::get()->create_material_layout(shader,
-                                                                                 {
-                                                                                     MaterialParam::image(ShaderKind::Fragment, "bitmap", {.min_filter = Filter::Nearest, .mag_filter = Filter::Nearest}),
-                                                                                     MaterialParam::uniform_buffer(ShaderKind::Vertex, "uniform"),
-                                                                                 },
-                                                                                 {.transparency = true}, instance_layout);
+#ifdef __platform_web
+    shader->set_binding("bitmap", Binding{.kind = BindingKind::Texture, .shader_stage = ShaderStageKind::Fragment, .group = 0, .binding = 0, .dimension = TextureDimension::D2D});
+    shader->set_binding("data", Binding{.kind = BindingKind::UniformBuffer, .shader_stage = ShaderStageKind::Vertex, .group = 0, .binding = 2});
+#endif
+
+    auto material_layout_result = RenderingDriver::get()->create_material_layout(shader, {.transparency = true}, instance_layout);
     YEET(material_layout_result);
 
     g_material_layout = material_layout_result.value();
@@ -191,7 +192,7 @@ Text::Text(size_t capacity, Ref<Font> font)
     m_material = material_result.value();
 
     m_material->set_param("bitmap", font->get_bitmap());
-    m_material->set_param("uniform", m_uniform_buffer);
+    m_material->set_param("data", m_uniform_buffer);
 }
 
 void Text::set(const std::string& text)

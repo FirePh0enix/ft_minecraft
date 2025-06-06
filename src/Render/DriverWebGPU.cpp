@@ -106,14 +106,16 @@ static wgpu::IndexFormat convert_index_type(IndexType type)
     return {};
 }
 
-static wgpu::ShaderStage convert_shader_stage(ShaderKind kind)
+static wgpu::ShaderStage convert_shader_stage(ShaderStageKind kind)
 {
     switch (kind)
     {
-    case ShaderKind::Vertex:
+    case ShaderStageKind::Vertex:
         return wgpu::ShaderStage::Vertex;
-    case ShaderKind::Fragment:
+    case ShaderStageKind::Fragment:
         return wgpu::ShaderStage::Fragment;
+    case ShaderStageKind::Compute:
+        return wgpu::ShaderStage::Compute;
     }
 
     return {};
@@ -164,6 +166,8 @@ static wgpu::TextureViewDimension convert_texture_dimension(TextureDimension dim
 {
     switch (dimension)
     {
+    case TextureDimension::D1D:
+        return wgpu::TextureViewDimension::e1D;
     case TextureDimension::D2D:
         return wgpu::TextureViewDimension::e2D;
     case TextureDimension::D2DArray:
@@ -562,46 +566,44 @@ void RenderingDriverWebGPU::draw_graph(const RenderGraph& graph)
 #endif
 }
 
-Expected<Ref<MaterialLayout>> RenderingDriverWebGPU::create_material_layout(Ref<Shader> shader, Span<MaterialParam> params, MaterialFlags flags, std::optional<InstanceLayout> instance_layout, CullMode cull_mode, PolygonMode polygon_mode)
+Expected<Ref<MaterialLayout>> RenderingDriverWebGPU::create_material_layout(Ref<Shader> shader, MaterialFlags flags, std::optional<InstanceLayout> instance_layout, CullMode cull_mode, PolygonMode polygon_mode)
 {
     // Changing `polygon_mode` is not supported on WebGPU.
     (void)polygon_mode;
 
     std::vector<wgpu::BindGroupLayoutEntry> entries;
-    entries.reserve(params.size());
+    entries.reserve(shader->get_bindings().size());
 
-    uint32_t binding = 0;
-
-    for (size_t i = 0; i < params.size(); i++)
+    for (const auto& binding_pair : shader->get_bindings())
     {
-        const MaterialParam& param = params[i];
+        const Binding& binding = binding_pair.second;
 
-        switch (param.kind)
+        switch (binding.kind)
         {
-        case MaterialParamKind::Texture:
+        case BindingKind::Texture:
         {
             wgpu::BindGroupLayoutEntry entry{};
-            entry.binding = binding++;
-            entry.visibility = convert_shader_stage(param.shader_kind);
+            entry.binding = binding.binding;
+            entry.visibility = convert_shader_stage(binding.shader_stage);
             entry.texture.sampleType = wgpu::TextureSampleType::Float;
             entry.texture.multisampled = false;
-            entry.texture.viewDimension = convert_texture_dimension(param.image_opts.dimension);
+            entry.texture.viewDimension = convert_texture_dimension(binding.dimension);
 
             entries.push_back(entry);
 
             wgpu::BindGroupLayoutEntry sampler_entry{};
-            sampler_entry.binding = binding++;
-            sampler_entry.visibility = convert_shader_stage(param.shader_kind);
+            sampler_entry.binding = binding.binding + 1;
+            sampler_entry.visibility = convert_shader_stage(binding.shader_stage);
             sampler_entry.sampler.type = wgpu::SamplerBindingType::Filtering;
 
             entries.push_back(sampler_entry);
         }
         break;
-        case MaterialParamKind::UniformBuffer:
+        case BindingKind::UniformBuffer:
         {
             wgpu::BindGroupLayoutEntry entry{};
-            entry.binding = binding++;
-            entry.visibility = convert_shader_stage(param.shader_kind);
+            entry.binding = binding.binding;
+            entry.visibility = convert_shader_stage(binding.shader_stage);
             entry.buffer.type = wgpu::BufferBindingType::Uniform;
 
             entries.push_back(entry);
@@ -628,7 +630,7 @@ Expected<Ref<MaterialLayout>> RenderingDriverWebGPU::create_material_layout(Ref<
     if (!pipeline_layout)
         return std::unexpected(ErrorKind::BadDriver);
 
-    return make_ref<MaterialLayoutWebGPU>(bind_group_layout, shader, instance_layout, params.to_vector(), convert_cull_mode(cull_mode), flags, pipeline_layout).cast_to<MaterialLayout>();
+    return make_ref<MaterialLayoutWebGPU>(bind_group_layout, shader, instance_layout, convert_cull_mode(cull_mode), flags, pipeline_layout).cast_to<MaterialLayout>();
 }
 
 Expected<Ref<Material>> RenderingDriverWebGPU::create_material(MaterialLayout *layout)
@@ -652,19 +654,6 @@ Expected<Ref<Material>> RenderingDriverWebGPU::create_material(MaterialLayout *l
     return make_ref<MaterialWebGPU>(layout, push_constant_buffer, push_constant).cast_to<Material>();
 }
 
-static std::string file_to_string(const std::string& filename)
-{
-    std::ifstream ifs(filename);
-
-    if (!ifs.is_open())
-        return "";
-
-    std::stringstream buf;
-    buf << ifs.rdbuf();
-
-    return buf.str();
-}
-
 Expected<wgpu::RenderPipeline> RenderingDriverWebGPU::create_render_pipeline(Ref<Shader> shader, std::optional<InstanceLayout> instance_layout, wgpu::CullMode cull_mode, MaterialFlags flags, wgpu::PipelineLayout pipeline_layout)
 {
     std::vector<wgpu::VertexBufferLayout> buffers;
@@ -674,19 +663,19 @@ Expected<wgpu::RenderPipeline> RenderingDriverWebGPU::create_render_pipeline(Ref
     vertex_attrib.format = wgpu::VertexFormat::Float32x3;
     vertex_attrib.offset = 0;
     vertex_attrib.shaderLocation = 0;
-    buffers.push_back(wgpu::VertexBufferLayout{.arrayStride = sizeof(glm::vec3), .stepMode = wgpu::VertexStepMode::Vertex, .attributeCount = 1, .attributes = &vertex_attrib});
+    buffers.push_back(wgpu::VertexBufferLayout{.stepMode = wgpu::VertexStepMode::Vertex, .arrayStride = sizeof(glm::vec3), .attributeCount = 1, .attributes = &vertex_attrib});
 
     wgpu::VertexAttribute normal_attrib{};
     normal_attrib.format = wgpu::VertexFormat::Float32x3;
     normal_attrib.offset = 0;
     normal_attrib.shaderLocation = 1;
-    buffers.push_back(wgpu::VertexBufferLayout{.arrayStride = sizeof(glm::vec3), .stepMode = wgpu::VertexStepMode::Vertex, .attributeCount = 1, .attributes = &normal_attrib});
+    buffers.push_back(wgpu::VertexBufferLayout{.stepMode = wgpu::VertexStepMode::Vertex, .arrayStride = sizeof(glm::vec3), .attributeCount = 1, .attributes = &normal_attrib});
 
     wgpu::VertexAttribute uv_attrib{};
     uv_attrib.format = wgpu::VertexFormat::Float32x2;
     uv_attrib.offset = 0;
     uv_attrib.shaderLocation = 2;
-    buffers.push_back(wgpu::VertexBufferLayout{.arrayStride = sizeof(glm::vec2), .stepMode = wgpu::VertexStepMode::Vertex, .attributeCount = 1, .attributes = &uv_attrib});
+    buffers.push_back(wgpu::VertexBufferLayout{.stepMode = wgpu::VertexStepMode::Vertex, .arrayStride = sizeof(glm::vec2), .attributeCount = 1, .attributes = &uv_attrib});
 
     std::vector<wgpu::VertexAttribute> instance_attribs;
 
@@ -702,7 +691,7 @@ Expected<wgpu::RenderPipeline> RenderingDriverWebGPU::create_render_pipeline(Ref
             instance_attribs.push_back(wgpu::VertexAttribute{.format = format, .offset = input.offset, .shaderLocation = 3 + i});
         }
 
-        buffers.push_back(wgpu::VertexBufferLayout{.arrayStride = layout.stride, .stepMode = wgpu::VertexStepMode::Instance, .attributeCount = instance_attribs.size(), .attributes = instance_attribs.data()});
+        buffers.push_back(wgpu::VertexBufferLayout{.stepMode = wgpu::VertexStepMode::Instance, .arrayStride = layout.stride, .attributeCount = instance_attribs.size(), .attributes = instance_attribs.data()});
     }
 
     std::string shader_code = shader->get_code();
@@ -805,25 +794,14 @@ void TextureWebGPU::update(Span<uint8_t> view, uint32_t layer)
     RenderingDriverWebGPU::get()->get_queue().WriteTexture(&dest, view.data(), view.size(), &data_layout, &write_size);
 }
 
-std::optional<MaterialParam> MaterialLayoutWebGPU::get_param(const std::string& name)
-{
-    for (const auto& param : params)
-    {
-        if (!std::strcmp(name.c_str(), param.name))
-            return param;
-    }
-
-    return std::nullopt;
-}
-
 void MaterialWebGPU::set_param(const std::string& name, const Ref<Texture>& texture)
 {
     Ref<MaterialLayoutWebGPU> layout = m_layout.cast_to<MaterialLayoutWebGPU>();
 
-    auto param_result = layout->get_param(name);
-    ERR_COND_V(!param_result.has_value(), "Invalid parameter name `%s`", name.c_str());
+    auto binding_result = layout->shader->get_binding(name);
+    ERR_COND_V(!binding_result.has_value(), "Invalid parameter name `%s`", name.c_str());
 
-    caches[name] = ParamCache{.texture = {.kind = MaterialParamKind::Texture, .texture = texture.cast_to<TextureWebGPU>().ptr()}};
+    caches[name] = ParamCache{.texture = {.kind = BindingKind::Texture, .texture = texture.cast_to<TextureWebGPU>().ptr()}};
     dirty = true;
 }
 
@@ -831,10 +809,10 @@ void MaterialWebGPU::set_param(const std::string& name, const Ref<Buffer>& buffe
 {
     Ref<MaterialLayoutWebGPU> layout = m_layout.cast_to<MaterialLayoutWebGPU>();
 
-    auto param_result = layout->get_param(name);
-    ERR_COND_V(!param_result.has_value(), "Invalid parameter name `%s`", name.c_str());
+    auto binding_result = layout->shader->get_binding(name);
+    ERR_COND_V(!binding_result.has_value(), "Invalid parameter name `%s`", name.c_str());
 
-    caches[name] = ParamCache{.buffer = {.kind = MaterialParamKind::Texture, .buffer = buffer.cast_to<BufferWebGPU>().ptr()}};
+    caches[name] = ParamCache{.buffer = {.kind = BindingKind::Texture, .buffer = buffer.cast_to<BufferWebGPU>().ptr()}};
     dirty = true;
 }
 
@@ -850,42 +828,42 @@ wgpu::BindGroup MaterialWebGPU::get_bind_group()
     MaterialLayoutWebGPU *layout_wgpu = (MaterialLayoutWebGPU *)m_layout.ptr();
 
     std::vector<wgpu::BindGroupEntry> entries;
-    entries.reserve(layout_wgpu->params.size());
+    entries.reserve(layout_wgpu->shader->get_bindings().size());
 
-    uint32_t binding = 0;
-
-    for (size_t i = 0; i < layout_wgpu->params.size(); i++)
+    for (const auto& binding_pair : layout_wgpu->shader->get_bindings())
     {
-        const MaterialParam& param = layout_wgpu->params[i];
+        const Binding& binding = binding_pair.second;
 
-        switch (param.kind)
+        switch (binding.kind)
         {
-        case MaterialParamKind::Texture:
+        case BindingKind::Texture:
         {
-            ParamCache cache = caches[param.name];
+            ParamCache cache = caches[binding_pair.first];
 
             wgpu::BindGroupEntry entry{};
-            entry.binding = binding++;
+            entry.binding = binding.binding;
             entry.textureView = cache.texture.texture->view;
 
             entries.push_back(entry);
 
-            auto sampler_result = RenderingDriverWebGPU::get()->get_sampler_cache().get_or_create(param.image_opts.sampler);
+            Sampler sampler = layout_wgpu->shader->get_sampler(binding_pair.first);
+
+            auto sampler_result = RenderingDriverWebGPU::get()->get_sampler_cache().get_or_create(sampler);
             ERR_EXPECT_B(sampler_result, "");
 
             wgpu::BindGroupEntry sampler_entry{};
-            sampler_entry.binding = binding++;
+            sampler_entry.binding = binding.binding + 1;
             sampler_entry.sampler = sampler_result.value();
 
             entries.push_back(sampler_entry);
         }
         break;
-        case MaterialParamKind::UniformBuffer:
+        case BindingKind::UniformBuffer:
         {
-            ParamCache cache = caches[param.name];
+            ParamCache cache = caches[binding_pair.first];
 
             wgpu::BindGroupEntry entry{};
-            entry.binding = binding++;
+            entry.binding = binding.binding;
             entry.buffer = cache.buffer.buffer->buffer;
 
             entries.push_back(entry);

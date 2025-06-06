@@ -5,9 +5,6 @@ build
 .cache
 .clangd
 
-# Rust
-/naga-native/target
-
 # macOS
 .DS_Store
 

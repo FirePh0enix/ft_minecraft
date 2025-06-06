@@ -6,144 +6,13 @@
 #include "Core/Span.hpp"
 #include "Render/Graph.hpp"
 #include "Render/Shader.hpp"
+#include "Render/Types.hpp"
 #include "Window.hpp"
 
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 
-enum class VSync : uint8_t
-{
-    /**
-     * @brief Disable vertical synchronization.
-     */
-    Off,
-
-    /**
-     * @brief Enable vertical synchronization.
-     */
-    On,
-};
-
-enum class BufferVisibility : uint8_t
-{
-    /**
-     * @brief Indicate a buffer is only visible from GPU.
-     */
-    GPUOnly,
-
-    /**
-     * @brief Indicate a buffer visible from GPU and CPU.
-     */
-    GPUAndCPU,
-};
-
-struct BufferUsage
-{
-    /**
-     * @brief Used as source in copy operation.
-     */
-    bool copy_src : 1 = false;
-
-    /**
-     * @brief Used as destination in copy operation.
-     */
-    bool copy_dst : 1 = false;
-
-    /**
-     * @brief Used as an uniform buffer.
-     */
-    bool uniform : 1 = false;
-
-    /**
-     * @brief Used as an index buffer.
-     */
-    bool index : 1 = false;
-
-    /**
-     * @brief Used as an vertex or instance buffer.
-     */
-    bool vertex : 1 = false;
-};
-
-enum class TextureFormat : uint8_t
-{
-    R8Unorm,
-    RGBA8Unorm,
-
-    RGBA8Srgb,
-    BGRA8Srgb,
-
-    R32Sfloat,
-    RG32Sfloat,
-    RGB32Sfloat,
-    RGBA32Sfloat,
-
-    /**
-     * @brief Depth 32-bits per pixel.
-     */
-    D32,
-};
-
-size_t size_of(const TextureFormat& format);
-
-enum class TextureDimension : uint8_t
-{
-    D2D,
-    D2DArray,
-    D3D,
-    Cube,
-    CubeArray,
-};
-
-struct TextureUsage
-{
-    /**
-     * @brief Used as source in copy operation.
-     */
-    bool copy_src : 1 = false;
-
-    /**
-     * @brief Used as destination in copy operation.
-     */
-    bool copy_dst : 1 = false;
-
-    bool sampled : 1 = false;
-
-    bool color_attachment : 1 = false;
-    bool depth_attachment : 1 = false;
-};
-
-enum class IndexType : uint8_t
-{
-    Uint16,
-    Uint32,
-};
-
-size_t size_of(const IndexType& format);
-
-enum class PolygonMode : uint8_t
-{
-    Fill,
-    Line,
-    Point,
-};
-
-enum class CullMode : uint8_t
-{
-    None,
-    Front,
-    Back,
-};
-
-enum class ShaderType : uint8_t
-{
-    Float,
-    Vec2,
-    Vec3,
-    Vec4,
-
-    Uint,
-};
+class Shader;
 
 class Buffer : public Object
 {
@@ -164,16 +33,6 @@ public:
 
 protected:
     size_t m_size;
-};
-
-// TODO: This probably should not be exposed.
-enum class TextureLayout : uint8_t
-{
-    Undefined,
-    DepthStencilAttachment,
-    CopyDst,
-    ShaderReadOnly,
-    DepthStencilReadOnly,
 };
 
 class Texture : public Object
@@ -229,88 +88,6 @@ public:
 protected:
     uint32_t m_vertex_count;
     IndexType m_index_type;
-};
-
-enum class ShaderKind : uint8_t
-{
-    Vertex,
-    Fragment,
-};
-
-enum class MaterialParamKind : uint8_t
-{
-    Texture,
-    UniformBuffer,
-};
-
-enum class Filter : uint8_t
-{
-    Linear,
-    Nearest,
-};
-
-enum class AddressMode : uint8_t
-{
-    Repeat,
-    ClampToEdge,
-};
-
-struct Sampler
-{
-    Filter min_filter = Filter::Linear;
-    Filter mag_filter = Filter::Linear;
-
-    struct
-    {
-        AddressMode u = AddressMode::Repeat;
-        AddressMode v = AddressMode::Repeat;
-        AddressMode w = AddressMode::Repeat;
-    } address_mode = {};
-
-    bool operator<(const Sampler& o) const
-    {
-        if ((uint32_t)min_filter >= (uint32_t)o.min_filter)
-            return false;
-        if ((uint32_t)mag_filter >= (uint32_t)o.mag_filter)
-            return false;
-
-        if ((uint32_t)address_mode.u >= (uint32_t)o.address_mode.u)
-            return false;
-        if ((uint32_t)address_mode.v >= (uint32_t)o.address_mode.v)
-            return false;
-        if ((uint32_t)address_mode.w >= (uint32_t)o.address_mode.w)
-            return false;
-
-        return true;
-    }
-};
-
-union MaterialParam
-{
-    struct
-    {
-        MaterialParamKind kind;
-        ShaderKind shader_kind;
-        const char *name;
-    };
-    struct
-    {
-        MaterialParamKind kind;
-        ShaderKind shader_kind;
-        const char *name;
-        Sampler sampler;
-        TextureDimension dimension;
-    } image_opts;
-
-    static MaterialParam image(ShaderKind shader_kind, const char *name, Sampler sampler, TextureDimension dimension = TextureDimension::D2D)
-    {
-        return {.image_opts = {.kind = MaterialParamKind::Texture, .shader_kind = shader_kind, .name = name, .sampler = sampler, .dimension = dimension}};
-    }
-
-    static MaterialParam uniform_buffer(ShaderKind shader_kind, const char *name)
-    {
-        return {.kind = MaterialParamKind::UniformBuffer, .shader_kind = shader_kind, .name = name};
-    }
 };
 
 struct InstanceLayoutInput
@@ -457,7 +234,7 @@ public:
     virtual Expected<Ref<Mesh>> create_mesh(IndexType index_type, Span<uint8_t> indices, Span<glm::vec3> vertices, Span<glm::vec2> uvs, Span<glm::vec3> normals) = 0;
 
     [[nodiscard]]
-    virtual Expected<Ref<MaterialLayout>> create_material_layout(Ref<Shader> shader, Span<MaterialParam> params = {}, MaterialFlags flags = {}, std::optional<InstanceLayout> instance_layout = std::nullopt, CullMode cull_mode = CullMode::Back, PolygonMode polygon_mode = PolygonMode::Fill) = 0;
+    virtual Expected<Ref<MaterialLayout>> create_material_layout(Ref<Shader> shader, MaterialFlags flags = {}, std::optional<InstanceLayout> instance_layout = std::nullopt, CullMode cull_mode = CullMode::Back, PolygonMode polygon_mode = PolygonMode::Fill) = 0;
 
     [[nodiscard]]
     virtual Expected<Ref<Material>> create_material(MaterialLayout *layout) = 0;

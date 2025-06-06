@@ -3,12 +3,13 @@
 #include "Core/Class.hpp"
 #include "Render/Driver.hpp"
 
+#include <webgpu/webgpu.h>
+#include <webgpu/webgpu_cpp.h>
+
 #ifdef __platform_web
 #include <emscripten.h>
 #include <emscripten/html5_webgpu.h>
 #endif
-
-#include <webgpu/webgpu_cpp.h>
 
 #include <map>
 
@@ -83,7 +84,7 @@ public:
     virtual Expected<Ref<Mesh>> create_mesh(IndexType index_type, Span<uint8_t> indices, Span<glm::vec3> vertices, Span<glm::vec2> uvs, Span<glm::vec3> normals) override;
 
     [[nodiscard]]
-    virtual Expected<Ref<MaterialLayout>> create_material_layout(Ref<Shader> shader, Span<MaterialParam> params = {}, MaterialFlags flags = {}, std::optional<InstanceLayout> instance_layout = std::nullopt, CullMode cull_mode = CullMode::Back, PolygonMode polygon_mode = PolygonMode::Fill) override;
+    virtual Expected<Ref<MaterialLayout>> create_material_layout(Ref<Shader> shader, MaterialFlags flags = {}, std::optional<InstanceLayout> instance_layout = std::nullopt, CullMode cull_mode = CullMode::Back, PolygonMode polygon_mode = PolygonMode::Fill) override;
 
     [[nodiscard]]
     virtual Expected<Ref<Material>> create_material(MaterialLayout *layout) override;
@@ -195,17 +196,14 @@ class MaterialLayoutWebGPU : public MaterialLayout
     CLASS(MaterialLayoutWebGPU, MaterialLayout);
 
 public:
-    MaterialLayoutWebGPU(wgpu::BindGroupLayout layout, Ref<Shader> shader, std::optional<InstanceLayout> instance_layout, std::vector<MaterialParam> params, wgpu::CullMode cull_mode, MaterialFlags flags, wgpu::PipelineLayout pipeline_layout)
-        : layout(layout), shader(shader), instance_layout(instance_layout), params(params), cull_mode(cull_mode), flags(flags), pipeline_layout(pipeline_layout)
+    MaterialLayoutWebGPU(wgpu::BindGroupLayout layout, Ref<Shader> shader, std::optional<InstanceLayout> instance_layout, wgpu::CullMode cull_mode, MaterialFlags flags, wgpu::PipelineLayout pipeline_layout)
+        : layout(layout), shader(shader), instance_layout(instance_layout), cull_mode(cull_mode), flags(flags), pipeline_layout(pipeline_layout)
     {
     }
-
-    std::optional<MaterialParam> get_param(const std::string& name);
 
     wgpu::BindGroupLayout layout;
     Ref<Shader> shader;
     std::optional<InstanceLayout> instance_layout;
-    std::vector<MaterialParam> params;
     wgpu::CullMode cull_mode;
     MaterialFlags flags;
     wgpu::PipelineLayout pipeline_layout;
@@ -224,15 +222,15 @@ public:
 
     union ParamCache
     {
-        MaterialParamKind kind;
+        BindingKind kind;
         struct
         {
-            MaterialParamKind kind;
+            BindingKind kind;
             TextureWebGPU *texture;
         } texture;
         struct
         {
-            MaterialParamKind kind;
+            BindingKind kind;
             BufferWebGPU *buffer;
         } buffer;
     };
