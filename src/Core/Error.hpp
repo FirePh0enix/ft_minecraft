@@ -69,7 +69,7 @@ enum class ErrorKind : uint16_t
 template <>
 struct std::formatter<ErrorKind> : std::formatter<std::string>
 {
-    void format(const ErrorKind& kind, std::format_context& ctx) const
+    auto format(const ErrorKind& kind, std::format_context& ctx) const
     {
         const char *msg;
 
@@ -80,6 +80,9 @@ struct std::formatter<ErrorKind> : std::formatter<std::string>
             break;
         case ErrorKind::OutOfMemory:
             msg = "Out of memory";
+            break;
+        case ErrorKind::FileNotFound:
+            msg = "File not found";
             break;
         case ErrorKind::BadDriver:
             msg = "Bad driver";
@@ -95,14 +98,13 @@ struct std::formatter<ErrorKind> : std::formatter<std::string>
             break;
         }
 
-        std::format_to(ctx.out(), "{}", msg);
+        return std::format_to(ctx.out(), "{}", msg);
     }
 };
 
 #ifdef __has_vulkan
 
-static inline const char *
-string_vk_result(VkResult input_value)
+static inline const char *string_vk_result(VkResult input_value)
 {
     switch (input_value)
     {
@@ -200,10 +202,10 @@ string_vk_result(VkResult input_value)
         return "VK_ERROR_COMPRESSION_EXHAUSTED_EXT";
     case VK_INCOMPATIBLE_SHADER_BINARY_EXT:
         return "VK_INCOMPATIBLE_SHADER_BINARY_EXT";
-    // case VK_PIPELINE_BINARY_MISSING_KHR:
-    //     return "VK_PIPELINE_BINARY_MISSING_KHR";
-    // case VK_ERROR_NOT_ENOUGH_SPACE_KHR:
-    //     return "VK_ERROR_NOT_ENOUGH_SPACE_KHR";
+    case VK_PIPELINE_BINARY_MISSING_KHR:
+        return "VK_PIPELINE_BINARY_MISSING_KHR";
+    case VK_ERROR_NOT_ENOUGH_SPACE_KHR:
+        return "VK_ERROR_NOT_ENOUGH_SPACE_KHR";
     default:
         return "Unhandled VkResult";
     }
@@ -221,20 +223,47 @@ public:
     {
     }
 
-    template <typename T>
-    static std::expected<T, Error> unexpected(ErrorKind kind, StackTrace stacktrace = StackTrace::current())
+#else
+
+    Error(ErrorKind kind)
+        : m_kind(kind)
     {
-        return std::unexpected(Error(kind, stacktrace));
+    }
+
+#endif
+
+    void print(FILE *fp = stderr);
+
+    bool is_other() const
+    {
+        return (uint32_t)m_kind < 0x1000;
+    }
+
+    bool is_graphics() const
+    {
+        return (uint32_t)m_kind >= 0x1000 && (uint32_t)m_kind < 0x2000;
     }
 
 #ifdef __has_vulkan
+
+#ifdef __DEBUG__
+
     Error(vk::Result result, StackTrace stacktrace = StackTrace::current())
+        : m_stacktrace(stacktrace)
     {
         m_kind = kind_from_vk_result(result);
         m_vk_result = result;
-
-        m_stacktrace = stacktrace;
     }
+
+#else
+
+    Error(vk::Result result)
+    {
+        m_kind = kind_from_vk_result(result);
+        m_vk_result = result;
+    }
+
+#endif // __DEBUG__
 
     static ErrorKind kind_from_vk_result(vk::Result result)
     {
@@ -255,85 +284,23 @@ public:
 
         return kind;
     }
-#endif
 
-    void print(FILE *fp = stderr)
-    {
-#ifdef __has_vulkan
-        std::println(fp, "Error: {} ({:x}) (from {})\n", (uint32_t)m_kind, (uint32_t)m_kind, string_vk_result((VkResult)m_vk_result));
-#else
-        std::println(fp, "Error: {}", (uint32_t)m_kind);
-#endif
-
-        m_stacktrace.print(fp);
-    }
+#endif // __has_vulkan
 
 private:
     ErrorKind m_kind;
 
     union
     {
+        int errno_value;
+
 #ifdef __has_vulkan
         vk::Result m_vk_result = vk::Result::eErrorUnknown;
 #endif
     };
 
+#ifdef __DEBUG__
     StackTrace m_stacktrace;
-
-#ifdef __has_vulkan
-    Error(ErrorKind kind, vk::Result result, StackTrace stacktrace = StackTrace::current())
-        : m_kind(kind), m_vk_result(result), m_stacktrace(stacktrace)
-    {
-    }
-
-#endif
-
-#else
-    Error(ErrorKind kind)
-        : m_kind(kind)
-    {
-    }
-
-    template <typename T>
-    static std::expected<T, Error> unexpected(ErrorKind kind)
-    {
-        return std::unexpected(Error(kind));
-    }
-
-#ifdef __has_vulkan
-    Error(vk::Result result)
-    {
-        m_kind = kind_from_vk_result(result);
-    }
-
-    static ErrorKind kind_from_vk_result(vk::Result result)
-    {
-        ErrorKind kind;
-
-        switch (result)
-        {
-        case vk::Result::eErrorOutOfDeviceMemory:
-            kind = ErrorKind::OutOfDeviceMemory;
-            break;
-        case vk::Result::eErrorOutOfHostMemory:
-            kind = ErrorKind::OutOfMemory;
-            break;
-        default:
-            kind = ErrorKind::BadDriver;
-            break;
-        }
-
-        return kind;
-    }
-#endif
-
-    void print(FILE *fp = stderr)
-    {
-        std::println(fp, "Error: {} ({:x})\n", (uint32_t)m_kind, (uint32_t)m_kind);
-    }
-
-private:
-    ErrorKind m_kind;
 #endif
 };
 

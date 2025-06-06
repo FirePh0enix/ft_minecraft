@@ -1086,7 +1086,7 @@ std::expected<vk::DeviceMemory, Error> RenderingDriverVulkan::allocate_memory_fo
     auto memory_type_index_opt = find_memory_type_index(requirements.memoryTypeBits, properties);
 
     if (!memory_type_index_opt.has_value())
-        return Error::unexpected<vk::DeviceMemory>(ErrorKind::OutOfDeviceMemory);
+        return std::unexpected(ErrorKind::OutOfDeviceMemory);
 
     uint32_t memory_type_index = memory_type_index_opt.value();
     auto memory_result = m_device.allocateMemory(vk::MemoryAllocateInfo(requirements.size, memory_type_index));
@@ -1104,7 +1104,7 @@ std::expected<vk::DeviceMemory, Error> RenderingDriverVulkan::allocate_memory_fo
     auto memory_type_index_opt = find_memory_type_index(requirements.memoryTypeBits, properties);
 
     if (!memory_type_index_opt.has_value())
-        return Error::unexpected<vk::DeviceMemory>(ErrorKind::OutOfDeviceMemory);
+        return std::unexpected(ErrorKind::OutOfDeviceMemory);
 
     uint32_t memory_type_index = memory_type_index_opt.value();
     auto memory_result = m_device.allocateMemory(vk::MemoryAllocateInfo(requirements.size, memory_type_index));

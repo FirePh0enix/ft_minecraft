@@ -198,8 +198,16 @@ void Shader::reload_if_needed()
 
     std::println(stderr, "Shader {} was modified and will be reloaded...", m_filename);
 
-    compile_internal(m_filename, m_definitions);
-    m_was_reloaded = true;
+    Expected<void> result = compile_internal(m_filename, m_definitions);
+
+    if (result.has_value())
+    {
+        m_was_reloaded = true;
+    }
+    else
+    {
+        std::println(stderr, "Shader {} failed to compile.", m_filename);
+    }
 }
 
 std::vector<Ref<Shader>> Shader::shaders;
