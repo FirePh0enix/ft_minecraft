@@ -66,6 +66,8 @@ public:
     [[nodiscard]]
     virtual Expected<void> configure_surface(const Window& window, VSync vsync) override;
 
+    virtual void poll() override;
+
     virtual void limit_frames(uint32_t limit) override;
 
     [[nodiscard]]

@@ -204,6 +204,8 @@ public:
     [[nodiscard]]
     virtual Expected<void> configure_surface(const Window& window, VSync vsync) = 0;
 
+    virtual void poll() = 0;
+
     /**
      * Limit the maximum number of frames per seconds. Set to `0` to remove the limit.
      */

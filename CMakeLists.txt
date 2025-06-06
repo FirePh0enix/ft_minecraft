@@ -14,6 +14,7 @@ project(${TARGET_NAME})
 include(FetchContent)
 
 option(BUILD_DOC "Build documentation" OFF)
+option(ENABLE_SHADER_HOTRELOAD "Shader hot reloading" OFF)
 
 list(APPEND SOURCES
     src/Core/Class.cpp
@@ -107,6 +108,10 @@ if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     target_compile_definitions(${TARGET_NAME} PRIVATE __DEBUG__)
 endif()
 
+if (ENABLE_SHADER_HOTRELOAD)
+    target_compile_definitions(${TARGET_NAME} PRIVATE __has_shader_hot_reload)
+endif()
+
 # Use mold when available to speed-up linking
 find_program(MOLD mold)
 if(MOLD AND NOT TARGET_IS_WEB)
@@ -116,7 +121,7 @@ endif()
 if(TARGET_IS_WEB)
     configure_file(${CMAKE_SOURCE_DIR}/web/index.html ${CMAKE_BINARY_DIR}/index.html COPYONLY)
 
-    set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS "-sUSE_WEBGPU=1 -sASYNCIFY=1 -sALLOW_MEMORY_GROWTH=1 --preload-file ../assets --bind")
+    set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS "-sUSE_WEBGPU=1 -sASYNCIFY=1 -sALLOW_MEMORY_GROWTH=1 --preload-file assets --bind")
 
     # Make clangd recognize emscripten paths
     execute_process(COMMAND ${CMAKE_C_COMPILER} --cflags OUTPUT_VARIABLE CLANGD_FLAGS_TO_ADD)
@@ -277,7 +282,7 @@ target_compile_definitions(${TARGET_NAME} PRIVATE IMGUI_IMPL_VULKAN_NO_PROTOTYPE
 if(TARGET_IS_LINUX OR TARGET_IS_APPLE OR TARGET_IS_MSVC)
     target_sources(${TARGET_NAME} PRIVATE ${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp)
 elseif(TARGET_IS_WEB)
-    # target_sources(${TARGET_NAME} PRIVATE ${imgui_SOURCE_DIR}/backends/imgui_impl_wgpu.cpp)
+    target_sources(${TARGET_NAME} PRIVATE ${imgui_SOURCE_DIR}/backends/imgui_impl_wgpu.cpp)
 endif()
 
 # glm
@@ -320,7 +325,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(libbacktrace)
 
 if(TARGET_IS_LINUX OR TARGET_IS_APPLE)
-    set(ENV${CC} ${CMAKE_C_COMPILER})
+    set(ENV{CC} ${CMAKE_C_COMPILER})
     set(ENV{CXX} ${CMAKE_CXX_COMPILER})
 
     # Configure
@@ -372,6 +377,6 @@ if (DOXYGEN_FOUND AND BUILD_DOC)
         VERBATIM )
 endif()
 
-# foreach(RESOURCE IN LISTS RESOURCES_COPY)
-#     configure_file(${CMAKE_SOURCE_DIR}/${RESOURCE} ${CMAKE_BINARY_DIR}/${RESOURCE} COPYONLY)
-# endforeach()
+foreach(RESOURCE IN LISTS RESOURCES_COPY)
+    configure_file(${CMAKE_SOURCE_DIR}/${RESOURCE} ${CMAKE_BINARY_DIR}/${RESOURCE} COPYONLY)
+endforeach()

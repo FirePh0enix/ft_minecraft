@@ -75,7 +75,7 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     Ref<Texture> texture_array = texture_array_result.value();
 
     {
-        SDL_IOStream *texture_stream = SDL_IOFromFile("../assets/textures/Dirt.png", "r");
+        SDL_IOStream *texture_stream = SDL_IOFromFile("assets/textures/Dirt.png", "r");
         ERR_COND(texture_stream == nullptr, "cannot open texture");
 
         SDL_Surface *texture_surface = IMG_LoadPNG_IO(texture_stream);
@@ -89,7 +89,7 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
         SDL_CloseIO(texture_stream);
     }
 
-    auto shader_result = Shader::compile("../assets/shaders/voxel.wgsl", {});
+    auto shader_result = Shader::compile("assets/shaders/voxel.wgsl", {});
     if (!shader_result.has_value())
     {
         auto error = std::expected<void, Error>(std::unexpected(ErrorKind::ShaderCompilationFailed));
@@ -127,7 +127,7 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
 
     Font::init_library();
 
-    auto font_result = Font::create("../assets/fonts/Anonymous.ttf", 20);
+    auto font_result = Font::create("assets/fonts/Anonymous.ttf", 20);
     EXPECT(font_result);
     Ref<Font> font = font_result.value();
 
@@ -195,6 +195,8 @@ static void tick()
 
         Input::get().process_event(*window, event.value());
     }
+
+    RenderingDriver::get()->poll();
 
     camera->tick();
 

@@ -321,6 +321,10 @@ Expected<void> RenderingDriverWebGPU::configure_surface(const Window& window, VS
     return {};
 }
 
+void RenderingDriverWebGPU::poll()
+{
+}
+
 void RenderingDriverWebGPU::limit_frames(uint32_t limit)
 {
     (void)limit;
