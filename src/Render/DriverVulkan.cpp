@@ -1,9 +1,8 @@
 #include "Render/DriverVulkan.hpp"
 #include "Core/StackVector.hpp"
-#include "vulkan/vulkan_structs.hpp"
+#include "Render/Shader.hpp"
 
 #include <chrono>
-#include <fstream>
 #include <print>
 
 #include <SDL3/SDL_vulkan.h>
@@ -161,13 +160,13 @@ static vk::SamplerAddressMode convert_address_mode(AddressMode address_mode)
     return vk::SamplerAddressMode::eRepeat;
 }
 
-static vk::ShaderStageFlagBits convert_shader_stage(ShaderKind kind)
+static vk::ShaderStageFlagBits convert_shader_stage(ShaderStageKind kind)
 {
     switch (kind)
     {
-    case ShaderKind::Vertex:
+    case ShaderStageKind::Vertex:
         return vk::ShaderStageFlagBits::eVertex;
-    case ShaderKind::Fragment:
+    case ShaderStageKind::Fragment:
         return vk::ShaderStageFlagBits::eFragment;
     }
 
@@ -731,26 +730,34 @@ Expected<Ref<Mesh>> RenderingDriverVulkan::create_mesh(IndexType index_type, Spa
     return make_ref<MeshVulkan>(index_type, convert_index_type(index_type), vertex_count, index_buffer, vertex_buffer, normal_buffer, uv_buffer).cast_to<Mesh>();
 }
 
-Expected<Ref<MaterialLayout>> RenderingDriverVulkan::create_material_layout(Ref<Shader> shader, Span<MaterialParam> params, MaterialFlags flags, std::optional<InstanceLayout> instance_layout, CullMode cull_mode, PolygonMode polygon_mode)
+Expected<Ref<MaterialLayout>> RenderingDriverVulkan::create_material_layout(Ref<Shader> shader, MaterialFlags flags, std::optional<InstanceLayout> instance_layout, CullMode cull_mode, PolygonMode polygon_mode)
 {
     std::vector<vk::DescriptorSetLayoutBinding> bindings;
-    bindings.reserve(params.size());
+    bindings.reserve(shader->get_bindings().size());
 
-    uint32_t binding = 0;
-
-    for (const auto& param : params)
+    for (const auto& binding_pair : shader->get_bindings())
     {
-        switch (param.kind)
+        const Binding& binding = binding_pair.second;
+
+        // TODO: Support multiple groups ?
+        if (binding.group != 0)
         {
-        case MaterialParamKind::Texture:
+            continue;
+        }
+
+        switch (binding.kind)
         {
-            bindings.push_back(vk::DescriptorSetLayoutBinding(binding++, vk::DescriptorType::eSampledImage, 1, convert_shader_stage(param.shader_kind), nullptr));
-            bindings.push_back(vk::DescriptorSetLayoutBinding(binding++, vk::DescriptorType::eSampler, 1, convert_shader_stage(param.shader_kind), nullptr));
+        case BindingKind::Texture:
+        {
+            // FIXME: This assume that a texture sampler is 1 binding after the texture.
+
+            bindings.push_back(vk::DescriptorSetLayoutBinding(binding.binding, vk::DescriptorType::eSampledImage, 1, convert_shader_stage(binding.shader_stage), nullptr));
+            bindings.push_back(vk::DescriptorSetLayoutBinding(binding.binding + 1, vk::DescriptorType::eSampler, 1, convert_shader_stage(binding.shader_stage), nullptr));
         }
         break;
-        case MaterialParamKind::UniformBuffer:
+        case BindingKind::UniformBuffer:
         {
-            bindings.push_back(vk::DescriptorSetLayoutBinding(binding++, vk::DescriptorType::eUniformBuffer, 1, convert_shader_stage(param.shader_kind), nullptr));
+            bindings.push_back(vk::DescriptorSetLayoutBinding(binding.binding, vk::DescriptorType::eUniformBuffer, 1, convert_shader_stage(binding.shader_stage), nullptr));
         }
         break;
         }
@@ -759,7 +766,7 @@ Expected<Ref<MaterialLayout>> RenderingDriverVulkan::create_material_layout(Ref<
     auto layout_result = RenderingDriverVulkan::get()->get_device().createDescriptorSetLayout(vk::DescriptorSetLayoutCreateInfo({}, bindings));
     YEET_RESULT(layout_result);
 
-    auto pool_result = DescriptorPool::create(layout_result.value, params);
+    auto pool_result = DescriptorPool::create(layout_result.value, shader);
     YEET(pool_result);
 
     std::array<vk::PushConstantRange, 1> push_constant_ranges{
@@ -770,7 +777,7 @@ Expected<Ref<MaterialLayout>> RenderingDriverVulkan::create_material_layout(Ref<
     auto pipeline_layout_result = RenderingDriverVulkan::get()->get_device().createPipelineLayout(vk::PipelineLayoutCreateInfo({}, descriptor_set_layouts, push_constant_ranges));
     YEET_RESULT(pipeline_layout_result);
 
-    return make_ref<MaterialLayoutVulkan>(layout_result.value, pool_result.value(), shader, instance_layout, params.to_vector(), convert_polygon_mode(polygon_mode), convert_cull_mode(cull_mode), flags, pipeline_layout_result.value).cast_to<MaterialLayout>();
+    return make_ref<MaterialLayoutVulkan>(layout_result.value, pool_result.value(), shader, instance_layout, convert_polygon_mode(polygon_mode), convert_cull_mode(cull_mode), flags, pipeline_layout_result.value).cast_to<MaterialLayout>();
 }
 
 Expected<Ref<Material>> RenderingDriverVulkan::create_material(MaterialLayout *layout)
@@ -1337,19 +1344,19 @@ void TextureVulkan::transition_layout(TextureLayout new_layout)
     m_layout = new_layout;
 }
 
-Expected<DescriptorPool> DescriptorPool::create(vk::DescriptorSetLayout layout, Span<MaterialParam> params)
+Expected<DescriptorPool> DescriptorPool::create(vk::DescriptorSetLayout layout, Ref<Shader> shader)
 {
     uint32_t image_sampler_count = 0;
     uint32_t uniform_buffer_count = 0;
 
-    for (const auto& param : params)
+    for (const auto& binding : shader->get_bindings())
     {
-        switch (param.kind)
+        switch (binding.second.kind)
         {
-        case MaterialParamKind::Texture:
+        case BindingKind::Texture:
             image_sampler_count += 1;
             break;
-        case MaterialParamKind::UniformBuffer:
+        case BindingKind::UniformBuffer:
             uniform_buffer_count += 1;
             break;
         }
@@ -1397,50 +1404,25 @@ Expected<void> DescriptorPool::add_pool()
     return {};
 }
 
-std::optional<uint32_t> MaterialLayoutVulkan::get_param_binding(const std::string& name)
-{
-    uint32_t binding = 0;
-
-    for (const auto& param : m_params)
-    {
-        if (!std::strcmp(name.c_str(), param.name))
-            return binding;
-
-        binding += param.kind == MaterialParamKind::Texture ? 2 : 1; // sampler + texture
-    }
-
-    return std::nullopt;
-}
-
-std::optional<MaterialParam> MaterialLayoutVulkan::get_param(const std::string& name)
-{
-    for (const auto& param : m_params)
-    {
-        if (!std::strcmp(name.c_str(), param.name))
-            return param;
-    }
-
-    return std::nullopt;
-}
-
 void MaterialVulkan::set_param(const std::string& name, const Ref<Texture>& texture)
 {
     Ref<MaterialLayoutVulkan> layout_vk = m_layout.cast_to<MaterialLayoutVulkan>();
 
-    std::optional<uint32_t> binding_result = layout_vk->get_param_binding(name);
-    std::optional<MaterialParam> param = layout_vk->get_param(name);
-    ERR_COND_V(!binding_result.has_value() || !param.has_value(), "Invalid parameter name `%s`", name.c_str());
+    std::optional<Binding> binding_result = layout_vk->m_shader->get_binding(name);
+    ERR_COND_VR(!binding_result.has_value(), "Invalid parameter name `{}`", name);
+
+    Binding binding = binding_result.value();
 
     Ref<TextureVulkan> texture_vk = texture.cast_to<TextureVulkan>();
 
-    auto sampler_result = RenderingDriverVulkan::get()->get_sampler_cache().get_or_create(param->image_opts.sampler);
+    auto sampler_result = RenderingDriverVulkan::get()->get_sampler_cache().get_or_create(layout_vk->m_shader->get_sampler(name));
     ERR_COND_V(!sampler_result.has_value(), "Failed to create sampler for parameter `%s`", name.c_str());
 
     vk::DescriptorImageInfo image_info(nullptr, texture_vk->image_view, vk::ImageLayout::eShaderReadOnlyOptimal);
-    vk::WriteDescriptorSet write_image(descriptor_set, binding_result.value(), 0, 1, vk::DescriptorType::eSampledImage, &image_info, nullptr, nullptr);
+    vk::WriteDescriptorSet write_image(descriptor_set, binding.binding, 0, 1, vk::DescriptorType::eSampledImage, &image_info, nullptr, nullptr);
 
     vk::DescriptorImageInfo sampler_info(sampler_result.value(), nullptr, vk::ImageLayout::eShaderReadOnlyOptimal);
-    vk::WriteDescriptorSet write_sampler(descriptor_set, binding_result.value() + 1, 0, 1, vk::DescriptorType::eSampler, &sampler_info, nullptr, nullptr);
+    vk::WriteDescriptorSet write_sampler(descriptor_set, binding.binding + 1, 0, 1, vk::DescriptorType::eSampler, &sampler_info, nullptr, nullptr);
 
     RenderingDriverVulkan::get()->get_device().updateDescriptorSets({write_image, write_sampler}, {});
 }
@@ -1449,13 +1431,15 @@ void MaterialVulkan::set_param(const std::string& name, const Ref<Buffer>& buffe
 {
     Ref<MaterialLayoutVulkan> layout_vk = m_layout.cast_to<MaterialLayoutVulkan>();
 
-    std::optional<uint32_t> binding_result = layout_vk->get_param_binding(name);
-    ERR_COND_V(!binding_result.has_value(), "Invalid parameter name `%s`", name.c_str());
+    std::optional<Binding> binding_result = layout_vk->m_shader->get_binding(name);
+    ERR_COND_VR(!binding_result.has_value(), "Invalid parameter name `{}`", name);
+
+    Binding binding = binding_result.value();
 
     Ref<BufferVulkan> buffer_vk = buffer.cast_to<BufferVulkan>();
 
     vk::DescriptorBufferInfo buffer_info(buffer_vk->buffer, 0, buffer_vk->size());
-    vk::WriteDescriptorSet write_buffer(descriptor_set, binding_result.value(), 0, 1, vk::DescriptorType::eUniformBuffer, nullptr, &buffer_info, nullptr);
+    vk::WriteDescriptorSet write_buffer(descriptor_set, binding.binding, 0, 1, vk::DescriptorType::eUniformBuffer, nullptr, &buffer_info, nullptr);
 
     RenderingDriverVulkan::get()->get_device().updateDescriptorSets({write_buffer}, {});
 }

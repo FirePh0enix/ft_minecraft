@@ -7,7 +7,10 @@
 #include <src/tint/lang/spirv/writer/helpers/generate_bindings.h>
 #include <src/tint/lang/spirv/writer/printer/printer.h>
 #include <src/tint/lang/spirv/writer/raise/raise.h>
-#include <tint/tint.h>
+
+#include <src/tint/lang/core/ir/var.h>
+#include <src/tint/lang/core/type/pointer.h>
+#include <src/tint/lang/wgsl/ast/module.h>
 #endif
 
 static bool contains(const std::vector<std::string>& definitions, const std::string& definition)
@@ -136,6 +139,8 @@ Shader::Expected<Ref<Shader>> Shader::compile(const std::string& filename, const
         return std::unexpected(ErrorKind::Compilation);
     }
 
+    shader->fill_info(ir.Get());
+
     tint::spirv::writer::Options gen_options;
     gen_options.bindings = tint::spirv::writer::GenerateBindings(ir.Get());
 
@@ -160,3 +165,121 @@ Shader::Expected<Ref<Shader>> Shader::compile(const std::string& filename, const
 
     return shader;
 }
+
+#ifndef __platform_web
+
+static TextureDimension convert_dimension(tint::core::type::TextureDimension dim)
+{
+    switch (dim)
+    {
+    case tint::core::type::TextureDimension::k1d:
+        return TextureDimension::D1D;
+    case tint::core::type::TextureDimension::k2d:
+        return TextureDimension::D2D;
+    case tint::core::type::TextureDimension::k2dArray:
+        return TextureDimension::D2DArray;
+    case tint::core::type::TextureDimension::k3d:
+        return TextureDimension::D3D;
+    case tint::core::type::TextureDimension::kCube:
+        return TextureDimension::Cube;
+    case tint::core::type::TextureDimension::kCubeArray:
+        return TextureDimension::CubeArray;
+    case tint::core::type::TextureDimension::kNone:
+        return {};
+    }
+
+    return {};
+}
+
+void Shader::fill_info(const tint::core::ir::Module& ir)
+{
+    std::vector<const tint::core::ir::Function *> stages;
+
+    for (const auto& func : ir.functions)
+    {
+        if (func->IsEntryPoint())
+        {
+            stages.push_back(func);
+        }
+    }
+
+    for (auto *inst : *ir.root_block)
+    {
+        auto *var = inst->As<tint::core::ir::Var>();
+        if (!var)
+        {
+            continue;
+        }
+
+        if (auto bp = var->BindingPoint())
+        {
+            auto *ptr = var->Result()->Type()->As<tint::core::type::Pointer>();
+            auto *ty = ptr->UnwrapPtr();
+
+            const auto& symbol = ir.NameOf(inst);
+            const std::string name = symbol.Name();
+
+            Binding binding;
+
+            if (ty->Is<tint::core::type::Texture>())
+            {
+                const tint::core::type::Texture *texture = ty->As<tint::core::type::Texture>();
+                binding = Binding{.kind = BindingKind::Texture, .group = bp->group, .binding = bp->binding, .dimension = convert_dimension(texture->Dim())};
+            }
+            else
+            {
+                switch (ptr->AddressSpace())
+                {
+                case tint::core::AddressSpace::kUniform:
+                    binding = Binding{.kind = BindingKind::UniformBuffer, .group = bp->group, .binding = bp->binding, .dimension = {}};
+                    break;
+                case tint::core::AddressSpace::kStorage:
+                    continue;
+                case tint::core::AddressSpace::kHandle:
+                case tint::core::AddressSpace::kUndefined:
+                case tint::core::AddressSpace::kPixelLocal:
+                case tint::core::AddressSpace::kPrivate:
+                case tint::core::AddressSpace::kImmediate:
+                case tint::core::AddressSpace::kIn:
+                case tint::core::AddressSpace::kOut:
+                case tint::core::AddressSpace::kFunction:
+                case tint::core::AddressSpace::kWorkgroup:
+                    continue;
+                }
+            }
+
+            std::optional<ShaderStageKind> stage = stage_of(ir, inst);
+            binding.shader_stage = stage.value();
+
+            m_bindings[name] = binding;
+        }
+    }
+}
+
+std::optional<ShaderStageKind> Shader::stage_of(const tint::core::ir::Module& ir, const tint::core::ir::Instruction *inst)
+{
+    for (const auto& func : ir.functions)
+    {
+        if (!func->IsEntryPoint())
+        {
+            continue;
+        }
+
+        for (const auto& func_inst : *func->Block())
+        {
+            if (inst->Result()->HasUsage(func_inst, 0))
+            {
+                if (func->IsVertex())
+                    return ShaderStageKind::Vertex;
+                else if (func->IsFragment())
+                    return ShaderStageKind::Fragment;
+                else if (func->IsCompute())
+                    return ShaderStageKind::Compute;
+            }
+        }
+    }
+
+    return std::nullopt;
+}
+
+#endif

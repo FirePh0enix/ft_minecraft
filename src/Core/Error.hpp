@@ -85,6 +85,9 @@ struct std::formatter<ErrorKind> : std::formatter<std::string>
         case ErrorKind::NoSuitableDevice:
             msg = "No suitable device";
             break;
+        case ErrorKind::ShaderCompilationFailed:
+            msg = "Shader compilation failed";
+            break;
         }
 
         std::format_to(ctx.out(), "{}", msg);
@@ -253,6 +256,8 @@ public:
     {
 #ifdef __has_vulkan
         std::println(fp, "Error: {} ({:x}) (from {})\n", (uint32_t)m_kind, (uint32_t)m_kind, string_vk_result((VkResult)m_vk_result));
+#else
+        std::println(fp, "Error: {}", (uint32_t)m_kind);
 #endif
 
         m_stacktrace.print(fp);

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 
 # Build for the web:
-# - Run cmake with `emcmake cmake .. -DWEB=1`
+# - Run cmake with `emcmake cmake -B build`
 
 set(VERSION_MAJOR 1)
 set(VERSION_MINOR 0)
@@ -21,6 +21,7 @@ list(APPEND SOURCES
     src/Render/Driver.cpp
     src/Render/Graph.cpp
     src/Render/Shader.cpp
+    src/Render/WGSLParser.cpp
     src/Scene/Entity.cpp
     src/Scene/Scene.cpp
     src/Camera.cpp
@@ -62,7 +63,7 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Debug")
 endif()
 
-if(WEB)
+if(TARGET_IS_WEB)
     list(APPEND SOURCES
         src/Render/DriverWebGPU.cpp
         src/Emscripten.cpp
@@ -115,7 +116,7 @@ endif()
 if(TARGET_IS_WEB)
     configure_file(${CMAKE_SOURCE_DIR}/web/index.html ${CMAKE_BINARY_DIR}/index.html COPYONLY)
 
-    set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS "-sUSE_WEBGPU=1 -SUSE_SDL=2 -SsASYNCIFY=1 -sALLOW_MEMORY_GROWTH=1 --preload-file ../assets --bind") # --emrun
+    set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS "-sUSE_WEBGPU=1 -sASYNCIFY=1 -sALLOW_MEMORY_GROWTH=1 --preload-file ../assets --bind")
 
     # Make clangd recognize emscripten paths
     execute_process(COMMAND ${CMAKE_C_COMPILER} --cflags OUTPUT_VARIABLE CLANGD_FLAGS_TO_ADD)
@@ -153,11 +154,12 @@ if(TARGET_IS_LINUX OR TARGET_IS_APPLE OR TARGET_IS_MSVC)
     target_link_libraries(${TARGET_NAME} PRIVATE Vulkan::Headers)
 endif()
 
+# tint (Dawn's shader compiler)
 if(NOT TARGET_IS_WEB)
-    # Compile against `tint` only on desktop, on web we give WGSL shaders directly to WebGPU.
-
     set(DAWN_BUILD_SAMPLES OFF)
     set(DAWN_BUILD_TESTS OFF)
+
+    set(DAWN_USE_GLFW OFF)
 
     set(DAWN_ENABLE_D3D11 OFF)
     set(DAWN_ENABLE_D3D12 OFF)
@@ -167,16 +169,17 @@ if(NOT TARGET_IS_WEB)
     set(DAWN_ENABLE_OPENGLES OFF)
     set(DAWN_ENABLE_VULKAN OFF)
 
-    set(DAWN_USE_GLFW OFF)
-
     set(TINT_BUILD_TESTS OFF)
 
     set(TINT_BUILD_SPV_READER OFF)
     set(TINT_BUILD_WGSL_READER ON)
+
     set(TINT_BUILD_GLSL_WRITER OFF)
     set(TINT_BUILD_HLSL_WRITER OFF)
     set(TINT_BUILD_MSL_WRITER OFF)
     set(TINT_BUILD_SPV_WRITER ON)
+
+    set(TINT_BUILD_GLSL_VALIDATOR OFF)
 
     # This disable automatic validation and allow us to perform our own and set capabilities.
     set(TINT_ENABLE_IR_VALIDATION OFF)
@@ -188,6 +191,10 @@ if(NOT TARGET_IS_WEB)
         GIT_TAG e430bb9b0833137c4365fee39dfa930657b408fc
     )
     FetchContent_MakeAvailable(abseil)
+
+    # set(DAWN_THIRD_PARTY_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+    # set(DAWN_EMDAWNWEBGPU_DIR ${CMAKE_BINARY_DIR}/_deps/dawn-src/third_party/emdawnwebgpu)
+    set(DAWN_ABSEIL_DIR ${abseil_SOURCE_DIR})
 
     # SPIRV-Headers
     FetchContent_Declare(
@@ -213,8 +220,6 @@ if(NOT TARGET_IS_WEB)
     )
     FetchContent_MakeAvailable(glslang)
 
-    set(DAWN_THIRD_PARTY_DIR ${CMAKE_CURRENT_SOURCE_DIR})
-    set(DAWN_ABSEIL_DIR ${abseil_SOURCE_DIR})
     set(DAWN_SPIRV_TOOLS_DIR ${spirvtools_SOURCE_DIR})
     set(DAWN_SPIRV_HEADERS_DIR ${spirvheaders_SOURCE_DIR})
     set(DAWN_GLSLANG_DIR ${glslang_SOURCE_DIR})
@@ -222,7 +227,9 @@ if(NOT TARGET_IS_WEB)
     FetchContent_Declare(
         dawn
         GIT_REPOSITORY https://dawn.googlesource.com/dawn
-        GIT_TAG 40dca384e6e6ad6afe3ed859017733455ee0b3d7
+        GIT_TAG 4d33621217632e25d8e88e2f0dd2544596d129ac
+        # This line will prevent cmake from fetching submodules, instead we fetch only the required dependencies
+        # with FetchContent.
         GIT_SUBMODULES ""
     )
     FetchContent_MakeAvailable(dawn)
@@ -270,7 +277,7 @@ target_compile_definitions(${TARGET_NAME} PRIVATE IMGUI_IMPL_VULKAN_NO_PROTOTYPE
 if(TARGET_IS_LINUX OR TARGET_IS_APPLE OR TARGET_IS_MSVC)
     target_sources(${TARGET_NAME} PRIVATE ${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp)
 elseif(TARGET_IS_WEB)
-    target_sources(${TARGET_NAME} PRIVATE ${imgui_SOURCE_DIR}/backends/imgui_impl_wgpu.cpp)
+    # target_sources(${TARGET_NAME} PRIVATE ${imgui_SOURCE_DIR}/backends/imgui_impl_wgpu.cpp)
 endif()
 
 # glm
@@ -330,13 +337,6 @@ if(TARGET_IS_LINUX OR TARGET_IS_APPLE)
         WORKING_DIRECTORY ${libbacktrace_BINARY_DIR}
     )
 
-    # Install
-    # execute_process(
-    #     OUTPUT_QUIET
-    #     COMMAND make install
-    #     WORKING_DIRECTORY ${libbacktrace_BINARY_DIR}
-    # )
-
     target_link_directories(${TARGET_NAME} PRIVATE ${libbacktrace_BINARY_DIR}/.libs)
     target_link_libraries(${TARGET_NAME} PRIVATE backtrace)
     target_include_directories(${TARGET_NAME} PRIVATE ${libbacktrace_SOURCE_DIR})
@@ -372,6 +372,6 @@ if (DOXYGEN_FOUND AND BUILD_DOC)
         VERBATIM )
 endif()
 
-foreach(RESOURCE IN LISTS RESOURCE_COPY)
-    configure_file(${CMAKE_SOURCE_DIR}/${RESOURCE} ${CMAKE_BINARY_DIR}/${RESOURCE} COPYONLY)
-endforeach()
+# foreach(RESOURCE IN LISTS RESOURCES_COPY)
+#     configure_file(${CMAKE_SOURCE_DIR}/${RESOURCE} ${CMAKE_BINARY_DIR}/${RESOURCE} COPYONLY)
+# endforeach()
