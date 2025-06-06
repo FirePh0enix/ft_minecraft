@@ -168,6 +168,8 @@ static vk::ShaderStageFlagBits convert_shader_stage(ShaderStageKind kind)
         return vk::ShaderStageFlagBits::eVertex;
     case ShaderStageKind::Fragment:
         return vk::ShaderStageFlagBits::eFragment;
+    case ShaderStageKind::Compute:
+        return vk::ShaderStageFlagBits::eCompute;
     }
 
     return {};
@@ -215,10 +217,32 @@ Expected<vk::Pipeline> PipelineCache::get_or_create(Material *material, vk::Rend
 {
     auto iter = m_pipelines.find({.material = material, .render_pass = render_pass});
 
+#ifdef __has_shader_hot_reload
+    if (iter != m_pipelines.end())
+    {
+        // TODO:
+        // - What if multiple material layouts are using the same shader ?
+
+        Ref<Shader>& shader = iter->first.material->get_layout().cast_to<MaterialLayoutVulkan>()->m_shader;
+
+        if (shader->was_reloaded())
+        {
+            shader->set_was_reloaded(false);
+
+            m_pipelines.erase({.material = material, .render_pass = render_pass});
+            return get_or_create(material, render_pass);
+        }
+        else
+        {
+            return iter->second;
+        }
+    }
+#else
     if (iter != m_pipelines.end())
     {
         return iter->second;
     }
+#endif
     else
     {
         MaterialVulkan *material_vk = (MaterialVulkan *)material;
@@ -327,7 +351,7 @@ std::expected<void, Error> RenderingDriverVulkan::initialize(const Window& windo
 
     if (!SDL_Vulkan_CreateSurface(window.get_window_ptr(), m_instance, nullptr, &surface))
         return std::unexpected(ErrorKind::BadDriver);
-    m_surface = surface;
+    m_surface = vk::SurfaceKHR(surface);
 
     // Select the best physical device
     // vk::PhysicalDeviceFeatures required_features = {};
@@ -584,6 +608,16 @@ void RenderingDriverVulkan::destroy_swapchain()
 
         m_device.destroySwapchainKHR(m_swapchain);
     }
+}
+
+void RenderingDriverVulkan::poll()
+{
+#ifdef __has_shader_hot_reload
+    for (auto& shader : Shader::shaders)
+    {
+        shader->reload_if_needed();
+    }
+#endif
 }
 
 void RenderingDriverVulkan::limit_frames(uint32_t limit)

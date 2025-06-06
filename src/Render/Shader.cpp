@@ -1,5 +1,6 @@
 #include "Render/Shader.hpp"
 
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 
@@ -75,7 +76,20 @@ Shader::Expected<std::string> preprocess(std::ifstream& ifs, const std::vector<s
     return output;
 }
 
-Shader::Expected<Ref<Shader>> Shader::compile(const std::string& filename, const std::initializer_list<std::string>& definitions_list)
+Shader::Expected<Ref<Shader>> Shader::compile(const std::string& filename, const std::vector<std::string>& definitions_list)
+{
+    Ref<Shader> shader = make_ref<Shader>();
+    auto result = shader->compile_internal(filename, definitions_list);
+    YEET(result);
+
+#ifdef __has_shader_hot_reload
+    shaders.push_back(shader);
+#endif
+
+    return shader;
+}
+
+Shader::Expected<void> Shader::compile_internal(const std::string& filename, const std::vector<std::string>& definitions_list)
 {
     std::ifstream file_stream(filename);
 
@@ -99,10 +113,15 @@ Shader::Expected<Ref<Shader>> Shader::compile(const std::string& filename, const
     }
 
     std::string& output = output_result.value();
-    Ref<Shader> shader = make_ref<Shader>();
+
+#ifdef __has_shader_hot_reload
+    m_filename = filename;
+    m_file_last_write = std::filesystem::last_write_time(std::filesystem::path(filename));
+    m_definitions = definitions;
+#endif
 
 #ifdef __platform_web
-    shader->m_code = output;
+    m_code = output;
 #else
     tint::Source::File file(filename, output);
 
@@ -139,7 +158,7 @@ Shader::Expected<Ref<Shader>> Shader::compile(const std::string& filename, const
         return std::unexpected(ErrorKind::Compilation);
     }
 
-    shader->fill_info(ir.Get());
+    fill_info(ir.Get());
 
     tint::spirv::writer::Options gen_options;
     gen_options.bindings = tint::spirv::writer::GenerateBindings(ir.Get());
@@ -160,11 +179,32 @@ Shader::Expected<Ref<Shader>> Shader::compile(const std::string& filename, const
         return std::unexpected(ErrorKind::Compilation);
     }
 
-    shader->m_code = result->spirv;
+    m_code = result->spirv;
 #endif // __platform_web
 
-    return shader;
+    return {};
 }
+
+#ifdef __has_shader_hot_reload
+
+void Shader::reload_if_needed()
+{
+    auto time_point = std::filesystem::last_write_time(std::filesystem::path(m_filename));
+
+    if (time_point <= m_file_last_write)
+    {
+        return;
+    }
+
+    std::println(stderr, "Shader {} was modified and will be reloaded...", m_filename);
+
+    compile_internal(m_filename, m_definitions);
+    m_was_reloaded = true;
+}
+
+std::vector<Ref<Shader>> Shader::shaders;
+
+#endif
 
 #ifndef __platform_web
 

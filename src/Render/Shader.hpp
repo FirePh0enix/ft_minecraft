@@ -27,7 +27,7 @@ public:
     template <typename T>
     using Expected = std::expected<T, ErrorKind>;
 
-    static Expected<Ref<Shader>> compile(const std::string& filename, const std::initializer_list<std::string>& definitions);
+    static Expected<Ref<Shader>> compile(const std::string& filename, const std::vector<std::string>& definitions);
 
     std::optional<Binding> get_binding(const std::string& name) const
     {
@@ -66,6 +66,22 @@ public:
         m_samplers[name] = sampler;
     }
 
+#ifdef __has_shader_hot_reload
+    void reload_if_needed();
+
+    inline bool was_reloaded() const
+    {
+        return m_was_reloaded;
+    }
+
+    inline void set_was_reloaded(bool v)
+    {
+        m_was_reloaded = v;
+    }
+
+    static std::vector<Ref<Shader>> shaders;
+#endif
+
 #ifdef __platform_web
     inline std::string get_code()
     {
@@ -82,6 +98,8 @@ private:
     std::map<std::string, Binding> m_bindings;
     std::map<std::string, Sampler> m_samplers;
 
+    Shader::Expected<void> compile_internal(const std::string& filename, const std::vector<std::string>& definitions);
+
 #ifdef __platform_web
     std::string m_code;
 #else
@@ -89,5 +107,12 @@ private:
 
     void fill_info(const tint::core::ir::Module& ir);
     std::optional<ShaderStageKind> stage_of(const tint::core::ir::Module& ir, const tint::core::ir::Instruction *inst);
+#endif
+
+#ifdef __has_shader_hot_reload
+    std::string m_filename;
+    std::chrono::time_point<std::chrono::file_clock> m_file_last_write;
+    std::vector<std::string> m_definitions;
+    bool m_was_reloaded = false;
 #endif
 };

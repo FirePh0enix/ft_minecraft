@@ -18,7 +18,7 @@ Expected<Ref<Font>> Font::create(const std::string& font_name, uint32_t font_siz
 
     if (FT_New_Face(g_lib, font_name.c_str(), 0, &face) != 0)
     {
-        return std::unexpected(ErrorKind::Unknown);
+        return std::unexpected(ErrorKind::FileNotFound);
     }
 
     FT_Set_Pixel_Sizes(face, 0, font_size);
@@ -152,7 +152,7 @@ Expected<void> Font::init_library()
                                                  InstanceLayoutInput(ShaderType::Vec2, sizeof(float) * 7)};
     InstanceLayout instance_layout(inputs, sizeof(Instance));
 
-    auto shader_result = Shader::compile("../assets/shaders/font.wgsl", {});
+    auto shader_result = Shader::compile("assets/shaders/font.wgsl", {});
     if (!shader_result.has_value())
         return std::unexpected(ErrorKind::ShaderCompilationFailed);
 

@@ -41,6 +41,11 @@ enum class ErrorKind : uint16_t
     OutOfMemory = 0x1,
 
     /**
+     * @brief A file is missing.
+     */
+    FileNotFound = 0x2,
+
+    /**
      * @brief A generic error to indicate something went wrong while talking to the GPU.
      */
     BadDriver = 0x1000,
@@ -266,13 +271,18 @@ public:
 private:
     ErrorKind m_kind;
 
+    union
+    {
+#ifdef __has_vulkan
+        vk::Result m_vk_result = vk::Result::eErrorUnknown;
+#endif
+    };
+
     StackTrace m_stacktrace;
 
 #ifdef __has_vulkan
-    vk::Result m_vk_result = vk::Result::eErrorUnknown;
-
     Error(ErrorKind kind, vk::Result result, StackTrace stacktrace = StackTrace::current())
-        : m_kind(kind), m_stacktrace(stacktrace), m_vk_result(result)
+        : m_kind(kind), m_vk_result(result), m_stacktrace(stacktrace)
     {
     }
 
