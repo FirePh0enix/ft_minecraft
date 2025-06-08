@@ -1,9 +1,10 @@
 #pragma once
 
+#include "Core/Error.hpp"
+
 /**
  * @brief A `std::vector` stored on the stack backed by an `std::array`.
  */
-#include "Core/Error.hpp"
 template <typename T, const size_t capacity>
 class StackVector
 {

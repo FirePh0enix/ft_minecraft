@@ -28,6 +28,7 @@ class Entity : public Object
 
 public:
     Entity();
+    virtual ~Entity() {}
 
     inline EntityId get_id() const
     {
@@ -44,7 +45,7 @@ public:
     {
         for (const auto& comp : m_components)
         {
-            if (comp->is_instance_of(T::get_static_class_name()))
+            if (comp->is<T>())
                 return comp.cast_to<T>();
         }
         return nullptr;

@@ -43,6 +43,13 @@ public:
     {
     }
 
+    static Ref from_pointers_increment(T *value, ReferenceType *references)
+    {
+        Ref ref(value, references);
+        ref.ref();
+        return std::move(ref);
+    }
+
     ~Ref()
     {
         if (!is_null())
@@ -103,13 +110,12 @@ public:
         return !is_null();
     }
 
-    // FIXME: Not really safe...
     template <typename Subclass>
     inline Ref<Subclass> cast_to() const
     {
-        // if (T::template is_instance_of<Subclass>() || Subclass::is_instance_of(m_value->get_class_name()))
-        return Ref<Subclass>(static_cast<Subclass *>(m_value), m_references);
-        // return nullptr;
+        if (m_value->template is<Subclass>())
+            return Ref<Subclass>::from_pointers_increment(static_cast<Subclass *>(m_value), m_references);
+        return nullptr;
     }
 
     bool is_null() const
@@ -138,13 +144,16 @@ private:
 
     void unref()
     {
-        // *m_references -= 1;
+        *m_references -= 1;
 
-        // if (*m_references == 0)
-        // {
-        //     delete m_value;
-        //     delete m_references;
-        // }
+        if (*m_references == 0)
+        {
+            delete m_value;
+            delete m_references;
+
+            m_value = nullptr;
+            m_references = nullptr;
+        }
     }
 };
 

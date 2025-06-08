@@ -21,8 +21,6 @@
 #include "Render/DriverWebGPU.hpp"
 #endif
 
-static void register_all_classes();
-
 #ifdef __platform_web
 
 #define MAIN_FUNC_NAME emscripten_main
@@ -35,6 +33,9 @@ static void register_all_classes();
 
 #endif
 
+#ifdef DOCTEST_CONFIG_DISABLE
+
+static void register_all_classes();
 static void tick();
 
 Ref<Window> window;
@@ -103,13 +104,12 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
 
     shader->set_sampler("images", {.min_filter = Filter::Nearest, .mag_filter = Filter::Nearest});
 
-    std::array<InstanceLayoutInput, 4>
-        inputs{
-            InstanceLayoutInput(ShaderType::Vec3, 0),
-            InstanceLayoutInput(ShaderType::Vec3, sizeof(glm::vec3)),
-            InstanceLayoutInput(ShaderType::Vec3, sizeof(glm::vec3) * 2),
-            InstanceLayoutInput(ShaderType::Uint, sizeof(glm::vec3) * 3),
-        };
+    std::array<InstanceLayoutInput, 4> inputs{
+        InstanceLayoutInput(ShaderType::Vec3, 0),
+        InstanceLayoutInput(ShaderType::Vec3, sizeof(glm::vec3)),
+        InstanceLayoutInput(ShaderType::Vec3, sizeof(glm::vec3) * 2),
+        InstanceLayoutInput(ShaderType::Uint, sizeof(glm::vec3) * 3),
+    };
     InstanceLayout instance_layout(inputs, sizeof(BlockInstanceData));
     auto material_layout_result = RenderingDriver::get()->create_material_layout(shader, {.transparency = true}, instance_layout, CullMode::Back, PolygonMode::Fill);
     EXPECT(material_layout_result);
@@ -146,10 +146,6 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
 
     scene.set_active_camera(camera);
     scene.add_entity(world_entity);
-
-    WGSLModule module = WGSLModule::parse(R"(
-        @group(0) @binding(0) var image: texture_2d_array<f32>;
-        )");
 
 #ifdef __platform_web
     emscripten_set_main_loop_arg([](void *)
@@ -212,8 +208,6 @@ static void tick()
 
 static void register_all_classes()
 {
-    Object::register_class();
-
     Entity::register_class();
     Component::register_class();
     VisualComponent::register_class();
@@ -226,6 +220,7 @@ static void register_all_classes()
     Mesh::register_class();
     MaterialLayout::register_class();
     Material::register_class();
+    Shader::register_class();
 
 #ifdef __has_vulkan
     RenderingDriverVulkan::register_class();
@@ -245,3 +240,10 @@ static void register_all_classes()
     MaterialWebGPU::register_class();
 #endif
 }
+
+#else
+
+#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+#include "doctest/doctest.h"
+
+#endif // DOCTEST_CONFIG_DISABLE

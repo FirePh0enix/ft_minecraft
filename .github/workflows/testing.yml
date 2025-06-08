@@ -1,0 +1,21 @@
+name: Testing
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+jobs:
+  # Run tests on linux
+  run-tests-linux:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Install dependencies
+      run: |
+        apt install build-essential cmake python3
+    - name: Run tests
+      run: |
+        mkdir build
+        cmake -B build -DCMAKE_BUILD_TYPE=Debug -DRUN_TESTS=yes
+        cmake --build build
+        ./build/ft_minecraft

@@ -95,6 +95,11 @@ void Error::print(FILE *fp)
             std::print(fp, " from {}", string_vk_result((VkResult)m_vk_result));
 #endif
     }
+    else
+    {
+        if (m_errno_value != 0)
+            std::print(fp, " from {}", strerror(m_errno_value));
+    }
 
     std::println("\n");
 

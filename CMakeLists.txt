@@ -14,11 +14,13 @@ project(${TARGET_NAME})
 include(FetchContent)
 
 option(BUILD_DOC "Build documentation" OFF)
+option(RUN_TESTS "Run tests" OFF)
 option(ENABLE_SHADER_HOTRELOAD "Shader hot reloading" OFF)
 
 list(APPEND SOURCES
     src/Core/Class.cpp
     src/Core/Error.cpp
+    src/Core/Ref.cpp
     src/Render/Driver.cpp
     src/Render/Graph.cpp
     src/Render/Shader.cpp
@@ -360,6 +362,19 @@ if (TARGET_IS_APPLE)
 
     configure_file(${moltenvk_SOURCE_DIR}/MoltenVK/dynamic/dylib/macOS/MoltenVK_icd.json ${CMAKE_BINARY_DIR}/vulkan/icd.d/MoltenVK_icd.json COPYONLY)
     configure_file(${moltenvk_SOURCE_DIR}/MoltenVK/dynamic/dylib/macOS/libMoltenVK.dylib ${CMAKE_BINARY_DIR}/vulkan/icd.d/libMoltenVK.dylib COPYONLY)
+endif()
+
+# doctest for unit tests.
+FetchContent_Declare(
+    doctest
+    GIT_REPOSITORY https://github.com/doctest/doctest
+    GIT_TAG 1da23a3e8119ec5cce4f9388e91b065e20bf06f5 # v2.4.12
+)
+FetchContent_MakeAvailable(doctest)
+target_link_libraries(${TARGET_NAME} PRIVATE doctest)
+
+if(NOT RUN_TESTS)
+    target_compile_definitions(${TARGET_NAME} PRIVATE DOCTEST_CONFIG_DISABLE=1)
 endif()
 
 # Build documention if doxygen is installed

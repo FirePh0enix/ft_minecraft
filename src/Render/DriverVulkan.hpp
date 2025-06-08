@@ -226,7 +226,7 @@ public:
         m_layout = TextureLayout::Undefined;
     }
 
-    ~TextureVulkan();
+    virtual ~TextureVulkan();
 
     virtual void update(Span<uint8_t> view, uint32_t layer) override;
     virtual void transition_layout(TextureLayout new_layout) override;
@@ -254,6 +254,8 @@ public:
         this->m_index_type = index_type;
         this->m_vertex_count = vertex_count;
     }
+
+    virtual ~MeshVulkan() {}
 
     Ref<Buffer> index_buffer;
     Ref<Buffer> vertex_buffer;
@@ -300,6 +302,8 @@ public:
     {
     }
 
+    virtual ~MaterialLayoutVulkan() {}
+
     // private:
     DescriptorPool m_descriptor_pool;
     vk::DescriptorSetLayout m_descriptor_set_layout;
@@ -322,6 +326,8 @@ public:
     {
         m_layout = layout;
     }
+
+    virtual ~MaterialVulkan() {}
 
     virtual void set_param(const std::string& name, const Ref<Texture>& texture) override;
     virtual void set_param(const std::string& name, const Ref<Buffer>& buffer) override;

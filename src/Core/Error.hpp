@@ -221,6 +221,10 @@ public:
     Error(ErrorKind kind, StackTrace stacktrace = StackTrace::current())
         : m_kind(kind), m_stacktrace(stacktrace)
     {
+        m_errno_value = errno;
+
+        if (errno != 0)
+            errno = 0;
     }
 
 #else
@@ -292,7 +296,7 @@ private:
 
     union
     {
-        int errno_value;
+        int m_errno_value;
 
 #ifdef __has_vulkan
         vk::Result m_vk_result = vk::Result::eErrorUnknown;
