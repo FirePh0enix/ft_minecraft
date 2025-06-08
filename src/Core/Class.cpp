@@ -17,8 +17,6 @@ class Bar : public Foo
     CLASS(Bar, Foo);
 };
 
-#endif
-
 TEST_CASE("Class")
 {
     Foo::register_class();
@@ -36,3 +34,5 @@ TEST_CASE("Class")
     CHECK(obj->is<Bar>());
     CHECK(obj->is<Foo>());
 }
+
+#endif

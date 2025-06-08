@@ -481,6 +481,8 @@ inline void assert_error(bool condition, std::format_string<Args...> format, Arg
 template <typename... Args>
 inline void assert_error(bool condition, std::format_string<Args...> format, Args... args)
 {
+    (void)condition;
+    (void)format;
 }
 
 #endif

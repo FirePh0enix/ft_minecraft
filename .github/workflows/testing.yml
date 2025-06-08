@@ -28,6 +28,9 @@ jobs:
       - name: Setup dependencies
         run: |
           brew install llvm@18
+          export PATH="/opt/homebrew/opt/llvm@18/bin:$PATH"
+          export LDFLAGS="-L/opt/homebrew/opt/llvm@18/lib -L/opt/homebrew/opt/llvm@18/lib/c++ -L/opt/homebrew/opt/llvm@18/lib -lunwind"
+          export CPPFLAGS="-I/opt/homebrew/opt/llvm@18/include"
       - name: Build
         run: |
           mkdir build

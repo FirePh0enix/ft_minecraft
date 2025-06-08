@@ -29,8 +29,6 @@ public:
     virtual ~Bleep() {}
 };
 
-#endif
-
 TEST_CASE("Ref sanity checks")
 {
     Foo::register_class();
@@ -112,3 +110,5 @@ TEST_CASE("Ref casting")
     Ref<Bar> bar = foo.cast_to<Bar>();
     CHECK(bar.is_null());
 }
+
+#endif
