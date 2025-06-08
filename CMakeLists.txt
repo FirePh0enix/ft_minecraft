@@ -187,6 +187,7 @@ if(NOT TARGET_IS_WEB)
     set(TINT_BUILD_SPV_WRITER ON)
 
     set(TINT_BUILD_GLSL_VALIDATOR OFF)
+    set(TINT_BUILD_CMD_TOOLS OFF)
 
     # This disable automatic validation and allow us to perform our own and set capabilities.
     set(TINT_ENABLE_IR_VALIDATION OFF)
