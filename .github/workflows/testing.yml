@@ -12,7 +12,7 @@ jobs:
     - uses: actions/checkout@v3
     - name: Install dependencies
       run: |
-        sudo apt install --yes build-essential cmake ninja-build python3 \
+        sudo apt install --yes build-essential cmake ninja-build python3 gcc-14 \
           libx11-dev libxext-dev
     - name: Run tests
       run: |
