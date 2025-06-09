@@ -5,6 +5,32 @@ World::World(Ref<Mesh> mesh, Ref<Material> material)
 {
 }
 
+BlockState World::get_block_state(int64_t x, int64_t y, int64_t z) const
+{
+    int64_t chunk_x = x / 16;
+    int64_t chunk_z = z / 16;
+
+    std::optional<const Chunk *> chunk_value = get_chunk(chunk_x, chunk_z);
+
+    if (!chunk_value.has_value())
+    {
+        return BlockState();
+    }
+
+    const Chunk *chunk = chunk_value.value();
+    return chunk->get_block(x - chunk_x * 16, y, z - chunk_z * 16);
+}
+
+std::optional<const Chunk *> World::get_chunk(int64_t x, int64_t z) const
+{
+    for (const Chunk& chunk : m_dims[0].get_chunks())
+    {
+        if (chunk.x() == x && chunk.z() == z)
+            return &chunk;
+    }
+    return std::nullopt;
+}
+
 void World::set_render_distance(uint32_t distance)
 {
     const uint32_t old_buffer_count = m_buffers.size();
