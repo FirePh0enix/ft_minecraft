@@ -201,6 +201,12 @@ static void tick()
 
             break;
         }
+        case SDL_EVENT_WINDOW_RESIZED:
+        {
+            Expected<void> result = RenderingDriver::get()->configure_surface(*window, VSync::Off);
+            ERR_EXPECT_B(result, "Failed to configure the surface");
+        }
+        break;
         default:
             break;
         }

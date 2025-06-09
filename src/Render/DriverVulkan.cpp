@@ -536,6 +536,12 @@ Expected<void> RenderingDriverVulkan::configure_surface(const Window& window, VS
 
     const auto& size = window.size();
 
+    // Query new surface capabilities
+    auto surface_capabilities_result = m_physical_device.getSurfaceCapabilitiesKHR(m_surface);
+    if (surface_capabilities_result.result != vk::Result::eSuccess)
+        return std::unexpected(surface_capabilities_result.result);
+    m_surface_capabilities = surface_capabilities_result.value;
+
     const vk::Extent2D surface_extent(std::clamp(size.width, m_surface_capabilities.minImageExtent.width, m_surface_capabilities.maxImageExtent.width),
                                       std::clamp(size.height, m_surface_capabilities.minImageExtent.height, m_surface_capabilities.maxImageExtent.height));
 

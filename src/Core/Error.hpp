@@ -431,7 +431,7 @@ private:
     do                                                                                                  \
     {                                                                                                   \
         auto __result = RESULT;                                                                         \
-        if (__result != vk::Result::eSuccess)                                                           \
+        if (__result != vk::Result::eSuccess && __result != vk::Result::eSuboptimalKHR)                 \
         {                                                                                               \
             std::println("error: {}:{}: {}", __FILE__, __LINE__, string_vk_result((VkResult)__result)); \
             return;                                                                                     \
