@@ -157,6 +157,10 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     }
 #endif
 
+#ifndef __platform_web
+    (void)RenderingDriverVulkan::get()->get_device().waitIdle();
+#endif
+
     return 0;
 }
 

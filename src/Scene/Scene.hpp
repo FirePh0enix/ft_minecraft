@@ -12,14 +12,17 @@ public:
 
     void encode_draw_calls(RenderGraph& graph);
 
+    void tick();
+
     inline void set_active_camera(const Ref<Camera>& camera)
     {
         m_active_camera = camera;
     }
 
-    inline void add_entity(const Ref<Entity>& entity)
+    inline void add_entity(Ref<Entity>& entity)
     {
         m_entites.push_back(entity);
+        entity->start();
     }
 
     inline std::vector<Ref<Entity>>& get_entities()

@@ -66,7 +66,7 @@ public:                                                                         
     }                                                                                        \
                                                                                              \
     template <typename T>                                                                    \
-    bool is()                                                                                \
+    bool is() const                                                                          \
     {                                                                                        \
         for (const auto& class_name : get_classes())                                         \
         {                                                                                    \
@@ -123,7 +123,7 @@ public:
     }
 
     template <typename T>
-    bool is()
+    bool is() const
     {
         for (const auto& class_name : get_classes())
         {

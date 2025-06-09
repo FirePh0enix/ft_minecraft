@@ -1,22 +1,8 @@
 #pragma once
 
-#include "Camera.hpp"
 #include "Core/Class.hpp"
 #include "Core/Ref.hpp"
-#include "Render/Graph.hpp"
-
-class Component : public Object
-{
-    CLASS(Component, Object);
-};
-
-class VisualComponent : public Component
-{
-    CLASS(VisualComponent, Component);
-
-public:
-    virtual void encode_draw_calls(RenderGraph& graph, Camera& camera) const = 0;
-};
+#include "Scene/Components/Component.hpp"
 
 enum class EntityId : uint32_t
 {
@@ -61,6 +47,18 @@ public:
     void add_component(const Ref<T>& comp)
     {
         m_components.push_back(comp.template cast_to<Component>());
+    }
+
+    void start()
+    {
+        for (auto& comp : m_components)
+            comp->start();
+    }
+
+    void tick()
+    {
+        for (auto& comp : m_components)
+            comp->tick();
     }
 
 private:

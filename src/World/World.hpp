@@ -2,8 +2,8 @@
 
 #include "Camera.hpp"
 #include "Render/Driver.hpp"
-#include "Scene/Entity.hpp"
-#include "World/Chunk.hpp"
+#include "Scene/Components/Visual.hpp"
+#include "World/Dimension.hpp"
 
 struct BlockInstanceData
 {
@@ -21,6 +21,9 @@ class World : public VisualComponent
     CLASS(World, VisualComponent);
 
 public:
+    static constexpr size_t overworld = 0;
+    static constexpr size_t undeworld = 1;
+
     World(Ref<Mesh> mesh, Ref<Material> material);
 
     void set_render_distance(uint32_t distance);
@@ -29,7 +32,7 @@ public:
     virtual void encode_draw_calls(RenderGraph& graph, Camera& camera) const override;
 
 private:
-    std::vector<Chunk> m_chunks;
+    std::array<Dimension, 2> m_dims;
     std::vector<Ref<Buffer>> m_buffers;
     uint32_t m_distance = 0;
 

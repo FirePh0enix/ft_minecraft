@@ -37,7 +37,7 @@ void World::generate_flat(BlockState state)
             Chunk chunk = Chunk::flat(x, z, state, 10);
             chunk.set_buffer_id(id);
             chunk.update_instance_buffer(m_buffers[id]);
-            m_chunks.push_back(chunk);
+            m_dims[0].get_chunks().push_back(chunk);
             id++;
         }
     }
@@ -47,7 +47,7 @@ void World::encode_draw_calls(RenderGraph& graph, Camera& camera) const
 {
     ZoneScoped;
 
-    for (const Chunk& chunk : m_chunks)
+    for (const Chunk& chunk : m_dims[0].get_chunks())
     {
         Ref<Buffer> buffer = m_buffers[chunk.get_buffer_id()];
         graph.add_draw(m_mesh.ptr(), m_material.ptr(), camera.get_view_proj_matrix(), chunk.get_block_count(), buffer.ptr());
