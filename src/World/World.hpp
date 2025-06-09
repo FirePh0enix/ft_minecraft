@@ -26,6 +26,9 @@ public:
 
     World(Ref<Mesh> mesh, Ref<Material> material);
 
+    BlockState get_block_state(int64_t x, int64_t y, int64_t z) const;
+    std::optional<const Chunk *> get_chunk(int64_t x, int64_t z) const;
+
     void set_render_distance(uint32_t distance);
     void generate_flat(BlockState state);
 

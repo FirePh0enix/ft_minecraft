@@ -31,6 +31,11 @@ struct BlockState
         : id(id), generic(generic)
     {
     }
+
+    inline bool is_air() const
+    {
+        return id == 0;
+    }
 };
 
 class Block
