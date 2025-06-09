@@ -44,8 +44,13 @@ public:
     }
 
     template <typename T>
-    void add_component(const Ref<T>& comp)
+    void add_component(Ref<T> comp)
     {
+        comp->set_entity(this);
+
+        Ref<Component> c = comp.template cast_to<Component>();
+        ERR_COND_VR(c.is_null(), "{} is not derived from Component", T::get_static_class_name());
+
         m_components.push_back(comp.template cast_to<Component>());
     }
 
@@ -58,7 +63,7 @@ public:
     void tick()
     {
         for (auto& comp : m_components)
-            comp->tick();
+            comp->tick(16.66666666666666);
     }
 
 private:

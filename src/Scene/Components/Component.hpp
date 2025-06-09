@@ -1,6 +1,9 @@
 #pragma once
 
 #include "Core/Class.hpp"
+#include "Core/Ref.hpp"
+
+class Entity;
 
 class Component : public Object
 {
@@ -8,6 +11,13 @@ class Component : public Object
 
 public:
     virtual void start() {}
+    virtual void tick(double delta) {}
 
-    virtual void tick() {}
+    inline void set_entity(Entity *entity)
+    {
+        m_entity = entity;
+    }
+
+protected:
+    Entity *m_entity;
 };

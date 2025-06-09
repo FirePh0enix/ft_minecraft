@@ -1,6 +1,9 @@
 #pragma once
 
 #include "AABB.hpp"
+#include "Core/Class.hpp"
+#include "Scene/Components/Component.hpp"
+#include "Scene/Components/Transform3D.hpp"
 
 #include <print>
 
@@ -18,16 +21,19 @@ private:
     void normalize_plane(size_t side);
 };
 
-class Camera
+class Camera : public Component
 {
+    CLASS(Camera, Component);
+
 public:
-    Camera(glm::vec3 position, glm::vec3 rotation, float speed)
-        : m_position(position), m_rotation(rotation), m_speed(speed)
+    Camera()
     {
-        m_projection_matrix = calculate_projection_matix();
+        m_projection_matrix = calculate_projection_matrix();
     }
 
-    void tick();
+    virtual void start() override;
+    virtual void tick(double delta) override;
+
     void rotate(float x_rel, float y_rel);
 
     glm::vec3 get_forward() const;
@@ -36,7 +42,7 @@ public:
     glm::mat4 get_view_matrix() const
     {
         const glm::mat4 rotation = glm::mat4_cast(get_rotation_quat());
-        const glm::mat4 translation = glm::translate(glm::mat4(1.0), -m_position);
+        const glm::mat4 translation = glm::translate(glm::mat4(1.0), -m_transform->position());
 
         return rotation * translation;
     }
@@ -53,17 +59,16 @@ public:
 
     glm::quat get_rotation_quat() const
     {
-        glm::quat q_pitch = glm::rotate(glm::identity<glm::quat>(), m_rotation.x, glm::vec3(1.0, 0.0, 0.0));
-        glm::quat q_yaw = glm::rotate(glm::identity<glm::quat>(), m_rotation.y, glm::vec3(0.0, 1.0, 0.0));
-        glm::quat q_roll = glm::rotate(glm::identity<glm::quat>(), m_rotation.z, glm::vec3(0.0, 0.0, 1.0));
+        glm::quat q_pitch = glm::rotate(glm::identity<glm::quat>(), m_transform->rotation().x, glm::vec3(1.0, 0.0, 0.0));
+        glm::quat q_yaw = glm::rotate(glm::identity<glm::quat>(), m_transform->rotation().y, glm::vec3(0.0, 1.0, 0.0));
+        glm::quat q_roll = glm::rotate(glm::identity<glm::quat>(), m_transform->rotation().z, glm::vec3(0.0, 0.0, 1.0));
 
         return glm::normalize(q_pitch * q_yaw * q_roll);
     }
 
 private:
-    glm::vec3 m_position;
-    glm::vec3 m_rotation;
-    float m_speed;
+    Ref<Transform3D> m_transform;
+
     glm::mat4 m_projection_matrix;
     float m_aspect_ratio = 1280.0 / 720.0;
     float m_fov = 70.0;
@@ -72,7 +77,7 @@ private:
     float m_near = 0.01;
     float m_far = 10'000.0;
 
-    glm::mat4 calculate_projection_matix() const
+    glm::mat4 calculate_projection_matrix() const
     {
         glm::mat4 projection_matrix = glm::perspectiveRH((float)glm::radians(m_fov), m_aspect_ratio, m_near, m_far);
 

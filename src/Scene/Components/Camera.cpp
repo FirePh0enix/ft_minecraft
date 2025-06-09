@@ -1,5 +1,6 @@
 #include "Camera.hpp"
 #include "Input.hpp"
+#include "Scene/Entity.hpp"
 
 Frustum::Frustum()
     : Frustum(glm::mat4(1.0))
@@ -77,26 +78,20 @@ bool Frustum::contains(const AABB& aabb) const
     return true;
 }
 
-void Camera::tick()
+void Camera::start()
 {
-    ZoneScoped;
+    m_transform = m_entity->get_component<Transform3D>();
+}
 
+void Camera::tick(double delta)
+{
     m_frustum = Frustum(get_view_proj_matrix());
-
-    const glm::vec3 forward = get_forward();
-    const glm::vec3 right = get_right();
-    const glm::vec3 up(0.0, 1.0, 0.0);
-
-    const glm::vec3 dir = Input::get().get_movement_vector();
-    m_position += forward * dir.z * m_speed;
-    m_position += up * dir.y * m_speed;
-    m_position += right * dir.x * m_speed;
 }
 
 void Camera::rotate(float x_rel, float y_rel)
 {
-    m_rotation.x += y_rel * 0.01f;
-    m_rotation.y += x_rel * 0.01f;
+    m_transform->rotation().x += y_rel * 0.01f;
+    m_transform->rotation().y += x_rel * 0.01f;
 }
 
 glm::vec3 Camera::get_forward() const

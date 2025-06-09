@@ -25,9 +25,11 @@ list(APPEND SOURCES
     src/Render/Graph.cpp
     src/Render/Shader.cpp
     src/Render/WGSLParser.cpp
+    src/Scene/Components/Camera.cpp
+    src/Scene/Components/RigidBody.cpp
     src/Scene/Entity.cpp
+    src/Scene/Player.cpp
     src/Scene/Scene.cpp
-    src/Camera.cpp
     src/Input.cpp
     src/main.cpp
     src/Window.cpp
