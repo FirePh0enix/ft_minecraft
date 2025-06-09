@@ -35,7 +35,6 @@ private:                                                                        
     static inline std::vector<uint32_t> s_classes;                                           \
                                                                                              \
     static_assert(sizeof(NAME *) || true);                                                   \
-    static_assert(sizeof(NAME *) || true);                                                   \
                                                                                              \
 public:                                                                                      \
     static void register_class()                                                             \

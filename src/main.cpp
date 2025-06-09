@@ -1,10 +1,13 @@
-#include "Camera.hpp"
 #include "Font.hpp"
 #include "Input.hpp"
 #include "MeshPrimitives.hpp"
 #include "Render/Driver.hpp"
 #include "Render/Shader.hpp"
 #include "Render/WGSLParser.hpp"
+#include "Scene/Components/RigidBody.hpp"
+#include "Scene/Components/Transform3D.hpp"
+#include "Scene/Components/Visual.hpp"
+#include "Scene/Player.hpp"
 #include "Scene/Scene.hpp"
 #include "Window.hpp"
 #include "World/World.hpp"
@@ -39,10 +42,11 @@ static void register_all_classes();
 static void tick();
 
 Ref<Window> window;
-Ref<Camera> camera;
 RenderGraph graph;
 Scene scene;
 Text text;
+
+Ref<Camera> camera;
 
 MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
 {
@@ -68,8 +72,6 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
 
     auto init_result = RenderingDriver::get()->initialize(*window);
     EXPECT(init_result);
-
-    camera = make_ref<Camera>(glm::vec3(10.0, 13.0, 10.0), glm::vec3(), 0.05);
 
     auto texture_array_result = RenderingDriver::get()->create_texture_array(16, 16, TextureFormat::RGBA8Srgb, {.copy_dst = true, .sampled = true}, 1);
     EXPECT(texture_array_result);
@@ -121,7 +123,7 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
 
     material->set_param("images", texture_array);
 
-    auto cube_result = create_cube_with_separate_faces(glm::vec3(1.0)); // create_cube_with_separate_faces(glm::vec3(1.0), glm::vec3(-0.5));
+    auto cube_result = create_cube_with_separate_faces(glm::vec3(1.0), glm::vec3(-0.5));
     EXPECT(cube_result);
     Ref<Mesh> cube = cube_result.value();
 
@@ -144,8 +146,18 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     Ref<Entity> world_entity = make_ref<Entity>();
     world_entity->add_component(world);
 
-    scene.set_active_camera(camera);
     scene.add_entity(world_entity);
+
+    camera = make_ref<Camera>();
+
+    Ref<Entity> player = make_ref<Entity>();
+    player->add_component(make_ref<Transform3D>(glm::vec3(10.0, 13.0, 10.0), glm::vec3()));
+    player->add_component(camera);
+    player->add_component(make_ref<RigidBody>());
+    player->add_component(make_ref<Player>());
+
+    scene.add_entity(player);
+    scene.set_active_camera(camera);
 
 #ifdef __platform_web
     emscripten_set_main_loop_arg([](void *)
@@ -198,7 +210,7 @@ static void tick()
 
     RenderingDriver::get()->poll();
 
-    camera->tick();
+    scene.tick();
 
     graph.reset();
 
@@ -215,6 +227,10 @@ static void register_all_classes()
     Entity::register_class();
     Component::register_class();
     VisualComponent::register_class();
+    RigidBody::register_class();
+    Player::register_class();
+    Camera::register_class();
+    Transform3D::register_class();
 
     World::register_class();
 

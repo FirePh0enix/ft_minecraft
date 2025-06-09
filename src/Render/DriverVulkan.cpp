@@ -504,8 +504,10 @@ std::expected<void, Error> RenderingDriverVulkan::initialize(const Window& windo
 
     YEET(configure_surface(window, VSync::Off));
 
+#ifndef __platform_macos
     // This uses `VK_EXT_host_query_reset` & `VK_EXT_calibrated_timestamps`
     m_tracy_context = TracyVkContextHostCalibrated(m_instance, m_physical_device, m_device, vk::detail::defaultDispatchLoaderDynamic.vkGetInstanceProcAddr, vk::detail::defaultDispatchLoaderDynamic.vkGetDeviceProcAddr);
+#endif
 
     m_start_time = std::chrono::high_resolution_clock::now();
 

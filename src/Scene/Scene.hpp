@@ -1,8 +1,8 @@
 #pragma once
 
-#include "Camera.hpp"
 #include "Core/Ref.hpp"
 #include "Render/Graph.hpp"
+#include "Scene/Components/Camera.hpp"
 #include "Scene/Entity.hpp"
 
 class Scene

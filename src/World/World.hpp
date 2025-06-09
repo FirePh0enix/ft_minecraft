@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Camera.hpp"
 #include "Render/Driver.hpp"
+#include "Scene/Components/Camera.hpp"
 #include "Scene/Components/Visual.hpp"
 #include "World/Dimension.hpp"
 
