@@ -144,16 +144,16 @@ private:
 
     void unref()
     {
-        *m_references -= 1;
+        // *m_references -= 1;
 
-        if (*m_references == 0)
-        {
-            delete m_value;
-            delete m_references;
+        // if (*m_references == 0)
+        // {
+        //     delete m_value;
+        //     delete m_references;
 
-            m_value = nullptr;
-            m_references = nullptr;
-        }
+        //     m_value = nullptr;
+        //     m_references = nullptr;
+        // }
     }
 };
 

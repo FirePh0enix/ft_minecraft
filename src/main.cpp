@@ -154,7 +154,7 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     player->add_component(make_ref<Transform3D>(glm::vec3(10.0, 13.0, 10.0), glm::vec3()));
     player->add_component(camera);
     player->add_component(make_ref<RigidBody>());
-    player->add_component(make_ref<Player>());
+    player->add_component(make_ref<Player>(world));
 
     scene.add_entity(player);
     scene.set_active_camera(camera);
@@ -216,7 +216,7 @@ static void tick()
 
     graph.begin_render_pass();
     scene.encode_draw_calls(graph);
-    text.encode_draw_calls(graph);
+    // text.encode_draw_calls(graph);
     graph.end_render_pass();
 
     RenderingDriver::get()->draw_graph(graph);

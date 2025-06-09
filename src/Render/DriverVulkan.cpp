@@ -1234,8 +1234,8 @@ std::optional<PhysicalDeviceWithInfo> RenderingDriverVulkan::pick_best_device(co
 
 BufferVulkan::~BufferVulkan()
 {
-    RenderingDriverVulkan::get()->get_device().freeMemory(memory);
-    RenderingDriverVulkan::get()->get_device().destroyBuffer(buffer);
+    // RenderingDriverVulkan::get()->get_device().freeMemory(memory);
+    // RenderingDriverVulkan::get()->get_device().destroyBuffer(buffer);
 }
 
 void BufferVulkan::update(Span<uint8_t> view, size_t offset)

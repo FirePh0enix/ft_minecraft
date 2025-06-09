@@ -27,10 +27,15 @@ public:
     World(Ref<Mesh> mesh, Ref<Material> material);
 
     BlockState get_block_state(int64_t x, int64_t y, int64_t z) const;
+    void set_block_state(int64_t x, int64_t y, int64_t z, BlockState state);
+
     std::optional<const Chunk *> get_chunk(int64_t x, int64_t z) const;
+    std::optional<Chunk *> get_chunk(int64_t x, int64_t z);
 
     void set_render_distance(uint32_t distance);
     void generate_flat(BlockState state);
+
+    void update_buffers();
 
     virtual void encode_draw_calls(RenderGraph& graph, Camera& camera) const override;
 

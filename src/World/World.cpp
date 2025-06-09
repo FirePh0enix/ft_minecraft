@@ -21,9 +21,35 @@ BlockState World::get_block_state(int64_t x, int64_t y, int64_t z) const
     return chunk->get_block(x - chunk_x * 16, y, z - chunk_z * 16);
 }
 
+void World::set_block_state(int64_t x, int64_t y, int64_t z, BlockState state)
+{
+    int64_t chunk_x = x / 16;
+    int64_t chunk_z = z / 16;
+
+    std::optional<Chunk *> chunk_value = get_chunk(chunk_x, chunk_z);
+
+    if (!chunk_value.has_value())
+    {
+        return;
+    }
+
+    Chunk *chunk = chunk_value.value();
+    chunk->set_block(x - chunk_x * 16, y, z - chunk_z * 16, state);
+}
+
 std::optional<const Chunk *> World::get_chunk(int64_t x, int64_t z) const
 {
     for (const Chunk& chunk : m_dims[0].get_chunks())
+    {
+        if (chunk.x() == x && chunk.z() == z)
+            return &chunk;
+    }
+    return std::nullopt;
+}
+
+std::optional<Chunk *> World::get_chunk(int64_t x, int64_t z)
+{
+    for (Chunk& chunk : m_dims[0].get_chunks())
     {
         if (chunk.x() == x && chunk.z() == z)
             return &chunk;
@@ -66,6 +92,14 @@ void World::generate_flat(BlockState state)
             m_dims[0].get_chunks().push_back(chunk);
             id++;
         }
+    }
+}
+
+void World::update_buffers()
+{
+    for (auto& chunk : m_dims[0].get_chunks())
+    {
+        chunk.update_instance_buffer(m_buffers[chunk.get_buffer_id()]);
     }
 }
 

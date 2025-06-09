@@ -20,11 +20,15 @@ public:
 
     inline BlockState get_block(size_t x, size_t y, size_t z) const
     {
+        if (z * width * height + y * width + x > block_count)
+            return BlockState();
         return m_blocks[z * width * height + y * width + x];
     }
 
     inline void set_block(size_t x, size_t y, size_t z, BlockState state)
     {
+        if (z * width * height + y * width + x > block_count)
+            return;
         m_blocks[z * width * height + y * width + x] = state;
     }
 

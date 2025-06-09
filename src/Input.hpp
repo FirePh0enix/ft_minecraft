@@ -13,6 +13,8 @@ enum class Action : uint8_t
     Up,
     Down,
 
+    Attack,
+
     Max,
 };
 
@@ -123,8 +125,14 @@ public:
         case SDL_EVENT_MOUSE_BUTTON_DOWN:
         {
             set_mouse_grabbed(window, true);
-            break;
+            set_action_value(Action::Attack, 1.0);
         }
+        break;
+        case SDL_EVENT_MOUSE_BUTTON_UP:
+        {
+            set_action_value(Action::Attack, 0.0);
+        }
+        break;
         }
     }
 
