@@ -20,7 +20,7 @@ public:
     virtual void tick(double delta) override;
 
 private:
-    Ref<Transform3D> m_transform;
+    Ref<TransformComponent3D> m_transform;
     Ref<Camera> m_camera;
     Ref<RigidBody> m_body;
     Ref<World> m_world;

@@ -61,6 +61,16 @@ public:
         return m_mouse_grabbed;
     }
 
+    inline glm::vec2 get_mouse_relative()
+    {
+        return m_mouse_relative;
+    }
+
+    void post_events()
+    {
+        m_mouse_relative = glm::vec2();
+    }
+
     void process_event(Window& window, SDL_Event event)
     {
         switch (event.type)
@@ -133,6 +143,12 @@ public:
             set_action_value(Action::Attack, 0.0);
         }
         break;
+        case SDL_EVENT_MOUSE_MOTION:
+        {
+            m_mouse_relative.x = event.motion.xrel;
+            m_mouse_relative.y = event.motion.yrel;
+        }
+        break;
         }
     }
 
@@ -146,4 +162,5 @@ private:
 
     std::array<Status, (size_t)Action::Max> m_actions;
     bool m_mouse_grabbed = false;
+    glm::vec2 m_mouse_relative;
 };

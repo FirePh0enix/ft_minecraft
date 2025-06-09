@@ -1078,9 +1078,9 @@ std::optional<uint32_t> RenderingDriverVulkan::find_memory_type_index(uint32_t t
 {
     uint32_t bits = type_bits;
 
-    for (size_t i = 0; i < m_memory_properties.memoryTypeCount; i++)
+    for (uint32_t i = 0; i < m_memory_properties.memoryTypeCount; i++)
     {
-        if (bits & 1 && (m_memory_properties.memoryTypes[i].propertyFlags & properties) == properties)
+        if (bits & 1 && (m_memory_properties.memoryTypes[(int32_t)i].propertyFlags & properties) == properties)
             return i;
         bits >>= 1;
     }

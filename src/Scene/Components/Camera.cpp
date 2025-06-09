@@ -80,7 +80,7 @@ bool Frustum::contains(const AABB& aabb) const
 
 void Camera::start()
 {
-    m_transform = m_entity->get_component<Transform3D>();
+    m_transform = m_entity->get_component<TransformComponent3D>();
 }
 
 void Camera::tick(double delta)
@@ -90,16 +90,25 @@ void Camera::tick(double delta)
 
 void Camera::rotate(float x_rel, float y_rel)
 {
-    m_transform->rotation().x += y_rel * 0.01f;
-    m_transform->rotation().y += x_rel * 0.01f;
+    Transform3D transform = m_transform->get_transform();
+
+    const glm::vec3 up(0.0, 1.0, 0.0);
+    const glm::vec3 pitch_axis = glm::cross(get_forward(), up);
+
+    glm::quat q_pitch = glm::angleAxis(y_rel * 0.01f, pitch_axis);
+    glm::quat q_yaw = glm::angleAxis(x_rel * 0.01f, up);
+
+    transform.rotation() *= glm::cross(q_pitch, q_yaw);
+
+    m_transform->set_transform(transform);
 }
 
 glm::vec3 Camera::get_forward() const
 {
-    return glm::conjugate(get_rotation_quat()) * glm::vec3(0.0, 0.0, -1.0);
+    return glm::conjugate(m_transform->get_global_transform().rotation()) * glm::vec3(0.0, 0.0, -1.0);
 }
 
 glm::vec3 Camera::get_right() const
 {
-    return glm::conjugate(get_rotation_quat()) * glm::vec3(1.0, 0.0, 0.0);
+    return glm::conjugate(m_transform->get_global_transform().rotation()) * glm::vec3(1.0, 0.0, 0.0);
 }

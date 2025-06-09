@@ -22,6 +22,7 @@ public:
     inline void add_entity(Ref<Entity>& entity)
     {
         m_entites.push_back(entity);
+        entity->set_id(allocate_next_id());
         entity->start();
     }
 
@@ -33,4 +34,12 @@ public:
 private:
     Ref<Camera> m_active_camera;
     std::vector<Ref<Entity>> m_entites;
+    EntityId m_id = EntityId(1);
+
+    EntityId allocate_next_id()
+    {
+        EntityId id = m_id;
+        m_id = EntityId((uint32_t)m_id + 1);
+        return id;
+    }
 };

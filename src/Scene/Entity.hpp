@@ -54,6 +54,41 @@ public:
         m_components.push_back(comp.template cast_to<Component>());
     }
 
+    void add_child(Ref<Entity> entity)
+    {
+        m_children.push_back(entity);
+    }
+
+    void remove_child(size_t index)
+    {
+        m_children.erase(m_children.begin() + (ssize_t)index);
+    }
+
+    Ref<Entity> get_child(size_t index)
+    {
+        return m_children[index];
+    }
+
+    inline const std::vector<Ref<Entity>>& get_children() const
+    {
+        return m_children;
+    }
+
+    inline std::vector<Ref<Entity>>& get_children()
+    {
+        return m_children;
+    }
+
+    inline Ref<Entity> get_parent()
+    {
+        return m_parent;
+    }
+
+    inline bool has_parent() const
+    {
+        return !m_parent.is_null();
+    }
+
     void start()
     {
         for (auto& comp : m_components)
@@ -68,5 +103,7 @@ public:
 
 private:
     EntityId m_id;
+    Ref<Entity> m_parent;
     std::vector<Ref<Component>> m_components;
+    std::vector<Ref<Entity>> m_children;
 };

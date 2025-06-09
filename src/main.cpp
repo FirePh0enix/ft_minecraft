@@ -3,7 +3,6 @@
 #include "MeshPrimitives.hpp"
 #include "Render/Driver.hpp"
 #include "Render/Shader.hpp"
-#include "Render/WGSLParser.hpp"
 #include "Scene/Components/RigidBody.hpp"
 #include "Scene/Components/Transform3D.hpp"
 #include "Scene/Components/Visual.hpp"
@@ -151,7 +150,7 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     camera = make_ref<Camera>();
 
     Ref<Entity> player = make_ref<Entity>();
-    player->add_component(make_ref<Transform3D>(glm::vec3(10.0, 13.0, 10.0), glm::vec3()));
+    player->add_component(make_ref<TransformComponent3D>(Transform3D(glm::vec3(10.0, 13.0, 10.0))));
     player->add_component(camera);
     player->add_component(make_ref<RigidBody>());
     player->add_component(make_ref<Player>(world));
@@ -185,22 +184,11 @@ static void tick()
 
     while ((event = window->poll_event()))
     {
-
         switch (event->type)
         {
         case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
             window->close();
             break;
-        case SDL_EVENT_MOUSE_MOTION:
-        {
-            const float x_rel = event->motion.xrel;
-            const float y_rel = event->motion.yrel;
-
-            if (Input::get().is_mouse_grabbed())
-                camera->rotate(x_rel, y_rel);
-
-            break;
-        }
         case SDL_EVENT_WINDOW_RESIZED:
         {
             Expected<void> result = RenderingDriver::get()->configure_surface(*window, VSync::Off);
@@ -217,6 +205,8 @@ static void tick()
     RenderingDriver::get()->poll();
 
     scene.tick();
+
+    Input::get().post_events();
 
     graph.reset();
 
@@ -236,7 +226,7 @@ static void register_all_classes()
     RigidBody::register_class();
     Player::register_class();
     Camera::register_class();
-    Transform3D::register_class();
+    TransformComponent3D::register_class();
 
     World::register_class();
 

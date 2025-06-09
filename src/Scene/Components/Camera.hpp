@@ -41,9 +41,8 @@ public:
 
     glm::mat4 get_view_matrix() const
     {
-        const glm::mat4 rotation = glm::mat4_cast(get_rotation_quat());
-        const glm::mat4 translation = glm::translate(glm::mat4(1.0), -m_transform->position());
-
+        const glm::mat4 rotation = glm::toMat4(m_transform->get_global_transform().rotation());
+        const glm::mat4 translation = glm::translate(glm::mat4(1.0), -m_transform->get_global_transform().position());
         return rotation * translation;
     }
 
@@ -57,17 +56,18 @@ public:
         return m_projection_matrix;
     }
 
-    glm::quat get_rotation_quat() const
+    inline const Frustum& frustum() const
     {
-        glm::quat q_pitch = glm::rotate(glm::identity<glm::quat>(), m_transform->rotation().x, glm::vec3(1.0, 0.0, 0.0));
-        glm::quat q_yaw = glm::rotate(glm::identity<glm::quat>(), m_transform->rotation().y, glm::vec3(0.0, 1.0, 0.0));
-        glm::quat q_roll = glm::rotate(glm::identity<glm::quat>(), m_transform->rotation().z, glm::vec3(0.0, 0.0, 1.0));
+        return m_frustum;
+    }
 
-        return glm::normalize(q_pitch * q_yaw * q_roll);
+    inline Frustum& frustum()
+    {
+        return m_frustum;
     }
 
 private:
-    Ref<Transform3D> m_transform;
+    Ref<TransformComponent3D> m_transform;
 
     glm::mat4 m_projection_matrix;
     float m_aspect_ratio = 1280.0 / 720.0;
