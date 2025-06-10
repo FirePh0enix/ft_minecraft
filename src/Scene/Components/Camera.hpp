@@ -36,9 +36,6 @@ public:
 
     void rotate(float x_rel, float y_rel);
 
-    glm::vec3 get_forward() const;
-    glm::vec3 get_right() const;
-
     glm::mat4 get_view_matrix() const
     {
         const glm::mat4 rotation = glm::toMat4(m_transform->get_global_transform().rotation());

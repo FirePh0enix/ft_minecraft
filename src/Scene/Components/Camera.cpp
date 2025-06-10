@@ -85,6 +85,7 @@ void Camera::start()
 
 void Camera::tick(double delta)
 {
+    (void)delta;
     m_frustum = Frustum(get_view_proj_matrix());
 }
 
@@ -93,7 +94,7 @@ void Camera::rotate(float x_rel, float y_rel)
     Transform3D transform = m_transform->get_transform();
 
     const glm::vec3 up(0.0, 1.0, 0.0);
-    const glm::vec3 pitch_axis = glm::cross(get_forward(), up);
+    const glm::vec3 pitch_axis = glm::cross(transform.forward(), up);
 
     glm::quat q_pitch = glm::angleAxis(y_rel * 0.01f, pitch_axis);
     glm::quat q_yaw = glm::angleAxis(x_rel * 0.01f, up);
@@ -101,14 +102,4 @@ void Camera::rotate(float x_rel, float y_rel)
     transform.rotation() *= glm::cross(q_pitch, q_yaw);
 
     m_transform->set_transform(transform);
-}
-
-glm::vec3 Camera::get_forward() const
-{
-    return glm::conjugate(m_transform->get_global_transform().rotation()) * glm::vec3(0.0, 0.0, -1.0);
-}
-
-glm::vec3 Camera::get_right() const
-{
-    return glm::conjugate(m_transform->get_global_transform().rotation()) * glm::vec3(1.0, 0.0, 0.0);
 }
