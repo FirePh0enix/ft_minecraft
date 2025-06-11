@@ -1,9 +1,9 @@
 #include "Render/DriverVulkan.hpp"
+#include "Core/Logger.hpp"
 #include "Core/StackVector.hpp"
 #include "Render/Shader.hpp"
 
 #include <chrono>
-#include <print>
 
 #include <SDL3/SDL_vulkan.h>
 
@@ -76,16 +76,22 @@ static inline vk::Format convert_shader_type(ShaderType type)
 {
     switch (type)
     {
-    case ShaderType::Float:
+    case ShaderType::Float32:
         return vk::Format::eR32Sfloat;
-    case ShaderType::Vec2:
+    case ShaderType::Float32x2:
         return vk::Format::eR32G32Sfloat;
-    case ShaderType::Vec3:
+    case ShaderType::Float32x3:
         return vk::Format::eR32G32B32Sfloat;
-    case ShaderType::Vec4:
+    case ShaderType::Float32x4:
         return vk::Format::eR32G32B32A32Sfloat;
-    case ShaderType::Uint:
+    case ShaderType::Uint32:
         return vk::Format::eR32Uint;
+    case ShaderType::Uint32x2:
+        return vk::Format::eR32G32Uint;
+    case ShaderType::Uint32x3:
+        return vk::Format::eR32G32B32Uint;
+    case ShaderType::Uint32x4:
+        return vk::Format::eR32G32B32A32Uint;
     }
 
     return {};
@@ -395,7 +401,7 @@ std::expected<void, Error> RenderingDriverVulkan::initialize(const Window& windo
     m_physical_device_properties = physical_device_with_info_result->properties;
     m_surface_format = physical_device_with_info_result->surface_format;
 
-    std::println("info: GPU selected: {}", m_physical_device_properties.deviceName.data());
+    info("GPU selected: {}", m_physical_device_properties.deviceName.data());
 
     auto surface_capabilities_result = m_physical_device.getSurfaceCapabilitiesKHR(m_surface);
     if (surface_capabilities_result.result != vk::Result::eSuccess)

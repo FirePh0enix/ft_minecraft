@@ -42,16 +42,22 @@ static wgpu::VertexFormat convert_shader_type(ShaderType type)
 {
     switch (type)
     {
-    case ShaderType::Float:
+    case ShaderType::Float32:
         return wgpu::VertexFormat::Float32;
-    case ShaderType::Vec2:
+    case ShaderType::Float32x2:
         return wgpu::VertexFormat::Float32x2;
-    case ShaderType::Vec3:
+    case ShaderType::Float32x3:
         return wgpu::VertexFormat::Float32x3;
-    case ShaderType::Vec4:
+    case ShaderType::Float32x4:
         return wgpu::VertexFormat::Float32x4;
-    case ShaderType::Uint:
+    case ShaderType::Uint32:
         return wgpu::VertexFormat::Uint32;
+    case ShaderType::Uint32x2:
+        return wgpu::VertexFormat::Uint32x2;
+    case ShaderType::Uint32x3:
+        return wgpu::VertexFormat::Uint32x3;
+    case ShaderType::Uint32x4:
+        return wgpu::VertexFormat::Uint32x4;
     }
 
     return {};

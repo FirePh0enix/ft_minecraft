@@ -1,4 +1,5 @@
 #include "World.hpp"
+#include "Core/Logger.hpp"
 
 World::World(Ref<Mesh> mesh, Ref<Material> material)
     : m_mesh(mesh), m_material(material)
@@ -76,6 +77,8 @@ void World::set_render_distance(uint32_t distance)
         ERR_EXPECT_C(buffer_result, "Failed to create instance buffer");
         m_buffers[i + old_buffer_count] = buffer_result.value();
     }
+
+    info("{} bytes allocated for chunk buffers", FormatBin(m_buffers.size() * sizeof(BlockInstanceData) * Chunk::block_count));
 }
 
 void World::generate_flat(BlockState state)

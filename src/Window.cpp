@@ -21,6 +21,10 @@ Window::Window(const std::string& title, uint32_t width, uint32_t height, bool r
         flags |= SDL_WINDOW_RESIZABLE;
 
     m_window = SDL_CreateWindow(title.c_str(), (int)width, (int)height, flags);
+
+#ifndef __platform_web
+    SDL_Vulkan_LoadLibrary(nullptr);
+#endif
 }
 
 Window::~Window()

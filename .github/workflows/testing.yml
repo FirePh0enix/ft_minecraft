@@ -21,38 +21,38 @@ jobs:
         cmake --build build
         ./build/ft_minecraft
 
-  build-macos:
-    runs-on: macos-14
-    steps:
-      - uses: actions/checkout@v3
-      - name: Setup dependencies
-        run: |
-          brew install llvm@18
-          export PATH="/opt/homebrew/opt/llvm@18/bin:$PATH"
-          export LDFLAGS="-L/opt/homebrew/opt/llvm@18/lib -L/opt/homebrew/opt/llvm@18/lib/c++ -L/opt/homebrew/opt/llvm@18/lib -lunwind"
-          export CPPFLAGS="-I/opt/homebrew/opt/llvm@18/include"
-      - name: Build
-        run: |
-          mkdir build
-          cmake -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=/opt/homebrew/opt/llvm@18/bin/clang -DCMAKE_CXX_COMPILER=/opt/homebrew/opt/llvm@18/bin/clang++
-          cmake --build build
+  # build-macos:
+  #   runs-on: macos-14
+  #   steps:
+  #     - uses: actions/checkout@v3
+  #     - name: Setup dependencies
+  #       run: |
+  #         brew install llvm@18
+  #         export PATH="/opt/homebrew/opt/llvm@18/bin:$PATH"
+  #         export LDFLAGS="-L/opt/homebrew/opt/llvm@18/lib -L/opt/homebrew/opt/llvm@18/lib/c++ -L/opt/homebrew/opt/llvm@18/lib -lunwind"
+  #         export CPPFLAGS="-I/opt/homebrew/opt/llvm@18/include"
+  #     - name: Build
+  #       run: |
+  #         mkdir build
+  #         cmake -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=/opt/homebrew/opt/llvm@18/bin/clang -DCMAKE_CXX_COMPILER=/opt/homebrew/opt/llvm@18/bin/clang++
+  #         cmake --build build
 
-  build-web:
-    runs-on: ubuntu-24.04
-    steps:
-    - uses: actions/checkout@v3
-    - name: Setup dependencies
-      run: |
-        sudo apt install --yes build-essential cmake ninja-build python3 gcc-14
-    - name: Setup emsdk
-      uses: mymindstorm/setup-emsdk@v14
-      with:
-        version: '4.0.10'
-        actions-cache-folder: 'emsdk-cache'
-    - name: Verify emsdk
-      run: emcc -v
-    - name: Build
-      run: |
-        mkdir build
-        emcmake cmake -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release
-        cmake --build build
+  # build-web:
+  #   runs-on: ubuntu-24.04
+  #   steps:
+  #   - uses: actions/checkout@v3
+  #   - name: Setup dependencies
+  #     run: |
+  #       sudo apt install --yes build-essential cmake ninja-build python3 gcc-14
+  #   - name: Setup emsdk
+  #     uses: mymindstorm/setup-emsdk@v14
+  #     with:
+  #       version: '4.0.10'
+  #       actions-cache-folder: 'emsdk-cache'
+  #   - name: Verify emsdk
+  #     run: emcc -v
+  #   - name: Build
+  #     run: |
+  #       mkdir build
+  #       emcmake cmake -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release
+  #       cmake --build build

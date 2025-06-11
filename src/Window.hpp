@@ -5,6 +5,10 @@
 
 #include <SDL3/SDL.h>
 
+#ifndef __platform_web
+#include <SDL3/SDL_vulkan.h>
+#endif
+
 #include <optional>
 
 class Window : public Object

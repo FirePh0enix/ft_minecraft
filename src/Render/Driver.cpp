@@ -1,7 +1,5 @@
 #include "Render/Driver.hpp"
 
-Ref<RenderingDriver> RenderingDriver::singleton = nullptr;
-
 size_t size_of(const TextureFormat& format)
 {
     switch (format)

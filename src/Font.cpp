@@ -147,9 +147,9 @@ Expected<void> Font::init_library()
     g_ortho_matrix[1][1] *= -1;
 #endif
 
-    std::array<InstanceLayoutInput, 3> inputs = {InstanceLayoutInput(ShaderType::Vec4, 0),
-                                                 InstanceLayoutInput(ShaderType::Vec3, sizeof(float) * 4),
-                                                 InstanceLayoutInput(ShaderType::Vec2, sizeof(float) * 7)};
+    std::array<InstanceLayoutInput, 3> inputs = {InstanceLayoutInput(ShaderType::Float32x4, 0),
+                                                 InstanceLayoutInput(ShaderType::Float32x3, sizeof(float) * 4),
+                                                 InstanceLayoutInput(ShaderType::Float32x2, sizeof(float) * 7)};
     InstanceLayout instance_layout(inputs, sizeof(Instance));
 
     auto shader_result = Shader::compile("assets/shaders/font.wgsl", {});
@@ -274,6 +274,5 @@ void Text::encode_draw_calls(RenderGraph& graph)
 
 void Text::update_uniform_buffer()
 {
-    Span<Font::Uniform> uniform{m_uniform};
-    m_uniform_buffer->update(uniform.as_bytes());
+    m_uniform_buffer->update(Span<Font::Uniform>(m_uniform).as_bytes());
 }

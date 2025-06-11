@@ -61,7 +61,7 @@ public:
         m_children.erase(m_children.begin() + (ssize_t)index);
     }
 
-    Ref<Entity> get_child(size_t index)
+    inline Ref<Entity> get_child(size_t index)
     {
         return m_children[index];
     }
@@ -100,12 +100,22 @@ public:
     void tick()
     {
         for (auto& comp : m_components)
-            comp->tick(16.66666666666666);
+            comp->tick(0.166666666666666);
+    }
+
+    void do_start()
+    {
+        start();
+
+        for (auto& child : m_children)
+        {
+            child->do_start();
+        }
     }
 
 private:
-    EntityId m_id;
-    Entity *m_parent;
+    EntityId m_id = EntityId(0);
+    Entity *m_parent = nullptr;
     std::vector<Ref<Component>> m_components;
     std::vector<Ref<Entity>> m_children;
 };

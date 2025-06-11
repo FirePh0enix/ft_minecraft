@@ -24,7 +24,7 @@ public:
         m_entites.push_back(entity);
 
         entity->set_id(allocate_next_id());
-        entity->start();
+        entity->do_start();
     }
 
     inline std::vector<Ref<Entity>>& get_entities()

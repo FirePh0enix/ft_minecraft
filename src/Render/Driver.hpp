@@ -180,7 +180,7 @@ public:
     template <typename T>
     static void create_singleton()
     {
-        singleton = make_ref<T>().template cast_to<RenderingDriver>();
+        singleton = new T();
     };
 
     /**
@@ -188,7 +188,7 @@ public:
      */
     static RenderingDriver *get()
     {
-        return singleton.ptr();
+        return singleton;
     }
 
     /**
@@ -255,5 +255,5 @@ protected:
     Extent2D m_surface_extent;
 
 private:
-    static Ref<RenderingDriver> singleton;
+    static inline RenderingDriver *singleton = nullptr;
 };

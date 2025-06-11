@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Core/Format.hpp"
+
 #include <print>
 
 enum class LogLevel : uint8_t
@@ -22,27 +24,27 @@ inline const char *log_level_str(LogLevel level)
     }
 }
 
-template <typename T, typename... Args>
-inline void log(LogLevel level, std::format_string<Args...> fmt, Args&&...args)
+template <class... Args>
+inline void log_msg(LogLevel level, std::format_string<Args...> fmt, Args&&...args)
 {
     std::print("{} ", log_level_str(level));
-    std::print(fmt, args...);
+    std::println(fmt, std::forward<Args...>(args)...);
 }
 
-template <typename T, typename... Args>
+template <class... Args>
 inline void info(std::format_string<Args...> fmt, Args&&...args)
 {
-    log(LogLevel::Info, fmt, args...);
+    log_msg(LogLevel::Info, fmt, std::forward<Args...>(args)...);
 }
 
-template <typename T, typename... Args>
+template <class... Args>
 inline void warn(std::format_string<Args...> fmt, Args&&...args)
 {
-    log(LogLevel::Warn, fmt, args...);
+    log_msg(LogLevel::Warn, fmt, std::forward<Args...>(args)...);
 }
 
-template <typename T, typename... Args>
+template <class... Args>
 inline void error(std::format_string<Args...> fmt, Args&&...args)
 {
-    log(LogLevel::Error, fmt, args...);
+    log_msg(LogLevel::Error, fmt, std::forward<Args...>(args)...);
 }

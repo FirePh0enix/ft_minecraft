@@ -10,6 +10,11 @@ public:
     {
     }
 
+    Span(const T& value)
+        : m_data(&value), m_size(1)
+    {
+    }
+
     Span(const T *data, size_t size)
         : m_data(data), m_size(size)
     {
@@ -23,11 +28,6 @@ public:
     template <const size_t size>
     Span(const std::array<T, size>& array)
         : m_data(array.data()), m_size(array.size())
-    {
-    }
-
-    Span(const std::initializer_list<T>& list)
-        : m_data(list.begin()), m_size(list.size())
     {
     }
 

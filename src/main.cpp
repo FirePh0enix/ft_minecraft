@@ -52,7 +52,9 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     (void)argc;
     (void)argv;
 
+#ifndef __has_address_sanitizer
     initialize_error_handling(argv[0]);
+#endif
 
     tracy::SetThreadName("Main");
 
@@ -106,10 +108,10 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     shader->set_sampler("images", {.min_filter = Filter::Nearest, .mag_filter = Filter::Nearest});
 
     std::array<InstanceLayoutInput, 4> inputs{
-        InstanceLayoutInput(ShaderType::Vec3, 0),
-        InstanceLayoutInput(ShaderType::Vec3, sizeof(glm::vec3)),
-        InstanceLayoutInput(ShaderType::Vec3, sizeof(glm::vec3) * 2),
-        InstanceLayoutInput(ShaderType::Uint, sizeof(glm::vec3) * 3),
+        InstanceLayoutInput(ShaderType::Float32x3, 0),
+        InstanceLayoutInput(ShaderType::Float32x3, sizeof(glm::vec3)),
+        InstanceLayoutInput(ShaderType::Float32x3, sizeof(glm::vec3) * 2),
+        InstanceLayoutInput(ShaderType::Uint32, sizeof(glm::vec3) * 3),
     };
     InstanceLayout instance_layout(inputs, sizeof(BlockInstanceData));
     auto material_layout_result = RenderingDriver::get()->create_material_layout(shader, {.transparency = true}, instance_layout, CullMode::Back, PolygonMode::Fill);

@@ -24,18 +24,15 @@ public:
     }
 
     Ref(const Ref& other)
-        : m_value(other.m_value), m_references(other.references())
     {
-        if (!is_null())
-            ref();
+        this->operator=(other);
     }
 
-    template <typename Parent, typename = std::is_base_of<Parent, T>::value>
-    Ref(const Ref<Parent>& other)
-        : m_value((T *)other.ptr()), m_references(other.references())
+    Ref(Ref&& other)
     {
-        if (!is_null())
-            ref();
+        m_value = other.m_value;
+        other.m_value = nullptr;
+        other.m_references = nullptr;
     }
 
     Ref(T *value, ReferenceType *references)
@@ -43,17 +40,12 @@ public:
     {
     }
 
-    static Ref from_pointers_increment(T *value, ReferenceType *references)
-    {
-        Ref ref(value, references);
-        ref.ref();
-        return std::move(ref);
-    }
-
     ~Ref()
     {
-        if (!is_null())
-            unref();
+        unref();
+
+        m_value = nullptr;
+        m_references = nullptr;
     }
 
     void operator=(std::nullptr_t)
@@ -64,34 +56,44 @@ public:
         m_references = nullptr;
     }
 
-    Ref& operator=(const Ref& other)
+    void operator=(const Ref& other)
     {
-        if (m_value == other.m_value && m_references == other.m_references)
+        if (m_value == other.m_value)
         {
-            return *this;
+            return;
         }
-
-        if (!is_null())
-            unref();
 
         m_value = other.m_value;
         m_references = other.m_references;
 
-        if (!is_null())
-            ref();
+        ref();
+    }
 
-        return *this;
+    void operator=(Ref&& other)
+    {
+        if (m_value == other.m_value)
+        {
+            return;
+        }
+
+        unref();
+
+        m_value = other.m_value;
+        m_references = other.m_references;
+
+        other.m_value = nullptr;
+        other.m_references = nullptr;
     }
 
     T *operator->()
     {
-        ERR_COND(is_null(), "Trying to deference a null pointer");
+        ERR_COND(is_null(), "Trying to dereference a null pointer");
         return m_value;
     }
 
     const T *operator->() const
     {
-        ERR_COND(is_null(), "Trying to deference a null pointer");
+        ERR_COND(is_null(), "Trying to dereference a null pointer");
         return m_value;
     }
 
@@ -113,8 +115,15 @@ public:
     template <typename Subclass>
     inline Ref<Subclass> cast_to() const
     {
+        if (is_null())
+        {
+            return nullptr;
+        }
+
         if (m_value->template is<Subclass>())
-            return Ref<Subclass>::from_pointers_increment(static_cast<Subclass *>(m_value), m_references);
+        {
+            return Ref<Subclass>(static_cast<Subclass *>(m_value), m_references);
+        }
         return nullptr;
     }
 
@@ -139,11 +148,17 @@ private:
 
     void ref()
     {
-        *m_references += 1;
+        // if (is_null())
+        //     return;
+
+        // *m_references += 1;
     }
 
     void unref()
     {
+        // if (is_null())
+        //     return;
+
         // *m_references -= 1;
 
         // if (*m_references == 0)
