@@ -21,24 +21,13 @@ void Player::tick(double delta)
     const glm::vec3 up(0.0, 1.0, 0.0);
     const glm::vec3 dir = Input::get().get_movement_vector();
 
-    transform.position() += forward * dir.z * m_speed * (float)delta;
-    transform.position() += up * dir.y * m_speed * (float)delta;
-    transform.position() += right * dir.x * m_speed * (float)delta;
-
     if (Input::get().is_mouse_grabbed())
     {
         const glm::vec2 relative = Input::get().get_mouse_relative();
-        // const glm::vec3 pitch_axis = glm::cross(transform.forward(), up);
-
         const glm::quat q_yaw = glm::angleAxis(relative.x * 0.01f, up);
-        // glm::quat q_pitch = glm::angleAxis(relative.y * 0.01f, pitch_axis);
-
-        // transform.rotation() *= glm::cross(q_yaw, q_pitch);
-
-        // glm::vec3 angles = transform.euler_angles();
-        // transform.set_euler_angles(angles);
 
         transform.rotation() *= q_yaw;
+        m_transform->set_transform(transform);
 
         Ref<TransformComponent3D> camera_transform_comp = m_camera->get_entity()->get_component<TransformComponent3D>();
         Transform3D camera_transform = camera_transform_comp->get_transform();
@@ -74,6 +63,14 @@ void Player::tick(double delta)
             t += 0.1;
         }
     }
+    glm::vec3 vel = glm::vec3(0.0);
 
-    m_transform->set_transform(transform);
+    vel += forward * dir.z * m_speed;
+    vel += up * dir.y * m_speed;
+    vel += right * dir.x * m_speed;
+
+    // vel.y -= 9.81f * (float)delta;
+
+    m_body->set_velocity(vel);
+    m_body->move_and_collide(m_world);
 }

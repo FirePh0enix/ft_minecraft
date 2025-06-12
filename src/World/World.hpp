@@ -29,7 +29,7 @@ class World : public VisualComponent
 
 public:
     static constexpr size_t overworld = 0;
-    static constexpr size_t undeworld = 1;
+    static constexpr size_t underworld = 1;
 
     World(Ref<Mesh> mesh, Ref<Material> material);
 

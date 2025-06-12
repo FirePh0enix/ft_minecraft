@@ -9,12 +9,24 @@ class RigidBody : public Component
     CLASS(RigidBody, Component);
 
 public:
+    RigidBody(AABB aabb)
+        : m_aabb(aabb)
+    {
+    }
+
     virtual void start() override;
     virtual void tick(double delta) override;
 
-private:
-    float m_velocity;
-    AABB m_aabb;
+    inline void set_velocity(glm::vec3 velocity)
+    {
+        m_velocity = velocity;
+    }
 
-    bool intersect_world(Ref<World> world);
+    void move_and_collide(Ref<World>& world);
+    bool intersect_world(glm::vec3 position, Ref<World> world);
+
+private:
+    Ref<TransformComponent3D> m_transform;
+    glm::vec3 m_velocity;
+    AABB m_aabb;
 };

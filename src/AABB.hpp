@@ -1,29 +1,28 @@
 #pragma once
 
-class AABB
+struct AABB
 {
 public:
     AABB()
-        : m_center(0.0), m_half_extent(0.0)
+        : center(0.0), half_extent(0.0)
     {
     }
 
     AABB(glm::vec3 center, glm::vec3 half_extent)
-        : m_center(center), m_half_extent(half_extent)
+        : center(center), half_extent(half_extent)
     {
     }
 
-    inline glm::vec3 center() const
+    bool intersect(const AABB& other) const
     {
-        return m_center;
+        return center.x - half_extent.x <= other.center.x + other.half_extent.x &&
+               center.x + half_extent.x >= other.center.x - other.half_extent.x &&
+               center.y - half_extent.y <= other.center.y + other.half_extent.y &&
+               center.y + half_extent.y >= other.center.y - other.half_extent.y &&
+               center.z - half_extent.z <= other.center.z + other.half_extent.z &&
+               center.z + half_extent.z >= other.center.z - other.half_extent.z;
     }
 
-    inline glm::vec3 half_extent() const
-    {
-        return m_half_extent;
-    }
-
-private:
-    glm::vec3 m_center;
-    glm::vec3 m_half_extent;
+    glm::vec3 center;
+    glm::vec3 half_extent;
 };
