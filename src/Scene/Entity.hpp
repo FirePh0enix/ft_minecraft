@@ -46,6 +46,8 @@ public:
     template <typename T>
     void add_component(Ref<T> comp)
     {
+        ERR_COND_VR(comp->get_entity() != nullptr, "Component of type {} was already added to entity {}", T::get_static_class_name(), (uint32_t)comp->get_entity()->get_id());
+
         comp->set_entity(this);
 
         Ref<Component> c = comp.template cast_to<Component>();
