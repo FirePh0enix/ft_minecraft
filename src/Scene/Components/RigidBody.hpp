@@ -24,6 +24,7 @@ public:
 
     void move_and_collide(Ref<World>& world);
     bool intersect_world(glm::vec3 position, Ref<World> world);
+    bool is_on_ground(glm::vec3 position, Ref<World> world);
 
 private:
     Ref<TransformComponent3D> m_transform;
