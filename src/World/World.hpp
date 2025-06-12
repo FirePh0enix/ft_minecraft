@@ -22,7 +22,7 @@ class World : public VisualComponent
 
 public:
     static constexpr size_t overworld = 0;
-    static constexpr size_t undeworld = 1;
+    static constexpr size_t underworld = 1;
 
     World(Ref<Mesh> mesh, Ref<Material> material);
 
@@ -42,7 +42,7 @@ public:
 private:
     std::array<Dimension, 2> m_dims;
     std::vector<Ref<Buffer>> m_buffers;
-    uint32_t m_distance = 0;
+    ssize_t m_distance = 0;
 
     Ref<Mesh> m_mesh;
     Ref<Material> m_material;

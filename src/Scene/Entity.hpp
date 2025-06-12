@@ -46,6 +46,8 @@ public:
     template <typename T>
     void add_component(Ref<T> comp)
     {
+        ERR_COND_VR(comp->get_entity() != nullptr, "Component of type {} was already added to entity {}", T::get_static_class_name(), (uint32_t)comp->get_entity()->get_id());
+
         comp->set_entity(this);
 
         Ref<Component> c = comp.template cast_to<Component>();
@@ -100,7 +102,7 @@ public:
     void tick()
     {
         for (auto& comp : m_components)
-            comp->tick(16.66666666666666);
+            comp->tick(0.166666666666666);
     }
 
 private:

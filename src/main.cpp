@@ -139,7 +139,7 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     BlockState dirt(1);
 
     Ref<World> world = make_ref<World>(cube, material);
-    world->set_render_distance(2);
+    world->set_render_distance(1);
     world->generate_flat(dirt);
 
     Ref<Entity> world_entity = make_ref<Entity>();
@@ -150,12 +150,12 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     camera = make_ref<Camera>();
 
     Ref<Entity> player_head = make_ref<Entity>();
-    player_head->add_component(make_ref<TransformComponent3D>());
+    player_head->add_component(make_ref<TransformComponent3D>(glm::vec3(0.0, 0.85, 0.0)));
     player_head->add_component(camera);
 
     Ref<Entity> player = make_ref<Entity>();
-    player->add_component(make_ref<TransformComponent3D>(Transform3D(glm::vec3(10.0, 13.0, 10.0))));
-    player->add_component(make_ref<RigidBody>());
+    player->add_component(make_ref<TransformComponent3D>(Transform3D(glm::vec3(0.0, 18.0, 0.0))));
+    player->add_component(make_ref<RigidBody>(AABB(glm::vec3(), glm::vec3(0.9))));
     player->add_component(make_ref<Player>(world));
     player->add_child(player_head);
 

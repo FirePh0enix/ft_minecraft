@@ -93,6 +93,11 @@ public:
         m_rotation = glm::quat(euler_angles);
     }
 
+    inline void set_position(glm::vec3 pos)
+    {
+        m_position = pos;
+    }
+
 private:
     glm::vec3 m_position;
     glm::quat m_rotation;

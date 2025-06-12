@@ -18,7 +18,10 @@ BlockState World::get_block_state(int64_t x, int64_t y, int64_t z) const
     }
 
     const Chunk *chunk = chunk_value.value();
-    return chunk->get_block(x - chunk_x * 16, y, z - chunk_z * 16);
+    const size_t chunk_local_x = x > 0 ? (x % 16) : -(x % 16);
+    const size_t chunk_local_z = z > 0 ? (z % 16) : -(z % 16);
+
+    return chunk->get_block(chunk_local_x, y, chunk_local_z);
 }
 
 void World::set_block_state(int64_t x, int64_t y, int64_t z, BlockState state)
@@ -34,7 +37,10 @@ void World::set_block_state(int64_t x, int64_t y, int64_t z, BlockState state)
     }
 
     Chunk *chunk = chunk_value.value();
-    chunk->set_block(x - chunk_x * 16, y, z - chunk_z * 16, state);
+    const size_t chunk_local_x = x > 0 ? (x % 16) : -(x % 16);
+    const size_t chunk_local_z = z > 0 ? (z % 16) : -(z % 16);
+
+    chunk->set_block(chunk_local_x, y, chunk_local_z, state);
 }
 
 std::optional<const Chunk *> World::get_chunk(int64_t x, int64_t z) const
@@ -82,9 +88,9 @@ void World::generate_flat(BlockState state)
 {
     size_t id = 0;
 
-    for (ssize_t x = -(ssize_t)m_distance; x <= (ssize_t)m_distance; x++)
+    for (ssize_t x = -m_distance; x <= m_distance; x++)
     {
-        for (ssize_t z = -(ssize_t)m_distance; z <= (ssize_t)m_distance; z++)
+        for (ssize_t z = -m_distance; z <= m_distance; z++)
         {
             Chunk chunk = Chunk::flat(x, z, state, 10);
             chunk.set_buffer_id(id);
@@ -93,6 +99,7 @@ void World::generate_flat(BlockState state)
             id++;
         }
     }
+    std::println("{} {}", -m_distance, +m_distance);
 }
 
 void World::update_buffers()

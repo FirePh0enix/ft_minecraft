@@ -25,5 +25,5 @@ private:
     Ref<RigidBody> m_body;
     Ref<World> m_world;
 
-    float m_speed = 0.05;
+    float m_speed = 0.2;
 };
