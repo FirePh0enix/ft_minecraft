@@ -17,6 +17,7 @@ option(BUILD_DOC "Build documentation" OFF)
 option(RUN_TESTS "Run tests" OFF)
 option(ENABLE_SHADER_HOTRELOAD "Shader hot reloading" OFF)
 option(SANITIZE_ADDRESS "Enable AddressSanitizer" OFF)
+option(SANITIZE_THREAD "Enable AddressSanitizer" OFF)
 
 list(APPEND SOURCES
     src/Core/Class.cpp
@@ -121,6 +122,12 @@ if (SANITIZE_ADDRESS)
     target_compile_options(${TARGET_NAME} PRIVATE -fsanitize=address)
     target_link_options(${TARGET_NAME} PRIVATE -fsanitize=address)
     target_compile_definitions(${TARGET_NAME} PRIVATE __has_address_sanitizer)
+endif()
+
+if (SANITIZE_THREAD)
+    target_compile_options(${TARGET_NAME} PRIVATE -fsanitize=thread)
+    target_link_options(${TARGET_NAME} PRIVATE -fsanitize=thread)
+    target_compile_definitions(${TARGET_NAME} PRIVATE __has_thread_sanitizer)
 endif()
 
 # Use mold when available to speed-up linking

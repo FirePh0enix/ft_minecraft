@@ -129,6 +129,11 @@ public:
         return m_sampler_cache;
     }
 
+    inline std::mutex& get_graphics_mutex()
+    {
+        return m_graphics_mutex;
+    }
+
 private:
     static constexpr size_t max_frames_in_flight = 2;
 
@@ -142,6 +147,8 @@ private:
 
     vk::Queue m_graphics_queue;
     uint32_t m_graphics_queue_index;
+    std::mutex m_graphics_mutex;
+
     vk::Queue m_compute_queue;
     uint32_t m_compute_queue_index;
 

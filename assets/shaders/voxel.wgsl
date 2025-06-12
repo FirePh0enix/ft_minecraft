@@ -37,9 +37,8 @@ fn vertex_main(
     @location(2) uv: vec2<f32>,
 
     @location(3) instance_pos: vec3<f32>,
-    @location(4) texture0: vec3<f32>,
-    @location(5) texture1: vec3<f32>,
-    @location(6) visibility_gradient: u32,
+    @location(4) textures: vec3<u32>,
+    @location(5) visibility_gradient: u32,
 ) -> VertexOutput
 {
     let visibility = visibility_gradient & 0xff;
@@ -77,7 +76,7 @@ fn vertex_main(
     out.normal = normal;
     out.light_vec = vec3<f32>(-1.0, -1.0, 0.0);
 
-    let texture_indices: array<u32, 6> = array<u32, 6>(u32(texture0.x), u32(texture0.y), u32(texture0.z), u32(texture1.x), u32(texture1.y), u32(texture1.z));
+    let texture_indices: array<u32, 6> = array<u32, 6>(textures.x & 0xFFFF, (textures.x & 0xFFFF) >> 16, textures.y & 0xFFFF, (textures.y & 0xFFFF) >> 16, textures.z & 0xFFFF, (textures.z & 0xFFFF) >> 16);
     out.texture_index = texture_indices[vertex_index / 4];
 
     return out;

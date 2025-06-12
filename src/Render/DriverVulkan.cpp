@@ -880,12 +880,15 @@ void RenderingDriverVulkan::draw_graph(const RenderGraph& graph)
 
     vk::CommandBuffer cb = m_command_buffers[m_current_frame];
 
+    // Make sure we are not recording and submitting to the graphics from multiple threads at the same time.
+    // TODO: The lock could be moved right before submission if the transfer command buffer was allocated from
+    //       a different VkCommandPool.
+    std::lock_guard<std::mutex> lock(RenderingDriverVulkan::get()->get_graphics_mutex());
+
     ERR_RESULT_E_RET(cb.reset());
     ERR_RESULT_E_RET(cb.begin(vk::CommandBufferBeginInfo(vk::CommandBufferUsageFlagBits::eOneTimeSubmit)));
 
     // TracyVkZone(m_tracy_context, cb, "DrawMesh");
-
-    // TODO: Add synchronization
 
     for (const auto& instruction : graph.get_instructions())
     {
@@ -1246,8 +1249,8 @@ std::optional<PhysicalDeviceWithInfo> RenderingDriverVulkan::pick_best_device(co
 
 BufferVulkan::~BufferVulkan()
 {
-    // RenderingDriverVulkan::get()->get_device().freeMemory(memory);
-    // RenderingDriverVulkan::get()->get_device().destroyBuffer(buffer);
+    RenderingDriverVulkan::get()->get_device().freeMemory(memory);
+    RenderingDriverVulkan::get()->get_device().destroyBuffer(buffer);
 }
 
 void BufferVulkan::update(Span<uint8_t> view, size_t offset)
@@ -1269,6 +1272,7 @@ void BufferVulkan::update(Span<uint8_t> view, size_t offset)
     RenderingDriverVulkan::get()->get_device().unmapMemory(staging_buffer_vk->memory);
 
     // Copy from the staging buffer to the final buffer
+    std::lock_guard<std::mutex> lock(RenderingDriverVulkan::get()->get_graphics_mutex());
     vk::CommandBuffer cb = RenderingDriverVulkan::get()->get_transfer_buffer();
 
     ERR_RESULT_E_RET(cb.reset());
@@ -1313,6 +1317,7 @@ void TextureVulkan::update(Span<uint8_t> view, uint32_t layer)
     RenderingDriverVulkan::get()->get_device().unmapMemory(staging_buffer_vk->memory);
 
     // Copy from the staging buffer to the final buffer
+    std::lock_guard<std::mutex> lock(RenderingDriverVulkan::get()->get_graphics_mutex());
     vk::CommandBuffer cb = RenderingDriverVulkan::get()->get_transfer_buffer();
 
     ERR_RESULT_E_RET(cb.reset());
@@ -1369,6 +1374,7 @@ static vk::PipelineStageFlags layout_to_stage_mask(TextureLayout layout)
 
 void TextureVulkan::transition_layout(TextureLayout new_layout)
 {
+    std::lock_guard<std::mutex> lock(RenderingDriverVulkan::get()->get_graphics_mutex());
     vk::CommandBuffer cb = RenderingDriverVulkan::get()->get_transfer_buffer();
 
     ERR_RESULT_E_RET(cb.begin(vk::CommandBufferBeginInfo()));

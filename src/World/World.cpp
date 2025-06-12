@@ -63,6 +63,8 @@ void World::set_render_distance(uint32_t distance)
     const uint32_t old_buffer_count = m_buffers.size();
     const uint32_t new_buffer_count = (distance * 2 + 1) * (distance * 2 + 1);
 
+    std::lock_guard<std::mutex> lock(m_buffers_mutex);
+
     m_distance = distance;
 
     // Create or recreate instance buffers.
@@ -75,44 +77,45 @@ void World::set_render_distance(uint32_t distance)
     {
         auto buffer_result = RenderingDriver::get()->create_buffer(sizeof(BlockInstanceData) * Chunk::block_count, {.copy_dst = true, .vertex = true});
         ERR_EXPECT_C(buffer_result, "Failed to create instance buffer");
-        m_buffers[i + old_buffer_count] = buffer_result.value();
+        m_buffers[i + old_buffer_count] = BufferInfo{.buffer = buffer_result.value(), .used = false};
     }
 
     info("{} bytes allocated for chunk buffers", FormatBin(m_buffers.size() * sizeof(BlockInstanceData) * Chunk::block_count));
 }
 
-void World::generate_flat(BlockState state)
-{
-    size_t id = 0;
-
-    for (ssize_t x = -(ssize_t)m_distance; x <= (ssize_t)m_distance; x++)
-    {
-        for (ssize_t z = -(ssize_t)m_distance; z <= (ssize_t)m_distance; z++)
-        {
-            Chunk chunk = Chunk::flat(x, z, state, 10);
-            chunk.set_buffer_id(id);
-            chunk.update_instance_buffer(m_buffers[id]);
-            m_dims[0].get_chunks().push_back(chunk);
-            id++;
-        }
-    }
-}
-
-void World::update_buffers()
-{
-    for (auto& chunk : m_dims[0].get_chunks())
-    {
-        chunk.update_instance_buffer(m_buffers[chunk.get_buffer_id()]);
-    }
-}
-
-void World::encode_draw_calls(RenderGraph& graph, Camera& camera) const
+void World::encode_draw_calls(RenderGraph& graph, Camera& camera)
 {
     ZoneScoped;
 
+    std::lock_guard<std::mutex> lock(m_chunks_mutex);
+
     for (const Chunk& chunk : m_dims[0].get_chunks())
     {
-        Ref<Buffer> buffer = m_buffers[chunk.get_buffer_id()];
+        const Ref<Buffer>& buffer = m_buffers[chunk.get_buffer_id()].buffer;
         graph.add_draw(m_mesh.ptr(), m_material.ptr(), camera.get_view_proj_matrix(), chunk.get_block_count(), buffer.ptr());
     }
+}
+
+std::optional<size_t> World::acquire_buffer()
+{
+    std::lock_guard<std::mutex> lock(m_buffers_mutex);
+
+    for (size_t i = 0; i < m_buffers.size(); i++)
+    {
+        auto& info = m_buffers[i];
+
+        if (!info.used)
+        {
+            info.used = true;
+            return i;
+        }
+    }
+
+    return std::nullopt;
+}
+
+void World::free_buffer(size_t index)
+{
+    std::lock_guard<std::mutex> lock(m_buffers_mutex);
+    m_buffers[index].used = false;
 }

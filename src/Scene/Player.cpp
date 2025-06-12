@@ -68,7 +68,6 @@ void Player::tick(double delta)
             if (!state.is_air())
             {
                 m_world->set_block_state(x, y, z, BlockState());
-                m_world->update_buffers();
                 break;
             }
 

@@ -9,11 +9,11 @@
 #include "Scene/Player.hpp"
 #include "Scene/Scene.hpp"
 #include "Window.hpp"
+#include "World/Generation/Generator.hpp"
+#include "World/Generation/Terrain.hpp"
 #include "World/World.hpp"
 
 #include <SDL3_image/SDL_image.h>
-
-#include <print>
 
 #ifdef __has_vulkan
 #include "Render/DriverVulkan.hpp"
@@ -46,6 +46,8 @@ Scene scene;
 Text text;
 
 Ref<Camera> camera;
+Ref<WorldGenerator<FlatTerrainGenerator>> gen;
+Ref<Entity> player;
 
 MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
 {
@@ -107,11 +109,10 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
 
     shader->set_sampler("images", {.min_filter = Filter::Nearest, .mag_filter = Filter::Nearest});
 
-    std::array<InstanceLayoutInput, 4> inputs{
+    std::array<InstanceLayoutInput, 3> inputs{
         InstanceLayoutInput(ShaderType::Float32x3, 0),
-        InstanceLayoutInput(ShaderType::Float32x3, sizeof(glm::vec3)),
-        InstanceLayoutInput(ShaderType::Float32x3, sizeof(glm::vec3) * 2),
-        InstanceLayoutInput(ShaderType::Uint32, sizeof(glm::vec3) * 3),
+        InstanceLayoutInput(ShaderType::Uint32x3, sizeof(glm::vec3) * 1),
+        InstanceLayoutInput(ShaderType::Uint32, sizeof(glm::vec3) * 2),
     };
     InstanceLayout instance_layout(inputs, sizeof(BlockInstanceData));
     auto material_layout_result = RenderingDriver::get()->create_material_layout(shader, {.transparency = true}, instance_layout, CullMode::Back, PolygonMode::Fill);
@@ -141,8 +142,9 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     BlockState dirt(1);
 
     Ref<World> world = make_ref<World>(cube, material);
-    world->set_render_distance(2);
-    world->generate_flat(dirt);
+    world->set_render_distance(4);
+
+    gen = make_ref<WorldGenerator<FlatTerrainGenerator>>(world);
 
     Ref<Entity> world_entity = make_ref<Entity>();
     world_entity->add_component(world);
@@ -155,8 +157,8 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     player_head->add_component(make_ref<TransformComponent3D>());
     player_head->add_component(camera);
 
-    Ref<Entity> player = make_ref<Entity>();
-    player->add_component(make_ref<TransformComponent3D>(Transform3D(glm::vec3(10.0, 13.0, 10.0))));
+    player = make_ref<Entity>();
+    player->add_component(make_ref<TransformComponent3D>(Transform3D(glm::vec3(0.0, 13.0, 0.0))));
     player->add_component(make_ref<RigidBody>());
     player->add_component(make_ref<Player>(world));
     player->add_child(player_head);
@@ -209,6 +211,9 @@ static void tick()
     }
 
     RenderingDriver::get()->poll();
+
+    const glm::vec3 player_pos = player->get_component<TransformComponent3D>()->get_global_transform().position();
+    gen->load_around(int64_t(player_pos.x), int64_t(player_pos.y), int64_t(player_pos.z));
 
     scene.tick();
 
