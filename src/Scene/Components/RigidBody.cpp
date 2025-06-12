@@ -146,3 +146,21 @@ bool RigidBody::intersect_world(glm::vec3 position, Ref<World> world)
 
     return false;
 }
+
+bool RigidBody::is_on_ground(glm::vec3 position, Ref<World> world)
+{
+    int64_t px = static_cast<int64_t>(position.x + 0.5f);
+    int64_t py = static_cast<int64_t>(position.y + 0.5f);
+    int64_t pz = static_cast<int64_t>(position.z + 0.5f);
+
+    AABB player_aabb = m_aabb;
+    player_aabb.center = m_transform->get_transform().position();
+
+    AABB aabb(glm::vec3((float)(px) + 0.5, (float)(1 + py) + 0.5, (float)(pz) + 0.5), glm::vec3(0.5));
+
+    if (aabb.intersect(player_aabb) && !world->get_block_state(px, 1 + py, pz).is_air())
+    {
+        return true;
+    }
+    return false;
+}
