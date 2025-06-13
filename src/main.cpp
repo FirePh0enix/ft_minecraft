@@ -40,13 +40,12 @@
 
 static void register_all_classes();
 static void tick();
+static void main_loop();
 
 Ref<Window> window;
 RenderGraph graph;
-Scene scene;
 Text text;
 
-Ref<Camera> camera;
 Ref<WorldGenerator<FlatTerrainGenerator>> gen;
 Ref<Entity> player;
 
@@ -132,27 +131,28 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
 
     Font::init_library();
 
-    // auto font_result = Font::create("assets/fonts/Anonymous.ttf", 20);
-    // EXPECT(font_result);
-    // Ref<Font> font = font_result.value();
+    auto font_result = Font::create("assets/fonts/Anonymous.ttf", 20);
+    EXPECT(font_result);
+    Ref<Font> font = font_result.value();
 
-    // text = Text("Hello world", font);
-    // text.set_scale(glm::vec2(0.2, 0.2));
-    // text.set_color(glm::vec4(1.0, 1.0, 1.0, 1.0));
+    text = Text("Hello world", font);
+    text.set_scale(glm::vec2(0.2, 0.2));
+    text.set_color(glm::vec4(1.0, 1.0, 1.0, 1.0));
+
+    Ref<Scene> scene = make_ref<Scene>();
+    Scene::set_active_scene(scene);
 
     BlockState dirt(1);
 
     Ref<World> world = make_ref<World>(cube, material);
-    world->set_render_distance(4);
-
-    gen = make_ref<WorldGenerator<FlatTerrainGenerator>>(world);
+    world->set_render_distance(16);
 
     Ref<Entity> world_entity = make_ref<Entity>();
     world_entity->add_component(world);
 
-    scene.add_entity(world_entity);
+    scene->add_entity(world_entity);
 
-    camera = make_ref<Camera>();
+    Ref<Camera> camera = make_ref<Camera>();
 
     Ref<Entity> player_head = make_ref<Entity>();
     player_head->add_component(make_ref<TransformComponent3D>());
@@ -164,16 +164,18 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     player->add_component(make_ref<Player>(world));
     player->add_child(player_head);
 
-    scene.add_entity(player);
-    scene.set_active_camera(camera);
+    scene->add_entity(player);
+    scene->set_active_camera(camera);
+
+    gen = make_ref<WorldGenerator<FlatTerrainGenerator>>(world, player);
 
 #ifdef __platform_web
     emscripten_set_main_loop_arg([](void *)
-                                 { tick(); }, nullptr, 0, true);
+                                 { main_loop(); }, nullptr, 0, true);
 #else
     while (window->is_running())
     {
-        tick();
+        main_loop();
     }
 #endif
 
@@ -186,10 +188,22 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     return 0;
 }
 
+clock_t last_tick_time = 0;
+constexpr float time_between_ticks = 1.0 / 60.0;
+
+static void main_loop()
+{
+    if ((float)(clock() - last_tick_time) / CLOCKS_PER_SEC >= time_between_ticks)
+    {
+        last_tick_time = clock();
+        tick();
+    }
+}
+
 static void tick()
 {
     FrameMark;
-    ZoneScopedN("main_loop_tick");
+    ZoneScoped;
 
     std::optional<SDL_Event> event;
 
@@ -218,14 +232,16 @@ static void tick()
     const glm::vec3 player_pos = player->get_component<TransformComponent3D>()->get_global_transform().position();
     gen->load_around(int64_t(player_pos.x), int64_t(player_pos.y), int64_t(player_pos.z));
 
-    scene.tick();
+    Ref<Scene>& scene = Scene::get_active_scene();
+
+    scene->tick();
 
     Input::get().post_events();
 
     graph.reset();
 
     graph.begin_render_pass();
-    scene.encode_draw_calls(graph);
+    scene->encode_draw_calls(graph);
     // text.encode_draw_calls(graph);
     graph.end_render_pass();
 

@@ -17,8 +17,8 @@ class WorldGenerator : public Object
     CLASS(WorldGenerator, Object);
 
 public:
-    WorldGenerator(Ref<World> world)
-        : m_world(world), m_load_semaphore(0), m_unload_semaphore(0)
+    WorldGenerator(Ref<World> world, Ref<Entity> player)
+        : m_world(world), m_player(player), m_load_semaphore(0), m_unload_semaphore(0)
     {
         m_load_worker = std::thread(load_worker, this);
         m_unload_worker = std::thread(unload_worker, this);
@@ -113,24 +113,48 @@ public:
                 continue;
 
             gen->m_load_orders_mutex.lock();
-            std::optional<ChunkPos> chunk_pos = gen->pop_nearest_load_order(0, 0);
+            std::optional<ChunkPos> chunk_pos_opt = gen->pop_nearest_load_order(0, 0); // TODO
             remaining = gen->m_load_orders.size();
             gen->m_load_orders_mutex.unlock();
 
-            if (chunk_pos.has_value())
+            if (chunk_pos_opt.has_value())
             {
-                if (gen->m_world->is_chunk_loaded(chunk_pos->x, chunk_pos->z))
+                ChunkPos chunk_pos = chunk_pos_opt.value();
+
+                if (gen->m_world->is_chunk_loaded(chunk_pos.x, chunk_pos.z))
                 {
                     gen->m_world->free_buffer(*buffer_index);
                     continue;
                 }
 
-                Chunk chunk = gen->generate_chunk(chunk_pos->x, chunk_pos->z);
+                Chunk chunk = gen->generate_chunk(chunk_pos.x, chunk_pos.z);
                 chunk.set_buffer_id(*buffer_index);
+
+                {
+                    std::lock_guard<std::mutex> lock(gen->m_world->get_chunk_mutex());
+                    chunk.compute_full_visibility(gen->m_world);
+                }
+
                 chunk.update_instance_buffer(gen->m_world->get_buffer(chunk.get_buffer_id()));
 
-                std::lock_guard<std::mutex> lock(gen->m_world->get_chunk_mutex());
-                gen->m_world->get_chunks().push_back(chunk);
+                {
+                    std::lock_guard<std::mutex> lock(gen->m_world->get_chunk_mutex());
+                    gen->m_world->get_chunks().push_back(chunk);
+
+                    for (auto& chunk : {
+                             gen->m_world->get_chunk(chunk_pos.x, chunk_pos.z - 1),
+                             gen->m_world->get_chunk(chunk_pos.x, chunk_pos.z + 1),
+                             gen->m_world->get_chunk(chunk_pos.x - 1, chunk_pos.z),
+                             gen->m_world->get_chunk(chunk_pos.x + 1, chunk_pos.z),
+                         })
+                    {
+                        if (chunk.has_value())
+                        {
+                            chunk.value()->compute_full_visibility(gen->m_world);
+                            chunk.value()->update_instance_buffer(gen->m_world->get_buffer(chunk.value()->get_buffer_id()));
+                        }
+                    }
+                }
             }
         }
     }
@@ -149,7 +173,7 @@ public:
             ZoneScopedN("unload chunk");
 
             gen->m_unload_orders_mutex.lock();
-            std::optional<ChunkPos> chunk_pos = gen->pop_nearest_unload_order(0, 0);
+            std::optional<ChunkPos> chunk_pos = gen->pop_unload_order();
             remaining = gen->m_unload_orders.size();
             gen->m_unload_orders_mutex.unlock();
 
@@ -203,16 +227,15 @@ public:
         return pos;
     }
 
-    std::optional<ChunkPos> pop_nearest_unload_order(int64_t x, int64_t z)
+    std::optional<ChunkPos> pop_unload_order()
     {
         ZoneScoped;
 
-        size_t index = get_nearest(m_unload_orders, x, z);
-        if (index == std::numeric_limits<size_t>::max())
+        if (m_unload_orders.empty())
             return std::nullopt;
 
-        ChunkPos pos = m_unload_orders[index];
-        m_unload_orders.erase(m_unload_orders.begin() + (ssize_t)index);
+        ChunkPos pos = m_unload_orders.back();
+        m_unload_orders.pop_back();
 
         return pos;
     }
@@ -243,7 +266,7 @@ public:
 
     // private:
     Ref<World> m_world;
-    std::mutex m_chunks_mutex;
+    Ref<Entity> m_player;
 
     std::thread m_load_worker;
     std::atomic_bool m_load_state = true;

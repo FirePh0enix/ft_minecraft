@@ -96,8 +96,8 @@ void Camera::rotate(float x_rel, float y_rel)
     const glm::vec3 up(0.0, 1.0, 0.0);
     const glm::vec3 pitch_axis = glm::cross(transform.forward(), up);
 
-    glm::quat q_pitch = glm::angleAxis(y_rel * 0.01f, pitch_axis);
-    glm::quat q_yaw = glm::angleAxis(x_rel * 0.01f, up);
+    glm::quat q_pitch = glm::angleAxis(y_rel * 12.0f, pitch_axis);
+    glm::quat q_yaw = glm::angleAxis(x_rel * 12.0f, up);
 
     transform.rotation() *= glm::cross(q_pitch, q_yaw);
 

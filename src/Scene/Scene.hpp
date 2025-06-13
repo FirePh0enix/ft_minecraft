@@ -5,14 +5,21 @@
 #include "Scene/Components/Camera.hpp"
 #include "Scene/Entity.hpp"
 
-class Scene
+class Scene : public Object
 {
+    CLASS(Scene, Object);
+
 public:
     Scene();
 
     void encode_draw_calls(RenderGraph& graph);
 
     void tick();
+
+    inline Ref<Camera>& get_active_camera()
+    {
+        return m_active_camera;
+    }
 
     inline void set_active_camera(const Ref<Camera>& camera)
     {
@@ -39,8 +46,20 @@ public:
         return id;
     }
 
+    static Ref<Scene>& get_active_scene()
+    {
+        return s_active_scene;
+    }
+
+    static void set_active_scene(const Ref<Scene>& scene)
+    {
+        s_active_scene = scene;
+    }
+
 private:
     Ref<Camera> m_active_camera;
     std::vector<Ref<Entity>> m_entites;
+
     static inline EntityId s_id = EntityId(1);
+    static inline Ref<Scene> s_active_scene;
 };

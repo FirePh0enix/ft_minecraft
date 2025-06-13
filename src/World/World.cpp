@@ -1,4 +1,5 @@
 #include "World.hpp"
+#include "Core/Format.hpp"
 #include "Core/Logger.hpp"
 
 World::World(Ref<Mesh> mesh, Ref<Material> material)
@@ -80,7 +81,7 @@ void World::set_render_distance(uint32_t distance)
         m_buffers[i + old_buffer_count] = BufferInfo{.buffer = buffer_result.value(), .used = false};
     }
 
-    info("{} bytes allocated for chunk buffers", FormatBin(m_buffers.size() * sizeof(BlockInstanceData) * Chunk::block_count));
+    info("{} bytes of VRAM allocated for chunk buffers", FormatBin(m_buffers.size() * sizeof(BlockInstanceData) * Chunk::block_count));
 }
 
 void World::encode_draw_calls(RenderGraph& graph, Camera& camera)

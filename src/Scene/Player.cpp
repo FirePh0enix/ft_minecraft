@@ -21,9 +21,9 @@ void Player::tick(double delta)
     const glm::vec3 up(0.0, 1.0, 0.0);
     const glm::vec3 dir = Input::get().get_movement_vector();
 
-    transform.position() += forward * dir.z * m_speed;
-    transform.position() += up * dir.y * m_speed;
-    transform.position() += right * dir.x * m_speed;
+    transform.position() += forward * dir.z * m_speed * (float)delta;
+    transform.position() += up * dir.y * m_speed * (float)delta;
+    transform.position() += right * dir.x * m_speed * (float)delta;
 
     if (Input::get().is_mouse_grabbed())
     {

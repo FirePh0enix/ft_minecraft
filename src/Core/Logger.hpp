@@ -1,7 +1,5 @@
 #pragma once
 
-#include "Core/Format.hpp"
-
 #include <print>
 
 enum class LogLevel : uint8_t
@@ -12,20 +10,16 @@ enum class LogLevel : uint8_t
     Debug = 3,
 };
 
+static inline const char *log_level_strs[] = {
+    "(info )",
+    "(warn )",
+    "(error)",
+    "(debug)",
+};
+
 inline const char *log_level_str(LogLevel level)
 {
-    switch (level)
-    {
-    case LogLevel::Info:
-        return "(info )";
-    case LogLevel::Warn:
-        return "(warn )";
-    case LogLevel::Error:
-        return "(error)";
-    case LogLevel::Debug:
-        return "(debug)";
-    }
-    return "";
+    return log_level_strs[(size_t)level];
 }
 
 template <class... Args>

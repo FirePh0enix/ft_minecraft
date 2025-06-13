@@ -3,6 +3,8 @@
 #include "Render/Driver.hpp"
 #include "World/Block.hpp"
 
+class World;
+
 struct ChunkPos
 {
     int64_t x;
@@ -31,7 +33,7 @@ public:
 
     inline BlockState get_block(size_t x, size_t y, size_t z) const
     {
-        if (z * width * height + y * width + x > block_count)
+        if (x > 15 || y > 255 || z > 15)
             return BlockState();
         return m_blocks[z * width * height + y * width + x];
     }
@@ -68,6 +70,8 @@ public:
         return m_block_count;
     }
 
+    void compute_full_visibility(const Ref<World>& world);
+
     void update_instance_buffer(Ref<Buffer> buffer);
 
 private:
@@ -77,4 +81,14 @@ private:
 
     uint32_t m_buffer_id;
     uint32_t m_block_count = 0;
+
+    BlockState& get_block_ref(size_t x, size_t y, size_t z)
+    {
+        return m_blocks[z * width * height + y * width + x];
+    }
+
+    inline bool has_block(size_t x, size_t y, size_t z) const
+    {
+        return !m_blocks[z * width * height + y * width + x].is_air();
+    }
 };
