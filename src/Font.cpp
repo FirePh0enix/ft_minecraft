@@ -5,8 +5,8 @@
 
 static FT_Library g_lib;
 static glm::mat4 g_ortho_matrix;
-static Ref<Mesh> g_mesh;
-static Ref<MaterialLayout> g_material_layout;
+static Ref<Mesh> g_mesh = nullptr;
+static Ref<MaterialLayout> g_material_layout = nullptr;
 
 Expected<Ref<Font>> Font::create(const std::string& font_name, uint32_t font_size)
 {
@@ -174,6 +174,9 @@ Expected<void> Font::init_library()
 void Font::deinit_library()
 {
     g_material_layout = nullptr;
+    g_mesh = nullptr;
+
+    FT_Done_FreeType(g_lib);
 }
 
 Text::Text(size_t capacity, Ref<Font> font)
@@ -187,7 +190,7 @@ Text::Text(size_t capacity, Ref<Font> font)
     ERR_EXPECT_R(buffer_result, "Cannot create the uniform buffer");
     m_uniform_buffer = font_uniform.value();
 
-    auto material_result = RenderingDriver::get()->create_material(g_material_layout.ptr());
+    auto material_result = RenderingDriver::get()->create_material(g_material_layout);
     ERR_EXPECT_R(buffer_result, "Cannot create the material");
     m_material = material_result.value();
 

@@ -191,6 +191,11 @@ public:
         return singleton;
     }
 
+    static void destroy_singleton()
+    {
+        delete singleton;
+    }
+
     /**
      * @brief Initialize the underlaying graphics API.
      */
@@ -239,7 +244,7 @@ public:
     virtual Expected<Ref<MaterialLayout>> create_material_layout(Ref<Shader> shader, MaterialFlags flags = {}, std::optional<InstanceLayout> instance_layout = std::nullopt, CullMode cull_mode = CullMode::Back, PolygonMode polygon_mode = PolygonMode::Fill) = 0;
 
     [[nodiscard]]
-    virtual Expected<Ref<Material>> create_material(MaterialLayout *layout) = 0;
+    virtual Expected<Ref<Material>> create_material(const Ref<MaterialLayout>& layout) = 0;
 
     /**
      * @brief Draw a frame using a `RenderGraph`.

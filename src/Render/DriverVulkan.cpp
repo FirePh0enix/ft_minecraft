@@ -308,6 +308,10 @@ RenderingDriverVulkan::~RenderingDriverVulkan()
         m_device.freeCommandBuffers(m_graphics_command_pool, m_command_buffers);
         m_device.destroyCommandPool(m_graphics_command_pool);
 
+#ifndef __platform_macos
+        // tracy::DestroyVkContext(m_tracy_context);
+#endif
+
         m_device.destroy();
     }
 
@@ -330,7 +334,7 @@ std::expected<void, Error> RenderingDriverVulkan::initialize(const Window& windo
     std::vector<const char *> validation_layers;
 
 #ifdef __DEBUG__
-    validation_layers.push_back("VK_LAYER_KHRONOS_validation");
+    // validation_layers.push_back("VK_LAYER_KHRONOS_validation");
 #endif
 
     std::vector<const char *> required_instance_extensions(instance_extensions_count);
@@ -512,7 +516,7 @@ std::expected<void, Error> RenderingDriverVulkan::initialize(const Window& windo
 
 #ifndef __platform_macos
     // This uses `VK_EXT_host_query_reset` & `VK_EXT_calibrated_timestamps`
-    m_tracy_context = TracyVkContextHostCalibrated(m_instance, m_physical_device, m_device, vk::detail::defaultDispatchLoaderDynamic.vkGetInstanceProcAddr, vk::detail::defaultDispatchLoaderDynamic.vkGetDeviceProcAddr);
+    // m_tracy_context = TracyVkContextHostCalibrated(m_instance, m_physical_device, m_device, vk::detail::defaultDispatchLoaderDynamic.vkGetInstanceProcAddr, vk::detail::defaultDispatchLoaderDynamic.vkGetDeviceProcAddr);
 #endif
 
     m_start_time = std::chrono::high_resolution_clock::now();
@@ -589,7 +593,7 @@ Expected<void> RenderingDriverVulkan::configure_surface(const Window& window, VS
 
         Ref<TextureVulkan> texture = texture_result.value().cast_to<TextureVulkan>();
 
-        swapchain_textures.push_back(texture.cast_to<Texture>());
+        swapchain_textures.push_back(texture_result.value());
 
         std::array<vk::ImageView, 2> attachments = {texture->image_view, depth_texture_vk->image_view};
 
@@ -828,9 +832,9 @@ Expected<Ref<MaterialLayout>> RenderingDriverVulkan::create_material_layout(Ref<
     return make_ref<MaterialLayoutVulkan>(layout_result.value, pool_result.value(), shader, instance_layout, convert_polygon_mode(polygon_mode), convert_cull_mode(cull_mode), flags, pipeline_layout_result.value).cast_to<MaterialLayout>();
 }
 
-Expected<Ref<Material>> RenderingDriverVulkan::create_material(MaterialLayout *layout)
+Expected<Ref<Material>> RenderingDriverVulkan::create_material(const Ref<MaterialLayout>& layout)
 {
-    MaterialLayoutVulkan *layout_vk = (MaterialLayoutVulkan *)layout;
+    Ref<MaterialLayoutVulkan> layout_vk = layout.cast_to<MaterialLayoutVulkan>();
 
     auto set_result = layout_vk->m_descriptor_pool.allocate();
     YEET(set_result);
@@ -1431,6 +1435,10 @@ Expected<DescriptorPool> DescriptorPool::create(vk::DescriptorSetLayout layout, 
     return DescriptorPool(layout, std::move(sizes));
 }
 
+DescriptorPool::~DescriptorPool()
+{
+}
+
 Expected<vk::DescriptorSet> DescriptorPool::allocate()
 {
     if (m_allocation_count / max_sets >= m_pools.size())
@@ -1456,6 +1464,12 @@ Expected<void> DescriptorPool::add_pool()
     m_pools.push_back(pool_result.value);
 
     return {};
+}
+
+MaterialLayoutVulkan::~MaterialLayoutVulkan()
+{
+    RenderingDriverVulkan::get()->get_device().destroyPipelineLayout(m_pipeline_layout);
+    RenderingDriverVulkan::get()->get_device().destroyDescriptorSetLayout(m_descriptor_set_layout);
 }
 
 void MaterialVulkan::set_param(const std::string& name, const Ref<Texture>& texture)

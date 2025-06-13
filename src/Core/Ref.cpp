@@ -59,6 +59,13 @@ TEST_CASE("Ref sanity checks")
     CHECK(*foo3.references() == 1);
     CHECK(foo4.is_null());
 
+    Ref<Foo> foo3_copy = foo3;
+    CHECK(*foo3.references() == 2);
+    foo3_copy = nullptr;
+    CHECK(*foo3.references() == 1);
+
+    foo3 = nullptr;
+
     Ref<Foo> foo5 = make_ref<Foo>();
     {
         Ref<Foo> foo5_1 = foo5;
@@ -91,6 +98,11 @@ TEST_CASE("Ref sanity checks")
     CHECK(*foo6.references() == 2);
 }
 
+static Ref<Object> make_and_cast()
+{
+    return make_ref<Foo>().cast_to<Object>();
+}
+
 TEST_CASE("Ref casting")
 {
     Foo::register_class();
@@ -105,10 +117,14 @@ TEST_CASE("Ref casting")
     // Valid upcasting
     Ref<Foo> foo = object.cast_to<Foo>();
     CHECK(!object.is_null());
+    CHECK(*foo.references() == 3); // bleep, object and foo
 
     // Invalid upcasting
     Ref<Bar> bar = foo.cast_to<Bar>();
     CHECK(bar.is_null());
+
+    Ref<Object> obj = make_and_cast();
+    CHECK(*obj.references() == 1);
 }
 
 #endif

@@ -2,109 +2,121 @@
 
 #include "Core/Error.hpp"
 
+#include <print>
+
 template <typename T>
 class Ref
 {
 public:
     using ReferenceType = uint32_t;
 
-    constexpr Ref()
-        : m_value(nullptr), m_references(nullptr)
+    Ref()
+        : m_ptr(nullptr), m_references(nullptr)
     {
     }
 
-    constexpr Ref(std::nullptr_t)
-        : m_value(nullptr), m_references(nullptr)
+    Ref(std::nullptr_t)
+        : m_ptr(nullptr), m_references(nullptr)
     {
     }
 
-    Ref(T *value)
-        : m_value(value), m_references(new ReferenceType(1))
+    explicit Ref(T *ptr)
+        : m_ptr(ptr), m_references(new ReferenceType(1))
     {
     }
 
     Ref(const Ref& other)
     {
-        this->operator=(other);
+        if (!other.is_null())
+        {
+            m_ptr = other.m_ptr;
+            m_references = other.m_references;
+
+            ref();
+        }
+        else
+        {
+            m_ptr = nullptr;
+            m_references = nullptr;
+        }
     }
 
-    Ref(Ref&& other)
+    Ref(T *ptr, ReferenceType *references)
+        : m_ptr(ptr), m_references(references)
     {
-        m_value = other.m_value;
-        other.m_value = nullptr;
-        other.m_references = nullptr;
-    }
-
-    Ref(T *value, ReferenceType *references)
-        : m_value(value), m_references(references)
-    {
+        if (!is_null())
+        {
+            ref();
+        }
     }
 
     ~Ref()
     {
-        unref();
-
-        m_value = nullptr;
-        m_references = nullptr;
-    }
-
-    void operator=(std::nullptr_t)
-    {
-        unref();
-
-        m_value = nullptr;
-        m_references = nullptr;
-    }
-
-    void operator=(const Ref& other)
-    {
-        if (m_value == other.m_value)
+        if (!is_null())
         {
-            return;
+            unref();
+        }
+    }
+
+    Ref& operator=(std::nullptr_t)
+    {
+        if (!is_null())
+        {
+            unref();
         }
 
-        m_value = other.m_value;
-        m_references = other.m_references;
+        m_ptr = nullptr;
+        m_references = nullptr;
 
-        ref();
+        return *this;
     }
 
-    void operator=(Ref&& other)
+    Ref& operator=(const Ref& other)
     {
-        if (m_value == other.m_value)
+        if (other.m_ptr == m_ptr)
         {
-            return;
+            return *this;
         }
 
-        unref();
+        if (!is_null())
+        {
+            unref();
+        }
 
-        m_value = other.m_value;
-        m_references = other.m_references;
+        if (!other.is_null())
+        {
+            m_ptr = other.m_ptr;
+            m_references = other.m_references;
 
-        other.m_value = nullptr;
-        other.m_references = nullptr;
+            ref();
+        }
+        else
+        {
+            m_ptr = nullptr;
+            m_references = nullptr;
+        }
+
+        return *this;
     }
 
     T *operator->()
     {
-        ERR_COND(is_null(), "Trying to dereference a null pointer");
-        return m_value;
+        return m_ptr;
     }
 
     const T *operator->() const
     {
-        ERR_COND(is_null(), "Trying to dereference a null pointer");
-        return m_value;
+        return m_ptr;
     }
 
     T& operator*()
     {
-        return *m_value;
+        return *m_ptr;
     }
 
     const T& operator*() const
     {
-        return *m_value;
+        return *m_ptr;
     }
 
     operator bool() const
@@ -112,63 +124,50 @@ public:
         return !is_null();
     }
 
-    template <typename Subclass>
-    inline Ref<Subclass> cast_to() const
+    inline bool is_null() const
+    {
+        return m_ptr == nullptr;
+    }
+
+    inline T *ptr() const
+    {
+        return m_ptr;
+    }
+
+    template <typename B>
+    Ref<B> cast_to() const
     {
         if (is_null())
         {
             return nullptr;
         }
 
-        if (m_value->template is<Subclass>())
+        if (m_ptr->template is<B>())
         {
-            return Ref<Subclass>(static_cast<Subclass *>(m_value), m_references);
+            return Ref<B>(static_cast<B *>((B *)m_ptr), m_references);
         }
         return nullptr;
     }
 
-    bool is_null() const
-    {
-        return m_value == nullptr;
-    }
-
-    inline T *ptr() const
-    {
-        return m_value;
-    }
-
-    inline ReferenceType *references() const
-    {
-        return m_references;
-    }
-
 private:
-    T *m_value;
+    T *m_ptr;
     ReferenceType *m_references;
 
     void ref()
     {
-        // if (is_null())
-        //     return;
-
-        // *m_references += 1;
+        *m_references += 1;
     }
 
     void unref()
     {
-        // if (is_null())
-        //     return;
+        if (--*m_references == 0)
+        {
+            delete m_ptr;
+            delete m_references;
 
-        // *m_references -= 1;
-
-        // if (*m_references == 0)
-        // {
-        //     delete m_value;
-        //     delete m_references;
-
-        //     m_value = nullptr;
-        //     m_references = nullptr;
-        // }
+            m_ptr = nullptr;
+            m_references = nullptr;
+        }
     }
 };
 

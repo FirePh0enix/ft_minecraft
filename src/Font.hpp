@@ -6,8 +6,10 @@
 
 #include <map>
 
-class Font
+class Font : public Object
 {
+    CLASS(Font, Object);
+
 public:
     static Expected<Ref<Font>> create(const std::string& font_name, uint32_t font_size);
 

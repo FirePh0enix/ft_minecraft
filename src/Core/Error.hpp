@@ -356,13 +356,13 @@ private:
             std::println("error: {}:{}: {}", __FILE__, __LINE__, MESSAGE); \
     } while (0)
 
-#define ERR_COND_R(COND, MESSAGE)                                          \
+#define ERR_COND_R(COND, MESSAGE, ...)                                     \
     do                                                                     \
     {                                                                      \
         if (COND)                                                          \
         {                                                                  \
             std::println("error: {}:{}: {}", __FILE__, __LINE__, MESSAGE); \
-            return;                                                        \
+            return __VA_ARGS__;                                            \
         }                                                                  \
     } while (0)
 

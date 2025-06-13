@@ -33,6 +33,8 @@ TEST_CASE("Class")
     Foo *obj = new Bar();
     CHECK(obj->is<Bar>());
     CHECK(obj->is<Foo>());
+
+    delete obj;
 }
 
 #endif

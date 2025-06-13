@@ -98,7 +98,7 @@ public:
     virtual Expected<Ref<MaterialLayout>> create_material_layout(Ref<Shader> shader, MaterialFlags flags = {}, std::optional<InstanceLayout> instance_layout = std::nullopt, CullMode cull_mode = CullMode::Back, PolygonMode polygon_mode = PolygonMode::Fill) override;
 
     [[nodiscard]]
-    virtual Expected<Ref<Material>> create_material(MaterialLayout *layout) override;
+    virtual Expected<Ref<Material>> create_material(const Ref<MaterialLayout>& layout) override;
 
     virtual void draw_graph(const RenderGraph& graph) override;
 
@@ -283,6 +283,8 @@ public:
 
     DescriptorPool() {}
 
+    ~DescriptorPool();
+
 private:
     DescriptorPool(vk::DescriptorSetLayout layout, const std::vector<vk::DescriptorPoolSize>&& sizes)
         : m_layout(layout), m_sizes(sizes), m_allocation_count(0)
@@ -309,7 +311,7 @@ public:
     {
     }
 
-    virtual ~MaterialLayoutVulkan() {}
+    virtual ~MaterialLayoutVulkan();
 
     // private:
     DescriptorPool m_descriptor_pool;
@@ -328,7 +330,7 @@ class MaterialVulkan : public Material
     CLASS(MaterialVulkan, Material);
 
 public:
-    MaterialVulkan(MaterialLayout *layout, vk::DescriptorSet descriptor_set)
+    MaterialVulkan(Ref<MaterialLayout>& layout, vk::DescriptorSet descriptor_set)
         : descriptor_set(descriptor_set)
     {
         m_layout = layout;

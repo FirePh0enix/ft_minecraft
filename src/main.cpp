@@ -1,3 +1,4 @@
+#include "Core/Defer.hpp"
 #include "Font.hpp"
 #include "Input.hpp"
 #include "MeshPrimitives.hpp"
@@ -54,9 +55,9 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     (void)argc;
     (void)argv;
 
-#ifndef __has_address_sanitizer
+    // #ifndef __has_address_sanitizer
     initialize_error_handling(argv[0]);
-#endif
+    // #endif
 
     tracy::SetThreadName("Main");
 
@@ -119,7 +120,7 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     EXPECT(material_layout_result);
     Ref<MaterialLayout> material_layout = material_layout_result.value();
 
-    auto material_result = RenderingDriver::get()->create_material(material_layout.ptr());
+    auto material_result = RenderingDriver::get()->create_material(material_layout);
     EXPECT(material_result);
     Ref<Material> material = material_result.value();
 
@@ -131,13 +132,13 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
 
     Font::init_library();
 
-    auto font_result = Font::create("assets/fonts/Anonymous.ttf", 20);
-    EXPECT(font_result);
-    Ref<Font> font = font_result.value();
+    // auto font_result = Font::create("assets/fonts/Anonymous.ttf", 20);
+    // EXPECT(font_result);
+    // Ref<Font> font = font_result.value();
 
-    text = Text("Hello world", font);
-    text.set_scale(glm::vec2(0.2, 0.2));
-    text.set_color(glm::vec4(1.0, 1.0, 1.0, 1.0));
+    // text = Text("Hello world", font);
+    // text.set_scale(glm::vec2(0.2, 0.2));
+    // text.set_color(glm::vec4(1.0, 1.0, 1.0, 1.0));
 
     BlockState dirt(1);
 
@@ -178,6 +179,8 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
 
 #ifndef __platform_web
     (void)RenderingDriverVulkan::get()->get_device().waitIdle();
+
+    Font::deinit_library();
 #endif
 
     return 0;
@@ -240,6 +243,8 @@ static void register_all_classes()
     TransformComponent3D::register_class();
 
     World::register_class();
+
+    Font::register_class();
 
     RenderingDriver::register_class();
     Buffer::register_class();

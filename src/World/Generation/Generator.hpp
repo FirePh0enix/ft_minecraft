@@ -1,6 +1,5 @@
 #pragma once
 
-#include "Core/Logger.hpp"
 #include "World/World.hpp"
 
 #include <mutex>
@@ -13,8 +12,10 @@ struct WorldGenerationSettings
 };
 
 template <typename Terrain>
-class WorldGenerator
+class WorldGenerator : public Object
 {
+    CLASS(WorldGenerator, Object);
+
 public:
     WorldGenerator(Ref<World> world)
         : m_world(world), m_load_semaphore(0), m_unload_semaphore(0)
@@ -23,8 +24,16 @@ public:
         m_unload_worker = std::thread(unload_worker, this);
     }
 
-    WorldGenerator()
+    ~WorldGenerator()
     {
+        m_load_state.store(false);
+        m_unload_state.store(false);
+
+        m_load_semaphore.release();
+        m_unload_semaphore.release();
+
+        m_load_worker.join();
+        m_unload_worker.join();
     }
 
     void load_around(int64_t x, int64_t y, int64_t z)
