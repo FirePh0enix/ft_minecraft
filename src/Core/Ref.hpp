@@ -124,6 +124,11 @@ public:
         return !is_null();
     }
 
+    inline ReferenceType references()
+    {
+        return m_references ? *m_references : 0;
+    }
+
     inline bool is_null() const
     {
         return m_ptr == nullptr;

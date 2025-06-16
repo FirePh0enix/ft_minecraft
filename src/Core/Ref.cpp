@@ -36,17 +36,17 @@ TEST_CASE("Ref sanity checks")
     Ref<Foo> foo_null;
     CHECK(foo_null.is_null());
     CHECK(foo_null.ptr() == nullptr);
-    CHECK(foo_null.references() == nullptr);
+    CHECK(foo_null.references() == 0);
 
     Ref<Foo> foo = make_ref<Foo>();
-    CHECK(*foo.references() == 1);
+    CHECK(foo.references() == 1);
 
     {
         Ref<Foo> foo2 = foo;
-        CHECK(*foo2.references() == 2);
+        CHECK(foo2.references() == 2);
     }
 
-    CHECK(*foo.references() == 1);
+    CHECK(foo.references() == 1);
 
     foo = nullptr;
     CHECK(foo.is_null());
@@ -56,13 +56,13 @@ TEST_CASE("Ref sanity checks")
     foo3 = foo4;
     foo4 = nullptr;
 
-    CHECK(*foo3.references() == 1);
+    CHECK(foo3.references() == 1);
     CHECK(foo4.is_null());
 
     Ref<Foo> foo3_copy = foo3;
-    CHECK(*foo3.references() == 2);
+    CHECK(foo3.references() == 2);
     foo3_copy = nullptr;
-    CHECK(*foo3.references() == 1);
+    CHECK(foo3.references() == 1);
 
     foo3 = nullptr;
 
@@ -86,7 +86,7 @@ TEST_CASE("Ref sanity checks")
         Ref<Foo> foo5_7(foo5_6);
     }
 
-    CHECK(*foo5.references() == 1);
+    CHECK(foo5.references() == 1);
     foo5 = nullptr;
 
     // Self assignment
@@ -95,7 +95,7 @@ TEST_CASE("Ref sanity checks")
 
     foo6 = foo7;
 
-    CHECK(*foo6.references() == 2);
+    CHECK(foo6.references() == 2);
 }
 
 static Ref<Object> make_and_cast()
@@ -117,14 +117,14 @@ TEST_CASE("Ref casting")
     // Valid upcasting
     Ref<Foo> foo = object.cast_to<Foo>();
     CHECK(!object.is_null());
-    CHECK(*foo.references() == 3); // bleep, object and foo
+    CHECK(foo.references() == 3); // bleep, object and foo
 
     // Invalid upcasting
     Ref<Bar> bar = foo.cast_to<Bar>();
     CHECK(bar.is_null());
 
     Ref<Object> obj = make_and_cast();
-    CHECK(*obj.references() == 1);
+    CHECK(obj.references() == 1);
 }
 
 #endif
