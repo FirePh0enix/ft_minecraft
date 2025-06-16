@@ -11,12 +11,11 @@ struct ChunkPos
     int64_t z;
 };
 
-struct __attribute__((packed)) ChunkLocalPos
-{
-    uint8_t x : 4;
-    uint8_t y;
-    uint8_t z : 4;
-};
+#define CHUNK_LOCAL_X(POS) (POS & 0xF)
+#define CHUNK_LOCAL_Y(POS) ((POS >> 4) & 0xFF)
+#define CHUNK_LOCAL_Z(POS) ((POS >> 12) & 0xF)
+
+#define CHUNK_POS(X, Y, Z) ((X & 0xF) | ((Y & 0xFF) << 4) | ((Z & 0xFF) << 12))
 
 class Chunk
 {
@@ -43,6 +42,11 @@ public:
         if (z * width * height + y * width + x > block_count)
             return;
         m_blocks[z * width * height + y * width + x] = state;
+    }
+
+    inline const std::vector<BlockState>& get_blocks() const
+    {
+        return m_blocks;
     }
 
     inline int64_t x() const

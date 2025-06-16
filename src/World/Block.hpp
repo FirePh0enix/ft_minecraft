@@ -40,16 +40,12 @@ struct BlockState
 
 class Block
 {
-};
-
-class BlockRegistry
-{
 public:
-    inline Block *get_block(uint16_t id)
+    inline std::string name() const
     {
-        return m_blocks[id];
+        return m_name;
     }
 
 private:
-    std::vector<Block *> m_blocks;
+    std::string m_name;
 };

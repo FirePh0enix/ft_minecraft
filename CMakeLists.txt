@@ -36,6 +36,8 @@ list(APPEND SOURCES
     src/main.cpp
     src/Window.cpp
     src/World/Chunk.cpp
+    src/World/Registry.cpp
+    src/World/Save.cpp
     src/World/World.cpp
     src/Font.cpp
 )

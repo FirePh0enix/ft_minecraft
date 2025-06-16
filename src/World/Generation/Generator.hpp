@@ -1,5 +1,6 @@
 #pragma once
 
+#include "World/Save.hpp"
 #include "World/World.hpp"
 
 #include <mutex>
@@ -18,10 +19,12 @@ class WorldGenerator : public Object
 
 public:
     WorldGenerator(Ref<World> world, Ref<Entity> player)
-        : m_world(world), m_player(player), m_load_semaphore(0), m_unload_semaphore(0)
+        : m_world(world), m_player(player), save("new_world"), m_load_semaphore(0), m_unload_semaphore(0)
     {
         m_load_worker = std::thread(load_worker, this);
         m_unload_worker = std::thread(unload_worker, this);
+
+        save.save_info(world);
     }
 
     ~WorldGenerator()
@@ -127,8 +130,19 @@ public:
                     continue;
                 }
 
-                Chunk chunk = gen->generate_chunk(chunk_pos.x, chunk_pos.z);
-                chunk.set_buffer_id(*buffer_index);
+                Chunk chunk(chunk_pos.x, chunk_pos.z);
+
+                if (gen->save.chunk_exists(chunk_pos.x, chunk_pos.z))
+                {
+                    chunk = gen->save.load_chunk(chunk_pos.x, chunk_pos.z);
+                }
+                else
+                {
+                    chunk = gen->generate_chunk(chunk_pos.x, chunk_pos.z);
+                    gen->save.save_chunk(&chunk);
+                }
+
+                chunk.set_buffer_id(buffer_index.value());
 
                 {
                     std::lock_guard<std::mutex> lock(gen->m_world->get_chunk_mutex());
@@ -267,6 +281,8 @@ public:
     // private:
     Ref<World> m_world;
     Ref<Entity> m_player;
+
+    Save save;
 
     std::thread m_load_worker;
     std::atomic_bool m_load_state = true;
