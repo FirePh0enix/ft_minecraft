@@ -68,10 +68,10 @@ void Player::tick(double delta)
     vel += up * dir.y * m_speed;
     vel += right * dir.x * m_speed;
 
-    if (!m_body->is_on_ground(m_transform->get_transform().position(), m_world))
-    {
-        vel.y -= 9.81f * (float)delta;
-    }
+    // if (!m_body->is_on_ground(m_transform->get_global_transform().position(), m_world))
+    // {
+    //     vel.y -= 9.81f * (float)delta;
+    // }
 
     m_body->set_velocity(vel);
     m_body->move_and_collide(m_world, delta);

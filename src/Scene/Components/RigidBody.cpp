@@ -11,14 +11,14 @@ void RigidBody::tick(double delta)
 {
 }
 
-void RigidBody::move_and_collide(Ref<World>& world, double delta)
+void RigidBody::move_and_collide(const Ref<World>& world, double delta)
 {
     Transform3D transform = m_transform->get_transform();
     glm::vec3 position = transform.position();
     constexpr float precision = 0.001f;
     constexpr std::size_t max_iterations = 300;
 
-    bool vx_positive = m_velocity.x > 0;
+    /*bool vx_positive = m_velocity.x > 0;
     position.x += m_velocity.x * (float)delta;
     bool collide_x = intersect_world(position, world);
 
@@ -92,23 +92,24 @@ void RigidBody::move_and_collide(Ref<World>& world, double delta)
     if ((vz_positive && m_velocity.z < 0) || (!vz_positive && m_velocity.z > 0))
     {
         m_velocity.z = 0;
-    }
-    transform.position() = position;
+    }*/
+    transform.position() += m_velocity;
+    m_velocity = glm::vec3();
     m_transform->set_transform(transform);
 }
 
-bool RigidBody::intersect_world(glm::vec3 position, const Ref<World> &world)
+bool RigidBody::intersect_world(glm::vec3 position, const Ref<World>& world)
 {
 
     int64_t px = static_cast<int64_t>(position.x + 0.5f);
     int64_t py = static_cast<int64_t>(position.y + 0.5f);
     int64_t pz = static_cast<int64_t>(position.z + 0.5f);
 
-    constexpr int64_t min_x_bound = -1;
+    constexpr int64_t min_x_bound = -2;
     constexpr int64_t max_x_bound = 2;
-    constexpr int64_t min_y_bound = -1;
+    constexpr int64_t min_y_bound = -2;
     constexpr int64_t max_y_bound = 3;
-    constexpr int64_t min_z_bound = -1;
+    constexpr int64_t min_z_bound = -2;
     constexpr int64_t max_z_bound = 2;
 
     AABB player_aabb = m_aabb;
@@ -135,14 +136,14 @@ bool RigidBody::intersect_world(glm::vec3 position, const Ref<World> &world)
     return false;
 }
 
-bool RigidBody::is_on_ground(glm::vec3 position, Ref<World> world)
+bool RigidBody::is_on_ground(glm::vec3 position, const Ref<World>& world)
 {
     int64_t px = static_cast<int64_t>(position.x + 0.5f);
     int64_t py = static_cast<int64_t>(position.y + 0.5f);
     int64_t pz = static_cast<int64_t>(position.z + 0.5f);
 
     AABB player_aabb = m_aabb;
-    player_aabb.center = m_transform->get_transform().position();
+    player_aabb.center = m_transform->get_global_transform().position();
 
     AABB aabb(glm::vec3((float)(px) + 0.5, (float)(py - 1) + 0.5, (float)(pz) + 0.5), glm::vec3(0.5));
 
