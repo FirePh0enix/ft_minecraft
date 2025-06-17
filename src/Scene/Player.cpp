@@ -13,7 +13,6 @@ void Player::start()
 
 void Player::tick(double delta)
 {
-    (void)delta;
     Transform3D transform = m_transform->get_transform();
 
     const glm::vec3 forward = transform.forward();
@@ -71,9 +70,9 @@ void Player::tick(double delta)
 
     if (!m_body->is_on_ground(m_transform->get_transform().position(), m_world))
     {
-        vel.y -= 9.81f * 0.016666666f;
+        vel.y -= 9.81f * (float)delta;
     }
 
     m_body->set_velocity(vel);
-    m_body->move_and_collide(m_world);
+    m_body->move_and_collide(m_world, delta);
 }
