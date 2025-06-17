@@ -13,4 +13,4 @@ build
 
 # Misc
 imgui.ini
-/user_data
+.local

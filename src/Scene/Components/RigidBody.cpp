@@ -38,14 +38,9 @@ void RigidBody::move_and_collide(Ref<World>& world, double delta)
         collide_x = intersect_world(position, world);
         x_iteration++;
     }
-
     if ((vx_positive && m_velocity.x < 0) || (!vx_positive && m_velocity.x > 0))
     {
         m_velocity.x = 0;
-    }
-    if (x_iteration >= max_iterations)
-    {
-        std::println("Failed to resolve X Axis collision");
     }
 
     bool vy_positive = m_velocity.y > 0;
@@ -74,11 +69,6 @@ void RigidBody::move_and_collide(Ref<World>& world, double delta)
         m_velocity.y = 0;
     }
 
-    if (y_iteration >= max_iterations)
-    {
-        std::println("Failed to resolve Y Axis collision");
-    }
-
     bool vz_positive = m_velocity.z > 0;
     position.z += m_velocity.z * (float)delta;
     bool collide_z = intersect_world(position, world);
@@ -99,44 +89,42 @@ void RigidBody::move_and_collide(Ref<World>& world, double delta)
         collide_z = intersect_world(position, world);
         z_iteration++;
     }
-
-    if (z_iteration >= max_iterations)
-    {
-        std::println("Failed to resolve Z Axis collision");
-    }
-
     if ((vz_positive && m_velocity.z < 0) || (!vz_positive && m_velocity.z > 0))
     {
         m_velocity.z = 0;
     }
-
     transform.position() = position;
     m_transform->set_transform(transform);
 }
 
-bool RigidBody::intersect_world(glm::vec3 position, Ref<World> world)
+bool RigidBody::intersect_world(glm::vec3 position, const Ref<World> &world)
 {
 
     int64_t px = static_cast<int64_t>(position.x + 0.5f);
     int64_t py = static_cast<int64_t>(position.y + 0.5f);
     int64_t pz = static_cast<int64_t>(position.z + 0.5f);
 
+    constexpr int64_t min_x_bound = -1;
+    constexpr int64_t max_x_bound = 2;
+    constexpr int64_t min_y_bound = -1;
+    constexpr int64_t max_y_bound = 3;
+    constexpr int64_t min_z_bound = -1;
+    constexpr int64_t max_z_bound = 2;
+
     AABB player_aabb = m_aabb;
     player_aabb.center = m_transform->get_global_transform().position();
 
-    for (int64_t x = -1; x <= 2; x++)
+    for (int64_t x = min_x_bound; x <= max_x_bound; x++)
     {
-        for (int64_t y = -1; y <= 3; y++)
+        for (int64_t y = min_y_bound; y <= max_y_bound; y++)
         {
-            for (int64_t z = -1; z <= 2; z++)
+            for (int64_t z = min_z_bound; z <= max_z_bound; z++)
             {
                 if (world->get_block_state(x + px, y + py, z + pz).is_air())
                 {
                     continue;
                 }
-
                 AABB aabb(glm::vec3((float)(x + px) + 0.5, (float)(y + py) + 0.5, (float)(z + pz) + 0.5), glm::vec3(0.5));
-
                 if (aabb.intersect(player_aabb))
                 {
                     return true;
@@ -144,7 +132,6 @@ bool RigidBody::intersect_world(glm::vec3 position, Ref<World> world)
             }
         }
     }
-
     return false;
 }
 
@@ -157,9 +144,9 @@ bool RigidBody::is_on_ground(glm::vec3 position, Ref<World> world)
     AABB player_aabb = m_aabb;
     player_aabb.center = m_transform->get_transform().position();
 
-    AABB aabb(glm::vec3((float)(px) + 0.5, (float)(1 + py) + 0.5, (float)(pz) + 0.5), glm::vec3(0.5));
+    AABB aabb(glm::vec3((float)(px) + 0.5, (float)(py - 1) + 0.5, (float)(pz) + 0.5), glm::vec3(0.5));
 
-    if (aabb.intersect(player_aabb) && !world->get_block_state(px, 1 + py, pz).is_air())
+    if (aabb.intersect(player_aabb) && !world->get_block_state(px, py - 1, pz).is_air())
     {
         return true;
     }
