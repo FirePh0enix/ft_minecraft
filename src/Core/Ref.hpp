@@ -101,21 +101,25 @@ public:
 
     T *operator->()
     {
+        ERR_COND_V(is_null(), "Trying to access a null ref of type {}", T::get_static_class_name());
         return m_ptr;
     }
 
     const T *operator->() const
     {
+        ERR_COND_V(is_null(), "Trying to access a null ref of type {}", T::get_static_class_name());
         return m_ptr;
     }
 
     T& operator*()
     {
+        ERR_COND_V(is_null(), "Trying to dereference a null ref of type {}", T::get_static_class_name());
         return *m_ptr;
     }
 
     const T& operator*() const
     {
+        ERR_COND_V(is_null(), "Trying to dereference a null ref of type {}", T::get_static_class_name());
         return *m_ptr;
     }
 

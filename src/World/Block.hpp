@@ -1,6 +1,6 @@
 #pragma once
 
-#include <vector>
+#include "Core/Class.hpp"
 
 struct GenericData
 {
@@ -38,8 +38,10 @@ struct BlockState
     }
 };
 
-class Block
+class Block : public Object
 {
+    CLASS(Block, Object);
+
 public:
     inline std::string name() const
     {

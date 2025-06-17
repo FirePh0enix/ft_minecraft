@@ -1,4 +1,3 @@
-#include "Core/Defer.hpp"
 #include "Font.hpp"
 #include "Input.hpp"
 #include "MeshPrimitives.hpp"
@@ -13,6 +12,10 @@
 #include "World/Generation/Generator.hpp"
 #include "World/Generation/Terrain.hpp"
 #include "World/World.hpp"
+
+#include "../lib/format.hpp"
+
+#include <fstream>
 
 #include <SDL3_image/SDL_image.h>
 
@@ -260,6 +263,9 @@ static void register_all_classes()
     TransformComponent3D::register_class();
 
     World::register_class();
+    Block::register_class();
+    TerrainGenerator::register_class();
+    FlatTerrainGenerator::register_class();
 
     Font::register_class();
 
