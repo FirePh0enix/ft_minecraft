@@ -46,7 +46,7 @@ Ref<Window> window;
 RenderGraph graph;
 Text text;
 
-Ref<WorldGenerator<FlatTerrainGenerator>> gen;
+Ref<WorldGenerator> gen;
 Ref<Entity> player;
 
 MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
@@ -167,7 +167,8 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     scene->add_entity(player);
     scene->set_active_camera(camera);
 
-    gen = make_ref<WorldGenerator<FlatTerrainGenerator>>(world, player);
+    gen = make_ref<WorldGenerator>(world, player);
+    gen->set_terrain(make_ref<FlatTerrainGenerator>());
 
 #ifdef __platform_web
     emscripten_set_main_loop_arg([](void *)

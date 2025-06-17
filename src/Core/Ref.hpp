@@ -124,6 +124,12 @@ public:
         return !is_null();
     }
 
+    template <typename B, typename = std::is_base_of<B, T>>
+    operator Ref<B>() const
+    {
+        return cast_to<B>();
+    }
+
     inline ReferenceType references()
     {
         return m_references ? *m_references : 0;

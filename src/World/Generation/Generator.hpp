@@ -1,5 +1,6 @@
 #pragma once
 
+#include "World/Generation/Terrain.hpp"
 #include "World/Save.hpp"
 #include "World/World.hpp"
 
@@ -12,7 +13,6 @@ struct WorldGenerationSettings
     uint64_t seed;
 };
 
-template <typename Terrain>
 class WorldGenerator : public Object
 {
     CLASS(WorldGenerator, Object);
@@ -37,6 +37,11 @@ public:
 
         m_load_worker.join();
         m_unload_worker.join();
+    }
+
+    inline void set_terrain(Ref<TerrainGenerator> terrain)
+    {
+        m_terrain = terrain;
     }
 
     void load_around(int64_t x, int64_t y, int64_t z)
@@ -267,7 +272,7 @@ public:
             {
                 for (int64_t z = 0; z < 16; z++)
                 {
-                    if (!Terrain::has_block(x + block_x, y, z + block_z))
+                    if (!m_terrain->has_block(x + block_x, y, z + block_z))
                         continue;
 
                     chunk.set_block(x, y, z, BlockState(1));
@@ -281,6 +286,9 @@ public:
     // private:
     Ref<World> m_world;
     Ref<Entity> m_player;
+
+    // generators
+    Ref<TerrainGenerator> m_terrain;
 
     Save save;
 
