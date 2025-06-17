@@ -161,7 +161,7 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     player_head->add_component(make_ref<TransformComponent3D>(glm::vec3(0.0, 0.85, 0.0)));
     player_head->add_component(camera);
 
-    Ref<Entity> player = make_ref<Entity>();
+    player = make_ref<Entity>();
     player->add_component(make_ref<TransformComponent3D>(Transform3D(glm::vec3(0.0, 18.0, 0.0))));
     player->add_component(make_ref<RigidBody>(AABB(glm::vec3(), glm::vec3(0.9))));
     player->add_component(make_ref<Player>(world));
