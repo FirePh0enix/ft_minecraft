@@ -66,6 +66,7 @@ void RigidBody::move_and_collide(Ref<World>& world, double delta)
             m_velocity.y += precision;
         }
         collide_y = intersect_world(position, world);
+        y_iteration++;
     }
 
     if ((vy_positive && m_velocity.y < 0) || (!vy_positive && m_velocity.y > 0))
@@ -96,6 +97,7 @@ void RigidBody::move_and_collide(Ref<World>& world, double delta)
             m_velocity.z += precision;
         }
         collide_z = intersect_world(position, world);
+        z_iteration++;
     }
 
     if (z_iteration >= max_iterations)
