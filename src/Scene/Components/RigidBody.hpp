@@ -22,7 +22,7 @@ public:
         m_velocity = velocity;
     }
 
-    void move_and_collide(Ref<World>& world);
+    void move_and_collide(Ref<World>& world, double delta);
     bool intersect_world(glm::vec3 position, Ref<World> world);
     bool is_on_ground(glm::vec3 position, Ref<World> world);
 
