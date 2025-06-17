@@ -11,16 +11,15 @@ void RigidBody::tick(double delta)
 {
 }
 
-void RigidBody::move_and_collide(Ref<World>& world)
+void RigidBody::move_and_collide(Ref<World>& world, double delta)
 {
     Transform3D transform = m_transform->get_transform();
     glm::vec3 position = transform.position();
-    constexpr float delta_time = 0.016666666f;
     constexpr float precision = 0.001f;
     constexpr std::size_t max_iterations = 300;
 
     bool vx_positive = m_velocity.x > 0;
-    position.x += m_velocity.x * delta_time;
+    position.x += m_velocity.x * (float)delta;
     bool collide_x = intersect_world(position, world);
 
     std::size_t x_iteration = 0;
@@ -50,7 +49,7 @@ void RigidBody::move_and_collide(Ref<World>& world)
     }
 
     bool vy_positive = m_velocity.y > 0;
-    position.y += m_velocity.y * delta_time;
+    position.y += m_velocity.y * (float)delta;
     bool collide_y = intersect_world(position, world);
 
     std::size_t y_iteration = 0;
@@ -80,7 +79,7 @@ void RigidBody::move_and_collide(Ref<World>& world)
     }
 
     bool vz_positive = m_velocity.z > 0;
-    position.z += m_velocity.z * delta_time;
+    position.z += m_velocity.z * (float)delta;
     bool collide_z = intersect_world(position, world);
 
     std::size_t z_iteration = 0;
