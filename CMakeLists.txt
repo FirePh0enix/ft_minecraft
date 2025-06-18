@@ -39,6 +39,8 @@ list(APPEND SOURCES
     src/World/Registry.cpp
     src/World/Save.cpp
     src/World/World.cpp
+    src/World/Generation/SimplexNoise.cpp
+    src/World/Generation/Terrain.cpp
     src/Font.cpp
 )
 
