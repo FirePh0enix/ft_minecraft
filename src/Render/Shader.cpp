@@ -1,4 +1,5 @@
 #include "Render/Shader.hpp"
+#include "Core/Logger.hpp"
 
 #include <filesystem>
 #include <fstream>
@@ -95,7 +96,7 @@ Shader::Expected<void> Shader::compile_internal(const std::string& filename, con
 
     if (!file_stream.is_open())
     {
-        std::println(stderr, "shader compilation: {}: File not found", filename);
+        error("shader compilation: {}: File not found", filename);
         return std::unexpected(ErrorKind::FileNotFound);
     }
 
@@ -108,7 +109,7 @@ Shader::Expected<void> Shader::compile_internal(const std::string& filename, con
     auto output_result = preprocess(file_stream, definitions);
     if (!output_result.has_value())
     {
-        std::println(stderr, "shader compilation: {}: Preprocessing failed: {}", filename, (uint8_t)output_result.error());
+        error("shader compilation: {}: Preprocessing failed: {}", filename, (uint8_t)output_result.error());
         return std::unexpected(output_result.error());
     }
 
@@ -142,7 +143,7 @@ Shader::Expected<void> Shader::compile_internal(const std::string& filename, con
 
     if (ir != tint::Success)
     {
-        std::println(stderr, "{}", ir.Failure().reason);
+        error("{}", ir.Failure().reason);
         return std::unexpected(ErrorKind::Compilation);
     }
 
@@ -154,7 +155,7 @@ Shader::Expected<void> Shader::compile_internal(const std::string& filename, con
 
     if (check != tint::Success)
     {
-        std::println(stderr, "{}", check.Failure().reason);
+        error("{}", check.Failure().reason);
         return std::unexpected(ErrorKind::Compilation);
     }
 
@@ -167,7 +168,7 @@ Shader::Expected<void> Shader::compile_internal(const std::string& filename, con
 
     if (check != tint::Success)
     {
-        std::println(stderr, "{}", check.Failure().reason);
+        error("{}", check.Failure().reason);
         return std::unexpected(ErrorKind::Compilation);
     }
 
@@ -175,7 +176,7 @@ Shader::Expected<void> Shader::compile_internal(const std::string& filename, con
 
     if (result != tint::Success)
     {
-        std::println(stderr, "{}", result.Failure().reason);
+        error("{}", result.Failure().reason);
         return std::unexpected(ErrorKind::Compilation);
     }
 
@@ -196,7 +197,7 @@ void Shader::reload_if_needed()
         return;
     }
 
-    std::println(stderr, "Shader {} was modified and will be reloaded...", m_filename);
+    error("Shader {} was modified and will be reloaded...", m_filename);
 
     Expected<void> result = compile_internal(m_filename, m_definitions);
 
@@ -206,7 +207,7 @@ void Shader::reload_if_needed()
     }
     else
     {
-        std::println(stderr, "Shader {} failed to compile.", m_filename);
+        error("Shader {} failed to compile.", m_filename);
     }
 }
 

@@ -1,7 +1,5 @@
 #include "Window.hpp"
 
-#include <print>
-
 Window::Window(const std::string& title, uint32_t width, uint32_t height, bool resizable)
 {
 #ifdef __platform_web

@@ -2,7 +2,6 @@
 
 #include <doctest/doctest.h>
 
-#include <print>
 #include <variant>
 
 struct TokenIdent
@@ -142,7 +141,7 @@ struct WGSLParser
 
         // for (const auto& token : tokens)
         // {
-        //     std::println("{}", token);
+        //     lib::println("{}", token);
         // }
 
         WGSLAttribs attribs;

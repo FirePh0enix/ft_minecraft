@@ -5,8 +5,6 @@
 #include "Scene/Components/Component.hpp"
 #include "Scene/Components/Transform3D.hpp"
 
-#include <print>
-
 class Frustum
 {
 public:

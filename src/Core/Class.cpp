@@ -3,7 +3,6 @@
 #include <doctest/doctest.h>
 
 #include <cstring>
-#include <print>
 
 #ifndef DOCTEST_CONFIG_DISABLE
 

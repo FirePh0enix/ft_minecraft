@@ -2,8 +2,6 @@
 
 #include "Window.hpp"
 
-#include <print>
-
 enum class Action : uint8_t
 {
     Forward,

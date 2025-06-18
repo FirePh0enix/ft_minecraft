@@ -1,7 +1,8 @@
 #pragma once
 
+#include "../lib/print.hpp"
+
 #include <expected>
-#include <print>
 
 #ifndef STACKTRACE_SIZE
 #define STACKTRACE_SIZE 16
@@ -67,9 +68,9 @@ enum class ErrorKind : uint16_t
 };
 
 template <>
-struct std::formatter<ErrorKind> : std::formatter<std::string>
+struct lib::formatter<ErrorKind>
 {
-    auto format(const ErrorKind& kind, std::format_context& ctx) const
+    void format(const ErrorKind& kind, lib::format_context& ctx) const
     {
         const char *msg;
 
@@ -98,7 +99,7 @@ struct std::formatter<ErrorKind> : std::formatter<std::string>
             break;
         }
 
-        return std::format_to(ctx.out(), "{}", msg);
+        ctx.write_str(msg, (std::streamsize)std::strlen(msg));
     }
 };
 
@@ -353,7 +354,7 @@ private:
     do                                                                     \
     {                                                                      \
         if (COND)                                                          \
-            std::println("error: {}:{}: {}", __FILE__, __LINE__, MESSAGE); \
+            lib::println("error: {}:{}: {}", __FILE__, __LINE__, MESSAGE); \
     } while (0)
 
 #define ERR_COND_R(COND, MESSAGE, ...)                                     \
@@ -361,7 +362,7 @@ private:
     {                                                                      \
         if (COND)                                                          \
         {                                                                  \
-            std::println("error: {}:{}: {}", __FILE__, __LINE__, MESSAGE); \
+            lib::println("error: {}:{}: {}", __FILE__, __LINE__, MESSAGE); \
             return __VA_ARGS__;                                            \
         }                                                                  \
     } while (0)
@@ -371,8 +372,8 @@ private:
     {                                                         \
         if (COND)                                             \
         {                                                     \
-            std::print("error: {}:{}: ", __FILE__, __LINE__); \
-            std::println(MESSAGE, __VA_ARGS__);               \
+            lib::print("error: {}:{}: ", __FILE__, __LINE__); \
+            lib::println(MESSAGE, __VA_ARGS__);               \
         }                                                     \
     } while (0)
 
@@ -381,8 +382,8 @@ private:
     {                                                         \
         if (COND)                                             \
         {                                                     \
-            std::print("error: {}:{}: ", __FILE__, __LINE__); \
-            std::println(MESSAGE, __VA_ARGS__);               \
+            lib::print("error: {}:{}: ", __FILE__, __LINE__); \
+            lib::println(MESSAGE, __VA_ARGS__);               \
             return;                                           \
         }                                                     \
     } while (0)
@@ -393,7 +394,7 @@ private:
         auto __result = EXPECTED;                                          \
         if (!__result.has_value())                                         \
         {                                                                  \
-            std::println("error: {}:{}: {}", __FILE__, __LINE__, MESSAGE); \
+            lib::println("error: {}:{}: {}", __FILE__, __LINE__, MESSAGE); \
             return;                                                        \
         }                                                                  \
     } while (0)
@@ -402,7 +403,7 @@ private:
     auto __result = EXPECTED;                                          \
     if (!__result.has_value())                                         \
     {                                                                  \
-        std::println("error: {}:{}: {}", __FILE__, __LINE__, MESSAGE); \
+        lib::println("error: {}:{}: {}", __FILE__, __LINE__, MESSAGE); \
         break;                                                         \
     }
 
@@ -410,7 +411,7 @@ private:
     auto __result = EXPECTED;                                          \
     if (!__result.has_value())                                         \
     {                                                                  \
-        std::println("error: {}:{}: {}", __FILE__, __LINE__, MESSAGE); \
+        lib::println("error: {}:{}: {}", __FILE__, __LINE__, MESSAGE); \
         continue;                                                      \
     }
 
@@ -422,7 +423,7 @@ private:
         auto __result = RESULT;                                                                                \
         if (__result.result != vk::Result::eSuccess)                                                           \
         {                                                                                                      \
-            std::println("error: {}:{}: {}", __FILE__, __LINE__, string_vk_result((VkResult)__result.result)); \
+            lib::println("error: {}:{}: {}", __FILE__, __LINE__, string_vk_result((VkResult)__result.result)); \
             return;                                                                                            \
         }                                                                                                      \
     } while (0)
@@ -433,7 +434,7 @@ private:
         auto __result = RESULT;                                                                         \
         if (__result != vk::Result::eSuccess && __result != vk::Result::eSuboptimalKHR)                 \
         {                                                                                               \
-            std::println("error: {}:{}: {}", __FILE__, __LINE__, string_vk_result((VkResult)__result)); \
+            lib::println("error: {}:{}: {}", __FILE__, __LINE__, string_vk_result((VkResult)__result)); \
             return;                                                                                     \
         }                                                                                               \
     } while (0)
@@ -471,7 +472,7 @@ inline void assert_error(bool condition, std::format_string<Args...> format, Arg
 {
     if (!condition)
     {
-        std::println(stderr, format, args...);
+        lib::println(stderr, format, args...);
         std::abort();
     }
 }
