@@ -22,13 +22,13 @@ void Save::save_info(const Ref<World>& world)
     ERR_COND_VR(!os.is_open(), "Failed to open {}/world.dat", m_name);
 
     std::vector<uint32_t> encoded_string_table;
-    uint32_t cumulated_size = 0;
+    uint32_t accumulated_size = 0;
     uint32_t block_id = 0;
     for (const auto& block : BlockRegistry::get().get_blocks())
     {
-        encoded_string_table[block_id] = cumulated_size;
+        encoded_string_table.push_back(accumulated_size);
         block_id += 1;
-        cumulated_size += block->name().size() + 1;
+        accumulated_size += block->name().size() + 1;
     }
 
     // write the file header.

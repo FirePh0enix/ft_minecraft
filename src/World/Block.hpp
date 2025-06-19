@@ -2,6 +2,12 @@
 
 #include "Core/Class.hpp"
 
+enum class BlockStateVariant : uint8_t
+{
+    // Uses the `generic` field of the block state.
+    Generic,
+};
+
 struct GenericData
 {
     uint8_t visibility : 6;
@@ -43,11 +49,38 @@ class Block : public Object
     CLASS(Block, Object);
 
 public:
+    Block(std::string name, const std::array<std::string, 6>& textures)
+        : m_name(name), m_textures(textures), m_texture_ids({0, 0, 0, 0, 0, 0})
+    {
+    }
+
     inline std::string name() const
     {
         return m_name;
     }
 
+    virtual BlockStateVariant get_variant() const
+    {
+        return BlockStateVariant::Generic;
+    }
+
+    void set_texture_ids(const std::array<uint32_t, 6>& texture_ids)
+    {
+        m_texture_ids = texture_ids;
+    }
+
+    std::array<std::string, 6> get_texture_names() const
+    {
+        return m_textures;
+    }
+
+    std::array<uint32_t, 6> get_texture_ids() const
+    {
+        return m_texture_ids;
+    }
+
 private:
     std::string m_name;
+    std::array<std::string, 6> m_textures;
+    std::array<uint32_t, 6> m_texture_ids;
 };

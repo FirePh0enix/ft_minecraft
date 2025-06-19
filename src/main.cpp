@@ -11,6 +11,7 @@
 #include "Window.hpp"
 #include "World/Generation/Generator.hpp"
 #include "World/Generation/Terrain.hpp"
+#include "World/Registry.hpp"
 #include "World/World.hpp"
 
 #include "../lib/format.hpp"
@@ -80,25 +81,6 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     auto init_result = RenderingDriver::get()->initialize(*window);
     EXPECT(init_result);
 
-    auto texture_array_result = RenderingDriver::get()->create_texture_array(16, 16, TextureFormat::RGBA8Srgb, {.copy_dst = true, .sampled = true}, 1);
-    EXPECT(texture_array_result);
-    Ref<Texture> texture_array = texture_array_result.value();
-
-    {
-        SDL_IOStream *texture_stream = SDL_IOFromFile("assets/textures/Dirt.png", "r");
-        ERR_COND(texture_stream == nullptr, "cannot open texture");
-
-        SDL_Surface *texture_surface = IMG_LoadPNG_IO(texture_stream);
-        ERR_COND(texture_stream == nullptr, "cannot load texture");
-
-        texture_array->transition_layout(TextureLayout::CopyDst);
-        texture_array->update(Span((uint8_t *)texture_surface->pixels, texture_surface->w * texture_surface->h * 4), 0);
-        texture_array->transition_layout(TextureLayout::ShaderReadOnly);
-
-        SDL_DestroySurface(texture_surface);
-        SDL_CloseIO(texture_stream);
-    }
-
     auto shader_result = Shader::compile("assets/shaders/voxel.wgsl", {});
     if (!shader_result.has_value())
     {
@@ -127,8 +109,6 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     EXPECT(material_result);
     Ref<Material> material = material_result.value();
 
-    material->set_param("images", texture_array);
-
     auto cube_result = create_cube_with_separate_faces(glm::vec3(1.0), glm::vec3(-0.5));
     EXPECT(cube_result);
     Ref<Mesh> cube = cube_result.value();
@@ -145,8 +125,6 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
 
     Ref<Scene> scene = make_ref<Scene>();
     Scene::set_active_scene(scene);
-
-    BlockState dirt(1);
 
     Ref<World> world = make_ref<World>(cube, material);
     world->set_render_distance(16);
@@ -170,6 +148,21 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
 
     scene->add_entity(player);
     scene->set_active_camera(camera);
+
+    // Register blocks
+    {
+        std::array<std::string, 6> dirt = {"Dirt.png", "Dirt.png", "Dirt.png", "Dirt.png", "Dirt.png", "Dirt.png"};
+        BlockRegistry::get().register_block(make_ref<Block>("dirt", dirt));
+
+        std::array<std::string, 6> grass = {"Grass_Side.png", "Grass_Side.png", "Grass_Side.png", "Grass_Side.png", "Grass_Top.png", "Dirt.png"};
+        BlockRegistry::get().register_block(make_ref<Block>("grass", dirt));
+
+        std::array<std::string, 6> stone = {"Stone.png", "Stone.png", "Stone.png", "Stone.png", "Stone.png", "Stone.png"};
+        BlockRegistry::get().register_block(make_ref<Block>("stone", dirt));
+    }
+
+    BlockRegistry::get().create_texture_array();
+    material->set_param("images", BlockRegistry::get().get_texture_array());
 
     gen = make_ref<WorldGenerator>(world);
     gen->set_terrain(make_ref<FlatTerrainGenerator>());
