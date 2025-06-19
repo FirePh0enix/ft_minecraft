@@ -6,6 +6,7 @@ Checks: "
         modernize-make-shared,
         modernize-make-unique,
         modernize-type-traits,
+        modernize-use-designated-initializers,
         modernize-use-nullptr,
         performance-enum-size,
         performance-faster-string-find,
@@ -15,6 +16,7 @@ Checks: "
         bugprone-narrowing-conversions,
         readability-identifier-naming,
         cppcoreguidelines-owning-memory,
+        cppcoreguidelines-pro-type-member-init,
 "
 WarningsAsErrors: ''
 HeaderFilterRegex: ''

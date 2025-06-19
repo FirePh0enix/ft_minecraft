@@ -29,5 +29,5 @@ public:
     }
 
 protected:
-    Entity *m_entity;
+    Entity *m_entity = nullptr;
 };

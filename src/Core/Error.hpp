@@ -348,8 +348,6 @@ private:
 
 #endif
 
-// #ifdef __DEBUG__
-
 #define ERR_COND(COND, MESSAGE)                                            \
     do                                                                     \
     {                                                                      \
@@ -441,49 +439,7 @@ private:
 
 #endif
 
-// #else
-
-// #define ERR_COND(COND, MESSAGE)
-// #define ERR_COND_V(COND, MESSAGE, ...)
-// #define ERR_COND_VR(COND, MESSAGE, ...)
-// #define ERR_EXPECT_R(EXPECTED, MESSAGE)
-// #define ERR_EXPECT_B(EXPECTED, MESSAGE)
-// #define ERR_EXPECT_C(EXPECTED, MESSAGE)
-
-// #ifdef __has_vulkan
-// #define ERR_RESULT_RET(RESULT)
-// #define ERR_RESULT_E_RET(RESULT)
-// #endif
-
-// #endif
-
 template <typename T>
 using Expected = std::expected<T, Error>;
 
 void initialize_error_handling(const char *filename);
-
-/**
- * Modern C++ version of C's assert.
- */
-#ifdef __DEBUG__
-
-template <typename... Args>
-inline void assert_error(bool condition, std::format_string<Args...> format, Args... args)
-{
-    if (!condition)
-    {
-        lib::println(stderr, format, args...);
-        std::abort();
-    }
-}
-
-#else
-
-template <typename... Args>
-inline void assert_error(bool condition, std::format_string<Args...> format, Args... args)
-{
-    (void)condition;
-    (void)format;
-}
-
-#endif

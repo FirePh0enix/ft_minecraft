@@ -171,7 +171,7 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     scene->add_entity(player);
     scene->set_active_camera(camera);
 
-    gen = make_ref<WorldGenerator>(world, player);
+    gen = make_ref<WorldGenerator>(world);
     gen->set_terrain(make_ref<FlatTerrainGenerator>());
 
 #ifdef __platform_web
@@ -235,6 +235,7 @@ static void tick()
     RenderingDriver::get()->poll();
 
     const glm::vec3 player_pos = player->get_component<TransformComponent3D>()->get_global_transform().position();
+    gen->set_player_pos(player_pos);
     gen->load_around(int64_t(player_pos.x), int64_t(player_pos.y), int64_t(player_pos.z));
 
     Ref<Scene>& scene = Scene::get_active_scene();

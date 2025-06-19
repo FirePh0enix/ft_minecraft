@@ -18,8 +18,8 @@ class WorldGenerator : public Object
     CLASS(WorldGenerator, Object);
 
 public:
-    WorldGenerator(Ref<World> world, Ref<Entity> player)
-        : m_world(world), m_player(player), save("new_world"), m_load_semaphore(0), m_unload_semaphore(0)
+    WorldGenerator(Ref<World> world)
+        : m_world(world), player_position(0.0), save("new_world"), m_load_semaphore(0), m_unload_semaphore(0)
     {
         m_load_worker = std::thread(load_worker, this);
         m_unload_worker = std::thread(unload_worker, this);
@@ -42,6 +42,11 @@ public:
     inline void set_terrain(Ref<TerrainGenerator> terrain)
     {
         m_terrain = terrain;
+    }
+
+    inline void set_player_pos(glm::vec3 pos)
+    {
+        player_position = pos;
     }
 
     void load_around(int64_t x, int64_t y, int64_t z)
@@ -120,8 +125,11 @@ public:
             if (!buffer_index.has_value())
                 continue;
 
+            int64_t pcx = (int64_t)gen->player_position.x / 16;
+            int64_t pcz = (int64_t)gen->player_position.z / 16;
+
             gen->m_load_orders_mutex.lock();
-            std::optional<ChunkPos> chunk_pos_opt = gen->pop_nearest_load_order(0, 0); // TODO
+            std::optional<ChunkPos> chunk_pos_opt = gen->pop_nearest_load_order(pcx, pcz);
             remaining = gen->m_load_orders.size();
             gen->m_load_orders_mutex.unlock();
 
@@ -285,7 +293,7 @@ public:
 
     // private:
     Ref<World> m_world;
-    Ref<Entity> m_player;
+    glm::vec3 player_position;
 
     // generators
     Ref<TerrainGenerator> m_terrain;

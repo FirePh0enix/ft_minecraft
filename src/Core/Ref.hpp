@@ -185,7 +185,7 @@ private:
 };
 
 template <typename T, typename... Args>
-inline Ref<T> make_ref(Args... args)
+inline Ref<type_identity_t<T>> make_ref(Args... args)
 {
     return Ref<T>(new T(args...));
 }
