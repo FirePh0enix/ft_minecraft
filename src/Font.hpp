@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Core/Error.hpp"
 #include "Core/Ref.hpp"
+#include "Core/Result.hpp"
 #include "Render/Driver.hpp"
 
 #include <map>
@@ -11,10 +11,10 @@ class Font : public Object
     CLASS(Font, Object);
 
 public:
-    static Expected<Ref<Font>> create(const std::string& font_name, uint32_t font_size);
+    static Result<Ref<Font>> create(const std::string& font_name, uint32_t font_size);
 
     ~Font();
-    static Expected<void> init_library();
+    static Result<> init_library();
     static void deinit_library();
 
     struct Character
@@ -80,7 +80,7 @@ class Text
 {
 public:
     Text()
-        : m_font(nullptr), m_instance_buffer(nullptr), m_capacity(0)
+        : m_font(nullptr), m_instance_buffer(nullptr), m_capacity(0), m_size(0)
     {
     }
 

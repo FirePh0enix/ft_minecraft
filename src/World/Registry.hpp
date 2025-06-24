@@ -18,6 +18,11 @@ public:
         return singleton;
     }
 
+    void destroy()
+    {
+        m_texture_array = nullptr;
+    }
+
     inline bool is_generic(uint16_t id)
     {
         return m_generics.test(id);

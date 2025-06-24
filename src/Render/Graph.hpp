@@ -10,34 +10,42 @@ enum class InstructionKind : uint8_t
 {
     BeginRenderPass,
     EndRenderPass,
+    BeginDepthPass,
+    EndDepthPass,
     Draw,
     Copy,
 };
 
 union Instruction
 {
-    InstructionKind kind;
+    InstructionKind kind = {};
     struct
     {
-        InstructionKind kind;
+        InstructionKind kind = InstructionKind::BeginRenderPass;
+        bool use_previous_depth_pass = false;
     } renderpass;
     struct
     {
-        InstructionKind kind;
-        Mesh *mesh;
-        Material *material;
-        size_t instance_count;
-        std::optional<Buffer *> instance_buffer;
-        glm::mat4 view_matrix;
+        InstructionKind kind = InstructionKind::BeginDepthPass;
+    } depthpass;
+    struct
+    {
+        InstructionKind kind = InstructionKind::Draw;
+        Mesh *mesh = nullptr;
+        Material *material = nullptr;
+        size_t instance_count = 0;
+        std::optional<Buffer *> instance_buffer = std::nullopt;
+        glm::mat4 view_matrix = glm::mat4(1.0);
+        bool ignore_depth_prepass = false;
     } draw;
     struct
     {
-        InstructionKind kind;
-        Buffer *src;
-        Buffer *dst;
-        size_t src_offset;
-        size_t dst_offset;
-        size_t size;
+        InstructionKind kind = InstructionKind::Copy;
+        Buffer *src = nullptr;
+        Buffer *dst = nullptr;
+        size_t src_offset = 0;
+        size_t dst_offset = 0;
+        size_t size = 0;
     } copy;
 };
 
@@ -54,13 +62,22 @@ public:
     void reset();
     Span<Instruction> get_instructions() const;
 
-    void begin_render_pass();
+    /**
+     * @brief Start a depth-only render pass.
+     */
+    void begin_depth_pass();
+    void end_depth_pass();
+
+    /**
+     * @brief Start a standard render pass.
+     */
+    void begin_render_pass(bool use_previous_depth_pass = false);
     void end_render_pass();
 
-    void add_draw(Mesh *mesh, Material *material, glm::mat4 view_matrix = {}, uint32_t instance_count = 1, std::optional<Buffer *> instance_buffer = {});
+    void add_draw(Mesh *mesh, Material *material, glm::mat4 view_matrix = {}, uint32_t instance_count = 1, std::optional<Buffer *> instance_buffer = {}, bool ignore_depth_prepass = false);
     void add_copy(Buffer *src, Buffer *dst, size_t size, size_t src_offset = 0, size_t dst_offset = 0);
 
 private:
     std::vector<Instruction> m_instructions;
-    bool m_renderpass;
+    bool m_renderpass = false;
 };

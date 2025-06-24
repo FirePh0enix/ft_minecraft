@@ -309,25 +309,6 @@ private:
 #endif
 };
 
-#define YEET(EXPECTED)                                \
-    do                                                \
-    {                                                 \
-        auto __result = EXPECTED;                     \
-        if (!__result.has_value())                    \
-            return std::unexpected(__result.error()); \
-    } while (0)
-
-#define EXPECT(EXPECTED)              \
-    do                                \
-    {                                 \
-        auto __result = EXPECTED;     \
-        if (!__result.has_value())    \
-        {                             \
-            __result.error().print(); \
-            exit(1);                  \
-        }                             \
-    } while (0)
-
 #ifdef __has_vulkan
 
 #define YEET_RESULT_E(RESULT)                 \
@@ -335,7 +316,7 @@ private:
     {                                         \
         auto __result = RESULT;               \
         if (__result != vk::Result::eSuccess) \
-            return std::unexpected(__result); \
+            return Error(__result);           \
     } while (0)
 
 #define YEET_RESULT(RESULT)                          \
@@ -343,7 +324,7 @@ private:
     {                                                \
         auto __result = RESULT;                      \
         if (__result.result != vk::Result::eSuccess) \
-            return std::unexpected(__result.result); \
+            return Error(__result.result);           \
     } while (0)
 
 #endif
@@ -362,6 +343,16 @@ private:
         {                                                                  \
             lib::println("error: {}:{}: {}", __FILE__, __LINE__, MESSAGE); \
             return __VA_ARGS__;                                            \
+        }                                                                  \
+    } while (0)
+
+#define ERR_COND_B(COND, MESSAGE, ...)                                     \
+    do                                                                     \
+    {                                                                      \
+        if (COND)                                                          \
+        {                                                                  \
+            lib::println("error: {}:{}: {}", __FILE__, __LINE__, MESSAGE); \
+            break;                                                         \
         }                                                                  \
     } while (0)
 
@@ -438,8 +429,5 @@ private:
     } while (0)
 
 #endif
-
-template <typename T>
-using Expected = std::expected<T, Error>;
 
 void initialize_error_handling(const char *filename);

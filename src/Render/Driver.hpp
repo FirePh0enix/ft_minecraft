@@ -3,6 +3,7 @@
 #include "Core/Class.hpp"
 #include "Core/Error.hpp"
 #include "Core/Ref.hpp"
+#include "Core/Result.hpp"
 #include "Core/Span.hpp"
 #include "Render/Graph.hpp"
 #include "Render/Shader.hpp"
@@ -164,6 +165,40 @@ protected:
     Ref<MaterialLayout> m_layout;
 };
 
+struct RenderPassDescriptor
+{
+    struct ColorFlags
+    {
+        bool present : 1 = false;
+        uint32_t padding : 31 = 0;
+    };
+
+    struct DepthFlags
+    {
+        bool present : 1 = false;
+
+        /**
+         * @brief Save depth values for later.
+         */
+        bool save : 1 = false;
+
+        /**
+         * @brief Load depth values from a previous depth buffer.
+         */
+        bool load : 1 = false;
+
+        uint32_t padding : 29 = 0;
+    };
+
+    ColorFlags color_flags = {};
+    DepthFlags depth_flags = {};
+
+    bool operator<(const RenderPassDescriptor& desc) const
+    {
+        return *(uint32_t *)&color_flags < *(uint32_t *)&desc.color_flags || *(uint32_t *)&depth_flags < *(uint32_t *)&desc.depth_flags;
+    }
+};
+
 class RenderingDriver : public Object
 {
     CLASS(RenderingDriver, Object);
@@ -200,14 +235,14 @@ public:
      * @brief Initialize the underlaying graphics API.
      */
     [[nodiscard]]
-    virtual Expected<void> initialize(const Window& window) = 0;
+    virtual Result<> initialize(const Window& window) = 0;
 
     /**
      * @brief Configure the surface and swapchain.
      * It must be called every time the window is resized.
      */
     [[nodiscard]]
-    virtual Expected<void> configure_surface(const Window& window, VSync vsync) = 0;
+    virtual Result<> configure_surface(const Window& window, VSync vsync) = 0;
 
     virtual void poll() = 0;
 
@@ -220,31 +255,31 @@ public:
      * @brief Allocate a buffer in the GPU memory.
      */
     [[nodiscard]]
-    virtual Expected<Ref<Buffer>> create_buffer(size_t size, BufferUsage flags = {}, BufferVisibility visibility = BufferVisibility::GPUOnly) = 0;
+    virtual Result<Ref<Buffer>> create_buffer(size_t size, BufferUsage flags = {}, BufferVisibility visibility = BufferVisibility::GPUOnly) = 0;
 
     /**
      * @brief Allocate a buffer in the GPU memory and fill it with `data`.
      */
     [[nodiscard]]
-    virtual Expected<Ref<Buffer>> create_buffer_from_data(size_t size, Span<uint8_t> data, BufferUsage flags = {}, BufferVisibility visibility = BufferVisibility::GPUOnly);
+    virtual Result<Ref<Buffer>> create_buffer_from_data(size_t size, Span<uint8_t> data, BufferUsage flags = {}, BufferVisibility visibility = BufferVisibility::GPUOnly);
 
     [[nodiscard]]
-    virtual Expected<Ref<Texture>> create_texture(uint32_t width, uint32_t height, TextureFormat format, TextureUsage usage) = 0;
+    virtual Result<Ref<Texture>> create_texture(uint32_t width, uint32_t height, TextureFormat format, TextureUsage usage) = 0;
 
     [[nodiscard]]
-    virtual Expected<Ref<Texture>> create_texture_array(uint32_t width, uint32_t height, TextureFormat format, TextureUsage usage, uint32_t layers) = 0;
+    virtual Result<Ref<Texture>> create_texture_array(uint32_t width, uint32_t height, TextureFormat format, TextureUsage usage, uint32_t layers) = 0;
 
     [[nodiscard]]
-    virtual Expected<Ref<Texture>> create_texture_cube(uint32_t width, uint32_t height, TextureFormat format, TextureUsage usage) = 0;
+    virtual Result<Ref<Texture>> create_texture_cube(uint32_t width, uint32_t height, TextureFormat format, TextureUsage usage) = 0;
 
     [[nodiscard]]
-    virtual Expected<Ref<Mesh>> create_mesh(IndexType index_type, Span<uint8_t> indices, Span<glm::vec3> vertices, Span<glm::vec2> uvs, Span<glm::vec3> normals) = 0;
+    virtual Result<Ref<Mesh>> create_mesh(IndexType index_type, Span<uint8_t> indices, Span<glm::vec3> vertices, Span<glm::vec2> uvs, Span<glm::vec3> normals) = 0;
 
     [[nodiscard]]
-    virtual Expected<Ref<MaterialLayout>> create_material_layout(Ref<Shader> shader, MaterialFlags flags = {}, std::optional<InstanceLayout> instance_layout = std::nullopt, CullMode cull_mode = CullMode::Back, PolygonMode polygon_mode = PolygonMode::Fill) = 0;
+    virtual Result<Ref<MaterialLayout>> create_material_layout(Ref<Shader> shader, MaterialFlags flags = {}, std::optional<InstanceLayout> instance_layout = std::nullopt, CullMode cull_mode = CullMode::Back, PolygonMode polygon_mode = PolygonMode::Fill) = 0;
 
     [[nodiscard]]
-    virtual Expected<Ref<Material>> create_material(const Ref<MaterialLayout>& layout) = 0;
+    virtual Result<Ref<Material>> create_material(const Ref<MaterialLayout>& layout) = 0;
 
     /**
      * @brief Draw a frame using a `RenderGraph`.

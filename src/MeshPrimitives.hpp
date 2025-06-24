@@ -2,7 +2,7 @@
 
 #include "Render/Driver.hpp"
 
-inline Expected<Ref<Mesh>> create_cube_with_separate_faces(glm::vec3 size = glm::vec3(1.0), glm::vec3 offset = {})
+inline Result<Ref<Mesh>> create_cube_with_separate_faces(glm::vec3 size = glm::vec3(1.0), glm::vec3 offset = {})
 {
     const glm::vec3 hs = size / glm::vec3(2.0);
 

@@ -1,7 +1,6 @@
 #include "Render/Shader.hpp"
 #include "Core/Logger.hpp"
 
-#include <filesystem>
 #include <fstream>
 #include <iostream>
 
@@ -13,14 +12,14 @@
 #include <src/tint/lang/core/ir/var.h>
 #include <src/tint/lang/core/type/pointer.h>
 #include <src/tint/lang/wgsl/ast/module.h>
-#endif
+#endif // not __platform_web
 
 static bool contains(const std::vector<std::string>& definitions, const std::string& definition)
 {
     return std::find(definitions.begin(), definitions.end(), definition) != definitions.end();
 }
 
-Shader::Expected<std::string> preprocess(std::ifstream& ifs, const std::vector<std::string>& definitions)
+Shader::Result<std::string> preprocess(std::ifstream& ifs, const std::vector<std::string>& definitions)
 {
     std::string line;
 
@@ -33,7 +32,7 @@ Shader::Expected<std::string> preprocess(std::ifstream& ifs, const std::vector<s
         if (line.starts_with("#ifdef "))
         {
             if (is_in_block)
-                return std::unexpected(Shader::ErrorKind::RecursiveDirective);
+                return Shader::ErrorKind::RecursiveDirective;
 
             std::string definition = line.substr(7);
             is_in_block = true;
@@ -43,7 +42,7 @@ Shader::Expected<std::string> preprocess(std::ifstream& ifs, const std::vector<s
         else if (line.starts_with("#ifndef "))
         {
             if (is_in_block)
-                return std::unexpected(Shader::ErrorKind::RecursiveDirective);
+                return Shader::ErrorKind::RecursiveDirective;
 
             std::string definition = line.substr(8);
             is_in_block = true;
@@ -53,7 +52,7 @@ Shader::Expected<std::string> preprocess(std::ifstream& ifs, const std::vector<s
         else if (line == "#else")
         {
             if (!is_in_block)
-                return std::unexpected(Shader::ErrorKind::MissingDirective);
+                return Shader::ErrorKind::MissingDirective;
 
             is_skipped = !is_skipped;
             continue;
@@ -61,7 +60,7 @@ Shader::Expected<std::string> preprocess(std::ifstream& ifs, const std::vector<s
         else if (line == "#endif")
         {
             if (!is_in_block)
-                return std::unexpected(Shader::ErrorKind::MissingDirective);
+                return Shader::ErrorKind::MissingDirective;
 
             is_skipped = false;
             is_in_block = false;
@@ -77,10 +76,10 @@ Shader::Expected<std::string> preprocess(std::ifstream& ifs, const std::vector<s
     return output;
 }
 
-Shader::Expected<Ref<Shader>> Shader::compile(const std::string& filename, const std::vector<std::string>& definitions_list)
+Shader::Result<Ref<Shader>> Shader::compile(const std::string& filename, ShaderFlags flags, ShaderStages stages)
 {
     Ref<Shader> shader = make_ref<Shader>();
-    auto result = shader->compile_internal(filename, definitions_list);
+    auto result = shader->compile_internal(filename, flags, stages);
     YEET(result);
 
 #ifdef __has_shader_hot_reload
@@ -90,40 +89,46 @@ Shader::Expected<Ref<Shader>> Shader::compile(const std::string& filename, const
     return shader;
 }
 
-Shader::Expected<void> Shader::compile_internal(const std::string& filename, const std::vector<std::string>& definitions_list)
+Shader::Result<> Shader::compile_internal(const std::string& filename, ShaderFlags flags, ShaderStages stages)
 {
     std::ifstream file_stream(filename);
 
     if (!file_stream.is_open())
     {
         error("shader compilation: {}: File not found", filename);
-        return std::unexpected(ErrorKind::FileNotFound);
+        return ErrorKind::FileNotFound;
     }
 
-    std::vector<std::string> definitions = definitions_list;
+    std::vector<std::string> definitions;
 
 #ifndef __platform_web
     definitions.push_back("__has_immediate");
 #endif
 
+    if (flags.depth_pass)
+        definitions.push_back("DEPTH_PASS");
+
     auto output_result = preprocess(file_stream, definitions);
     if (!output_result.has_value())
     {
         error("shader compilation: {}: Preprocessing failed: {}", filename, (uint8_t)output_result.error());
-        return std::unexpected(output_result.error());
+        return output_result.error();
     }
 
     std::string& output = output_result.value();
+    m_filename = filename;
+
+    // TODO: Stages could probably be determined with `tint`, but it would also add more work the WGSL parser.
+    m_stages = stages;
 
 #ifdef __has_shader_hot_reload
-    m_filename = filename;
     m_file_last_write = std::filesystem::last_write_time(std::filesystem::path(filename));
     m_definitions = definitions;
 #endif
 
 #ifdef __platform_web
     m_code = output;
-#else
+#else  // __platform_web
     tint::Source::File file(filename, output);
 
     tint::wgsl::reader::Options parse_options;
@@ -136,7 +141,7 @@ Shader::Expected<void> Shader::compile_internal(const std::string& filename, con
     if (program.Diagnostics().ContainsErrors())
     {
         std::cerr << program.Diagnostics() << "\n";
-        return std::unexpected(ErrorKind::Compilation);
+        return ErrorKind::Compilation;
     }
 
     tint::Result<tint::core::ir::Module> ir = tint::wgsl::reader::ProgramToLoweredIR(program);
@@ -144,11 +149,11 @@ Shader::Expected<void> Shader::compile_internal(const std::string& filename, con
     if (ir != tint::Success)
     {
         error("{}", ir.Failure().reason);
-        return std::unexpected(ErrorKind::Compilation);
+        return ErrorKind::Compilation;
     }
 
     tint::Result<tint::SuccessType> check = tint::core::ir::Validate(ir.Get(), tint::core::ir::Capabilities{
-                                                                                   // Allow having vertex & fragment entry points in the same shader, also `TINT_ENABLE_IR_VALIDATION` must be turned of during compilation
+                                                                                   // Allow having vertex & fragment entry points in the same shader, also `TINT_ENABLE_IR_VALIDATION` must be turned off during compilation
                                                                                    // or `tint::spirv::writer::Generate` will fail later.
                                                                                    tint::core::ir::Capability::kAllowMultipleEntryPoints,
                                                                                });
@@ -156,7 +161,7 @@ Shader::Expected<void> Shader::compile_internal(const std::string& filename, con
     if (check != tint::Success)
     {
         error("{}", check.Failure().reason);
-        return std::unexpected(ErrorKind::Compilation);
+        return ErrorKind::Compilation;
     }
 
     fill_info(ir.Get());
@@ -169,7 +174,7 @@ Shader::Expected<void> Shader::compile_internal(const std::string& filename, con
     if (check != tint::Success)
     {
         error("{}", check.Failure().reason);
-        return std::unexpected(ErrorKind::Compilation);
+        return ErrorKind::Compilation;
     }
 
     tint::Result<tint::spirv::writer::Output> result = tint::spirv::writer::Generate(ir.Get(), gen_options);
@@ -177,13 +182,13 @@ Shader::Expected<void> Shader::compile_internal(const std::string& filename, con
     if (result != tint::Success)
     {
         error("{}", result.Failure().reason);
-        return std::unexpected(ErrorKind::Compilation);
+        return ErrorKind::Compilation;
     }
 
     m_code = result->spirv;
-#endif // __platform_web
+#endif // not __platform_web
 
-    return {};
+    return 0;
 }
 
 #ifdef __has_shader_hot_reload
@@ -199,7 +204,7 @@ void Shader::reload_if_needed()
 
     error("Shader {} was modified and will be reloaded...", m_filename);
 
-    Expected<void> result = compile_internal(m_filename, m_definitions);
+    Result<> result = compile_internal(m_filename, m_definitions);
 
     if (result.has_value())
     {
@@ -213,7 +218,7 @@ void Shader::reload_if_needed()
 
 std::vector<Ref<Shader>> Shader::shaders;
 
-#endif
+#endif // __has_shader_hot_reload
 
 #ifndef __platform_web
 
@@ -298,7 +303,7 @@ void Shader::fill_info(const tint::core::ir::Module& ir)
             }
 
             std::optional<ShaderStageKind> stage = stage_of(ir, inst);
-            binding.shader_stage = stage.value();
+            binding.shader_stage = stage.value_or(ShaderStageKind::Fragment); // FIXME: Fragment should not be hardcoded here.
 
             m_bindings[name] = binding;
         }
@@ -331,4 +336,4 @@ std::optional<ShaderStageKind> Shader::stage_of(const tint::core::ir::Module& ir
     return std::nullopt;
 }
 
-#endif
+#endif // not __platform_web
