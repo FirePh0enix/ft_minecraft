@@ -11,6 +11,17 @@
 #include <tint/tint.h>
 #endif
 
+struct ShaderFlags
+{
+    bool depth_pass : 1 = false;
+};
+
+struct ShaderStages
+{
+    bool vertex : 1 = false;
+    bool fragment : 1 = false;
+};
+
 class Shader : public Object
 {
     CLASS(Shader, Object);
@@ -24,10 +35,15 @@ public:
         Compilation,
     };
 
-    template <typename T>
-    using Expected = std::expected<T, ErrorKind>;
+    template <typename T = char>
+    using Result = Result<T, ErrorKind>;
 
-    static Expected<Ref<Shader>> compile(const std::string& filename, const std::vector<std::string>& definitions);
+    static Result<Ref<Shader>> compile(const std::string& filename, ShaderFlags flags, ShaderStages stages);
+
+    Result<Ref<Shader>> recompile(ShaderFlags flags, ShaderStages stages)
+    {
+        return compile(m_filename, flags, stages);
+    }
 
     std::optional<Binding> get_binding(const std::string& name) const
     {
@@ -66,6 +82,11 @@ public:
         m_samplers[name] = sampler;
     }
 
+    ShaderStages get_stages() const
+    {
+        return m_stages;
+    }
+
 #ifdef __has_shader_hot_reload
     void reload_if_needed();
 
@@ -97,8 +118,10 @@ public:
 private:
     std::map<std::string, Binding> m_bindings;
     std::map<std::string, Sampler> m_samplers;
+    std::string m_filename;
+    ShaderStages m_stages;
 
-    Shader::Expected<void> compile_internal(const std::string& filename, const std::vector<std::string>& definitions);
+    Result<> compile_internal(const std::string& filename, ShaderFlags flags, ShaderStages stages);
 
 #ifdef __platform_web
     std::string m_code;
@@ -110,7 +133,6 @@ private:
 #endif
 
 #ifdef __has_shader_hot_reload
-    std::string m_filename;
     std::chrono::time_point<std::chrono::file_clock> m_file_last_write;
     std::vector<std::string> m_definitions;
     bool m_was_reloaded = false;

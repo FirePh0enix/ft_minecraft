@@ -8,7 +8,7 @@ static glm::mat4 g_ortho_matrix;
 static Ref<Mesh> g_mesh = nullptr;
 static Ref<MaterialLayout> g_material_layout = nullptr;
 
-Expected<Ref<Font>> Font::create(const std::string& font_name, uint32_t font_size)
+Result<Ref<Font>> Font::create(const std::string& font_name, uint32_t font_size)
 {
     uint32_t bmp_height = 0;
     uint32_t bmp_width = 0;
@@ -18,7 +18,7 @@ Expected<Ref<Font>> Font::create(const std::string& font_name, uint32_t font_siz
 
     if (FT_New_Face(g_lib, font_name.c_str(), 0, &face) != 0)
     {
-        return std::unexpected(ErrorKind::FileNotFound);
+        return Error(ErrorKind::FileNotFound);
     }
 
     FT_Set_Pixel_Sizes(face, 0, font_size);
@@ -29,7 +29,7 @@ Expected<Ref<Font>> Font::create(const std::string& font_name, uint32_t font_siz
     {
         if (FT_Load_Char(face, c, FT_LOAD_RENDER) != 0)
         {
-            return std::unexpected(ErrorKind::Unknown);
+            return Error(ErrorKind::Unknown);
         }
 
         bmp_height = std::max(bmp_height, face->glyph->bitmap.rows);
@@ -102,13 +102,13 @@ Font::~Font()
 {
 }
 
-Expected<void> Font::init_library()
+Result<> Font::init_library()
 {
     const FT_Error res = FT_Init_FreeType(&g_lib);
 
     if (res != 0)
     {
-        return std::unexpected(ErrorKind::Unknown);
+        return Error(ErrorKind::FileNotFound);
     }
 
     std::array<uint16_t, 6> indices = {0, 1, 2, 0, 2, 3};
@@ -152,9 +152,9 @@ Expected<void> Font::init_library()
                                                  InstanceLayoutInput(ShaderType::Float32x2, sizeof(float) * 7)};
     InstanceLayout instance_layout(inputs, sizeof(Instance));
 
-    auto shader_result = Shader::compile("assets/shaders/font.wgsl", {});
+    auto shader_result = Shader::compile("assets/shaders/font.wgsl", {}, {.vertex = true, .fragment = true});
     if (!shader_result.has_value())
-        return std::unexpected(ErrorKind::ShaderCompilationFailed);
+        return Error(ErrorKind::ShaderCompilationFailed);
 
     Ref<Shader> shader = shader_result.value();
 
@@ -168,7 +168,7 @@ Expected<void> Font::init_library()
 
     g_material_layout = material_layout_result.value();
 
-    return {};
+    return 0;
 }
 
 void Font::deinit_library()
@@ -216,7 +216,7 @@ void Text::set(const std::string& text)
     }
 
     constexpr size_t batch_size = 32;
-    std::array<Font::Instance, batch_size> instances;
+    std::array<Font::Instance, batch_size> instances{};
 
     for (size_t i = 0; i < text.length(); i++)
     {
@@ -272,7 +272,7 @@ void Text::set_color(glm::vec4 color)
 
 void Text::encode_draw_calls(RenderGraph& graph)
 {
-    graph.add_draw(g_mesh.ptr(), m_material.ptr(), g_ortho_matrix, m_size, m_instance_buffer.ptr());
+    graph.add_draw(g_mesh.ptr(), m_material.ptr(), g_ortho_matrix, m_size, m_instance_buffer.ptr(), true);
 }
 
 void Text::update_uniform_buffer()

@@ -30,16 +30,16 @@ public:
     {
         Material *material;
         vk::RenderPass render_pass;
+        bool depth_pass;
+        bool use_previous_depth_pass;
 
         bool operator<(const Key& key) const
         {
-            return key.material < material || key.render_pass < render_pass;
+            return material < key.material || render_pass < key.render_pass || depth_pass < key.depth_pass || use_previous_depth_pass < key.use_previous_depth_pass;
         }
     };
 
-    PipelineCache();
-
-    Expected<vk::Pipeline> get_or_create(Material *material, vk::RenderPass render_pass);
+    Result<vk::Pipeline> get_or_create(Material *material, vk::RenderPass render_pass, bool depth_prepass, bool use_previous_depth_pass);
 
 private:
     std::map<Key, vk::Pipeline> m_pipelines;
@@ -48,12 +48,47 @@ private:
 class SamplerCache
 {
 public:
-    SamplerCache();
-
-    Expected<vk::Sampler> get_or_create(Sampler sampler);
+    Result<vk::Sampler> get_or_create(Sampler sampler);
 
 private:
     std::map<Sampler, vk::Sampler> m_samplers;
+};
+
+class RenderPassCache
+{
+public:
+    Result<vk::RenderPass> get_or_create(RenderPassDescriptor descriptor);
+
+private:
+    std::map<RenderPassDescriptor, vk::RenderPass> m_render_passes;
+};
+
+class FramebufferCache
+{
+public:
+    struct Key
+    {
+        vk::ImageView color_view;
+        vk::ImageView depth_view;
+        vk::RenderPass render_pass;
+        uint32_t width;
+        uint32_t height;
+
+        bool operator<(const Key& key) const
+        {
+            return color_view < key.color_view || depth_view < key.depth_view || render_pass < key.render_pass || width < key.width || height < key.height;
+        }
+    };
+
+    Result<vk::Framebuffer> get_or_create(Key key);
+
+    /**
+     * @brief Remove every framebuffer with the specified size.
+     */
+    void clear_with_size(uint32_t width, uint32_t height);
+
+private:
+    std::map<Key, vk::Framebuffer> m_framebuffers;
 };
 
 class RenderingDriverVulkan final : public RenderingDriver
@@ -70,39 +105,39 @@ public:
     }
 
     [[nodiscard]]
-    virtual Expected<void> initialize(const Window& window) override;
+    virtual Result<> initialize(const Window& window) override;
 
     [[nodiscard]]
-    virtual Expected<void> configure_surface(const Window& window, VSync vsync) override;
+    virtual Result<> configure_surface(const Window& window, VSync vsync) override;
 
     virtual void poll() override;
 
     virtual void limit_frames(uint32_t limit) override;
 
     [[nodiscard]]
-    virtual Expected<Ref<Buffer>> create_buffer(size_t size, BufferUsage usage = {}, BufferVisibility visibility = BufferVisibility::GPUOnly) override;
+    virtual Result<Ref<Buffer>> create_buffer(size_t size, BufferUsage usage = {}, BufferVisibility visibility = BufferVisibility::GPUOnly) override;
 
     [[nodiscard]]
-    virtual Expected<Ref<Texture>> create_texture(uint32_t width, uint32_t height, TextureFormat format, TextureUsage usage) override;
+    virtual Result<Ref<Texture>> create_texture(uint32_t width, uint32_t height, TextureFormat format, TextureUsage usage) override;
 
     [[nodiscard]]
-    virtual Expected<Ref<Texture>> create_texture_array(uint32_t width, uint32_t height, TextureFormat format, TextureUsage usage, uint32_t layers) override;
+    virtual Result<Ref<Texture>> create_texture_array(uint32_t width, uint32_t height, TextureFormat format, TextureUsage usage, uint32_t layers) override;
 
     [[nodiscard]]
-    virtual Expected<Ref<Texture>> create_texture_cube(uint32_t width, uint32_t height, TextureFormat format, TextureUsage usage) override;
+    virtual Result<Ref<Texture>> create_texture_cube(uint32_t width, uint32_t height, TextureFormat format, TextureUsage usage) override;
 
     [[nodiscard]]
-    virtual Expected<Ref<Mesh>> create_mesh(IndexType index_type, Span<uint8_t> indices, Span<glm::vec3> vertices, Span<glm::vec2> uvs, Span<glm::vec3> normals) override;
+    virtual Result<Ref<Mesh>> create_mesh(IndexType index_type, Span<uint8_t> indices, Span<glm::vec3> vertices, Span<glm::vec2> uvs, Span<glm::vec3> normals) override;
 
     [[nodiscard]]
-    virtual Expected<Ref<MaterialLayout>> create_material_layout(Ref<Shader> shader, MaterialFlags flags = {}, std::optional<InstanceLayout> instance_layout = std::nullopt, CullMode cull_mode = CullMode::Back, PolygonMode polygon_mode = PolygonMode::Fill) override;
+    virtual Result<Ref<MaterialLayout>> create_material_layout(Ref<Shader> shader, MaterialFlags flags = {}, std::optional<InstanceLayout> instance_layout = std::nullopt, CullMode cull_mode = CullMode::Back, PolygonMode polygon_mode = PolygonMode::Fill) override;
 
     [[nodiscard]]
-    virtual Expected<Ref<Material>> create_material(const Ref<MaterialLayout>& layout) override;
+    virtual Result<Ref<Material>> create_material(const Ref<MaterialLayout>& layout) override;
 
     virtual void draw_graph(const RenderGraph& graph) override;
 
-    Expected<vk::Pipeline> create_graphics_pipeline(Ref<Shader> shader, std::optional<InstanceLayout> instance_layout, vk::PolygonMode polygon_mode, vk::CullModeFlags cull_mode, MaterialFlags flags, vk::PipelineLayout pipeline_layout, vk::RenderPass render_pass);
+    Result<vk::Pipeline> create_graphics_pipeline(Ref<Shader> shader, std::optional<InstanceLayout> instance_layout, vk::PolygonMode polygon_mode, vk::CullModeFlags cull_mode, MaterialFlags flags, vk::PipelineLayout pipeline_layout, vk::RenderPass render_pass, bool previous_depth_pass);
 
     inline vk::Device get_device() const
     {
@@ -134,6 +169,11 @@ public:
         return m_graphics_mutex;
     }
 
+    inline vk::Format get_surface_format()
+    {
+        return m_surface_format.format;
+    }
+
 private:
     static constexpr size_t max_frames_in_flight = 2;
 
@@ -160,10 +200,12 @@ private:
     vk::CommandBuffer m_transfer_buffer;
 
     vk::QueryPool m_timestamp_query_pool;
-    vk::RenderPass m_render_pass;
+    // vk::RenderPass m_render_pass;
 
     PipelineCache m_pipeline_cache;
     SamplerCache m_sampler_cache;
+    RenderPassCache m_render_pass_cache;
+    FramebufferCache m_framebuffer_cache;
 
     std::chrono::time_point<std::chrono::high_resolution_clock> m_start_time;
 
@@ -187,17 +229,17 @@ private:
     Ref<Texture> m_depth_texture;
     std::vector<vk::Image> m_swapchain_images;
     std::vector<Ref<Texture>> m_swapchain_textures;
-    std::vector<vk::Framebuffer> m_swapchain_framebuffers;
+    // std::vector<vk::Framebuffer> m_swapchain_framebuffers;
 
-    Expected<Ref<Texture>> create_texture_from_vk_image(vk::Image image, uint32_t width, uint32_t height, vk::Format format);
+    Result<Ref<Texture>> create_texture_from_vk_image(vk::Image image, uint32_t width, uint32_t height, vk::Format format);
 
     void destroy_swapchain();
 
     std::optional<uint32_t> find_memory_type_index(uint32_t type_bits, vk::MemoryPropertyFlags properties);
-    std::expected<vk::DeviceMemory, Error> allocate_memory_for_buffer(vk::Buffer buffer, vk::MemoryPropertyFlags properties);
-    std::expected<vk::DeviceMemory, Error> allocate_memory_for_image(vk::Image image, vk::MemoryPropertyFlags properties);
+    Result<vk::DeviceMemory> allocate_memory_for_buffer(vk::Buffer buffer, vk::MemoryPropertyFlags properties);
+    Result<vk::DeviceMemory> allocate_memory_for_image(vk::Image image, vk::MemoryPropertyFlags properties);
 
-    std::expected<QueueInfo, bool> find_queue(vk::PhysicalDevice physical_device);
+    Result<QueueInfo, bool> find_queue(vk::PhysicalDevice physical_device);
     std::optional<PhysicalDeviceWithInfo> pick_best_device(const std::vector<vk::PhysicalDevice>& physical_devices, const std::vector<const char *>& required_extensions, const std::vector<const char *>& optional_extensions);
 };
 
@@ -276,12 +318,15 @@ class DescriptorPool
 {
 public:
     [[nodiscard]]
-    static Expected<DescriptorPool> create(vk::DescriptorSetLayout layout, Ref<Shader> shader);
+    static Result<DescriptorPool> create(vk::DescriptorSetLayout layout, Ref<Shader> shader);
 
     [[nodiscard]]
-    Expected<vk::DescriptorSet> allocate();
+    Result<vk::DescriptorSet> allocate();
 
-    DescriptorPool() {}
+    DescriptorPool()
+        : m_allocation_count(0)
+    {
+    }
 
     ~DescriptorPool();
 
@@ -291,7 +336,7 @@ private:
     {
     }
 
-    Expected<void> add_pool();
+    Result<> add_pool();
 
     static constexpr uint32_t max_sets = 8;
 

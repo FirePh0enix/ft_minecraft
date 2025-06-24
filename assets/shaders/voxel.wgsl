@@ -71,6 +71,7 @@ fn vertex_main(
 
     out.position = constants.view_matrix * model_matrix * vec4<f32>(position, 1.0);
 
+#ifndef DEPTH_PASS
     out.frag_pos = model_matrix * vec4<f32>(position, 1.0);
     out.uv = uv;
     out.normal = normal;
@@ -78,6 +79,7 @@ fn vertex_main(
 
     let texture_indices: array<u32, 6> = array<u32, 6>(textures.x & 0xFFFF, (textures.x & 0xFFFF) >> 16, textures.y & 0xFFFF, (textures.y & 0xFFFF) >> 16, textures.z & 0xFFFF, (textures.z & 0xFFFF) >> 16);
     out.texture_index = texture_indices[vertex_index / 4];
+#endif
 
     return out;
 }

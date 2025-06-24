@@ -52,6 +52,11 @@ public:
         m_buf->pubsync();
     }
 
+    void write_str(const char *s)
+    {
+        m_buf->sputn(s, strlen(s));
+    }
+
 private:
     std::basic_streambuf<char> *m_buf;
 };
@@ -93,6 +98,15 @@ struct formatter<std::string>
     void format(const std::string& s, format_context& ctx) const
     {
         ctx.write_str(s.data(), s.size());
+    }
+};
+
+template <>
+struct formatter<bool>
+{
+    void format(const bool& s, format_context& ctx) const
+    {
+        ctx.write_str(s ? "true" : "false");
     }
 };
 

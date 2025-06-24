@@ -99,6 +99,9 @@ void Chunk::update_instance_buffer(Ref<Buffer> buffer)
                 int64_t gz = m_z * 16 + z;
 
                 const Ref<Block>& block = BlockRegistry::get().get_block_by_id(state.id);
+                if (!block)
+                    continue;
+
                 const std::array<uint32_t, 6> t = block->get_texture_ids();
 
                 glm::uvec3 textures((t[0] & 0xFFFF) | ((t[1] << 16) & 0xFFFF), (t[2] & 0xFFFF) | ((t[3] << 16) & 0xFFFF), (t[4] & 0xFFFF) | ((t[5] << 16) & 0xFFFF));

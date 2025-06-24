@@ -29,6 +29,10 @@ public:
 
     ~WorldGenerator()
     {
+    }
+
+    void stop_workers()
+    {
         m_load_state.store(false);
         m_unload_state.store(false);
 

@@ -214,11 +214,7 @@ static vk::SamplerCreateInfo convert_sampler(Sampler sampler)
         vk::False);
 }
 
-PipelineCache::PipelineCache()
-{
-}
-
-Expected<vk::Pipeline> PipelineCache::get_or_create(Material *material, vk::RenderPass render_pass)
+Result<vk::Pipeline> PipelineCache::get_or_create(Material *material, vk::RenderPass render_pass, bool depth_pass, bool use_previous_depth_pass)
 {
     auto iter = m_pipelines.find({.material = material, .render_pass = render_pass});
 
@@ -253,19 +249,18 @@ Expected<vk::Pipeline> PipelineCache::get_or_create(Material *material, vk::Rend
         MaterialVulkan *material_vk = (MaterialVulkan *)material;
         Ref<MaterialLayoutVulkan> layout = material_vk->get_layout().cast_to<MaterialLayoutVulkan>();
 
-        auto pipeline_result = RenderingDriverVulkan::get()->create_graphics_pipeline(layout->m_shader, layout->m_instance_layout, layout->m_polygon_mode, layout->m_cull_mode, layout->m_flags, layout->m_pipeline_layout, render_pass);
+        // TODO: Add an in memory cache to store shader variants.
+        Ref<Shader> shader = depth_pass ? layout->m_shader->recompile({.depth_pass = true}, {.vertex = true}).value() : layout->m_shader;
+
+        auto pipeline_result = RenderingDriverVulkan::get()->create_graphics_pipeline(shader, layout->m_instance_layout, layout->m_polygon_mode, layout->m_cull_mode, layout->m_flags, layout->m_pipeline_layout, render_pass, use_previous_depth_pass);
         YEET(pipeline_result);
 
-        m_pipelines[{.material = material, .render_pass = render_pass}] = pipeline_result.value();
+        m_pipelines[{.material = material, .render_pass = render_pass, .depth_pass = depth_pass, .use_previous_depth_pass = use_previous_depth_pass}] = pipeline_result.value();
         return pipeline_result.value();
     }
 }
 
-SamplerCache::SamplerCache()
-{
-}
-
-Expected<vk::Sampler> SamplerCache::get_or_create(Sampler sampler)
+Result<vk::Sampler> SamplerCache::get_or_create(Sampler sampler)
 {
     auto iter = m_samplers.find(sampler);
 
@@ -283,6 +278,165 @@ Expected<vk::Sampler> SamplerCache::get_or_create(Sampler sampler)
     }
 }
 
+Result<vk::RenderPass> RenderPassCache::get_or_create(RenderPassDescriptor desc)
+{
+    auto pair = m_render_passes.find(desc);
+
+    if (pair != m_render_passes.end())
+    {
+        return pair->second;
+    }
+    else
+    {
+        std::vector<vk::AttachmentDescription> attachs;
+
+        if (desc.color_flags.present)
+        {
+            vk::AttachmentDescription color_attach(
+                {},
+                RenderingDriverVulkan::get()->get_surface_format(), vk::SampleCountFlagBits::e1,
+                vk::AttachmentLoadOp::eClear, vk::AttachmentStoreOp::eStore,
+                vk::AttachmentLoadOp::eDontCare, vk::AttachmentStoreOp::eDontCare,
+                vk::ImageLayout::eUndefined, vk::ImageLayout::ePresentSrcKHR);
+
+            attachs.push_back(color_attach);
+        }
+
+        if (desc.depth_flags.present)
+        {
+            vk::AttachmentLoadOp depth_load_op = desc.depth_flags.load ? vk::AttachmentLoadOp::eLoad : vk::AttachmentLoadOp::eClear;
+            vk::AttachmentStoreOp depth_store_op = desc.depth_flags.save ? vk::AttachmentStoreOp::eStore : vk::AttachmentStoreOp::eDontCare;
+
+            vk::AttachmentDescription depth_attach(
+                {},
+                vk::Format::eD32Sfloat, vk::SampleCountFlagBits::e1,
+                depth_load_op, depth_store_op,
+                vk::AttachmentLoadOp::eDontCare, vk::AttachmentStoreOp::eDontCare,
+                desc.depth_flags.load ? vk::ImageLayout::eDepthAttachmentStencilReadOnlyOptimal : vk::ImageLayout::eUndefined, vk::ImageLayout::eDepthStencilAttachmentOptimal);
+
+            attachs.push_back(depth_attach);
+        }
+
+        const vk::AttachmentReference color_attach_ref(0, vk::ImageLayout::eColorAttachmentOptimal);
+        const vk::AttachmentReference depth_attach_ref(desc.color_flags.present ? 1 : 0, vk::ImageLayout::eDepthStencilAttachmentOptimal);
+
+        std::vector<vk::AttachmentReference> color_attach_refs;
+
+        if (desc.color_flags.present)
+            color_attach_refs.push_back(color_attach_ref);
+
+        vk::SubpassDescription subpass({}, vk::PipelineBindPoint::eGraphics, {}, color_attach_refs, {}, desc.depth_flags.present ? &depth_attach_ref : nullptr);
+        std::vector<vk::SubpassDependency> dependencies;
+        dependencies.reserve(2);
+
+        if (desc.depth_flags.save)
+        {
+            // The `save` flag indicate that the depth texture will be reuse another render pass, so its layout must updated or we will have problems.
+
+            /*vk::PipelineStageFlags pipeline_flags = {};
+            vk::AccessFlags access_flags;
+
+            if (desc.color_flags.present)
+            {
+                pipeline_flags |= vk::PipelineStageFlagBits::eColorAttachmentOutput;
+                access_flags |= vk::AccessFlagBits::eColorAttachmentWrite;
+            }
+
+            if (desc.depth_flags.present)
+            {
+                pipeline_flags |= vk::PipelineStageFlagBits::eEarlyFragmentTests;
+                access_flags |= vk::AccessFlagBits::eDepthStencilAttachmentWrite; // even when we are not storing reusing depth data.
+
+                if (desc.depth_flags.load)
+                    access_flags |= vk::AccessFlagBits::eDepthStencilAttachmentRead;
+            }
+
+            vk::SubpassDependency dependency(vk::SubpassExternal, 0, pipeline_flags, pipeline_flags, access_flags, access_flags);*/
+
+            /*dependencies.push_back(vk::SubpassDependency(vk::SubpassExternal, 0,
+                                                         vk::PipelineStageFlagBits::eFragmentShader, vk::PipelineStageFlagBits::eEarlyFragmentTests,
+                                                         vk::AccessFlagBits::eDepthStencilAttachmentRead, vk::AccessFlagBits::eDepthStencilAttachmentWrite,
+                                                         vk::DependencyFlagBits::eByRegion));
+            dependencies.push_back(vk::SubpassDependency(0, vk::SubpassExternal,
+                                                         vk::PipelineStageFlagBits::eLateFragmentTests, vk::PipelineStageFlagBits::eFragmentShader,
+                                                         vk::AccessFlagBits::eDepthStencilAttachmentWrite, vk::AccessFlagBits::eDepthStencilAttachmentRead,
+                                                         vk::DependencyFlagBits::eByRegion));*/
+
+            dependencies.push_back(vk::SubpassDependency(vk::SubpassExternal, 0,
+                                                         vk::PipelineStageFlagBits::eBottomOfPipe, vk::PipelineStageFlagBits::eColorAttachmentOutput,
+                                                         vk::AccessFlagBits::eMemoryRead, vk::AccessFlagBits::eColorAttachmentRead | vk::AccessFlagBits::eColorAttachmentWrite));
+        }
+        else
+        {
+            // vk::PipelineStageFlags pipeline_flags = {};
+            // vk::AccessFlags access_flags;
+
+            // if (desc.color_flags.present)
+            // {
+            //     pipeline_flags |= vk::PipelineStageFlagBits::eColorAttachmentOutput;
+            //     access_flags |= vk::AccessFlagBits::eColorAttachmentWrite;
+            // }
+
+            // if (desc.depth_flags.present)
+            // {
+            //     pipeline_flags |= vk::PipelineStageFlagBits::eEarlyFragmentTests;
+            //     access_flags |= vk::AccessFlagBits::eDepthStencilAttachmentWrite; // even when we are not storing reusing depth data.
+
+            //     if (desc.depth_flags.load)
+            //         access_flags |= vk::AccessFlagBits::eDepthStencilAttachmentRead;
+            // }
+
+            // dependencies.push_back(vk::SubpassDependency(vk::SubpassExternal, 0, pipeline_flags, pipeline_flags, access_flags, access_flags));
+
+            dependencies.push_back(vk::SubpassDependency(vk::SubpassExternal, 0,
+                                                         vk::PipelineStageFlagBits::eBottomOfPipe, vk::PipelineStageFlagBits::eColorAttachmentOutput,
+                                                         vk::AccessFlagBits::eMemoryRead, vk::AccessFlagBits::eColorAttachmentRead | vk::AccessFlagBits::eColorAttachmentWrite));
+        }
+
+        auto render_pass_result = RenderingDriverVulkan::get()->get_device().createRenderPass(vk::RenderPassCreateInfo({}, attachs, {subpass}, dependencies));
+        YEET_RESULT(render_pass_result);
+
+        m_render_passes[desc] = render_pass_result.value;
+
+        return render_pass_result.value;
+    }
+}
+
+Result<vk::Framebuffer> FramebufferCache::get_or_create(FramebufferCache::Key key)
+{
+    auto pair = m_framebuffers.find(key);
+
+    if (pair != m_framebuffers.end())
+    {
+        return pair->second;
+    }
+    else
+    {
+        std::vector<vk::ImageView> views;
+        views.reserve(2);
+
+        if (key.color_view != nullptr)
+            views.push_back(key.color_view);
+        if (key.depth_view != nullptr)
+            views.push_back(key.depth_view);
+
+        Extent2D size = RenderingDriver::get()->get_surface_extent();
+
+        vk::FramebufferCreateInfo framebuffer_info({}, vk::RenderPass(key.render_pass), views, size.width, size.height, 1);
+        auto result = RenderingDriverVulkan::get()->get_device().createFramebuffer(framebuffer_info);
+        YEET_RESULT(result);
+
+        m_framebuffers[key] = result.value;
+
+        return result.value;
+    }
+}
+
+void FramebufferCache::clear_with_size(uint32_t width, uint32_t height)
+{
+    // TODO:
+}
+
 RenderingDriverVulkan::RenderingDriverVulkan()
 {
 }
@@ -293,7 +447,7 @@ RenderingDriverVulkan::~RenderingDriverVulkan()
     {
         destroy_swapchain();
 
-        m_device.destroyRenderPass(m_render_pass);
+        // m_device.destroyRenderPass(m_render_pass);
 
         m_device.destroyQueryPool(m_timestamp_query_pool);
 
@@ -321,7 +475,7 @@ RenderingDriverVulkan::~RenderingDriverVulkan()
     }
 }
 
-std::expected<void, Error> RenderingDriverVulkan::initialize(const Window& window)
+Result<> RenderingDriverVulkan::initialize(const Window& window)
 {
     VULKAN_HPP_DEFAULT_DISPATCHER.init();
 
@@ -333,7 +487,7 @@ std::expected<void, Error> RenderingDriverVulkan::initialize(const Window& windo
     std::vector<const char *> validation_layers;
 
 #ifdef __DEBUG__
-    // validation_layers.push_back("VK_LAYER_KHRONOS_validation");
+    validation_layers.push_back("VK_LAYER_KHRONOS_validation");
 #endif
 
     std::vector<const char *> required_instance_extensions(instance_extensions_count);
@@ -350,8 +504,6 @@ std::expected<void, Error> RenderingDriverVulkan::initialize(const Window& windo
 
     auto instance_result = vk::createInstance(vk::InstanceCreateInfo(instance_flags, &app_info, validation_layers, required_instance_extensions));
     YEET_RESULT(instance_result);
-    if (instance_result.result != vk::Result::eSuccess)
-        return std::unexpected(instance_result.result);
     m_instance = instance_result.value;
 
     VULKAN_HPP_DEFAULT_DISPATCHER.init(m_instance);
@@ -359,7 +511,7 @@ std::expected<void, Error> RenderingDriverVulkan::initialize(const Window& windo
     VkSurfaceKHR surface;
 
     if (!SDL_Vulkan_CreateSurface(window.get_window_ptr(), m_instance, nullptr, &surface))
-        return std::unexpected(ErrorKind::BadDriver);
+        return Error(ErrorKind::BadDriver);
     m_surface = vk::SurfaceKHR(surface);
 
     // Select the best physical device
@@ -398,7 +550,7 @@ std::expected<void, Error> RenderingDriverVulkan::initialize(const Window& windo
     std::optional<PhysicalDeviceWithInfo> physical_device_with_info_result = pick_best_device(physical_devices, required_extensions, optional_extensions);
 
     if (!physical_device_with_info_result.has_value())
-        return std::unexpected(ErrorKind::NoSuitableDevice);
+        return Error(ErrorKind::NoSuitableDevice);
 
     m_physical_device = physical_device_with_info_result->physical_device;
     m_physical_device_properties = physical_device_with_info_result->properties;
@@ -408,12 +560,12 @@ std::expected<void, Error> RenderingDriverVulkan::initialize(const Window& windo
 
     auto surface_capabilities_result = m_physical_device.getSurfaceCapabilitiesKHR(m_surface);
     if (surface_capabilities_result.result != vk::Result::eSuccess)
-        return std::unexpected(surface_capabilities_result.result);
+        return Error(surface_capabilities_result.result);
     m_surface_capabilities = surface_capabilities_result.value;
 
     auto surface_present_modes_result = m_physical_device.getSurfacePresentModesKHR(m_surface);
     if (surface_present_modes_result.result != vk::Result::eSuccess)
-        return std::unexpected(surface_present_modes_result.result);
+        return Error(surface_present_modes_result.result);
     m_surface_present_modes = surface_present_modes_result.value;
 
     // Create the actual device used to interact with vulkan
@@ -481,36 +633,6 @@ std::expected<void, Error> RenderingDriverVulkan::initialize(const Window& windo
 
     m_memory_properties = m_physical_device.getMemoryProperties();
 
-    // Create a render pass for the output
-    std::array<vk::AttachmentDescription, 2> attachments{
-        vk::AttachmentDescription(
-            {},
-            m_surface_format.format, vk::SampleCountFlagBits::e1,
-            vk::AttachmentLoadOp::eClear, vk::AttachmentStoreOp::eStore,
-            vk::AttachmentLoadOp::eDontCare, vk::AttachmentStoreOp::eDontCare,
-            vk::ImageLayout::eUndefined, vk::ImageLayout::ePresentSrcKHR),
-        vk::AttachmentDescription(
-            {},
-            convert_texture_format(TextureFormat::D32), vk::SampleCountFlagBits::e1,
-            vk::AttachmentLoadOp::eClear, vk::AttachmentStoreOp::eDontCare,
-            vk::AttachmentLoadOp::eDontCare, vk::AttachmentStoreOp::eDontCare,
-            vk::ImageLayout::eUndefined, vk::ImageLayout::eDepthStencilAttachmentOptimal),
-    };
-
-    const vk::AttachmentReference color_attach(0, vk::ImageLayout::eColorAttachmentOptimal);
-    const vk::AttachmentReference depth_attach(1, vk::ImageLayout::eDepthStencilAttachmentOptimal);
-
-    vk::SubpassDescription subpass({}, vk::PipelineBindPoint::eGraphics, {}, {color_attach}, {}, &depth_attach);
-
-    vk::SubpassDependency dependency(
-        vk::SubpassExternal, 0,
-        vk::PipelineStageFlagBits::eColorAttachmentOutput | vk::PipelineStageFlagBits::eEarlyFragmentTests, vk::PipelineStageFlagBits::eColorAttachmentOutput | vk::PipelineStageFlagBits::eEarlyFragmentTests,
-        {}, vk::AccessFlagBits::eColorAttachmentWrite | vk::AccessFlagBits::eDepthStencilAttachmentWrite);
-
-    auto render_pass_result = m_device.createRenderPass(vk::RenderPassCreateInfo({}, attachments, {subpass}, {dependency}));
-    YEET_RESULT(render_pass_result);
-    m_render_pass = render_pass_result.value;
-
     YEET(configure_surface(window, VSync::Off));
 
 #ifndef __platform_macos
@@ -520,10 +642,10 @@ std::expected<void, Error> RenderingDriverVulkan::initialize(const Window& windo
 
     m_start_time = std::chrono::high_resolution_clock::now();
 
-    return {};
+    return 0;
 }
 
-Expected<void> RenderingDriverVulkan::configure_surface(const Window& window, VSync vsync)
+Result<> RenderingDriverVulkan::configure_surface(const Window& window, VSync vsync)
 {
     (void)m_device.waitIdle();
 
@@ -548,7 +670,7 @@ Expected<void> RenderingDriverVulkan::configure_surface(const Window& window, VS
     // Query new surface capabilities
     auto surface_capabilities_result = m_physical_device.getSurfaceCapabilitiesKHR(m_surface);
     if (surface_capabilities_result.result != vk::Result::eSuccess)
-        return std::unexpected(surface_capabilities_result.result);
+        return Error(surface_capabilities_result.result);
     m_surface_capabilities = surface_capabilities_result.value;
 
     const vk::Extent2D surface_extent(std::clamp(size.width, m_surface_capabilities.minImageExtent.width, m_surface_capabilities.maxImageExtent.width),
@@ -589,37 +711,27 @@ Expected<void> RenderingDriverVulkan::configure_surface(const Window& window, VS
     {
         auto texture_result = create_texture_from_vk_image(swapchain_image, surface_extent.width, surface_extent.height, m_surface_format.format);
         YEET(texture_result);
-
-        Ref<TextureVulkan> texture = texture_result.value().cast_to<TextureVulkan>();
-
         swapchain_textures.push_back(texture_result.value());
-
-        std::array<vk::ImageView, 2> attachments = {texture->image_view, depth_texture_vk->image_view};
-
-        auto framebuffer_result = m_device.createFramebuffer(vk::FramebufferCreateInfo({}, m_render_pass, attachments, surface_extent.width, surface_extent.height, 1));
-        YEET_RESULT(framebuffer_result);
-
-        swapchain_framebuffers.push_back(framebuffer_result.value);
     }
 
     destroy_swapchain();
+    m_framebuffer_cache.clear_with_size(m_surface_extent.width, m_surface_extent.height);
 
     m_swapchain = swapchain_result.value;
     m_depth_texture = depth_texture_result.value();
     m_swapchain_images = std::move(swapchain_images_result.value);
     m_swapchain_textures = std::move(swapchain_textures);
-    m_swapchain_framebuffers = std::move(swapchain_framebuffers);
     m_surface_extent = Extent2D(surface_extent.width, surface_extent.height);
 
-    return {};
+    return 0;
 }
 
 void RenderingDriverVulkan::destroy_swapchain()
 {
     if (m_swapchain)
     {
-        for (const auto& fb : m_swapchain_framebuffers)
-            m_device.destroyFramebuffer(fb);
+        // for (const auto& fb : m_swapchain_framebuffers)
+        //     m_device.destroyFramebuffer(fb);
 
         m_swapchain_textures.clear();
 
@@ -643,7 +755,7 @@ void RenderingDriverVulkan::limit_frames(uint32_t limit)
     m_time_between_frames = 1'000'000 / m_frames_limit;
 }
 
-Expected<Ref<Buffer>> RenderingDriverVulkan::create_buffer(size_t size, BufferUsage usage, BufferVisibility visibility)
+Result<Ref<Buffer>> RenderingDriverVulkan::create_buffer(size_t size, BufferUsage usage, BufferVisibility visibility)
 {
     vk::MemoryPropertyFlags memory_properties{};
 
@@ -666,7 +778,7 @@ Expected<Ref<Buffer>> RenderingDriverVulkan::create_buffer(size_t size, BufferUs
     return make_ref<BufferVulkan>(buffer_result.value, memory_result.value(), size).cast_to<Buffer>();
 }
 
-Expected<Ref<Texture>> RenderingDriverVulkan::create_texture(uint32_t width, uint32_t height, TextureFormat format, TextureUsage usage)
+Result<Ref<Texture>> RenderingDriverVulkan::create_texture(uint32_t width, uint32_t height, TextureFormat format, TextureUsage usage)
 {
     const vk::Format vk_format = convert_texture_format(format);
 
@@ -695,7 +807,7 @@ Expected<Ref<Texture>> RenderingDriverVulkan::create_texture(uint32_t width, uin
     return make_ref<TextureVulkan>(image_result.value, memory_result.value(), image_view_result.value, width, height, width * height * size_of(format), aspect_mask, 1, true).cast_to<Texture>();
 }
 
-Expected<Ref<Texture>> RenderingDriverVulkan::create_texture_array(uint32_t width, uint32_t height, TextureFormat format, TextureUsage usage, uint32_t layers)
+Result<Ref<Texture>> RenderingDriverVulkan::create_texture_array(uint32_t width, uint32_t height, TextureFormat format, TextureUsage usage, uint32_t layers)
 {
     const vk::Format vk_format = convert_texture_format(format);
 
@@ -724,7 +836,7 @@ Expected<Ref<Texture>> RenderingDriverVulkan::create_texture_array(uint32_t widt
     return make_ref<TextureVulkan>(image_result.value, memory_result.value(), image_view_result.value, width, height, width * height * size_of(format), aspect_mask, layers, true).cast_to<Texture>();
 }
 
-Expected<Ref<Texture>> RenderingDriverVulkan::create_texture_cube(uint32_t width, uint32_t height, TextureFormat format, TextureUsage usage)
+Result<Ref<Texture>> RenderingDriverVulkan::create_texture_cube(uint32_t width, uint32_t height, TextureFormat format, TextureUsage usage)
 {
     const vk::Format vk_format = convert_texture_format(format);
 
@@ -753,7 +865,7 @@ Expected<Ref<Texture>> RenderingDriverVulkan::create_texture_cube(uint32_t width
     return make_ref<TextureVulkan>(image_result.value, memory_result.value(), image_view_result.value, width, height, width * height * size_of(format), aspect_mask, 1, true).cast_to<Texture>();
 }
 
-Expected<Ref<Mesh>> RenderingDriverVulkan::create_mesh(IndexType index_type, Span<uint8_t> indices, Span<glm::vec3> vertices, Span<glm::vec2> uvs, Span<glm::vec3> normals)
+Result<Ref<Mesh>> RenderingDriverVulkan::create_mesh(IndexType index_type, Span<uint8_t> indices, Span<glm::vec3> vertices, Span<glm::vec2> uvs, Span<glm::vec3> normals)
 {
     const size_t vertex_count = indices.size() / size_of(index_type);
 
@@ -781,7 +893,7 @@ Expected<Ref<Mesh>> RenderingDriverVulkan::create_mesh(IndexType index_type, Spa
     return make_ref<MeshVulkan>(index_type, convert_index_type(index_type), vertex_count, index_buffer, vertex_buffer, normal_buffer, uv_buffer).cast_to<Mesh>();
 }
 
-Expected<Ref<MaterialLayout>> RenderingDriverVulkan::create_material_layout(Ref<Shader> shader, MaterialFlags flags, std::optional<InstanceLayout> instance_layout, CullMode cull_mode, PolygonMode polygon_mode)
+Result<Ref<MaterialLayout>> RenderingDriverVulkan::create_material_layout(Ref<Shader> shader, MaterialFlags flags, std::optional<InstanceLayout> instance_layout, CullMode cull_mode, PolygonMode polygon_mode)
 {
     std::vector<vk::DescriptorSetLayoutBinding> bindings;
     bindings.reserve(shader->get_bindings().size());
@@ -831,7 +943,7 @@ Expected<Ref<MaterialLayout>> RenderingDriverVulkan::create_material_layout(Ref<
     return make_ref<MaterialLayoutVulkan>(layout_result.value, pool_result.value(), shader, instance_layout, convert_polygon_mode(polygon_mode), convert_cull_mode(cull_mode), flags, pipeline_layout_result.value).cast_to<MaterialLayout>();
 }
 
-Expected<Ref<Material>> RenderingDriverVulkan::create_material(const Ref<MaterialLayout>& layout)
+Result<Ref<Material>> RenderingDriverVulkan::create_material(const Ref<MaterialLayout>& layout)
 {
     Ref<MaterialLayoutVulkan> layout_vk = layout.cast_to<MaterialLayoutVulkan>();
 
@@ -879,8 +991,6 @@ void RenderingDriverVulkan::draw_graph(const RenderGraph& graph)
     ZoneScoped;
 
     uint32_t image_index = image_index_result.value;
-    vk::Framebuffer fb = m_swapchain_framebuffers[image_index];
-
     vk::CommandBuffer cb = m_command_buffers[m_current_frame];
 
     // Make sure we are not recording and submitting to the graphics from multiple threads at the same time.
@@ -893,29 +1003,93 @@ void RenderingDriverVulkan::draw_graph(const RenderGraph& graph)
 
     // TracyVkZone(m_tracy_context, cb, "DrawMesh");
 
+    vk::RenderPass render_pass;
+    bool depth_pass = false;
+    bool use_previous_depth_pass = false;
+
     for (const auto& instruction : graph.get_instructions())
     {
-        ZoneNamed(draw_graph_instruction, true);
-
         switch (instruction.kind)
         {
         case InstructionKind::BeginRenderPass:
         {
-            std::array<vk::ClearValue, 2> clear_values{
-                vk::ClearColorValue(0.0f, 0.0f, 0.0f, 1.0f),
-                vk::ClearDepthStencilValue(1.0),
-            };
+            ZoneScopedN("draw_graph.begin_render_pass");
 
-            cb.beginRenderPass(vk::RenderPassBeginInfo(m_render_pass, fb, vk::Rect2D(vk::Offset2D(0, 0), vk::Extent2D(m_surface_extent.width, m_surface_extent.height)), clear_values), vk::SubpassContents::eInline);
-            break;
+            std::vector<vk::ClearValue> clear_values;
+            vk::ImageView color_view = nullptr;
+            vk::ImageView depth_view = nullptr;
+
+            color_view = m_swapchain_textures[image_index].cast_to<TextureVulkan>()->image_view;
+            depth_view = m_depth_texture.cast_to<TextureVulkan>()->image_view;
+
+            clear_values.push_back(vk::ClearColorValue(0.0f, 0.0f, 0.0f, 1.0f));
+
+            if (!instruction.renderpass.use_previous_depth_pass)
+                clear_values.push_back(vk::ClearDepthStencilValue(1.0));
+
+            auto render_pass_result = m_render_pass_cache.get_or_create({
+                .color_flags = {.present = true},
+                .depth_flags = {.present = true, .load = instruction.renderpass.use_previous_depth_pass},
+            });
+            ERR_EXPECT_B(render_pass_result, "Renderpass creation failed");
+            render_pass = render_pass_result.value();
+
+            if (Result<vk::Framebuffer> framebuffer = m_framebuffer_cache.get_or_create({.color_view = color_view, .depth_view = depth_view, .render_pass = render_pass, .width = m_surface_extent.width, .height = m_surface_extent.height}))
+            {
+                cb.beginRenderPass(vk::RenderPassBeginInfo(render_pass, framebuffer.value(), vk::Rect2D(vk::Offset2D(0, 0), vk::Extent2D(m_surface_extent.width, m_surface_extent.height)), clear_values), vk::SubpassContents::eInline);
+            }
+            else
+            {
+                error("Framebuffer creation failed");
+            }
+
+            use_previous_depth_pass = instruction.renderpass.use_previous_depth_pass;
         }
+        break;
         case InstructionKind::EndRenderPass:
+        case InstructionKind::EndDepthPass:
         {
             cb.endRenderPass();
-            break;
+
+            depth_pass = false;
+            use_previous_depth_pass = false;
         }
+        break;
+        case InstructionKind::BeginDepthPass:
+        {
+            ZoneScopedN("draw_graph.begin_depth_pass");
+
+            // A depth pass only has one depth attachment.
+
+            std::vector<vk::ClearValue> clear_values;
+            vk::ImageView depth_view = nullptr;
+
+            depth_view = m_depth_texture.cast_to<TextureVulkan>()->image_view;
+
+            clear_values.push_back(vk::ClearDepthStencilValue(1.0));
+
+            auto render_pass_result = m_render_pass_cache.get_or_create({
+                .depth_flags = {.present = true, .save = true},
+            });
+            ERR_EXPECT_B(render_pass_result, "Renderpass creation failed");
+            render_pass = render_pass_result.value();
+
+            if (Result<vk::Framebuffer> framebuffer = m_framebuffer_cache.get_or_create({.color_view = nullptr, .depth_view = depth_view, .render_pass = render_pass, .width = m_surface_extent.width, .height = m_surface_extent.height}))
+            {
+                cb.beginRenderPass(vk::RenderPassBeginInfo(render_pass, framebuffer.value(), vk::Rect2D(vk::Offset2D(0, 0), vk::Extent2D(m_surface_extent.width, m_surface_extent.height)), clear_values), vk::SubpassContents::eInline);
+            }
+            else
+            {
+                error("Framebuffer creating failed");
+            }
+
+            depth_pass = true;
+        }
+        break;
         case InstructionKind::Draw:
         {
+            ZoneScopedN("draw_graph.draw");
+
             MeshVulkan *mesh = (MeshVulkan *)instruction.draw.mesh;
 
             MaterialVulkan *material = (MaterialVulkan *)instruction.draw.material;
@@ -923,7 +1097,7 @@ void RenderingDriverVulkan::draw_graph(const RenderGraph& graph)
 
             std::optional<Buffer *> instance_buffer = instruction.draw.instance_buffer;
 
-            auto pipeline_result = m_pipeline_cache.get_or_create(material, m_render_pass);
+            auto pipeline_result = m_pipeline_cache.get_or_create(material, render_pass, depth_pass, use_previous_depth_pass);
             ERR_EXPECT_B(pipeline_result, "Failed to create a pipeline for the material");
 
             cb.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline_result.value());
@@ -952,14 +1126,14 @@ void RenderingDriverVulkan::draw_graph(const RenderGraph& graph)
             cb.pushConstants(material_layout->m_pipeline_layout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(PushConstants), &push_constants);
 
             cb.drawIndexed(mesh->vertex_count(), instruction.draw.instance_count, 0, 0, 0);
-
-            break;
         }
+        break;
         case InstructionKind::Copy:
         {
+            ZoneScopedN("draw_graph.copy");
             // TODO
-            break;
         }
+        break;
         }
     }
 
@@ -976,18 +1150,20 @@ void RenderingDriverVulkan::draw_graph(const RenderGraph& graph)
     m_current_frame = (m_current_frame + 1) % max_frames_in_flight;
 }
 
-Expected<vk::Pipeline> RenderingDriverVulkan::create_graphics_pipeline(Ref<Shader> shader, std::optional<InstanceLayout> instance_layout, vk::PolygonMode polygon_mode, vk::CullModeFlags cull_mode, MaterialFlags flags, vk::PipelineLayout pipeline_layout, vk::RenderPass render_pass)
+Result<vk::Pipeline> RenderingDriverVulkan::create_graphics_pipeline(Ref<Shader> shader, std::optional<InstanceLayout> instance_layout, vk::PolygonMode polygon_mode, vk::CullModeFlags cull_mode, MaterialFlags flags, vk::PipelineLayout pipeline_layout, vk::RenderPass render_pass, bool previous_depth_pass)
 {
     std::vector<vk::PipelineShaderStageCreateInfo> shader_stages;
-    shader_stages.reserve(4);
+    shader_stages.reserve(2);
 
     std::vector<uint32_t> code = shader->get_code();
     auto shader_module_result = m_device.createShaderModule(vk::ShaderModuleCreateInfo({}, code.size() * sizeof(uint32_t), code.data()));
     YEET_RESULT(shader_module_result);
 
     // TODO: Support more shader stages ?
-    shader_stages.push_back(vk::PipelineShaderStageCreateInfo({}, vk::ShaderStageFlagBits::eVertex, shader_module_result.value, "vertex_main"));
-    shader_stages.push_back(vk::PipelineShaderStageCreateInfo({}, vk::ShaderStageFlagBits::eFragment, shader_module_result.value, "fragment_main"));
+    if (shader->get_stages().vertex)
+        shader_stages.push_back(vk::PipelineShaderStageCreateInfo({}, vk::ShaderStageFlagBits::eVertex, shader_module_result.value, "vertex_main"));
+    if (shader->get_stages().fragment)
+        shader_stages.push_back(vk::PipelineShaderStageCreateInfo({}, vk::ShaderStageFlagBits::eFragment, shader_module_result.value, "fragment_main"));
 
     std::vector<vk::VertexInputBindingDescription> input_bindings;
     input_bindings.reserve(instance_layout.has_value() ? 4 : 3);
@@ -995,13 +1171,13 @@ Expected<vk::Pipeline> RenderingDriverVulkan::create_graphics_pipeline(Ref<Shade
     std::vector<vk::VertexInputAttributeDescription> input_attribs;
     input_attribs.reserve(3 + (instance_layout.has_value() ? instance_layout->inputs.size() : 0));
 
-    input_bindings.push_back(vk::VertexInputBindingDescription(0, sizeof(glm::vec3), vk::VertexInputRate::eVertex));
-    input_bindings.push_back(vk::VertexInputBindingDescription(1, sizeof(glm::vec3), vk::VertexInputRate::eVertex));
-    input_bindings.push_back(vk::VertexInputBindingDescription(2, sizeof(glm::vec2), vk::VertexInputRate::eVertex));
+    input_bindings.push_back(vk::VertexInputBindingDescription(0, sizeof(glm::vec3), vk::VertexInputRate::eVertex)); // position
+    input_bindings.push_back(vk::VertexInputBindingDescription(1, sizeof(glm::vec3), vk::VertexInputRate::eVertex)); // normal
+    input_bindings.push_back(vk::VertexInputBindingDescription(2, sizeof(glm::vec2), vk::VertexInputRate::eVertex)); // uv
 
-    input_attribs.push_back(vk::VertexInputAttributeDescription(0, 0, vk::Format::eR32G32B32Sfloat, 0));
-    input_attribs.push_back(vk::VertexInputAttributeDescription(1, 1, vk::Format::eR32G32B32Sfloat, 0));
-    input_attribs.push_back(vk::VertexInputAttributeDescription(2, 2, vk::Format::eR32G32Sfloat, 0));
+    input_attribs.push_back(vk::VertexInputAttributeDescription(0, 0, vk::Format::eR32G32B32Sfloat, 0)); // position
+    input_attribs.push_back(vk::VertexInputAttributeDescription(1, 1, vk::Format::eR32G32B32Sfloat, 0)); // normal
+    input_attribs.push_back(vk::VertexInputAttributeDescription(2, 2, vk::Format::eR32G32Sfloat, 0));    // uv
 
     if (instance_layout.has_value())
     {
@@ -1050,8 +1226,10 @@ Expected<vk::Pipeline> RenderingDriverVulkan::create_graphics_pipeline(Ref<Shade
         color_blend_state.colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
     }
 
+    vk::CompareOp depth_compare_op = flags.always_first ? vk::CompareOp::eLessOrEqual : (previous_depth_pass ? vk::CompareOp::eEqual : vk::CompareOp::eLess);
+
     vk::PipelineColorBlendStateCreateInfo blend_info({}, vk::False, vk::LogicOp::eCopy, {color_blend_state});
-    vk::PipelineDepthStencilStateCreateInfo depth_info({}, vk::True, vk::True, flags.always_first ? vk::CompareOp::eLessOrEqual : vk::CompareOp::eLess, vk::False, vk::False, {}, {}, 0.0, 1.0);
+    vk::PipelineDepthStencilStateCreateInfo depth_info({}, vk::True, vk::True, depth_compare_op, vk::False, vk::False, {}, {}, 0.0, 1.0);
 
     auto pipeline_result = m_device.createGraphicsPipeline(nullptr, vk::GraphicsPipelineCreateInfo(
                                                                         {},
@@ -1077,7 +1255,7 @@ Expected<vk::Pipeline> RenderingDriverVulkan::create_graphics_pipeline(Ref<Shade
     return pipeline_result.value;
 }
 
-Expected<Ref<Texture>> RenderingDriverVulkan::create_texture_from_vk_image(vk::Image image, uint32_t width, uint32_t height, vk::Format format)
+Result<Ref<Texture>> RenderingDriverVulkan::create_texture_from_vk_image(vk::Image image, uint32_t width, uint32_t height, vk::Format format)
 {
     vk::ImageAspectFlags aspect_mask = format == vk::Format::eD32Sfloat ? vk::ImageAspectFlagBits::eDepth : vk::ImageAspectFlagBits::eColor;
 
@@ -1101,13 +1279,13 @@ std::optional<uint32_t> RenderingDriverVulkan::find_memory_type_index(uint32_t t
     return std::nullopt;
 }
 
-std::expected<vk::DeviceMemory, Error> RenderingDriverVulkan::allocate_memory_for_buffer(vk::Buffer buffer, vk::MemoryPropertyFlags properties)
+Result<vk::DeviceMemory> RenderingDriverVulkan::allocate_memory_for_buffer(vk::Buffer buffer, vk::MemoryPropertyFlags properties)
 {
     vk::MemoryRequirements requirements = m_device.getBufferMemoryRequirements(buffer);
     auto memory_type_index_opt = find_memory_type_index(requirements.memoryTypeBits, properties);
 
     if (!memory_type_index_opt.has_value())
-        return std::unexpected(ErrorKind::OutOfDeviceMemory);
+        return Error(ErrorKind::OutOfDeviceMemory);
 
     uint32_t memory_type_index = memory_type_index_opt.value();
     auto memory_result = m_device.allocateMemory(vk::MemoryAllocateInfo(requirements.size, memory_type_index));
@@ -1119,13 +1297,13 @@ std::expected<vk::DeviceMemory, Error> RenderingDriverVulkan::allocate_memory_fo
     return memory_result.value;
 }
 
-std::expected<vk::DeviceMemory, Error> RenderingDriverVulkan::allocate_memory_for_image(vk::Image image, vk::MemoryPropertyFlags properties)
+Result<vk::DeviceMemory> RenderingDriverVulkan::allocate_memory_for_image(vk::Image image, vk::MemoryPropertyFlags properties)
 {
     vk::MemoryRequirements requirements = m_device.getImageMemoryRequirements(image);
     auto memory_type_index_opt = find_memory_type_index(requirements.memoryTypeBits, properties);
 
     if (!memory_type_index_opt.has_value())
-        return std::unexpected(ErrorKind::OutOfDeviceMemory);
+        return Error(ErrorKind::OutOfDeviceMemory);
 
     uint32_t memory_type_index = memory_type_index_opt.value();
     auto memory_result = m_device.allocateMemory(vk::MemoryAllocateInfo(requirements.size, memory_type_index));
@@ -1179,7 +1357,7 @@ static int32_t calculate_device_score(const vk::PhysicalDeviceProperties& proper
     return score;
 }
 
-std::expected<QueueInfo, bool> RenderingDriverVulkan::find_queue(vk::PhysicalDevice physical_device)
+Result<QueueInfo, bool> RenderingDriverVulkan::find_queue(vk::PhysicalDevice physical_device)
 {
     const std::vector<vk::QueueFamilyProperties> queue_properties = physical_device.getQueueFamilyProperties();
     QueueInfo queue_info;
@@ -1196,7 +1374,7 @@ std::expected<QueueInfo, bool> RenderingDriverVulkan::find_queue(vk::PhysicalDev
             bool present_support = physical_device.getSurfaceSupportKHR(i, m_surface).value;
 
             if (!present_support)
-                return std::unexpected(false);
+                return false;
 
             break;
         }
@@ -1402,7 +1580,7 @@ void TextureVulkan::transition_layout(TextureLayout new_layout)
     m_layout = new_layout;
 }
 
-Expected<DescriptorPool> DescriptorPool::create(vk::DescriptorSetLayout layout, Ref<Shader> shader)
+Result<DescriptorPool> DescriptorPool::create(vk::DescriptorSetLayout layout, Ref<Shader> shader)
 {
     uint32_t image_sampler_count = 0;
     uint32_t uniform_buffer_count = 0;
@@ -1439,7 +1617,7 @@ DescriptorPool::~DescriptorPool()
 {
 }
 
-Expected<vk::DescriptorSet> DescriptorPool::allocate()
+Result<vk::DescriptorSet> DescriptorPool::allocate()
 {
     if (m_allocation_count / max_sets >= m_pools.size())
     {
@@ -1456,14 +1634,14 @@ Expected<vk::DescriptorSet> DescriptorPool::allocate()
     return descriptor_set_result.value[0];
 }
 
-Expected<void> DescriptorPool::add_pool()
+Result<> DescriptorPool::add_pool()
 {
     auto pool_result = RenderingDriverVulkan::get()->get_device().createDescriptorPool(vk::DescriptorPoolCreateInfo({}, max_sets, m_sizes.size(), m_sizes.data()));
     YEET_RESULT(pool_result);
 
     m_pools.push_back(pool_result.value);
 
-    return {};
+    return 0;
 }
 
 MaterialLayoutVulkan::~MaterialLayoutVulkan()

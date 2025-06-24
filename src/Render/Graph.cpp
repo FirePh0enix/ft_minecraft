@@ -18,9 +18,9 @@ Span<Instruction> RenderGraph::get_instructions() const
     return m_instructions;
 }
 
-void RenderGraph::begin_render_pass()
+void RenderGraph::begin_render_pass(bool use_previous_depth_pass)
 {
-    m_instructions.push_back({.renderpass = {.kind = InstructionKind::BeginRenderPass}});
+    m_instructions.push_back({.renderpass = {.kind = InstructionKind::BeginRenderPass, .use_previous_depth_pass = use_previous_depth_pass}});
     m_renderpass = true;
 }
 
@@ -31,7 +31,20 @@ void RenderGraph::end_render_pass()
     m_renderpass = false;
 }
 
-void RenderGraph::add_draw(Mesh *mesh, Material *material, glm::mat4 view_matrix, uint32_t instance_count, std::optional<Buffer *> instance_buffer)
+void RenderGraph::begin_depth_pass()
+{
+    m_instructions.push_back({.depthpass = {.kind = InstructionKind::BeginDepthPass}});
+    m_renderpass = true;
+}
+
+void RenderGraph::end_depth_pass()
+{
+    ERR_COND(!m_renderpass, "Not inside a renderpass");
+    m_instructions.push_back({.kind = InstructionKind::EndDepthPass});
+    m_renderpass = false;
+}
+
+void RenderGraph::add_draw(Mesh *mesh, Material *material, glm::mat4 view_matrix, uint32_t instance_count, std::optional<Buffer *> instance_buffer, bool ignore_depth_prepass)
 {
     if (instance_count == 0)
     {
@@ -39,7 +52,7 @@ void RenderGraph::add_draw(Mesh *mesh, Material *material, glm::mat4 view_matrix
     }
 
     ERR_COND(!m_renderpass, "Cannot draw outside of a renderpass");
-    m_instructions.push_back({.draw = {.kind = InstructionKind::Draw, .mesh = mesh, .material = material, .instance_count = instance_count, .instance_buffer = instance_buffer, .view_matrix = view_matrix}});
+    m_instructions.push_back({.draw = {.kind = InstructionKind::Draw, .mesh = mesh, .material = material, .instance_count = instance_count, .instance_buffer = instance_buffer, .view_matrix = view_matrix, .ignore_depth_prepass = ignore_depth_prepass}});
 }
 
 void RenderGraph::add_copy(Buffer *src, Buffer *dst, size_t size, size_t src_offset, size_t dst_offset)

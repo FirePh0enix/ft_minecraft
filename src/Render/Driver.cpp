@@ -36,7 +36,7 @@ size_t size_of(const IndexType& format)
     return 0;
 }
 
-Expected<Ref<Buffer>> RenderingDriver::create_buffer_from_data(size_t size, Span<uint8_t> data, BufferUsage flags, BufferVisibility visibility)
+Result<Ref<Buffer>> RenderingDriver::create_buffer_from_data(size_t size, Span<uint8_t> data, BufferUsage flags, BufferVisibility visibility)
 {
     auto buffer_result = create_buffer(size, flags, visibility);
     YEET(buffer_result);

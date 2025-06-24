@@ -81,7 +81,7 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     auto init_result = RenderingDriver::get()->initialize(*window);
     EXPECT(init_result);
 
-    auto shader_result = Shader::compile("assets/shaders/voxel.wgsl", {});
+    auto shader_result = Shader::compile("assets/shaders/voxel.wgsl", {}, {.vertex = true, .fragment = true});
     if (!shader_result.has_value())
     {
         auto error = std::expected<void, Error>(std::unexpected(ErrorKind::ShaderCompilationFailed));
@@ -155,10 +155,10 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
         BlockRegistry::get().register_block(make_ref<Block>("dirt", dirt));
 
         std::array<std::string, 6> grass = {"Grass_Side.png", "Grass_Side.png", "Grass_Side.png", "Grass_Side.png", "Grass_Top.png", "Dirt.png"};
-        BlockRegistry::get().register_block(make_ref<Block>("grass", dirt));
+        BlockRegistry::get().register_block(make_ref<Block>("grass", grass));
 
         std::array<std::string, 6> stone = {"Stone.png", "Stone.png", "Stone.png", "Stone.png", "Stone.png", "Stone.png"};
-        BlockRegistry::get().register_block(make_ref<Block>("stone", dirt));
+        BlockRegistry::get().register_block(make_ref<Block>("stone", stone));
     }
 
     BlockRegistry::get().create_texture_array();
@@ -180,6 +180,8 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
 #ifndef __platform_web
     (void)RenderingDriverVulkan::get()->get_device().waitIdle();
 
+    gen->stop_workers();
+    BlockRegistry::get().destroy();
     Font::deinit_library();
 #endif
 
@@ -214,7 +216,7 @@ static void tick()
             break;
         case SDL_EVENT_WINDOW_RESIZED:
         {
-            Expected<void> result = RenderingDriver::get()->configure_surface(*window, VSync::Off);
+            Result<> result = RenderingDriver::get()->configure_surface(*window, VSync::Off);
             ERR_EXPECT_B(result, "Failed to configure the surface");
         }
         break;
@@ -239,10 +241,19 @@ static void tick()
 
     graph.reset();
 
-    graph.begin_render_pass();
-    scene->encode_draw_calls(graph);
-    // text.encode_draw_calls(graph);
-    graph.end_render_pass();
+    // depth prepass
+    {
+        graph.begin_depth_pass();
+        scene->encode_draw_calls(graph);
+        graph.end_depth_pass();
+    }
+
+    // main color pass
+    {
+        graph.begin_render_pass(true);
+        scene->encode_draw_calls(graph);
+        graph.end_render_pass();
+    }
 
     RenderingDriver::get()->draw_graph(graph);
 }
