@@ -216,7 +216,9 @@ static vk::SamplerCreateInfo convert_sampler(Sampler sampler)
 
 Result<vk::Pipeline> PipelineCache::get_or_create(Material *material, vk::RenderPass render_pass, bool depth_pass, bool use_previous_depth_pass)
 {
-    auto iter = m_pipelines.find({.material = material, .render_pass = render_pass});
+    ZoneScoped;
+
+    auto iter = m_pipelines.find({.material = material, .render_pass = render_pass, .depth_pass = depth_pass, .use_previous_depth_pass = use_previous_depth_pass});
 
 #ifdef __has_shader_hot_reload
     if (iter != m_pipelines.end())
