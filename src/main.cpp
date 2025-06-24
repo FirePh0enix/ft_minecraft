@@ -14,11 +14,6 @@
 #include "World/Registry.hpp"
 #include "World/World.hpp"
 
-#include "../lib/format.hpp"
-#include "../lib/print.hpp"
-
-#include <fstream>
-
 #include <SDL3_image/SDL_image.h>
 
 #ifdef __has_vulkan
@@ -84,7 +79,7 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     auto shader_result = Shader::compile("assets/shaders/voxel.wgsl", {}, {.vertex = true, .fragment = true});
     if (!shader_result.has_value())
     {
-        auto error = std::expected<void, Error>(std::unexpected(ErrorKind::ShaderCompilationFailed));
+        Result<> error = Error(ErrorKind::ShaderCompilationFailed);
         EXPECT(error);
     }
 

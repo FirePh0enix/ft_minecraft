@@ -1,12 +1,9 @@
 #pragma once
 
-#include "format.hpp"
-
-namespace lib
-{
+#include "Core/Format.hpp"
 
 template <typename... _Args>
-void print(FILE *fp, format_string<type_identity_t<_Args>...> fmt, _Args&&...args)
+void print(FILE *fp, FormatString<TypeIdentityT<_Args>...> fmt, _Args&&...args)
 {
     std::string s = format(fmt, std::forward<_Args>(args)...);
     fwrite(s.data(), 1, s.size(), fp);
@@ -14,7 +11,7 @@ void print(FILE *fp, format_string<type_identity_t<_Args>...> fmt, _Args&&...arg
 }
 
 template <>
-inline void print(FILE *fp, format_string<> fmt)
+inline void print(FILE *fp, FormatString<> fmt)
 {
     std::string s = format(fmt);
     fwrite(s.data(), 1, s.size(), fp);
@@ -22,19 +19,19 @@ inline void print(FILE *fp, format_string<> fmt)
 }
 
 template <typename... _Args>
-void print(format_string<type_identity_t<_Args>...> fmt, _Args&&...args)
+void print(FormatString<TypeIdentityT<_Args>...> fmt, _Args&&...args)
 {
     print(stdout, fmt, std::forward<_Args>(args)...);
 }
 
 template <>
-inline void print(format_string<> fmt)
+inline void print(FormatString<> fmt)
 {
     print(stdout, fmt);
 }
 
 template <typename... _Args>
-void println(FILE *fp, format_string<type_identity_t<_Args>...> fmt, _Args&&...args)
+void println(FILE *fp, FormatString<TypeIdentityT<_Args>...> fmt, _Args&&...args)
 {
     std::string s = format(fmt, std::forward<_Args>(args)...);
     fwrite(s.data(), 1, s.size(), fp);
@@ -43,7 +40,7 @@ void println(FILE *fp, format_string<type_identity_t<_Args>...> fmt, _Args&&...a
 }
 
 template <>
-inline void println(FILE *fp, format_string<> fmt)
+inline void println(FILE *fp, FormatString<> fmt)
 {
     std::string s = format(fmt);
     fwrite(s.data(), 1, s.size(), fp);
@@ -52,15 +49,13 @@ inline void println(FILE *fp, format_string<> fmt)
 }
 
 template <typename... _Args>
-void println(format_string<type_identity_t<_Args>...> fmt, _Args&&...args)
+void println(FormatString<TypeIdentityT<_Args>...> fmt, _Args&&...args)
 {
     println(stdout, fmt, std::forward<_Args>(args)...);
 }
 
 template <typename... _Args>
-void println(format_string<> fmt)
+void println(FormatString<> fmt)
 {
     println(stdout, fmt);
 }
-
-} // namespace lib

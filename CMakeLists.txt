@@ -99,8 +99,8 @@ target_compile_options(${TARGET_NAME} PUBLIC -fno-exceptions -fno-rtti)
 # Enable warnings
 target_compile_options(${TARGET_NAME} PUBLIC -Wall -Wextra)
 
-# Enable support for C++23
-set_property(TARGET ${TARGET_NAME} PROPERTY CXX_STANDARD 23)
+# Enable support for C++20
+set_property(TARGET ${TARGET_NAME} PROPERTY CXX_STANDARD 20)
 
 if (TARGET_IS_LINUX)
     target_compile_definitions(${TARGET_NAME} PRIVATE __platform_linux)

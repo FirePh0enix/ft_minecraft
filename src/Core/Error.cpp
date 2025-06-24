@@ -1,5 +1,6 @@
 #include "Error.hpp"
-#include "../lib/print.hpp"
+
+#include "Core/Print.hpp"
 
 #ifdef __has_libbacktrace
 #include <backtrace.h>
@@ -78,31 +79,31 @@ void StackTrace::print(FILE *fp, size_t skip_frame) const
     for (size_t i = skip_frame; i < length; i++)
     {
         const Frame& frame = frames[i];
-        lib::println(fp, "#{}: {} in {}:{}", i - skip_frame, frame.function ? frame.function : "???", frame.filename ? frame.filename : "???", frame.line);
+        println(fp, "#{}: {} in {}:{}", i - skip_frame, frame.function ? frame.function : "???", frame.filename ? frame.filename : "???", frame.line);
     }
 
     if (non_exhaustive)
-        lib::println(fp, "(end)");
+        println(fp, "(end)");
 }
 
 void Error::print(FILE *fp)
 {
-    lib::print(fp, "Error: {} ({:x})", m_kind, (uint32_t)m_kind);
+    ::print(fp, "Error: {} ({:x})", m_kind, (uint32_t)m_kind);
 
     if (is_graphics())
     {
 #ifdef __has_vulkan
         if (m_vk_result != vk::Result::eErrorUnknown)
-            lib::print(fp, " from {}", string_vk_result((VkResult)m_vk_result));
+            ::print(fp, " from {}", string_vk_result((VkResult)m_vk_result));
 #endif
     }
     else
     {
         if (m_errno_value != 0)
-            lib::print(fp, " from {}", strerror(m_errno_value));
+            ::print(fp, " from {}", strerror(m_errno_value));
     }
 
-    lib::println("\n");
+    println("\n");
 
 #ifdef __DEBUG__
     m_stacktrace.print(fp, 1);
@@ -116,7 +117,7 @@ void signal_handler(int sig)
     const char *signal_name = strsignal(sig);
     const StackTrace& st = StackTrace::current();
 
-    lib::println(stderr, "Received signal: {}\n", signal_name);
+    println(stderr, "Received signal: {}\n", signal_name);
     st.print(stderr, 1);
 
     exit(1);

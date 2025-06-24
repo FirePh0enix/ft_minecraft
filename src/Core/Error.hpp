@@ -1,8 +1,6 @@
 #pragma once
 
-#include "../lib/print.hpp"
-
-#include <expected>
+#include "Core/Print.hpp"
 
 #ifndef STACKTRACE_SIZE
 #define STACKTRACE_SIZE 16
@@ -68,9 +66,9 @@ enum class ErrorKind : uint16_t
 };
 
 template <>
-struct lib::formatter<ErrorKind>
+struct Formatter<ErrorKind>
 {
-    void format(const ErrorKind& kind, lib::format_context& ctx) const
+    void format(const ErrorKind& kind, FormatContext& ctx) const
     {
         const char *msg;
 
@@ -329,103 +327,103 @@ private:
 
 #endif
 
-#define ERR_COND(COND, MESSAGE)                                            \
-    do                                                                     \
-    {                                                                      \
-        if (COND)                                                          \
-            lib::println("error: {}:{}: {}", __FILE__, __LINE__, MESSAGE); \
+#define ERR_COND(COND, MESSAGE)                                         \
+    do                                                                  \
+    {                                                                   \
+        if (COND)                                                       \
+            ::println("error: {}:{}: {}", __FILE__, __LINE__, MESSAGE); \
     } while (0)
 
-#define ERR_COND_R(COND, MESSAGE, ...)                                     \
-    do                                                                     \
-    {                                                                      \
-        if (COND)                                                          \
-        {                                                                  \
-            lib::println("error: {}:{}: {}", __FILE__, __LINE__, MESSAGE); \
-            return __VA_ARGS__;                                            \
-        }                                                                  \
+#define ERR_COND_R(COND, MESSAGE, ...)                                  \
+    do                                                                  \
+    {                                                                   \
+        if (COND)                                                       \
+        {                                                               \
+            ::println("error: {}:{}: {}", __FILE__, __LINE__, MESSAGE); \
+            return __VA_ARGS__;                                         \
+        }                                                               \
     } while (0)
 
-#define ERR_COND_B(COND, MESSAGE, ...)                                     \
-    do                                                                     \
-    {                                                                      \
-        if (COND)                                                          \
-        {                                                                  \
-            lib::println("error: {}:{}: {}", __FILE__, __LINE__, MESSAGE); \
-            break;                                                         \
-        }                                                                  \
+#define ERR_COND_B(COND, MESSAGE, ...)                                  \
+    do                                                                  \
+    {                                                                   \
+        if (COND)                                                       \
+        {                                                               \
+            ::println("error: {}:{}: {}", __FILE__, __LINE__, MESSAGE); \
+            break;                                                      \
+        }                                                               \
     } while (0)
 
-#define ERR_COND_V(COND, MESSAGE, ...)                        \
-    do                                                        \
-    {                                                         \
-        if (COND)                                             \
-        {                                                     \
-            lib::print("error: {}:{}: ", __FILE__, __LINE__); \
-            lib::println(MESSAGE, __VA_ARGS__);               \
-        }                                                     \
+#define ERR_COND_V(COND, MESSAGE, ...)                     \
+    do                                                     \
+    {                                                      \
+        if (COND)                                          \
+        {                                                  \
+            ::print("error: {}:{}: ", __FILE__, __LINE__); \
+            ::println(MESSAGE, __VA_ARGS__);               \
+        }                                                  \
     } while (0)
 
-#define ERR_COND_VR(COND, MESSAGE, ...)                       \
-    do                                                        \
-    {                                                         \
-        if (COND)                                             \
-        {                                                     \
-            lib::print("error: {}:{}: ", __FILE__, __LINE__); \
-            lib::println(MESSAGE, __VA_ARGS__);               \
-            return;                                           \
-        }                                                     \
+#define ERR_COND_VR(COND, MESSAGE, ...)                    \
+    do                                                     \
+    {                                                      \
+        if (COND)                                          \
+        {                                                  \
+            ::print("error: {}:{}: ", __FILE__, __LINE__); \
+            ::println(MESSAGE, __VA_ARGS__);               \
+            return;                                        \
+        }                                                  \
     } while (0)
 
-#define ERR_EXPECT_R(EXPECTED, MESSAGE)                                    \
-    do                                                                     \
-    {                                                                      \
-        auto __result = EXPECTED;                                          \
-        if (!__result.has_value())                                         \
-        {                                                                  \
-            lib::println("error: {}:{}: {}", __FILE__, __LINE__, MESSAGE); \
-            return;                                                        \
-        }                                                                  \
+#define ERR_EXPECT_R(EXPECTED, MESSAGE)                                 \
+    do                                                                  \
+    {                                                                   \
+        auto __result = EXPECTED;                                       \
+        if (!__result.has_value())                                      \
+        {                                                               \
+            ::println("error: {}:{}: {}", __FILE__, __LINE__, MESSAGE); \
+            return;                                                     \
+        }                                                               \
     } while (0)
 
-#define ERR_EXPECT_B(EXPECTED, MESSAGE)                                \
-    auto __result = EXPECTED;                                          \
-    if (!__result.has_value())                                         \
-    {                                                                  \
-        lib::println("error: {}:{}: {}", __FILE__, __LINE__, MESSAGE); \
-        break;                                                         \
+#define ERR_EXPECT_B(EXPECTED, MESSAGE)                             \
+    auto __result = EXPECTED;                                       \
+    if (!__result.has_value())                                      \
+    {                                                               \
+        ::println("error: {}:{}: {}", __FILE__, __LINE__, MESSAGE); \
+        break;                                                      \
     }
 
-#define ERR_EXPECT_C(EXPECTED, MESSAGE)                                \
-    auto __result = EXPECTED;                                          \
-    if (!__result.has_value())                                         \
-    {                                                                  \
-        lib::println("error: {}:{}: {}", __FILE__, __LINE__, MESSAGE); \
-        continue;                                                      \
+#define ERR_EXPECT_C(EXPECTED, MESSAGE)                             \
+    auto __result = EXPECTED;                                       \
+    if (!__result.has_value())                                      \
+    {                                                               \
+        ::println("error: {}:{}: {}", __FILE__, __LINE__, MESSAGE); \
+        continue;                                                   \
     }
 
 #ifdef __has_vulkan
 
-#define ERR_RESULT_RET(RESULT)                                                                                 \
-    do                                                                                                         \
-    {                                                                                                          \
-        auto __result = RESULT;                                                                                \
-        if (__result.result != vk::Result::eSuccess)                                                           \
-        {                                                                                                      \
-            lib::println("error: {}:{}: {}", __FILE__, __LINE__, string_vk_result((VkResult)__result.result)); \
-            return;                                                                                            \
-        }                                                                                                      \
+#define ERR_RESULT_RET(RESULT)                                                                              \
+    do                                                                                                      \
+    {                                                                                                       \
+        auto __result = RESULT;                                                                             \
+        if (__result.result != vk::Result::eSuccess)                                                        \
+        {                                                                                                   \
+            ::println("error: {}:{}: {}", __FILE__, __LINE__, string_vk_result((VkResult)__result.result)); \
+            return;                                                                                         \
+        }                                                                                                   \
     } while (0)
 
-#define ERR_RESULT_E_RET(RESULT)                                                                        \
-    do                                                                                                  \
-    {                                                                                                   \
-        auto __result = RESULT;                                                                         \
-        if (__result != vk::Result::eSuccess && __result != vk::Result::eSuboptimalKHR)                 \
-        {                                                                                               \
-            lib::println("error: {}:{}: {}", __FILE__, __LINE__, string_vk_result((VkResult)__result)); \
-            return;                                                                                     \
-        }                                                                                               \
+#define ERR_RESULT_E_RET(RESULT)                                                                     \
+    do                                                                                               \
+    {                                                                                                \
+        auto __result = RESULT;                                                                      \
+        if (__result != vk::Result::eSuccess && __result != vk::Result::eSuboptimalKHR)              \
+        {                                                                                            \
+            ::println("error: {}:{}: {}", __FILE__, __LINE__, string_vk_result((VkResult)__result)); \
+            return;                                                                                  \
+        }                                                                                            \
     } while (0)
 
 #endif
