@@ -68,15 +68,17 @@ public:
         return m_bindings;
     }
 
-    Sampler get_sampler(const std::string& name) const
+    SamplerDescriptor get_sampler(const std::string& name) const
     {
         auto iter = m_samplers.find(name);
         if (iter != m_samplers.end())
+        {
             return iter->second;
-        return Sampler{};
+        }
+        return SamplerDescriptor{};
     }
 
-    void set_sampler(const std::string& name, Sampler sampler)
+    void set_sampler(const std::string& name, SamplerDescriptor sampler)
     {
         ERR_COND_V(!has_binding(name) || get_binding(name)->kind != BindingKind::Texture, "binding `{}` is not a texture", name);
         m_samplers[name] = sampler;
@@ -117,7 +119,7 @@ public:
 
 private:
     std::map<std::string, Binding> m_bindings;
-    std::map<std::string, Sampler> m_samplers;
+    std::map<std::string, SamplerDescriptor> m_samplers;
     std::string m_filename;
     ShaderStages m_stages;
 

@@ -189,7 +189,7 @@ static wgpu::TextureViewDimension convert_texture_dimension(TextureDimension dim
     return {};
 }
 
-static wgpu::SamplerDescriptor convert_sampler(Sampler sampler)
+static wgpu::SamplerDescriptor convert_sampler(SamplerDescriptor sampler)
 {
     wgpu::SamplerDescriptor desc{};
     desc.magFilter = convert_filter_mode(sampler.mag_filter);
@@ -230,7 +230,7 @@ SamplerCache::SamplerCache()
 {
 }
 
-Expected<wgpu::Sampler> SamplerCache::get_or_create(Sampler sampler)
+Expected<wgpu::Sampler> SamplerCache::get_or_create(SamplerDescriptor sampler)
 {
     auto iter = m_samplers.find(sampler);
 
@@ -547,6 +547,7 @@ void RenderingDriverWebGPU::draw_graph(const RenderGraph& graph)
 
             PushConstants push_constants{
                 .view_matrix = instruction.draw.view_matrix,
+                .nan = 0.0f / 0.0f,
             };
 
             m_queue.WriteBuffer(material->push_constant_buffer.cast_to<BufferWebGPU>()->buffer, 0, &push_constants, sizeof(PushConstants));

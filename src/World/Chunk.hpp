@@ -25,7 +25,7 @@ public:
     static constexpr int64_t block_count = width * width * height;
 
     Chunk(int64_t x, int64_t z)
-        : m_x(x), m_z(z)
+        : m_x(x), m_z(z), m_buffer_id(0)
     {
         m_blocks.resize(block_count);
     }

@@ -5,6 +5,7 @@ enable chromium_experimental_immediate;
 struct Constants
 {
     view_matrix: mat4x4<f32>,
+    nan: f32,
 }
 
 @group(0) @binding(0) var images: texture_2d_array<f32>;
@@ -47,15 +48,14 @@ fn vertex_main(
 
     var out: VertexOutput;
 
-    if (
-        ((visibility & (1 << 1)) == 0 && vertex_index >= 0 && vertex_index < 4) ||
+    if (((visibility & (1 << 1)) == 0 && vertex_index >= 0 && vertex_index < 4) ||
         ((visibility & (1 << 0)) == 0 && vertex_index >= 4 && vertex_index < 8) ||
         ((visibility & (1 << 2)) == 0 && vertex_index >= 8 && vertex_index < 12) ||
         ((visibility & (1 << 3)) == 0 && vertex_index >= 12 && vertex_index < 16) ||
         ((visibility & (1 << 4)) == 0 && vertex_index >= 16 && vertex_index < 20) ||
-        ((visibility & (1 << 5)) == 0 && vertex_index >= 20 && vertex_index < 24)
-    ) {
-        // out.pos = vec4<f32>(NaN, NaN, NaN, NaN);
+        ((visibility & (1 << 5)) == 0 && vertex_index >= 20 && vertex_index < 24))
+    {
+        out.position = vec4(constants.nan, constants.nan, constants.nan, constants.nan);
         return out;
     }
 
@@ -77,14 +77,15 @@ fn vertex_main(
     out.normal = normal;
     out.light_vec = vec3<f32>(-1.0, -1.0, 0.0);
 
-    let texture_indices: array<u32, 6> = array<u32, 6>(textures.x & 0xFFFF, (textures.x & 0xFFFF) >> 16, textures.y & 0xFFFF, (textures.y & 0xFFFF) >> 16, textures.z & 0xFFFF, (textures.z & 0xFFFF) >> 16);
+    let texture_indices = array<u32, 6>(textures.x & 0xFFFF, textures.x >> 16, textures.y & 0xFFFF, textures.y >> 16, textures.z & 0xFFFF, textures.z >> 16);
     out.texture_index = texture_indices[vertex_index / 4];
 #endif
 
     return out;
 }
 
-fn is_grayscale(color: vec4<f32>) -> bool {
+fn is_grayscale(color: vec4<f32>) -> bool
+{
     return color.r == color.g && color.g == color.b;
 }
 
@@ -96,7 +97,8 @@ fn fragment_main(in: VertexOutput) -> @location(0) vec4<f32>
     
     var color = textureSample(images, images_sampler, uv2, in.texture_index);
 
-    if (is_grayscale(color) && in.gradient_type > 0) {
+    if (is_grayscale(color) && in.gradient_type > 0)
+    {
         color *= vec4(13.0 / 255.0, 94.0 / 255.0, 21.0 / 255.0, 1.0);
     }
 

@@ -160,7 +160,7 @@ enum class AddressMode : uint8_t
     ClampToEdge,
 };
 
-struct Sampler
+struct SamplerDescriptor
 {
     Filter min_filter = Filter::Linear;
     Filter mag_filter = Filter::Linear;
@@ -172,21 +172,9 @@ struct Sampler
         AddressMode w = AddressMode::Repeat;
     } address_mode = {};
 
-    bool operator<(const Sampler& o) const
+    bool operator<(const SamplerDescriptor& o) const
     {
-        if ((uint32_t)min_filter >= (uint32_t)o.min_filter)
-            return false;
-        if ((uint32_t)mag_filter >= (uint32_t)o.mag_filter)
-            return false;
-
-        if ((uint32_t)address_mode.u >= (uint32_t)o.address_mode.u)
-            return false;
-        if ((uint32_t)address_mode.v >= (uint32_t)o.address_mode.v)
-            return false;
-        if ((uint32_t)address_mode.w >= (uint32_t)o.address_mode.w)
-            return false;
-
-        return true;
+        return min_filter < o.min_filter || mag_filter < o.mag_filter || address_mode.u < o.address_mode.u || address_mode.v < o.address_mode.v || address_mode.w < o.address_mode.w;
     }
 };
 

@@ -62,6 +62,8 @@ public:
             get_or_create(block->get_texture_names()[4]),
             get_or_create(block->get_texture_names()[5]),
         });
+
+        println("{}", block->get_texture_ids());
     }
 
     void create_texture_array()
@@ -113,10 +115,12 @@ private:
             std::string path = "assets/textures/" + name;
 
             SDL_IOStream *texture_stream = SDL_IOFromFile(path.c_str(), "r");
-            SDL_Surface *texture_surface = IMG_LoadPNG_IO(texture_stream);
+            ERR_COND_V(texture_stream == nullptr, "Failed to open {}", path);
 
-            // TODO: Add checks
-            // TODO: Check the format of the image and rezise it if necessary.
+            SDL_Surface *texture_surface = IMG_LoadPNG_IO(texture_stream);
+            ERR_COND_V(texture_surface == nullptr, "Failed to parse image {}", path);
+
+            // TODO: Check the format of the image and resize it if necessary.
 
             const uint32_t id = m_textures.size();
 

@@ -12,6 +12,7 @@ struct Data
 struct Constants
 {
     view_matrix: mat4x4<f32>,
+    nan: f32,
 }
 
 @group(0) @binding(0) var bitmap: texture_2d<f32>;

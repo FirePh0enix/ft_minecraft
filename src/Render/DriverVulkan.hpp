@@ -48,10 +48,10 @@ private:
 class SamplerCache
 {
 public:
-    Result<vk::Sampler> get_or_create(Sampler sampler);
+    Result<vk::Sampler> get_or_create(SamplerDescriptor sampler);
 
 private:
-    std::map<Sampler, vk::Sampler> m_samplers;
+    std::map<SamplerDescriptor, vk::Sampler> m_samplers;
 };
 
 class RenderPassCache

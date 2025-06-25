@@ -199,7 +199,7 @@ static vk::ImageLayout convert_texture_layout(TextureLayout layout)
     return {};
 }
 
-static vk::SamplerCreateInfo convert_sampler(Sampler sampler)
+static vk::SamplerCreateInfo convert_sampler(SamplerDescriptor sampler)
 {
     return vk::SamplerCreateInfo(
         {},
@@ -262,7 +262,7 @@ Result<vk::Pipeline> PipelineCache::get_or_create(Material *material, vk::Render
     }
 }
 
-Result<vk::Sampler> SamplerCache::get_or_create(Sampler sampler)
+Result<vk::Sampler> SamplerCache::get_or_create(SamplerDescriptor sampler)
 {
     auto iter = m_samplers.find(sampler);
 
@@ -328,72 +328,11 @@ Result<vk::RenderPass> RenderPassCache::get_or_create(RenderPassDescriptor desc)
             color_attach_refs.push_back(color_attach_ref);
 
         vk::SubpassDescription subpass({}, vk::PipelineBindPoint::eGraphics, {}, color_attach_refs, {}, desc.depth_flags.present ? &depth_attach_ref : nullptr);
+
         std::vector<vk::SubpassDependency> dependencies;
-        dependencies.reserve(2);
-
-        if (desc.depth_flags.save)
-        {
-            // The `save` flag indicate that the depth texture will be reuse another render pass, so its layout must updated or we will have problems.
-
-            /*vk::PipelineStageFlags pipeline_flags = {};
-            vk::AccessFlags access_flags;
-
-            if (desc.color_flags.present)
-            {
-                pipeline_flags |= vk::PipelineStageFlagBits::eColorAttachmentOutput;
-                access_flags |= vk::AccessFlagBits::eColorAttachmentWrite;
-            }
-
-            if (desc.depth_flags.present)
-            {
-                pipeline_flags |= vk::PipelineStageFlagBits::eEarlyFragmentTests;
-                access_flags |= vk::AccessFlagBits::eDepthStencilAttachmentWrite; // even when we are not storing reusing depth data.
-
-                if (desc.depth_flags.load)
-                    access_flags |= vk::AccessFlagBits::eDepthStencilAttachmentRead;
-            }
-
-            vk::SubpassDependency dependency(vk::SubpassExternal, 0, pipeline_flags, pipeline_flags, access_flags, access_flags);*/
-
-            /*dependencies.push_back(vk::SubpassDependency(vk::SubpassExternal, 0,
-                                                         vk::PipelineStageFlagBits::eFragmentShader, vk::PipelineStageFlagBits::eEarlyFragmentTests,
-                                                         vk::AccessFlagBits::eDepthStencilAttachmentRead, vk::AccessFlagBits::eDepthStencilAttachmentWrite,
-                                                         vk::DependencyFlagBits::eByRegion));
-            dependencies.push_back(vk::SubpassDependency(0, vk::SubpassExternal,
-                                                         vk::PipelineStageFlagBits::eLateFragmentTests, vk::PipelineStageFlagBits::eFragmentShader,
-                                                         vk::AccessFlagBits::eDepthStencilAttachmentWrite, vk::AccessFlagBits::eDepthStencilAttachmentRead,
-                                                         vk::DependencyFlagBits::eByRegion));*/
-
-            dependencies.push_back(vk::SubpassDependency(vk::SubpassExternal, 0,
-                                                         vk::PipelineStageFlagBits::eBottomOfPipe, vk::PipelineStageFlagBits::eColorAttachmentOutput,
-                                                         vk::AccessFlagBits::eMemoryRead, vk::AccessFlagBits::eColorAttachmentRead | vk::AccessFlagBits::eColorAttachmentWrite));
-        }
-        else
-        {
-            // vk::PipelineStageFlags pipeline_flags = {};
-            // vk::AccessFlags access_flags;
-
-            // if (desc.color_flags.present)
-            // {
-            //     pipeline_flags |= vk::PipelineStageFlagBits::eColorAttachmentOutput;
-            //     access_flags |= vk::AccessFlagBits::eColorAttachmentWrite;
-            // }
-
-            // if (desc.depth_flags.present)
-            // {
-            //     pipeline_flags |= vk::PipelineStageFlagBits::eEarlyFragmentTests;
-            //     access_flags |= vk::AccessFlagBits::eDepthStencilAttachmentWrite; // even when we are not storing reusing depth data.
-
-            //     if (desc.depth_flags.load)
-            //         access_flags |= vk::AccessFlagBits::eDepthStencilAttachmentRead;
-            // }
-
-            // dependencies.push_back(vk::SubpassDependency(vk::SubpassExternal, 0, pipeline_flags, pipeline_flags, access_flags, access_flags));
-
-            dependencies.push_back(vk::SubpassDependency(vk::SubpassExternal, 0,
-                                                         vk::PipelineStageFlagBits::eBottomOfPipe, vk::PipelineStageFlagBits::eColorAttachmentOutput,
-                                                         vk::AccessFlagBits::eMemoryRead, vk::AccessFlagBits::eColorAttachmentRead | vk::AccessFlagBits::eColorAttachmentWrite));
-        }
+        dependencies.push_back(vk::SubpassDependency(vk::SubpassExternal, 0,
+                                                     vk::PipelineStageFlagBits::eBottomOfPipe, vk::PipelineStageFlagBits::eColorAttachmentOutput,
+                                                     vk::AccessFlagBits::eMemoryRead, vk::AccessFlagBits::eColorAttachmentRead | vk::AccessFlagBits::eColorAttachmentWrite));
 
         auto render_pass_result = RenderingDriverVulkan::get()->get_device().createRenderPass(vk::RenderPassCreateInfo({}, attachs, {subpass}, dependencies));
         YEET_RESULT(render_pass_result);
@@ -832,7 +771,7 @@ Result<Ref<Texture>> RenderingDriverVulkan::create_texture_array(uint32_t width,
     // TODO: format_to_aspect_mask()
     vk::ImageAspectFlags aspect_mask = format == TextureFormat::D32 ? vk::ImageAspectFlagBits::eDepth : vk::ImageAspectFlagBits::eColor;
 
-    auto image_view_result = m_device.createImageView(vk::ImageViewCreateInfo({}, image_result.value, vk::ImageViewType::e2DArray, vk_format, {}, vk::ImageSubresourceRange(aspect_mask, 0, 1, 0, 1)));
+    auto image_view_result = m_device.createImageView(vk::ImageViewCreateInfo({}, image_result.value, vk::ImageViewType::e2DArray, vk_format, {}, vk::ImageSubresourceRange(aspect_mask, 0, 1, 0, layers)));
     YEET_RESULT(image_view_result);
 
     return make_ref<TextureVulkan>(image_result.value, memory_result.value(), image_view_result.value, width, height, width * height * size_of(format), aspect_mask, layers, true).cast_to<Texture>();
@@ -1123,6 +1062,7 @@ void RenderingDriverVulkan::draw_graph(const RenderGraph& graph)
 
             PushConstants push_constants{
                 .view_matrix = instruction.draw.view_matrix,
+                .nan = 0.0f / 0.0f,
             };
 
             cb.pushConstants(material_layout->m_pipeline_layout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(PushConstants), &push_constants);
@@ -1663,7 +1603,9 @@ void MaterialVulkan::set_param(const std::string& name, const Ref<Texture>& text
 
     Ref<TextureVulkan> texture_vk = texture.cast_to<TextureVulkan>();
 
-    auto sampler_result = RenderingDriverVulkan::get()->get_sampler_cache().get_or_create(layout_vk->m_shader->get_sampler(name));
+    SamplerDescriptor sampler_desc = layout_vk->m_shader->get_sampler(name);
+
+    auto sampler_result = RenderingDriverVulkan::get()->get_sampler_cache().get_or_create(sampler_desc);
     ERR_COND_V(!sampler_result.has_value(), "Failed to create sampler for parameter `%s`", name.c_str());
 
     vk::DescriptorImageInfo image_info(nullptr, texture_vk->image_view, vk::ImageLayout::eShaderReadOnlyOptimal);

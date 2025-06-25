@@ -52,6 +52,8 @@ union Instruction
 struct PushConstants
 {
     glm::mat4 view_matrix;
+    // NaN does not exists with WGSL.
+    glm::float32 nan;
 };
 
 class RenderGraph

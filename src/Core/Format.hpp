@@ -2,6 +2,7 @@
 
 #include "Core/Types.hpp"
 
+#include <map>
 #include <sstream>
 
 template <typename... _Args>
@@ -56,6 +57,12 @@ private:
     std::basic_streambuf<char> *m_buf;
 };
 
+template <class _Buf, class... _Args>
+void format_to(_Buf buf, FormatString<TypeIdentityT<_Args>...> fmt, _Args&&...args);
+
+template <class _Buf>
+void format_to(_Buf buf, FormatString<> fmt);
+
 template <typename T>
 struct Formatter
 {
@@ -102,6 +109,66 @@ struct Formatter<bool>
     void format(const bool& s, FormatContext& ctx) const
     {
         ctx.write_str(s ? "true" : "false");
+    }
+};
+
+template <typename T, const size_t size>
+struct Formatter<std::array<T, size>>
+{
+    void format(const std::array<T, size>& array, FormatContext& ctx) const
+    {
+        ctx.write_str("{ ");
+
+        for (size_t i = 0; i < array.size(); i++)
+        {
+            format_to(ctx.out(), "{}", array[i]);
+
+            if (i + 1 < array.size())
+                ctx.write_str(", ");
+        }
+
+        ctx.write_str(" }");
+    }
+};
+
+template <typename T>
+struct Formatter<std::vector<T>>
+{
+    void format(const std::vector<T>& vec, FormatContext& ctx) const
+    {
+        ctx.write_str("{ ");
+
+        for (size_t i = 0; i < vec.size(); i++)
+        {
+            format_to(ctx.out(), "{}", vec[i]);
+
+            if (i + 1 < vec.size())
+                ctx.write_str(", ");
+        }
+
+        ctx.write_str(" }");
+    }
+};
+
+template <typename K, typename V>
+struct Formatter<std::map<K, V>>
+{
+    void format(const std::map<K, V>& map, FormatContext& ctx) const
+    {
+        ctx.write_str("{ ");
+
+        size_t i = 0;
+
+        for (const auto& iter : map)
+        {
+            format_to(ctx.out(), "{}: {}", iter->first, iter->second);
+
+            if (i + 1 < map.size())
+                ctx.write_str(", ");
+            i++;
+        }
+
+        ctx.write_str(" }");
     }
 };
 
