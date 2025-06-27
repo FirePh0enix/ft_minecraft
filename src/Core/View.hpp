@@ -3,30 +3,31 @@
 #include "Core/Iterator.hpp"
 
 template <typename T>
-class Span
+class View
 {
 public:
-    Span()
+    View()
+        : m_data(nullptr), m_size(0)
     {
     }
 
-    Span(const T& value)
+    View(const T& value)
         : m_data(&value), m_size(1)
     {
     }
 
-    Span(const T *data, size_t size)
+    View(const T *data, size_t size)
         : m_data(data), m_size(size)
     {
     }
 
-    Span(const std::vector<T>& vector)
+    View(const std::vector<T>& vector)
         : m_data(vector.data()), m_size(vector.size())
     {
     }
 
     template <const size_t size>
-    Span(const std::array<T, size>& array)
+    View(const std::array<T, size>& array)
         : m_data(array.data()), m_size(array.size())
     {
     }
@@ -61,9 +62,9 @@ public:
         return ForwardIterator<T>(data() + size());
     }
 
-    Span<uint8_t> as_bytes() const
+    View<uint8_t> as_bytes() const
     {
-        return Span<uint8_t>((const uint8_t *)m_data, m_size * sizeof(T));
+        return View<uint8_t>((const uint8_t *)m_data, m_size * sizeof(T));
     }
 
     std::vector<T> to_vector() const

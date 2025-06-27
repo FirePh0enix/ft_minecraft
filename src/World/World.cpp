@@ -99,7 +99,7 @@ void World::encode_draw_calls(RenderGraph& graph, Camera& camera)
     for (const Chunk& chunk : m_dims[0].get_chunks())
     {
         const Ref<Buffer>& buffer = m_buffers[chunk.get_buffer_id()].buffer;
-        graph.add_draw(m_mesh.ptr(), m_material.ptr(), camera.get_view_proj_matrix(), chunk.get_block_count(), buffer.ptr());
+        graph.add_draw(m_mesh, m_material, camera.get_view_proj_matrix(), chunk.get_block_count(), buffer);
     }
 }
 

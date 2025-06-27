@@ -1,5 +1,6 @@
 #include "Render/DriverVulkan.hpp"
 #include "Core/Logger.hpp"
+#include "Render/Graph.hpp"
 #include "Render/Shader.hpp"
 
 #include <chrono>
@@ -64,7 +65,7 @@ static inline vk::Format convert_texture_format(TextureFormat format)
         return vk::Format::eR32G32B32Sfloat;
     case TextureFormat::RGBA32Sfloat:
         return vk::Format::eR32G32B32A32Sfloat;
-    case TextureFormat::D32:
+    case TextureFormat::Depth32:
         return vk::Format::eD32Sfloat;
     }
 
@@ -214,7 +215,7 @@ static vk::SamplerCreateInfo convert_sampler(SamplerDescriptor sampler)
         vk::False);
 }
 
-Result<vk::Pipeline> PipelineCache::get_or_create(Material *material, vk::RenderPass render_pass, bool depth_pass, bool use_previous_depth_pass)
+Result<vk::Pipeline> PipelineCache::get_or_create(Ref<Material> material, vk::RenderPass render_pass, bool depth_pass, bool use_previous_depth_pass)
 {
     ZoneScoped;
 
@@ -248,8 +249,7 @@ Result<vk::Pipeline> PipelineCache::get_or_create(Material *material, vk::Render
 #endif
     else
     {
-        MaterialVulkan *material_vk = (MaterialVulkan *)material;
-        Ref<MaterialLayoutVulkan> layout = material_vk->get_layout().cast_to<MaterialLayoutVulkan>();
+        Ref<MaterialLayoutVulkan> layout = material->get_layout().cast_to<MaterialLayoutVulkan>();
 
         // TODO: Add an in memory cache to store shader variants.
         Ref<Shader> shader = depth_pass ? layout->m_shader->recompile({.depth_pass = true}, {.vertex = true}).value() : layout->m_shader;
@@ -280,6 +280,65 @@ Result<vk::Sampler> SamplerCache::get_or_create(SamplerDescriptor sampler)
     }
 }
 
+RenderGraphCache::RenderPass& RenderGraphCache::get_render_pass(uint32_t index)
+{
+    return m_render_passes[index];
+}
+
+RenderGraphCache::RenderPass& RenderGraphCache::set_render_pass(uint32_t index, RenderPassDescriptor desc)
+{
+    Result<vk::RenderPass> render_pass_result = RenderingDriverVulkan::get()->get_render_pass_cache().get_or_create(desc);
+
+    if (index <= m_render_passes.size())
+    {
+        RenderGraphCache::RenderPass render_pass_cache{};
+        render_pass_cache.name = desc.name;
+        render_pass_cache.render_pass = render_pass_result.value();
+
+        for (const auto& attachment : desc.color_attachments)
+        {
+            RenderGraphCache::Attachment attach{};
+            attach.surface_texture = attachment.surface_texture;
+
+            // FIXME: Textures should be recreated when resizing the window.
+            Extent2D extent = RenderingDriver::get()->get_surface_extent();
+            Result<Ref<Texture>> texture_result = RenderingDriver::get()->create_texture(extent.width, extent.height, attachment.format, {.color_attachment = true});
+            attach.texture = texture_result.value().cast_to<TextureVulkan>();
+
+            render_pass_cache.attachments.push_back(attach);
+        }
+
+        if (desc.depth_attachment.has_value())
+        {
+            RenderGraphCache::Attachment attach{};
+            attach.depth_load_previous = desc.depth_attachment->load;
+
+            if (!attach.depth_load_previous)
+            {
+                // FIXME: Textures should be recreated when resizing the window.
+                // TODO: Should depth texture be hardcoded here ?
+                Extent2D extent = RenderingDriver::get()->get_surface_extent();
+                Result<Ref<Texture>> texture_result = RenderingDriver::get()->create_texture(extent.width, extent.height, TextureFormat::Depth32, {.depth_attachment = true});
+                attach.texture = texture_result.value().cast_to<TextureVulkan>();
+            }
+
+            render_pass_cache.depth_attachment = attach;
+        }
+        else
+        {
+            render_pass_cache.depth_attachment = std::nullopt;
+        }
+
+        m_render_passes.push_back(render_pass_cache);
+
+        return m_render_passes[index];
+    }
+    else
+    {
+        return m_render_passes[index];
+    }
+}
+
 Result<vk::RenderPass> RenderPassCache::get_or_create(RenderPassDescriptor desc)
 {
     auto pair = m_render_passes.find(desc);
@@ -290,51 +349,50 @@ Result<vk::RenderPass> RenderPassCache::get_or_create(RenderPassDescriptor desc)
     }
     else
     {
-        std::vector<vk::AttachmentDescription> attachs;
+        std::vector<vk::AttachmentDescription> descriptions;
+        std::vector<vk::AttachmentReference> references;
 
-        if (desc.color_flags.present)
+        uint32_t index = 0;
+
+        for (const auto& attachment : desc.color_attachments)
         {
-            vk::AttachmentDescription color_attach(
+            const vk::AttachmentDescription attach(
                 {},
-                RenderingDriverVulkan::get()->get_surface_format(), vk::SampleCountFlagBits::e1,
+                attachment.surface_texture ? RenderingDriverVulkan::get()->get_surface_format() : convert_texture_format(attachment.format), vk::SampleCountFlagBits::e1,
                 vk::AttachmentLoadOp::eClear, vk::AttachmentStoreOp::eStore,
                 vk::AttachmentLoadOp::eDontCare, vk::AttachmentStoreOp::eDontCare,
-                vk::ImageLayout::eUndefined, vk::ImageLayout::ePresentSrcKHR);
+                vk::ImageLayout::eUndefined, attachment.surface_texture ? vk::ImageLayout::ePresentSrcKHR : vk::ImageLayout::eColorAttachmentOptimal);
+            descriptions.push_back(attach);
 
-            attachs.push_back(color_attach);
+            const vk::AttachmentReference ref(index, vk::ImageLayout::eColorAttachmentOptimal);
+            references.push_back(ref);
+
+            index += 1;
         }
 
-        if (desc.depth_flags.present)
+        vk::AttachmentReference depth_ref(index, vk::ImageLayout::eDepthStencilAttachmentOptimal);
+
+        if (desc.depth_attachment.has_value())
         {
-            vk::AttachmentLoadOp depth_load_op = desc.depth_flags.load ? vk::AttachmentLoadOp::eLoad : vk::AttachmentLoadOp::eClear;
-            vk::AttachmentStoreOp depth_store_op = desc.depth_flags.save ? vk::AttachmentStoreOp::eStore : vk::AttachmentStoreOp::eDontCare;
+            const auto& attachment = desc.depth_attachment.value();
 
-            vk::AttachmentDescription depth_attach(
+            const vk::AttachmentDescription attach(
                 {},
-                vk::Format::eD32Sfloat, vk::SampleCountFlagBits::e1,
-                depth_load_op, depth_store_op,
+                convert_texture_format(TextureFormat::Depth32), vk::SampleCountFlagBits::e1,
+                attachment.load ? vk::AttachmentLoadOp::eLoad : vk::AttachmentLoadOp::eClear, attachment.save ? vk::AttachmentStoreOp::eStore : vk::AttachmentStoreOp::eDontCare,
                 vk::AttachmentLoadOp::eDontCare, vk::AttachmentStoreOp::eDontCare,
-                desc.depth_flags.load ? vk::ImageLayout::eDepthAttachmentStencilReadOnlyOptimal : vk::ImageLayout::eUndefined, vk::ImageLayout::eDepthStencilAttachmentOptimal);
-
-            attachs.push_back(depth_attach);
+                attachment.load ? vk::ImageLayout::eDepthAttachmentStencilReadOnlyOptimal : vk::ImageLayout::eUndefined, vk::ImageLayout::eDepthStencilAttachmentOptimal);
+            descriptions.push_back(attach);
         }
 
-        const vk::AttachmentReference color_attach_ref(0, vk::ImageLayout::eColorAttachmentOptimal);
-        const vk::AttachmentReference depth_attach_ref(desc.color_flags.present ? 1 : 0, vk::ImageLayout::eDepthStencilAttachmentOptimal);
-
-        std::vector<vk::AttachmentReference> color_attach_refs;
-
-        if (desc.color_flags.present)
-            color_attach_refs.push_back(color_attach_ref);
-
-        vk::SubpassDescription subpass({}, vk::PipelineBindPoint::eGraphics, {}, color_attach_refs, {}, desc.depth_flags.present ? &depth_attach_ref : nullptr);
+        vk::SubpassDescription subpass({}, vk::PipelineBindPoint::eGraphics, {}, references, {}, desc.depth_attachment.has_value() ? &depth_ref : nullptr);
 
         std::vector<vk::SubpassDependency> dependencies;
         dependencies.push_back(vk::SubpassDependency(vk::SubpassExternal, 0,
                                                      vk::PipelineStageFlagBits::eBottomOfPipe, vk::PipelineStageFlagBits::eColorAttachmentOutput,
                                                      vk::AccessFlagBits::eMemoryRead, vk::AccessFlagBits::eColorAttachmentRead | vk::AccessFlagBits::eColorAttachmentWrite));
 
-        auto render_pass_result = RenderingDriverVulkan::get()->get_device().createRenderPass(vk::RenderPassCreateInfo({}, attachs, {subpass}, dependencies));
+        auto render_pass_result = RenderingDriverVulkan::get()->get_device().createRenderPass(vk::RenderPassCreateInfo({}, descriptions, {subpass}, dependencies));
         YEET_RESULT(render_pass_result);
 
         m_render_passes[desc] = render_pass_result.value;
@@ -353,17 +411,9 @@ Result<vk::Framebuffer> FramebufferCache::get_or_create(FramebufferCache::Key ke
     }
     else
     {
-        std::vector<vk::ImageView> views;
-        views.reserve(2);
-
-        if (key.color_view != nullptr)
-            views.push_back(key.color_view);
-        if (key.depth_view != nullptr)
-            views.push_back(key.depth_view);
-
         Extent2D size = RenderingDriver::get()->get_surface_extent();
 
-        vk::FramebufferCreateInfo framebuffer_info({}, vk::RenderPass(key.render_pass), views, size.width, size.height, 1);
+        vk::FramebufferCreateInfo framebuffer_info({}, key.render_pass, key.views, size.width, size.height, 1);
         auto result = RenderingDriverVulkan::get()->get_device().createFramebuffer(framebuffer_info);
         YEET_RESULT(result);
 
@@ -375,7 +425,30 @@ Result<vk::Framebuffer> FramebufferCache::get_or_create(FramebufferCache::Key ke
 
 void FramebufferCache::clear_with_size(uint32_t width, uint32_t height)
 {
-    // TODO:
+    std::map<Key, vk::Framebuffer>::iterator iter;
+
+    while (true)
+    {
+        iter = std::find_if(m_framebuffers.begin(), m_framebuffers.end(), [width, height](const std::pair<Key, vk::Framebuffer>& pair)
+                            { return pair.first.width == width && pair.first.height == height; });
+        if (iter == m_framebuffers.end())
+            break;
+        RenderingDriverVulkan::get()->get_device().destroyFramebuffer(iter->second);
+    }
+}
+
+void FramebufferCache::clear_with_renderpass(vk::RenderPass render_pass)
+{
+    std::map<Key, vk::Framebuffer>::iterator iter;
+
+    while (true)
+    {
+        iter = std::find_if(m_framebuffers.begin(), m_framebuffers.end(), [render_pass](const std::pair<Key, vk::Framebuffer>& pair)
+                            { return (VkRenderPass)pair.first.render_pass == (VkRenderPass)render_pass; });
+        if (iter == m_framebuffers.end())
+            break;
+        RenderingDriverVulkan::get()->get_device().destroyFramebuffer(iter->second);
+    }
 }
 
 RenderingDriverVulkan::RenderingDriverVulkan()
@@ -578,7 +651,7 @@ Result<> RenderingDriverVulkan::initialize(const Window& window)
 
 #ifndef __platform_macos
     // This uses `VK_EXT_host_query_reset` & `VK_EXT_calibrated_timestamps`
-    // m_tracy_context = TracyVkContextHostCalibrated(m_instance, m_physical_device, m_device, vk::detail::defaultDispatchLoaderDynamic.vkGetInstanceProcAddr, vk::detail::defaultDispatchLoaderDynamic.vkGetDeviceProcAddr);
+    m_tracy_context = TracyVkContextHostCalibrated(m_instance, m_physical_device, m_device, vk::detail::defaultDispatchLoaderDynamic.vkGetInstanceProcAddr, vk::detail::defaultDispatchLoaderDynamic.vkGetDeviceProcAddr);
 #endif
 
     m_start_time = std::chrono::high_resolution_clock::now();
@@ -634,7 +707,7 @@ Result<> RenderingDriverVulkan::configure_surface(const Window& window, VSync vs
         m_swapchain));
     YEET_RESULT(swapchain_result);
 
-    auto depth_texture_result = create_texture(surface_extent.width, surface_extent.height, TextureFormat::D32, {.depth_attachment = 1});
+    auto depth_texture_result = create_texture(surface_extent.width, surface_extent.height, TextureFormat::Depth32, {.depth_attachment = 1});
     YEET(depth_texture_result);
 
     Ref<TextureVulkan> depth_texture_vk = depth_texture_result.value().cast_to<TextureVulkan>();
@@ -740,7 +813,7 @@ Result<Ref<Texture>> RenderingDriverVulkan::create_texture(uint32_t width, uint3
     YEET(memory_result);
 
     // TODO: format_to_aspect_mask()
-    vk::ImageAspectFlags aspect_mask = format == TextureFormat::D32 ? vk::ImageAspectFlagBits::eDepth : vk::ImageAspectFlagBits::eColor;
+    vk::ImageAspectFlags aspect_mask = format == TextureFormat::Depth32 ? vk::ImageAspectFlagBits::eDepth : vk::ImageAspectFlagBits::eColor;
 
     auto image_view_result = m_device.createImageView(vk::ImageViewCreateInfo({}, image_result.value, vk::ImageViewType::e2D, vk_format, {}, vk::ImageSubresourceRange(aspect_mask, 0, 1, 0, 1)));
     YEET_RESULT(image_view_result);
@@ -769,7 +842,7 @@ Result<Ref<Texture>> RenderingDriverVulkan::create_texture_array(uint32_t width,
     YEET(memory_result);
 
     // TODO: format_to_aspect_mask()
-    vk::ImageAspectFlags aspect_mask = format == TextureFormat::D32 ? vk::ImageAspectFlagBits::eDepth : vk::ImageAspectFlagBits::eColor;
+    vk::ImageAspectFlags aspect_mask = format == TextureFormat::Depth32 ? vk::ImageAspectFlagBits::eDepth : vk::ImageAspectFlagBits::eColor;
 
     auto image_view_result = m_device.createImageView(vk::ImageViewCreateInfo({}, image_result.value, vk::ImageViewType::e2DArray, vk_format, {}, vk::ImageSubresourceRange(aspect_mask, 0, 1, 0, layers)));
     YEET_RESULT(image_view_result);
@@ -798,7 +871,7 @@ Result<Ref<Texture>> RenderingDriverVulkan::create_texture_cube(uint32_t width, 
     YEET(memory_result);
 
     // TODO: format_to_aspect_mask()
-    vk::ImageAspectFlags aspect_mask = format == TextureFormat::D32 ? vk::ImageAspectFlagBits::eDepth : vk::ImageAspectFlagBits::eColor;
+    vk::ImageAspectFlags aspect_mask = format == TextureFormat::Depth32 ? vk::ImageAspectFlagBits::eDepth : vk::ImageAspectFlagBits::eColor;
 
     auto image_view_result = m_device.createImageView(vk::ImageViewCreateInfo({}, image_result.value, vk::ImageViewType::eCube, vk_format, {}, vk::ImageSubresourceRange(aspect_mask, 0, 1, 0, 1)));
     YEET_RESULT(image_view_result);
@@ -806,7 +879,7 @@ Result<Ref<Texture>> RenderingDriverVulkan::create_texture_cube(uint32_t width, 
     return make_ref<TextureVulkan>(image_result.value, memory_result.value(), image_view_result.value, width, height, width * height * size_of(format), aspect_mask, 1, true).cast_to<Texture>();
 }
 
-Result<Ref<Mesh>> RenderingDriverVulkan::create_mesh(IndexType index_type, Span<uint8_t> indices, Span<glm::vec3> vertices, Span<glm::vec2> uvs, Span<glm::vec3> normals)
+Result<Ref<Mesh>> RenderingDriverVulkan::create_mesh(IndexType index_type, View<uint8_t> indices, View<glm::vec3> vertices, View<glm::vec2> uvs, View<glm::vec3> normals)
 {
     const size_t vertex_count = indices.size() / size_of(index_type);
 
@@ -924,6 +997,7 @@ void RenderingDriverVulkan::draw_graph(const RenderGraph& graph)
         break;
     case vk::Result::eSuboptimalKHR:
     case vk::Result::eErrorOutOfDateKHR:
+        // TODO: Recreate the swapchain
         break;
     default:
         return;
@@ -944,102 +1018,98 @@ void RenderingDriverVulkan::draw_graph(const RenderGraph& graph)
 
     // TracyVkZone(m_tracy_context, cb, "DrawMesh");
 
-    vk::RenderPass render_pass;
+    vk::RenderPass current_render_pass;
+    uint32_t render_pass_index = 0;
     bool depth_pass = false;
     bool use_previous_depth_pass = false;
 
     for (const auto& instruction : graph.get_instructions())
     {
-        switch (instruction.kind)
-        {
-        case InstructionKind::BeginRenderPass:
+        if (std::holds_alternative<BeginRenderPassInstruction>(instruction))
         {
             ZoneScopedN("draw_graph.begin_render_pass");
 
+            const BeginRenderPassInstruction& begin_render_pass = std::get<BeginRenderPassInstruction>(instruction);
+            const RenderGraphCache::RenderPass& render_pass_cache = m_render_graph_cache.set_render_pass(render_pass_index, begin_render_pass.descriptor);
+            current_render_pass = render_pass_cache.render_pass;
+
             std::vector<vk::ClearValue> clear_values;
-            vk::ImageView color_view = nullptr;
-            vk::ImageView depth_view = nullptr;
+            clear_values.reserve(begin_render_pass.descriptor.color_attachments.size() + (size_t)begin_render_pass.descriptor.depth_attachment.has_value());
 
-            color_view = m_swapchain_textures[image_index].cast_to<TextureVulkan>()->image_view;
-            depth_view = m_depth_texture.cast_to<TextureVulkan>()->image_view;
-
-            clear_values.push_back(vk::ClearColorValue(0.0f, 0.0f, 0.0f, 1.0f));
-
-            if (!instruction.renderpass.use_previous_depth_pass)
-                clear_values.push_back(vk::ClearDepthStencilValue(1.0));
-
-            auto render_pass_result = m_render_pass_cache.get_or_create({
-                .color_flags = {.present = true},
-                .depth_flags = {.present = true, .load = instruction.renderpass.use_previous_depth_pass},
-            });
-            ERR_EXPECT_B(render_pass_result, "Renderpass creation failed");
-            render_pass = render_pass_result.value();
-
-            if (Result<vk::Framebuffer> framebuffer = m_framebuffer_cache.get_or_create({.color_view = color_view, .depth_view = depth_view, .render_pass = render_pass, .width = m_surface_extent.width, .height = m_surface_extent.height}))
+            for (const auto& attachment : begin_render_pass.descriptor.color_attachments)
             {
-                cb.beginRenderPass(vk::RenderPassBeginInfo(render_pass, framebuffer.value(), vk::Rect2D(vk::Offset2D(0, 0), vk::Extent2D(m_surface_extent.width, m_surface_extent.height)), clear_values), vk::SubpassContents::eInline);
+                (void)attachment;
+                clear_values.push_back(vk::ClearColorValue(0.0f, 0.0f, 0.0f, 1.0f));
+            }
+
+            if (begin_render_pass.descriptor.depth_attachment.has_value())
+            {
+                clear_values.push_back(vk::ClearDepthStencilValue(1.0));
+            }
+
+            std::vector<vk::ImageView> views;
+            views.reserve(begin_render_pass.descriptor.color_attachments.size() + (size_t)begin_render_pass.descriptor.depth_attachment.has_value());
+
+            // Collect attachment's imageview to query a framebuffer from the cache.
+            for (const auto& attachment : render_pass_cache.attachments)
+            {
+                if (attachment.surface_texture)
+                {
+                    views.push_back(m_swapchain_textures[image_index].cast_to<TextureVulkan>()->image_view);
+                }
+                else
+                {
+                    views.push_back(attachment.texture->image_view);
+                }
+            }
+
+            if (render_pass_cache.depth_attachment.has_value())
+            {
+                // Depth attachment can be loaded from a previous render pass.
+                if (!render_pass_cache.depth_attachment->depth_load_previous)
+                {
+                    views.push_back(render_pass_cache.depth_attachment->texture->image_view);
+                }
+                else
+                {
+                    views.push_back(m_render_graph_cache.get_render_pass(render_pass_index - 1).depth_attachment->texture->image_view);
+                }
+            }
+
+            if (Result<vk::Framebuffer> framebuffer = m_framebuffer_cache.get_or_create({.views = views, .render_pass = current_render_pass, .width = m_surface_extent.width, .height = m_surface_extent.height}))
+            {
+                cb.beginRenderPass(vk::RenderPassBeginInfo(current_render_pass, framebuffer.value(), vk::Rect2D(vk::Offset2D(0, 0), vk::Extent2D(m_surface_extent.width, m_surface_extent.height)), clear_values), vk::SubpassContents::eInline);
             }
             else
             {
                 error("Framebuffer creation failed");
             }
 
-            use_previous_depth_pass = instruction.renderpass.use_previous_depth_pass;
+            use_previous_depth_pass = begin_render_pass.descriptor.depth_attachment.has_value() && begin_render_pass.descriptor.depth_attachment->load;
+            render_pass_index += 1;
         }
-        break;
-        case InstructionKind::EndRenderPass:
-        case InstructionKind::EndDepthPass:
+        else if (std::holds_alternative<EndRenderPassInstruction>(instruction))
         {
             cb.endRenderPass();
 
             depth_pass = false;
             use_previous_depth_pass = false;
         }
-        break;
-        case InstructionKind::BeginDepthPass:
-        {
-            ZoneScopedN("draw_graph.begin_depth_pass");
-
-            // A depth pass only has one depth attachment.
-
-            std::vector<vk::ClearValue> clear_values;
-            vk::ImageView depth_view = nullptr;
-
-            depth_view = m_depth_texture.cast_to<TextureVulkan>()->image_view;
-
-            clear_values.push_back(vk::ClearDepthStencilValue(1.0));
-
-            auto render_pass_result = m_render_pass_cache.get_or_create({
-                .depth_flags = {.present = true, .save = true},
-            });
-            ERR_EXPECT_B(render_pass_result, "Renderpass creation failed");
-            render_pass = render_pass_result.value();
-
-            if (Result<vk::Framebuffer> framebuffer = m_framebuffer_cache.get_or_create({.color_view = nullptr, .depth_view = depth_view, .render_pass = render_pass, .width = m_surface_extent.width, .height = m_surface_extent.height}))
-            {
-                cb.beginRenderPass(vk::RenderPassBeginInfo(render_pass, framebuffer.value(), vk::Rect2D(vk::Offset2D(0, 0), vk::Extent2D(m_surface_extent.width, m_surface_extent.height)), clear_values), vk::SubpassContents::eInline);
-            }
-            else
-            {
-                error("Framebuffer creating failed");
-            }
-
-            depth_pass = true;
-        }
-        break;
-        case InstructionKind::Draw:
+        else if (std::holds_alternative<DrawInstruction>(instruction))
         {
             ZoneScopedN("draw_graph.draw");
 
-            MeshVulkan *mesh = (MeshVulkan *)instruction.draw.mesh;
+            const DrawInstruction& draw = std::get<DrawInstruction>(instruction);
 
-            MaterialVulkan *material = (MaterialVulkan *)instruction.draw.material;
+            Ref<MeshVulkan> mesh = draw.mesh.cast_to<MeshVulkan>();
+            Ref<MaterialVulkan> material = draw.material.cast_to<MaterialVulkan>();
+
             const Ref<MaterialLayoutVulkan>& material_layout = material->get_layout().cast_to<MaterialLayoutVulkan>();
 
-            std::optional<Buffer *> instance_buffer = instruction.draw.instance_buffer;
+            std::optional<Ref<Buffer>> instance_buffer = draw.instance_buffer;
 
-            auto pipeline_result = m_pipeline_cache.get_or_create(material, render_pass, depth_pass, use_previous_depth_pass);
-            ERR_EXPECT_B(pipeline_result, "Failed to create a pipeline for the material");
+            auto pipeline_result = m_pipeline_cache.get_or_create(material, current_render_pass, depth_pass, use_previous_depth_pass);
+            ERR_EXPECT_B(pipeline_result, "Pipeline creation failed");
 
             cb.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline_result.value());
             cb.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, material_layout->m_pipeline_layout, 0, {material->descriptor_set}, {});
@@ -1054,28 +1124,24 @@ void RenderingDriverVulkan::draw_graph(const RenderGraph& graph)
 
             if (instance_buffer.has_value())
             {
-                cb.bindVertexBuffers(3, {((BufferVulkan *)instance_buffer.value())->buffer}, {0});
+                cb.bindVertexBuffers(3, {(instance_buffer.value().cast_to<BufferVulkan>())->buffer}, {0});
             }
 
             cb.setViewport(0, {vk::Viewport(0.0, 0.0, (float)m_surface_extent.width, (float)m_surface_extent.height, 0.0, 1.0)});
             cb.setScissor(0, {vk::Rect2D({0, 0}, {m_surface_extent.width, m_surface_extent.height})});
 
             PushConstants push_constants{
-                .view_matrix = instruction.draw.view_matrix,
+                .view_matrix = draw.view_matrix,
                 .nan = 0.0f / 0.0f,
             };
 
             cb.pushConstants(material_layout->m_pipeline_layout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(PushConstants), &push_constants);
 
-            cb.drawIndexed(mesh->vertex_count(), instruction.draw.instance_count, 0, 0, 0);
+            cb.drawIndexed(mesh->vertex_count(), draw.instance_count, 0, 0, 0);
         }
-        break;
-        case InstructionKind::Copy:
+        else if (std::holds_alternative<CopyInstruction>(instruction))
         {
-            ZoneScopedN("draw_graph.copy");
             // TODO
-        }
-        break;
         }
     }
 
@@ -1377,7 +1443,7 @@ BufferVulkan::~BufferVulkan()
     RenderingDriverVulkan::get()->get_device().destroyBuffer(buffer);
 }
 
-void BufferVulkan::update(Span<uint8_t> view, size_t offset)
+void BufferVulkan::update(View<uint8_t> view, size_t offset)
 {
     ERR_COND_VR(view.size() > m_size - offset, "too big: {} but size is {}", view.size(), m_size - offset);
 
@@ -1422,7 +1488,7 @@ TextureVulkan::~TextureVulkan()
     }
 }
 
-void TextureVulkan::update(Span<uint8_t> view, uint32_t layer)
+void TextureVulkan::update(View<uint8_t> view, uint32_t layer)
 {
     ERR_COND(view.size() > size, "Out of bounds");
 

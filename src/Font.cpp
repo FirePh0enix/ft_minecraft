@@ -1,4 +1,5 @@
 #include "Font.hpp"
+#include "Render/Graph.hpp"
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
@@ -131,7 +132,7 @@ Result<> Font::init_library()
         glm::vec2(0.0, 1.0),
     };
 
-    Span<uint16_t> indices_span = indices;
+    View<uint16_t> indices_span = indices;
 
     auto mesh_result = RenderingDriver::get()->create_mesh(IndexType::Uint16, indices_span.as_bytes(), vertices, uvs, normals);
     YEET(mesh_result);
@@ -242,7 +243,7 @@ void Text::set(const std::string& text)
         if (i % batch_size == batch_size - 1 || i == text.size() - 1)
         {
             const size_t size = i + batch_size < text.size() ? batch_size : i - (i / batch_size) * batch_size + 1;
-            Span<Font::Instance> span(instances.data(), size);
+            View<Font::Instance> span(instances.data(), size);
             m_instance_buffer->update(span.as_bytes(), batch_size * sizeof(Font::Instance) * (i / batch_size));
         }
 
@@ -272,10 +273,10 @@ void Text::set_color(glm::vec4 color)
 
 void Text::encode_draw_calls(RenderGraph& graph)
 {
-    graph.add_draw(g_mesh.ptr(), m_material.ptr(), g_ortho_matrix, m_size, m_instance_buffer.ptr(), true);
+    graph.add_draw(g_mesh, m_material, g_ortho_matrix, m_size, m_instance_buffer, true);
 }
 
 void Text::update_uniform_buffer()
 {
-    m_uniform_buffer->update(Span<Font::Uniform>(m_uniform).as_bytes());
+    m_uniform_buffer->update(View<Font::Uniform>(m_uniform).as_bytes());
 }

@@ -70,7 +70,7 @@ enum class TextureFormat : uint8_t
     /**
      * @brief Depth 32-bits per pixel.
      */
-    D32,
+    Depth32,
 };
 
 size_t size_of(const TextureFormat& format);

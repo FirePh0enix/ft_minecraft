@@ -2,6 +2,7 @@
 #include "Input.hpp"
 #include "MeshPrimitives.hpp"
 #include "Render/Driver.hpp"
+#include "Render/Graph.hpp"
 #include "Render/Shader.hpp"
 #include "Scene/Components/RigidBody.hpp"
 #include "Scene/Components/Transform3D.hpp"
@@ -54,9 +55,9 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     (void)argc;
     (void)argv;
 
-    // #ifndef __has_address_sanitizer
+#ifndef __has_address_sanitizer
     initialize_error_handling(argv[0]);
-    // #endif
+#endif
 
     tracy::SetThreadName("Main");
 
@@ -114,9 +115,9 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     EXPECT(font_result);
     Ref<Font> font = font_result.value();
 
-    text = Text("Hello world", font);
-    text.set_scale(glm::vec2(0.2, 0.2));
-    text.set_color(glm::vec4(1.0, 1.0, 1.0, 1.0));
+    // text = Text("Hello world", font);
+    // text.set_scale(glm::vec2(0.2, 0.2));
+    // text.set_color(glm::vec4(1.0, 1.0, 1.0, 1.0));
 
     Ref<Scene> scene = make_ref<Scene>();
     Scene::set_active_scene(scene);
@@ -241,14 +242,14 @@ static void tick()
 
     // depth prepass
     {
-        graph.begin_depth_pass();
+        graph.begin_render_pass({.name = "depth pass", .depth_attachment = RenderPassDepthAttachment{.save = true}});
         scene->encode_draw_calls(graph);
-        graph.end_depth_pass();
+        graph.end_render_pass();
     }
 
     // main color pass
     {
-        graph.begin_render_pass(true);
+        graph.begin_render_pass({.name = "main pass", .color_attachments = {RenderPassColorAttachment{.surface_texture = true}}, .depth_attachment = RenderPassDepthAttachment{.load = true}});
         scene->encode_draw_calls(graph);
         graph.end_render_pass();
     }

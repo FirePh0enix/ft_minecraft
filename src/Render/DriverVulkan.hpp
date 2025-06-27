@@ -5,6 +5,8 @@
 #include <chrono>
 #include <map>
 
+class TextureVulkan;
+
 struct QueueInfo
 {
     std::optional<uint32_t> graphics_index;
@@ -28,7 +30,7 @@ class PipelineCache
 public:
     struct Key
     {
-        Material *material;
+        Ref<Material> material;
         vk::RenderPass render_pass;
         bool depth_pass;
         bool use_previous_depth_pass;
@@ -39,7 +41,7 @@ public:
         }
     };
 
-    Result<vk::Pipeline> get_or_create(Material *material, vk::RenderPass render_pass, bool depth_prepass, bool use_previous_depth_pass);
+    Result<vk::Pipeline> get_or_create(Ref<Material> material, vk::RenderPass render_pass, bool depth_prepass, bool use_previous_depth_pass);
 
 private:
     std::map<Key, vk::Pipeline> m_pipelines;
@@ -68,15 +70,20 @@ class FramebufferCache
 public:
     struct Key
     {
-        vk::ImageView color_view;
-        vk::ImageView depth_view;
+        std::vector<vk::ImageView> views;
         vk::RenderPass render_pass;
         uint32_t width;
         uint32_t height;
 
-        bool operator<(const Key& key) const
+        bool operator<(const Key& other) const
         {
-            return color_view < key.color_view || depth_view < key.depth_view || render_pass < key.render_pass || width < key.width || height < key.height;
+            for (size_t i = 0; i < views.size(); i++)
+            {
+                if (views[i] < other.views[i])
+                    return true;
+            }
+
+            return render_pass < other.render_pass || width < other.width || height < other.height;
         }
     };
 
@@ -87,8 +94,38 @@ public:
      */
     void clear_with_size(uint32_t width, uint32_t height);
 
+    /**
+     * @brief Remove every framebuffer with a specific render pass.
+     */
+    void clear_with_renderpass(vk::RenderPass render_pass);
+
 private:
     std::map<Key, vk::Framebuffer> m_framebuffers;
+};
+
+class RenderGraphCache
+{
+public:
+    struct Attachment
+    {
+        Ref<TextureVulkan> texture = nullptr;
+        bool surface_texture = false;
+        bool depth_load_previous = false;
+    };
+
+    struct RenderPass
+    {
+        std::string name = "";
+        vk::RenderPass render_pass = nullptr;
+        std::vector<Attachment> attachments = {};
+        std::optional<Attachment> depth_attachment = std::nullopt;
+    };
+
+    RenderGraphCache::RenderPass& set_render_pass(uint32_t index, RenderPassDescriptor desc);
+    RenderGraphCache::RenderPass& get_render_pass(uint32_t index);
+
+private:
+    std::vector<RenderPass> m_render_passes;
 };
 
 class RenderingDriverVulkan final : public RenderingDriver
@@ -127,7 +164,7 @@ public:
     virtual Result<Ref<Texture>> create_texture_cube(uint32_t width, uint32_t height, TextureFormat format, TextureUsage usage) override;
 
     [[nodiscard]]
-    virtual Result<Ref<Mesh>> create_mesh(IndexType index_type, Span<uint8_t> indices, Span<glm::vec3> vertices, Span<glm::vec2> uvs, Span<glm::vec3> normals) override;
+    virtual Result<Ref<Mesh>> create_mesh(IndexType index_type, View<uint8_t> indices, View<glm::vec3> vertices, View<glm::vec2> uvs, View<glm::vec3> normals) override;
 
     [[nodiscard]]
     virtual Result<Ref<MaterialLayout>> create_material_layout(Ref<Shader> shader, MaterialFlags flags = {}, std::optional<InstanceLayout> instance_layout = std::nullopt, CullMode cull_mode = CullMode::Back, PolygonMode polygon_mode = PolygonMode::Fill) override;
@@ -162,6 +199,11 @@ public:
     inline SamplerCache& get_sampler_cache()
     {
         return m_sampler_cache;
+    }
+
+    inline RenderPassCache& get_render_pass_cache()
+    {
+        return m_render_pass_cache;
     }
 
     inline std::mutex& get_graphics_mutex()
@@ -206,6 +248,7 @@ private:
     SamplerCache m_sampler_cache;
     RenderPassCache m_render_pass_cache;
     FramebufferCache m_framebuffer_cache;
+    RenderGraphCache m_render_graph_cache;
 
     std::chrono::time_point<std::chrono::high_resolution_clock> m_start_time;
 
@@ -256,7 +299,7 @@ public:
 
     virtual ~BufferVulkan();
 
-    virtual void update(Span<uint8_t> view, size_t offset) override;
+    virtual void update(View<uint8_t> view, size_t offset) override;
 
     vk::Buffer buffer;
     vk::DeviceMemory memory;
@@ -277,7 +320,7 @@ public:
 
     virtual ~TextureVulkan();
 
-    virtual void update(Span<uint8_t> view, uint32_t layer) override;
+    virtual void update(View<uint8_t> view, uint32_t layer) override;
     virtual void transition_layout(TextureLayout new_layout) override;
 
     vk::Image image;

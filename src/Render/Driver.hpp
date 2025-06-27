@@ -1,11 +1,9 @@
 #pragma once
 
 #include "Core/Class.hpp"
-#include "Core/Error.hpp"
 #include "Core/Ref.hpp"
 #include "Core/Result.hpp"
-#include "Core/Span.hpp"
-#include "Render/Graph.hpp"
+#include "Core/View.hpp"
 #include "Render/Shader.hpp"
 #include "Render/Types.hpp"
 #include "Window.hpp"
@@ -14,6 +12,7 @@
 #include <glm/vec3.hpp>
 
 class Shader;
+class RenderGraph;
 
 class Buffer : public Object
 {
@@ -23,7 +22,7 @@ public:
     /**
      * @brief Update the content of the buffer.
      */
-    virtual void update(Span<uint8_t> view, size_t offset = 0) = 0;
+    virtual void update(View<uint8_t> view, size_t offset = 0) = 0;
 
     inline size_t size() const
     {
@@ -44,7 +43,7 @@ public:
     /**
      * @brief Update the content of a layer of the texture.
      */
-    virtual void update(Span<uint8_t> view, uint32_t layer = 0) = 0;
+    virtual void update(View<uint8_t> view, uint32_t layer = 0) = 0;
 
     /**
      * @brief Change the layout of the texture.
@@ -107,7 +106,7 @@ struct InstanceLayout
     std::vector<InstanceLayoutInput> inputs;
     size_t stride;
 
-    InstanceLayout(Span<InstanceLayoutInput> inputs, size_t stride)
+    InstanceLayout(View<InstanceLayoutInput> inputs, size_t stride)
         : inputs(inputs.to_vector()), stride(stride)
     {
     }
@@ -165,37 +164,40 @@ protected:
     Ref<MaterialLayout> m_layout;
 };
 
+struct RenderPassColorAttachment
+{
+    TextureFormat format = TextureFormat::RGBA8Srgb;
+    /**
+     * This attachment references the surface texture. If this is true then `format` is ignored.
+     */
+    bool surface_texture = false;
+
+    bool operator<(const RenderPassColorAttachment& other) const
+    {
+        return format < other.format || surface_texture < other.surface_texture;
+    }
+};
+
+struct RenderPassDepthAttachment
+{
+    bool save : 1 = false;
+    bool load : 1 = false;
+
+    bool operator<(const RenderPassDepthAttachment& other) const
+    {
+        return save < other.save || load < other.load;
+    }
+};
+
 struct RenderPassDescriptor
 {
-    struct ColorFlags
+    std::string name;
+    std::vector<RenderPassColorAttachment> color_attachments = {};
+    std::optional<RenderPassDepthAttachment> depth_attachment = {};
+
+    bool operator<(const RenderPassDescriptor& other) const
     {
-        bool present : 1 = false;
-        uint32_t padding : 31 = 0;
-    };
-
-    struct DepthFlags
-    {
-        bool present : 1 = false;
-
-        /**
-         * @brief Save depth values for later.
-         */
-        bool save : 1 = false;
-
-        /**
-         * @brief Load depth values from a previous depth buffer.
-         */
-        bool load : 1 = false;
-
-        uint32_t padding : 29 = 0;
-    };
-
-    ColorFlags color_flags = {};
-    DepthFlags depth_flags = {};
-
-    bool operator<(const RenderPassDescriptor& desc) const
-    {
-        return *(uint32_t *)&color_flags < *(uint32_t *)&desc.color_flags || *(uint32_t *)&depth_flags < *(uint32_t *)&desc.depth_flags;
+        return name < other.name;
     }
 };
 
@@ -233,13 +235,15 @@ public:
 
     /**
      * @brief Initialize the underlaying graphics API.
+     * @param window
      */
     [[nodiscard]]
     virtual Result<> initialize(const Window& window) = 0;
 
     /**
      * @brief Configure the surface and swapchain.
-     * It must be called every time the window is resized.
+     * @param window
+     * @param vsync Enable or disable vsync for the surface.
      */
     [[nodiscard]]
     virtual Result<> configure_surface(const Window& window, VSync vsync) = 0;
@@ -248,6 +252,7 @@ public:
 
     /**
      * Limit the maximum number of frames per seconds. Set to `0` to remove the limit.
+     * @param limit The limit of FPS.
      */
     virtual void limit_frames(uint32_t limit) = 0;
 
@@ -259,9 +264,13 @@ public:
 
     /**
      * @brief Allocate a buffer in the GPU memory and fill it with `data`.
+     * @param size Size of the buffer
+     * @param data Data to upload to the buffer after creation. Must be the same size as `size`.
+     * @param flags
+     * @param visibility
      */
     [[nodiscard]]
-    virtual Result<Ref<Buffer>> create_buffer_from_data(size_t size, Span<uint8_t> data, BufferUsage flags = {}, BufferVisibility visibility = BufferVisibility::GPUOnly);
+    virtual Result<Ref<Buffer>> create_buffer_from_data(size_t size, View<uint8_t> data, BufferUsage flags = {}, BufferVisibility visibility = BufferVisibility::GPUOnly);
 
     [[nodiscard]]
     virtual Result<Ref<Texture>> create_texture(uint32_t width, uint32_t height, TextureFormat format, TextureUsage usage) = 0;
@@ -272,8 +281,16 @@ public:
     [[nodiscard]]
     virtual Result<Ref<Texture>> create_texture_cube(uint32_t width, uint32_t height, TextureFormat format, TextureUsage usage) = 0;
 
+    /**
+     * @brief Create a mesh.
+     * @param index_type Type of indices used for this mesh.
+     * @param indices Indices of the mesh. Must be an array of `uint32_t` if index_type is `IndexType::U32` or `uint16_t` if index_type is `IndexType::U16`.
+     * @param vertices Vertices of the mesh.
+     * @param uvs Texture coordinates (UV) of the mesh.
+     * @param normals Normals of the mesh.
+     */
     [[nodiscard]]
-    virtual Result<Ref<Mesh>> create_mesh(IndexType index_type, Span<uint8_t> indices, Span<glm::vec3> vertices, Span<glm::vec2> uvs, Span<glm::vec3> normals) = 0;
+    virtual Result<Ref<Mesh>> create_mesh(IndexType index_type, View<uint8_t> indices, View<glm::vec3> vertices, View<glm::vec2> uvs, View<glm::vec3> normals) = 0;
 
     [[nodiscard]]
     virtual Result<Ref<MaterialLayout>> create_material_layout(Ref<Shader> shader, MaterialFlags flags = {}, std::optional<InstanceLayout> instance_layout = std::nullopt, CullMode cull_mode = CullMode::Back, PolygonMode polygon_mode = PolygonMode::Fill) = 0;

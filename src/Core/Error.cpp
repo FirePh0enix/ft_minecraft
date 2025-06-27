@@ -24,6 +24,7 @@ int bt_callback(StackTrace *st, uintptr_t, const char *filename, int lineno, con
     if (st->length >= st->frames.size())
     {
         st->non_exhaustive = true;
+        st->total_length += 1;
         return 0;
     }
 
@@ -49,6 +50,7 @@ int bt_callback(StackTrace *st, uintptr_t, const char *filename, int lineno, con
 
     st->frames[st->length] = {.function = func_name, .filename = filename, .line = (uint32_t)lineno};
     st->length += 1;
+    st->total_length += 1;
 
     return 0;
 }
@@ -83,7 +85,7 @@ void StackTrace::print(FILE *fp, size_t skip_frame) const
     }
 
     if (non_exhaustive)
-        println(fp, "(end)");
+        println(fp, "({} frames omitted)", total_length - skip_frame);
 }
 
 void Error::print(FILE *fp)

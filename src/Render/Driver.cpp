@@ -10,7 +10,7 @@ size_t size_of(const TextureFormat& format)
     case TextureFormat::RGBA8Srgb:
     case TextureFormat::RGBA8Unorm:
     case TextureFormat::BGRA8Srgb:
-    case TextureFormat::D32:
+    case TextureFormat::Depth32:
         return 4;
     case TextureFormat::RG32Sfloat:
         return 8;
@@ -36,7 +36,7 @@ size_t size_of(const IndexType& format)
     return 0;
 }
 
-Result<Ref<Buffer>> RenderingDriver::create_buffer_from_data(size_t size, Span<uint8_t> data, BufferUsage flags, BufferVisibility visibility)
+Result<Ref<Buffer>> RenderingDriver::create_buffer_from_data(size_t size, View<uint8_t> data, BufferUsage flags, BufferVisibility visibility)
 {
     auto buffer_result = create_buffer(size, flags, visibility);
     YEET(buffer_result);

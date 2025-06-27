@@ -1,53 +1,44 @@
 #pragma once
 
-#include "Core/Span.hpp"
+#include "Core/View.hpp"
+#include "Render/Driver.hpp"
+
+#include <variant>
 
 class Buffer;
 class Mesh;
 class Material;
 
-enum class InstructionKind : uint8_t
+struct BeginRenderPassInstruction
 {
-    BeginRenderPass,
-    EndRenderPass,
-    BeginDepthPass,
-    EndDepthPass,
-    Draw,
-    Copy,
+    std::string name;
+    RenderPassDescriptor descriptor = {};
 };
 
-union Instruction
+struct EndRenderPassInstruction
 {
-    InstructionKind kind = {};
-    struct
-    {
-        InstructionKind kind = InstructionKind::BeginRenderPass;
-        bool use_previous_depth_pass = false;
-    } renderpass;
-    struct
-    {
-        InstructionKind kind = InstructionKind::BeginDepthPass;
-    } depthpass;
-    struct
-    {
-        InstructionKind kind = InstructionKind::Draw;
-        Mesh *mesh = nullptr;
-        Material *material = nullptr;
-        size_t instance_count = 0;
-        std::optional<Buffer *> instance_buffer = std::nullopt;
-        glm::mat4 view_matrix = glm::mat4(1.0);
-        bool ignore_depth_prepass = false;
-    } draw;
-    struct
-    {
-        InstructionKind kind = InstructionKind::Copy;
-        Buffer *src = nullptr;
-        Buffer *dst = nullptr;
-        size_t src_offset = 0;
-        size_t dst_offset = 0;
-        size_t size = 0;
-    } copy;
 };
+
+struct DrawInstruction
+{
+    Ref<Mesh> mesh = nullptr;
+    Ref<Material> material = nullptr;
+    size_t instance_count = 0;
+    std::optional<Ref<Buffer>> instance_buffer = std::nullopt;
+    glm::mat4 view_matrix = glm::mat4(1.0);
+    bool ignore_depth_prepass = false;
+};
+
+struct CopyInstruction
+{
+    Ref<Buffer> src = nullptr;
+    Ref<Buffer> dst = nullptr;
+    size_t src_offset = 0;
+    size_t dst_offset = 0;
+    size_t size = 0;
+};
+
+using Instruction = std::variant<BeginRenderPassInstruction, EndRenderPassInstruction, DrawInstruction, CopyInstruction>;
 
 struct PushConstants
 {
@@ -62,22 +53,31 @@ public:
     RenderGraph();
 
     void reset();
-    Span<Instruction> get_instructions() const;
+    View<Instruction> get_instructions() const;
 
     /**
-     * @brief Start a depth-only render pass.
+     * @brief Start a render pass.
+     * @param descriptor Structure to describe the render pass.
      */
-    void begin_depth_pass();
-    void end_depth_pass();
+    void begin_render_pass(RenderPassDescriptor descriptor);
 
     /**
-     * @brief Start a standard render pass.
+     * @brief End the current render pass.
      */
-    void begin_render_pass(bool use_previous_depth_pass = false);
     void end_render_pass();
 
-    void add_draw(Mesh *mesh, Material *material, glm::mat4 view_matrix = {}, uint32_t instance_count = 1, std::optional<Buffer *> instance_buffer = {}, bool ignore_depth_prepass = false);
-    void add_copy(Buffer *src, Buffer *dst, size_t size, size_t src_offset = 0, size_t dst_offset = 0);
+    /**
+     * @brief Add a draw call the the render pass.
+     * @param mesh
+     * @param material
+     * @param view_matrix
+     * @param instance_count Number of instance to draw. If this number is > 1, then `instance_buffer` must be present.
+     * @param instance_buffer Data used for instancing.
+     * @param ignore_depth_prepass
+     */
+    void add_draw(Ref<Mesh> mesh, Ref<Material> material, glm::mat4 view_matrix = {}, uint32_t instance_count = 1, std::optional<Ref<Buffer>> instance_buffer = {}, bool ignore_depth_prepass = false);
+
+    void add_copy(Ref<Buffer> src, Ref<Buffer> dst, size_t size, size_t src_offset = 0, size_t dst_offset = 0);
 
 private:
     std::vector<Instruction> m_instructions;

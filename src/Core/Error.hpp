@@ -19,6 +19,7 @@ struct StackTrace
 
     std::array<Frame, STACKTRACE_SIZE> frames;
     size_t length = 0;
+    size_t total_length = 0;
     bool non_exhaustive = false;
     bool early_end = false;
 
@@ -351,6 +352,16 @@ private:
         {                                                               \
             ::println("error: {}:{}: {}", __FILE__, __LINE__, MESSAGE); \
             break;                                                      \
+        }                                                               \
+    } while (0)
+
+#define ERR_COND_C(COND, MESSAGE, ...)                                  \
+    do                                                                  \
+    {                                                                   \
+        if (COND)                                                       \
+        {                                                               \
+            ::println("error: {}:{}: {}", __FILE__, __LINE__, MESSAGE); \
+            continue;                                                   \
         }                                                               \
     } while (0)
 

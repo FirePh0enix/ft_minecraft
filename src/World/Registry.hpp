@@ -62,8 +62,6 @@ public:
             get_or_create(block->get_texture_names()[4]),
             get_or_create(block->get_texture_names()[5]),
         });
-
-        println("{}", block->get_texture_ids());
     }
 
     void create_texture_array()
@@ -78,7 +76,7 @@ public:
 
         for (const auto& surface : m_textures)
         {
-            m_texture_array->update(Span((uint8_t *)surface->pixels, surface->w * surface->h * 4), index);
+            m_texture_array->update(View((uint8_t *)surface->pixels, surface->w * surface->h * 4), index);
             index++;
         }
 

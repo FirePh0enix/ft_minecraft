@@ -121,6 +121,16 @@ public:
         return *m_ptr;
     }
 
+    bool operator==(const Ref& other) const
+    {
+        return m_ptr == other.m_ptr;
+    }
+
+    bool operator!=(const Ref& other) const
+    {
+        return m_ptr != other.m_ptr;
+    }
+
     operator bool() const
     {
         return !is_null();
@@ -173,14 +183,14 @@ private:
 
     void unref()
     {
-        // if (--*m_references == 0)
-        // {
-        //     delete m_ptr;
-        //     delete m_references;
+        if (--*m_references == 0)
+        {
+            delete m_ptr;
+            delete m_references;
 
-        //     m_ptr = nullptr;
-        //     m_references = nullptr;
-        // }
+            m_ptr = nullptr;
+            m_references = nullptr;
+        }
     }
 };
 
