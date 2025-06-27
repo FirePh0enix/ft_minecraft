@@ -1,9 +1,9 @@
 #pragma once
 
 #include "Core/Class.hpp"
+#include "Core/Containers/View.hpp"
 #include "Core/Ref.hpp"
 #include "Core/Result.hpp"
-#include "Core/View.hpp"
 #include "Render/Shader.hpp"
 #include "Render/Types.hpp"
 #include "Window.hpp"
