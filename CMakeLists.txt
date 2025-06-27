@@ -75,12 +75,12 @@ endif()
 
 if(TARGET_IS_WEB)
     list(APPEND SOURCES
-        src/Render/DriverWebGPU.cpp
-        src/Emscripten.cpp
+        src/Render/WebGPU/DriverWebGPU.cpp
+        src/Platform/Emscripten.cpp
     )
 else()
     list(APPEND SOURCES
-        src/Render/DriverVulkan.cpp
+        src/Render/Vulkan/DriverVulkan.cpp
     )
 endif()
 

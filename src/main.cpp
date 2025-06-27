@@ -18,11 +18,11 @@
 #include <SDL3_image/SDL_image.h>
 
 #ifdef __has_vulkan
-#include "Render/DriverVulkan.hpp"
+#include "Render/Vulkan/DriverVulkan.hpp"
 #endif
 
 #ifdef __has_webgpu
-#include "Render/DriverWebGPU.hpp"
+#include "Render/WebGPU/DriverWebGPU.hpp"
 #endif
 
 #ifdef __platform_web
