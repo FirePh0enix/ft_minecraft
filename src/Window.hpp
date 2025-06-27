@@ -42,6 +42,6 @@ public:
     }
 
 private:
-    SDL_Window *m_window;
+    SDL_Window *m_window = nullptr;
     bool m_running = true;
 };

@@ -21,6 +21,7 @@ option(SANITIZE_ADDRESS "Enable AddressSanitizer" OFF)
 option(SANITIZE_THREAD "Enable AddressSanitizer" OFF)
 
 list(APPEND SOURCES
+    src/Args.cpp
     src/Core/Class.cpp
     src/Core/Error.cpp
     src/Core/Ref.cpp

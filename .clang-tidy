@@ -8,7 +8,6 @@ Checks: "
         modernize-type-traits,
         modernize-use-designated-initializers,
         modernize-use-nullptr,
-        performance-enum-size,
         performance-faster-string-find,
         performance-noexcept-move-constructor,
         performance-type-promotion-in-math-fn,

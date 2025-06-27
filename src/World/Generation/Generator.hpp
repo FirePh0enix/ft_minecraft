@@ -18,8 +18,8 @@ class WorldGenerator : public Object
     CLASS(WorldGenerator, Object);
 
 public:
-    WorldGenerator(Ref<World> world)
-        : m_world(world), player_position(0.0), save("new_world"), m_load_semaphore(0), m_unload_semaphore(0)
+    WorldGenerator(Ref<World> world, bool disable_save = false)
+        : m_world(world), player_position(0.0), save("new_world"), disable_save(disable_save), m_load_semaphore(0), m_unload_semaphore(0)
     {
         m_load_worker = std::thread(load_worker, this);
         m_unload_worker = std::thread(unload_worker, this);
@@ -149,14 +149,16 @@ public:
 
                 Chunk chunk(chunk_pos.x, chunk_pos.z);
 
-                if (gen->save.chunk_exists(chunk_pos.x, chunk_pos.z))
+                if (!gen->disable_save && gen->save.chunk_exists(chunk_pos.x, chunk_pos.z))
                 {
                     chunk = gen->save.load_chunk(chunk_pos.x, chunk_pos.z);
                 }
                 else
                 {
                     chunk = gen->generate_chunk(chunk_pos.x, chunk_pos.z);
-                    gen->save.save_chunk(&chunk);
+
+                    if (!gen->disable_save)
+                        gen->save.save_chunk(&chunk);
                 }
 
                 chunk.set_buffer_id(buffer_index.value());
@@ -303,6 +305,7 @@ public:
     Ref<TerrainGenerator> m_terrain;
 
     Save save;
+    bool disable_save;
 
     std::thread m_load_worker;
     std::atomic_bool m_load_state = true;

@@ -1,3 +1,5 @@
+#include "Args.hpp"
+#include "Core/Logger.hpp"
 #include "Font.hpp"
 #include "Input.hpp"
 #include "MeshPrimitives.hpp"
@@ -52,12 +54,14 @@ Ref<Entity> player;
 
 MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
 {
-    (void)argc;
-    (void)argv;
-
 #ifndef __has_address_sanitizer
     initialize_error_handling(argv[0]);
 #endif
+
+    Args args;
+    args.add_arg("disable-save", {.type = ArgType::Bool});
+
+    args.parse(argv, argc);
 
     tracy::SetThreadName("Main");
 
@@ -163,7 +167,12 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     BlockRegistry::get().create_texture_array();
     material->set_param("images", BlockRegistry::get().get_texture_array());
 
-    gen = make_ref<WorldGenerator>(world);
+    if (args.has("disable-save"))
+    {
+        info("World won't be saved, `--disable-save` is present.");
+    }
+
+    gen = make_ref<WorldGenerator>(world, true);
     gen->set_terrain(make_ref<FlatTerrainGenerator>());
 
 #ifdef __platform_web
