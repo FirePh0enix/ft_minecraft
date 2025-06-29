@@ -3,7 +3,7 @@
 #include "Core/Format.hpp"
 
 template <typename... _Args>
-void print(FILE *fp, FormatString<TypeIdentityT<_Args>...> fmt, _Args&&...args)
+void print(FILE *fp, FormatString<_Args...> fmt, _Args&&...args)
 {
     std::string s = format(fmt, std::forward<_Args>(args)...);
     fwrite(s.data(), 1, s.size(), fp);
@@ -11,7 +11,7 @@ void print(FILE *fp, FormatString<TypeIdentityT<_Args>...> fmt, _Args&&...args)
 }
 
 template <>
-inline void print(FILE *fp, FormatString<> fmt)
+inline void print(FILE *fp, BasicFormatString<> fmt)
 {
     std::string s = format(fmt);
     fwrite(s.data(), 1, s.size(), fp);
@@ -19,19 +19,19 @@ inline void print(FILE *fp, FormatString<> fmt)
 }
 
 template <typename... _Args>
-void print(FormatString<TypeIdentityT<_Args>...> fmt, _Args&&...args)
+void print(FormatString<_Args...> fmt, _Args&&...args)
 {
     print(stdout, fmt, std::forward<_Args>(args)...);
 }
 
 template <>
-inline void print(FormatString<> fmt)
+inline void print(BasicFormatString<> fmt)
 {
     print(stdout, fmt);
 }
 
 template <typename... _Args>
-void println(FILE *fp, FormatString<TypeIdentityT<_Args>...> fmt, _Args&&...args)
+void println(FILE *fp, FormatString<_Args...> fmt, _Args&&...args)
 {
     std::string s = format(fmt, std::forward<_Args>(args)...);
     fwrite(s.data(), 1, s.size(), fp);
@@ -49,7 +49,7 @@ inline void println(FILE *fp, FormatString<> fmt)
 }
 
 template <typename... _Args>
-void println(FormatString<TypeIdentityT<_Args>...> fmt, _Args&&...args)
+void println(FormatString<_Args...> fmt, _Args&&...args)
 {
     println(stdout, fmt, std::forward<_Args>(args)...);
 }

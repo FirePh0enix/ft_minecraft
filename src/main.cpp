@@ -172,7 +172,7 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
         info("World won't be saved, `--disable-save` is present.");
     }
 
-    gen = make_ref<WorldGenerator>(world, true);
+    gen = make_ref<WorldGenerator>(world, args.has("disable-save"));
     gen->set_terrain(make_ref<FlatTerrainGenerator>());
 
 #ifdef __platform_web

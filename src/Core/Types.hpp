@@ -15,11 +15,3 @@ struct Extent2D
     {
     }
 };
-
-template <typename T>
-struct TypeIdentity
-{
-    using Type = T;
-};
-template <typename T>
-using TypeIdentityT = typename TypeIdentity<T>::Type;

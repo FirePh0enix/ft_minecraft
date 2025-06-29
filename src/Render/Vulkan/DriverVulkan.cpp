@@ -1,4 +1,5 @@
 #include "Render/Vulkan/DriverVulkan.hpp"
+#include "Core/Containers/StackVector.hpp"
 #include "Core/Logger.hpp"
 #include "Render/Graph.hpp"
 #include "Render/Shader.hpp"
@@ -349,8 +350,10 @@ Result<vk::RenderPass> RenderPassCache::get_or_create(RenderPassDescriptor desc)
     }
     else
     {
-        std::vector<vk::AttachmentDescription> descriptions;
-        std::vector<vk::AttachmentReference> references;
+        constexpr size_t max_attachments = 3;
+
+        StackVector<vk::AttachmentDescription, max_attachments> descriptions;
+        StackVector<vk::AttachmentReference, max_attachments> references;
 
         uint32_t index = 0;
 
@@ -387,7 +390,7 @@ Result<vk::RenderPass> RenderPassCache::get_or_create(RenderPassDescriptor desc)
 
         vk::SubpassDescription subpass({}, vk::PipelineBindPoint::eGraphics, {}, references, {}, desc.depth_attachment.has_value() ? &depth_ref : nullptr);
 
-        std::vector<vk::SubpassDependency> dependencies;
+        StackVector<vk::SubpassDependency, 1> dependencies;
         dependencies.push_back(vk::SubpassDependency(vk::SubpassExternal, 0,
                                                      vk::PipelineStageFlagBits::eBottomOfPipe, vk::PipelineStageFlagBits::eColorAttachmentOutput,
                                                      vk::AccessFlagBits::eMemoryRead, vk::AccessFlagBits::eColorAttachmentRead | vk::AccessFlagBits::eColorAttachmentWrite));
@@ -1160,8 +1163,7 @@ void RenderingDriverVulkan::draw_graph(const RenderGraph& graph)
 
 Result<vk::Pipeline> RenderingDriverVulkan::create_graphics_pipeline(Ref<Shader> shader, std::optional<InstanceLayout> instance_layout, vk::PolygonMode polygon_mode, vk::CullModeFlags cull_mode, MaterialFlags flags, vk::PipelineLayout pipeline_layout, vk::RenderPass render_pass, bool previous_depth_pass)
 {
-    std::vector<vk::PipelineShaderStageCreateInfo> shader_stages;
-    shader_stages.reserve(2);
+    StackVector<vk::PipelineShaderStageCreateInfo, 2> shader_stages;
 
     std::vector<uint32_t> code = shader->get_code();
     auto shader_module_result = m_device.createShaderModule(vk::ShaderModuleCreateInfo({}, code.size() * sizeof(uint32_t), code.data()));

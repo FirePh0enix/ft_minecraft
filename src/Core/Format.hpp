@@ -6,10 +6,10 @@
 #include <sstream>
 
 template <typename... _Args>
-class FormatString
+class BasicFormatString
 {
 public:
-    consteval FormatString(const char *str)
+    consteval BasicFormatString(const char *str)
         : m_str(str)
     {
     }
@@ -22,6 +22,9 @@ public:
 private:
     std::string_view m_str;
 };
+
+template <typename... Args>
+using FormatString = BasicFormatString<std::type_identity_t<Args>...>;
 
 class FormatContext
 {
@@ -58,7 +61,7 @@ private:
 };
 
 template <class _Buf, class... _Args>
-void format_to(_Buf buf, FormatString<TypeIdentityT<_Args>...> fmt, _Args&&...args);
+void format_to(_Buf buf, FormatString<_Args...> fmt, _Args&&...args);
 
 template <class _Buf>
 void format_to(_Buf buf, FormatString<> fmt);
@@ -191,7 +194,7 @@ void __format_to(_Buf buf, FormatString<> fmt)
 }
 
 template <class _Buf, size_t _ArgIndex, class... _Args>
-void __format_to(_Buf buf, FormatString<TypeIdentityT<_Args>...> fmt, size_t offset, _Args&&...args)
+void __format_to(_Buf buf, FormatString<_Args...> fmt, size_t offset, _Args&&...args)
 {
     std::string_view str = fmt.get();
     size_t index = offset;
@@ -241,19 +244,19 @@ void __format_to(_Buf buf, FormatString<TypeIdentityT<_Args>...> fmt, size_t off
 }
 
 template <class _Buf, class... _Args>
-void format_to(_Buf buf, FormatString<TypeIdentityT<_Args>...> fmt, _Args&&...args)
+void format_to(_Buf buf, FormatString<_Args...> fmt, _Args&&...args)
 {
     __format_to<_Buf, 0, _Args...>(buf, fmt, 0, std::forward<_Args>(args)...);
 }
 
 template <class _Buf>
-void format_to(_Buf buf, FormatString<> fmt)
+void format_to(_Buf buf, BasicFormatString<> fmt)
 {
     __format_to<_Buf>(buf, fmt, 0);
 }
 
 template <class... _Args>
-std::string format(FormatString<TypeIdentityT<_Args>...> fmt, _Args&&...args)
+std::string format(FormatString<_Args...> fmt, _Args&&...args)
 {
     std::stringstream ss;
     __format_to<std::stringbuf *, 0, _Args...>(ss.rdbuf(), fmt, 0, std::forward<_Args>(args)...);
@@ -261,7 +264,7 @@ std::string format(FormatString<TypeIdentityT<_Args>...> fmt, _Args&&...args)
 }
 
 template <>
-inline std::string format(FormatString<> fmt)
+inline std::string format(BasicFormatString<> fmt)
 {
     std::stringstream ss;
     __format_to<std::stringbuf *>(ss.rdbuf(), fmt);
