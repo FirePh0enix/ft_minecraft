@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Core/Containers/StackVector.hpp"
 #include "Render/Driver.hpp"
 
 #include <chrono>
@@ -37,11 +38,11 @@ public:
 
         bool operator<(const Key& key) const
         {
-            return material < key.material || render_pass < key.render_pass || depth_pass < key.depth_pass || use_previous_depth_pass < key.use_previous_depth_pass;
+            return material.ptr() < key.material.ptr() || render_pass < key.render_pass || depth_pass < key.depth_pass || use_previous_depth_pass < key.use_previous_depth_pass;
         }
     };
 
-    Result<vk::Pipeline> get_or_create(Ref<Material> material, vk::RenderPass render_pass, bool depth_prepass, bool use_previous_depth_pass);
+    Result<vk::Pipeline> get_or_create(Ref<Material> material, vk::RenderPass render_pass, bool depth_pass, bool use_previous_depth_pass);
 
 private:
     std::map<Key, vk::Pipeline> m_pipelines;
@@ -70,7 +71,7 @@ class FramebufferCache
 public:
     struct Key
     {
-        std::vector<vk::ImageView> views;
+        StackVector<vk::ImageView, 4> views;
         vk::RenderPass render_pass;
         uint32_t width;
         uint32_t height;

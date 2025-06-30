@@ -227,7 +227,9 @@ Result<vk::Pipeline> PipelineCache::get_or_create(Ref<Material> material, vk::Re
 {
     ZoneScoped;
 
-    auto iter = m_pipelines.find({.material = material, .render_pass = render_pass, .depth_pass = depth_pass, .use_previous_depth_pass = use_previous_depth_pass});
+    PipelineCache::Key key{.material = material, .render_pass = render_pass, .depth_pass = depth_pass, .use_previous_depth_pass = use_previous_depth_pass};
+    auto iter = std::find_if(m_pipelines.begin(), m_pipelines.end(), [material, render_pass, depth_pass, use_previous_depth_pass](auto p)
+                             { return p.first.material.ptr() == material.ptr() && (VkRenderPass)p.first.render_pass == (VkRenderPass)render_pass && p.first.depth_pass == depth_pass && p.first.use_previous_depth_pass == use_previous_depth_pass; });
 
 #ifdef __has_shader_hot_reload
     if (iter != m_pipelines.end())
@@ -241,7 +243,7 @@ Result<vk::Pipeline> PipelineCache::get_or_create(Ref<Material> material, vk::Re
         {
             shader->set_was_reloaded(false);
 
-            m_pipelines.erase({.material = material, .render_pass = render_pass});
+            m_pipelines.erase(key);
             return get_or_create(material, render_pass);
         }
         else
@@ -265,7 +267,7 @@ Result<vk::Pipeline> PipelineCache::get_or_create(Ref<Material> material, vk::Re
         auto pipeline_result = RenderingDriverVulkan::get()->create_graphics_pipeline(shader, layout->m_instance_layout, layout->m_polygon_mode, layout->m_cull_mode, layout->m_flags, layout->m_pipeline_layout, render_pass, use_previous_depth_pass);
         YEET(pipeline_result);
 
-        m_pipelines[{.material = material, .render_pass = render_pass, .depth_pass = depth_pass, .use_previous_depth_pass = use_previous_depth_pass}] = pipeline_result.value();
+        m_pipelines[key] = pipeline_result.value();
         return pipeline_result.value();
     }
 }
@@ -1066,8 +1068,10 @@ void RenderingDriverVulkan::draw_graph(const RenderGraph& graph)
             const RenderGraphCache::RenderPass& render_pass_cache = m_render_graph_cache.set_render_pass(render_pass_index, begin_render_pass.descriptor);
             current_render_pass = render_pass_cache.render_pass;
 
-            std::vector<vk::ClearValue> clear_values;
-            clear_values.reserve(begin_render_pass.descriptor.color_attachments.size() + (size_t)begin_render_pass.descriptor.depth_attachment.has_value());
+            // std::vector<vk::ClearValue> clear_values;
+            // clear_values.reserve(begin_render_pass.descriptor.color_attachments.size() + (size_t)begin_render_pass.descriptor.depth_attachment.has_value());
+
+            StackVector<vk::ClearValue, 4> clear_values;
 
             for (const auto& attachment : begin_render_pass.descriptor.color_attachments)
             {
@@ -1080,8 +1084,9 @@ void RenderingDriverVulkan::draw_graph(const RenderGraph& graph)
                 clear_values.push_back(vk::ClearDepthStencilValue(1.0));
             }
 
-            std::vector<vk::ImageView> views;
-            views.reserve(begin_render_pass.descriptor.color_attachments.size() + (size_t)begin_render_pass.descriptor.depth_attachment.has_value());
+            // std::vector<vk::ImageView> views;
+            // views.reserve(begin_render_pass.descriptor.color_attachments.size() + (size_t)begin_render_pass.descriptor.depth_attachment.has_value());
+            StackVector<vk::ImageView, 4> views;
 
             // Collect attachment's imageview to query a framebuffer from the cache.
             for (const auto& attachment : render_pass_cache.attachments)
