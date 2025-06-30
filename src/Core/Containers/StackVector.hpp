@@ -2,6 +2,7 @@
 
 #include "Core/Assert.hpp"
 #include "Core/Containers/Iterator.hpp"
+#include "Core/Format.hpp"
 
 /**
  * @brief A container that provide a similar interface than `std::vector`, except that the data is stored on the stack.
@@ -17,12 +18,28 @@ public:
 
     const T& operator[](size_t index) const
     {
+        ASSERT_V(index < m_size, "Index {} out of bounds 0..{}", index, m_size);
         return m_data[index];
     }
 
     T& operator[](size_t index)
     {
+        ASSERT_V(index < m_size, "Index out of bounds 0..{}", index, m_size);
         return m_data[index];
+    }
+
+    bool operator==(const StackVector& other) const
+    {
+        if (m_size != other.m_size)
+            return false;
+
+        for (size_t i = 0; i < m_size; i++)
+        {
+            if (m_data[i] != other.m_data[i])
+                return false;
+        }
+
+        return true;
     }
 
     inline size_t size() const
@@ -69,4 +86,23 @@ public:
 private:
     std::array<T, capacity> m_data;
     size_t m_size;
+};
+
+template <typename T, const size_t capacity>
+struct Formatter<StackVector<T, capacity>>
+{
+    void format(const StackVector<T, capacity>& vec, FormatContext& ctx) const
+    {
+        ctx.write_str("{ ");
+
+        for (size_t i = 0; i < vec.size(); i++)
+        {
+            format_to(ctx.out(), "{}", vec[i]);
+
+            if (i + 1 < vec.size())
+                ctx.write_str(", ");
+        }
+
+        ctx.write_str(" }");
+    }
 };

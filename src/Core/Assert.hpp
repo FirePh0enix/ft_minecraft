@@ -8,7 +8,7 @@ static inline void __assert_internal(bool condition, const char *expression_stri
 {
     if (!condition)
     {
-        print("Assertion `{}` failed", expression_string);
+        print("Assertion `{}` failed: ", expression_string);
         println(fmt, std::forward<Args>(args)...);
         std::abort();
     }

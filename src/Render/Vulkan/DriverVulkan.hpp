@@ -71,20 +71,14 @@ class FramebufferCache
 public:
     struct Key
     {
-        StackVector<vk::ImageView, 4> views;
+        std::vector<vk::ImageView> views;
         vk::RenderPass render_pass;
         uint32_t width;
         uint32_t height;
 
         bool operator<(const Key& other) const
         {
-            for (size_t i = 0; i < views.size(); i++)
-            {
-                if (views[i] < other.views[i])
-                    return true;
-            }
-
-            return render_pass < other.render_pass || width < other.width || height < other.height;
+            return std::tie(views, render_pass, width, height) < std::tie(other.views, render_pass, width, height);
         }
     };
 

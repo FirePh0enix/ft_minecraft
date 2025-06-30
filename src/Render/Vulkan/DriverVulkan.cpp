@@ -423,13 +423,13 @@ Result<vk::Framebuffer> FramebufferCache::get_or_create(FramebufferCache::Key ke
     }
     else
     {
-        Extent2D size = RenderingDriver::get()->get_surface_extent();
-
-        vk::FramebufferCreateInfo framebuffer_info({}, key.render_pass, key.views, size.width, size.height, 1);
+        vk::FramebufferCreateInfo framebuffer_info({}, key.render_pass, key.views, key.width, key.height, 1);
         auto result = RenderingDriverVulkan::get()->get_device().createFramebuffer(framebuffer_info);
         YEET_RESULT(result);
 
         m_framebuffers[key] = result.value;
+
+        println("framebuffer created {} (VkRenderPass({}), {}x{}, {})", m_framebuffers.size(), key.render_pass, key.width, key.height, key.views);
 
         return result.value;
     }
@@ -472,8 +472,6 @@ RenderingDriverVulkan::~RenderingDriverVulkan()
     if (m_device)
     {
         destroy_swapchain();
-
-        // m_device.destroyRenderPass(m_render_pass);
 
         m_device.destroyQueryPool(m_timestamp_query_pool);
 
@@ -1084,9 +1082,8 @@ void RenderingDriverVulkan::draw_graph(const RenderGraph& graph)
                 clear_values.push_back(vk::ClearDepthStencilValue(1.0));
             }
 
-            // std::vector<vk::ImageView> views;
-            // views.reserve(begin_render_pass.descriptor.color_attachments.size() + (size_t)begin_render_pass.descriptor.depth_attachment.has_value());
-            StackVector<vk::ImageView, 4> views;
+            std::vector<vk::ImageView> views;
+            views.reserve(begin_render_pass.descriptor.color_attachments.size() + (size_t)begin_render_pass.descriptor.depth_attachment.has_value());
 
             // Collect attachment's imageview to query a framebuffer from the cache.
             for (const auto& attachment : render_pass_cache.attachments)
