@@ -8,6 +8,13 @@
 
 #include <SDL3/SDL_vulkan.h>
 
+#ifdef __has_debug_menu
+#include <imgui.h>
+
+#include <backends/imgui_impl_sdl3.h>
+#include <backends/imgui_impl_vulkan.h>
+#endif
+
 VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE;
 
 static inline vk::BufferUsageFlags convert_buffer_usage(BufferUsage usage)
@@ -657,6 +664,24 @@ Result<> RenderingDriverVulkan::initialize(const Window& window)
     m_tracy_context = TracyVkContextHostCalibrated(m_instance, m_physical_device, m_device, vk::detail::defaultDispatchLoaderDynamic.vkGetInstanceProcAddr, vk::detail::defaultDispatchLoaderDynamic.vkGetDeviceProcAddr);
 #endif
 
+#ifdef __has_debug_menu
+    // ImGui_ImplSDL3_InitForVulkan(window.get_window_ptr());
+
+    // ImGui_ImplVulkan_InitInfo init_info{
+    //     .ApiVersion = VK_API_VERSION_1_2,
+    //     .Instance = m_instance,
+    //     .PhysicalDevice = m_physical_device,
+    //     .Device = m_device,
+    //     .QueueFamily = m_graphics_queue_index,
+    //     .Queue = m_graphics_queue,
+    //     .DescriptorPool = VK_NULL_HANDLE,
+    //     .DescriptorPoolSize = 16,
+    //     .RenderPass = // TODO:
+    // };
+
+    // ImGui_ImplVulkan_Init(&init_info);
+#endif
+
     m_start_time = std::chrono::high_resolution_clock::now();
 
     return 0;
@@ -763,6 +788,11 @@ void RenderingDriverVulkan::poll()
     {
         shader->reload_if_needed();
     }
+#endif
+
+#ifdef __has_debug_menu
+    // ImGui_ImplSDL3_NewFrame();
+    // ImGui_ImplVulkan_NewFrame();
 #endif
 }
 
@@ -1089,6 +1119,7 @@ void RenderingDriverVulkan::draw_graph(const RenderGraph& graph)
             }
 
             use_previous_depth_pass = begin_render_pass.descriptor.depth_attachment.has_value() && begin_render_pass.descriptor.depth_attachment->load;
+            depth_pass = render_pass_cache.attachments.size() == 0; // we assume its a depth-only pass if there is no color attachments
             render_pass_index += 1;
         }
         else if (std::holds_alternative<EndRenderPassInstruction>(instruction))
@@ -1175,8 +1206,7 @@ Result<vk::Pipeline> RenderingDriverVulkan::create_graphics_pipeline(Ref<Shader>
     if (shader->get_stages().fragment)
         shader_stages.push_back(vk::PipelineShaderStageCreateInfo({}, vk::ShaderStageFlagBits::eFragment, shader_module_result.value, "fragment_main"));
 
-    std::vector<vk::VertexInputBindingDescription> input_bindings;
-    input_bindings.reserve(instance_layout.has_value() ? 4 : 3);
+    StackVector<vk::VertexInputBindingDescription, 4> input_bindings; // 4 or 3 elements depending on `instance_layout`
 
     std::vector<vk::VertexInputAttributeDescription> input_attribs;
     input_attribs.reserve(3 + (instance_layout.has_value() ? instance_layout->inputs.size() : 0));

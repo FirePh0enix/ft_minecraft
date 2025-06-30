@@ -27,6 +27,13 @@
 #include "Render/WebGPU/DriverWebGPU.hpp"
 #endif
 
+#ifdef __has_debug_menu
+#include <imgui.h>
+
+#include <backends/imgui_impl_sdl3.h>
+#include <backends/imgui_impl_vulkan.h>
+#endif
+
 #ifdef __platform_web
 
 #define MAIN_FUNC_NAME emscripten_main
@@ -236,6 +243,15 @@ static void tick()
     }
 
     RenderingDriver::get()->poll();
+
+#ifdef __has_debug_menu
+    // ImGui::NewFrame();
+
+    // if (ImGui::Begin(""))
+    // {
+    // }
+    // ImGui::End();
+#endif
 
     const glm::vec3 player_pos = player->get_component<TransformComponent3D>()->get_global_transform().position();
     gen->set_player_pos(player_pos);

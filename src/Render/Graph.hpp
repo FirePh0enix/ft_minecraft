@@ -79,6 +79,11 @@ public:
 
     void add_copy(Ref<Buffer> src, Ref<Buffer> dst, size_t size, size_t src_offset = 0, size_t dst_offset = 0);
 
+    /**
+     * @brief Add imgui draw calls. no-op when `__has_debug_menu` is not set.
+     */
+    void add_imgui_draw();
+
 private:
     std::vector<Instruction> m_instructions;
     bool m_renderpass = false;

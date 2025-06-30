@@ -17,8 +17,9 @@ include(FetchContent)
 option(BUILD_DOC "Build documentation" OFF)
 option(RUN_TESTS "Run tests" OFF)
 option(ENABLE_SHADER_HOTRELOAD "Shader hot reloading" OFF)
+option(ENABLE_DEBUG_MENU "Enable an advanced debug menu" OFF)
 option(SANITIZE_ADDRESS "Enable AddressSanitizer" OFF)
-option(SANITIZE_THREAD "Enable AddressSanitizer" OFF)
+option(SANITIZE_THREAD "Enable ThreadSanitizer" OFF)
 
 list(APPEND SOURCES
     src/Args.cpp
@@ -120,6 +121,10 @@ endif()
 
 if (ENABLE_SHADER_HOTRELOAD)
     target_compile_definitions(${TARGET_NAME} PRIVATE __has_shader_hot_reload)
+endif()
+
+if (ENABLE_DEBUG_MENU)
+    target_compile_definitions(${TARGET_NAME} PRIVATE __has_debug_menu)
 endif()
 
 if (SANITIZE_ADDRESS)

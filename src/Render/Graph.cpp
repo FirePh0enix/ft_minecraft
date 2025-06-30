@@ -47,3 +47,10 @@ void RenderGraph::add_copy(Ref<Buffer> src, Ref<Buffer> dst, size_t size, size_t
     ERR_COND(m_renderpass, "Cannot copy inside of a renderpass");
     m_instructions.push_back(CopyInstruction{.src = src, .dst = dst, .src_offset = src_offset, .dst_offset = dst_offset, .size = size});
 }
+
+void RenderGraph::add_imgui_draw()
+{
+#ifdef __has_debug_menu
+    // ImGui_ImplVulkan_RenderDrawData(ImG, VkCommandBuffer command_buffer)
+#endif
+}
