@@ -244,7 +244,7 @@ Result<vk::Pipeline> PipelineCache::get_or_create(Ref<Material> material, vk::Re
             shader->set_was_reloaded(false);
 
             m_pipelines.erase(key);
-            return get_or_create(material, render_pass);
+            return get_or_create(material, render_pass, depth_pass, use_previous_depth_pass);
         }
         else
         {

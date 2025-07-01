@@ -181,7 +181,9 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     }
 
     gen = make_ref<WorldGenerator>(world, args.has("disable-save"));
-    gen->set_terrain(make_ref<FlatTerrainGenerator>());
+    // gen->set_terrain(make_ref<FlatTerrainGenerator>());
+    gen->set_terrain(make_ref<OverworldTerrainGenerator>());
+
 
     // This is very hacky but the only way to create the render pass required for ImGui.
     // TODO: Maybe a solution would be to create a render pass only for imgui ?
@@ -366,6 +368,8 @@ static void register_all_classes()
     Block::register_class();
     TerrainGenerator::register_class();
     FlatTerrainGenerator::register_class();
+    OverworldTerrainGenerator::register_class();
+
 
     Font::register_class();
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "World/Generation/Terrain.hpp"
+#include "World/Registry.hpp"
 #include "World/Save.hpp"
 #include "World/World.hpp"
 
@@ -311,7 +312,17 @@ public:
                     if (!m_terrain->has_block(x + block_x, y, z + block_z))
                         continue;
 
-                    chunk->set_block(x, y, z, BlockState(2));
+                    // auto id = BlockRegistry::get().get_block_id("dirt");
+
+                    if (y <= 64)
+                    {
+                        chunk->set_block(x, y, z, BlockState(3));
+                    }
+
+                    else
+                    {
+                        chunk->set_block(x, y, z, BlockState(1));
+                    }
                 }
             }
         }

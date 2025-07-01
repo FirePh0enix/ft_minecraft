@@ -204,7 +204,7 @@ void Shader::reload_if_needed()
 
     error("Shader {} was modified and will be reloaded...", m_filename);
 
-    Result<> result = compile_internal(m_filename, m_definitions);
+    Result<> result = compile_internal(m_filename, {}, m_stages);
 
     if (result.has_value())
     {
