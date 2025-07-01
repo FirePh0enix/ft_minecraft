@@ -32,7 +32,7 @@ struct DrawInstruction
 struct CopyInstruction
 {
     Ref<Buffer> src = nullptr;
-    Ref<Buffer> dst = nullptr;
+    Buffer *dst = nullptr;
     size_t src_offset = 0;
     size_t dst_offset = 0;
     size_t size = 0;
@@ -52,8 +52,11 @@ class RenderGraph
 public:
     RenderGraph();
 
+    static RenderGraph& get();
+
     void reset();
     View<Instruction> get_instructions() const;
+    View<CopyInstruction> get_copy_instructions() const;
 
     /**
      * @brief Start a render pass.
@@ -77,7 +80,7 @@ public:
      */
     void add_draw(Ref<Mesh> mesh, Ref<Material> material, glm::mat4 view_matrix = {}, uint32_t instance_count = 1, std::optional<Ref<Buffer>> instance_buffer = {}, bool ignore_depth_prepass = false);
 
-    void add_copy(Ref<Buffer> src, Ref<Buffer> dst, size_t size, size_t src_offset = 0, size_t dst_offset = 0);
+    void add_copy(Ref<Buffer> src, Buffer *dst, size_t size, size_t src_offset = 0, size_t dst_offset = 0);
 
     /**
      * @brief Add imgui draw calls. no-op when `__has_debug_menu` is not set.
@@ -85,6 +88,9 @@ public:
     void add_imgui_draw();
 
 private:
+    std::vector<CopyInstruction> m_copy_instructions;
     std::vector<Instruction> m_instructions;
     bool m_renderpass = false;
 };
+
+static inline RenderGraph g_graph;

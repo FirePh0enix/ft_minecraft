@@ -429,8 +429,6 @@ Result<vk::Framebuffer> FramebufferCache::get_or_create(FramebufferCache::Key ke
 
         m_framebuffers[key] = result.value;
 
-        println("framebuffer created {} (VkRenderPass({}), {}x{}, {})", m_framebuffers.size(), key.render_pass, key.width, key.height, key.views);
-
         return result.value;
     }
 }
@@ -1051,6 +1049,17 @@ void RenderingDriverVulkan::draw_graph(const RenderGraph& graph)
 
     // TracyVkZone(m_tracy_context, cb, "DrawMesh");
 
+    for (const auto& copy_instruction : graph.get_copy_instructions())
+    {
+        Ref<BufferVulkan> src_buffer = copy_instruction.src.cast_to<BufferVulkan>();
+        BufferVulkan *dst_buffer = (BufferVulkan *)copy_instruction.dst;
+        vk::BufferCopy copy_region(copy_instruction.src_offset, copy_instruction.dst_offset, copy_instruction.size);
+        cb.copyBuffer(src_buffer->buffer, dst_buffer->buffer, {copy_region});
+
+        vk::MemoryBarrier barrier(vk::AccessFlagBits::eMemoryRead, vk::AccessFlagBits::eMemoryRead);
+        cb.pipelineBarrier(vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eBottomOfPipe, vk::DependencyFlagBits::eByRegion, {barrier}, {}, {});
+    }
+
     vk::RenderPass current_render_pass;
     uint32_t render_pass_index = 0;
     bool depth_pass = false;
@@ -1174,10 +1183,6 @@ void RenderingDriverVulkan::draw_graph(const RenderGraph& graph)
             cb.pushConstants(material_layout->m_pipeline_layout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(PushConstants), &push_constants);
 
             cb.drawIndexed(mesh->vertex_count(), draw.instance_count, 0, 0, 0);
-        }
-        else if (std::holds_alternative<CopyInstruction>(instruction))
-        {
-            // TODO
         }
     }
 
@@ -1495,20 +1500,7 @@ void BufferVulkan::update(View<uint8_t> view, size_t offset)
     std::memcpy(map_result.value, view.data(), view.size());
     RenderingDriverVulkan::get()->get_device().unmapMemory(staging_buffer_vk->memory);
 
-    // Copy from the staging buffer to the final buffer
-    std::lock_guard<std::mutex> lock(RenderingDriverVulkan::get()->get_graphics_mutex());
-    vk::CommandBuffer cb = RenderingDriverVulkan::get()->get_transfer_buffer();
-
-    ERR_RESULT_E_RET(cb.reset());
-    ERR_RESULT_E_RET(cb.begin(vk::CommandBufferBeginInfo(vk::CommandBufferUsageFlagBits::eOneTimeSubmit)));
-
-    vk::BufferCopy region(0, offset, std::min(view.size(), m_size - offset));
-
-    cb.copyBuffer(staging_buffer_vk->buffer, buffer, {region});
-    ERR_RESULT_E_RET(cb.end());
-
-    ERR_RESULT_E_RET(RenderingDriverVulkan::get()->get_graphics_queue().submit({vk::SubmitInfo(0, nullptr, nullptr, 1, &cb)}));
-    ERR_RESULT_E_RET(RenderingDriverVulkan::get()->get_graphics_queue().waitIdle());
+    RenderGraph::get().add_copy(staging_buffer_vk, this, view.size(), 0, offset);
 }
 
 TextureVulkan::~TextureVulkan()

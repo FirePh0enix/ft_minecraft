@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Core/Logger.hpp"
 #include "Core/Print.hpp"
 
 #ifndef STACKTRACE_SIZE
@@ -328,41 +329,41 @@ private:
 
 #endif
 
-#define ERR_COND(COND, MESSAGE)                                         \
-    do                                                                  \
-    {                                                                   \
-        if (COND)                                                       \
-            ::println("error: {}:{}: {}", __FILE__, __LINE__, MESSAGE); \
+#define ERR_COND(COND, MESSAGE)                                \
+    do                                                         \
+    {                                                          \
+        if (COND)                                              \
+            ::error("{}:{}: {}", __FILE__, __LINE__, MESSAGE); \
     } while (0)
 
-#define ERR_COND_R(COND, MESSAGE, ...)                                  \
-    do                                                                  \
-    {                                                                   \
-        if (COND)                                                       \
-        {                                                               \
-            ::println("error: {}:{}: {}", __FILE__, __LINE__, MESSAGE); \
-            return __VA_ARGS__;                                         \
-        }                                                               \
+#define ERR_COND_R(COND, MESSAGE, ...)                         \
+    do                                                         \
+    {                                                          \
+        if (COND)                                              \
+        {                                                      \
+            ::error("{}:{}: {}", __FILE__, __LINE__, MESSAGE); \
+            return __VA_ARGS__;                                \
+        }                                                      \
     } while (0)
 
-#define ERR_COND_B(COND, MESSAGE, ...)                                  \
-    do                                                                  \
-    {                                                                   \
-        if (COND)                                                       \
-        {                                                               \
-            ::println("error: {}:{}: {}", __FILE__, __LINE__, MESSAGE); \
-            break;                                                      \
-        }                                                               \
+#define ERR_COND_B(COND, MESSAGE, ...)                         \
+    do                                                         \
+    {                                                          \
+        if (COND)                                              \
+        {                                                      \
+            ::error("{}:{}: {}", __FILE__, __LINE__, MESSAGE); \
+            break;                                             \
+        }                                                      \
     } while (0)
 
-#define ERR_COND_C(COND, MESSAGE, ...)                                  \
-    do                                                                  \
-    {                                                                   \
-        if (COND)                                                       \
-        {                                                               \
-            ::println("error: {}:{}: {}", __FILE__, __LINE__, MESSAGE); \
-            continue;                                                   \
-        }                                                               \
+#define ERR_COND_C(COND, MESSAGE, ...)                         \
+    do                                                         \
+    {                                                          \
+        if (COND)                                              \
+        {                                                      \
+            ::error("{}:{}: {}", __FILE__, __LINE__, MESSAGE); \
+            continue;                                          \
+        }                                                      \
     } while (0)
 
 #define ERR_COND_V(COND, MESSAGE, ...)                     \

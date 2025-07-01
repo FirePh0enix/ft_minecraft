@@ -53,7 +53,6 @@ static void tick();
 static void main_loop();
 
 Ref<Window> window;
-RenderGraph graph;
 Text text;
 
 Ref<WorldGenerator> gen;
@@ -263,7 +262,7 @@ static void tick()
 
     Input::get().post_events();
 
-    graph.reset();
+    RenderGraph& graph = RenderGraph::get();
 
     // depth prepass
     {
@@ -280,6 +279,9 @@ static void tick()
     }
 
     RenderingDriver::get()->draw_graph(graph);
+
+    // Reset after drawing the graph, not before drawing so that `main` can add copy calls.
+    graph.reset();
 }
 
 static void register_all_classes()

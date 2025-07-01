@@ -167,6 +167,7 @@ protected:
 struct RenderPassColorAttachment
 {
     TextureFormat format = TextureFormat::RGBA8Srgb;
+
     /**
      * This attachment references the surface texture. If this is true then `format` is ignored.
      */
@@ -258,6 +259,9 @@ public:
 
     /**
      * @brief Allocate a buffer in the GPU memory.
+     * @param size Size of the buffer
+     * @param flags
+     * @param visibility
      */
     [[nodiscard]]
     virtual Result<Ref<Buffer>> create_buffer(size_t size, BufferUsage flags = {}, BufferVisibility visibility = BufferVisibility::GPUOnly) = 0;
@@ -272,9 +276,24 @@ public:
     [[nodiscard]]
     virtual Result<Ref<Buffer>> create_buffer_from_data(size_t size, View<uint8_t> data, BufferUsage flags = {}, BufferVisibility visibility = BufferVisibility::GPUOnly);
 
+    /**
+     * @brief Create a 2D texture on the GPU.
+     * @param width Pixel width of the texture
+     * @param height Pixel height of the texture
+     * @param format Format of the pixel
+     * @param usage
+     */
     [[nodiscard]]
     virtual Result<Ref<Texture>> create_texture(uint32_t width, uint32_t height, TextureFormat format, TextureUsage usage) = 0;
 
+    /**
+     * @brief Create an array of 2D texture on the GPU.
+     * @param width Pixel width of the texture
+     * @param height Pixel height of the texture
+     * @param format Format of the pixel
+     * @param usage
+     * @param layers How many texture in the array
+     */
     [[nodiscard]]
     virtual Result<Ref<Texture>> create_texture_array(uint32_t width, uint32_t height, TextureFormat format, TextureUsage usage, uint32_t layers) = 0;
 
@@ -282,7 +301,7 @@ public:
     virtual Result<Ref<Texture>> create_texture_cube(uint32_t width, uint32_t height, TextureFormat format, TextureUsage usage) = 0;
 
     /**
-     * @brief Create a mesh.
+     * @brief Create a mesh on the GPU.
      * @param index_type Type of indices used for this mesh.
      * @param indices Indices of the mesh. Must be an array of `uint32_t` if index_type is `IndexType::U32` or `uint16_t` if index_type is `IndexType::U16`.
      * @param vertices Vertices of the mesh.
@@ -303,6 +322,9 @@ public:
      */
     virtual void draw_graph(const RenderGraph& graph) = 0;
 
+    /**
+     * @brief Returns the size of the current rendering surface.
+     */
     inline Extent2D get_surface_extent() const
     {
         return m_surface_extent;
