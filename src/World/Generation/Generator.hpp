@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Core/Print.hpp"
 #include "World/Generation/Terrain.hpp"
 #include "World/Registry.hpp"
 #include "World/Save.hpp"
@@ -312,17 +313,54 @@ public:
                     if (!m_terrain->has_block(x + block_x, y, z + block_z))
                         continue;
 
-                    // auto id = BlockRegistry::get().get_block_id("dirt");
+                    auto id = BlockRegistry::get().get_block_id("stone");
 
-                    if (y <= 64)
+                    BiomeNoise noise{
+                        .continentalness = m_terrain->get_continentalness_noise(x, z),
+                        .erosion = m_terrain->get_erosion_noise(x, z),
+                        .peaks_and_valleys = m_terrain->get_peaks_and_valleys_noise(x, z),
+                        .temperature_noise = m_terrain->get_temperature_noise(x, z),
+                        .humidity_noise = m_terrain->get_humidity_noise(x, z),
+                    };
+
+                    Biome biome = m_terrain->get_biome(noise);
+
+                    if (biome.non_inland_biome == NonInlandBiome::Ocean)
                     {
-                        chunk->set_block(x, y, z, BlockState(3));
+                        id = BlockRegistry::get().get_block_id("water");
                     }
 
-                    else
+                    else if (biome.inland_biome == InlandBiome::FrozenRiver || biome.inland_biome == InlandBiome::River)
                     {
-                        chunk->set_block(x, y, z, BlockState(1));
+                        id = BlockRegistry::get().get_block_id("water");
                     }
+
+                    else if (biome.inland_biome == InlandBiome::StonyShore || biome.inland_biome == InlandBiome::StonyPeaks)
+                    {
+                        id = BlockRegistry::get().get_block_id("stone");
+                    }
+
+                    else if (biome.inland_biome == InlandBiome::FrozenPeaks || biome.inland_biome == InlandBiome::SnowyPlains)
+                    {
+                        id = BlockRegistry::get().get_block_id("snow");
+                    }
+
+                    else if (biome.inland_biome == InlandBiome::Beach || biome.inland_biome == InlandBiome::Desert)
+                    {
+                        id = BlockRegistry::get().get_block_id("sand");
+                    }
+
+                    else if (biome.inland_biome == InlandBiome::Taiga || biome.inland_biome == InlandBiome::Plains || biome.inland_biome == InlandBiome::Savanna)
+                    {
+                        id = BlockRegistry::get().get_block_id("grass");
+                    }
+
+                    if ((float)y <= base_height)
+                    {
+                        id = BlockRegistry::get().get_block_id("water");
+                    }
+
+                    chunk.set_block(x, y, z, BlockState(id));
                 }
             }
         }

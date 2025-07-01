@@ -170,6 +170,12 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
 
         std::array<std::string, 6> water = {"Water.png", "Water.png", "Water.png", "Water.png", "Water.png", "Water.png"};
         BlockRegistry::get().register_block(make_ref<Block>("water", water));
+
+        std::array<std::string, 6> sand = {"Sand.png", "Sand.png", "Sand.png", "Sand.png", "Sand.png", "Sand.png"};
+        BlockRegistry::get().register_block(make_ref<Block>("sand", sand));
+
+        std::array<std::string, 6> snow = {"Snow.png", "Snow.png", "Snow.png", "Snow.png", "Snow.png", "Snow.png"};
+        BlockRegistry::get().register_block(make_ref<Block>("snow", snow));
     }
 
     BlockRegistry::get().create_texture_array();
@@ -369,7 +375,6 @@ static void register_all_classes()
     TerrainGenerator::register_class();
     FlatTerrainGenerator::register_class();
     OverworldTerrainGenerator::register_class();
-
 
     Font::register_class();
 
