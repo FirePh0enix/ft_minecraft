@@ -65,6 +65,11 @@ enum class ErrorKind : uint16_t
      * @brief A shader failed to compile.
      */
     ShaderCompilationFailed = 0x1003,
+
+    /**
+     * @brief ImGui initialization failed.
+     */
+    ImGuiInitFailed = 0x1004,
 };
 
 template <>
@@ -96,6 +101,9 @@ struct Formatter<ErrorKind>
             break;
         case ErrorKind::ShaderCompilationFailed:
             msg = "Shader compilation failed";
+            break;
+        case ErrorKind::ImGuiInitFailed:
+            msg = "ImGui initialization failed";
             break;
         }
 

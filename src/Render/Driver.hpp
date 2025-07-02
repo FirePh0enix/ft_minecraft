@@ -242,6 +242,12 @@ public:
     virtual Result<> initialize(const Window& window) = 0;
 
     /**
+     * @brief Initialize ImGui. no-op when `__has_debug_menu`.
+     */
+    [[nodiscard]]
+    virtual Result<> initialize_imgui() = 0;
+
+    /**
      * @brief Configure the surface and swapchain.
      * @param window
      * @param vsync Enable or disable vsync for the surface.

@@ -38,7 +38,11 @@ struct CopyInstruction
     size_t size = 0;
 };
 
-using Instruction = std::variant<BeginRenderPassInstruction, EndRenderPassInstruction, DrawInstruction, CopyInstruction>;
+struct ImGuiDrawInstruction
+{
+};
+
+using Instruction = std::variant<BeginRenderPassInstruction, EndRenderPassInstruction, DrawInstruction, CopyInstruction, ImGuiDrawInstruction>;
 
 struct PushConstants
 {

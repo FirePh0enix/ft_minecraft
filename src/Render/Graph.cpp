@@ -62,6 +62,6 @@ void RenderGraph::add_copy(Ref<Buffer> src, Buffer *dst, size_t size, size_t src
 void RenderGraph::add_imgui_draw()
 {
 #ifdef __has_debug_menu
-    // ImGui_ImplVulkan_RenderDrawData(ImG, VkCommandBuffer command_buffer)
+    m_instructions.push_back(ImGuiDrawInstruction{});
 #endif
 }

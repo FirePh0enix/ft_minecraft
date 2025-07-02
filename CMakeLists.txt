@@ -26,6 +26,7 @@ list(APPEND SOURCES
     src/Core/Class.cpp
     src/Core/Error.cpp
     src/Core/Ref.cpp
+    src/Platform/Platform.cpp
     src/Render/Driver.cpp
     src/Render/Graph.cpp
     src/Render/Shader.cpp

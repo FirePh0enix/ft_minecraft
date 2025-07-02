@@ -117,7 +117,7 @@ public:
     };
 
     RenderGraphCache::RenderPass& set_render_pass(uint32_t index, RenderPassDescriptor desc);
-    RenderGraphCache::RenderPass& get_render_pass(uint32_t index);
+    RenderGraphCache::RenderPass& get_render_pass(int32_t index);
 
 private:
     std::vector<RenderPass> m_render_passes;
@@ -138,6 +138,9 @@ public:
 
     [[nodiscard]]
     virtual Result<> initialize(const Window& window) override;
+
+    [[nodiscard]]
+    Result<> initialize_imgui() override;
 
     [[nodiscard]]
     virtual Result<> configure_surface(const Window& window, VSync vsync) override;
@@ -237,7 +240,6 @@ private:
     vk::CommandBuffer m_transfer_buffer;
 
     vk::QueryPool m_timestamp_query_pool;
-    // vk::RenderPass m_render_pass;
 
     PipelineCache m_pipeline_cache;
     SamplerCache m_sampler_cache;
@@ -260,14 +262,19 @@ private:
     std::chrono::time_point<std::chrono::high_resolution_clock> m_last_frame_limit_time;
 
     TracyVkCtx m_tracy_context;
+    SDL_Window *m_window;
+
+    static PFN_vkVoidFunction imgui_get_proc_addr(const char *name, void *user)
+    {
+        (void)user;
+        return vk::detail::defaultDispatchLoaderDynamic.vkGetInstanceProcAddr(RenderingDriverVulkan::get()->m_instance, name);
+    }
 
     // Swapchain resources
     uint32_t m_swapchain_image_count;
     vk::SwapchainKHR m_swapchain = nullptr;
-    Ref<Texture> m_depth_texture;
     std::vector<vk::Image> m_swapchain_images;
     std::vector<Ref<Texture>> m_swapchain_textures;
-    // std::vector<vk::Framebuffer> m_swapchain_framebuffers;
 
     Result<Ref<Texture>> create_texture_from_vk_image(vk::Image image, uint32_t width, uint32_t height, vk::Format format);
 

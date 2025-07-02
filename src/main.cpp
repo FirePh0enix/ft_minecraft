@@ -3,6 +3,7 @@
 #include "Font.hpp"
 #include "Input.hpp"
 #include "MeshPrimitives.hpp"
+#include "Platform/Platform.hpp"
 #include "Render/Driver.hpp"
 #include "Render/Graph.hpp"
 #include "Render/Shader.hpp"
@@ -181,6 +182,27 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     gen = make_ref<WorldGenerator>(world, args.has("disable-save"));
     gen->set_terrain(make_ref<FlatTerrainGenerator>());
 
+    {
+        RenderGraph& graph = RenderGraph::get();
+
+        // depth prepass
+        {
+            graph.begin_render_pass({.name = "depth pass", .depth_attachment = RenderPassDepthAttachment{.save = true}});
+            graph.end_render_pass();
+        }
+
+        // main color pass
+        {
+            graph.begin_render_pass({.name = "main pass", .color_attachments = {RenderPassColorAttachment{.surface_texture = true}}, .depth_attachment = RenderPassDepthAttachment{.load = true}});
+            graph.end_render_pass();
+        }
+
+        RenderingDriver::get()->draw_graph(graph);
+        graph.reset();
+
+        EXPECT(RenderingDriver::get()->initialize_imgui());
+    }
+
 #ifdef __platform_web
     emscripten_set_main_loop_arg([](void *)
                                  { main_loop(); }, nullptr, 0, true);
@@ -221,6 +243,10 @@ static void tick()
 
     std::optional<SDL_Event> event;
 
+#ifdef __has_debug_menu
+    ImGuiIO& imgui_io = ImGui::GetIO();
+#endif
+
     while ((event = window->poll_event()))
     {
         switch (event->type)
@@ -238,18 +264,29 @@ static void tick()
             break;
         }
 
+#ifdef __has_debug_menu
+        ImGui_ImplSDL3_ProcessEvent(&*event);
+
+        if (imgui_io.WantCaptureMouse || imgui_io.WantCaptureKeyboard)
+        {
+            continue;
+        }
+#endif
+
         Input::get().process_event(*window, event.value());
     }
 
     RenderingDriver::get()->poll();
 
 #ifdef __has_debug_menu
-    // ImGui::NewFrame();
+    ImGui::NewFrame();
 
-    // if (ImGui::Begin(""))
-    // {
-    // }
-    // ImGui::End();
+    if (ImGui::Begin("General info"))
+    {
+        size_t rss = get_current_rss();
+        ImGui::Text("CPU Memory: %zu bytes", rss);
+    }
+    ImGui::End();
 #endif
 
     const glm::vec3 player_pos = player->get_component<TransformComponent3D>()->get_global_transform().position();
@@ -275,6 +312,8 @@ static void tick()
     {
         graph.begin_render_pass({.name = "main pass", .color_attachments = {RenderPassColorAttachment{.surface_texture = true}}, .depth_attachment = RenderPassDepthAttachment{.load = true}});
         scene->encode_draw_calls(graph);
+
+        graph.add_imgui_draw();
         graph.end_render_pass();
     }
 
