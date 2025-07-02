@@ -160,5 +160,5 @@ private:
 
     std::array<Status, (size_t)Action::Max> m_actions;
     bool m_mouse_grabbed = false;
-    glm::vec2 m_mouse_relative;
+    glm::vec2 m_mouse_relative = glm::vec2(0.0);
 };

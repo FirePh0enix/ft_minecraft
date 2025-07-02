@@ -503,6 +503,11 @@ RenderingDriverVulkan::~RenderingDriverVulkan()
     }
 }
 
+Result<Ref<Buffer>> StagingBufferPool::get_or_create(size_t size, BufferUsage usage, BufferVisibility visibility)
+{
+    // TODO:
+}
+
 Result<> RenderingDriverVulkan::initialize(const Window& window)
 {
     VULKAN_HPP_DEFAULT_DISPATCHER.init();
@@ -852,6 +857,42 @@ Result<Ref<Buffer>> RenderingDriverVulkan::create_buffer(size_t size, BufferUsag
     return make_ref<BufferVulkan>(buffer_result.value, memory_result.value(), size).cast_to<Buffer>();
 }
 
+void RenderingDriverVulkan::update_buffer(const Ref<Buffer>& dest, View<uint8_t> view, size_t offset)
+{
+    ERR_COND_VR(view.size() > dest->size() - offset, "too big: {} but size is {}", view.size(), dest->size() - offset);
+
+    if (view.size() == 0)
+        return;
+
+    auto buffer_result = create_buffer(view.size(), {.copy_src = true}, BufferVisibility::GPUAndCPU);
+    ERR_EXPECT_R(buffer_result, "failed to create the staging buffer");
+
+    Ref<BufferVulkan> staging_buffer = buffer_result.value().cast_to<BufferVulkan>();
+
+    // Copy the data into the staging buffer.
+    auto map_result = RenderingDriverVulkan::get()->get_device().mapMemory(staging_buffer->memory, 0, view.size(), {});
+    ERR_RESULT_RET(map_result);
+    std::memcpy(map_result.value, view.data(), view.size());
+    RenderingDriverVulkan::get()->get_device().unmapMemory(staging_buffer->memory);
+
+    // RenderGraph::get().add_copy(staging_buffer, dest, view.size(), 0, offset);
+
+    // Copy from the staging buffer to the final buffer
+    std::lock_guard<std::mutex> lock(RenderingDriverVulkan::get()->get_graphics_mutex());
+    vk::CommandBuffer cb = RenderingDriverVulkan::get()->get_transfer_buffer();
+
+    ERR_RESULT_E_RET(cb.reset());
+    ERR_RESULT_E_RET(cb.begin(vk::CommandBufferBeginInfo(vk::CommandBufferUsageFlagBits::eOneTimeSubmit)));
+
+    vk::BufferCopy region(0, offset, std::min(view.size(), dest->size() - offset));
+
+    cb.copyBuffer(staging_buffer->buffer, dest.cast_to<BufferVulkan>()->buffer, {region});
+    ERR_RESULT_E_RET(cb.end());
+
+    ERR_RESULT_E_RET(RenderingDriverVulkan::get()->get_graphics_queue().submit({vk::SubmitInfo(0, nullptr, nullptr, 1, &cb)}));
+    ERR_RESULT_E_RET(RenderingDriverVulkan::get()->get_graphics_queue().waitIdle());
+}
+
 Result<Ref<Texture>> RenderingDriverVulkan::create_texture(uint32_t width, uint32_t height, TextureFormat format, TextureUsage usage)
 {
     const vk::Format vk_format = convert_texture_format(format);
@@ -959,10 +1000,10 @@ Result<Ref<Mesh>> RenderingDriverVulkan::create_mesh(IndexType index_type, View<
     YEET(uv_buffer_result);
     Ref<Buffer> uv_buffer = uv_buffer_result.value();
 
-    index_buffer->update(indices.as_bytes());
-    vertex_buffer->update(vertices.as_bytes());
-    normal_buffer->update(normals.as_bytes());
-    uv_buffer->update(uvs.as_bytes());
+    RenderingDriver::get()->update_buffer(index_buffer, indices.as_bytes(), 0);
+    RenderingDriver::get()->update_buffer(vertex_buffer, vertices.as_bytes(), 0);
+    RenderingDriver::get()->update_buffer(normal_buffer, normals.as_bytes(), 0);
+    RenderingDriver::get()->update_buffer(uv_buffer, uvs.as_bytes(), 0);
 
     return make_ref<MeshVulkan>(index_type, convert_index_type(index_type), vertex_count, index_buffer, vertex_buffer, normal_buffer, uv_buffer).cast_to<Mesh>();
 }
@@ -1081,7 +1122,7 @@ void RenderingDriverVulkan::draw_graph(const RenderGraph& graph)
     for (const auto& copy_instruction : graph.get_copy_instructions())
     {
         Ref<BufferVulkan> src_buffer = copy_instruction.src.cast_to<BufferVulkan>();
-        BufferVulkan *dst_buffer = (BufferVulkan *)copy_instruction.dst;
+        Ref<BufferVulkan> dst_buffer = copy_instruction.dst.cast_to<BufferVulkan>();
         vk::BufferCopy copy_region(copy_instruction.src_offset, copy_instruction.dst_offset, copy_instruction.size);
         cb.copyBuffer(src_buffer->buffer, dst_buffer->buffer, {copy_region});
     }
@@ -1145,7 +1186,7 @@ void RenderingDriverVulkan::draw_graph(const RenderGraph& graph)
                 }
                 else
                 {
-                    views.push_back(m_render_graph_cache.get_render_pass(render_pass_index - 1).depth_attachment->texture->image_view);
+                    views.push_back(m_render_graph_cache.get_render_pass((int32_t)render_pass_index - 1).depth_attachment->texture->image_view);
                 }
             }
 
@@ -1516,27 +1557,6 @@ BufferVulkan::~BufferVulkan()
 {
     RenderingDriverVulkan::get()->get_device().freeMemory(memory);
     RenderingDriverVulkan::get()->get_device().destroyBuffer(buffer);
-}
-
-void BufferVulkan::update(View<uint8_t> view, size_t offset)
-{
-    ERR_COND_VR(view.size() > m_size - offset, "too big: {} but size is {}", view.size(), m_size - offset);
-
-    if (view.size() == 0)
-        return;
-
-    auto buffer_result = RenderingDriverVulkan::get()->create_buffer(view.size(), {.copy_src = true}, BufferVisibility::GPUAndCPU);
-    ERR_EXPECT_R(buffer_result, "failed to create the staging buffer");
-
-    Ref<BufferVulkan> staging_buffer_vk = buffer_result.value().cast_to<BufferVulkan>();
-
-    // Copy the data into the staging buffer.
-    auto map_result = RenderingDriverVulkan::get()->get_device().mapMemory(staging_buffer_vk->memory, 0, view.size(), {});
-    ERR_RESULT_RET(map_result);
-    std::memcpy(map_result.value, view.data(), view.size());
-    RenderingDriverVulkan::get()->get_device().unmapMemory(staging_buffer_vk->memory);
-
-    RenderGraph::get().add_copy(staging_buffer_vk, this, view.size(), 0, offset);
 }
 
 TextureVulkan::~TextureVulkan()

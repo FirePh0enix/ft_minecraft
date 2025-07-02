@@ -16,7 +16,7 @@ public:
 
     virtual void encode_draw_calls(RenderGraph& graph, Camera& camera) override
     {
-        graph.add_draw(m_mesh.ptr(), m_material.ptr(), camera.get_view_proj_matrix());
+        graph.add_draw(m_mesh, m_material, camera.get_view_proj_matrix());
     }
 
 private:

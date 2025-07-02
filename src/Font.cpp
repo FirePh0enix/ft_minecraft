@@ -244,7 +244,7 @@ void Text::set(const std::string& text)
         {
             const size_t size = i + batch_size < text.size() ? batch_size : i - (i / batch_size) * batch_size + 1;
             View<Font::Instance> span(instances.data(), size);
-            m_instance_buffer->update(span.as_bytes(), batch_size * sizeof(Font::Instance) * (i / batch_size));
+            RenderingDriver::get()->update_buffer(m_instance_buffer, span.as_bytes(), batch_size * sizeof(Font::Instance) * (i / batch_size));
         }
 
         offset_x += float(ch.advance >> 6) / float(height);
@@ -273,10 +273,10 @@ void Text::set_color(glm::vec4 color)
 
 void Text::encode_draw_calls(RenderGraph& graph)
 {
-    graph.add_draw(g_mesh, m_material, g_ortho_matrix, m_size, m_instance_buffer, true);
+    graph.add_draw(g_mesh, m_material, g_ortho_matrix, m_size, m_instance_buffer);
 }
 
 void Text::update_uniform_buffer()
 {
-    m_uniform_buffer->update(View<Font::Uniform>(m_uniform).as_bytes());
+    RenderingDriver::get()->update_buffer(m_uniform_buffer, View<Font::Uniform>(m_uniform).as_bytes(), 0);
 }

@@ -6,6 +6,8 @@
 #include <chrono>
 #include <map>
 
+using gpu_time_point = std::chrono::time_point<std::chrono::high_resolution_clock>;
+
 class TextureVulkan;
 
 struct QueueInfo
@@ -123,6 +125,35 @@ private:
     std::vector<RenderPass> m_render_passes;
 };
 
+class StagingBufferPool
+{
+public:
+    static constexpr size_t buffer_lifetime = 5;
+
+    struct StagingBufferInfo
+    {
+        Ref<Buffer> buffer;
+        bool used;
+        // Staging buffer will be free'd after a fixed time.
+        gpu_time_point last_access_time;
+    };
+
+    struct Key
+    {
+        size_t size = 0;
+        BufferUsage usage = {};
+        BufferVisibility visibility = BufferVisibility::GPUOnly;
+    };
+
+    /**
+     * @brief Try find an unused buffer with the correct parameter or create it.
+     */
+    Result<Ref<Buffer>> get_or_create(size_t size, BufferUsage usage, BufferVisibility visibility);
+
+private:
+    std::map<Key, std::vector<StagingBufferInfo>> m_buffers;
+};
+
 class RenderingDriverVulkan final : public RenderingDriver
 {
     CLASS(RenderingDriverVulkan, RenderingDriver);
@@ -151,6 +182,8 @@ public:
 
     [[nodiscard]]
     virtual Result<Ref<Buffer>> create_buffer(size_t size, BufferUsage usage = {}, BufferVisibility visibility = BufferVisibility::GPUOnly) override;
+
+    void update_buffer(const Ref<Buffer>& dest, View<uint8_t> view, size_t offset) override;
 
     [[nodiscard]]
     virtual Result<Ref<Texture>> create_texture(uint32_t width, uint32_t height, TextureFormat format, TextureUsage usage) override;
@@ -300,8 +333,6 @@ public:
     }
 
     virtual ~BufferVulkan();
-
-    virtual void update(View<uint8_t> view, size_t offset) override;
 
     vk::Buffer buffer;
     vk::DeviceMemory memory;

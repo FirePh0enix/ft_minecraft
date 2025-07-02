@@ -110,7 +110,6 @@ void Chunk::update_instance_buffer(Ref<Buffer> buffer)
         }
     }
 
-    // TODO: Ideally this update should be done in the render graph with barriers.
-    buffer->update(View(instances).as_bytes());
+    RenderingDriver::get()->update_buffer(buffer, View(instances).as_bytes(), 0);
     m_block_count = instances.size();
 }

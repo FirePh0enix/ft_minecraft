@@ -42,7 +42,7 @@ Result<Ref<Buffer>> RenderingDriver::create_buffer_from_data(size_t size, View<u
     YEET(buffer_result);
 
     Ref<Buffer> buffer = buffer_result.value();
-    buffer->update(data, 0);
+    update_buffer(buffer, data, 0);
 
     return buffer;
 }

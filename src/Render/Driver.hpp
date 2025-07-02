@@ -19,11 +19,6 @@ class Buffer : public Object
     CLASS(Buffer, Object);
 
 public:
-    /**
-     * @brief Update the content of the buffer.
-     */
-    virtual void update(View<uint8_t> view, size_t offset = 0) = 0;
-
     inline size_t size() const
     {
         return m_size;
@@ -271,6 +266,14 @@ public:
      */
     [[nodiscard]]
     virtual Result<Ref<Buffer>> create_buffer(size_t size, BufferUsage flags = {}, BufferVisibility visibility = BufferVisibility::GPUOnly) = 0;
+
+    /**
+     * @brief Update the content of a buffer.
+     * @param dest The buffer to type
+     * @param view The data to upload to the buffer
+     * @param offset Offset of the copy inside the destination buffer
+     */
+    virtual void update_buffer(const Ref<Buffer>& dest, View<uint8_t> view, size_t offset) = 0;
 
     /**
      * @brief Allocate a buffer in the GPU memory and fill it with `data`.
