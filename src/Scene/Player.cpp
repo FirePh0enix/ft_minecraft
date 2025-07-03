@@ -62,17 +62,18 @@ void Player::tick(double delta)
             t += 0.1;
         }
     }
-    glm::vec3 vel = glm::vec3(0.0);
 
-    vel += forward * dir.z * m_speed;
-    vel += up * dir.y * m_speed;
-    vel += right * dir.x * m_speed;
+    m_body->velocity() += forward * dir.z * m_speed;
+    m_body->velocity() += up * dir.y * m_speed;
+    m_body->velocity() += right * dir.x * m_speed;
 
-    // if (!m_body->is_on_ground(m_transform->get_global_transform().position(), m_world))
-    // {
-    //     vel.y -= 9.81f * (float)delta;
-    // }
+    if (m_gravity_enabled && !m_body->is_on_ground(m_world))
+    {
+        m_body->velocity().y -= m_gravity_value * (float)delta;
+    }
 
-    m_body->set_velocity(vel);
     m_body->move_and_collide(m_world, delta);
+    m_body->velocity().x = 0; // FIXME: Add friction, ...
+    m_body->velocity().y = 0;
+    m_body->velocity().z = 0;
 }

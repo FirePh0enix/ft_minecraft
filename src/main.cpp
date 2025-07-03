@@ -281,10 +281,19 @@ static void tick()
 #ifdef __has_debug_menu
     ImGui::NewFrame();
 
-    if (ImGui::Begin("General info"))
+    if (ImGui::Begin("Physics"))
     {
-        size_t rss = get_current_rss();
-        ImGui::Text("CPU Memory: %zu bytes", rss);
+        bool collisions = !player->get_component<RigidBody>()->disabled();
+        if (ImGui::Checkbox("Enable collisions", &collisions))
+            player->get_component<RigidBody>()->disabled() = !collisions;
+
+        bool gravity = player->get_component<Player>()->is_gravity_enabled();
+        if (ImGui::Checkbox("Enable gravity", &gravity))
+            player->get_component<Player>()->set_gravity_enabled(gravity);
+
+        float gravity_value = player->get_component<Player>()->get_gravity_value();
+        if (ImGui::SliderFloat("Gravity value", &gravity_value, 0.0, 20.0))
+            player->get_component<Player>()->set_gravity_value(gravity_value);
     }
     ImGui::End();
 #endif

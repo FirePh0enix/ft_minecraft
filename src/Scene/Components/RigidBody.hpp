@@ -10,24 +10,41 @@ class RigidBody : public Component
 
 public:
     RigidBody(AABB aabb)
-        : m_aabb(aabb)
+        : m_velocity(0.0), m_aabb(aabb)
     {
     }
 
     virtual void start() override;
     virtual void tick(double delta) override;
 
-    inline void set_velocity(glm::vec3 velocity)
+    const glm::vec3& velocity() const
     {
-        m_velocity = velocity;
+        return m_velocity;
+    }
+
+    glm::vec3& velocity()
+    {
+        return m_velocity;
+    }
+
+    const bool& disabled() const
+    {
+        return m_disabled;
+    }
+
+    bool& disabled()
+    {
+        return m_disabled;
     }
 
     void move_and_collide(const Ref<World>& world, double delta);
-    bool intersect_world(glm::vec3 position, const Ref<World>& world);
-    bool is_on_ground(glm::vec3 position, const Ref<World>& world);
+    bool is_on_ground(const Ref<World>& world);
 
 private:
     Ref<TransformComponent3D> m_transform;
-    glm::vec3 m_velocity;
+    glm::vec3 m_velocity = glm::vec3();
     AABB m_aabb;
+    bool m_disabled = false;
+
+    bool intersect_world(glm::vec3 position, const Ref<World>& world);
 };
