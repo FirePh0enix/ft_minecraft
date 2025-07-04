@@ -4,16 +4,9 @@
 #include "World/Generation/SimplexNoise.hpp"
 #include <cstdint>
 
-constexpr float base_height = 64.0f;
+constexpr float sea_level = 62.0f;
 
-enum class NonInlandBiome
-{
-    FrozenOcean,
-    Ocean,
-    WarmOcean,
-};
-
-enum class InlandBiome
+enum class Biome
 {
     FrozenRiver,
     River,
@@ -29,12 +22,11 @@ enum class InlandBiome
     Taiga,
     Plains,
     Savanna,
+    // (Non inland Biomes)
+    FrozenOcean,
+    Ocean,
+    WarmOcean,
 
-};
-union Biome
-{
-    NonInlandBiome non_inland_biome;
-    InlandBiome inland_biome;
 };
 
 struct BiomeNoise
@@ -77,11 +69,11 @@ public:
 enum class TerrainShape
 {
     OCEAN,
+    RIVER,
     BEACH,
     PLAINS,
-    MOUNTAINS,
     HILLS,
-    DESERT,
+    MOUNTAINS,
 };
 
 enum class ContinentalnessLevel
@@ -117,20 +109,19 @@ public:
     virtual float get_humidity_noise(int64_t x, int64_t z) override;
 
     float get_height(int64_t x, int64_t z);
-    float apply_pv_modification(float pv, float erosion);
+    float blend_heights(float height1, float height2, float blend_factor);
 
     TerrainShape get_terrain_shape(int64_t x, int64_t z);
 
-    float generate_ocean_height(int64_t x, int64_t z);
     float generate_beach_height(int64_t x, int64_t z);
     float generate_mountain_height(int64_t x, int64_t z);
     float generate_hills_height(int64_t x, int64_t z);
     float generate_plains_height(int64_t x, int64_t z);
 
-    NonInlandBiome get_non_inland_biome(BiomeNoise& biome_noise);
-    InlandBiome get_inland_biome(BiomeNoise& biome_noise);
-    InlandBiome get_beach_biome(uint32_t temperature);
-    InlandBiome get_middle_biome(uint32_t temperature, uint32_t humidity);
+    Biome get_non_inland_biome(BiomeNoise& biome_noise);
+    Biome get_inland_biome(BiomeNoise& biome_noise);
+    Biome get_beach_biome(uint32_t temperature);
+    Biome get_middle_biome(uint32_t temperature, uint32_t humidity);
 
     ContinentalnessLevel get_continentalness_level(float continentalness);
     uint32_t get_erosion_level(float erosion);

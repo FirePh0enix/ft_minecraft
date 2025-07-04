@@ -1,5 +1,6 @@
 #include "Terrain.hpp"
 #include "Core/Print.hpp"
+#include "glm/common.hpp"
 #include <cstdint>
 #include <print>
 
@@ -21,80 +22,63 @@ float OverworldTerrainGenerator::get_height(int64_t x, int64_t z)
 {
     float continentalness = get_continentalness_noise(x, z);
     float erosion = get_erosion_noise(x, z);
-    float pv = get_peaks_and_valleys_noise(x, z);
-
-    float ocean_height = generate_ocean_height(x, z);
-    float beach_height = generate_beach_height(x, z);
-    float mountain_height = generate_mountain_height(x, z);
-    float plains_height = generate_plains_height(x, z);
-    float hills_height = generate_hills_height(x, z);
-
-    float height;
 
     TerrainShape shape = get_terrain_shape(x, z);
 
-    if (shape == TerrainShape::OCEAN)
+    if (shape == TerrainShape::OCEAN || shape == TerrainShape::RIVER)
     {
-        // Calculate a blend factor to ensure that I'm not passing from a flat zone to mountain in one chunk.
-        float blend = (continentalness + 0.6f) / 0.2f;
-
-        // Smoothstep curves the transition, so it's not sharp.
-        blend = glm::smoothstep(0.0f, 1.0f, blend);
-
-        // Linearly interpolate between ocean and beach heights
-        height = glm::mix(ocean_height, beach_height, blend);
+        return sea_level;
     }
-    else if (shape == TerrainShape::BEACH)
+    if (shape == TerrainShape::BEACH)
     {
-        height = beach_height;
-    }
+        float ocean_height = sea_level;
+        float beach_height = generate_beach_height(x, z);
+        // + 1 because negative range.
+        float blend = (continentalness + 1.0f) / (0.455f - 0.19f);
 
-    else if (shape == TerrainShape::MOUNTAINS)
-    {
-        float blend = (erosion + 0.4f) / 0.4f;
-        blend = glm::smoothstep(0.0f, 1.0f, blend);
-        height = glm::mix(mountain_height, hills_height, blend);
+        return blend_heights(ocean_height, beach_height, blend);
     }
-    else if (shape == TerrainShape::HILLS)
+    if (shape == TerrainShape::PLAINS)
     {
-        height = hills_height;
+        float plains_height = generate_plains_height(x, z);
+        float hills_height = generate_hills_height(x, z);
+
+        float blend = (erosion - 0.05f) / (0.45f - 0.05f);
+
+        return blend_heights(hills_height, plains_height, blend);
+    }
+    if (shape == TerrainShape::MOUNTAINS)
+    {
+        float mountain_height = generate_mountain_height(x, z);
+        float hills_height = generate_hills_height(x, z);
+
+        float blend_start = 0.3f;
+        float blend_end = -0.2f;
+        float blend = (erosion - blend_start) / (blend_end - blend_start);
+
+        println("erosion: {}, blend factor: {}, height {}", erosion, blend, blend_heights(mountain_height, hills_height, blend));
+
+        return blend_heights(hills_height, mountain_height, blend);
     }
     else
     {
-        float blend = (erosion - 0.2f) / 0.3f;
-        blend = glm::clamp(blend, 0.0f, 1.0f);
-        blend = glm::smoothstep(0.0f, 1.0f, blend);
-        height = glm::mix(hills_height, plains_height, blend);
+        float hills_height = generate_hills_height(x, z);
+        float plains_height = generate_plains_height(x, z);
+
+        float blend = 1.0f - ((erosion - (-1.0f)) / (0.05f - (-1.0f)));
+
+        return blend_heights(hills_height, plains_height, blend);
     }
 
-    height += apply_pv_modification(pv, erosion);
-
-    return height;
+    return sea_level;
 }
 
-// TODO: Find some docs about how I'm suppose to choose the effect of pv
-float OverworldTerrainGenerator::apply_pv_modification(float pv, float erosion)
+float OverworldTerrainGenerator::blend_heights(float height1, float height2, float blend_factor)
 {
-    float pv_intensity;
-
-    if (erosion < -0.4f)
-    {
-        pv_intensity = 60.0f;
-    }
-    else if (erosion < 0.0f)
-    {
-        pv_intensity = 45.0f;
-    }
-    else if (erosion < 0.2f)
-    {
-        pv_intensity = 25.0f;
-    }
-    else
-    {
-        pv_intensity = 12.0f;
-    }
-
-    return pv * pv_intensity;
+    blend_factor = glm::clamp(blend_factor, 0.0f, 1.0f);
+    blend_factor = glm::smoothstep(0.0f, 1.0f, blend_factor);
+    float blended_heights = glm::mix(height1, height2, blend_factor);
+    return glm::max(blended_heights, sea_level);
 }
 
 float OverworldTerrainGenerator::get_continentalness_noise(int64_t x, int64_t z)
@@ -128,34 +112,56 @@ float OverworldTerrainGenerator::get_humidity_noise(int64_t x, int64_t z)
 TerrainShape OverworldTerrainGenerator::get_terrain_shape(int64_t x, int64_t z)
 {
     float continentalness = get_continentalness_noise(x, z);
-    float erosion = get_erosion_noise(x, z);
-    // Weirdness will be used to create some special terrain type like peaks.
-    float weirdness = get_peaks_and_valleys_noise(x, z);
+    ContinentalnessLevel c_level = get_continentalness_level(continentalness);
 
-    if (continentalness < -0.3f)
+    float erosion = get_erosion_noise(x, z);
+    uint32_t erosion_level = get_erosion_level(erosion);
+
+    float pv = get_peaks_and_valleys_noise(x, z);
+    PeaksAndValleysLevel pv_level = get_peaks_and_valleys_level(pv);
+
+    if (c_level == ContinentalnessLevel::Ocean || c_level == ContinentalnessLevel::DeepOcean)
     {
         return TerrainShape::OCEAN;
     }
-    if (continentalness < 0.0f)
+
+    if (c_level == ContinentalnessLevel::Coast)
     {
         return TerrainShape::BEACH;
     }
-    if (erosion < -0.4f)
-    {
-        return TerrainShape::MOUNTAINS;
-    }
-    else
-    {
-        return TerrainShape::HILLS;
-    }
-}
 
-float OverworldTerrainGenerator::generate_ocean_height(int64_t x, int64_t z)
-{
-    float ocean_noise = m_noise.fractal(2, (float)x * 0.003f, 0.0f, (float)z * 0.003f);
-    float depth_variation = m_noise.fractal(3, (float)x * 0.001f, 0.0f, (float)z * 0.001f);
+    if (c_level == ContinentalnessLevel::NearInland || c_level == ContinentalnessLevel::MidInland || c_level == ContinentalnessLevel::FarInland)
+    {
+        if (pv_level == PeaksAndValleysLevel::Valleys)
+        {
+            return TerrainShape::RIVER;
+        }
+        if (pv_level == PeaksAndValleysLevel::Low || pv_level == PeaksAndValleysLevel::Mid)
+        {
+            if (erosion_level < 4)
+            {
+                return TerrainShape::HILLS;
+            }
+            else
+            {
+                return TerrainShape::PLAINS;
+            }
+        }
 
-    return base_height - 25.0f + ocean_noise * 3.0f + depth_variation * 8.0f;
+        if (pv_level == PeaksAndValleysLevel::High || pv_level == PeaksAndValleysLevel::Peaks)
+        {
+
+            if (erosion_level <= 3)
+            {
+                return TerrainShape::MOUNTAINS;
+            }
+            else
+            {
+                return TerrainShape::HILLS;
+            }
+        }
+    }
+    return TerrainShape::PLAINS;
 }
 
 float OverworldTerrainGenerator::generate_beach_height(int64_t x, int64_t z)
@@ -163,30 +169,23 @@ float OverworldTerrainGenerator::generate_beach_height(int64_t x, int64_t z)
     float beach_noise = m_noise.fractal(2, (float)x * 0.02f, 0.0f, (float)z * 0.02f);
     float coastal_slope = m_noise.fractal(1, (float)x * 0.0005f, 0.0f, (float)z * 0.0005f);
 
-    return base_height - 3.0f + beach_noise * 2.0f + coastal_slope * 6.0f;
+    return sea_level + beach_noise * 3.0f + coastal_slope * 4.0f;
 }
 
 float OverworldTerrainGenerator::generate_mountain_height(int64_t x, int64_t z)
 {
     float large_peaks = m_noise.fractal(3, (float)x * 0.002f, 0.0f, (float)z * 0.002f);
-    float medium_detail = m_noise.fractal(4, (float)x * 0.008f, 0.0f, (float)z * 0.008f);
-    float small_detail = m_noise.fractal(2, (float)x * 0.02f, 0.0f, (float)z * 0.02f);
+    float height = sea_level + 40.0f + large_peaks * 60.0f;
 
-    if (large_peaks > 0)
-    {
-        large_peaks = std::pow(large_peaks, 1.5f);
-    }
-
-    return base_height + 70.0f + large_peaks * 100.0f + medium_detail * 25.0f + small_detail * 8.0f;
+    return std::min(height, 240.0f);
 }
 
 float OverworldTerrainGenerator::generate_hills_height(int64_t x, int64_t z)
 {
     float hill_base = m_noise.fractal(3, (float)x * 0.006f, 0.0f, (float)z * 0.006f);
     float hill_detail = m_noise.fractal(4, (float)x * 0.015f, 0.0f, (float)z * 0.015f);
-    float small_bumps = m_noise.fractal(2, (float)x * 0.03f, 0.0f, (float)z * 0.03f);
 
-    return base_height + 20.0f + hill_base * 35.0f + hill_detail * 12.0f + small_bumps * 4.0f;
+    return sea_level + hill_base * 10.0f + hill_detail * 10.0f;
 }
 
 float OverworldTerrainGenerator::generate_plains_height(int64_t x, int64_t z)
@@ -194,34 +193,32 @@ float OverworldTerrainGenerator::generate_plains_height(int64_t x, int64_t z)
     float plains_base = m_noise.fractal(2, (float)x * 0.008f, 0.0f, (float)z * 0.008f);
     float gentle_rolls = m_noise.fractal(3, (float)x * 0.02f, 0.0f, (float)z * 0.02f);
 
-    return base_height + 5.0f + plains_base * 12.0f + gentle_rolls * 5.0f;
+    return sea_level + 8.0f + plains_base * 8.0f + gentle_rolls * 3.0f;
 }
 
 Biome OverworldTerrainGenerator::get_biome(BiomeNoise& biome_noise)
 {
-    Biome biome{};
+    Biome biome;
     auto continentalness_level = get_continentalness_level(biome_noise.continentalness);
 
     if (continentalness_level == ContinentalnessLevel::Ocean || continentalness_level == ContinentalnessLevel::DeepOcean)
     {
-        biome.non_inland_biome = get_non_inland_biome(biome_noise);
+        biome = get_non_inland_biome(biome_noise);
     }
     else
     {
-        biome.inland_biome = get_inland_biome(biome_noise);
+        biome = get_inland_biome(biome_noise);
     }
 
     return biome;
 }
 
-// If its a ocean shape.
-// TODO: Add the 2 others oceans.
-NonInlandBiome OverworldTerrainGenerator::get_non_inland_biome(BiomeNoise& biome_noise)
+Biome OverworldTerrainGenerator::get_non_inland_biome(BiomeNoise& biome_noise)
 {
-    return NonInlandBiome::Ocean;
+    return Biome::Ocean;
 }
 
-InlandBiome OverworldTerrainGenerator::get_inland_biome(BiomeNoise& biome_noise)
+Biome OverworldTerrainGenerator::get_inland_biome(BiomeNoise& biome_noise)
 {
     auto continentalness_level = get_continentalness_level(biome_noise.continentalness);
     auto peaks_and_valleys_level = get_peaks_and_valleys_level(biome_noise.peaks_and_valleys);
@@ -235,15 +232,15 @@ InlandBiome OverworldTerrainGenerator::get_inland_biome(BiomeNoise& biome_noise)
         {
             if (temperature_level == 0)
             {
-                return InlandBiome::FrozenRiver;
+                return Biome::FrozenRiver;
             }
-            return InlandBiome::River;
+            return Biome::River;
         }
-        else if (peaks_and_valleys_level == PeaksAndValleysLevel::Low || peaks_and_valleys_level == PeaksAndValleysLevel::Mid)
+        if (peaks_and_valleys_level == PeaksAndValleysLevel::Low || peaks_and_valleys_level == PeaksAndValleysLevel::Mid)
         {
             if (erosion_level >= 0 && erosion_level <= 2)
             {
-                return InlandBiome::StonyShore;
+                return Biome::StonyShore;
             }
             if (erosion_level >= 3 && erosion_level <= 4)
             {
@@ -257,13 +254,16 @@ InlandBiome OverworldTerrainGenerator::get_inland_biome(BiomeNoise& biome_noise)
                 }
                 return get_middle_biome(temperature_level, humidity_level);
             }
-            return get_beach_biome(temperature_level);
+            if (erosion_level == 6)
+            {
+                return get_beach_biome(temperature_level);
+            }
         }
-        else if (peaks_and_valleys_level == PeaksAndValleysLevel::High)
+        if (peaks_and_valleys_level == PeaksAndValleysLevel::High)
         {
             return get_middle_biome(temperature_level, humidity_level);
         }
-        else if (peaks_and_valleys_level == PeaksAndValleysLevel::Peaks)
+        if (peaks_and_valleys_level == PeaksAndValleysLevel::Peaks)
         {
             if (erosion_level == 0)
             {
@@ -271,30 +271,30 @@ InlandBiome OverworldTerrainGenerator::get_inland_biome(BiomeNoise& biome_noise)
                 {
                     if (biome_noise.peaks_and_valleys < 0)
                     {
-                        return InlandBiome::JaggedPeaks;
+                        return Biome::JaggedPeaks;
                     }
-                    return InlandBiome::FrozenPeaks;
+                    return Biome::FrozenPeaks;
                 }
-                return InlandBiome::StonyPeaks;
+                return Biome::StonyPeaks;
             }
             return get_middle_biome(temperature_level, humidity_level);
         }
     }
-    else if (continentalness_level == ContinentalnessLevel::NearInland)
+    if (continentalness_level == ContinentalnessLevel::NearInland)
     {
         if (peaks_and_valleys_level == PeaksAndValleysLevel::Valleys)
         {
             if (temperature_level == 0)
             {
-                return InlandBiome::FrozenRiver;
+                return Biome::FrozenRiver;
             }
-            return InlandBiome::River;
+            return Biome::River;
         }
-        else if (peaks_and_valleys_level == PeaksAndValleysLevel::Low || peaks_and_valleys_level == PeaksAndValleysLevel::Mid || peaks_and_valleys_level == PeaksAndValleysLevel::High)
+        if (peaks_and_valleys_level == PeaksAndValleysLevel::Low || peaks_and_valleys_level == PeaksAndValleysLevel::Mid || peaks_and_valleys_level == PeaksAndValleysLevel::High)
         {
             return get_middle_biome(temperature_level, humidity_level);
         }
-        else if (peaks_and_valleys_level == PeaksAndValleysLevel::Peaks)
+        if (peaks_and_valleys_level == PeaksAndValleysLevel::Peaks)
         {
             if (erosion_level == 0)
             {
@@ -302,20 +302,20 @@ InlandBiome OverworldTerrainGenerator::get_inland_biome(BiomeNoise& biome_noise)
                 {
                     if (biome_noise.peaks_and_valleys < 0)
                     {
-                        return InlandBiome::JaggedPeaks;
+                        return Biome::JaggedPeaks;
                     }
-                    return InlandBiome::FrozenPeaks;
+                    return Biome::FrozenPeaks;
                 }
-                return InlandBiome::StonyPeaks;
+                return Biome::StonyPeaks;
             }
             return get_middle_biome(temperature_level, humidity_level);
         }
     }
-    else if (continentalness_level == ContinentalnessLevel::MidInland || continentalness_level == ContinentalnessLevel::FarInland)
+    if (continentalness_level == ContinentalnessLevel::MidInland || continentalness_level == ContinentalnessLevel::FarInland)
     {
         if (peaks_and_valleys_level == PeaksAndValleysLevel::Valleys)
         {
-            if (erosion_level >= 1 && erosion_level <= 1)
+            if (erosion_level >= 0 && erosion_level <= 1)
             {
                 return get_middle_biome(temperature_level, humidity_level);
             }
@@ -323,16 +323,16 @@ InlandBiome OverworldTerrainGenerator::get_inland_biome(BiomeNoise& biome_noise)
             {
                 if (temperature_level == 0)
                 {
-                    return InlandBiome::FrozenRiver;
+                    return Biome::FrozenRiver;
                 }
-                return InlandBiome::River;
+                return Biome::River;
             }
         }
-        else if (peaks_and_valleys_level == PeaksAndValleysLevel::Low || peaks_and_valleys_level == PeaksAndValleysLevel::Mid)
+        if (peaks_and_valleys_level == PeaksAndValleysLevel::Low || peaks_and_valleys_level == PeaksAndValleysLevel::Mid)
         {
             return get_middle_biome(temperature_level, humidity_level);
         }
-        else if (peaks_and_valleys_level == PeaksAndValleysLevel::High)
+        if (peaks_and_valleys_level == PeaksAndValleysLevel::High)
         {
             if (erosion_level == 0)
             {
@@ -340,15 +340,15 @@ InlandBiome OverworldTerrainGenerator::get_inland_biome(BiomeNoise& biome_noise)
                 {
                     if (biome_noise.peaks_and_valleys < 0)
                     {
-                        return InlandBiome::JaggedPeaks;
+                        return Biome::JaggedPeaks;
                     }
-                    return InlandBiome::FrozenPeaks;
+                    return Biome::FrozenPeaks;
                 }
-                return InlandBiome::StonyPeaks;
+                return Biome::StonyPeaks;
             }
             return get_middle_biome(temperature_level, humidity_level);
         }
-        else if (peaks_and_valleys_level == PeaksAndValleysLevel::Peaks)
+        if (peaks_and_valleys_level == PeaksAndValleysLevel::Peaks)
         {
             if (erosion_level >= 0 && erosion_level <= 1)
             {
@@ -356,11 +356,11 @@ InlandBiome OverworldTerrainGenerator::get_inland_biome(BiomeNoise& biome_noise)
                 {
                     if (biome_noise.peaks_and_valleys < 0)
                     {
-                        return InlandBiome::JaggedPeaks;
+                        return Biome::JaggedPeaks;
                     }
-                    return InlandBiome::FrozenPeaks;
+                    return Biome::FrozenPeaks;
                 }
-                return InlandBiome::StonyPeaks;
+                return Biome::StonyPeaks;
             }
             return get_middle_biome(temperature_level, humidity_level);
         }
@@ -369,47 +369,47 @@ InlandBiome OverworldTerrainGenerator::get_inland_biome(BiomeNoise& biome_noise)
     return get_middle_biome(temperature_level, humidity_level);
 }
 
-InlandBiome OverworldTerrainGenerator::get_beach_biome(uint32_t temperature)
+Biome OverworldTerrainGenerator::get_beach_biome(uint32_t temperature)
 {
     if (temperature == 4)
     {
-        return InlandBiome::Desert;
+        return Biome::Desert;
     }
-    return InlandBiome::Beach;
+    return Biome::Beach;
 }
 
-InlandBiome OverworldTerrainGenerator::get_middle_biome(uint32_t temperature, uint32_t humidity)
+Biome OverworldTerrainGenerator::get_middle_biome(uint32_t temperature, uint32_t humidity)
 {
     if (temperature == 0)
     {
         if (humidity == 4)
         {
-            return InlandBiome::Taiga;
+            return Biome::Taiga;
         }
-        return InlandBiome::SnowyPlains;
+        return Biome::SnowyPlains;
     }
     if (temperature >= 1 && temperature <= 2)
     {
         if (humidity >= 0 && humidity <= 2)
         {
-            return InlandBiome::Plains;
+            return Biome::Plains;
         }
-        return InlandBiome::Taiga;
+        return Biome::Taiga;
     }
     if (temperature == 3)
     {
         if (humidity >= 0 && humidity <= 1)
         {
-            return InlandBiome::Savanna;
+            return Biome::Savanna;
         }
-        return InlandBiome::Plains;
+        return Biome::Plains;
     }
-    return InlandBiome::Desert;
+    return Biome::Desert;
 }
 
 ContinentalnessLevel OverworldTerrainGenerator::get_continentalness_level(float continentalness)
 {
-    if (continentalness >= -1.0f && continentalness < 0.455f)
+    if (continentalness >= -1.0f && continentalness < -0.455f)
     {
         return ContinentalnessLevel::DeepOcean;
     }
@@ -429,7 +429,6 @@ ContinentalnessLevel OverworldTerrainGenerator::get_continentalness_level(float 
     {
         return ContinentalnessLevel::MidInland;
     }
-
     return ContinentalnessLevel::FarInland;
 }
 
