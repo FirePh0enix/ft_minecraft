@@ -25,7 +25,6 @@ enum class Biome
     // (Non inland Biomes)
     FrozenOcean,
     Ocean,
-    WarmOcean,
 
 };
 
@@ -45,6 +44,7 @@ class TerrainGenerator : public Object
 public:
     virtual bool has_block(int64_t x, int64_t y, int64_t z) = 0;
     virtual Biome get_biome(BiomeNoise& biome_noise) = 0;
+    virtual float get_height(int64_t x, int64_t z) = 0;
 
     virtual float get_continentalness_noise(int64_t x, int64_t z) = 0;
     virtual float get_erosion_noise(int64_t x, int64_t z) = 0;
@@ -64,16 +64,6 @@ public:
         (void)z;
         return y < 10;
     }
-};
-
-enum class TerrainShape
-{
-    OCEAN,
-    RIVER,
-    BEACH,
-    PLAINS,
-    HILLS,
-    MOUNTAINS,
 };
 
 enum class ContinentalnessLevel
@@ -108,15 +98,11 @@ public:
     virtual float get_temperature_noise(int64_t x, int64_t z) override;
     virtual float get_humidity_noise(int64_t x, int64_t z) override;
 
-    float get_height(int64_t x, int64_t z);
-    float blend_heights(float height1, float height2, float blend_factor);
+    float get_height(int64_t x, int64_t z) override;
 
-    TerrainShape get_terrain_shape(int64_t x, int64_t z);
-
-    float generate_beach_height(int64_t x, int64_t z);
-    float generate_mountain_height(int64_t x, int64_t z);
-    float generate_hills_height(int64_t x, int64_t z);
-    float generate_plains_height(int64_t x, int64_t z);
+    float get_continentalness_spline(float continentalness);
+    float get_erosion_spline(float erosion);
+    float get_peaks_and_valleys_spline(float peaks_and_valleys);
 
     Biome get_non_inland_biome(BiomeNoise& biome_noise);
     Biome get_inland_biome(BiomeNoise& biome_noise);

@@ -325,15 +325,16 @@ public:
 
                     Biome biome = m_terrain->get_biome(noise);
 
-                    if (biome == Biome::Ocean || biome == Biome::River)
+                    if (biome == Biome::Ocean)
                     {
                         id = BlockRegistry::get().get_block_id("water");
                     }
 
-                    else if (biome == Biome::FrozenRiver)
+                    else if (biome == Biome::River)
                     {
-                        id = BlockRegistry::get().get_block_id("snow");
+                        id = BlockRegistry::get().get_block_id("water");
                     }
+
                     else if (biome == Biome::StonyShore || biome == Biome::StonyPeaks)
                     {
                         id = BlockRegistry::get().get_block_id("stone");
