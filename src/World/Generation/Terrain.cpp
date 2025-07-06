@@ -1,5 +1,4 @@
 #include "Terrain.hpp"
-#include "Core/Print.hpp"
 #include "glm/common.hpp"
 #include <array>
 #include <cstdint>
@@ -8,50 +7,175 @@
 
 bool OverworldTerrainGenerator::has_block(int64_t x, int64_t y, int64_t z)
 {
-    float terrain_height = get_height(x, z);
+    // Use multiple 2D FBM noise and splines points to calculate a height.
+    float expected_height = get_height(x, z);
 
-    if ((float)y < terrain_height)
+    if ((float)y <= sea_level && (float)y < expected_height)
     {
         return true;
     }
 
-    return false;
+    // The more we release the squash factor, the more it seems strange and chaotic but also creating cliffs and floating island.
+    float squash_factor = 0.0009f;
+    float noise = get_3d_noise(x, y, z);
+    float density = noise + (expected_height - (float)y) * squash_factor;
+    density = density * 1.2f;
+
+    // Negative density means it's air.
+    return density > 0.0f;
+}
+
+float OverworldTerrainGenerator::get_3d_noise(int64_t x, int64_t y, int64_t z)
+{
+    return m_noise.fractal(8, (float)x * 0.00052f, (float)y * 0.0025f, (float)z * 0.00052f);
 }
 
 float OverworldTerrainGenerator::get_height(int64_t x, int64_t z)
 {
-
     float continentalness = get_continentalness_noise(x, z);
     float erosion = get_erosion_noise(x, z);
     float peaks_and_valleys = get_peaks_and_valleys_noise(x, z);
 
     float base_height = get_continentalness_spline(continentalness);
     float erosion_factor = get_erosion_spline(erosion);
-    float peaks_valleys_height = get_peaks_and_valleys_spline(peaks_and_valleys);
 
     float sea_difference = base_height - sea_level;
+    float normal_terrain = sea_level + (sea_difference * erosion_factor);
 
     BiomeNoise noise{
-        .continentalness = get_continentalness_noise(x, z),
-        .erosion = get_erosion_noise(x, z),
-        .peaks_and_valleys = get_peaks_and_valleys_noise(x, z),
+        .continentalness = continentalness,
+        .erosion = erosion,
+        .peaks_and_valleys = peaks_and_valleys,
         .temperature_noise = get_temperature_noise(x, z),
         .humidity_noise = get_humidity_noise(x, z),
     };
 
     Biome biome = get_biome(noise);
 
-    if (biome != Biome::Ocean && biome != Biome::River)
-    {
-        base_height = sea_level + (sea_difference * erosion_factor);
-        base_height += peaks_valleys_height;
-    }
-    else
+    // Ensure that i'm not applying any erosion or peaks and valleys to water, else we will have not flat water.
+    if (biome == Biome::Ocean || biome == Biome::River || biome == Biome::FrozenRiver)
     {
         return sea_level;
     }
 
-    return glm::max(sea_level, base_height);
+    // Since they are close to water, the transition was not always smooth.
+    // if (biome == Biome::Beach || biome == Biome::StonyShore)
+    // {
+    //     // Create details and make the stairs like transitions.
+    //     float detail_noise = m_noise.fractal(3, (float)x * 0.1f, 5000.0f, (float)z * 0.1f) * 1.0f;
+    //     float beach_height = sea_level + 2.0f + detail_noise;
+
+        //        if (continentalness >= -1.0f && continentalness < -0.455f)
+        // {
+        //     return ContinentalnessLevel::DeepOcean;
+        // }
+        // else if (continentalness >= -0.455f && continentalness < -0.19f)
+        // {
+        //     return ContinentalnessLevel::Ocean;
+        // }
+        // else if (continentalness >= -0.19f && continentalness < -0.11f)
+        // {
+        //     return ContinentalnessLevel::Coast;
+        // }
+        // else if (continentalness >= -0.11f && continentalness < 0.03f)
+        // {
+        //     return ContinentalnessLevel::NearInland;
+        // }
+        // else if (continentalness >= 0.03f && continentalness < 0.3f)
+        // {
+        //     return ContinentalnessLevel::MidInland;
+        // }
+        // return ContinentalnessLevel::FarInland;
+
+        // if (continentalness < -0.11f)
+        // {
+        //     float blend = (continentalness + 0.19f) / 0.04f;
+        //     return glm::mix(sea_level, beach_height, blend);
+        // }
+
+        // return beach_height;
+    // }
+
+    float water_proximity = 0.0f;
+
+    if (continentalness >= -0.19f && continentalness < 0.0f)
+    {
+        water_proximity = (continentalness + 0.19f) / 0.19f;
+    }
+    else
+    {
+        water_proximity = 1.0f;
+    }
+
+    if (peaks_and_valleys >= -0.85f && peaks_and_valleys < -0.2f)
+    {
+        float detail_noise = m_noise.fractal(3, (float)x * 0.05f, 0.0f, (float)z * 0.05f) * 2.0f;
+
+        if (peaks_and_valleys < -0.7f)
+        {
+            float height = sea_level + 3.0f + detail_noise;
+            float blend = (peaks_and_valleys + 0.85f) / 0.15f;
+            float result = glm::mix(sea_level, height, blend);
+
+            if (water_proximity < 1.0f)
+            {
+                float max_height = glm::min(height, sea_level + 5.0f * water_proximity);
+                return glm::mix(sea_level, max_height, blend * water_proximity);
+            }
+
+            return result;
+        }
+        else if (peaks_and_valleys < -0.55f)
+        {
+            float height = sea_level + 5.0f + detail_noise;
+
+            if (water_proximity < 1.0f)
+            {
+                return glm::mix(sea_level, height, water_proximity);
+            }
+
+            return height;
+        }
+        else if (peaks_and_valleys < -0.4f)
+        {
+            float height = sea_level + 8.0f + detail_noise;
+
+            if (water_proximity < 1.0f)
+            {
+                return glm::mix(sea_level + 2.0f, height, water_proximity);
+            }
+
+            return height;
+        }
+        else
+        {
+            float height = sea_level + 12.0f + detail_noise;
+            float blend = (peaks_and_valleys + 0.4f) / 0.2f;
+            float peaks_valleys_height = get_peaks_and_valleys_spline(peaks_and_valleys);
+            float normal_with_pv = normal_terrain + peaks_valleys_height;
+
+            if (water_proximity < 1.0f)
+            {
+                float max_height = sea_level + 3.0f + (9.0f * water_proximity);
+                float adjusted_normal = glm::mix(sea_level + 3.0f, normal_with_pv, water_proximity);
+                return glm::mix(max_height, adjusted_normal, blend * water_proximity);
+            }
+
+            return glm::mix(height, normal_with_pv, blend);
+        }
+    }
+
+    float peaks_valleys_height = get_peaks_and_valleys_spline(peaks_and_valleys);
+    normal_terrain += peaks_valleys_height;
+
+    if (water_proximity < 1.0f)
+    {
+        float water_edge_height = sea_level + 3.0f;
+        float target_height = glm::mix(water_edge_height, normal_terrain, water_proximity);
+        return target_height;
+    }
+
+    return glm::max(sea_level, normal_terrain);
 }
 
 float OverworldTerrainGenerator::get_continentalness_spline(float continentalness)
@@ -59,11 +183,11 @@ float OverworldTerrainGenerator::get_continentalness_spline(float continentalnes
     const std::array<std::pair<float, float>, 7> spline_points = {
         std::pair<float, float>{-1.000f, sea_level}, // DeepOcean
         std::pair<float, float>{-0.455f, sea_level}, // Ocean
-        std::pair<float, float>{-0.190f, sea_level}, // Coast
-        std::pair<float, float>{-0.110f, 64.0f},     // NearInland
-        std::pair<float, float>{0.030f, 75.0f},      // MidInland
-        std::pair<float, float>{0.300f, 180.0f},     // FarInland
-        std::pair<float, float>{1.000f, 220.0f}      // Extreme peaks
+        std::pair<float, float>{-0.19f, sea_level},  // Coast
+        std::pair<float, float>{-0.11f, 64.0f},      // NearInland
+        std::pair<float, float>{0.03f, 75.0f},       // MidInland
+        std::pair<float, float>{0.3f, 90.0f},        // FarInland
+        std::pair<float, float>{1.0f, 120.0f}        // Extreme peaks
     };
 
     for (size_t i = 0; i < spline_points.size() - 1; i++)

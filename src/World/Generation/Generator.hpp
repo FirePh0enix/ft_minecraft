@@ -325,12 +325,7 @@ public:
 
                     Biome biome = m_terrain->get_biome(noise);
 
-                    if (biome == Biome::Ocean)
-                    {
-                        id = BlockRegistry::get().get_block_id("water");
-                    }
-
-                    else if (biome == Biome::River)
+                    if ((biome == Biome::Ocean || biome == Biome::River) && (float)y <= sea_level)
                     {
                         id = BlockRegistry::get().get_block_id("water");
                     }
