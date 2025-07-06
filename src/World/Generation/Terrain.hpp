@@ -90,14 +90,6 @@ class OverworldTerrainGenerator : public TerrainGenerator
     CLASS(OverworldTerrainGenerator, TerrainGenerator);
 
 public:
-    /**
-     * @brief Use multiple 2d noise and 3D noise to get a density that determines if there is a block or not.
-     * @param x x world position
-     * @param y y world position
-     * @param z z world position
-     * @return Return if a block is air or solid
-     * @see get_height for more details on used noise.
-     */
     virtual bool has_block(int64_t x, int64_t y, int64_t z) override;
     virtual Biome get_biome(BiomeNoise& biome_noise) override;
     virtual float get_continentalness_noise(int64_t x, int64_t z) override;
