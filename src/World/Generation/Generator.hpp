@@ -325,9 +325,16 @@ public:
 
                     Biome biome = m_terrain->get_biome(noise);
 
-                    if ((biome == Biome::Ocean || biome == Biome::River) && (float)y <= sea_level)
+                    if ((biome == Biome::Ocean || biome == Biome::River))
                     {
-                        id = BlockRegistry::get().get_block_id("water");
+                        if ((float)y < sea_level)
+                        {
+                            id = BlockRegistry::get().get_block_id("stone");
+                        }
+                        else if ((float)y == sea_level)
+                        {
+                            id = BlockRegistry::get().get_block_id("water");
+                        }
                     }
 
                     else if (biome == Biome::StonyShore || biome == Biome::StonyPeaks)
