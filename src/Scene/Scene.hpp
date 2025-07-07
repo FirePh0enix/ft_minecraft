@@ -31,6 +31,7 @@ public:
         m_entites.push_back(entity);
 
         entity->set_id(allocate_next_id());
+        entity->set_scene(this);
         entity->do_start();
     }
 

@@ -20,9 +20,7 @@ public:
     Transform3D with_parent(const Transform3D& parent_transform) const
     {
         Transform3D transform = Transform3D::from_matrix(parent_transform.to_matrix() * to_matrix());
-
         transform.m_rotation = m_rotation * parent_transform.m_rotation;
-
         return transform;
     }
 
@@ -57,7 +55,7 @@ public:
     }
 
     /**
-     * Rotate a vector using this transform's rotation.
+     * @brief Rotate a vector using this transform's rotation.
      */
     inline glm::vec3 rotate(const glm::vec3& v) const
     {
@@ -65,7 +63,7 @@ public:
     }
 
     /**
-     * Returns the forward (negative Z) vector local to this transform.
+     * @brief Returns the forward (negative Z) vector local to this transform.
      */
     inline glm::vec3 forward() const
     {
@@ -73,7 +71,7 @@ public:
     }
 
     /**
-     * Returns the right (positive X) vector local to this transform.
+     * @brief Returns the right (positive X) vector local to this transform.
      */
     inline glm::vec3 right() const
     {
@@ -81,9 +79,9 @@ public:
     }
 
     /**
-     * Returns this transform's rotation as euler angles.
+     * @brief Returns this transform's rotation as euler angles.
      */
-    inline glm::vec3 euler_angles() const
+    inline glm::vec3 get_euler_angles() const
     {
         return glm::eulerAngles(m_rotation);
     }
@@ -93,9 +91,9 @@ public:
         m_rotation = glm::quat(euler_angles);
     }
 
-    inline void set_position(glm::vec3 pos)
+    inline glm::mat4 translation_matrix() const
     {
-        m_position = pos;
+        return glm::translate(glm::mat4(1.0), m_position);
     }
 
 private:
@@ -118,16 +116,16 @@ private:
     }
 };
 
-class TransformComponent3D : public Component
+class Transformed3D : public Component
 {
     CLASS(Transform3D, Component);
 
 public:
-    TransformComponent3D()
+    Transformed3D()
     {
     }
 
-    TransformComponent3D(const Transform3D& transform)
+    Transformed3D(const Transform3D& transform)
         : m_transform(transform)
     {
     }
@@ -135,7 +133,9 @@ public:
     virtual void start() override
     {
         if (m_entity->has_parent())
-            m_parent_transform = m_entity->get_parent()->get_component<TransformComponent3D>();
+        {
+            m_parent_transform = m_entity->get_parent()->get_component<Transformed3D>();
+        }
     }
 
     inline Transform3D get_transform() const
@@ -155,10 +155,10 @@ public:
             return get_transform();
         }
 
-        return get_transform().with_parent(m_entity->get_parent()->get_component<TransformComponent3D>()->get_global_transform());
+        return get_transform().with_parent(m_entity->get_parent()->get_component<Transformed3D>()->get_global_transform());
     }
 
 private:
     Transform3D m_transform;
-    Ref<TransformComponent3D> m_parent_transform;
+    Ref<Transformed3D> m_parent_transform;
 };

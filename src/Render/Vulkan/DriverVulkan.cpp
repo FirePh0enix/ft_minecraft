@@ -548,6 +548,7 @@ Result<> RenderingDriverVulkan::initialize(const Window& window)
     m_surface = vk::SurfaceKHR(surface);
 
     // Select the best physical device
+    // TODO: Add this to device pick.
     // vk::PhysicalDeviceFeatures required_features = {};
     // vk::PhysicalDeviceFeatures optional_features = {};
 
@@ -559,7 +560,7 @@ Result<> RenderingDriverVulkan::initialize(const Window& window)
 
 #ifdef TRACY_ENABLE
     // This is widely supported except for android. This is only needed when profiling with tracy anyway.
-    required_extensions.push_back("VK_EXT_calibrated_timestamps");
+    // required_extensions.push_back("VK_EXT_calibrated_timestamps");
 #endif
 
 #ifdef __platform_macos
@@ -621,6 +622,7 @@ Result<> RenderingDriverVulkan::initialize(const Window& window)
 
     // TODO: device features
     vk::PhysicalDeviceFeatures device_features{};
+    device_features.fillModeNonSolid = true;
 
     auto device_result = m_physical_device.createDevice(vk::DeviceCreateInfo({}, queue_infos.size(), queue_infos.data(), validation_layers.size(), validation_layers.data(), device_extensions.size(), device_extensions.data(), &device_features, &host_query_reset_features));
     YEET_RESULT(device_result);
@@ -670,7 +672,7 @@ Result<> RenderingDriverVulkan::initialize(const Window& window)
 
 #ifndef __platform_macos
     // This uses `VK_EXT_host_query_reset` & `VK_EXT_calibrated_timestamps`
-    m_tracy_context = TracyVkContextHostCalibrated(m_instance, m_physical_device, m_device, vk::detail::defaultDispatchLoaderDynamic.vkGetInstanceProcAddr, vk::detail::defaultDispatchLoaderDynamic.vkGetDeviceProcAddr);
+    // m_tracy_context = TracyVkContextHostCalibrated(m_instance, m_physical_device, m_device, vk::detail::defaultDispatchLoaderDynamic.vkGetInstanceProcAddr, vk::detail::defaultDispatchLoaderDynamic.vkGetDeviceProcAddr);
 #endif
 
     m_window = window.get_window_ptr();
@@ -1256,10 +1258,12 @@ void RenderingDriverVulkan::draw_graph(const RenderGraph& graph)
         }
         else if (std::holds_alternative<ImGuiDrawInstruction>(instruction))
         {
+#ifdef __has_debug_menu
             ZoneScopedN("draw_graph.imgui");
 
             ImGui::Render();
             ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cb);
+#endif
         }
     }
 
@@ -1350,7 +1354,7 @@ Result<vk::Pipeline> RenderingDriverVulkan::create_graphics_pipeline(Ref<Shader>
         color_blend_state.colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
     }
 
-    vk::CompareOp depth_compare_op = flags.always_first ? vk::CompareOp::eLessOrEqual : (previous_depth_pass ? vk::CompareOp::eEqual : vk::CompareOp::eLess);
+    vk::CompareOp depth_compare_op = previous_depth_pass ? vk::CompareOp::eEqual : (flags.priority == PriorityNormal ? vk::CompareOp::eLess : vk::CompareOp::eLessOrEqual);
 
     vk::PipelineColorBlendStateCreateInfo blend_info({}, vk::False, vk::LogicOp::eCopy, {color_blend_state});
     vk::PipelineDepthStencilStateCreateInfo depth_info({}, vk::True, vk::True, depth_compare_op, vk::False, vk::False, {}, {}, 0.0, 1.0);

@@ -3,7 +3,7 @@
 #include "AABB.hpp"
 #include "Core/Class.hpp"
 #include "Scene/Components/Component.hpp"
-#include "Scene/Components/Transform3D.hpp"
+#include "Scene/Components/Transformed3D.hpp"
 
 class Frustum
 {
@@ -25,14 +25,14 @@ class Camera : public Component
 
 public:
     Camera()
+        : m_projection_matrix(1.0)
     {
+        // NOTE: default values for field members are set after the initializer list so this need to be here.
         m_projection_matrix = calculate_projection_matrix();
     }
 
     virtual void start() override;
     virtual void tick(double delta) override;
-
-    void rotate(float x_rel, float y_rel);
 
     glm::mat4 get_view_matrix() const
     {
@@ -62,7 +62,7 @@ public:
     }
 
 private:
-    Ref<TransformComponent3D> m_transform;
+    Ref<Transformed3D> m_transform;
 
     glm::mat4 m_projection_matrix;
     float m_aspect_ratio = 1280.0 / 720.0;

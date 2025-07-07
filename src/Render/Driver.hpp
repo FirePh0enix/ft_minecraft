@@ -107,18 +107,23 @@ struct InstanceLayout
     }
 };
 
+enum DrawPriority : uint8_t
+{
+    PriorityNormal = 0,
+    PriorityBefore = 1,
+};
+
 struct MaterialFlags
 {
     /**
-     * Enable transparent blending for the material.
+     * @brief Enable transparent blending for the material.
      */
     bool transparency : 1 = false;
 
     /**
-     * Workaround to always draw the material before everything else.
-     * Can be used for skyboxes.
+     * @brief Indicate the render priority.
      */
-    bool always_first : 1 = false;
+    uint8_t priority : 2 = PriorityNormal;
 };
 
 /**

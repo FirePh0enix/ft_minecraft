@@ -4,6 +4,8 @@
 #include "Core/Ref.hpp"
 #include "Scene/Components/Component.hpp"
 
+class Scene;
+
 enum class EntityId : uint32_t
 {
 };
@@ -93,6 +95,16 @@ public:
         return m_parent != nullptr;
     }
 
+    Scene *get_scene() const
+    {
+        return m_scene;
+    }
+
+    void set_scene(Scene *scene)
+    {
+        m_scene = scene;
+    }
+
     void start()
     {
         for (auto& comp : m_components)
@@ -103,6 +115,9 @@ public:
     {
         for (auto& comp : m_components)
             comp->tick(0.166666666666666);
+
+        for (auto& child : m_children)
+            child->tick();
     }
 
     void do_start()
@@ -117,7 +132,8 @@ public:
 
 private:
     EntityId m_id = EntityId(0);
-    Entity *m_parent = nullptr;
+    Entity *m_parent = nullptr; // FIXME: This must be changed by either a Ref<Entity> or a EntityId.
+    Scene *m_scene = nullptr;   // FIXME: Same here.
     std::vector<Ref<Component>> m_components;
     std::vector<Ref<Entity>> m_children;
 };

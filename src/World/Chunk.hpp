@@ -17,6 +17,12 @@ struct ChunkPos
 
 #define CHUNK_POS(X, Y, Z) ((X & 0xF) | ((Y & 0xFF) << 4) | ((Z & 0xFF) << 12))
 
+struct ChunkBounds
+{
+    glm::ivec3 min;
+    glm::ivec3 max;
+};
+
 class Chunk
 {
 public:
@@ -32,7 +38,7 @@ public:
 
     inline BlockState get_block(size_t x, size_t y, size_t z) const
     {
-        if (x > 15 || y > 255 || z > 15)
+        if (x > 15 || y > 255 || z > 15 || (z * width * height + y * width + x) >= m_blocks.size())
             return BlockState();
         return m_blocks[z * width * height + y * width + x];
     }
@@ -74,7 +80,13 @@ public:
         return m_block_count;
     }
 
+    inline ChunkBounds get_chunk_bounds() const
+    {
+        return ChunkBounds{.min = glm::ivec3(m_min_x, m_min_y, m_min_z), .max = glm::ivec3(m_max_x, m_max_y, m_max_z)};
+    }
+
     void compute_full_visibility(const Ref<World>& world);
+    void compute_visibility(const World *world, int64_t x, int64_t y, int64_t z);
 
     void update_instance_buffer(Ref<Buffer> buffer);
 
@@ -84,7 +96,16 @@ private:
     int64_t m_z;
 
     uint32_t m_buffer_id;
+
+    // TODO: transparent blocks
     uint32_t m_block_count = 0;
+
+    uint8_t m_min_x = 15;
+    uint8_t m_min_y = 255;
+    uint8_t m_min_z = 15;
+    uint8_t m_max_x = 0;
+    uint8_t m_max_y = 0;
+    uint8_t m_max_z = 0;
 
     BlockState& get_block_ref(size_t x, size_t y, size_t z)
     {

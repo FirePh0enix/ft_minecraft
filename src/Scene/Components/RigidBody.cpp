@@ -4,7 +4,7 @@
 
 void RigidBody::start()
 {
-    m_transform = m_entity->get_component<TransformComponent3D>();
+    m_transform = m_entity->get_component<Transformed3D>();
 }
 
 void RigidBody::tick(double delta)
@@ -74,9 +74,9 @@ bool RigidBody::is_on_ground(const Ref<World>& world)
 
 bool RigidBody::intersect_world(glm::vec3 position, const Ref<World>& world)
 {
-    int64_t px = static_cast<int64_t>(position.x + 0.5f);
+    int64_t px = static_cast<int64_t>(position.x);
     int64_t py = static_cast<int64_t>(position.y);
-    int64_t pz = static_cast<int64_t>(position.z + 0.5f);
+    int64_t pz = static_cast<int64_t>(position.z);
 
     constexpr int64_t min_x_bound = -2;
     constexpr int64_t max_x_bound = 2;
@@ -107,5 +107,6 @@ bool RigidBody::intersect_world(glm::vec3 position, const Ref<World>& world)
             }
         }
     }
+
     return false;
 }

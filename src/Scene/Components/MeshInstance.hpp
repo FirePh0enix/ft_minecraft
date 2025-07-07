@@ -14,6 +14,11 @@ public:
     {
     }
 
+    Ref<Material>& get_material()
+    {
+        return m_material;
+    }
+
     virtual void encode_draw_calls(RenderGraph& graph, Camera& camera) override
     {
         graph.add_draw(m_mesh, m_material, camera.get_view_proj_matrix());

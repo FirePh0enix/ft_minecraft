@@ -4,15 +4,15 @@
 #include "Scene/Components/Camera.hpp"
 #include "Scene/Components/Component.hpp"
 #include "Scene/Components/RigidBody.hpp"
-#include "Scene/Components/Transform3D.hpp"
+#include "Scene/Components/Transformed3D.hpp"
 
 class Player : public Component
 {
     CLASS(Player, Component);
 
 public:
-    Player(Ref<World> world)
-        : m_world(world)
+    Player(const Ref<World>& world, const Ref<Mesh>& cube_mesh)
+        : m_world(world), m_cube_mesh(cube_mesh)
     {
     }
 
@@ -40,12 +40,18 @@ public:
     }
 
 private:
-    Ref<TransformComponent3D> m_transform;
+    Ref<Transformed3D> m_transform;
     Ref<Camera> m_camera;
     Ref<RigidBody> m_body;
     Ref<World> m_world;
 
-    float m_speed = 4.0;
+    Ref<Mesh> m_cube_mesh;
+    Ref<Entity> m_cube_highlight;
+    Ref<Buffer> m_cube_highlight_buffer;
+
+    float m_speed = 2.0;
     float m_gravity_value = 9.81;
     bool m_gravity_enabled = true;
+
+    void on_block_aimed(BlockState state, int64_t x, int64_t y, int64_t z);
 };

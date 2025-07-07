@@ -41,7 +41,7 @@ public:
     bool is_on_ground(const Ref<World>& world);
 
 private:
-    Ref<TransformComponent3D> m_transform;
+    Ref<Transformed3D> m_transform;
     glm::vec3 m_velocity = glm::vec3();
     AABB m_aabb;
     bool m_disabled = false;

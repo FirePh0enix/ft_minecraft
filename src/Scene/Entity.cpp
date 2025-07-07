@@ -10,5 +10,6 @@ void Entity::add_child(Ref<Entity> entity)
     m_children.push_back(entity);
 
     entity->set_parent(this);
+    entity->set_scene(m_scene);
     entity->set_id(Scene::allocate_next_id());
 }

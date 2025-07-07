@@ -289,7 +289,7 @@ public:
                     if (!m_terrain->has_block(x + block_x, y, z + block_z))
                         continue;
 
-                    chunk.set_block(x, y, z, BlockState(3));
+                    chunk.set_block(x, y, z, BlockState(2));
                 }
             }
         }

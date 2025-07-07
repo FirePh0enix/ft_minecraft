@@ -1,5 +1,4 @@
 #include "Camera.hpp"
-#include "Input.hpp"
 #include "Scene/Entity.hpp"
 
 Frustum::Frustum()
@@ -80,26 +79,11 @@ bool Frustum::contains(const AABB& aabb) const
 
 void Camera::start()
 {
-    m_transform = m_entity->get_component<TransformComponent3D>();
+    m_transform = m_entity->get_component<Transformed3D>();
 }
 
 void Camera::tick(double delta)
 {
     (void)delta;
     m_frustum = Frustum(get_view_proj_matrix());
-}
-
-void Camera::rotate(float x_rel, float y_rel)
-{
-    Transform3D transform = m_transform->get_transform();
-
-    const glm::vec3 up(0.0, 1.0, 0.0);
-    const glm::vec3 pitch_axis = glm::cross(transform.forward(), up);
-
-    glm::quat q_pitch = glm::angleAxis(y_rel * 12.0f, pitch_axis);
-    glm::quat q_yaw = glm::angleAxis(x_rel * 12.0f, up);
-
-    transform.rotation() *= glm::cross(q_pitch, q_yaw);
-
-    m_transform->set_transform(transform);
 }

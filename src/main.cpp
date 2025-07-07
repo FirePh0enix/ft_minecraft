@@ -3,12 +3,12 @@
 #include "Font.hpp"
 #include "Input.hpp"
 #include "MeshPrimitives.hpp"
-#include "Platform/Platform.hpp"
 #include "Render/Driver.hpp"
 #include "Render/Graph.hpp"
 #include "Render/Shader.hpp"
+#include "Scene/Components/MeshInstance.hpp"
 #include "Scene/Components/RigidBody.hpp"
-#include "Scene/Components/Transform3D.hpp"
+#include "Scene/Components/Transformed3D.hpp"
 #include "Scene/Components/Visual.hpp"
 #include "Scene/Player.hpp"
 #include "Scene/Scene.hpp"
@@ -144,13 +144,13 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     Ref<Camera> camera = make_ref<Camera>();
 
     Ref<Entity> player_head = make_ref<Entity>();
-    player_head->add_component(make_ref<TransformComponent3D>(glm::vec3(0.0, 0.85, 0.0)));
+    player_head->add_component(make_ref<Transformed3D>(glm::vec3(0.0, 0.85, 0.0)));
     player_head->add_component(camera);
 
     player = make_ref<Entity>();
-    player->add_component(make_ref<TransformComponent3D>(Transform3D(glm::vec3(0.0, 18.0, 0.0))));
+    player->add_component(make_ref<Transformed3D>(Transform3D(glm::vec3(0.0, 18.0, 0.0))));
     player->add_component(make_ref<RigidBody>(AABB(glm::vec3(), glm::vec3(0.9))));
-    player->add_component(make_ref<Player>(world));
+    player->add_component(make_ref<Player>(world, cube));
     player->add_child(player_head);
 
     scene->add_entity(player);
@@ -182,6 +182,8 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     gen = make_ref<WorldGenerator>(world, args.has("disable-save"));
     gen->set_terrain(make_ref<FlatTerrainGenerator>());
 
+    // This is very hacky but the only way to create the render pass required for ImGui.
+    // TODO: Maybe a solution would be to create a render pass only for imgui ?
     {
         RenderGraph& graph = RenderGraph::get();
 
@@ -243,10 +245,6 @@ static void tick()
 
     std::optional<SDL_Event> event;
 
-#ifdef __has_debug_menu
-    ImGuiIO& imgui_io = ImGui::GetIO();
-#endif
-
     while ((event = window->poll_event()))
     {
         switch (event->type)
@@ -266,6 +264,8 @@ static void tick()
 
 #ifdef __has_debug_menu
         ImGui_ImplSDL3_ProcessEvent(&*event);
+
+        ImGuiIO& imgui_io = ImGui::GetIO();
 
         if (imgui_io.WantCaptureMouse || imgui_io.WantCaptureKeyboard)
         {
@@ -296,9 +296,18 @@ static void tick()
             player->get_component<Player>()->set_gravity_value(gravity_value);
     }
     ImGui::End();
+
+    if (ImGui::Begin("General info"))
+    {
+        glm::vec3 pos = player->get_component<Transformed3D>()->get_transform().position();
+        ImGui::Text("X: %f", pos.x);
+        ImGui::Text("Y: %f", pos.y);
+        ImGui::Text("Z: %f", pos.z);
+    }
+    ImGui::End();
 #endif
 
-    const glm::vec3 player_pos = player->get_component<TransformComponent3D>()->get_global_transform().position();
+    const glm::vec3 player_pos = player->get_component<Transformed3D>()->get_global_transform().position();
     gen->set_player_pos(player_pos);
     gen->load_around(int64_t(player_pos.x), int64_t(player_pos.y), int64_t(player_pos.z));
 
@@ -337,10 +346,11 @@ static void register_all_classes()
     Entity::register_class();
     Component::register_class();
     VisualComponent::register_class();
+    MeshInstance::register_class();
     RigidBody::register_class();
     Player::register_class();
     Camera::register_class();
-    TransformComponent3D::register_class();
+    Transformed3D::register_class();
 
     World::register_class();
     Block::register_class();
