@@ -25,6 +25,7 @@ bool OverworldTerrainGenerator::has_block(int64_t x, int64_t y, int64_t z)
     constexpr float threshold = 0.1f;
 
     float spaghetti_cave = glm::abs(get_cave_noise(x, y, z));
+    float cheese_cave = get_cave_noise(x, y, z);
 
     BiomeNoise biome_noise{
         .continentalness = get_continentalness_noise(x, z),
@@ -43,7 +44,7 @@ bool OverworldTerrainGenerator::has_block(int64_t x, int64_t y, int64_t z)
         return true;
     }
 
-    if ((spaghetti_cave < threshold) && (expected_height <= sea_level && c != ContinentalnessLevel::Coast))
+    if ((spaghetti_cave < threshold || cheese_cave > 0.5f) && (expected_height <= sea_level + 10 && (c != ContinentalnessLevel::Coast)))
     {
         return false;
     }
@@ -54,7 +55,7 @@ bool OverworldTerrainGenerator::has_block(int64_t x, int64_t y, int64_t z)
     }
 
     // The more we release the squash factor, the more it seems strange and chaotic but also creating cliffs and floating island.
-    float squash_factor = 0.0039f;
+    float squash_factor = 0.0009f;
     float noise = get_3d_noise(x, y, z);
     float density = noise + (expected_height - (float)y) * squash_factor;
 
