@@ -100,7 +100,8 @@ public:
 
     float get_height(int64_t x, int64_t z) override;
     float get_3d_noise(int64_t x, int64_t y, int64_t z);
-    float get_cave_noise(int64_t x, int64_t y, int64_t z);
+    float get_spaghetti_cave_noise(int64_t x, int64_t y, int64_t z);
+    float get_cheese_cave_noise(int64_t x, int64_t y, int64_t z);
 
     float get_continentalness_spline(float continentalness);
     float get_erosion_spline(float erosion);

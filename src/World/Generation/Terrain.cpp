@@ -22,10 +22,10 @@ bool OverworldTerrainGenerator::has_block(int64_t x, int64_t y, int64_t z)
 {
     // Use multiple 2D FBM noise and splines points to calculate a height.
     float expected_height = get_height(x, z);
-    constexpr float threshold = 0.1f;
+    constexpr float threshold = 0.05f;
 
-    float spaghetti_cave = glm::abs(get_cave_noise(x, y, z));
-    float cheese_cave = get_cave_noise(x, y, z);
+    float spaghetti_cave = glm::abs(get_spaghetti_cave_noise(x, y, z));
+    float cheese_cave = get_cheese_cave_noise(x, y, z);
 
     BiomeNoise biome_noise{
         .continentalness = get_continentalness_noise(x, z),
@@ -36,7 +36,6 @@ bool OverworldTerrainGenerator::has_block(int64_t x, int64_t y, int64_t z)
     };
 
     Biome biome = get_biome(biome_noise);
-    ContinentalnessLevel c = get_continentalness_level(biome_noise.continentalness);
 
     // Ensure that even the surface of water has a block.
     if (((biome == Biome::Ocean || biome == Biome::River) && ((float)y == sea_level)) || y == 0)
@@ -44,7 +43,7 @@ bool OverworldTerrainGenerator::has_block(int64_t x, int64_t y, int64_t z)
         return true;
     }
 
-    if ((spaghetti_cave < threshold || cheese_cave > 0.5f) && (expected_height <= sea_level + 10 && (c != ContinentalnessLevel::Coast)))
+    if ((spaghetti_cave < threshold || cheese_cave > 0.38f))
     {
         return false;
     }
@@ -67,9 +66,14 @@ float OverworldTerrainGenerator::get_3d_noise(int64_t x, int64_t y, int64_t z)
     return m_noise.fractal(8, (float)x * 0.00052f, (float)y * 0.0025f, (float)z * 0.00052f);
 }
 
-float OverworldTerrainGenerator::get_cave_noise(int64_t x, int64_t y, int64_t z)
+float OverworldTerrainGenerator::get_spaghetti_cave_noise(int64_t x, int64_t y, int64_t z)
 {
-    return m_noise.fractal(8, (float)x * 0.03f, (float)y * 0.03f, (float)z * 0.03f);
+    return m_noise.fractal(6, (float)x * 0.04f, (float)y * 0.04f, (float)z * 0.04f);
+}
+
+float OverworldTerrainGenerator::get_cheese_cave_noise(int64_t x, int64_t y, int64_t z)
+{
+    return m_noise.fractal(5, (float)x * 0.01f, (float)y * 0.01f, (float)z * 0.01f);
 }
 
 /**
