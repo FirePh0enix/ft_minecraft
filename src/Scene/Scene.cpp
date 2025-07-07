@@ -18,6 +18,8 @@ void Scene::encode_draw_calls(RenderGraph& graph)
 
 void Scene::tick()
 {
+    ZoneScopedN("Scene::tick");
+
     for (auto& entity : m_entites)
     {
         entity->tick();

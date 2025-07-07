@@ -116,7 +116,7 @@ void World::encode_draw_calls(RenderGraph& graph, Camera& camera)
 {
     ZoneScoped;
 
-    std::lock_guard<std::mutex> lock(m_chunks_mutex);
+    std::lock_guard<std::mutex> lock(m_chunks_read_mutex);
 
     for (const auto& chunk_pair : m_dims[0])
     {

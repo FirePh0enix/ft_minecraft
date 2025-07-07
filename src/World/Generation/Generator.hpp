@@ -63,32 +63,38 @@ public:
         const int64_t chunk_z = (int64_t)((float)z / 16.0f);
         const int64_t distance = m_world->get_distance();
 
-        for (int64_t cx = -distance; cx <= distance; cx++)
         {
-            for (int64_t cz = -distance; cz <= distance; cz++)
-            {
-                std::lock_guard<std::mutex> lock(m_load_orders_mutex);
-                if (has_load_order(cx + chunk_x, cz + chunk_z))
-                    continue;
+            ZoneScopedN("load_around.load");
+            std::lock_guard<std::mutex> lock(m_load_orders_mutex);
 
-                m_load_orders.push_back(ChunkPos{.x = cx + chunk_x, .z = cz + chunk_z});
+            for (int64_t cx = -distance; cx <= distance; cx++)
+            {
+                for (int64_t cz = -distance; cz <= distance; cz++)
+                {
+                    if (has_load_order(cx + chunk_x, cz + chunk_z))
+                        continue;
+                    m_load_orders.push_back(ChunkPos{.x = cx + chunk_x, .z = cz + chunk_z});
+                }
             }
         }
-
         if (m_load_orders.size() > 0)
             m_load_semaphore.release();
 
-        std::lock_guard<std::mutex> lock(m_world->get_chunk_mutex());
+        std::lock_guard<std::mutex> lock(m_world->get_chunk_read_mutex());
 
-        for (const auto& chunk : m_world->get_dimension(0))
         {
-            if (chunk.first.x < chunk_x - distance || chunk.first.x > chunk_x + distance || chunk.first.z < chunk_z - distance || chunk.first.z > chunk_z + distance)
-            {
-                std::lock_guard<std::mutex> lock(m_unload_orders_mutex);
-                if (has_unload_order(chunk.first.x, chunk.first.z))
-                    continue;
+            ZoneScopedN("load_around.unload");
 
-                m_unload_orders.push_back(ChunkPos{.x = chunk.first.x, .z = chunk.first.z});
+            for (const auto& chunk : m_world->get_dimension(0))
+            {
+                if (chunk.first.x < chunk_x - distance || chunk.first.x > chunk_x + distance || chunk.first.z < chunk_z - distance || chunk.first.z > chunk_z + distance)
+                {
+                    std::lock_guard<std::mutex> lock(m_unload_orders_mutex);
+                    if (has_unload_order(chunk.first.x, chunk.first.z))
+                        continue;
+
+                    m_unload_orders.push_back(ChunkPos{.x = chunk.first.x, .z = chunk.first.z});
+                }
             }
         }
 
@@ -170,7 +176,7 @@ public:
                 chunk->set_buffer_id(buffer_index.value());
 
                 {
-                    std::lock_guard<std::mutex> lock(gen->m_world->get_chunk_mutex());
+                    std::lock_guard<std::mutex> lock(gen->m_world->get_chunk_read_mutex());
                     chunk->compute_full_visibility(gen->m_world);
                 }
 
@@ -179,8 +185,12 @@ public:
                 {
                     ZoneScopedN("update neighbour chunks");
 
-                    std::lock_guard<std::mutex> lock(gen->m_world->get_chunk_mutex());
-                    gen->m_world->add_chunk(chunk->x(), chunk->z(), chunk);
+                    {
+                        std::lock_guard<std::mutex> lock(gen->m_world->get_chunk_add_mutex());
+                        gen->m_world->add_chunk(chunk->x(), chunk->z(), chunk);
+                    }
+
+                    std::lock_guard<std::mutex> lock(gen->m_world->get_chunk_read_mutex());
 
                     for (auto& chunk_maybe : {
                              gen->m_world->get_chunk(chunk_pos.x, chunk_pos.z - 1),
@@ -221,7 +231,8 @@ public:
 
             if (chunk_pos.has_value())
             {
-                std::lock_guard<std::mutex> lock(gen->m_world->get_chunk_mutex());
+                std::lock_guard<std::mutex> lock_add(gen->m_world->get_chunk_add_mutex());
+                std::lock_guard<std::mutex> lock_read(gen->m_world->get_chunk_read_mutex());
                 std::optional<Ref<Chunk>> chunk_opt = gen->m_world->get_chunk(chunk_pos->x, chunk_pos->z);
 
                 if (chunk_opt.has_value())

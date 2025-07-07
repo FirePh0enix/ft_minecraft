@@ -10,7 +10,7 @@ class MeshInstance : public VisualComponent
 
 public:
     MeshInstance(const Ref<Mesh>& mesh, const Ref<Material>& material)
-        : m_mesh(mesh), m_material(material)
+        : m_mesh(mesh), m_material(material), m_visible(true)
     {
     }
 
@@ -21,10 +21,22 @@ public:
 
     virtual void encode_draw_calls(RenderGraph& graph, Camera& camera) override
     {
-        graph.add_draw(m_mesh, m_material, camera.get_view_proj_matrix());
+        if (is_visible())
+            graph.add_draw(m_mesh, m_material, camera.get_view_proj_matrix());
+    }
+
+    bool is_visible() const
+    {
+        return m_visible;
+    }
+
+    void set_visible(bool visible)
+    {
+        m_visible = visible;
     }
 
 private:
     Ref<Mesh> m_mesh;
     Ref<Material> m_material;
+    bool m_visible;
 };

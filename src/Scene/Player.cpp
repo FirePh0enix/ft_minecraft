@@ -47,6 +47,8 @@ void Player::start()
 
 void Player::tick(double delta)
 {
+    ZoneScopedN("Player::tick");
+
     Transform3D transform = m_transform->get_transform();
 
     const glm::vec3 forward = transform.forward();
@@ -56,6 +58,8 @@ void Player::tick(double delta)
 
     if (Input::get().is_mouse_grabbed())
     {
+        ZoneScopedN("Player::tick.mouse_movements");
+
         constexpr float mouse_sensibility = 0.03f;
 
         const glm::vec2 relative = Input::get().get_mouse_relative();
@@ -77,35 +81,33 @@ void Player::tick(double delta)
     Ray ray(transform.position(), camera_forward);
     float t = 0.0;
 
-    while (t < 5.0)
     {
-        glm::vec3 pos = ray.at(t);
+        ZoneScopedN("Player::tick.aim");
 
-        int64_t x = (int64_t)(pos.x + 0.5);
-        int64_t y = (int64_t)(pos.y + 0.5);
-        int64_t z = (int64_t)(pos.z + 0.5);
-
-        BlockState state = m_world->get_block_state(x, y, z);
-
-        if (!state.is_air())
+        while (t < 5.0)
         {
-            on_block_aimed(state, x, y, z);
-            break;
+            glm::vec3 pos = ray.at(t);
+
+            int64_t x = (int64_t)(pos.x + 0.5);
+            int64_t y = (int64_t)(pos.y + 0.5);
+            int64_t z = (int64_t)(pos.z + 0.5);
+
+            BlockState state = m_world->get_block_state(x, y, z);
+
+            if (!state.is_air())
+            {
+                m_cube_highlight->get_component<MeshInstance>()->set_visible(true);
+                on_block_aimed(state, x, y, z);
+                break;
+            }
+            else
+            {
+                m_cube_highlight->get_component<MeshInstance>()->set_visible(false);
+            }
+
+            t += 0.1;
         }
-        else
-        {
-            Transform3D transform(glm::vec3(0, -1000.0, 0));
-
-            CubeHighlightUniforms uniforms{};
-            uniforms.model_matrix = transform.translation_matrix();
-            uniforms.color = glm::vec3(1.0, 1.0, 0.0);
-
-            RenderingDriver::get()->update_buffer(m_cube_highlight_buffer, View(uniforms).as_bytes(), 0);
-        }
-
-        t += 0.1;
     }
-
     m_body->velocity() += forward * dir.z * m_speed;
     m_body->velocity() += up * dir.y * m_speed;
     m_body->velocity() += right * dir.x * m_speed;

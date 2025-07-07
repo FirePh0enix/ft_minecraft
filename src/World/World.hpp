@@ -65,9 +65,14 @@ public:
         return m_distance;
     }
 
-    inline std::mutex& get_chunk_mutex()
+    inline std::mutex& get_chunk_add_mutex()
     {
-        return m_chunks_mutex;
+        return m_chunks_add_mutex;
+    }
+
+    inline std::mutex& get_chunk_read_mutex()
+    {
+        return m_chunks_add_mutex;
     }
 
     inline std::mutex& get_buffer_mutex()
@@ -108,7 +113,8 @@ private:
     Ref<Mesh> m_mesh;
     Ref<Material> m_material;
 
-    std::mutex m_chunks_mutex;
+    std::mutex m_chunks_add_mutex;
+    std::mutex m_chunks_read_mutex;
     std::mutex m_buffers_mutex;
 
     void update_visibility(int64_t x, int64_t y, int64_t z, bool recurse);
