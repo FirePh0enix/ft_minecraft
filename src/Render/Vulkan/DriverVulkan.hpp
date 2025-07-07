@@ -168,7 +168,7 @@ public:
     }
 
     [[nodiscard]]
-    virtual Result<> initialize(const Window& window) override;
+    virtual Result<> initialize(const Window& window, bool enable_validation) override;
 
     [[nodiscard]]
     Result<> initialize_imgui() override;
@@ -259,11 +259,12 @@ private:
     vk::PhysicalDeviceMemoryProperties m_memory_properties;
 
     vk::Queue m_graphics_queue;
-    uint32_t m_graphics_queue_index;
+    uint32_t m_graphics_queue_index = 0;
     std::mutex m_graphics_mutex;
 
     vk::Queue m_compute_queue;
-    uint32_t m_compute_queue_index;
+    uint32_t m_compute_queue_index = 0;
+    std::mutex m_compute_mutex;
 
     vk::SurfaceCapabilitiesKHR m_surface_capabilities;
     std::vector<vk::PresentModeKHR> m_surface_present_modes;
@@ -291,11 +292,11 @@ private:
 
     uint32_t m_frames_limit = 0;
     // Time between two frames in microseconds when `m_frames_limit != 0`.
-    uint32_t m_time_between_frames;
+    uint32_t m_time_between_frames = 0;
     std::chrono::time_point<std::chrono::high_resolution_clock> m_last_frame_limit_time;
 
-    TracyVkCtx m_tracy_context;
-    SDL_Window *m_window;
+    TracyVkCtx m_tracy_context = {};
+    SDL_Window *m_window = nullptr;
 
     static PFN_vkVoidFunction imgui_get_proc_addr(const char *name, void *user)
     {

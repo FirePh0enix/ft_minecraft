@@ -72,9 +72,11 @@ public:
                     continue;
 
                 m_load_orders.push_back(ChunkPos{.x = cx + chunk_x, .z = cz + chunk_z});
-                m_load_semaphore.release();
             }
         }
+
+        if (m_load_orders.size() > 0)
+            m_load_semaphore.release();
 
         std::lock_guard<std::mutex> lock(m_world->get_chunk_mutex());
 
@@ -87,9 +89,11 @@ public:
                     continue;
 
                 m_unload_orders.push_back(ChunkPos{.x = chunk.first.x, .z = chunk.first.z});
-                m_unload_semaphore.release();
             }
         }
+
+        if (m_unload_orders.size() > 0)
+            m_unload_semaphore.release();
     }
 
     bool has_load_order(int64_t x, int64_t z)

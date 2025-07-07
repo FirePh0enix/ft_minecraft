@@ -439,16 +439,19 @@ Result<vk::Framebuffer> FramebufferCache::get_or_create(FramebufferCache::Key ke
 
 void FramebufferCache::clear_with_size(uint32_t width, uint32_t height)
 {
-    std::map<Key, vk::Framebuffer>::iterator iter;
+    (void)width;
+    (void)height;
+    // FIXME: This will leak memory but prevent a segmentation fault.
+    // std::map<Key, vk::Framebuffer>::iterator iter;
 
-    while (true)
-    {
-        iter = std::find_if(m_framebuffers.begin(), m_framebuffers.end(), [width, height](const std::pair<Key, vk::Framebuffer>& pair)
-                            { return pair.first.width == width && pair.first.height == height; });
-        if (iter == m_framebuffers.end())
-            break;
-        RenderingDriverVulkan::get()->get_device().destroyFramebuffer(iter->second);
-    }
+    // while (true)
+    // {
+    //     iter = std::find_if(m_framebuffers.begin(), m_framebuffers.end(), [width, height](const std::pair<Key, vk::Framebuffer>& pair)
+    //                         { return pair.first.width == width && pair.first.height == height; });
+    //     if (iter == m_framebuffers.end())
+    //         break;
+    //     RenderingDriverVulkan::get()->get_device().destroyFramebuffer(iter->second);
+    // }
 }
 
 void FramebufferCache::clear_with_renderpass(vk::RenderPass render_pass)
@@ -471,6 +474,8 @@ RenderingDriverVulkan::RenderingDriverVulkan()
 
 RenderingDriverVulkan::~RenderingDriverVulkan()
 {
+    println("destroying RenderingDriverVulkan");
+
     if (m_device)
     {
         ImGui::DestroyContext();
@@ -505,10 +510,13 @@ RenderingDriverVulkan::~RenderingDriverVulkan()
 
 Result<Ref<Buffer>> StagingBufferPool::get_or_create(size_t size, BufferUsage usage, BufferVisibility visibility)
 {
+    (void)size;
+    (void)usage;
+    (void)visibility;
     // TODO:
 }
 
-Result<> RenderingDriverVulkan::initialize(const Window& window)
+Result<> RenderingDriverVulkan::initialize(const Window& window, bool enable_validation)
 {
     VULKAN_HPP_DEFAULT_DISPATCHER.init();
 
@@ -519,9 +527,10 @@ Result<> RenderingDriverVulkan::initialize(const Window& window)
 
     std::vector<const char *> validation_layers;
 
-#ifdef __DEBUG__
-    validation_layers.push_back("VK_LAYER_KHRONOS_validation");
-#endif
+    if (enable_validation)
+    {
+        validation_layers.push_back("VK_LAYER_KHRONOS_validation");
+    }
 
     std::vector<const char *> required_instance_extensions(instance_extensions_count);
     for (size_t i = 0; i < instance_extensions_count; i++)

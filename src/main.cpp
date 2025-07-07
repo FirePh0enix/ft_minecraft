@@ -67,6 +67,7 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
 
     Args args;
     args.add_arg("disable-save", {.type = ArgType::Bool});
+    args.add_arg("enable-gpu-validation", {.type = ArgType::Bool});
 
     args.parse(argv, argc);
 
@@ -85,7 +86,7 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     RenderingDriver::create_singleton<RenderingDriverVulkan>();
 #endif
 
-    auto init_result = RenderingDriver::get()->initialize(*window);
+    auto init_result = RenderingDriver::get()->initialize(*window, args.has("enable-gpu-validation"));
     EXPECT(init_result);
 
     auto shader_result = Shader::compile("assets/shaders/voxel.wgsl", {}, {.vertex = true, .fragment = true});
@@ -221,6 +222,8 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     gen->stop_workers();
     BlockRegistry::get().destroy();
     Font::deinit_library();
+
+    // RenderingDriver::destroy_singleton();
 #endif
 
     return 0;
@@ -250,8 +253,10 @@ static void tick()
         switch (event->type)
         {
         case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
+        {
             window->close();
-            break;
+        }
+        break;
         case SDL_EVENT_WINDOW_RESIZED:
         {
             Result<> result = RenderingDriver::get()->configure_surface(*window, VSync::Off);

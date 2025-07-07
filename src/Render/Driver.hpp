@@ -239,7 +239,7 @@ public:
      * @param window
      */
     [[nodiscard]]
-    virtual Result<> initialize(const Window& window) = 0;
+    virtual Result<> initialize(const Window& window, bool enable_validation) = 0;
 
     /**
      * @brief Initialize ImGui. no-op when `__has_debug_menu`.
