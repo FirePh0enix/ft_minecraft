@@ -1,5 +1,4 @@
 #include "Terrain.hpp"
-#include "Core/Print.hpp"
 #include "glm/common.hpp"
 #include <array>
 #include <cstdint>
@@ -22,7 +21,7 @@ bool OverworldTerrainGenerator::has_block(int64_t x, int64_t y, int64_t z)
 {
     // Use multiple 2D FBM noise and splines points to calculate a height.
     float expected_height = get_height(x, z);
-    constexpr float threshold = 0.05f;
+    constexpr float threshold = 0.10f;
 
     float spaghetti_cave = glm::abs(get_spaghetti_cave_noise(x, y, z));
     float cheese_cave = get_cheese_cave_noise(x, y, z);
@@ -37,13 +36,20 @@ bool OverworldTerrainGenerator::has_block(int64_t x, int64_t y, int64_t z)
 
     Biome biome = get_biome(biome_noise);
 
-    // Ensure that even the surface of water has a block.
+    // Ensure that the surface of water has a block.
     if (((biome == Biome::Ocean || biome == Biome::River) && ((float)y == sea_level)) || y == 0)
     {
         return true;
     }
 
-    if ((spaghetti_cave < threshold || cheese_cave > 0.38f))
+    // Dig vertical hole
+    float vertical_shaft = get_spaghetti_cave_noise(x, y, z);
+    if (vertical_shaft < 0.03f && (float)y > expected_height - 10 && (float)y < expected_height)
+    {
+        return false;
+    }
+
+    if ((spaghetti_cave < threshold || cheese_cave > 0.38f) && expected_height <= sea_level)
     {
         return false;
     }
@@ -68,7 +74,7 @@ float OverworldTerrainGenerator::get_3d_noise(int64_t x, int64_t y, int64_t z)
 
 float OverworldTerrainGenerator::get_spaghetti_cave_noise(int64_t x, int64_t y, int64_t z)
 {
-    return m_noise.fractal(6, (float)x * 0.04f, (float)y * 0.04f, (float)z * 0.04f);
+    return m_noise.fractal(6, (float)x * 0.025f, (float)y * 0.025f, (float)z * 0.025f);
 }
 
 float OverworldTerrainGenerator::get_cheese_cave_noise(int64_t x, int64_t y, int64_t z)
