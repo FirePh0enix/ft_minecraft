@@ -11,10 +11,12 @@ constexpr uint8_t bottom_mask = 1 << 5;
 
 void Chunk::compute_full_visibility(const Ref<World>& world)
 {
-    std::optional<const Chunk *> north = world->get_chunk(x(), z() - 1);
-    std::optional<const Chunk *> south = world->get_chunk(x(), z() + 1);
-    std::optional<const Chunk *> west = world->get_chunk(x() - 1, z());
-    std::optional<const Chunk *> east = world->get_chunk(x() + 1, z());
+    ZoneScoped;
+
+    std::optional<Ref<Chunk>> north = world->get_chunk(x(), z() - 1);
+    std::optional<Ref<Chunk>> south = world->get_chunk(x(), z() + 1);
+    std::optional<Ref<Chunk>> west = world->get_chunk(x() - 1, z());
+    std::optional<Ref<Chunk>> east = world->get_chunk(x() + 1, z());
 
     for (int64_t x = 0; x < Chunk::width; x++)
     {
@@ -82,10 +84,10 @@ void Chunk::compute_full_visibility(const Ref<World>& world)
 
 void Chunk::compute_visibility(const World *world, int64_t x, int64_t y, int64_t z)
 {
-    std::optional<const Chunk *> north = world->get_chunk(this->x(), this->z() - 1);
-    std::optional<const Chunk *> south = world->get_chunk(this->x(), this->z() + 1);
-    std::optional<const Chunk *> west = world->get_chunk(this->x() - 1, this->z());
-    std::optional<const Chunk *> east = world->get_chunk(this->x() + 1, this->z());
+    std::optional<Ref<Chunk>> north = world->get_chunk(this->x(), this->z() - 1);
+    std::optional<Ref<Chunk>> south = world->get_chunk(this->x(), this->z() + 1);
+    std::optional<Ref<Chunk>> west = world->get_chunk(this->x() - 1, this->z());
+    std::optional<Ref<Chunk>> east = world->get_chunk(this->x() + 1, this->z());
 
     uint8_t visibility = 0;
 

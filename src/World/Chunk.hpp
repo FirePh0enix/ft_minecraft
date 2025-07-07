@@ -9,6 +9,11 @@ struct ChunkPos
 {
     int64_t x;
     int64_t z;
+
+    bool operator<(const ChunkPos& other) const
+    {
+        return std::tie(x, z) < std::tie(other.x, other.z);
+    }
 };
 
 #define CHUNK_LOCAL_X(POS) (POS & 0xF)
@@ -23,8 +28,10 @@ struct ChunkBounds
     glm::ivec3 max;
 };
 
-class Chunk
+class Chunk : public Object
 {
+    CLASS(Chunk, Object);
+
 public:
     static constexpr int64_t width = 16;
     static constexpr int64_t height = 256;

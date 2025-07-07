@@ -12,14 +12,14 @@ BlockState World::get_block_state(int64_t x, int64_t y, int64_t z) const
     int64_t chunk_x = x / 16;
     int64_t chunk_z = z / 16;
 
-    std::optional<const Chunk *> chunk_value = get_chunk(chunk_x, chunk_z);
+    std::optional<Ref<Chunk>> chunk_value = get_chunk(chunk_x, chunk_z);
 
     if (!chunk_value.has_value())
     {
         return BlockState();
     }
 
-    const Chunk *chunk = chunk_value.value();
+    Ref<Chunk> chunk = chunk_value.value();
     const size_t chunk_local_x = x > 0 ? (x % 16) : -(x % 16);
     const size_t chunk_local_z = z > 0 ? (z % 16) : -(z % 16);
 
@@ -31,14 +31,14 @@ void World::set_block_state(int64_t x, int64_t y, int64_t z, BlockState state)
     int64_t chunk_x = x / 16;
     int64_t chunk_z = z / 16;
 
-    std::optional<Chunk *> chunk_value = get_chunk(chunk_x, chunk_z);
+    std::optional<Ref<Chunk>> chunk_value = get_chunk(chunk_x, chunk_z);
 
     if (!chunk_value.has_value())
     {
         return;
     }
 
-    Chunk *chunk = chunk_value.value();
+    Ref<Chunk> chunk = chunk_value.value();
     const size_t chunk_local_x = x > 0 ? (x % 16) : -(x % 16);
     const size_t chunk_local_z = z > 0 ? (z % 16) : -(z % 16);
 
@@ -51,14 +51,14 @@ void World::update_visibility(int64_t x, int64_t y, int64_t z, bool recurse)
     int64_t chunk_x = x / 16;
     int64_t chunk_z = z / 16;
 
-    std::optional<Chunk *> chunk_value = get_chunk(chunk_x, chunk_z);
+    std::optional<Ref<Chunk>> chunk_value = get_chunk(chunk_x, chunk_z);
 
     if (!chunk_value.has_value())
     {
         return;
     }
 
-    Chunk *chunk = chunk_value.value();
+    Ref<Chunk> chunk = chunk_value.value();
     const size_t chunk_local_x = x > 0 ? (x % 16) : -(x % 16);
     const size_t chunk_local_z = z > 0 ? (z % 16) : -(z % 16);
 
@@ -77,24 +77,14 @@ void World::update_visibility(int64_t x, int64_t y, int64_t z, bool recurse)
     }
 }
 
-std::optional<const Chunk *> World::get_chunk(int64_t x, int64_t z) const
+std::optional<Ref<Chunk>> World::get_chunk(int64_t x, int64_t z) const
 {
-    for (const Chunk& chunk : m_dims[0].get_chunks())
-    {
-        if (chunk.x() == x && chunk.z() == z)
-            return &chunk;
-    }
-    return std::nullopt;
+    return m_dims[0].get_chunk(x, z);
 }
 
-std::optional<Chunk *> World::get_chunk(int64_t x, int64_t z)
+std::optional<Ref<Chunk>> World::get_chunk(int64_t x, int64_t z)
 {
-    for (Chunk& chunk : m_dims[0].get_chunks())
-    {
-        if (chunk.x() == x && chunk.z() == z)
-            return &chunk;
-    }
-    return std::nullopt;
+    return m_dims[0].get_chunk(x, z);
 }
 
 void World::set_render_distance(uint32_t distance)
@@ -128,14 +118,14 @@ void World::encode_draw_calls(RenderGraph& graph, Camera& camera)
 
     std::lock_guard<std::mutex> lock(m_chunks_mutex);
 
-    for (const Chunk& chunk : m_dims[0].get_chunks())
+    for (const auto& chunk_pair : m_dims[0])
     {
-        AABB aabb = AABB(glm::vec3((float)chunk.x() * 16.0 + 8.0, 128.0, (float)chunk.z() * 16.0 + 8.0), glm::vec3(8.0, 128.0, 8.0));
+        AABB aabb = AABB(glm::vec3((float)chunk_pair.first.x * 16.0 + 8.0, 128.0, (float)chunk_pair.first.z * 16.0 + 8.0), glm::vec3(8.0, 128.0, 8.0));
 
         if (camera.frustum().contains(aabb))
         {
-            const Ref<Buffer>& buffer = m_buffers[chunk.get_buffer_id()].buffer;
-            graph.add_draw(m_mesh, m_material, camera.get_view_proj_matrix(), chunk.get_block_count(), buffer);
+            const Ref<Buffer>& buffer = m_buffers[chunk_pair.second->get_buffer_id()].buffer;
+            graph.add_draw(m_mesh, m_material, camera.get_view_proj_matrix(), chunk_pair.second->get_block_count(), buffer);
         }
     }
 }

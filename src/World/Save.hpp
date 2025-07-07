@@ -46,7 +46,7 @@ public:
      * @brief Save a chunk of world to the disk.
      * @param chunk The chunk to save.
      */
-    void save_chunk(Chunk *chunk);
+    void save_chunk(const Ref<Chunk>& chunk);
 
     /**
      * @brief Returns whether a chunk exists on disk or not.
@@ -56,7 +56,7 @@ public:
     /**
      * @brief Load a chunk from disk.
      */
-    Chunk load_chunk(int64_t x, int64_t z);
+    Ref<Chunk> load_chunk(int64_t x, int64_t z);
 
 private:
     std::string m_name;

@@ -353,6 +353,7 @@ static void register_all_classes()
     Transformed3D::register_class();
 
     World::register_class();
+    Chunk::register_class();
     Block::register_class();
     TerrainGenerator::register_class();
     FlatTerrainGenerator::register_class();

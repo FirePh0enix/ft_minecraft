@@ -9,16 +9,42 @@ public:
     {
     }
 
-    inline const std::vector<Chunk>& get_chunks() const
+    std::optional<Ref<Chunk>> get_chunk(int64_t x, int64_t z) const
     {
-        return m_chunks;
+        auto iter = m_chunks.find(ChunkPos{.x = x, .z = z});
+        if (iter == m_chunks.end())
+            return std::nullopt;
+        return iter->second;
     }
 
-    inline std::vector<Chunk>& get_chunks()
+    bool has_chunk(int64_t x, int64_t z) const
     {
-        return m_chunks;
+        auto iter = m_chunks.find(ChunkPos{.x = x, .z = z});
+        return iter != m_chunks.end();
+    }
+
+    void remove_chunk(int64_t x, int64_t z)
+    {
+        auto iter = m_chunks.find(ChunkPos{.x = x, .z = z});
+        if (iter == m_chunks.end())
+            m_chunks.erase(iter);
+    }
+
+    void add_chunk(int64_t x, int64_t z, const Ref<Chunk>& chunk)
+    {
+        m_chunks[ChunkPos{.x = x, .z = z}] = chunk;
+    }
+
+    auto begin()
+    {
+        return m_chunks.begin();
+    }
+
+    auto end()
+    {
+        return m_chunks.end();
     }
 
 private:
-    std::vector<Chunk> m_chunks;
+    std::map<ChunkPos, Ref<Chunk>> m_chunks;
 };

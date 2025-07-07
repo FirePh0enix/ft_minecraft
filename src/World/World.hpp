@@ -36,8 +36,8 @@ public:
     BlockState get_block_state(int64_t x, int64_t y, int64_t z) const;
     void set_block_state(int64_t x, int64_t y, int64_t z, BlockState state);
 
-    std::optional<const Chunk *> get_chunk(int64_t x, int64_t z) const;
-    std::optional<Chunk *> get_chunk(int64_t x, int64_t z);
+    std::optional<Ref<Chunk>> get_chunk(int64_t x, int64_t z) const;
+    std::optional<Ref<Chunk>> get_chunk(int64_t x, int64_t z);
 
     void set_render_distance(uint32_t distance);
 
@@ -65,11 +65,6 @@ public:
         return m_distance;
     }
 
-    inline std::vector<Chunk>& get_chunks()
-    {
-        return m_dims[0].get_chunks();
-    }
-
     inline std::mutex& get_chunk_mutex()
     {
         return m_chunks_mutex;
@@ -80,27 +75,29 @@ public:
         return m_buffers_mutex;
     }
 
-    inline const std::vector<Chunk>& get_chunks() const
-    {
-        return m_dims[0].get_chunks();
-    }
-
     void remove_chunk(int64_t x, int64_t z)
     {
-        auto iter = std::find_if(m_dims[0].get_chunks().begin(), m_dims[0].get_chunks().end(), [x, z](const Chunk& c)
-                                 { return c.x() == x && c.z() == z; });
-        if (iter != m_dims[0].get_chunks().end())
-            m_dims[0].get_chunks().erase(iter);
+        m_dims[0].remove_chunk(x, z);
+    }
+
+    void add_chunk(int64_t x, int64_t z, const Ref<Chunk>& chunk)
+    {
+        m_dims[0].add_chunk(x, z, chunk);
     }
 
     bool is_chunk_loaded(int64_t x, int64_t z) const
     {
-        for (const auto& chunk : get_chunks())
-        {
-            if (chunk.x() == x && chunk.z() == z)
-                return true;
-        }
-        return false;
+        return m_dims[0].has_chunk(x, z);
+    }
+
+    const Dimension& get_dimension(size_t index) const
+    {
+        return m_dims[index];
+    }
+
+    Dimension& get_dimension(size_t index)
+    {
+        return m_dims[index];
     }
 
 private:

@@ -76,15 +76,15 @@ public:
 
         std::lock_guard<std::mutex> lock(m_world->get_chunk_mutex());
 
-        for (const Chunk& chunk : m_world->get_chunks())
+        for (const auto& chunk : m_world->get_dimension(0))
         {
-            if (chunk.x() < chunk_x - distance || chunk.x() > chunk_x + distance || chunk.z() < chunk_z - distance || chunk.z() > chunk_z + distance)
+            if (chunk.first.x < chunk_x - distance || chunk.first.x > chunk_x + distance || chunk.first.z < chunk_z - distance || chunk.first.z > chunk_z + distance)
             {
                 std::lock_guard<std::mutex> lock(m_unload_orders_mutex);
-                if (has_unload_order(chunk.x(), chunk.z()))
+                if (has_unload_order(chunk.first.x, chunk.first.z))
                     continue;
 
-                m_unload_orders.push_back(ChunkPos{.x = chunk.x(), .z = chunk.z()});
+                m_unload_orders.push_back(ChunkPos{.x = chunk.first.x, .z = chunk.first.z});
                 m_unload_semaphore.release();
             }
         }
@@ -147,7 +147,7 @@ public:
                     continue;
                 }
 
-                Chunk chunk(chunk_pos.x, chunk_pos.z);
+                Ref<Chunk> chunk;
 
                 if (!gen->disable_save && gen->save.chunk_exists(chunk_pos.x, chunk_pos.z))
                 {
@@ -158,21 +158,23 @@ public:
                     chunk = gen->generate_chunk(chunk_pos.x, chunk_pos.z);
 
                     if (!gen->disable_save)
-                        gen->save.save_chunk(&chunk);
+                        gen->save.save_chunk(chunk);
                 }
 
-                chunk.set_buffer_id(buffer_index.value());
+                chunk->set_buffer_id(buffer_index.value());
 
                 {
                     std::lock_guard<std::mutex> lock(gen->m_world->get_chunk_mutex());
-                    chunk.compute_full_visibility(gen->m_world);
+                    chunk->compute_full_visibility(gen->m_world);
                 }
 
-                chunk.update_instance_buffer(gen->m_world->get_buffer(chunk.get_buffer_id()));
+                chunk->update_instance_buffer(gen->m_world->get_buffer(chunk->get_buffer_id()));
 
                 {
+                    ZoneScopedN("update neighbour chunks");
+
                     std::lock_guard<std::mutex> lock(gen->m_world->get_chunk_mutex());
-                    gen->m_world->get_chunks().push_back(chunk);
+                    gen->m_world->add_chunk(chunk->x(), chunk->z(), chunk);
 
                     for (auto& chunk : {
                              gen->m_world->get_chunk(chunk_pos.x, chunk_pos.z - 1),
@@ -181,10 +183,12 @@ public:
                              gen->m_world->get_chunk(chunk_pos.x + 1, chunk_pos.z),
                          })
                     {
+
                         if (chunk.has_value())
                         {
-                            chunk.value()->compute_full_visibility(gen->m_world);
-                            chunk.value()->update_instance_buffer(gen->m_world->get_buffer(chunk.value()->get_buffer_id()));
+                            Ref<Chunk> chunk2 = chunk.value();
+                            chunk2->compute_full_visibility(gen->m_world);
+                            chunk2->update_instance_buffer(gen->m_world->get_buffer(chunk2->get_buffer_id()));
                         }
                     }
                 }
@@ -213,11 +217,11 @@ public:
             if (chunk_pos.has_value())
             {
                 std::lock_guard<std::mutex> lock(gen->m_world->get_chunk_mutex());
-                std::optional<Chunk *> chunk_opt = gen->m_world->get_chunk(chunk_pos->x, chunk_pos->z);
+                std::optional<Ref<Chunk>> chunk_opt = gen->m_world->get_chunk(chunk_pos->x, chunk_pos->z);
 
                 if (chunk_opt.has_value())
                 {
-                    Chunk *chunk = chunk_opt.value();
+                    Ref<Chunk> chunk = chunk_opt.value();
 
                     gen->m_world->free_buffer(chunk->get_buffer_id());
                     gen->m_world->remove_chunk(chunk->x(), chunk->z());
@@ -273,9 +277,11 @@ public:
         return pos;
     }
 
-    Chunk generate_chunk(int64_t chunk_x, int64_t chunk_z)
+    Ref<Chunk> generate_chunk(int64_t chunk_x, int64_t chunk_z)
     {
-        Chunk chunk(chunk_x, chunk_z);
+        ZoneScoped;
+
+        Ref<Chunk> chunk = make_ref<Chunk>(chunk_x, chunk_z);
 
         int64_t block_x = chunk_x * 16;
         int64_t block_z = chunk_z * 16;
@@ -289,7 +295,7 @@ public:
                     if (!m_terrain->has_block(x + block_x, y, z + block_z))
                         continue;
 
-                    chunk.set_block(x, y, z, BlockState(2));
+                    chunk->set_block(x, y, z, BlockState(2));
                 }
             }
         }
