@@ -55,6 +55,8 @@ public:
 
     void load_around(int64_t x, int64_t y, int64_t z)
     {
+        ZoneScoped;
+
         (void)y;
 
         const int64_t chunk_x = (int64_t)((float)x / 16.0f);
@@ -176,18 +178,17 @@ public:
                     std::lock_guard<std::mutex> lock(gen->m_world->get_chunk_mutex());
                     gen->m_world->add_chunk(chunk->x(), chunk->z(), chunk);
 
-                    for (auto& chunk : {
+                    for (auto& chunk_maybe : {
                              gen->m_world->get_chunk(chunk_pos.x, chunk_pos.z - 1),
                              gen->m_world->get_chunk(chunk_pos.x, chunk_pos.z + 1),
                              gen->m_world->get_chunk(chunk_pos.x - 1, chunk_pos.z),
                              gen->m_world->get_chunk(chunk_pos.x + 1, chunk_pos.z),
                          })
                     {
-
-                        if (chunk.has_value())
+                        if (chunk_maybe.has_value())
                         {
-                            Ref<Chunk> chunk2 = chunk.value();
-                            chunk2->compute_full_visibility(gen->m_world);
+                            Ref<Chunk> chunk2 = chunk_maybe.value();
+                            chunk2->compute_axis_neighbour_visibility(gen->m_world, chunk);
                             chunk2->update_instance_buffer(gen->m_world->get_buffer(chunk2->get_buffer_id()));
                         }
                     }

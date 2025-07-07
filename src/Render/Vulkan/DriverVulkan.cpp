@@ -1282,6 +1282,8 @@ void RenderingDriverVulkan::draw_graph(const RenderGraph& graph)
 
 Result<vk::Pipeline> RenderingDriverVulkan::create_graphics_pipeline(Ref<Shader> shader, std::optional<InstanceLayout> instance_layout, vk::PolygonMode polygon_mode, vk::CullModeFlags cull_mode, MaterialFlags flags, vk::PipelineLayout pipeline_layout, vk::RenderPass render_pass, bool previous_depth_pass)
 {
+    ZoneScoped;
+
     StackVector<vk::PipelineShaderStageCreateInfo, 2> shader_stages;
 
     std::vector<uint32_t> code = shader->get_code();

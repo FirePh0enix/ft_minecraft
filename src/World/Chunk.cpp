@@ -145,6 +145,49 @@ void Chunk::compute_visibility(const World *world, int64_t x, int64_t y, int64_t
     update_instance_buffer(world->get_buffer(get_buffer_id()));
 }
 
+void Chunk::compute_axis_neighbour_visibility(const Ref<World>& world, const Ref<Chunk>& neighbour)
+{
+    (void)world;
+
+    int64_t x_diff = neighbour->x() - x();
+    int64_t z_diff = neighbour->z() - z();
+
+    for (int64_t a = 0; a < Chunk::width; a++)
+    {
+        for (int64_t y = 0; y < Chunk::height; y++)
+        {
+            if (x_diff < 0) // -X
+            {
+                if (neighbour->has_block(15, y, a))
+                    get_block_ref(0, y, a).generic.visibility |= west_mask;
+                else
+                    get_block_ref(0, y, a).generic.visibility &= ~west_mask;
+            }
+            else if (x_diff > 0) // +X
+            {
+                if (neighbour->has_block(0, y, a))
+                    get_block_ref(15, y, a).generic.visibility |= east_mask;
+                else
+                    get_block_ref(15, y, a).generic.visibility &= ~east_mask;
+            }
+            else if (z_diff < 0) // -Z
+            {
+                if (neighbour->has_block(a, y, 15))
+                    get_block_ref(a, y, 0).generic.visibility |= north_mask;
+                else
+                    get_block_ref(a, y, 0).generic.visibility &= ~north_mask;
+            }
+            else if (z_diff > 0) // +Z
+            {
+                if (neighbour->has_block(0, y, a))
+                    get_block_ref(a, y, 15).generic.visibility |= south_mask;
+                else
+                    get_block_ref(a, y, 15).generic.visibility &= ~south_mask;
+            }
+        }
+    }
+}
+
 void Chunk::update_instance_buffer(Ref<Buffer> buffer)
 {
     ZoneScoped;
@@ -158,7 +201,7 @@ void Chunk::update_instance_buffer(Ref<Buffer> buffer)
         {
             for (int64_t y = 0; y < Chunk::height; y++)
             {
-                BlockState state = get_block(x, y, z);
+                BlockState state = get_block_ref(x, y, z);
                 if (state.id == 0)
                 {
                     continue;

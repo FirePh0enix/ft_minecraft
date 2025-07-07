@@ -95,6 +95,8 @@ public:
     void compute_full_visibility(const Ref<World>& world);
     void compute_visibility(const World *world, int64_t x, int64_t y, int64_t z);
 
+    void compute_axis_neighbour_visibility(const Ref<World>& world, const Ref<Chunk>& neighbour);
+
     void update_instance_buffer(Ref<Buffer> buffer);
 
 private:

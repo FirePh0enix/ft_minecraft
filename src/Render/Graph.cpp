@@ -17,6 +17,8 @@ void RenderGraph::reset()
     m_renderpass = false;
     m_instructions.clear();
     m_copy_instructions.clear();
+
+    m_instructions.reserve(500);
 }
 
 View<Instruction> RenderGraph::get_instructions() const
@@ -31,12 +33,16 @@ View<CopyInstruction> RenderGraph::get_copy_instructions() const
 
 void RenderGraph::begin_render_pass(RenderPassDescriptor descriptor)
 {
+    ZoneScoped;
+
     m_instructions.push_back(BeginRenderPassInstruction{.name = descriptor.name, .descriptor = descriptor});
     m_renderpass = true;
 }
 
 void RenderGraph::end_render_pass()
 {
+    ZoneScoped;
+
     ERR_COND(!m_renderpass, "Not inside a renderpass");
     m_instructions.push_back(EndRenderPassInstruction{});
     m_renderpass = false;
@@ -44,6 +50,8 @@ void RenderGraph::end_render_pass()
 
 void RenderGraph::add_draw(const Ref<Mesh>& mesh, const Ref<Material>& material, glm::mat4 view_matrix, uint32_t instance_count, std::optional<Ref<Buffer>> instance_buffer)
 {
+    ZoneScoped;
+
     if (instance_count == 0)
     {
         return;

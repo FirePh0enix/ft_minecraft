@@ -279,32 +279,36 @@ static void tick()
     RenderingDriver::get()->poll();
 
 #ifdef __has_debug_menu
-    ImGui::NewFrame();
-
-    if (ImGui::Begin("Physics"))
     {
-        bool collisions = !player->get_component<RigidBody>()->disabled();
-        if (ImGui::Checkbox("Enable collisions", &collisions))
-            player->get_component<RigidBody>()->disabled() = !collisions;
+        ZoneScopedN("tick.debug_menu");
 
-        bool gravity = player->get_component<Player>()->is_gravity_enabled();
-        if (ImGui::Checkbox("Enable gravity", &gravity))
-            player->get_component<Player>()->set_gravity_enabled(gravity);
+        ImGui::NewFrame();
 
-        float gravity_value = player->get_component<Player>()->get_gravity_value();
-        if (ImGui::SliderFloat("Gravity value", &gravity_value, 0.0, 20.0))
-            player->get_component<Player>()->set_gravity_value(gravity_value);
+        if (ImGui::Begin("Physics"))
+        {
+            bool collisions = !player->get_component<RigidBody>()->disabled();
+            if (ImGui::Checkbox("Enable collisions", &collisions))
+                player->get_component<RigidBody>()->disabled() = !collisions;
+
+            bool gravity = player->get_component<Player>()->is_gravity_enabled();
+            if (ImGui::Checkbox("Enable gravity", &gravity))
+                player->get_component<Player>()->set_gravity_enabled(gravity);
+
+            float gravity_value = player->get_component<Player>()->get_gravity_value();
+            if (ImGui::SliderFloat("Gravity value", &gravity_value, 0.0, 20.0))
+                player->get_component<Player>()->set_gravity_value(gravity_value);
+        }
+        ImGui::End();
+
+        if (ImGui::Begin("General info"))
+        {
+            glm::vec3 pos = player->get_component<Transformed3D>()->get_transform().position();
+            ImGui::Text("X: %f", pos.x);
+            ImGui::Text("Y: %f", pos.y);
+            ImGui::Text("Z: %f", pos.z);
+        }
+        ImGui::End();
     }
-    ImGui::End();
-
-    if (ImGui::Begin("General info"))
-    {
-        glm::vec3 pos = player->get_component<Transformed3D>()->get_transform().position();
-        ImGui::Text("X: %f", pos.x);
-        ImGui::Text("Y: %f", pos.y);
-        ImGui::Text("Z: %f", pos.z);
-    }
-    ImGui::End();
 #endif
 
     const glm::vec3 player_pos = player->get_component<Transformed3D>()->get_global_transform().position();
