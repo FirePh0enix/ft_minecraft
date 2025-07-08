@@ -170,6 +170,18 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
 
         std::array<std::string, 6> water = {"Water.png", "Water.png", "Water.png", "Water.png", "Water.png", "Water.png"};
         BlockRegistry::get().register_block(make_ref<Block>("water", water));
+
+        std::array<std::string, 6> sand = {"Sand.png", "Sand.png", "Sand.png", "Sand.png", "Sand.png", "Sand.png"};
+        BlockRegistry::get().register_block(make_ref<Block>("sand", sand));
+
+        std::array<std::string, 6> snow = {"Snow.png", "Snow.png", "Snow.png", "Snow.png", "Snow.png", "Snow.png"};
+        BlockRegistry::get().register_block(make_ref<Block>("snow", snow));
+
+        std::array<std::string, 6> tree = {"Tree.png", "Tree.png", "Tree.png", "Tree.png", "Tree_Top.png", "Tree.png"};
+        BlockRegistry::get().register_block(make_ref<Block>("tree", tree));
+
+        std::array<std::string, 6> leaves = {"Leaves.png", "Leaves.png", "Leaves.png", "Leaves.png", "Leaves.png", "Leaves.png"};
+        BlockRegistry::get().register_block(make_ref<Block>("leaves", leaves));
     }
 
     BlockRegistry::get().create_texture_array();
@@ -181,7 +193,9 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     }
 
     gen = make_ref<WorldGenerator>(world, args.has("disable-save"));
-    gen->set_terrain(make_ref<FlatTerrainGenerator>());
+    // gen->set_terrain(make_ref<FlatTerrainGenerator>());
+    gen->set_terrain(make_ref<OverworldTerrainGenerator>());
+
 
     // This is very hacky but the only way to create the render pass required for ImGui.
     // TODO: Maybe a solution would be to create a render pass only for imgui ?
@@ -366,6 +380,7 @@ static void register_all_classes()
     Block::register_class();
     TerrainGenerator::register_class();
     FlatTerrainGenerator::register_class();
+    OverworldTerrainGenerator::register_class();
 
     Font::register_class();
 

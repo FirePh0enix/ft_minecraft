@@ -244,7 +244,7 @@ Result<vk::Pipeline> PipelineCache::get_or_create(Ref<Material> material, vk::Re
             shader->set_was_reloaded(false);
 
             m_pipelines.erase(key);
-            return get_or_create(material, render_pass);
+            return get_or_create(material, render_pass, depth_pass, use_previous_depth_pass);
         }
         else
         {
@@ -478,7 +478,9 @@ RenderingDriverVulkan::~RenderingDriverVulkan()
 
     if (m_device)
     {
+#ifdef __has_debug_menu
         ImGui::DestroyContext();
+#endif
 
         destroy_swapchain();
 

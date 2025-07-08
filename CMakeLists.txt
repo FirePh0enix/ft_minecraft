@@ -43,6 +43,8 @@ list(APPEND SOURCES
     src/World/Registry.cpp
     src/World/Save.cpp
     src/World/World.cpp
+    src/World/Generation/SimplexNoise.cpp
+    src/World/Generation/Terrain.cpp
     src/Font.cpp
 )
 
@@ -353,7 +355,7 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(libbacktrace)
 
-if(TARGET_IS_LINUX OR TARGET_IS_APPLE)
+if(TARGET_IS_LINUX) # TARGET_IS_APPLE FIXME: libbacktrace does not compile on macOS
     set(ENV{CC} ${CMAKE_C_COMPILER})
     set(ENV{CXX} ${CMAKE_CXX_COMPILER})
 

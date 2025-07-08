@@ -33,7 +33,7 @@ public:
     uint16_t get_block_id(const std::string& name) const
     {
         const auto& el = m_blocks_by_name.find(name);
-        if (el == m_blocks_by_name.end())
+        if (el != m_blocks_by_name.end())
         {
             [[unlikely]] return el->second;
         }
@@ -85,7 +85,7 @@ public:
 
     const Ref<Block>& get_block_by_id(uint16_t id)
     {
-        return m_blocks[id];
+        return m_blocks[id - 1];
     }
 
     inline const Ref<Texture>& get_texture_array() const

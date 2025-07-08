@@ -1,10 +1,13 @@
 #pragma once
 
+#include "Core/Print.hpp"
 #include "World/Generation/Terrain.hpp"
+#include "World/Registry.hpp"
 #include "World/Save.hpp"
 #include "World/World.hpp"
 
 #include <mutex>
+#include <random>
 #include <semaphore>
 #include <thread>
 
@@ -311,7 +314,83 @@ public:
                     if (!m_terrain->has_block(x + block_x, y, z + block_z))
                         continue;
 
-                    chunk->set_block(x, y, z, BlockState(2));
+                    auto id = BlockRegistry::get().get_block_id("stone");
+
+                    BiomeNoise noise{
+                        .continentalness = m_terrain->get_continentalness_noise(x + block_x, z + block_z),
+                        .erosion = m_terrain->get_erosion_noise(x + block_x, z + block_z),
+                        .peaks_and_valleys = m_terrain->get_peaks_and_valleys_noise(x + block_x, z + block_z),
+                        .temperature_noise = m_terrain->get_temperature_noise(x + block_x, z + block_z),
+                        .humidity_noise = m_terrain->get_humidity_noise(x + block_x, z + block_z),
+                    };
+
+                    Biome biome = m_terrain->get_biome(noise);
+
+                    if ((biome == Biome::Ocean || biome == Biome::River))
+                    {
+                        if ((float)y < sea_level)
+                        {
+                            id = BlockRegistry::get().get_block_id("stone");
+                        }
+                        else if ((float)y == sea_level)
+                        {
+                            id = BlockRegistry::get().get_block_id("water");
+                        }
+                    }
+
+                    else if (biome == Biome::StonyShore || biome == Biome::StonyPeaks)
+                    {
+                        id = BlockRegistry::get().get_block_id("stone");
+                    }
+
+                    else if (biome == Biome::FrozenPeaks || biome == Biome::SnowyPlains)
+                    {
+                        id = BlockRegistry::get().get_block_id("snow");
+                    }
+
+                    else if (biome == Biome::Beach || biome == Biome::Desert)
+                    {
+                        id = BlockRegistry::get().get_block_id("sand");
+                    }
+
+                    else if (biome == Biome::Taiga || biome == Biome::Plains || biome == Biome::Savanna)
+                    {
+                        if ((float)y <= sea_level / 2)
+                        {
+                            id = BlockRegistry::get().get_block_id("stone");
+                        }
+                        else
+                        {
+                            id = BlockRegistry::get().get_block_id("grass");
+                        }
+                    }
+
+                    chunk->set_block(x, y, z, BlockState(id));
+                }
+            }
+        }
+
+        for (int64_t x = 0; x < 16; x++)
+        {
+            for (int64_t z = 0; z < 16; z++)
+            {
+                float height = m_terrain->get_height(x + block_x, z + block_z);
+                BiomeNoise noise{
+                    .continentalness = m_terrain->get_continentalness_noise(x + block_x, z + block_z),
+                    .erosion = m_terrain->get_erosion_noise(x + block_x, z + block_z),
+                    .peaks_and_valleys = m_terrain->get_peaks_and_valleys_noise(x + block_x, z + block_z),
+                    .temperature_noise = m_terrain->get_temperature_noise(x + block_x, z + block_z),
+                    .humidity_noise = m_terrain->get_humidity_noise(x + block_x, z + block_z),
+                };
+
+                Biome biome = m_terrain->get_biome(noise);
+
+                if (biome == Biome::Plains || biome == Biome::Taiga)
+                {
+                    if ((rand() % 100) < 1) // 10% chance
+                    {
+                        m_terrain->generate_tree(chunk, x, (int64_t)height, z);
+                    }
                 }
             }
         }
