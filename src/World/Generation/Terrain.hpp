@@ -53,7 +53,7 @@ public:
     virtual float get_temperature_noise(int64_t x, int64_t z) = 0;
     virtual float get_humidity_noise(int64_t x, int64_t z) = 0;
 
-    virtual void generate_tree(Chunk& chunk, int64_t x, int64_t y, int64_t z) = 0;
+    virtual void generate_tree(Ref<Chunk>& chunk, int64_t x, int64_t y, int64_t z) = 0;
 };
 
 class FlatTerrainGenerator : public TerrainGenerator
@@ -100,7 +100,7 @@ public:
     virtual float get_peaks_and_valleys_noise(int64_t x, int64_t z) override;
     virtual float get_temperature_noise(int64_t x, int64_t z) override;
     virtual float get_humidity_noise(int64_t x, int64_t z) override;
-    virtual void generate_tree(Chunk& chunk, int64_t x, int64_t y, int64_t z) override;
+    virtual void generate_tree(Ref<Chunk>& chunk, int64_t x, int64_t y, int64_t z) override;
 
     float get_height(int64_t x, int64_t z) override;
     float get_3d_noise(int64_t x, int64_t y, int64_t z);

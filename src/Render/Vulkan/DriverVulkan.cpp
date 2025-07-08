@@ -478,7 +478,9 @@ RenderingDriverVulkan::~RenderingDriverVulkan()
 
     if (m_device)
     {
+#ifdef __has_debug_menu
         ImGui::DestroyContext();
+#endif
 
         destroy_swapchain();
 

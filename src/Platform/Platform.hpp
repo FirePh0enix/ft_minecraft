@@ -1,3 +1,3 @@
 #pragma once
 
-size_t get_current_rss();
+// size_t get_current_rss();

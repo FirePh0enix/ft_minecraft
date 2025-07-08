@@ -932,7 +932,7 @@ uint32_t OverworldTerrainGenerator::get_humidity_level(float humidity)
     return 4;
 }
 
-void OverworldTerrainGenerator::generate_tree(Chunk& chunk, int64_t x, int64_t y, int64_t z)
+void OverworldTerrainGenerator::generate_tree(Ref<Chunk>& chunk, int64_t x, int64_t y, int64_t z)
 {
     int tree_height = 4 + (rand() % 4);
     int tree_width = 2 + (rand() % 2);
@@ -943,7 +943,7 @@ void OverworldTerrainGenerator::generate_tree(Chunk& chunk, int64_t x, int64_t y
 
     for (int i = 0; i < tree_height; i++)
     {
-        chunk.set_block(x, y + i, z, BlockState(tree));
+        chunk->set_block(x, y + i, z, BlockState(tree));
     }
 
     int leaf_start = y + tree_height - 2;
@@ -962,7 +962,7 @@ void OverworldTerrainGenerator::generate_tree(Chunk& chunk, int64_t x, int64_t y
 
                 if (dist <= tree_width && ((float)rand() / RAND_MAX) < leaf_density)
                 {
-                    chunk.set_block(lx, ly, lz, BlockState(leaves));
+                    chunk->set_block(lx, ly, lz, BlockState(leaves));
                 }
             }
         }

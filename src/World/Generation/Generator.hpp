@@ -365,7 +365,7 @@ public:
                         }
                     }
 
-                    chunk.set_block(x, y, z, BlockState(id));
+                    chunk->set_block(x, y, z, BlockState(id));
                 }
             }
         }
