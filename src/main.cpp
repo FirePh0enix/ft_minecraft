@@ -176,6 +176,12 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
 
         std::array<std::string, 6> snow = {"Snow.png", "Snow.png", "Snow.png", "Snow.png", "Snow.png", "Snow.png"};
         BlockRegistry::get().register_block(make_ref<Block>("snow", snow));
+
+        std::array<std::string, 6> tree = {"Tree.png", "Tree.png", "Tree.png", "Tree.png", "Tree_Top.png", "Tree.png"};
+        BlockRegistry::get().register_block(make_ref<Block>("tree", tree));
+
+        std::array<std::string, 6> leaves = {"Leaves.png", "Leaves.png", "Leaves.png", "Leaves.png", "Leaves.png", "Leaves.png"};
+        BlockRegistry::get().register_block(make_ref<Block>("leaves", leaves));
     }
 
     BlockRegistry::get().create_texture_array();

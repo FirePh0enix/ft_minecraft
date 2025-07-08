@@ -1,4 +1,5 @@
 #include "Terrain.hpp"
+#include "World/Registry.hpp"
 #include "glm/common.hpp"
 #include <array>
 #include <cstdint>
@@ -44,11 +45,12 @@ bool OverworldTerrainGenerator::has_block(int64_t x, int64_t y, int64_t z)
 
     // Dig vertical hole
     float vertical_shaft = get_spaghetti_cave_noise(x, y, z);
-    if (vertical_shaft < 0.03f && (float)y > expected_height - 10 && (float)y < expected_height)
+    if (vertical_shaft < 0.03f && (float)y > expected_height - 5 && (float)y < expected_height)
     {
         return false;
     }
 
+    // Ensure that caves are only below sea level.
     if ((spaghetti_cave < threshold || cheese_cave > 0.38f) && expected_height <= sea_level)
     {
         return false;
@@ -60,7 +62,7 @@ bool OverworldTerrainGenerator::has_block(int64_t x, int64_t y, int64_t z)
     }
 
     // The more we release the squash factor, the more it seems strange and chaotic but also creating cliffs and floating island.
-    float squash_factor = 0.0009f;
+    float squash_factor = 0.0039f;
     float noise = get_3d_noise(x, y, z);
     float density = noise + (expected_height - (float)y) * squash_factor;
 
@@ -928,4 +930,41 @@ uint32_t OverworldTerrainGenerator::get_humidity_level(float humidity)
         return 3;
     }
     return 4;
+}
+
+void OverworldTerrainGenerator::generate_tree(Chunk& chunk, int64_t x, int64_t y, int64_t z)
+{
+    int tree_height = 4 + (rand() % 4);
+    int tree_width = 2 + (rand() % 2);
+    float leaf_density = 0.7f;
+
+    auto tree = BlockRegistry::get().get_block_id("tree");
+    auto leaves = BlockRegistry::get().get_block_id("leaves");
+
+    for (int i = 0; i < tree_height; i++)
+    {
+        chunk.set_block(x, y + i, z, BlockState(tree));
+    }
+
+    int leaf_start = y + tree_height - 2;
+
+    for (int lx = x - tree_width; lx <= x + tree_width; lx++)
+    {
+        for (int ly = leaf_start; ly <= y + tree_height + 1; ly++)
+        {
+            for (int lz = z - tree_width; lz <= z + tree_width; lz++)
+            {
+                float dx = (float)(lx - x);
+                float dy = (float)(ly - (y + tree_height));
+                float dz = (float)(lz - z);
+
+                float dist = sqrt(dx * dx + dy * dy + dz * dz);
+
+                if (dist <= tree_width && ((float)rand() / RAND_MAX) < leaf_density)
+                {
+                    chunk.set_block(lx, ly, lz, BlockState(leaves));
+                }
+            }
+        }
+    }
 }
