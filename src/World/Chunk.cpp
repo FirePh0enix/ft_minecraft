@@ -149,6 +149,8 @@ void Chunk::compute_axis_neighbour_visibility(const Ref<World>& world, const Ref
 {
     (void)world;
 
+    // FIXME: Does not work properly
+
     int64_t x_diff = neighbour->x() - x();
     int64_t z_diff = neighbour->z() - z();
 
@@ -188,7 +190,7 @@ void Chunk::compute_axis_neighbour_visibility(const Ref<World>& world, const Ref
     }
 }
 
-void Chunk::update_instance_buffer(Ref<Buffer> buffer)
+void Chunk::update_instance_buffer(const Ref<Buffer>& buffer)
 {
     ZoneScoped;
 

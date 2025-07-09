@@ -99,7 +99,11 @@ bool RigidBody::intersect_world(glm::vec3 position, const Ref<World>& world)
                     continue;
                 }
 
-                AABB aabb(glm::vec3((float)(x + px) + 0.5, (float)(y + py), (float)(z + pz) + 0.5), glm::vec3(0.5));
+                float bx = (float)(x + px) - 0.5f;
+                float by = (float)(y + py) - 0.5f;
+                float bz = (float)(z + pz) - 0.5f;
+
+                AABB aabb(glm::vec3(bx, by, bz), glm::vec3(0.5));
                 if (aabb.intersect(player_aabb))
                 {
                     return true;

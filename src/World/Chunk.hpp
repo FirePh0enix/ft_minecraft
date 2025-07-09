@@ -97,7 +97,7 @@ public:
 
     void compute_axis_neighbour_visibility(const Ref<World>& world, const Ref<Chunk>& neighbour);
 
-    void update_instance_buffer(Ref<Buffer> buffer);
+    void update_instance_buffer(const Ref<Buffer>& buffer);
 
 private:
     std::vector<BlockState> m_blocks;

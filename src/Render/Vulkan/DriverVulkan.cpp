@@ -872,6 +872,8 @@ Result<Ref<Buffer>> RenderingDriverVulkan::create_buffer(size_t size, BufferUsag
 
 void RenderingDriverVulkan::update_buffer(const Ref<Buffer>& dest, View<uint8_t> view, size_t offset)
 {
+    ZoneScoped;
+
     ERR_COND_VR(view.size() > dest->size() - offset, "too big: {} but size is {}", view.size(), dest->size() - offset);
 
     if (view.size() == 0)
