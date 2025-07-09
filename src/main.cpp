@@ -54,10 +54,20 @@ static void register_all_classes();
 static void tick();
 static void main_loop();
 
-static std::string default_config = R"([physics]
+static std::string default_config = R"(
+[physics]
 collisions=true
 gravity=true
 gravity_value=9.81
+
+[window]
+width=1280
+height=720
+
+[player]
+x=0.0
+y=50.0
+z=0.0
 )";
 
 Ref<Window> window;
@@ -87,10 +97,7 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
 
     register_all_classes();
 
-    static const int width = 1280;
-    static const int height = 720;
-
-    window = make_ref<Window>("ft_minecraft", width, height);
+    window = make_ref<Window>("ft_minecraft", config.get_category("window").get<int64_t>("width"), config.get_category("window").get<int64_t>("height"));
 
 #ifdef __platform_web
     RenderingDriver::create_singleton<RenderingDriverWebGPU>();
@@ -161,7 +168,7 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     player_head->add_component(camera);
 
     player = make_ref<Entity>();
-    player->add_component(make_ref<Transformed3D>(Transform3D(glm::vec3(0.0, 18.0, 0.0))));
+    player->add_component(make_ref<Transformed3D>(Transform3D(glm::vec3(config.get_category("player").get<float>("x"), config.get_category("player").get<float>("y"), config.get_category("player").get<float>("z")))));
     player->add_component(make_ref<RigidBody>(AABB(glm::vec3(), glm::vec3(0.9))));
     player->add_component(make_ref<Player>(world, cube));
     player->add_child(player_head);
@@ -245,6 +252,11 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
 #endif
 
 #ifndef __platform_web
+    glm::vec3 position = player->get_component<Transformed3D>()->get_global_transform().position();
+    config.get_category("player").set("x", position.x);
+    config.get_category("player").set("y", position.y);
+    config.get_category("player").set("z", position.z);
+
     config.save_to("config.ini");
 
     (void)RenderingDriverVulkan::get()->get_device().waitIdle();
@@ -290,6 +302,10 @@ static void tick()
         {
             Result<> result = RenderingDriver::get()->configure_surface(*window, VSync::Off);
             ERR_EXPECT_B(result, "Failed to configure the surface");
+
+            config.get_category("window").set("width", (int64_t)window->size().width);
+            config.get_category("window").set("height", (int64_t)window->size().height);
+            config.save_to("config.ini");
         }
         break;
         default:

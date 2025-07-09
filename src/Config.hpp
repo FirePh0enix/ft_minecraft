@@ -48,6 +48,19 @@ public:
         return std::get<T>(m_values[name]);
     }
 
+    template <float>
+    float get(const std::string& name)
+    {
+        if (std::holds_alternative<float>(m_values[name]))
+        {
+            return std::get<float>(m_values[name]);
+        }
+        else
+        {
+            return (float)std::get<int64_t>(m_values[name]);
+        }
+    }
+
     bool has(const std::string& name) const
     {
         return m_values.contains(name);

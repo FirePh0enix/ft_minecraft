@@ -26,6 +26,9 @@ void Config::load_from_str(const std::string& str)
     std::string line;
     while (std::getline(ifs, line))
     {
+        if (line.empty())
+            continue;
+
         if (line.size() > 2 && line[0] == '[' && line[line.size() - 1] == ']')
         {
             m_categories[category_name] = category;
@@ -98,11 +101,11 @@ ConfigValue Config::get_value(const std::string& str)
     {
         return ConfigValue((bool)(str == "true"));
     }
-    else if (contains_str(str, "0123456789."))
+    else if (contains_str(str, "-0123456789.") && str.find('.') != std::string::npos)
     {
-        return ConfigValue(std::stof(str));
+        return ConfigValue((float)std::stof(str));
     }
-    else if (contains_str(str, "0123456789."))
+    else if (contains_str(str, "-0123456789"))
     {
         return ConfigValue((int64_t)std::stoll(str));
     }
