@@ -1,8 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
 
-# Build for the web:
-# - Run cmake with `emcmake cmake -B build`
-
 set(PROJECT_NAME ft_minecraft)
 set(VERSION_MAJOR 1)
 set(VERSION_MINOR 0)
@@ -23,6 +20,7 @@ option(SANITIZE_THREAD "Enable ThreadSanitizer" OFF)
 
 list(APPEND SOURCES
     src/Args.cpp
+    src/Config.cpp
     src/Core/Class.cpp
     src/Core/Error.cpp
     src/Core/Ref.cpp
@@ -420,7 +418,3 @@ if (DOXYGEN_FOUND AND BUILD_DOC)
         COMMENT "Generating documentation with Doxygen"
         VERBATIM )
 endif()
-
-# foreach(RESOURCE IN LISTS RESOURCES_COPY)
-#     configure_file(${CMAKE_SOURCE_DIR}/${RESOURCE} ${CMAKE_BINARY_DIR}/${RESOURCE} COPYONLY)
-# endforeach()

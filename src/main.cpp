@@ -1,4 +1,5 @@
 #include "Args.hpp"
+#include "Config.hpp"
 #include "Core/Logger.hpp"
 #include "Font.hpp"
 #include "Input.hpp"
@@ -53,11 +54,19 @@ static void register_all_classes();
 static void tick();
 static void main_loop();
 
+static std::string default_config = R"([physics]
+collisions=true
+gravity=true
+gravity_value=9.81
+)";
+
 Ref<Window> window;
 Text text;
 
 Ref<WorldGenerator> gen;
 Ref<Entity> player;
+
+Config config;
 
 MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
 {
@@ -70,6 +79,9 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     args.add_arg("enable-gpu-validation", {.type = ArgType::Bool});
 
     args.parse(argv, argc);
+
+    config.load_from_str(default_config);
+    config.load_from_file("config.ini");
 
     tracy::SetThreadName("Main");
 
@@ -193,9 +205,11 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     }
 
     gen = make_ref<WorldGenerator>(world, args.has("disable-save"));
-    // gen->set_terrain(make_ref<FlatTerrainGenerator>());
     gen->set_terrain(make_ref<OverworldTerrainGenerator>());
 
+    player->get_component<RigidBody>()->disabled() = !config.get_category("physics").get<bool>("collisions");
+    player->get_component<Player>()->set_gravity_enabled(config.get_category("physics").get<bool>("gravity"));
+    player->get_component<Player>()->set_gravity_value(config.get_category("physics").get<float>("gravity_value"));
 
     // This is very hacky but the only way to create the render pass required for ImGui.
     // TODO: Maybe a solution would be to create a render pass only for imgui ?
@@ -231,6 +245,8 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
 #endif
 
 #ifndef __platform_web
+    config.save_to("config.ini");
+
     (void)RenderingDriverVulkan::get()->get_device().waitIdle();
 
     gen->stop_workers();
@@ -258,7 +274,6 @@ static void main_loop()
 static void tick()
 {
     FrameMark;
-    ZoneScoped;
 
     std::optional<SDL_Event> event;
 
@@ -307,15 +322,24 @@ static void tick()
         {
             bool collisions = !player->get_component<RigidBody>()->disabled();
             if (ImGui::Checkbox("Enable collisions", &collisions))
+            {
+                config.get_category("physics").set("collisions", collisions);
                 player->get_component<RigidBody>()->disabled() = !collisions;
+            }
 
             bool gravity = player->get_component<Player>()->is_gravity_enabled();
             if (ImGui::Checkbox("Enable gravity", &gravity))
+            {
+                config.get_category("physics").set("gravity", gravity);
                 player->get_component<Player>()->set_gravity_enabled(gravity);
+            }
 
             float gravity_value = player->get_component<Player>()->get_gravity_value();
             if (ImGui::SliderFloat("Gravity value", &gravity_value, 0.0, 20.0))
+            {
+                config.get_category("physics").set("gravity_value", gravity_value);
                 player->get_component<Player>()->set_gravity_value(gravity_value);
+            }
         }
         ImGui::End();
 

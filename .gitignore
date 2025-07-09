@@ -13,4 +13,5 @@ build
 
 # Misc
 imgui.ini
-.local
+config.ini
+/.local

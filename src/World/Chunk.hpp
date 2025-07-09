@@ -123,6 +123,8 @@ private:
 
     inline bool has_block(size_t x, size_t y, size_t z) const
     {
+        if (x > 15 || y > 255 || z > 15)
+            return false;
         return !m_blocks[z * width * height + y * width + x].is_air();
     }
 };

@@ -33,11 +33,11 @@ public:
     uint16_t get_block_id(const std::string& name) const
     {
         const auto& el = m_blocks_by_name.find(name);
-        if (el != m_blocks_by_name.end())
+        if (el == m_blocks_by_name.end())
         {
-            [[unlikely]] return el->second;
+            [[unlikely]] return 0;
         }
-        return 0;
+        return el->second;
     }
 
     void register_block(Ref<Block> block)
