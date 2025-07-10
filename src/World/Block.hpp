@@ -2,6 +2,13 @@
 
 #include "Core/Class.hpp"
 
+enum class GradientType : uint8_t
+{
+    None,
+    Grass,
+    Water,
+};
+
 enum class BlockStateVariant : uint8_t
 {
     // Uses the `generic` field of the block state.
@@ -49,8 +56,8 @@ class Block : public Object
     CLASS(Block, Object);
 
 public:
-    Block(std::string name, const std::array<std::string, 6>& textures)
-        : m_name(name), m_textures(textures), m_texture_ids({0, 0, 0, 0, 0, 0})
+    Block(std::string name, const std::array<std::string, 6>& textures, GradientType gradient_type = GradientType::None)
+        : m_name(name), m_textures(textures), m_texture_ids({0, 0, 0, 0, 0, 0}), m_gradient_type(gradient_type)
     {
     }
 
@@ -79,8 +86,14 @@ public:
         return m_texture_ids;
     }
 
+    GradientType get_gradient_type() const
+    {
+        return m_gradient_type;
+    }
+
 private:
     std::string m_name;
     std::array<std::string, 6> m_textures;
     std::array<uint32_t, 6> m_texture_ids;
+    GradientType m_gradient_type;
 };

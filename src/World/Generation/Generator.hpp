@@ -307,24 +307,26 @@ public:
 
         for (int64_t x = 0; x < 16; x++)
         {
-            for (int64_t y = 0; y < 256; y++)
+            for (int64_t z = 0; z < 16; z++)
             {
-                for (int64_t z = 0; z < 16; z++)
+                BiomeNoise noise{
+                    .continentalness = m_terrain->get_continentalness_noise(x + block_x, z + block_z),
+                    .erosion = m_terrain->get_erosion_noise(x + block_x, z + block_z),
+                    .peaks_and_valleys = m_terrain->get_peaks_and_valleys_noise(x + block_x, z + block_z),
+                    .temperature_noise = m_terrain->get_temperature_noise(x + block_x, z + block_z),
+                    .humidity_noise = m_terrain->get_humidity_noise(x + block_x, z + block_z),
+                };
+
+                Biome biome = m_terrain->get_biome(noise);
+
+                chunk->set_biome(x, z, biome);
+
+                for (int64_t y = 0; y < 256; y++)
                 {
                     if (!m_terrain->has_block(x + block_x, y, z + block_z))
                         continue;
 
                     auto id = BlockRegistry::get().get_block_id("stone");
-
-                    BiomeNoise noise{
-                        .continentalness = m_terrain->get_continentalness_noise(x + block_x, z + block_z),
-                        .erosion = m_terrain->get_erosion_noise(x + block_x, z + block_z),
-                        .peaks_and_valleys = m_terrain->get_peaks_and_valleys_noise(x + block_x, z + block_z),
-                        .temperature_noise = m_terrain->get_temperature_noise(x + block_x, z + block_z),
-                        .humidity_noise = m_terrain->get_humidity_noise(x + block_x, z + block_z),
-                    };
-
-                    Biome biome = m_terrain->get_biome(noise);
 
                     if ((biome == Biome::Ocean || biome == Biome::River))
                     {

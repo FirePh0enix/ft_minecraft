@@ -12,9 +12,9 @@ struct BlockInstanceData
     glm::vec3 position;
     glm::uvec3 textures;
     uint8_t visibility;
-    uint8_t gradient = 0;
-    uint8_t gradient_type = 0;
-    uint8_t pad = 0;
+    Biome biome : 8;
+    GradientType gradient_type;
+    uint8_t pad;
 };
 
 class World : public VisualComponent

@@ -8,6 +8,25 @@ struct Constants
     nan: f32,
 }
 
+const plains_grass_color = vec3(63.0 / 255.0, 155.0 / 255.0, 11.0 / 255.0);
+
+const grass_colors: array<vec3<f32>, 14> = array(
+    plains_grass_color, // FrozenRiver
+    plains_grass_color, // River
+    plains_grass_color, // StonyShore
+    plains_grass_color, // StonyPeaks
+    plains_grass_color, // JaggedPeaks
+    plains_grass_color, // FrozenPeaks
+    plains_grass_color, // Beach
+    plains_grass_color, // Desert
+    plains_grass_color, // SnowyPlains
+    plains_grass_color, // Taiga
+    plains_grass_color, // Plains
+    plains_grass_color, // Savanna
+    plains_grass_color, // FrozenOcean
+    plains_grass_color, // Ocean
+);
+
 @group(0) @binding(0) var images: texture_2d_array<f32>;
 @group(0) @binding(1) var images_sampler: sampler;
 
@@ -26,8 +45,7 @@ struct VertexOutput
     @location(2) normal: vec3<f32>,
     @location(3) light_vec: vec3<f32>,
     @location(4) @interpolate(flat) texture_index: u32,
-    @location(5) @interpolate(flat) gradient: u32,
-    @location(6) @interpolate(flat) gradient_type: u32,
+    @location(5) gradient_color: vec3<f32>,
 }
 
 @vertex
@@ -39,14 +57,15 @@ fn vertex_main(
 
     @location(3) instance_pos: vec3<f32>,
     @location(4) textures: vec3<u32>,
-    @location(5) visibility_gradient: u32,
+    @location(5) visibility_biome_gradient: u32,
 ) -> VertexOutput
 {
-    let visibility = visibility_gradient & 0xff;
-    let gradient = (visibility_gradient >> 8) & 255;
-    let gradient_type = (visibility_gradient >> 16) & 255;
+    let visibility = visibility_biome_gradient & 0xff;
+    let biome = (visibility_biome_gradient >> 8) & 0xff;
+    let gradient_type = (visibility_biome_gradient >> 16) & 0xff;
 
     var out: VertexOutput;
+    out.gradient_color = vec3(0.0, 0.0, 0.0);
 
     if (((visibility & (1 << 1)) == 0 && vertex_index >= 0 && vertex_index < 4) ||
         ((visibility & (1 << 0)) == 0 && vertex_index >= 4 && vertex_index < 8) ||
@@ -59,9 +78,6 @@ fn vertex_main(
         return out;
     }
 
-    out.gradient = gradient;
-    out.gradient_type = gradient_type;
-
     let model_matrix = mat4x4<f32>(
         1.0, 0.0, 0.0, 0.0,
         0.0, 1.0, 0.0, 0.0,
@@ -72,6 +88,18 @@ fn vertex_main(
     out.position = constants.view_matrix * model_matrix * vec4<f32>(position, 1.0);
 
 #ifndef DEPTH_PASS
+    if (gradient_type == 0) // None
+    {
+        out.gradient_color = vec3(0.0, 0.0, 0.0);
+    }
+    else if (gradient_type == 1) // Grass
+    {
+        out.gradient_color = grass_colors[biome];
+    }
+    else if (gradient_type == 2) // Water
+    {
+    }
+
     out.frag_pos = model_matrix * vec4<f32>(position, 1.0);
     out.uv = uv;
     out.normal = normal;
@@ -89,6 +117,11 @@ fn is_grayscale(color: vec4<f32>) -> bool
     return color.r == color.g && color.g == color.b;
 }
 
+fn is_black(color: vec3<f32>) -> bool
+{
+    return color.r == 0.0 && color.g == 0.0 && color.b == 0.0;
+}
+
 @fragment
 fn fragment_main(in: VertexOutput) -> @location(0) vec4<f32>
 {
@@ -97,9 +130,9 @@ fn fragment_main(in: VertexOutput) -> @location(0) vec4<f32>
     
     var color = textureSample(images, images_sampler, uv2, in.texture_index);
 
-    if (is_grayscale(color) && in.gradient_type > 0)
+    if (is_grayscale(color) && !is_black(in.gradient_color))
     {
-        color *= vec4(13.0 / 255.0, 94.0 / 255.0, 21.0 / 255.0, 1.0);
+        color *= vec4(in.gradient_color, 1.0);
     }
 
     let N = normalize(in.normal);

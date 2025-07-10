@@ -248,7 +248,7 @@ void Chunk::update_instance_buffer(const Ref<Buffer>& buffer)
                 const std::array<uint32_t, 6> t = block->get_texture_ids();
 
                 glm::uvec3 textures((t[0] & 0xFFFF) | (t[1] << 16), (t[2] & 0xFFFF) | (t[3] << 16), (t[4] & 0xFFFF) | (t[5] << 16));
-                instances.push_back(BlockInstanceData{.position = glm::vec3((float)gx, (float)y, (float)gz), .textures = textures, .visibility = state.generic.visibility});
+                instances.push_back(BlockInstanceData{.position = glm::vec3((float)gx, (float)y, (float)gz), .textures = textures, .visibility = state.generic.visibility, .biome = m_biomes[x + z * width], .gradient_type = block->get_gradient_type(), .pad = 0});
             }
         }
     }

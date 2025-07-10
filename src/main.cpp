@@ -182,7 +182,7 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
         BlockRegistry::get().register_block(make_ref<Block>("dirt", dirt));
 
         std::array<std::string, 6> grass = {"Grass_Side.png", "Grass_Side.png", "Grass_Side.png", "Grass_Side.png", "Grass_Top.png", "Dirt.png"};
-        BlockRegistry::get().register_block(make_ref<Block>("grass", grass));
+        BlockRegistry::get().register_block(make_ref<Block>("grass", grass, GradientType::Grass));
 
         std::array<std::string, 6> stone = {"Stone.png", "Stone.png", "Stone.png", "Stone.png", "Stone.png", "Stone.png"};
         BlockRegistry::get().register_block(make_ref<Block>("stone", stone));

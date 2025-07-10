@@ -20,8 +20,8 @@ BlockState World::get_block_state(int64_t x, int64_t y, int64_t z) const
     }
 
     Ref<Chunk> chunk = chunk_value.value();
-    const size_t chunk_local_x = x > 0 ? (x % 16) : -(x % 16);
-    const size_t chunk_local_z = z > 0 ? (z % 16) : -(z % 16);
+    const size_t chunk_local_x = x > 0 ? (x % 16) : (15 - x % 16);
+    const size_t chunk_local_z = z > 0 ? (z % 16) : (15 - z % 16);
 
     return chunk->get_block(chunk_local_x, y, chunk_local_z);
 }

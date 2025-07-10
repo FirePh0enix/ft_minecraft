@@ -1,33 +1,13 @@
 #pragma once
 
 #include "Core/Class.hpp"
+#include "World/Biome.hpp"
 #include "World/Chunk.hpp"
 #include "World/Generation/SimplexNoise.hpp"
+
 #include <cstdint>
 
 constexpr float sea_level = 62.0f;
-
-enum class Biome
-{
-    FrozenRiver,
-    River,
-    StonyShore,
-    StonyPeaks,
-    JaggedPeaks,
-    FrozenPeaks,
-    // (Beach Biomes)
-    Beach,
-    Desert,
-    // (Middle Biomes)
-    SnowyPlains,
-    Taiga,
-    Plains,
-    Savanna,
-    // (Non inland Biomes)
-    FrozenOcean,
-    Ocean,
-
-};
 
 struct BiomeNoise
 {
