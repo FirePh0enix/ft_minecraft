@@ -54,6 +54,11 @@ struct BufferUsage
     bool vertex : 1 = false;
 };
 
+inline bool operator<(const BufferUsage& a, const BufferUsage& b)
+{
+    return std::tie(a.copy_src, a.copy_dst, a.uniform, a.index, a.vertex) < std::tie(b.copy_src, b.copy_dst, b.uniform, b.index, b.vertex);
+}
+
 enum class TextureFormat : uint8_t
 {
     R8Unorm,

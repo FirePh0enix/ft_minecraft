@@ -128,21 +128,16 @@ private:
 class StagingBufferPool
 {
 public:
-    static constexpr size_t buffer_lifetime = 5;
-
-    struct StagingBufferInfo
-    {
-        Ref<Buffer> buffer;
-        bool used;
-        // Staging buffer will be free'd after a fixed time.
-        gpu_time_point last_access_time;
-    };
-
     struct Key
     {
         size_t size = 0;
         BufferUsage usage = {};
         BufferVisibility visibility = BufferVisibility::GPUOnly;
+
+        bool operator<(const Key& other) const
+        {
+            return std::tie(size, usage, visibility) < std::tie(other.size, other.usage, other.visibility);
+        }
     };
 
     /**
@@ -151,7 +146,7 @@ public:
     Result<Ref<Buffer>> get_or_create(size_t size, BufferUsage usage, BufferVisibility visibility);
 
 private:
-    std::map<Key, std::vector<StagingBufferInfo>> m_buffers;
+    std::map<Key, Ref<Buffer>> m_buffers;
 };
 
 class RenderingDriverVulkan final : public RenderingDriver
@@ -280,6 +275,7 @@ private:
     RenderPassCache m_render_pass_cache;
     FramebufferCache m_framebuffer_cache;
     RenderGraphCache m_render_graph_cache;
+    StagingBufferPool m_buffer_pool;
 
     std::chrono::time_point<std::chrono::high_resolution_clock> m_start_time;
 

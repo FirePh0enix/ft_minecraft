@@ -303,7 +303,7 @@ RenderGraphCache::RenderPass& RenderGraphCache::set_render_pass(uint32_t index, 
 {
     Result<vk::RenderPass> render_pass_result = RenderingDriverVulkan::get()->get_render_pass_cache().get_or_create(desc);
 
-    if (index <= m_render_passes.size())
+    if (index >= m_render_passes.size())
     {
         RenderGraphCache::RenderPass render_pass_cache{};
         render_pass_cache.name = desc.name;
@@ -474,8 +474,6 @@ RenderingDriverVulkan::RenderingDriverVulkan()
 
 RenderingDriverVulkan::~RenderingDriverVulkan()
 {
-    println("destroying RenderingDriverVulkan");
-
     if (m_device)
     {
 #ifdef __has_debug_menu
@@ -512,10 +510,21 @@ RenderingDriverVulkan::~RenderingDriverVulkan()
 
 Result<Ref<Buffer>> StagingBufferPool::get_or_create(size_t size, BufferUsage usage, BufferVisibility visibility)
 {
-    (void)size;
-    (void)usage;
-    (void)visibility;
-    // TODO:
+    Key key{.size = size, .usage = usage, .visibility = visibility};
+    auto iter = m_buffers.find(key);
+
+    if (iter != m_buffers.end())
+    {
+        return iter->second;
+    }
+    else
+    {
+        auto result = RenderingDriver::get()->create_buffer(size, usage, visibility);
+        YEET(result);
+
+        Ref<Buffer> buffer = result.value();
+        return buffer;
+    }
 }
 
 Result<> RenderingDriverVulkan::initialize(const Window& window, bool enable_validation)
@@ -1134,16 +1143,16 @@ void RenderingDriverVulkan::draw_graph(const RenderGraph& graph)
 
     // TracyVkZone(m_tracy_context, cb, "DrawMesh");
 
-    for (const auto& copy_instruction : graph.get_copy_instructions())
-    {
-        Ref<BufferVulkan> src_buffer = copy_instruction.src.cast_to<BufferVulkan>();
-        Ref<BufferVulkan> dst_buffer = copy_instruction.dst.cast_to<BufferVulkan>();
-        vk::BufferCopy copy_region(copy_instruction.src_offset, copy_instruction.dst_offset, copy_instruction.size);
-        cb.copyBuffer(src_buffer->buffer, dst_buffer->buffer, {copy_region});
-    }
+    // for (const auto& copy_instruction : graph.get_copy_instructions())
+    // {
+    //     Ref<BufferVulkan> src_buffer = copy_instruction.src.cast_to<BufferVulkan>();
+    //     Ref<BufferVulkan> dst_buffer = copy_instruction.dst.cast_to<BufferVulkan>();
+    //     vk::BufferCopy copy_region(copy_instruction.src_offset, copy_instruction.dst_offset, copy_instruction.size);
+    //     cb.copyBuffer(src_buffer->buffer, dst_buffer->buffer, {copy_region});
+    // }
 
-    vk::MemoryBarrier barrier(vk::AccessFlagBits::eMemoryRead, vk::AccessFlagBits::eMemoryRead);
-    cb.pipelineBarrier(vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eBottomOfPipe, vk::DependencyFlagBits::eByRegion, {barrier}, {}, {});
+    // vk::MemoryBarrier barrier(vk::AccessFlagBits::eMemoryRead, vk::AccessFlagBits::eMemoryRead);
+    // cb.pipelineBarrier(vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eBottomOfPipe, vk::DependencyFlagBits::eByRegion, {barrier}, {}, {});
 
     vk::RenderPass current_render_pass;
     uint32_t render_pass_index = 0;
