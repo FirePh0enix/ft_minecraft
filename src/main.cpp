@@ -252,6 +252,8 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
 #endif
 
 #ifndef __platform_web
+    info("Shutting down...");
+
     glm::vec3 position = player->get_component<Transformed3D>()->get_global_transform().position();
     config.get_category("player").set("x", position.x);
     config.get_category("player").set("y", position.y);

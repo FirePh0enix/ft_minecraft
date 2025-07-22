@@ -9,8 +9,8 @@ World::World(Ref<Mesh> mesh, Ref<Material> material)
 
 BlockState World::get_block_state(int64_t x, int64_t y, int64_t z) const
 {
-    int64_t chunk_x = x / 16;
-    int64_t chunk_z = z / 16;
+    int64_t chunk_x = x >= 0 ? (x / 16) : (x / 16 - 1);
+    int64_t chunk_z = z >= 0 ? (z / 16) : (z / 16 - 1);
 
     std::optional<Ref<Chunk>> chunk_value = get_chunk(chunk_x, chunk_z);
 
@@ -20,16 +20,16 @@ BlockState World::get_block_state(int64_t x, int64_t y, int64_t z) const
     }
 
     Ref<Chunk> chunk = chunk_value.value();
-    const size_t chunk_local_x = x > 0 ? (x % 16) : (15 - x % 16);
-    const size_t chunk_local_z = z > 0 ? (z % 16) : (15 - z % 16);
+    const size_t chunk_local_x = x >= 0 ? (x % 16) : 16 + (x % 16);
+    const size_t chunk_local_z = z >= 0 ? (z % 16) : 16 + (z % 16);
 
     return chunk->get_block(chunk_local_x, y, chunk_local_z);
 }
 
 void World::set_block_state(int64_t x, int64_t y, int64_t z, BlockState state)
 {
-    int64_t chunk_x = x / 16;
-    int64_t chunk_z = z / 16;
+    int64_t chunk_x = x >= 0 ? (x / 16) : (x / 16 - 1);
+    int64_t chunk_z = z >= 0 ? (z / 16) : (z / 16 - 1);
 
     std::optional<Ref<Chunk>> chunk_value = get_chunk(chunk_x, chunk_z);
 
@@ -39,8 +39,8 @@ void World::set_block_state(int64_t x, int64_t y, int64_t z, BlockState state)
     }
 
     Ref<Chunk> chunk = chunk_value.value();
-    const size_t chunk_local_x = x > 0 ? (x % 16) : -(x % 16);
-    const size_t chunk_local_z = z > 0 ? (z % 16) : -(z % 16);
+    const size_t chunk_local_x = x >= 0 ? (x % 16) : 16 + (x % 16);
+    const size_t chunk_local_z = z >= 0 ? (z % 16) : 16 + (z % 16);
 
     chunk->set_block(chunk_local_x, y, chunk_local_z, state);
     update_visibility(x, y, z, true);
