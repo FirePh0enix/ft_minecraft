@@ -12,6 +12,7 @@ enum class Action : uint8_t
     Down,
 
     Attack,
+    Place,
 
     Max,
 };
@@ -132,13 +133,32 @@ public:
         }
         case SDL_EVENT_MOUSE_BUTTON_DOWN:
         {
-            set_mouse_grabbed(window, true);
-            set_action_value(Action::Attack, 1.0);
+            if (!is_mouse_grabbed())
+            {
+                set_mouse_grabbed(window, true);
+                break;
+            }
+
+            if (event.button.button == SDL_BUTTON_LEFT)
+            {
+                set_action_value(Action::Attack, 1.0);
+            }
+            else if (event.button.button == SDL_BUTTON_RIGHT)
+            {
+                set_action_value(Action::Place, 1.0);
+            }
         }
         break;
         case SDL_EVENT_MOUSE_BUTTON_UP:
         {
-            set_action_value(Action::Attack, 0.0);
+            if (event.button.button == SDL_BUTTON_LEFT)
+            {
+                set_action_value(Action::Attack, 0.0);
+            }
+            else if (event.button.button == SDL_BUTTON_RIGHT)
+            {
+                set_action_value(Action::Place, 0.0);
+            }
         }
         break;
         case SDL_EVENT_MOUSE_MOTION:

@@ -4,6 +4,7 @@
 #include "Scene/Components/MeshInstance.hpp"
 #include "Scene/Entity.hpp"
 #include "Scene/Scene.hpp"
+#include "World/Registry.hpp"
 
 struct CubeHighlightUniforms
 {
@@ -97,7 +98,7 @@ void Player::tick(double delta)
             if (!state.is_air())
             {
                 m_cube_highlight->get_component<MeshInstance>()->set_visible(true);
-                on_block_aimed(state, x, y, z);
+                on_block_aimed(state, x, y, z, ray.dir());
                 break;
             }
             else
@@ -123,7 +124,49 @@ void Player::tick(double delta)
     m_body->velocity().z = 0;
 }
 
-void Player::on_block_aimed(BlockState state, int64_t x, int64_t y, int64_t z)
+enum class Face
+{
+    North,
+    South,
+    West,
+    East,
+    Top,
+    Bottom,
+};
+
+static Face get_face(glm::vec3 dir)
+{
+    std::array<glm::vec3, 6> normals{
+        glm::vec3(0.0, 0.0, -1.0),
+        glm::vec3(0.0, 0.0, 1.0),
+        glm::vec3(1.0, 0.0, 0.0),
+        glm::vec3(-1.0, 0.0, 0.0),
+        glm::vec3(0.0, 1.0, 0.0),
+        glm::vec3(0.0, -1.0, 0.0),
+    };
+    std::array<Face, 6> faces{Face::North, Face::South, Face::West, Face::East, Face::Top, Face::Bottom};
+
+    float max_dot = 0.0;
+    Face max_face = Face::North;
+
+    for (size_t i = 0; i < 6; i++)
+    {
+        glm::vec3 normal = -normals[i];
+        Face face = faces[i];
+
+        float dot = glm::dot(dir, normal);
+
+        if (dot >= 0.0 && dot > max_dot)
+        {
+            max_dot = dot;
+            max_face = face;
+        }
+    }
+
+    return max_face;
+}
+
+void Player::on_block_aimed(BlockState state, int64_t x, int64_t y, int64_t z, glm::vec3 dir)
 {
     Transform3D transform(glm::vec3((float)x, (float)y, (float)z));
     // FIXME: transform does not matter for MeshInstance, probably should instead of manipulating a buffer directly.
@@ -138,5 +181,15 @@ void Player::on_block_aimed(BlockState state, int64_t x, int64_t y, int64_t z)
     if (Input::get().is_action_pressed(Action::Attack) && !state.is_air())
     {
         m_world->set_block_state(x, y, z, BlockState());
+    }
+    else if (Input::get().is_action_pressed(Action::Place))
+    {
+        Face face = get_face(dir);
+
+        int64_t x2 = face == Face::West ? x + 1 : (face == Face::East ? x - 1 : x);
+        int64_t y2 = face == Face::Top ? y + 1 : (face == Face::Bottom ? y - 1 : y);
+        int64_t z2 = face == Face::South ? z + 1 : (face == Face::North ? z - 1 : z);
+
+        m_world->set_block_state(x2, y2, z2, BlockState(BlockRegistry::get().get_block_id("stone")));
     }
 }

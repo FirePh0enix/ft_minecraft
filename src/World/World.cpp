@@ -48,8 +48,8 @@ void World::set_block_state(int64_t x, int64_t y, int64_t z, BlockState state)
 
 void World::update_visibility(int64_t x, int64_t y, int64_t z, bool recurse)
 {
-    int64_t chunk_x = x / 16;
-    int64_t chunk_z = z / 16;
+    int64_t chunk_x = x >= 0 ? (x / 16) : (x / 16 - 1);
+    int64_t chunk_z = z >= 0 ? (z / 16) : (z / 16 - 1);
 
     std::optional<Ref<Chunk>> chunk_value = get_chunk(chunk_x, chunk_z);
 
@@ -59,8 +59,8 @@ void World::update_visibility(int64_t x, int64_t y, int64_t z, bool recurse)
     }
 
     Ref<Chunk> chunk = chunk_value.value();
-    const size_t chunk_local_x = x > 0 ? (x % 16) : -(x % 16);
-    const size_t chunk_local_z = z > 0 ? (z % 16) : -(z % 16);
+    const int64_t chunk_local_x = x >= 0 ? (x % 16) : 16 + (x % 16);
+    const int64_t chunk_local_z = z >= 0 ? (z % 16) : 16 + (z % 16);
 
     chunk->compute_visibility(this, chunk_local_x, y, chunk_local_z);
 
