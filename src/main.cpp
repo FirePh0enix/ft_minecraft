@@ -421,7 +421,6 @@ static void register_all_classes()
     Chunk::register_class();
     Block::register_class();
     TerrainGenerator::register_class();
-    FlatTerrainGenerator::register_class();
     OverworldTerrainGenerator::register_class();
 
     Font::register_class();

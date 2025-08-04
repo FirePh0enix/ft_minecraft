@@ -18,55 +18,103 @@
  * @see get_height For the 2D height calculation based on multiple noise functions
  * @see get_3d_noise For the 3D noise generation used to create terrain features
  */
-bool OverworldTerrainGenerator::has_block(int64_t x, int64_t y, int64_t z)
+BlockState OverworldTerrainGenerator::get_block(const Biome& biome, const BiomeNoise& noise, int64_t x, int64_t y, int64_t z)
 {
+
+    // Ensure the bottom of the map is solid.
+    if (y == 0)
+    {
+        return BlockState(m_stone);
+    }
+
     // Use multiple 2D FBM noise and splines points to calculate a height.
-    float expected_height = get_height(x, z);
+    float expected_height = get_height(x, z, noise);
     constexpr float threshold = 0.10f;
 
     float spaghetti_cave = glm::abs(get_spaghetti_cave_noise(x, y, z));
     float cheese_cave = get_cheese_cave_noise(x, y, z);
 
-    BiomeNoise biome_noise{
+    // Ensure that the surface of water has a block.
+    if (((biome == Biome::Ocean || biome == Biome::River) && ((float)y == sea_level)))
+    {
+        return BlockState(m_water);
+    }
+
+    // Dig vertical hole
+    float vertical_shaft = get_spaghetti_cave_noise(x, y, z);
+    if (vertical_shaft < 0.03f && y > (int64_t)expected_height - 5 && y < (int64_t)expected_height)
+    {
+        return BlockState();
+    }
+
+    // Ensure that caves are only below sea level.
+    if ((spaghetti_cave < threshold || cheese_cave > 0.38f) && expected_height <= sea_level && (biome != Biome::Ocean && biome != Biome::River))
+    {
+        return BlockState();
+    }
+
+    if ((float)y <= sea_level && y <= (int64_t)expected_height)
+    {
+        return get_block_id(biome, y);
+    }
+
+    // The more we release the squash factor, the more it seems strange and chaotic but also creating cliffs and floating island.
+    float squash_factor = 0.0039f;
+    float noise_3d = get_3d_noise(x, y, z);
+    float density = noise_3d + (expected_height - (float)y) * squash_factor;
+
+    if (density > 0.0f)
+    {
+        return get_block_id(biome, y);
+    }
+    return BlockState();
+}
+
+BiomeNoise OverworldTerrainGenerator::get_biome_noise(int64_t x, int64_t z)
+{
+    return BiomeNoise{
         .continentalness = get_continentalness_noise(x, z),
         .erosion = get_erosion_noise(x, z),
         .peaks_and_valleys = get_peaks_and_valleys_noise(x, z),
         .temperature_noise = get_temperature_noise(x, z),
         .humidity_noise = get_humidity_noise(x, z),
     };
-
-    Biome biome = get_biome(biome_noise);
-
-    // Ensure that the surface of water has a block.
-    if (((biome == Biome::Ocean || biome == Biome::River) && ((float)y == sea_level)) || y == 0)
+}
+BlockState OverworldTerrainGenerator::get_block_id(const Biome& biome, int64_t y)
+{
+    if ((biome == Biome::Ocean || biome == Biome::River))
     {
-        return true;
+        return m_water;
     }
 
-    // Dig vertical hole
-    float vertical_shaft = get_spaghetti_cave_noise(x, y, z);
-    if (vertical_shaft < 0.03f && (float)y > expected_height - 5 && (float)y < expected_height)
+    if (biome == Biome::StonyShore || biome == Biome::StonyPeaks)
     {
-        return false;
+        return m_stone;
     }
 
-    // Ensure that caves are only below sea level.
-    if ((spaghetti_cave < threshold || cheese_cave > 0.38f) && expected_height <= sea_level)
+    if (biome == Biome::FrozenPeaks || biome == Biome::SnowyPlains)
     {
-        return false;
+        return m_snow;
     }
 
-    if ((float)y <= sea_level && (float)y <= expected_height)
+    if (biome == Biome::Beach || biome == Biome::Desert)
     {
-        return true;
+        return m_sand;
     }
 
-    // The more we release the squash factor, the more it seems strange and chaotic but also creating cliffs and floating island.
-    float squash_factor = 0.0039f;
-    float noise = get_3d_noise(x, y, z);
-    float density = noise + (expected_height - (float)y) * squash_factor;
-
-    return density > 0.0f;
+    if (biome == Biome::Taiga || biome == Biome::Plains || biome == Biome::Savanna)
+    {
+        if ((float)y <= sea_level / 2)
+        {
+            return m_stone;
+        }
+        if (0)
+        {
+            return m_grass;
+        }
+        return m_dirt;
+    }
+    return m_stone;
 }
 
 float OverworldTerrainGenerator::get_3d_noise(int64_t x, int64_t y, int64_t z)
@@ -102,7 +150,7 @@ float OverworldTerrainGenerator::get_cheese_cave_noise(int64_t x, int64_t y, int
  * @see get_peaks_and_valleys_noise For local height variations
  * @see get_biome For biome determination based on combined noise values
  */
-float OverworldTerrainGenerator::get_height(int64_t x, int64_t z)
+float OverworldTerrainGenerator::get_height(int64_t x, int64_t z, const BiomeNoise& noise)
 {
     float continentalness = get_continentalness_noise(x, z);
     float erosion = get_erosion_noise(x, z);
@@ -113,14 +161,6 @@ float OverworldTerrainGenerator::get_height(int64_t x, int64_t z)
 
     float sea_difference = base_height - sea_level;
     float normal_terrain = sea_level + (sea_difference * erosion_factor);
-
-    BiomeNoise noise{
-        .continentalness = continentalness,
-        .erosion = erosion,
-        .peaks_and_valleys = peaks_and_valleys,
-        .temperature_noise = get_temperature_noise(x, z),
-        .humidity_noise = get_humidity_noise(x, z),
-    };
 
     Biome biome = get_biome(noise);
 
@@ -391,7 +431,7 @@ float OverworldTerrainGenerator::get_humidity_noise(int64_t x, int64_t z)
  * @see get_inland_biome For land-based biome selection logic
  * @see https://minecraft.wiki/w/World_generation
  */
-Biome OverworldTerrainGenerator::get_biome(BiomeNoise& biome_noise)
+Biome OverworldTerrainGenerator::get_biome(const BiomeNoise& biome_noise)
 {
     Biome biome;
     auto continentalness_level = get_continentalness_level(biome_noise.continentalness);
@@ -428,7 +468,7 @@ Biome OverworldTerrainGenerator::get_biome(BiomeNoise& biome_noise)
  * @see https://minecraft.wiki/w/World_generation
  */
 //  TODO: Add more non inland biomes.
-Biome OverworldTerrainGenerator::get_non_inland_biome(BiomeNoise& biome_noise)
+Biome OverworldTerrainGenerator::get_non_inland_biome(const BiomeNoise& biome_noise)
 {
     return Biome::Ocean;
 }
@@ -461,7 +501,7 @@ Biome OverworldTerrainGenerator::get_non_inland_biome(BiomeNoise& biome_noise)
  * @see get_peaks_and_valleys_level For terrain feature classification
  * @see https://minecraft.wiki/w/World_generation
  */
-Biome OverworldTerrainGenerator::get_inland_biome(BiomeNoise& biome_noise)
+Biome OverworldTerrainGenerator::get_inland_biome(const BiomeNoise& biome_noise)
 {
     auto continentalness_level = get_continentalness_level(biome_noise.continentalness);
     auto peaks_and_valleys_level = get_peaks_and_valleys_level(biome_noise.peaks_and_valleys);
