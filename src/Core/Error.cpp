@@ -90,7 +90,7 @@ void StackTrace::print(FILE *fp, size_t skip_frame) const
 
 void Error::print(FILE *fp)
 {
-    ::print(fp, "Error: {} ({:x})", m_kind, (uint32_t)m_kind);
+    ::print(fp, "error: {} ({:x})", m_kind, (uint32_t)m_kind);
 
     if (is_graphics())
     {

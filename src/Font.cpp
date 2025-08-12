@@ -1,4 +1,5 @@
 #include "Font.hpp"
+#include "Core/Filesystem.hpp"
 #include "Render/Graph.hpp"
 
 #include <ft2build.h>
@@ -17,7 +18,9 @@ Result<Ref<Font>> Font::create(const std::string& font_name, uint32_t font_size)
 
     FT_Face face;
 
-    if (FT_New_Face(g_lib, font_name.c_str(), 0, &face) != 0)
+    std::vector<char> file_bytes = Filesystem::read_file_to_buffer(font_name);
+
+    if (FT_New_Memory_Face(g_lib, (FT_Byte *)file_bytes.data(), (int64_t)file_bytes.size(), 0, &face) != 0)
     {
         return Error(ErrorKind::FileNotFound);
     }
@@ -155,7 +158,9 @@ Result<> Font::init_library()
 
     auto shader_result = Shader::compile("assets/shaders/font.wgsl", {}, {.vertex = true, .fragment = true});
     if (!shader_result.has_value())
+    {
         return Error(ErrorKind::ShaderCompilationFailed);
+    }
 
     Ref<Shader> shader = shader_result.value();
 

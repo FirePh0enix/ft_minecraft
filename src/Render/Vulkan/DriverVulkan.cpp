@@ -272,6 +272,53 @@ Result<vk::Pipeline> PipelineCache::get_or_create(Ref<Material> material, vk::Re
     }
 }
 
+Result<vk::Pipeline> PipelineCache::get_compute(const Ref<Material>& material)
+{
+    ZoneScoped;
+
+    PipelineCache::Key key{.material = material, .render_pass = nullptr, .depth_pass = false, .use_previous_depth_pass = false};
+    auto iter = std::find_if(m_pipelines.begin(), m_pipelines.end(), [material](auto p)
+                             { return p.first.material.ptr() == material.ptr() && (VkRenderPass)p.first.render_pass == nullptr && p.first.depth_pass == false && p.first.use_previous_depth_pass == false; });
+
+#ifdef __has_shader_hot_reload
+    if (iter != m_pipelines.end())
+    {
+        // TODO:
+        // - What if multiple material layouts are using the same shader ?
+
+        Ref<Shader>& shader = iter->first.material->get_layout().cast_to<MaterialLayoutVulkan>()->m_shader;
+
+        if (shader->was_reloaded())
+        {
+            shader->set_was_reloaded(false);
+
+            m_pipelines.erase(key);
+            return get_or_create(material, render_pass, depth_pass, use_previous_depth_pass);
+        }
+        else
+        {
+            return iter->second;
+        }
+    }
+#else
+    if (iter != m_pipelines.end())
+    {
+        return iter->second;
+    }
+#endif
+    else
+    {
+        Ref<MaterialLayoutVulkan> layout = material->get_layout().cast_to<MaterialLayoutVulkan>();
+
+        Ref<Shader> shader = layout->m_shader;
+        Result<vk::Pipeline> pipeline_result = RenderingDriverVulkan::get()->create_compute_pipeline(shader, layout->m_pipeline_layout);
+        YEET(pipeline_result);
+
+        m_pipelines[key] = pipeline_result.value();
+        return pipeline_result.value();
+    }
+}
+
 Result<vk::Sampler> SamplerCache::get_or_create(SamplerDescriptor sampler)
 {
     auto iter = m_samplers.find(sampler);
@@ -753,7 +800,7 @@ Result<> RenderingDriverVulkan::configure_surface(const Window& window, VSync vs
 {
     (void)m_device.waitIdle();
 
-    vk::PresentModeKHR present_mode;
+    vk::PresentModeKHR present_mode = vk::PresentModeKHR::eFifo;
 
     switch (vsync)
     {
@@ -1082,6 +1129,56 @@ Result<Ref<MaterialLayout>> RenderingDriverVulkan::create_material_layout(Ref<Sh
     return make_ref<MaterialLayoutVulkan>(layout_result.value, pool_result.value(), shader, instance_layout, convert_polygon_mode(polygon_mode), convert_cull_mode(cull_mode), flags, pipeline_layout_result.value).cast_to<MaterialLayout>();
 }
 
+Result<Ref<MaterialLayout>> RenderingDriverVulkan::create_compute_material_layout(Ref<Shader> shader)
+{
+    std::vector<vk::DescriptorSetLayoutBinding> bindings;
+    bindings.reserve(shader->get_bindings().size());
+
+    for (const auto& binding_pair : shader->get_bindings())
+    {
+        const Binding& binding = binding_pair.second;
+
+        // TODO: Support multiple groups ?
+        if (binding.group != 0)
+        {
+            continue;
+        }
+
+        switch (binding.kind)
+        {
+        case BindingKind::Texture:
+        {
+            // FIXME: This assume that a texture sampler is 1 binding after the texture.
+
+            bindings.push_back(vk::DescriptorSetLayoutBinding(binding.binding, vk::DescriptorType::eSampledImage, 1, convert_shader_stage(binding.shader_stage), nullptr));
+            bindings.push_back(vk::DescriptorSetLayoutBinding(binding.binding + 1, vk::DescriptorType::eSampler, 1, convert_shader_stage(binding.shader_stage), nullptr));
+        }
+        break;
+        case BindingKind::UniformBuffer:
+        {
+            bindings.push_back(vk::DescriptorSetLayoutBinding(binding.binding, vk::DescriptorType::eUniformBuffer, 1, convert_shader_stage(binding.shader_stage), nullptr));
+        }
+        break;
+        }
+    }
+
+    auto layout_result = RenderingDriverVulkan::get()->get_device().createDescriptorSetLayout(vk::DescriptorSetLayoutCreateInfo({}, bindings));
+    YEET_RESULT(layout_result);
+
+    auto pool_result = DescriptorPool::create(layout_result.value, shader);
+    YEET(pool_result);
+
+    std::array<vk::PushConstantRange, 1> push_constant_ranges{
+        vk::PushConstantRange(vk::ShaderStageFlagBits::eVertex, 0, sizeof(PushConstants)),
+    };
+    std::array<vk::DescriptorSetLayout, 1> descriptor_set_layouts{layout_result.value};
+
+    auto pipeline_layout_result = RenderingDriverVulkan::get()->get_device().createPipelineLayout(vk::PipelineLayoutCreateInfo({}, descriptor_set_layouts, push_constant_ranges));
+    YEET_RESULT(pipeline_layout_result);
+
+    return make_ref<MaterialLayoutVulkan>(layout_result.value, pool_result.value(), shader, std::nullopt, vk::PolygonMode::eFill, vk::CullModeFlagBits::eNone, MaterialFlags{}, pipeline_layout_result.value).cast_to<MaterialLayout>();
+}
+
 Result<Ref<Material>> RenderingDriverVulkan::create_material(const Ref<MaterialLayout>& layout)
 {
     Ref<MaterialLayoutVulkan> layout_vk = layout.cast_to<MaterialLayoutVulkan>();
@@ -1247,7 +1344,7 @@ void RenderingDriverVulkan::draw_graph(const RenderGraph& graph)
 
             std::optional<Ref<Buffer>> instance_buffer = draw.instance_buffer;
 
-            auto pipeline_result = m_pipeline_cache.get_or_create(material, current_render_pass, depth_pass, use_previous_depth_pass);
+            Result<vk::Pipeline> pipeline_result = m_pipeline_cache.get_or_create(material, current_render_pass, depth_pass, use_previous_depth_pass);
             ERR_EXPECT_B(pipeline_result, "Pipeline creation failed");
 
             cb.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline_result.value());
@@ -1287,6 +1384,39 @@ void RenderingDriverVulkan::draw_graph(const RenderGraph& graph)
             ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cb);
 #endif
         }
+        else if (std::holds_alternative<BindMaterialInstruction>(instruction))
+        {
+            const BindMaterialInstruction& bind = std::get<BindMaterialInstruction>(instruction);
+
+            Ref<MaterialVulkan> material = bind.material.cast_to<MaterialVulkan>();
+            const Ref<MaterialLayoutVulkan>& material_layout = material->get_layout().cast_to<MaterialLayoutVulkan>();
+
+            Result<vk::Pipeline> pipeline_result = m_pipeline_cache.get_or_create(material, current_render_pass, depth_pass, use_previous_depth_pass);
+            ERR_EXPECT_B(pipeline_result, "Pipeline creation failed");
+
+            cb.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline_result.value());
+            cb.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, material_layout->m_pipeline_layout, 0, {material->descriptor_set}, {});
+        }
+        else if (std::holds_alternative<BindIndexBufferInstruction>(instruction))
+        {
+            const BindIndexBufferInstruction& bind = std::get<BindIndexBufferInstruction>(instruction);
+            const Ref<BufferVulkan>& buffer = bind.buffer.cast_to<BufferVulkan>();
+
+            cb.bindIndexBuffer(buffer->buffer, 0, convert_index_type(bind.index_type));
+        }
+        else if (std::holds_alternative<BindIndexBufferInstruction>(instruction))
+        {
+            const BindVertexBufferInstruction& bind = std::get<BindVertexBufferInstruction>(instruction);
+            const Ref<BufferVulkan>& buffer = bind.buffer.cast_to<BufferVulkan>();
+
+            cb.bindVertexBuffers(bind.location, {buffer->buffer}, {0});
+        }
+        else if (std::holds_alternative<DispatchInstruction>(instruction))
+        {
+            const DispatchInstruction& dispatch = std::get<DispatchInstruction>(instruction);
+
+            cb.dispatch(dispatch.group_x, dispatch.group_y, dispatch.group_z);
+        }
     }
 
     // TracyVkCollect(m_tracy_context, cb);
@@ -1302,7 +1432,7 @@ void RenderingDriverVulkan::draw_graph(const RenderGraph& graph)
     m_current_frame = (m_current_frame + 1) % max_frames_in_flight;
 }
 
-Result<vk::Pipeline> RenderingDriverVulkan::create_graphics_pipeline(Ref<Shader> shader, std::optional<InstanceLayout> instance_layout, vk::PolygonMode polygon_mode, vk::CullModeFlags cull_mode, MaterialFlags flags, vk::PipelineLayout pipeline_layout, vk::RenderPass render_pass, bool previous_depth_pass)
+Result<vk::Pipeline> RenderingDriverVulkan::create_graphics_pipeline(const Ref<Shader>& shader, std::optional<InstanceLayout> instance_layout, vk::PolygonMode polygon_mode, vk::CullModeFlags cull_mode, MaterialFlags flags, vk::PipelineLayout pipeline_layout, vk::RenderPass render_pass, bool previous_depth_pass)
 {
     ZoneScoped;
 
@@ -1403,6 +1533,20 @@ Result<vk::Pipeline> RenderingDriverVulkan::create_graphics_pipeline(Ref<Shader>
     YEET_RESULT(pipeline_result);
 
     m_device.destroyShaderModule(shader_module_result.value);
+
+    return pipeline_result.value;
+}
+
+Result<vk::Pipeline> RenderingDriverVulkan::create_compute_pipeline(const Ref<Shader>& shader, vk::PipelineLayout pipeline_layout)
+{
+    std::vector<uint32_t> code = shader->get_code();
+    auto shader_module_result = m_device.createShaderModule(vk::ShaderModuleCreateInfo({}, code.size() * sizeof(uint32_t), code.data()));
+    YEET_RESULT(shader_module_result);
+
+    vk::PipelineShaderStageCreateInfo shader_info({}, vk::ShaderStageFlagBits::eCompute, shader_module_result.value, "compute_main");
+
+    auto pipeline_result = m_device.createComputePipeline(nullptr, vk::ComputePipelineCreateInfo({}, shader_info, pipeline_layout));
+    YEET_RESULT(pipeline_result);
 
     return pipeline_result.value;
 }

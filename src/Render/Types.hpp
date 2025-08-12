@@ -194,14 +194,15 @@ enum class BindingKind : uint8_t
 {
     Texture,
     UniformBuffer,
+    StorageBuffer,
 };
 
 struct Binding
 {
-    BindingKind kind;
+    BindingKind kind = BindingKind::Texture;
     ShaderStageKind shader_stage = ShaderStageKind::Vertex;
-    uint32_t group;
-    uint32_t binding;
+    uint32_t group = 0;
+    uint32_t binding = 0;
 
     union
     {

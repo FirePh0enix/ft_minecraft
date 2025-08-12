@@ -21,8 +21,14 @@ option(SANITIZE_THREAD "Enable ThreadSanitizer" OFF)
 list(APPEND SOURCES
     src/Args.cpp
     src/Config.cpp
+    src/DataPack.cpp
+    src/Font.cpp
+    src/Input.cpp
+    src/main.cpp
+    src/Window.cpp
     src/Core/Class.cpp
     src/Core/Error.cpp
+    src/Core/Filesystem.cpp
     src/Core/Ref.cpp
     src/Platform/Platform.cpp
     src/Render/Driver.cpp
@@ -34,32 +40,12 @@ list(APPEND SOURCES
     src/Scene/Entity.cpp
     src/Scene/Player.cpp
     src/Scene/Scene.cpp
-    src/Input.cpp
-    src/main.cpp
-    src/Window.cpp
     src/World/Chunk.cpp
     src/World/Registry.cpp
     src/World/Save.cpp
     src/World/World.cpp
     src/World/Generation/SimplexNoise.cpp
     src/World/Generation/Terrain.cpp
-    src/Font.cpp
-)
-
-set(RESOURCES_COPY
-    assets/fonts/Anonymous.ttf
-
-    assets/textures/Dirt.png
-    assets/textures/Grass_Side.png
-    assets/textures/Grass_Top.png
-    assets/textures/Sand.png
-    assets/textures/Stone.png
-    assets/textures/Water.png
-)
-
-set(RESOURCES_SHADERS
-    assets/shaders/font.wgsl
-    assets/shaders/voxel.wgsl
 )
 
 if (EMSCRIPTEN)
@@ -170,6 +156,30 @@ if (TARGET_IS_LINUX OR TARGET_IS_APPLE)
     target_compile_options(${TARGET_NAME} PRIVATE -fdiagnostics-color)
 endif()
 
+
+# Create a utility to create a `.data` file.
+add_executable(datapacktool tools/datapack/main.cpp src/DataPack.cpp)
+target_include_directories(datapacktool PRIVATE src/)
+
+file(GLOB_RECURSE Assets_FILES
+    ${PROJECT_SOURCE_DIR}/assets/blocks/*.json
+    ${PROJECT_SOURCE_DIR}/assets/fonts/*
+    ${PROJECT_SOURCE_DIR}/assets/shaders/*.wgsl
+    ${PROJECT_SOURCE_DIR}/assets/shaders/**/*.wgsl
+    ${PROJECT_SOURCE_DIR}/assets/textures/*.png
+)
+string(REPLACE ";" " " "${Assets_FILES}" Assets_FILES)
+set(Assets_OUTPUT ${CMAKE_BINARY_DIR}/${TARGET_NAME}.data)
+
+add_custom_command(
+    OUTPUT ${Assets_OUTPUT}
+    COMMAND ${CMAKE_BINARY_DIR}/datapacktool ${Assets_OUTPUT} ${PROJECT_SOURCE_DIR}/ ${Assets_FILES}
+    DEPENDS ${Assets_FILES}
+)
+add_custom_target(datapacktool-generate ALL DEPENDS ${Assets_OUTPUT})
+add_dependencies(${TARGET_NAME} datapacktool-generate)
+
+
 # Dont build shared libraries
 set(BUILD_SHARED_LIBS 0)
 
@@ -188,88 +198,69 @@ if(TARGET_IS_LINUX OR TARGET_IS_APPLE OR TARGET_IS_MSVC)
 endif()
 
 # tint (Dawn's shader compiler)
-if(NOT TARGET_IS_WEB)
-    set(DAWN_BUILD_SAMPLES OFF)
-    set(DAWN_BUILD_TESTS OFF)
+set(TINT_BUILD_TESTS OFF)
 
-    set(DAWN_USE_GLFW OFF)
+set(TINT_BUILD_SPV_READER OFF)
+set(TINT_BUILD_WGSL_READER ON)
 
-    set(DAWN_ENABLE_D3D11 OFF)
-    set(DAWN_ENABLE_D3D12 OFF)
-    set(DAWN_ENABLE_METAL OFF)
-    set(DAWN_ENABLE_NULL OFF)
-    set(DAWN_ENABLE_DESKTOP_GL OFF)
-    set(DAWN_ENABLE_OPENGLES OFF)
-    set(DAWN_ENABLE_VULKAN OFF)
+set(TINT_BUILD_GLSL_WRITER OFF)
+set(TINT_BUILD_HLSL_WRITER OFF)
+set(TINT_BUILD_MSL_WRITER OFF)
+set(TINT_BUILD_SPV_WRITER ON)
 
-    set(TINT_BUILD_TESTS OFF)
+set(TINT_BUILD_GLSL_VALIDATOR OFF)
+set(TINT_BUILD_CMD_TOOLS OFF)
 
-    set(TINT_BUILD_SPV_READER OFF)
-    set(TINT_BUILD_WGSL_READER ON)
+# This disable automatic validation and allow us to perform our own and set capabilities.
+set(TINT_ENABLE_IR_VALIDATION OFF)
 
-    set(TINT_BUILD_GLSL_WRITER OFF)
-    set(TINT_BUILD_HLSL_WRITER OFF)
-    set(TINT_BUILD_MSL_WRITER OFF)
-    set(TINT_BUILD_SPV_WRITER ON)
+# abseil
+FetchContent_Declare(
+    abseil
+    GIT_REPOSITORY https://github.com/abseil/abseil-cpp
+    GIT_TAG e430bb9b0833137c4365fee39dfa930657b408fc
+)
+FetchContent_MakeAvailable(abseil)
 
-    set(TINT_BUILD_GLSL_VALIDATOR OFF)
-    set(TINT_BUILD_CMD_TOOLS OFF)
+# set(DAWN_THIRD_PARTY_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+# set(DAWN_EMDAWNWEBGPU_DIR ${CMAKE_BINARY_DIR}/_deps/dawn-src/third_party/emdawnwebgpu)
+set(DAWN_ABSEIL_DIR ${abseil_SOURCE_DIR})
 
-    # This disable automatic validation and allow us to perform our own and set capabilities.
-    set(TINT_ENABLE_IR_VALIDATION OFF)
+# SPIRV-Headers
+FetchContent_Declare(
+    spirvheaders
+    GIT_REPOSITORY https://github.com/KhronosGroup/SPIRV-Headers
+    GIT_TAG origin/vulkan-sdk-1.4.313
+)
+FetchContent_MakeAvailable(spirvheaders)
 
-    # abseil
-    FetchContent_Declare(
-        abseil
-        GIT_REPOSITORY https://github.com/abseil/abseil-cpp
-        GIT_TAG e430bb9b0833137c4365fee39dfa930657b408fc
-    )
-    FetchContent_MakeAvailable(abseil)
+# SPIRV-Tools
+FetchContent_Declare(
+    spirvtools
+    GIT_REPOSITORY https://github.com/KhronosGroup/SPIRV-Tools
+    GIT_TAG origin/vulkan-sdk-1.4.313
+)
+FetchContent_MakeAvailable(spirvtools)
 
-    # set(DAWN_THIRD_PARTY_DIR ${CMAKE_CURRENT_SOURCE_DIR})
-    # set(DAWN_EMDAWNWEBGPU_DIR ${CMAKE_BINARY_DIR}/_deps/dawn-src/third_party/emdawnwebgpu)
-    set(DAWN_ABSEIL_DIR ${abseil_SOURCE_DIR})
+# glslang
+FetchContent_Declare(
+    glslang
+    GIT_REPOSITORY https://github.com/KhronosGroup/glslang
+    GIT_TAG b888ebcee8ffaa59536b5f33277936536249d9be
+)
+FetchContent_MakeAvailable(glslang)
 
-    # SPIRV-Headers
-    FetchContent_Declare(
-        spirvheaders
-        GIT_REPOSITORY https://github.com/KhronosGroup/SPIRV-Headers
-        GIT_TAG origin/vulkan-sdk-1.4.313
-    )
-    FetchContent_MakeAvailable(spirvheaders)
+set(DAWN_SPIRV_TOOLS_DIR ${spirvtools_SOURCE_DIR})
+set(DAWN_SPIRV_HEADERS_DIR ${spirvheaders_SOURCE_DIR})
+set(DAWN_GLSLANG_DIR ${glslang_SOURCE_DIR})
 
-    # SPIRV-Tools
-    FetchContent_Declare(
-        spirvtools
-        GIT_REPOSITORY https://github.com/KhronosGroup/SPIRV-Tools
-        GIT_TAG origin/vulkan-sdk-1.4.313
-    )
-    FetchContent_MakeAvailable(spirvtools)
+FetchContent_Declare(
+    dawn
+    SOURCE_DIR ${CMAKE_SOURCE_DIR}/third_party/dawn
+)
+FetchContent_MakeAvailable(dawn)
 
-    # glslang
-    FetchContent_Declare(
-        glslang
-        GIT_REPOSITORY https://github.com/KhronosGroup/glslang
-        GIT_TAG b888ebcee8ffaa59536b5f33277936536249d9be
-    )
-    FetchContent_MakeAvailable(glslang)
-
-    set(DAWN_SPIRV_TOOLS_DIR ${spirvtools_SOURCE_DIR})
-    set(DAWN_SPIRV_HEADERS_DIR ${spirvheaders_SOURCE_DIR})
-    set(DAWN_GLSLANG_DIR ${glslang_SOURCE_DIR})
-
-    FetchContent_Declare(
-        dawn
-        GIT_REPOSITORY https://dawn.googlesource.com/dawn
-        GIT_TAG 4d33621217632e25d8e88e2f0dd2544596d129ac
-        # This line will prevent cmake from fetching submodules, instead we fetch only the required dependencies
-        # with FetchContent.
-        GIT_SUBMODULES ""
-    )
-    FetchContent_MakeAvailable(dawn)
-
-    target_link_libraries(${TARGET_NAME} PRIVATE tint_api tint_lang_spirv_writer_helpers)
-endif()
+target_link_libraries(${TARGET_NAME} PUBLIC tint_api tint_lang_spirv_writer_helpers)
 
 # SDL
 set(SDL_STATIC ON)
@@ -331,6 +322,15 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(FreeType)
 target_link_libraries(${TARGET_NAME} PRIVATE freetype)
+
+# simdjson
+FetchContent_Declare(
+    simdjson
+    GIT_REPOSITORY https://github.com/simdjson/simdjson
+    GIT_TAG 0c0ce1bd48baa0677dc7c0945ea7cd1e8b52b297 # v3.13.0
+)
+FetchContent_MakeAvailable(simdjson)
+target_link_libraries(${TARGET_NAME} PRIVATE simdjson)
 
 # tracy
 FetchContent_Declare(

@@ -1,0 +1,5 @@
+{
+    "name": "stone",
+    "model": "cube",
+    "faces": [ "Stone.png", "Stone.png", "Stone.png", "Stone.png", "Stone.png", "Stone.png" ]
+}

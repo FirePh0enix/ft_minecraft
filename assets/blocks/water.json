@@ -1,0 +1,5 @@
+{
+    "name": "water",
+    "model": "cube",
+    "faces": [ "Water.png", "Water.png", "Water.png", "Water.png", "Water.png", "Water.png" ]
+}

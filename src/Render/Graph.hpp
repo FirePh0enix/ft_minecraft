@@ -41,12 +41,36 @@ struct ImGuiDrawInstruction
 {
 };
 
-using Instruction = std::variant<BeginRenderPassInstruction, EndRenderPassInstruction, DrawInstruction, CopyInstruction, ImGuiDrawInstruction>;
+struct BindMaterialInstruction
+{
+    Ref<Material> material = nullptr;
+};
+
+struct BindIndexBufferInstruction
+{
+    Ref<Buffer> buffer = nullptr;
+    IndexType index_type = IndexType::Uint16;
+};
+
+struct BindVertexBufferInstruction
+{
+    Ref<Buffer> buffer = nullptr;
+    uint32_t location = 0;
+};
+
+struct DispatchInstruction
+{
+    uint32_t group_x = 0;
+    uint32_t group_y = 0;
+    uint32_t group_z = 0;
+};
+
+using Instruction = std::variant<BeginRenderPassInstruction, EndRenderPassInstruction, DrawInstruction, CopyInstruction, ImGuiDrawInstruction, BindIndexBufferInstruction, BindVertexBufferInstruction, BindMaterialInstruction, DispatchInstruction>;
 
 struct PushConstants
 {
     glm::mat4 view_matrix;
-    // NaN does not exists with WGSL.
+    // NaN does not exists with WGSL. It is used to discard vertices in the vertex shader.
     glm::float32 nan;
 };
 
@@ -89,6 +113,14 @@ public:
      * @brief Add imgui draw calls. no-op when `__has_debug_menu` is not set.
      */
     void add_imgui_draw();
+
+    void bind_material(const Ref<Material>& material);
+
+    void bind_index_buffer(const Ref<Buffer>& buffer);
+
+    void bind_vertex_buffer(const Ref<Buffer>& buffer, uint32_t location);
+
+    void dispatch(uint32_t group_x, uint32_t group_y, uint32_t group_z);
 
 private:
     std::vector<CopyInstruction> m_copy_instructions;

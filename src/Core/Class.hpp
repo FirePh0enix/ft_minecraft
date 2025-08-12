@@ -1,5 +1,10 @@
 #pragma once
 
+#include <cassert>
+#include <cstddef>
+#include <cstdint>
+#include <vector>
+
 constexpr uint32_t fnv32_class_hash(const char *filename, const char *class_name)
 {
     size_t filename_len = 0;

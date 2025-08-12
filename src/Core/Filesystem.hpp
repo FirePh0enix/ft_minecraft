@@ -1,8 +1,9 @@
 #pragma once
 
-#ifndef __platform_linux
 #include <filesystem>
-#endif
+
+#include "Core/Result.hpp"
+#include "DataPack.hpp"
 
 static inline std::string get_data_directory()
 {
@@ -49,3 +50,17 @@ static inline std::string get_config_directory()
 
     return path;
 }
+
+class Filesystem
+{
+public:
+    static Result<int> init();
+
+    static std::filesystem::path current_executable_path();
+
+    static std::string read_file_to_string(const std::filesystem::path& path);
+    static std::vector<char> read_file_to_buffer(const std::filesystem::path& path);
+
+private:
+    static inline DataPack s_data_pack;
+};

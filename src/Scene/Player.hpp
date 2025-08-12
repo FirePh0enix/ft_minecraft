@@ -53,5 +53,7 @@ private:
     float m_gravity_value = 9.81;
     bool m_gravity_enabled = true;
 
+    bool m_has_jumped = false;
+
     void on_block_aimed(BlockState state, int64_t x, int64_t y, int64_t z, glm::vec3 dir);
 };

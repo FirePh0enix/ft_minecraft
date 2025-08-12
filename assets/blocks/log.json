@@ -1,0 +1,5 @@
+{
+    "name": "log",
+    "model": "cube",
+    "faces": [ "Tree.png", "Tree.png", "Tree.png", "Tree.png", "Tree_Top.png", "Tree.png" ]
+}

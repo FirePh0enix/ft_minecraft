@@ -1,0 +1,6 @@
+{
+    "name": "grass",
+    "model": "cube",
+    "faces": [ "Grass_Side.png", "Grass_Side.png", "Grass_Side.png", "Grass_Side.png", "Grass_Top.png", "Dirt.png" ],
+    "gradient": "grass"
+}

@@ -24,7 +24,7 @@ void Save::save_info(const Ref<World>& world)
     std::vector<uint32_t> encoded_string_table;
     uint32_t accumulated_size = 0;
     uint32_t block_id = 0;
-    for (const auto& block : BlockRegistry::get().get_blocks())
+    for (const auto& block : BlockRegistry::get_blocks())
     {
         encoded_string_table.push_back(accumulated_size);
         block_id += 1;
@@ -36,15 +36,15 @@ void Save::save_info(const Ref<World>& world)
     header.magic = saved_world_magic;
     header.version = 1;
     header.block_table_offset = sizeof(SavedWorldHeader);
-    header.block_table_count = BlockRegistry::get().get_block_count();
-    header.string_table_offset = sizeof(SavedWorldHeader) + sizeof(uint32_t) * BlockRegistry::get().get_block_count();
+    header.block_table_count = BlockRegistry::get_block_count();
+    header.string_table_offset = sizeof(SavedWorldHeader) + sizeof(uint32_t) * BlockRegistry::get_block_count();
     os.write((char *)&header, sizeof(SavedWorldHeader));
 
     // write the block table
     os.write((char *)encoded_string_table.data(), (ssize_t)(encoded_string_table.size() * sizeof(uint32_t)));
 
     // write the string table
-    for (const auto& block : BlockRegistry::get().get_blocks())
+    for (const auto& block : BlockRegistry::get_blocks())
     {
         os.write(block->name().c_str(), (ssize_t)block->name().size() + 1); // copy also the null byte
     }

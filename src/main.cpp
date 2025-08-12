@@ -1,5 +1,6 @@
 #include "Args.hpp"
 #include "Config.hpp"
+#include "Core/Filesystem.hpp"
 #include "Core/Logger.hpp"
 #include "Font.hpp"
 #include "Input.hpp"
@@ -97,7 +98,37 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
 
     register_all_classes();
 
+    Filesystem::init();
+
     window = make_ref<Window>("ft_minecraft", config.get_category("window").get<int64_t>("width"), config.get_category("window").get<int64_t>("height"));
+    Input::init(*window);
+
+    Input::add_action("forward");
+    Input::add_action_mapping("forward", ActionMapping(ActionMappingKind::Key, SDLK_W));
+
+    Input::add_action("backward");
+    Input::add_action_mapping("backward", ActionMapping(ActionMappingKind::Key, SDLK_S));
+
+    Input::add_action("left");
+    Input::add_action_mapping("left", ActionMapping(ActionMappingKind::Key, SDLK_A));
+
+    Input::add_action("right");
+    Input::add_action_mapping("right", ActionMapping(ActionMappingKind::Key, SDLK_D));
+
+    Input::add_action("up");
+    Input::add_action_mapping("up", ActionMapping(ActionMappingKind::Key, SDLK_SPACE));
+
+    Input::add_action("down");
+    Input::add_action_mapping("down", ActionMapping(ActionMappingKind::Key, SDLK_LCTRL));
+
+    Input::add_action("attack");
+    Input::add_action_mapping("attack", ActionMapping(ActionMappingKind::MouseButton, SDL_BUTTON_LEFT));
+
+    Input::add_action("place");
+    Input::add_action_mapping("place", ActionMapping(ActionMappingKind::MouseButton, SDL_BUTTON_RIGHT));
+
+    Input::add_action("escape");
+    Input::add_action_mapping("escape", ActionMapping(ActionMappingKind::Key, SDLK_ESCAPE));
 
 #ifdef __platform_web
     RenderingDriver::create_singleton<RenderingDriverWebGPU>();
@@ -146,10 +177,6 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     EXPECT(font_result);
     Ref<Font> font = font_result.value();
 
-    // text = Text("Hello world", font);
-    // text.set_scale(glm::vec2(0.2, 0.2));
-    // text.set_color(glm::vec4(1.0, 1.0, 1.0, 1.0));
-
     Ref<Scene> scene = make_ref<Scene>();
     Scene::set_active_scene(scene);
 
@@ -176,35 +203,10 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     scene->add_entity(player);
     scene->set_active_camera(camera);
 
-    // Register blocks
-    {
-        std::array<std::string, 6> dirt = {"Dirt.png", "Dirt.png", "Dirt.png", "Dirt.png", "Dirt.png", "Dirt.png"};
-        BlockRegistry::get().register_block(make_ref<Block>("dirt", dirt));
+    BlockRegistry::load_blocks();
 
-        std::array<std::string, 6> grass = {"Grass_Side.png", "Grass_Side.png", "Grass_Side.png", "Grass_Side.png", "Grass_Top.png", "Dirt.png"};
-        BlockRegistry::get().register_block(make_ref<Block>("grass", grass, GradientType::Grass));
-
-        std::array<std::string, 6> stone = {"Stone.png", "Stone.png", "Stone.png", "Stone.png", "Stone.png", "Stone.png"};
-        BlockRegistry::get().register_block(make_ref<Block>("stone", stone));
-
-        std::array<std::string, 6> water = {"Water.png", "Water.png", "Water.png", "Water.png", "Water.png", "Water.png"};
-        BlockRegistry::get().register_block(make_ref<Block>("water", water));
-
-        std::array<std::string, 6> sand = {"Sand.png", "Sand.png", "Sand.png", "Sand.png", "Sand.png", "Sand.png"};
-        BlockRegistry::get().register_block(make_ref<Block>("sand", sand));
-
-        std::array<std::string, 6> snow = {"Snow.png", "Snow.png", "Snow.png", "Snow.png", "Snow.png", "Snow.png"};
-        BlockRegistry::get().register_block(make_ref<Block>("snow", snow));
-
-        std::array<std::string, 6> tree = {"Tree.png", "Tree.png", "Tree.png", "Tree.png", "Tree_Top.png", "Tree.png"};
-        BlockRegistry::get().register_block(make_ref<Block>("tree", tree));
-
-        std::array<std::string, 6> leaves = {"Leaves.png", "Leaves.png", "Leaves.png", "Leaves.png", "Leaves.png", "Leaves.png"};
-        BlockRegistry::get().register_block(make_ref<Block>("leaves", leaves));
-    }
-
-    BlockRegistry::get().create_texture_array();
-    material->set_param("images", BlockRegistry::get().get_texture_array());
+    BlockRegistry::create_texture_array();
+    material->set_param("images", BlockRegistry::get_texture_array());
 
     if (args.has("disable-save"))
     {
@@ -264,7 +266,7 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     (void)RenderingDriverVulkan::get()->get_device().waitIdle();
 
     gen->stop_workers();
-    BlockRegistry::get().destroy();
+    BlockRegistry::destroy();
     Font::deinit_library();
 
     // RenderingDriver::destroy_singleton();
@@ -325,7 +327,7 @@ static void tick()
         }
 #endif
 
-        Input::get().process_event(*window, event.value());
+        Input::process_event(event.value());
     }
 
     RenderingDriver::get()->poll();
@@ -380,7 +382,7 @@ static void tick()
 
     scene->tick();
 
-    Input::get().post_events();
+    Input::post_events();
 
     RenderGraph& graph = RenderGraph::get();
 

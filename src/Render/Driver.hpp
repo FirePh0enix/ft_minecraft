@@ -329,6 +329,9 @@ public:
     virtual Result<Ref<MaterialLayout>> create_material_layout(Ref<Shader> shader, MaterialFlags flags = {}, std::optional<InstanceLayout> instance_layout = std::nullopt, CullMode cull_mode = CullMode::Back, PolygonMode polygon_mode = PolygonMode::Fill) = 0;
 
     [[nodiscard]]
+    virtual Result<Ref<MaterialLayout>> create_compute_material_layout(Ref<Shader> shader) = 0;
+
+    [[nodiscard]]
     virtual Result<Ref<Material>> create_material(const Ref<MaterialLayout>& layout) = 0;
 
     /**

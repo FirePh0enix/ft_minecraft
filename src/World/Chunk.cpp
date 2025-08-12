@@ -212,7 +212,7 @@ void Chunk::update_instance_buffer(const Ref<Buffer>& buffer)
                 int64_t gx = m_x * 16 + x;
                 int64_t gz = m_z * 16 + z;
 
-                const Ref<Block>& block = BlockRegistry::get().get_block_by_id(state.id);
+                const Ref<Block>& block = BlockRegistry::get_block_by_id(state.id);
                 if (!block)
                 {
                     continue;

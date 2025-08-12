@@ -20,7 +20,6 @@
  */
 BlockState OverworldTerrainGenerator::get_block(const Biome& biome, const BiomeNoise& noise, int64_t x, int64_t y, int64_t z)
 {
-
     // Ensure the bottom of the map is solid.
     if (y == 0)
     {
@@ -28,10 +27,12 @@ BlockState OverworldTerrainGenerator::get_block(const Biome& biome, const BiomeN
     }
 
     // Use multiple 2D FBM noise and splines points to calculate a height.
-    float expected_height = get_height(x, z, noise);
+    float expected_height = get_height(noise);
     constexpr float threshold = 0.10f;
 
-    float spaghetti_cave = glm::abs(get_spaghetti_cave_noise(x, y, z));
+    float spagetti_noise = get_spaghetti_cave_noise(x, y, z);
+
+    float spaghetti_cave = glm::abs(spagetti_noise);
     float cheese_cave = get_cheese_cave_noise(x, y, z);
 
     // Ensure that the surface of water has a block.
@@ -41,7 +42,7 @@ BlockState OverworldTerrainGenerator::get_block(const Biome& biome, const BiomeN
     }
 
     // Dig vertical hole
-    float vertical_shaft = get_spaghetti_cave_noise(x, y, z);
+    float vertical_shaft = spagetti_noise;
     if (vertical_shaft < 0.03f && y > (int64_t)expected_height - 5 && y < (int64_t)expected_height)
     {
         return BlockState();
@@ -119,17 +120,17 @@ BlockState OverworldTerrainGenerator::get_block_id(const Biome& biome, int64_t y
 
 float OverworldTerrainGenerator::get_3d_noise(int64_t x, int64_t y, int64_t z)
 {
-    return m_noise.fractal(8, (float)x * 0.00052f, (float)y * 0.0025f, (float)z * 0.00052f);
+    return m_noise.fractal(4, (float)x * 0.00052f, (float)y * 0.0025f, (float)z * 0.00052f);
 }
 
 float OverworldTerrainGenerator::get_spaghetti_cave_noise(int64_t x, int64_t y, int64_t z)
 {
-    return m_noise.fractal(6, (float)x * 0.025f, (float)y * 0.025f, (float)z * 0.025f);
+    return m_noise.fractal(3, (float)x * 0.025f, (float)y * 0.025f, (float)z * 0.025f);
 }
 
 float OverworldTerrainGenerator::get_cheese_cave_noise(int64_t x, int64_t y, int64_t z)
 {
-    return m_noise.fractal(5, (float)x * 0.01f, (float)y * 0.01f, (float)z * 0.01f);
+    return m_noise.fractal(2, (float)x * 0.01f, (float)y * 0.01f, (float)z * 0.01f);
 }
 
 /**
@@ -150,11 +151,11 @@ float OverworldTerrainGenerator::get_cheese_cave_noise(int64_t x, int64_t y, int
  * @see get_peaks_and_valleys_noise For local height variations
  * @see get_biome For biome determination based on combined noise values
  */
-float OverworldTerrainGenerator::get_height(int64_t x, int64_t z, const BiomeNoise& noise)
+float OverworldTerrainGenerator::get_height(const BiomeNoise& noise)
 {
-    float continentalness = get_continentalness_noise(x, z);
-    float erosion = get_erosion_noise(x, z);
-    float peaks_and_valleys = get_peaks_and_valleys_noise(x, z);
+    float continentalness = noise.continentalness;
+    float erosion = noise.erosion;
+    float peaks_and_valleys = noise.peaks_and_valleys;
 
     float base_height = get_continentalness_spline(continentalness);
     float erosion_factor = get_erosion_spline(erosion);
@@ -319,7 +320,7 @@ float OverworldTerrainGenerator::get_peaks_and_valleys_spline(float peaks_and_va
  */
 float OverworldTerrainGenerator::get_continentalness_noise(int64_t x, int64_t z)
 {
-    return m_noise.fractal(16, (float)x * 0.00052f, 0.0f, (float)z * 0.00052f);
+    return m_noise.fractal(6, (float)x * 0.00052f, 0.0f, (float)z * 0.00052f);
 }
 
 /**
@@ -340,7 +341,7 @@ float OverworldTerrainGenerator::get_continentalness_noise(int64_t x, int64_t z)
  */
 float OverworldTerrainGenerator::get_erosion_noise(int64_t x, int64_t z)
 {
-    return m_noise.fractal(8, (float)x * 0.001f, 1000.0f, (float)z * 0.001f);
+    return m_noise.fractal(4, (float)x * 0.001f, 1000.0f, (float)z * 0.001f);
 }
 
 /**
@@ -364,10 +365,10 @@ float OverworldTerrainGenerator::get_erosion_noise(int64_t x, int64_t z)
  */
 float OverworldTerrainGenerator::get_peaks_and_valleys_noise(int64_t x, int64_t z)
 {
-    float weirdness = m_noise.fractal(8, (float)x * 0.0025f, 2000.0f, (float)z * 0.0025f);
+    float weirdness = m_noise.fractal(4, (float)x * 0.0025f, 2000.0f, (float)z * 0.0025f);
     float abs_weirdness = std::abs(weirdness);
     float pv = 1.0f - std::abs(3.0f * abs_weirdness - 2.0f);
-    return std::clamp(pv, -1.0f, 1.0f);
+    return glm::clamp(pv, -1.0f, 1.0f);
 }
 
 /**
@@ -387,7 +388,7 @@ float OverworldTerrainGenerator::get_peaks_and_valleys_noise(int64_t x, int64_t 
  */
 float OverworldTerrainGenerator::get_temperature_noise(int64_t x, int64_t z)
 {
-    return m_noise.fractal(4, (float)x * 0.0002f, 0.0f, (float)z * 0.0002f);
+    return m_noise.fractal(2, (float)x * 0.0002f, 0.0f, (float)z * 0.0002f);
 }
 
 /**
@@ -408,7 +409,7 @@ float OverworldTerrainGenerator::get_temperature_noise(int64_t x, int64_t z)
  */
 float OverworldTerrainGenerator::get_humidity_noise(int64_t x, int64_t z)
 {
-    return m_noise.fractal(4, (float)x * 0.0003f, 0.0f, (float)z * 0.0003f);
+    return m_noise.fractal(2, (float)x * 0.0003f, 0.0f, (float)z * 0.0003f);
 }
 
 /**
@@ -434,7 +435,7 @@ float OverworldTerrainGenerator::get_humidity_noise(int64_t x, int64_t z)
 Biome OverworldTerrainGenerator::get_biome(const BiomeNoise& biome_noise)
 {
     Biome biome;
-    auto continentalness_level = get_continentalness_level(biome_noise.continentalness);
+    ContinentalnessLevel continentalness_level = get_continentalness_level(biome_noise.continentalness);
 
     if (continentalness_level == ContinentalnessLevel::Ocean || continentalness_level == ContinentalnessLevel::DeepOcean)
     {
@@ -503,8 +504,8 @@ Biome OverworldTerrainGenerator::get_non_inland_biome(const BiomeNoise& biome_no
  */
 Biome OverworldTerrainGenerator::get_inland_biome(const BiomeNoise& biome_noise)
 {
-    auto continentalness_level = get_continentalness_level(biome_noise.continentalness);
-    auto peaks_and_valleys_level = get_peaks_and_valleys_level(biome_noise.peaks_and_valleys);
+    ContinentalnessLevel continentalness_level = get_continentalness_level(biome_noise.continentalness);
+    PeaksAndValleysLevel peaks_and_valleys_level = get_peaks_and_valleys_level(biome_noise.peaks_and_valleys);
     uint32_t temperature_level = get_temperature_level(biome_noise.temperature_noise);
     uint32_t erosion_level = get_erosion_level(biome_noise.erosion);
     uint32_t humidity_level = get_humidity_level(biome_noise.humidity_noise);
@@ -974,35 +975,32 @@ uint32_t OverworldTerrainGenerator::get_humidity_level(float humidity)
 
 void OverworldTerrainGenerator::generate_tree(Ref<Chunk>& chunk, int64_t x, int64_t y, int64_t z)
 {
-    int tree_height = 4 + (rand() % 4);
-    int tree_width = 2 + (rand() % 2);
+    int64_t tree_height = 4 + (rand() % 4);
+    int64_t tree_width = 2 + (rand() % 2);
     float leaf_density = 0.7f;
-
-    auto tree = BlockRegistry::get().get_block_id("tree");
-    auto leaves = BlockRegistry::get().get_block_id("leaves");
 
     for (int i = 0; i < tree_height; i++)
     {
-        chunk->set_block(x, y + i, z, BlockState(tree));
+        chunk->set_block(x, y + i, z, BlockState(m_log));
     }
 
-    int leaf_start = y + tree_height - 2;
+    int64_t leaf_start = y + tree_height - 2;
 
-    for (int lx = x - tree_width; lx <= x + tree_width; lx++)
+    for (int64_t lx = x - tree_width; lx <= x + tree_width; lx++)
     {
-        for (int ly = leaf_start; ly <= y + tree_height + 1; ly++)
+        for (int64_t ly = leaf_start; ly <= y + tree_height + 1; ly++)
         {
-            for (int lz = z - tree_width; lz <= z + tree_width; lz++)
+            for (int64_t lz = z - tree_width; lz <= z + tree_width; lz++)
             {
                 float dx = (float)(lx - x);
                 float dy = (float)(ly - (y + tree_height));
                 float dz = (float)(lz - z);
 
-                float dist = sqrt(dx * dx + dy * dy + dz * dz);
+                float dist = glm::sqrt(dx * dx + dy * dy + dz * dz);
 
-                if (dist <= tree_width && ((float)rand() / RAND_MAX) < leaf_density)
+                if (dist <= (float)tree_width && ((float)rand() / RAND_MAX) < leaf_density)
                 {
-                    chunk->set_block(lx, ly, lz, BlockState(leaves));
+                    chunk->set_block(lx, ly, lz, BlockState(m_leaves));
                 }
             }
         }

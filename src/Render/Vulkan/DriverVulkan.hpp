@@ -45,6 +45,7 @@ public:
     };
 
     Result<vk::Pipeline> get_or_create(Ref<Material> material, vk::RenderPass render_pass, bool depth_pass, bool use_previous_depth_pass);
+    Result<vk::Pipeline> get_compute(const Ref<Material>& material);
 
 private:
     std::map<Key, vk::Pipeline> m_pipelines;
@@ -196,11 +197,14 @@ public:
     virtual Result<Ref<MaterialLayout>> create_material_layout(Ref<Shader> shader, MaterialFlags flags = {}, std::optional<InstanceLayout> instance_layout = std::nullopt, CullMode cull_mode = CullMode::Back, PolygonMode polygon_mode = PolygonMode::Fill) override;
 
     [[nodiscard]]
-    virtual Result<Ref<Material>> create_material(const Ref<MaterialLayout>& layout) override;
+    virtual Result<Ref<MaterialLayout>> create_compute_material_layout(Ref<Shader> shader) override;
+
+    [[nodiscard]] virtual Result<Ref<Material>> create_material(const Ref<MaterialLayout>& layout) override;
 
     virtual void draw_graph(const RenderGraph& graph) override;
 
-    Result<vk::Pipeline> create_graphics_pipeline(Ref<Shader> shader, std::optional<InstanceLayout> instance_layout, vk::PolygonMode polygon_mode, vk::CullModeFlags cull_mode, MaterialFlags flags, vk::PipelineLayout pipeline_layout, vk::RenderPass render_pass, bool previous_depth_pass);
+    Result<vk::Pipeline> create_graphics_pipeline(const Ref<Shader>& shader, std::optional<InstanceLayout> instance_layout, vk::PolygonMode polygon_mode, vk::CullModeFlags cull_mode, MaterialFlags flags, vk::PipelineLayout pipeline_layout, vk::RenderPass render_pass, bool previous_depth_pass);
+    Result<vk::Pipeline> create_compute_pipeline(const Ref<Shader>& shader, vk::PipelineLayout pipeline_layout);
 
     inline vk::Device get_device() const
     {

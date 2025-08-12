@@ -3,6 +3,9 @@
 #include "Core/Logger.hpp"
 #include "Core/Print.hpp"
 
+#include <array>
+#include <cstring>
+
 #ifndef STACKTRACE_SIZE
 #define STACKTRACE_SIZE 16
 #endif

@@ -16,6 +16,19 @@ struct ShaderFlags
     bool depth_pass : 1 = false;
 };
 
+// TODO: Replace `ShaderFlags`
+enum class ShaderVariant
+{
+    DepthPass,
+};
+
+enum class ShaderStages2
+{
+    Vertex,
+    Fragment,
+    Compute,
+};
+
 struct ShaderStages
 {
     bool vertex : 1 = false;
@@ -106,12 +119,12 @@ public:
 #endif
 
 #ifdef __platform_web
-    inline std::string get_code()
+    inline std::string get_code() const
     {
         return m_code;
     }
 #else
-    inline std::vector<uint32_t> get_code()
+    inline std::vector<uint32_t> get_code() const
     {
         return m_code;
     }

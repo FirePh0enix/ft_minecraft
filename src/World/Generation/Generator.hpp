@@ -316,7 +316,6 @@ public:
 
                 for (int64_t y = 0; y < 256; y++)
                 {
-
                     BlockState block_state = m_terrain->get_block(biome, noise, x + block_x, y, z + block_z);
                     chunk->set_block(x, y, z, BlockState(block_state));
                 }

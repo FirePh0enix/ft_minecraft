@@ -12,45 +12,42 @@
 class BlockRegistry
 {
 public:
-    static BlockRegistry& get()
+    static void destroy()
     {
-        return singleton;
+        s_texture_array = nullptr;
     }
 
-    void destroy()
+    static inline bool is_generic(uint16_t id)
     {
-        m_texture_array = nullptr;
-    }
-
-    inline bool is_generic(uint16_t id)
-    {
-        return m_generics.test(id);
+        return s_generics.test(id);
     }
 
     /**
      * @brief Returns the block id for `name` or `0`.
      */
-    uint16_t get_block_id(const std::string& name) const
+    static uint16_t get_block_id(const std::string& name)
     {
-        const auto& el = m_blocks_by_name.find(name);
-        if (el == m_blocks_by_name.end())
+        const auto& el = s_blocks_by_name.find(name);
+        if (el == s_blocks_by_name.end())
         {
             [[unlikely]] return 0;
         }
         return el->second;
     }
 
-    void register_block(Ref<Block> block)
-    {
-        const uint16_t id = m_blocks.size() + 1;
+    static void load_blocks();
 
-        m_blocks.push_back(block);
-        m_blocks_by_name[block->name()] = id;
+    static void register_block(Ref<Block> block)
+    {
+        const uint16_t id = s_blocks.size() + 1;
+
+        s_blocks.push_back(block);
+        s_blocks_by_name[block->name()] = id;
 
         switch (block->get_variant())
         {
         case BlockStateVariant::Generic:
-            m_generics.set(id);
+            s_generics.set(id);
             break;
         }
 
@@ -64,51 +61,51 @@ public:
         });
     }
 
-    void create_texture_array()
+    static void create_texture_array()
     {
-        auto texture_array_result = RenderingDriver::get()->create_texture_array(16, 16, TextureFormat::RGBA8Srgb, {.copy_dst = true, .sampled = true}, m_textures.size());
+        auto texture_array_result = RenderingDriver::get()->create_texture_array(16, 16, TextureFormat::RGBA8Srgb, {.copy_dst = true, .sampled = true}, s_textures.size());
         ERR_COND_R(texture_array_result->is_null(), "Cannot create the block texture array");
 
-        m_texture_array = texture_array_result.value();
-        m_texture_array->transition_layout(TextureLayout::CopyDst);
+        s_texture_array = texture_array_result.value();
+        s_texture_array->transition_layout(TextureLayout::CopyDst);
 
         size_t index = 0;
 
-        for (const auto& surface : m_textures)
+        for (const auto& surface : s_textures)
         {
-            m_texture_array->update(View((uint8_t *)surface->pixels, surface->w * surface->h * 4), index);
+            s_texture_array->update(View((uint8_t *)surface->pixels, surface->w * surface->h * 4), index);
             index++;
         }
 
-        m_texture_array->transition_layout(TextureLayout::ShaderReadOnly);
+        s_texture_array->transition_layout(TextureLayout::ShaderReadOnly);
     }
 
-    const Ref<Block>& get_block_by_id(uint16_t id)
+    static const Ref<Block>& get_block_by_id(uint16_t id)
     {
-        return m_blocks[id - 1];
+        return s_blocks[id - 1];
     }
 
-    inline const Ref<Texture>& get_texture_array() const
+    static inline const Ref<Texture>& get_texture_array()
     {
-        return m_texture_array;
+        return s_texture_array;
     }
 
-    inline const std::vector<Ref<Block>>& get_blocks()
+    static inline const std::vector<Ref<Block>>& get_blocks()
     {
-        return m_blocks;
+        return s_blocks;
     }
 
-    inline size_t get_block_count() const
+    static inline size_t get_block_count()
     {
-        return m_blocks.size();
+        return s_blocks.size();
     }
 
 private:
-    uint32_t get_or_create(const std::string& name)
+    static uint32_t get_or_create(const std::string& name)
     {
-        const auto id_pair = m_texture_by_name.find(name);
+        const auto id_pair = s_texture_by_name.find(name);
 
-        if (id_pair == m_texture_by_name.end())
+        if (id_pair == s_texture_by_name.end())
         {
             std::string path = "assets/textures/" + name;
 
@@ -120,10 +117,10 @@ private:
 
             // TODO: Check the format of the image and resize it if necessary.
 
-            const uint32_t id = m_textures.size();
+            const uint32_t id = s_textures.size();
 
-            m_textures.push_back(texture_surface);
-            m_texture_by_name[name] = id;
+            s_textures.push_back(texture_surface);
+            s_texture_by_name[name] = id;
 
             // SDL_DestroySurface(texture_surface);
             SDL_CloseIO(texture_stream);
@@ -136,15 +133,13 @@ private:
         }
     }
 
-    static BlockRegistry singleton;
-
-    std::vector<Ref<Block>> m_blocks;
-    std::map<std::string, uint16_t> m_blocks_by_name;
+    static inline std::vector<Ref<Block>> s_blocks;
+    static inline std::map<std::string, uint16_t> s_blocks_by_name;
 
     // Block ids that use the `generic` variant.
-    std::bitset<std::numeric_limits<uint16_t>::max()> m_generics;
+    static inline std::bitset<std::numeric_limits<uint16_t>::max()> s_generics;
 
-    std::map<std::string, uint32_t> m_texture_by_name;
-    std::vector<SDL_Surface *> m_textures;
-    Ref<Texture> m_texture_array;
+    static inline std::map<std::string, uint32_t> s_texture_by_name;
+    static inline std::vector<SDL_Surface *> s_textures;
+    static inline Ref<Texture> s_texture_array;
 };

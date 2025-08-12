@@ -72,3 +72,23 @@ void RenderGraph::add_imgui_draw()
     m_instructions.push_back(ImGuiDrawInstruction{});
 #endif
 }
+
+void RenderGraph::bind_material(const Ref<Material>& material)
+{
+    m_instructions.push_back(BindMaterialInstruction{.material = material});
+}
+
+void RenderGraph::bind_index_buffer(const Ref<Buffer>& buffer)
+{
+    m_instructions.push_back(BindIndexBufferInstruction{.buffer = buffer});
+}
+
+void RenderGraph::bind_vertex_buffer(const Ref<Buffer>& buffer, uint32_t location)
+{
+    m_instructions.push_back(BindVertexBufferInstruction{.buffer = buffer, .location = location});
+}
+
+void RenderGraph::dispatch(uint32_t group_x, uint32_t group_y, uint32_t group_z)
+{
+    m_instructions.push_back(DispatchInstruction{.group_x = group_x, .group_y = group_y, .group_z = group_z});
+}

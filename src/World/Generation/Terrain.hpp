@@ -56,12 +56,14 @@ class OverworldTerrainGenerator : public TerrainGenerator
 public:
     OverworldTerrainGenerator()
     {
-        m_stone = BlockRegistry::get().get_block_id("stone");
-        m_water = BlockRegistry::get().get_block_id("water");
-        m_snow = BlockRegistry::get().get_block_id("snow");
-        m_grass = BlockRegistry::get().get_block_id("grass");
-        m_sand = BlockRegistry::get().get_block_id("sand");
-        m_dirt = BlockRegistry::get().get_block_id("dirt");
+        m_stone = BlockRegistry::get_block_id("stone");
+        m_water = BlockRegistry::get_block_id("water");
+        m_snow = BlockRegistry::get_block_id("snow");
+        m_grass = BlockRegistry::get_block_id("grass");
+        m_sand = BlockRegistry::get_block_id("sand");
+        m_dirt = BlockRegistry::get_block_id("dirt");
+        m_log = BlockRegistry::get_block_id("tree");
+        m_leaves = BlockRegistry::get_block_id("leaves");
     }
 
     virtual BlockState get_block(const Biome& biome, const BiomeNoise& noise, int64_t x, int64_t y, int64_t z) override;
@@ -77,7 +79,7 @@ public:
     float get_humidity_noise(int64_t x, int64_t z);
     void generate_tree(Ref<Chunk>& chunk, int64_t x, int64_t y, int64_t z);
 
-    float get_height(int64_t x, int64_t z, const BiomeNoise& noise);
+    float get_height(const BiomeNoise& noise);
     float get_3d_noise(int64_t x, int64_t y, int64_t z);
     float get_spaghetti_cave_noise(int64_t x, int64_t y, int64_t z);
     float get_cheese_cave_noise(int64_t x, int64_t y, int64_t z);
@@ -105,4 +107,6 @@ private:
     uint16_t m_grass = 0;
     uint16_t m_sand = 0;
     uint16_t m_dirt = 0;
+    uint16_t m_log = 0;
+    uint16_t m_leaves = 0;
 };

@@ -1,8 +1,9 @@
 #include "Render/Shader.hpp"
+#include "Core/Filesystem.hpp"
 #include "Core/Logger.hpp"
 
-#include <fstream>
 #include <iostream>
+#include <sstream>
 
 #ifndef __platform_web
 #include <src/tint/lang/spirv/writer/helpers/generate_bindings.h>
@@ -19,7 +20,7 @@ static bool contains(const std::vector<std::string>& definitions, const std::str
     return std::find(definitions.begin(), definitions.end(), definition) != definitions.end();
 }
 
-Shader::Result<std::string> preprocess(std::ifstream& ifs, const std::vector<std::string>& definitions)
+static Shader::Result<std::string> preprocess(std::string text, const std::vector<std::string>& definitions)
 {
     std::string line;
 
@@ -27,7 +28,9 @@ Shader::Result<std::string> preprocess(std::ifstream& ifs, const std::vector<std
     bool is_in_block = false;
     bool is_skipped = false;
 
-    while (std::getline(ifs, line))
+    std::stringstream ss(text);
+
+    while (std::getline(ss, line))
     {
         if (line.starts_with("#ifdef "))
         {
@@ -91,24 +94,21 @@ Shader::Result<Ref<Shader>> Shader::compile(const std::string& filename, ShaderF
 
 Shader::Result<> Shader::compile_internal(const std::string& filename, ShaderFlags flags, ShaderStages stages)
 {
-    std::ifstream file_stream(filename);
+    std::string text = Filesystem::read_file_to_string(filename);
 
-    if (!file_stream.is_open())
-    {
-        error("shader compilation: {}: File not found", filename);
-        return ErrorKind::FileNotFound;
-    }
-
-    std::vector<std::string> definitions;
+    std::vector<std::string>
+        definitions;
 
 #ifndef __platform_web
     definitions.push_back("__has_immediate");
 #endif
 
     if (flags.depth_pass)
+    {
         definitions.push_back("DEPTH_PASS");
+    }
 
-    auto output_result = preprocess(file_stream, definitions);
+    Result<std::string> output_result = preprocess(text, definitions);
     if (!output_result.has_value())
     {
         error("shader compilation: {}: Preprocessing failed: {}", filename, (uint8_t)output_result.error());
@@ -288,7 +288,8 @@ void Shader::fill_info(const tint::core::ir::Module& ir)
                     binding = Binding{.kind = BindingKind::UniformBuffer, .group = bp->group, .binding = bp->binding, .dimension = {}};
                     break;
                 case tint::core::AddressSpace::kStorage:
-                    continue;
+                    binding = Binding{.kind = BindingKind::StorageBuffer, .group = bp->group, .binding = bp->binding, .dimension = {}};
+                    break;
                 case tint::core::AddressSpace::kHandle:
                 case tint::core::AddressSpace::kUndefined:
                 case tint::core::AddressSpace::kPixelLocal:
