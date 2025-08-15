@@ -63,7 +63,7 @@ public:
 
     static void create_texture_array()
     {
-        auto texture_array_result = RenderingDriver::get()->create_texture_array(16, 16, TextureFormat::RGBA8Srgb, {.copy_dst = true, .sampled = true}, s_textures.size());
+        auto texture_array_result = RenderingDriver::get()->create_texture_array(16, 16, TextureFormat::RGBA8Srgb, TextureUsageFlagBits::CopyDest | TextureUsageFlagBits::Sampled, s_textures.size());
         ERR_COND_R(texture_array_result->is_null(), "Cannot create the block texture array");
 
         s_texture_array = texture_array_result.value();

@@ -132,7 +132,7 @@ public:
     struct Key
     {
         size_t size = 0;
-        BufferUsage usage = {};
+        BufferUsageFlags usage = {};
         BufferVisibility visibility = BufferVisibility::GPUOnly;
 
         bool operator<(const Key& other) const
@@ -144,7 +144,7 @@ public:
     /**
      * @brief Try find an unused buffer with the correct parameter or create it.
      */
-    Result<Ref<Buffer>> get_or_create(size_t size, BufferUsage usage, BufferVisibility visibility);
+    Result<Ref<Buffer>> get_or_create(size_t size, BufferUsageFlags usage, BufferVisibility visibility);
 
 private:
     std::map<Key, Ref<Buffer>> m_buffers;
@@ -177,18 +177,18 @@ public:
     virtual void limit_frames(uint32_t limit) override;
 
     [[nodiscard]]
-    virtual Result<Ref<Buffer>> create_buffer(size_t size, BufferUsage usage = {}, BufferVisibility visibility = BufferVisibility::GPUOnly) override;
+    virtual Result<Ref<Buffer>> create_buffer(size_t size, BufferUsageFlags usage = {}, BufferVisibility visibility = BufferVisibility::GPUOnly) override;
 
     void update_buffer(const Ref<Buffer>& dest, View<uint8_t> view, size_t offset) override;
 
     [[nodiscard]]
-    virtual Result<Ref<Texture>> create_texture(uint32_t width, uint32_t height, TextureFormat format, TextureUsage usage) override;
+    virtual Result<Ref<Texture>> create_texture(uint32_t width, uint32_t height, TextureFormat format, TextureUsageFlags usage) override;
 
     [[nodiscard]]
-    virtual Result<Ref<Texture>> create_texture_array(uint32_t width, uint32_t height, TextureFormat format, TextureUsage usage, uint32_t layers) override;
+    virtual Result<Ref<Texture>> create_texture_array(uint32_t width, uint32_t height, TextureFormat format, TextureUsageFlags usage, uint32_t layers) override;
 
     [[nodiscard]]
-    virtual Result<Ref<Texture>> create_texture_cube(uint32_t width, uint32_t height, TextureFormat format, TextureUsage usage) override;
+    virtual Result<Ref<Texture>> create_texture_cube(uint32_t width, uint32_t height, TextureFormat format, TextureUsageFlags usage) override;
 
     [[nodiscard]]
     virtual Result<Ref<Mesh>> create_mesh(IndexType index_type, View<uint8_t> indices, View<glm::vec3> vertices, View<glm::vec2> uvs, View<glm::vec3> normals) override;

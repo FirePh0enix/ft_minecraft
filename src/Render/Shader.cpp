@@ -12,6 +12,7 @@
 
 #include <src/tint/lang/core/ir/var.h>
 #include <src/tint/lang/core/type/pointer.h>
+#include <src/tint/lang/core/type/storage_texture.h>
 #include <src/tint/lang/wgsl/ast/module.h>
 #endif // not __platform_web
 
@@ -79,7 +80,7 @@ static Shader::Result<std::string> preprocess(std::string text, const std::vecto
     return output;
 }
 
-Shader::Result<Ref<Shader>> Shader::compile(const std::string& filename, ShaderFlags flags, ShaderStages stages)
+Shader::Result<Ref<Shader>> Shader::compile(const std::string& filename, ShaderFlags flags, ShaderStageFlags stages)
 {
     Ref<Shader> shader = make_ref<Shader>();
     auto result = shader->compile_internal(filename, flags, stages);
@@ -92,7 +93,7 @@ Shader::Result<Ref<Shader>> Shader::compile(const std::string& filename, ShaderF
     return shader;
 }
 
-Shader::Result<> Shader::compile_internal(const std::string& filename, ShaderFlags flags, ShaderStages stages)
+Shader::Result<> Shader::compile_internal(const std::string& filename, ShaderFlags flags, ShaderStageFlags stages)
 {
     std::string text = Filesystem::read_file_to_string(filename);
 
@@ -103,7 +104,7 @@ Shader::Result<> Shader::compile_internal(const std::string& filename, ShaderFla
     definitions.push_back("__has_immediate");
 #endif
 
-    if (flags.depth_pass)
+    if (flags.has_any(ShaderFlagBits::DepthPass))
     {
         definitions.push_back("DEPTH_PASS");
     }
@@ -118,7 +119,7 @@ Shader::Result<> Shader::compile_internal(const std::string& filename, ShaderFla
     std::string& output = output_result.value();
     m_filename = filename;
 
-    // TODO: Stages could probably be determined with `tint`, but it would also add more work the WGSL parser.
+    // TODO: Stages could probably be determined with `tint`.
     m_stages = stages;
 
 #ifdef __has_shader_hot_reload
@@ -275,43 +276,57 @@ void Shader::fill_info(const tint::core::ir::Module& ir)
 
             Binding binding;
 
-            if (ty->Is<tint::core::type::Texture>())
+            switch (ptr->AddressSpace())
             {
-                const tint::core::type::Texture *texture = ty->As<tint::core::type::Texture>();
-                binding = Binding{.kind = BindingKind::Texture, .group = bp->group, .binding = bp->binding, .dimension = convert_dimension(texture->Dim())};
-            }
-            else
+            case tint::core::AddressSpace::kUniform:
+                binding = Binding{.kind = BindingKind::UniformBuffer, .group = bp->group, .binding = bp->binding, .dimension = {}};
+                break;
+            case tint::core::AddressSpace::kStorage:
             {
-                switch (ptr->AddressSpace())
+                if (ty->Is<tint::core::type::StorageTexture>())
                 {
-                case tint::core::AddressSpace::kUniform:
-                    binding = Binding{.kind = BindingKind::UniformBuffer, .group = bp->group, .binding = bp->binding, .dimension = {}};
-                    break;
-                case tint::core::AddressSpace::kStorage:
+                    const tint::core::type::StorageTexture *texture = ty->As<tint::core::type::StorageTexture>();
+                    binding = Binding{.kind = BindingKind::Texture, .group = bp->group, .binding = bp->binding, .dimension = convert_dimension(texture->Dim())};
+                }
+                else
+                {
                     binding = Binding{.kind = BindingKind::StorageBuffer, .group = bp->group, .binding = bp->binding, .dimension = {}};
-                    break;
-                case tint::core::AddressSpace::kHandle:
-                case tint::core::AddressSpace::kUndefined:
-                case tint::core::AddressSpace::kPixelLocal:
-                case tint::core::AddressSpace::kPrivate:
-                case tint::core::AddressSpace::kImmediate:
-                case tint::core::AddressSpace::kIn:
-                case tint::core::AddressSpace::kOut:
-                case tint::core::AddressSpace::kFunction:
-                case tint::core::AddressSpace::kWorkgroup:
+                }
+            }
+            break;
+            case tint::core::AddressSpace::kHandle:
+            {
+                if (ty->Is<tint::core::type::Texture>())
+                {
+                    const tint::core::type::Texture *texture = ty->As<tint::core::type::Texture>();
+                    binding = Binding{.kind = BindingKind::Texture, .group = bp->group, .binding = bp->binding, .dimension = convert_dimension(texture->Dim())};
+                }
+                else
+                {
                     continue;
                 }
             }
+            break;
+            case tint::core::AddressSpace::kUndefined:
+            case tint::core::AddressSpace::kPixelLocal:
+            case tint::core::AddressSpace::kPrivate:
+            case tint::core::AddressSpace::kImmediate:
+            case tint::core::AddressSpace::kIn:
+            case tint::core::AddressSpace::kOut:
+            case tint::core::AddressSpace::kFunction:
+            case tint::core::AddressSpace::kWorkgroup:
+                continue;
+            }
 
-            std::optional<ShaderStageKind> stage = stage_of(ir, inst);
-            binding.shader_stage = stage.value_or(ShaderStageKind::Fragment); // FIXME: Fragment should not be hardcoded here.
+            std::optional<ShaderStageFlagBits> stage = stage_of(ir, inst);
+            binding.shader_stage = stage.value_or(ShaderStageFlagBits::Fragment); // FIXME: Fragment should not be hardcoded here.
 
             m_bindings[name] = binding;
         }
     }
 }
 
-std::optional<ShaderStageKind> Shader::stage_of(const tint::core::ir::Module& ir, const tint::core::ir::Instruction *inst)
+std::optional<ShaderStageFlagBits> Shader::stage_of(const tint::core::ir::Module& ir, const tint::core::ir::Instruction *inst)
 {
     for (const auto& func : ir.functions)
     {
@@ -325,11 +340,11 @@ std::optional<ShaderStageKind> Shader::stage_of(const tint::core::ir::Module& ir
             if (inst->Result()->HasUsage(func_inst, 0))
             {
                 if (func->IsVertex())
-                    return ShaderStageKind::Vertex;
+                    return ShaderStageFlagBits::Vertex;
                 else if (func->IsFragment())
-                    return ShaderStageKind::Fragment;
+                    return ShaderStageFlagBits::Fragment;
                 else if (func->IsCompute())
-                    return ShaderStageKind::Compute;
+                    return ShaderStageFlagBits::Compute;
             }
         }
     }

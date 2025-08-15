@@ -104,7 +104,7 @@ void World::set_render_distance(uint32_t distance)
 
     for (size_t i = 0; i < new_buffer_count - old_buffer_count; i++)
     {
-        auto buffer_result = RenderingDriver::get()->create_buffer(sizeof(BlockInstanceData) * Chunk::block_count, {.copy_dst = true, .vertex = true});
+        auto buffer_result = RenderingDriver::get()->create_buffer(sizeof(BlockInstanceData) * Chunk::block_count, BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Vertex);
         ERR_EXPECT_C(buffer_result, "Failed to create instance buffer");
         m_buffers[i + old_buffer_count] = BufferInfo{.buffer = buffer_result.value(), .used = false};
     }

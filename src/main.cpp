@@ -139,7 +139,7 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     auto init_result = RenderingDriver::get()->initialize(*window, args.has("enable-gpu-validation"));
     EXPECT(init_result);
 
-    auto shader_result = Shader::compile("assets/shaders/voxel.wgsl", {}, {.vertex = true, .fragment = true});
+    auto shader_result = Shader::compile("assets/shaders/voxel.wgsl", {}, ShaderStageFlagBits::Vertex | ShaderStageFlagBits::Fragment);
     if (!shader_result.has_value())
     {
         Result<> error = Error(ErrorKind::ShaderCompilationFailed);

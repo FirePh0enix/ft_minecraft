@@ -132,8 +132,8 @@ public:
 
 private:
     EntityId m_id = EntityId(0);
-    Entity *m_parent = nullptr; // FIXME: This must be changed by either a Ref<Entity> or a EntityId.
-    Scene *m_scene = nullptr;   // FIXME: Same here.
-    std::vector<Ref<Component>> m_components;
+    Entity *m_parent = nullptr;               // FIXME: This must be changed by either a Ref<Entity> or a EntityId.
+    Scene *m_scene = nullptr;                 // FIXME: Must be replaced by a Ref<Scene>
+    std::vector<Ref<Component>> m_components; // TODO: Could be replaced by a map to lower lookup time since components must be unique.
     std::vector<Ref<Entity>> m_children;
 };

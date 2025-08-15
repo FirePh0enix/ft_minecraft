@@ -20,11 +20,8 @@ void Player::start()
     m_camera = m_entity->get_child(0)->get_component<Camera>();
 
     // Create a special cube mesh and material to highlight targeted blocks.
-    auto shader_result = Shader::compile("assets/shaders/cube_highlight.wgsl", {}, {.vertex = true, .fragment = true});
+    auto shader_result = Shader::compile("assets/shaders/cube_highlight.wgsl", {}, ShaderStageFlagBits::Vertex | ShaderStageFlagBits::Fragment);
     Ref<Shader> shader = shader_result.value();
-#ifdef __platform_web
-    shader->set_binding("uniforms", Binding{.kind = BindingKind::UniformBuffer, .shader_stage = ShaderStageKind::Fragment, .group = 0, .binding = 0});
-#endif
 
     Result<Ref<MaterialLayout>> material_layout_result = RenderingDriver::get()->create_material_layout(shader, {.transparency = false, .priority = PriorityBefore}, std::nullopt, CullMode::Back, PolygonMode::Line);
     EXPECT(material_layout_result);
@@ -34,7 +31,7 @@ void Player::start()
     EXPECT(material_result);
     Ref<Material> material = material_result.value();
 
-    Result<Ref<Buffer>> buffer_result = RenderingDriver::get()->create_buffer(sizeof(CubeHighlightUniforms), {.copy_dst = true, .uniform = true});
+    Result<Ref<Buffer>> buffer_result = RenderingDriver::get()->create_buffer(sizeof(CubeHighlightUniforms), BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Uniform);
     ERR_EXPECT_R(buffer_result, "Failed to create buffer for cube highlight");
     m_cube_highlight_buffer = buffer_result.value();
 

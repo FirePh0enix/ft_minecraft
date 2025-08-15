@@ -11,28 +11,17 @@
 #include <tint/tint.h>
 #endif
 
-struct ShaderFlags
+enum class ShaderFlagBits
 {
-    bool depth_pass : 1 = false;
+    DepthPass = 1 << 0,
 };
+using ShaderFlags = Flags<ShaderFlagBits>;
+DEFINE_FLAG_TRAITS(ShaderFlagBits);
 
 // TODO: Replace `ShaderFlags`
 enum class ShaderVariant
 {
     DepthPass,
-};
-
-enum class ShaderStages2
-{
-    Vertex,
-    Fragment,
-    Compute,
-};
-
-struct ShaderStages
-{
-    bool vertex : 1 = false;
-    bool fragment : 1 = false;
 };
 
 class Shader : public Object
@@ -51,9 +40,9 @@ public:
     template <typename T = char>
     using Result = Result<T, ErrorKind>;
 
-    static Result<Ref<Shader>> compile(const std::string& filename, ShaderFlags flags, ShaderStages stages);
+    static Result<Ref<Shader>> compile(const std::string& filename, ShaderFlags flags, ShaderStageFlags stages);
 
-    Result<Ref<Shader>> recompile(ShaderFlags flags, ShaderStages stages)
+    Result<Ref<Shader>> recompile(ShaderFlags flags, ShaderStageFlags stages)
     {
         return compile(m_filename, flags, stages);
     }
@@ -97,7 +86,7 @@ public:
         m_samplers[name] = sampler;
     }
 
-    ShaderStages get_stages() const
+    ShaderStageFlags get_stages() const
     {
         return m_stages;
     }
@@ -134,9 +123,9 @@ private:
     std::map<std::string, Binding> m_bindings;
     std::map<std::string, SamplerDescriptor> m_samplers;
     std::string m_filename;
-    ShaderStages m_stages;
+    ShaderStageFlags m_stages;
 
-    Result<> compile_internal(const std::string& filename, ShaderFlags flags, ShaderStages stages);
+    Result<> compile_internal(const std::string& filename, ShaderFlags flags, ShaderStageFlags stages);
 
 #ifdef __platform_web
     std::string m_code;
@@ -144,7 +133,7 @@ private:
     std::vector<uint32_t> m_code;
 
     void fill_info(const tint::core::ir::Module& ir);
-    std::optional<ShaderStageKind> stage_of(const tint::core::ir::Module& ir, const tint::core::ir::Instruction *inst);
+    std::optional<ShaderStageFlagBits> stage_of(const tint::core::ir::Module& ir, const tint::core::ir::Instruction *inst);
 #endif
 
 #ifdef __has_shader_hot_reload

@@ -113,6 +113,7 @@ enum DrawPriority : uint8_t
     PriorityBefore = 1,
 };
 
+// TODO: Convert to a BitFlags ?
 struct MaterialFlags
 {
     /**
@@ -270,7 +271,7 @@ public:
      * @param visibility
      */
     [[nodiscard]]
-    virtual Result<Ref<Buffer>> create_buffer(size_t size, BufferUsage flags = {}, BufferVisibility visibility = BufferVisibility::GPUOnly) = 0;
+    virtual Result<Ref<Buffer>> create_buffer(size_t size, BufferUsageFlags flags = {}, BufferVisibility visibility = BufferVisibility::GPUOnly) = 0;
 
     /**
      * @brief Update the content of a buffer.
@@ -288,7 +289,7 @@ public:
      * @param visibility
      */
     [[nodiscard]]
-    virtual Result<Ref<Buffer>> create_buffer_from_data(size_t size, View<uint8_t> data, BufferUsage flags = {}, BufferVisibility visibility = BufferVisibility::GPUOnly);
+    virtual Result<Ref<Buffer>> create_buffer_from_data(size_t size, View<uint8_t> data, BufferUsageFlags flags = {}, BufferVisibility visibility = BufferVisibility::GPUOnly);
 
     /**
      * @brief Create a 2D texture on the GPU.
@@ -298,7 +299,7 @@ public:
      * @param usage
      */
     [[nodiscard]]
-    virtual Result<Ref<Texture>> create_texture(uint32_t width, uint32_t height, TextureFormat format, TextureUsage usage) = 0;
+    virtual Result<Ref<Texture>> create_texture(uint32_t width, uint32_t height, TextureFormat format, TextureUsageFlags usage) = 0;
 
     /**
      * @brief Create an array of 2D texture on the GPU.
@@ -309,10 +310,10 @@ public:
      * @param layers How many texture in the array
      */
     [[nodiscard]]
-    virtual Result<Ref<Texture>> create_texture_array(uint32_t width, uint32_t height, TextureFormat format, TextureUsage usage, uint32_t layers) = 0;
+    virtual Result<Ref<Texture>> create_texture_array(uint32_t width, uint32_t height, TextureFormat format, TextureUsageFlags usage, uint32_t layers) = 0;
 
     [[nodiscard]]
-    virtual Result<Ref<Texture>> create_texture_cube(uint32_t width, uint32_t height, TextureFormat format, TextureUsage usage) = 0;
+    virtual Result<Ref<Texture>> create_texture_cube(uint32_t width, uint32_t height, TextureFormat format, TextureUsageFlags usage) = 0;
 
     /**
      * @brief Create a mesh on the GPU.

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Core/Flags.hpp"
+
 enum class VSync : uint8_t
 {
     /**
@@ -26,38 +28,35 @@ enum class BufferVisibility : uint8_t
     GPUAndCPU,
 };
 
-struct BufferUsage
+enum class BufferUsageFlagBits : uint32_t
 {
     /**
-     * @brief Used as source in copy operation.
+     * @brief The buffer can be used as source in copy operation.
      */
-    bool copy_src : 1 = false;
+    CopySource = 1 << 0,
 
     /**
-     * @brief Used as destination in copy operation.
+     * @brief The buffer can be used as destination in copy operation.
      */
-    bool copy_dst : 1 = false;
+    CopyDest = 1 << 1,
 
     /**
-     * @brief Used as an uniform buffer.
+     * @brief The buffer can be used as a uniform in shader.
      */
-    bool uniform : 1 = false;
+    Uniform = 1 << 2,
 
     /**
-     * @brief Used as an index buffer.
+     * @brief The buffer can be used as a index buffer in shader.
      */
-    bool index : 1 = false;
+    Index = 1 << 3,
 
     /**
-     * @brief Used as an vertex or instance buffer.
+     * @brief The buffer can be used as a vertex buffer in shader.
      */
-    bool vertex : 1 = false;
+    Vertex = 1 << 4,
 };
-
-inline bool operator<(const BufferUsage& a, const BufferUsage& b)
-{
-    return std::tie(a.copy_src, a.copy_dst, a.uniform, a.index, a.vertex) < std::tie(b.copy_src, b.copy_dst, b.uniform, b.index, b.vertex);
-}
+using BufferUsageFlags = Flags<BufferUsageFlagBits>;
+DEFINE_FLAG_TRAITS(BufferUsageFlagBits);
 
 enum class TextureFormat : uint8_t
 {
@@ -90,23 +89,35 @@ enum class TextureDimension : uint8_t
     CubeArray,
 };
 
-struct TextureUsage
+enum class TextureUsageFlagBits
 {
     /**
-     * @brief Used as source in copy operation.
+     * @brief The texture is used as source in copy operation.
      */
-    bool copy_src : 1 = false;
+    CopySource = 1 << 0,
 
     /**
-     * @brief Used as destination in copy operation.
+     * @brief The texture is used as destination in copy operation.
      */
-    bool copy_dst : 1 = false;
+    CopyDest = 1 << 1,
 
-    bool sampled : 1 = false;
+    /**
+     * @brief The texture can be sampled from shader.
+     */
+    Sampled = 1 << 2,
 
-    bool color_attachment : 1 = false;
-    bool depth_attachment : 1 = false;
+    /**
+     * @brief The texture is use as color attachment in a framebuffer.
+     */
+    ColorAttachment = 1 << 3,
+
+    /**
+     * @brief The texture is use as depth attachment in a framebuffer.
+     */
+    DepthAttachment = 1 << 4,
 };
+using TextureUsageFlags = Flags<TextureUsageFlagBits>;
+DEFINE_FLAG_TRAITS(TextureUsageFlagBits);
 
 // TODO: This probably should not be exposed.
 enum class TextureLayout : uint8_t
@@ -183,12 +194,14 @@ struct SamplerDescriptor
     }
 };
 
-enum class ShaderStageKind : uint8_t
+enum class ShaderStageFlagBits
 {
-    Vertex,
-    Fragment,
-    Compute,
+    Vertex = 1 << 0,
+    Fragment = 1 << 1,
+    Compute = 1 << 2,
 };
+using ShaderStageFlags = Flags<ShaderStageFlagBits>;
+DEFINE_FLAG_TRAITS(ShaderStageFlagBits);
 
 enum class BindingKind : uint8_t
 {
@@ -200,7 +213,7 @@ enum class BindingKind : uint8_t
 struct Binding
 {
     BindingKind kind = BindingKind::Texture;
-    ShaderStageKind shader_stage = ShaderStageKind::Vertex;
+    ShaderStageFlags shader_stage = ShaderStageFlagBits::Vertex;
     uint32_t group = 0;
     uint32_t binding = 0;
 

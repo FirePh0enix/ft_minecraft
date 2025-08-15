@@ -4,6 +4,10 @@
 
 class Entity;
 
+/**
+ * Components are piece of code that can be attached to an entity that contains the game logic.
+ * Each component type can be only added once per entity.
+ */
 class Component : public Object
 {
     CLASS(Component, Object);
@@ -29,5 +33,5 @@ public:
     }
 
 protected:
-    Entity *m_entity = nullptr;
+    Entity *m_entity = nullptr; // FIXME: Should be an EntityId or Ref<Entity>
 };

@@ -17,37 +17,37 @@
 
 VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE;
 
-static inline vk::BufferUsageFlags convert_buffer_usage(BufferUsage usage)
+static inline vk::BufferUsageFlags convert_buffer_usage(BufferUsageFlags usage)
 {
     vk::BufferUsageFlags flags{};
 
-    if (usage.copy_src)
+    if (usage.has_any(BufferUsageFlagBits::CopySource))
         flags |= vk::BufferUsageFlagBits::eTransferSrc;
-    if (usage.copy_dst)
+    if (usage.has_any(BufferUsageFlagBits::CopyDest))
         flags |= vk::BufferUsageFlagBits::eTransferDst;
-    if (usage.uniform)
+    if (usage.has_any(BufferUsageFlagBits::Uniform))
         flags |= vk::BufferUsageFlagBits::eUniformBuffer;
-    if (usage.index)
+    if (usage.has_any(BufferUsageFlagBits::Index))
         flags |= vk::BufferUsageFlagBits::eIndexBuffer;
-    if (usage.vertex)
+    if (usage.has_any(BufferUsageFlagBits::Vertex))
         flags |= vk::BufferUsageFlagBits::eVertexBuffer;
 
     return flags;
 }
 
-static inline vk::ImageUsageFlags convert_texture_usage(TextureUsage usage)
+static inline vk::ImageUsageFlags convert_texture_usage(TextureUsageFlags usage)
 {
     vk::ImageUsageFlags flags{};
 
-    if (usage.copy_src)
+    if (usage.has_any(TextureUsageFlagBits::CopySource))
         flags |= vk::ImageUsageFlagBits::eTransferSrc;
-    if (usage.copy_dst)
+    if (usage.has_any(TextureUsageFlagBits::CopyDest))
         flags |= vk::ImageUsageFlagBits::eTransferDst;
-    if (usage.sampled)
+    if (usage.has_any(TextureUsageFlagBits::Sampled))
         flags |= vk::ImageUsageFlagBits::eSampled;
-    if (usage.color_attachment)
+    if (usage.has_any(TextureUsageFlagBits::ColorAttachment))
         flags |= vk::ImageUsageFlagBits::eColorAttachment;
-    if (usage.depth_attachment)
+    if (usage.has_any(TextureUsageFlagBits::DepthAttachment))
         flags |= vk::ImageUsageFlagBits::eDepthStencilAttachment;
 
     return flags;
@@ -174,17 +174,16 @@ static vk::SamplerAddressMode convert_address_mode(AddressMode address_mode)
     return vk::SamplerAddressMode::eRepeat;
 }
 
-static vk::ShaderStageFlagBits convert_shader_stage(ShaderStageKind kind)
+static vk::ShaderStageFlags convert_shader_stage(ShaderStageFlags shader_flags)
 {
-    switch (kind)
-    {
-    case ShaderStageKind::Vertex:
-        return vk::ShaderStageFlagBits::eVertex;
-    case ShaderStageKind::Fragment:
-        return vk::ShaderStageFlagBits::eFragment;
-    case ShaderStageKind::Compute:
-        return vk::ShaderStageFlagBits::eCompute;
-    }
+    vk::ShaderStageFlags flags{};
+
+    if (shader_flags.has_any(ShaderStageFlagBits::Vertex))
+        flags |= vk::ShaderStageFlagBits::eVertex;
+    else if (shader_flags.has_any(ShaderStageFlagBits::Fragment))
+        flags |= vk::ShaderStageFlagBits::eFragment;
+    else if (shader_flags.has_any(ShaderStageFlagBits::Compute))
+        flags |= vk::ShaderStageFlagBits::eCompute;
 
     return {};
 }
@@ -262,7 +261,7 @@ Result<vk::Pipeline> PipelineCache::get_or_create(Ref<Material> material, vk::Re
         Ref<MaterialLayoutVulkan> layout = material->get_layout().cast_to<MaterialLayoutVulkan>();
 
         // TODO: Add an in memory cache to store shader variants.
-        Ref<Shader> shader = depth_pass ? layout->m_shader->recompile({.depth_pass = true}, {.vertex = true}).value() : layout->m_shader;
+        Ref<Shader> shader = depth_pass ? layout->m_shader->recompile(ShaderFlagBits::DepthPass, ShaderStageFlagBits::Vertex | ShaderStageFlagBits::Fragment).value() : layout->m_shader;
 
         auto pipeline_result = RenderingDriverVulkan::get()->create_graphics_pipeline(shader, layout->m_instance_layout, layout->m_polygon_mode, layout->m_cull_mode, layout->m_flags, layout->m_pipeline_layout, render_pass, use_previous_depth_pass);
         YEET(pipeline_result);
@@ -363,7 +362,7 @@ RenderGraphCache::RenderPass& RenderGraphCache::set_render_pass(uint32_t index, 
 
             // FIXME: Textures should be recreated when resizing the window.
             Extent2D extent = RenderingDriver::get()->get_surface_extent();
-            Result<Ref<Texture>> texture_result = RenderingDriver::get()->create_texture(extent.width, extent.height, attachment.format, {.color_attachment = true});
+            Result<Ref<Texture>> texture_result = RenderingDriver::get()->create_texture(extent.width, extent.height, attachment.format, TextureUsageFlagBits::ColorAttachment);
             attach.texture = texture_result.value().cast_to<TextureVulkan>();
 
             render_pass_cache.attachments.push_back(attach);
@@ -379,7 +378,7 @@ RenderGraphCache::RenderPass& RenderGraphCache::set_render_pass(uint32_t index, 
                 // FIXME: Textures should be recreated when resizing the window.
                 // TODO: Should depth texture be hardcoded here ?
                 Extent2D extent = RenderingDriver::get()->get_surface_extent();
-                Result<Ref<Texture>> texture_result = RenderingDriver::get()->create_texture(extent.width, extent.height, TextureFormat::Depth32, {.depth_attachment = true});
+                Result<Ref<Texture>> texture_result = RenderingDriver::get()->create_texture(extent.width, extent.height, TextureFormat::Depth32, TextureUsageFlagBits::DepthAttachment);
                 attach.texture = texture_result.value().cast_to<TextureVulkan>();
             }
 
@@ -555,7 +554,7 @@ RenderingDriverVulkan::~RenderingDriverVulkan()
     }
 }
 
-Result<Ref<Buffer>> StagingBufferPool::get_or_create(size_t size, BufferUsage usage, BufferVisibility visibility)
+Result<Ref<Buffer>> StagingBufferPool::get_or_create(size_t size, BufferUsageFlags usage, BufferVisibility visibility)
 {
     Key key{.size = size, .usage = usage, .visibility = visibility};
     auto iter = m_buffers.find(key);
@@ -903,7 +902,7 @@ void RenderingDriverVulkan::limit_frames(uint32_t limit)
     m_time_between_frames = 1'000'000 / m_frames_limit;
 }
 
-Result<Ref<Buffer>> RenderingDriverVulkan::create_buffer(size_t size, BufferUsage usage, BufferVisibility visibility)
+Result<Ref<Buffer>> RenderingDriverVulkan::create_buffer(size_t size, BufferUsageFlags usage, BufferVisibility visibility)
 {
     vk::MemoryPropertyFlags memory_properties{};
 
@@ -933,9 +932,11 @@ void RenderingDriverVulkan::update_buffer(const Ref<Buffer>& dest, View<uint8_t>
     ERR_COND_VR(view.size() > dest->size() - offset, "too big: {} but size is {}", view.size(), dest->size() - offset);
 
     if (view.size() == 0)
+    {
         return;
+    }
 
-    auto buffer_result = create_buffer(view.size(), {.copy_src = true}, BufferVisibility::GPUAndCPU);
+    auto buffer_result = create_buffer(view.size(), BufferUsageFlagBits::CopySource, BufferVisibility::GPUAndCPU);
     ERR_EXPECT_R(buffer_result, "failed to create the staging buffer");
 
     Ref<BufferVulkan> staging_buffer = buffer_result.value().cast_to<BufferVulkan>();
@@ -964,7 +965,7 @@ void RenderingDriverVulkan::update_buffer(const Ref<Buffer>& dest, View<uint8_t>
     ERR_RESULT_E_RET(RenderingDriverVulkan::get()->get_graphics_queue().waitIdle());
 }
 
-Result<Ref<Texture>> RenderingDriverVulkan::create_texture(uint32_t width, uint32_t height, TextureFormat format, TextureUsage usage)
+Result<Ref<Texture>> RenderingDriverVulkan::create_texture(uint32_t width, uint32_t height, TextureFormat format, TextureUsageFlags usage)
 {
     const vk::Format vk_format = convert_texture_format(format);
 
@@ -993,7 +994,7 @@ Result<Ref<Texture>> RenderingDriverVulkan::create_texture(uint32_t width, uint3
     return make_ref<TextureVulkan>(image_result.value, memory_result.value(), image_view_result.value, width, height, width * height * size_of(format), aspect_mask, 1, true).cast_to<Texture>();
 }
 
-Result<Ref<Texture>> RenderingDriverVulkan::create_texture_array(uint32_t width, uint32_t height, TextureFormat format, TextureUsage usage, uint32_t layers)
+Result<Ref<Texture>> RenderingDriverVulkan::create_texture_array(uint32_t width, uint32_t height, TextureFormat format, TextureUsageFlags usage, uint32_t layers)
 {
     const vk::Format vk_format = convert_texture_format(format);
 
@@ -1022,7 +1023,7 @@ Result<Ref<Texture>> RenderingDriverVulkan::create_texture_array(uint32_t width,
     return make_ref<TextureVulkan>(image_result.value, memory_result.value(), image_view_result.value, width, height, width * height * size_of(format), aspect_mask, layers, true).cast_to<Texture>();
 }
 
-Result<Ref<Texture>> RenderingDriverVulkan::create_texture_cube(uint32_t width, uint32_t height, TextureFormat format, TextureUsage usage)
+Result<Ref<Texture>> RenderingDriverVulkan::create_texture_cube(uint32_t width, uint32_t height, TextureFormat format, TextureUsageFlags usage)
 {
     const vk::Format vk_format = convert_texture_format(format);
 
@@ -1055,19 +1056,19 @@ Result<Ref<Mesh>> RenderingDriverVulkan::create_mesh(IndexType index_type, View<
 {
     const size_t vertex_count = indices.size() / size_of(index_type);
 
-    auto index_buffer_result = create_buffer(indices.size(), {.copy_dst = true, .index = true});
+    auto index_buffer_result = create_buffer(indices.size(), BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Index);
     YEET(index_buffer_result);
     Ref<Buffer> index_buffer = index_buffer_result.value();
 
-    auto vertex_buffer_result = create_buffer(vertices.size() * sizeof(glm::vec3), {.copy_dst = true, .vertex = true});
+    auto vertex_buffer_result = create_buffer(vertices.size() * sizeof(glm::vec3), BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Vertex);
     YEET(vertex_buffer_result);
     Ref<Buffer> vertex_buffer = vertex_buffer_result.value();
 
-    auto normal_buffer_result = create_buffer(normals.size() * sizeof(glm::vec3), {.copy_dst = true, .vertex = true});
+    auto normal_buffer_result = create_buffer(normals.size() * sizeof(glm::vec3), BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Vertex);
     YEET(normal_buffer_result);
     Ref<Buffer> normal_buffer = normal_buffer_result.value();
 
-    auto uv_buffer_result = create_buffer(uvs.size() * sizeof(glm::vec2), {.copy_dst = true, .vertex = true});
+    auto uv_buffer_result = create_buffer(uvs.size() * sizeof(glm::vec2), BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Vertex);
     YEET(uv_buffer_result);
     Ref<Buffer> uv_buffer = uv_buffer_result.value();
 
@@ -1443,9 +1444,9 @@ Result<vk::Pipeline> RenderingDriverVulkan::create_graphics_pipeline(const Ref<S
     YEET_RESULT(shader_module_result);
 
     // TODO: Support more shader stages ?
-    if (shader->get_stages().vertex)
+    if (shader->get_stages().has_any(ShaderStageFlagBits::Vertex))
         shader_stages.push_back(vk::PipelineShaderStageCreateInfo({}, vk::ShaderStageFlagBits::eVertex, shader_module_result.value, "vertex_main"));
-    if (shader->get_stages().fragment)
+    if (shader->get_stages().has_any(ShaderStageFlagBits::Fragment))
         shader_stages.push_back(vk::PipelineShaderStageCreateInfo({}, vk::ShaderStageFlagBits::eFragment, shader_module_result.value, "fragment_main"));
 
     StackVector<vk::VertexInputBindingDescription, 4> input_bindings; // 4 or 3 elements depending on `instance_layout`
@@ -1749,7 +1750,7 @@ void TextureVulkan::update(View<uint8_t> view, uint32_t layer)
     if (view.size() == 0)
         return;
 
-    auto buffer_result = RenderingDriverVulkan::get()->create_buffer(view.size(), {.copy_src = true}, BufferVisibility::GPUAndCPU);
+    auto buffer_result = RenderingDriverVulkan::get()->create_buffer(view.size(), BufferUsageFlagBits::CopySource, BufferVisibility::GPUAndCPU);
     ERR_EXPECT_R(buffer_result, "failed to create the staging buffer");
 
     Ref<BufferVulkan> staging_buffer_vk = buffer_result.value().cast_to<BufferVulkan>();

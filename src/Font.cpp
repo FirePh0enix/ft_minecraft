@@ -91,7 +91,7 @@ Result<Ref<Font>> Font::create(const std::string& font_name, uint32_t font_size)
     font->m_width = bmp_width;
     font->m_height = bmp_height;
 
-    auto texture_result = RenderingDriver::get()->create_texture(bmp_width, bmp_height, TextureFormat::R8Unorm, {.copy_dst = true, .sampled = true});
+    auto texture_result = RenderingDriver::get()->create_texture(bmp_width, bmp_height, TextureFormat::R8Unorm, TextureUsageFlagBits::CopyDest | TextureUsageFlagBits::Sampled);
     YEET(texture_result);
     font->m_bitmap = texture_result.value();
 
@@ -156,7 +156,7 @@ Result<> Font::init_library()
                                                  InstanceLayoutInput(ShaderType::Float32x2, sizeof(float) * 7)};
     InstanceLayout instance_layout(inputs, sizeof(Instance));
 
-    auto shader_result = Shader::compile("assets/shaders/font.wgsl", {}, {.vertex = true, .fragment = true});
+    auto shader_result = Shader::compile("assets/shaders/font.wgsl", {}, ShaderStageFlagBits::Vertex | ShaderStageFlagBits::Fragment);
     if (!shader_result.has_value())
     {
         return Error(ErrorKind::ShaderCompilationFailed);
@@ -188,11 +188,11 @@ void Font::deinit_library()
 Text::Text(size_t capacity, Ref<Font> font)
     : m_font(font), m_instance_buffer(nullptr), m_capacity(capacity), m_size(0)
 {
-    auto buffer_result = RenderingDriver::get()->create_buffer(m_capacity * sizeof(Font::Instance), {.copy_dst = true, .vertex = true});
+    auto buffer_result = RenderingDriver::get()->create_buffer(m_capacity * sizeof(Font::Instance), BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Vertex);
     ERR_EXPECT_R(buffer_result, "Cannot create the instance buffer");
     m_instance_buffer = buffer_result.value();
 
-    auto font_uniform = RenderingDriver::get()->create_buffer(sizeof(Font::Uniform), {.copy_dst = true, .uniform = true});
+    auto font_uniform = RenderingDriver::get()->create_buffer(sizeof(Font::Uniform), BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Uniform);
     ERR_EXPECT_R(buffer_result, "Cannot create the uniform buffer");
     m_uniform_buffer = font_uniform.value();
 
@@ -216,7 +216,7 @@ void Text::set(const std::string& text)
     if (text.length() > m_capacity)
     {
         m_capacity = text.length();
-        auto instance_buffer_result = RenderingDriver::get()->create_buffer(m_capacity * sizeof(Font::Instance), {.copy_dst = true, .vertex = true});
+        auto instance_buffer_result = RenderingDriver::get()->create_buffer(m_capacity * sizeof(Font::Instance), BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Vertex);
         ERR_EXPECT_R(instance_buffer_result, "Cannot create the instance buffer");
         m_instance_buffer = instance_buffer_result.value();
     }

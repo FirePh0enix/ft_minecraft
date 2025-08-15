@@ -13,7 +13,7 @@ Everything in `src` except:
 - `src/tint/lang/glsl`
 - `src/tint/lang/spirv/reader`
 - `src/tint/lang/hlsl` (may need to be re-added if support for DirectX is added)
-- `src/tint/lang/msl` (may need to be re-added if support for MSL is added)
+- `src/tint/lang/msl` (may need to be re-added if support for Metal is added)
 - Misc files: `tint_*.py`, `tint.gni` and `tint.natvis`
 
 #### Files modified

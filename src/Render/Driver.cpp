@@ -36,7 +36,7 @@ size_t size_of(const IndexType& format)
     return 0;
 }
 
-Result<Ref<Buffer>> RenderingDriver::create_buffer_from_data(size_t size, View<uint8_t> data, BufferUsage flags, BufferVisibility visibility)
+Result<Ref<Buffer>> RenderingDriver::create_buffer_from_data(size_t size, View<uint8_t> data, BufferUsageFlags flags, BufferVisibility visibility)
 {
     auto buffer_result = create_buffer(size, flags, visibility);
     YEET(buffer_result);
