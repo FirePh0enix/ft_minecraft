@@ -5,6 +5,11 @@ Entity::Entity()
 {
 }
 
+Ref<Transformed3D> Entity::get_transform() const
+{
+    return get_component<Transformed3D>();
+}
+
 void Entity::add_child(Ref<Entity> entity)
 {
     m_children.push_back(entity);

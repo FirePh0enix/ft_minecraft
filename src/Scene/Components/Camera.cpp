@@ -79,7 +79,7 @@ bool Frustum::contains(const AABB& aabb) const
 
 void Camera::start()
 {
-    m_transform = m_entity->get_component<Transformed3D>();
+    m_transform = m_entity->get_transform();
 }
 
 void Camera::tick(double delta)

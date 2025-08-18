@@ -25,12 +25,12 @@ public:
             graph.add_draw(m_mesh, m_material, camera.get_view_proj_matrix());
     }
 
-    bool is_visible() const
+    inline bool is_visible() const
     {
         return m_visible;
     }
 
-    void set_visible(bool visible)
+    inline void set_visible(bool visible)
     {
         m_visible = visible;
     }

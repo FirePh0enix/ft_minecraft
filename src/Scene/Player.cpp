@@ -14,13 +14,13 @@ struct CubeHighlightUniforms
 
 void Player::start()
 {
-    m_transform = m_entity->get_component<Transformed3D>();
+    m_transform = m_entity->get_transform();
     m_body = m_entity->get_component<RigidBody>();
 
     m_camera = m_entity->get_child(0)->get_component<Camera>();
 
     // Create a special cube mesh and material to highlight targeted blocks.
-    auto shader_result = Shader::compile("assets/shaders/cube_highlight.wgsl", {}, ShaderStageFlagBits::Vertex | ShaderStageFlagBits::Fragment);
+    auto shader_result = Shader::compile("assets/shaders/cube_highlight", {});
     Ref<Shader> shader = shader_result.value();
 
     Result<Ref<MaterialLayout>> material_layout_result = RenderingDriver::get()->create_material_layout(shader, {.transparency = false, .priority = PriorityBefore}, std::nullopt, CullMode::Back, PolygonMode::Line);
@@ -78,7 +78,7 @@ void Player::tick(double delta)
         transform.rotation() *= q_yaw;
         m_transform->set_transform(transform);
 
-        Ref<Transformed3D> camera_transform_comp = m_camera->get_entity()->get_component<Transformed3D>();
+        Ref<Transformed3D> camera_transform_comp = m_camera->get_entity()->get_transform();
         Transform3D camera_transform = camera_transform_comp->get_transform();
 
         const glm::quat q_pitch = glm::angleAxis(relative.y * mouse_sensibility, glm::vec3(1.0, 0.0, 0.0));
@@ -87,7 +87,7 @@ void Player::tick(double delta)
         camera_transform_comp->set_transform(camera_transform);
     }
 
-    const glm::vec3 camera_forward = m_camera->get_entity()->get_component<Transformed3D>()->get_global_transform().forward();
+    const glm::vec3 camera_forward = m_camera->get_entity()->get_transform()->get_global_transform().forward();
     Ray ray(transform.position(), camera_forward);
     float t = 0.0;
 
@@ -198,7 +198,7 @@ void Player::on_block_aimed(BlockState state, int64_t x, int64_t y, int64_t z, g
 {
     Transform3D transform(glm::vec3((float)x, (float)y, (float)z));
     // FIXME: transform does not matter for MeshInstance, probably should instead of manipulating a buffer directly.
-    // m_cube_highlight->get_component<Transformed3D>()->set_transform(transform);
+    // m_cube_highlight->get_transform->set_transform(transform);
 
     CubeHighlightUniforms uniforms{};
     uniforms.model_matrix = transform.translation_matrix();

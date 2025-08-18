@@ -156,7 +156,7 @@ Result<> Font::init_library()
                                                  InstanceLayoutInput(ShaderType::Float32x2, sizeof(float) * 7)};
     InstanceLayout instance_layout(inputs, sizeof(Instance));
 
-    auto shader_result = Shader::compile("assets/shaders/font.wgsl", {}, ShaderStageFlagBits::Vertex | ShaderStageFlagBits::Fragment);
+    auto shader_result = Shader::compile("assets/shaders/font");
     if (!shader_result.has_value())
     {
         return Error(ErrorKind::ShaderCompilationFailed);

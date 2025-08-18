@@ -1,6 +1,5 @@
 #pragma once
 
-#include <concepts>
 #include <type_traits>
 
 template <typename T, typename = std::is_enum<T>>
@@ -31,17 +30,27 @@ public:
 
     inline constexpr std::strong_ordering operator<=>(Flags<T> rhs) const
     {
-        return (typename Flags<T>::IntType)(m_value) <=> (typename Flags<T>::IntType)rhs.m_value;
+        return (IntType)(m_value) <=> (IntType)rhs.m_value;
     }
 
     inline constexpr Flags<T> operator|(Flags<T> rhs) const
     {
-        return Flags<T>((T)((typename Flags<T>::IntType)(m_value) | (typename Flags<T>::IntType)rhs));
+        return Flags<T>((T)((IntType)(m_value) | (IntType)rhs));
     }
 
     inline constexpr Flags<T> operator|(T rhs) const
     {
-        return Flags<T>((T)((typename Flags<T>::IntType)(m_value) | (typename Flags<T>::IntType)rhs));
+        return Flags<T>((T)((IntType)(m_value) | (IntType)rhs));
+    }
+
+    inline constexpr void operator|=(T rhs)
+    {
+        m_value = (T)((IntType)m_value | (IntType)rhs);
+    }
+
+    inline constexpr void operator|=(Flags<T> rhs)
+    {
+        m_value |= (T)((IntType)m_value | (IntType)rhs.m_value);
     }
 
     inline constexpr Flags<T> operator&(Flags<T> rhs) const
@@ -62,6 +71,22 @@ public:
     inline constexpr bool has_any(const Flags<T>& other) const
     {
         return ((IntType)m_value & (IntType)other.m_value) != (IntType)0;
+    }
+
+    // TODO: Replace this by a iterator without allocations
+    std::vector<T> as_vector()
+    {
+        std::vector<T> values;
+
+        for (size_t i = 0; i < sizeof(T) * 8; i++)
+        {
+            IntType mask = 1 << i;
+
+            if ((IntType)m_value & mask)
+                values.push_back((T)mask);
+        }
+
+        return values;
     }
 
 private:

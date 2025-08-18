@@ -7,10 +7,6 @@
 
 #include <map>
 
-#ifndef __platform_web
-#include <tint/tint.h>
-#endif
-
 enum class ShaderFlagBits
 {
     DepthPass = 1 << 0,
@@ -40,12 +36,7 @@ public:
     template <typename T = char>
     using Result = Result<T, ErrorKind>;
 
-    static Result<Ref<Shader>> compile(const std::string& filename, ShaderFlags flags, ShaderStageFlags stages);
-
-    Result<Ref<Shader>> recompile(ShaderFlags flags, ShaderStageFlags stages)
-    {
-        return compile(m_filename, flags, stages);
-    }
+    static Result<Ref<Shader>> compile(const std::string& filename, ShaderFlags flags = ShaderFlags());
 
     std::optional<Binding> get_binding(const std::string& name) const
     {
@@ -86,59 +77,33 @@ public:
         m_samplers[name] = sampler;
     }
 
-    ShaderStageFlags get_stages() const
+    ShaderStageFlags get_stage_mask() const
     {
-        return m_stages;
+        return m_stage_mask;
     }
-
-#ifdef __has_shader_hot_reload
-    void reload_if_needed();
-
-    inline bool was_reloaded() const
-    {
-        return m_was_reloaded;
-    }
-
-    inline void set_was_reloaded(bool v)
-    {
-        m_was_reloaded = v;
-    }
-
-    static std::vector<Ref<Shader>> shaders;
-#endif
 
 #ifdef __platform_web
-    inline std::string get_code() const
+    inline std::string get_code(ShaderStageFlagBits stage)
     {
-        return m_code;
+        return m_stages.at(stage);
     }
 #else
-    inline std::vector<uint32_t> get_code() const
+    inline std::vector<uint32_t> get_code(ShaderStageFlagBits stage) const
     {
-        return m_code;
+        return m_stages.at(stage);
     }
 #endif
 
 private:
     std::map<std::string, Binding> m_bindings;
     std::map<std::string, SamplerDescriptor> m_samplers;
-    std::string m_filename;
-    ShaderStageFlags m_stages;
+    ShaderStageFlags m_stage_mask;
 
-    Result<> compile_internal(const std::string& filename, ShaderFlags flags, ShaderStageFlags stages);
+    Result<> compile_internal(const std::string& filename, ShaderFlags flags);
 
 #ifdef __platform_web
-    std::string m_code;
+    std::map<ShaderStageFlagBits, std::string> m_stages;
 #else
-    std::vector<uint32_t> m_code;
-
-    void fill_info(const tint::core::ir::Module& ir);
-    std::optional<ShaderStageFlagBits> stage_of(const tint::core::ir::Module& ir, const tint::core::ir::Instruction *inst);
-#endif
-
-#ifdef __has_shader_hot_reload
-    std::chrono::time_point<std::chrono::file_clock> m_file_last_write;
-    std::vector<std::string> m_definitions;
-    bool m_was_reloaded = false;
+    std::map<ShaderStageFlagBits, std::vector<uint32_t>> m_stages;
 #endif
 };

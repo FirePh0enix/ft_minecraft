@@ -5,6 +5,7 @@
 #include "Scene/Components/Component.hpp"
 
 class Scene;
+class Transformed3D;
 
 enum class EntityId : uint32_t
 {
@@ -40,23 +41,20 @@ public:
     }
 
     template <typename T>
-    Ref<T> get_component(size_t index) const
+    inline Ref<T> get_component(size_t index) const
     {
         return m_components[index].cast_to<T>();
     }
 
-    template <typename T>
-    void add_component(Ref<T> comp)
+    void add_component(Ref<Component> comp)
     {
-        ERR_COND_VR(comp->get_entity() != nullptr, "Component of type {} was already added to entity {}", T::get_static_class_name(), (uint32_t)comp->get_entity()->get_id());
+        ERR_COND_VR(comp->get_entity() != nullptr, "Component of type {} was already added to entity {}", comp->get_class_name(), (uint32_t)comp->get_entity()->get_id());
 
         comp->set_entity(this);
-
-        Ref<Component> c = comp.template cast_to<Component>();
-        ERR_COND_VR(c.is_null(), "{} is not derived from Component", T::get_static_class_name());
-
-        m_components.push_back(comp.template cast_to<Component>());
+        m_components.push_back(comp);
     }
+
+    Ref<Transformed3D> get_transform() const;
 
     void add_child(Ref<Entity> entity);
 

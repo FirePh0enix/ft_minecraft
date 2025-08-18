@@ -34,7 +34,6 @@ list(APPEND SOURCES
     src/Render/Driver.cpp
     src/Render/Graph.cpp
     src/Render/Shader.cpp
-    src/Render/WGSLParser.cpp
     src/Scene/Components/Camera.cpp
     src/Scene/Components/RigidBody.cpp
     src/Scene/Entity.cpp
@@ -157,16 +156,62 @@ if (TARGET_IS_LINUX OR TARGET_IS_APPLE)
 endif()
 
 
-# Create a utility to create a `.data` file.
+#
+# Tools
+#
+
+# shadercomp
+add_executable(shadercomp tools/shadercomp/main.cpp)
+target_include_directories(shadercomp PRIVATE src/)
+set_property(TARGET shadercomp PROPERTY CXX_STANDARD 20)
+
+file(GLOB_RECURSE Shaders_FILES
+    ${PROJECT_SOURCE_DIR}/assets/shaders/*
+)
+
+set(SHADER_BASE_PATHS "")
+set(SHADER_OUTPUTS "")
+
+foreach(SHADER_FILE IN LISTS Shaders_FILES)
+    cmake_path(REMOVE_EXTENSION SHADER_FILE)
+    message(STATUS "${SHADER_FILE}")
+    list(APPEND SHADER_BASE_PATHS ${SHADER_FILE})
+endforeach()
+list(REMOVE_DUPLICATES SHADER_BASE_PATHS)
+
+foreach(SHADER_BASE_PATH ${SHADER_BASE_PATHS})
+    file(GLOB_RECURSE SHADER_DEPENDENCIES
+        ${SHADER_BASE_PATH}.*
+    )
+
+    set(SHADER_OUTPUT_FILE ${SHADER_BASE_PATH}.map.json)
+    cmake_path(RELATIVE_PATH SHADER_BASE_PATH BASE_DIRECTORY ${CMAKE_SOURCE_DIR})
+
+    add_custom_command(
+        OUTPUT ${SHADER_OUTPUT_FILE}
+        COMMAND ${CMAKE_BINARY_DIR}/shadercomp ${CMAKE_BINARY_DIR} ${SHADER_BASE_PATH}
+        DEPENDS ${SHADER_DEPENDENCIES}
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    )
+
+    list(APPEND SHADER_OUTPUTS ${SHADER_OUTPUT_FILE})
+endforeach()
+add_custom_target(shaders-generate ALL DEPENDS shadercomp ${SHADER_OUTPUTS})
+add_dependencies(${TARGET_NAME} shaders-generate)
+
+
+# datapacktools
 add_executable(datapacktool tools/datapack/main.cpp src/DataPack.cpp)
 target_include_directories(datapacktool PRIVATE src/)
 
 file(GLOB_RECURSE Assets_FILES
     ${PROJECT_SOURCE_DIR}/assets/blocks/*.json
     ${PROJECT_SOURCE_DIR}/assets/fonts/*
-    ${PROJECT_SOURCE_DIR}/assets/shaders/*.wgsl
-    ${PROJECT_SOURCE_DIR}/assets/shaders/**/*.wgsl
     ${PROJECT_SOURCE_DIR}/assets/textures/*.png
+    ${CMAKE_BINARY_DIR}/assets/shaders/*.spv
+    ${CMAKE_BINARY_DIR}/assets/shaders/*.map.json
+    ${CMAKE_BINARY_DIR}/assets/shaders/**/*.spv
+    ${CMAKE_BINARY_DIR}/assets/shaders/**/*.map.json
 )
 string(REPLACE ";" " " "${Assets_FILES}" Assets_FILES)
 set(Assets_OUTPUT ${CMAKE_BINARY_DIR}/${TARGET_NAME}.data)
@@ -177,6 +222,7 @@ add_custom_command(
     DEPENDS ${Assets_FILES}
 )
 add_custom_target(datapacktool-generate ALL DEPENDS ${Assets_OUTPUT})
+add_dependencies(datapacktool-generate shaders-generate)
 add_dependencies(${TARGET_NAME} datapacktool-generate)
 
 
@@ -250,17 +296,20 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(glslang)
 
-set(DAWN_SPIRV_TOOLS_DIR ${spirvtools_SOURCE_DIR})
-set(DAWN_SPIRV_HEADERS_DIR ${spirvheaders_SOURCE_DIR})
-set(DAWN_GLSLANG_DIR ${glslang_SOURCE_DIR})
+target_link_libraries(shadercomp PUBLIC glslang)
 
-FetchContent_Declare(
-    dawn
-    SOURCE_DIR ${CMAKE_SOURCE_DIR}/third_party/dawn
-)
-FetchContent_MakeAvailable(dawn)
+# TODO: Replace this with the dawn repository with patches
+# set(DAWN_SPIRV_TOOLS_DIR ${spirvtools_SOURCE_DIR})
+# set(DAWN_SPIRV_HEADERS_DIR ${spirvheaders_SOURCE_DIR})
+# set(DAWN_GLSLANG_DIR ${glslang_SOURCE_DIR})
 
-target_link_libraries(${TARGET_NAME} PUBLIC tint_api tint_lang_spirv_writer_helpers)
+# FetchContent_Declare(
+#     dawn
+#     SOURCE_DIR ${CMAKE_SOURCE_DIR}/third_party/dawn
+# )
+# FetchContent_MakeAvailable(dawn)
+
+# target_link_libraries(shadercomp PUBLIC tint_api tint_lang_spirv_writer_helpers)
 
 # SDL
 set(SDL_STATIC ON)
@@ -330,7 +379,18 @@ FetchContent_Declare(
     GIT_TAG 0c0ce1bd48baa0677dc7c0945ea7cd1e8b52b297 # v3.13.0
 )
 FetchContent_MakeAvailable(simdjson)
-target_link_libraries(${TARGET_NAME} PRIVATE simdjson)
+target_link_libraries(${TARGET_NAME} PRIVATE simdjson) # TODO: Replace by nlohmann/json
+# target_link_libraries(shadercomp PRIVATE simdjson)
+
+# nlohmann/json
+FetchContent_Declare(
+    json
+    GIT_REPOSITORY https://github.com/nlohmann/json
+    GIT_TAG 55f93686c01528224f448c19128836e7df245f72 # 3.12.0
+)
+FetchContent_MakeAvailable(json)
+target_link_libraries(${TARGET_NAME} PRIVATE nlohmann_json::nlohmann_json)
+target_link_libraries(shadercomp PRIVATE nlohmann_json::nlohmann_json)
 
 # tracy
 FetchContent_Declare(

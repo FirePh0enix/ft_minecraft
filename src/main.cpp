@@ -139,7 +139,7 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     auto init_result = RenderingDriver::get()->initialize(*window, args.has("enable-gpu-validation"));
     EXPECT(init_result);
 
-    auto shader_result = Shader::compile("assets/shaders/voxel.wgsl", {}, ShaderStageFlagBits::Vertex | ShaderStageFlagBits::Fragment);
+    auto shader_result = Shader::compile("assets/shaders/voxel", {});
     if (!shader_result.has_value())
     {
         Result<> error = Error(ErrorKind::ShaderCompilationFailed);
@@ -171,11 +171,12 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     EXPECT(cube_result);
     Ref<Mesh> cube = cube_result.value();
 
-    Font::init_library();
+    // TODO: Add this back
+    // Font::init_library();
 
-    auto font_result = Font::create("assets/fonts/Anonymous.ttf", 20);
-    EXPECT(font_result);
-    Ref<Font> font = font_result.value();
+    // auto font_result = Font::create("assets/fonts/Anonymous.ttf", 20);
+    // EXPECT(font_result);
+    // Ref<Font> font = font_result.value();
 
     Ref<Scene> scene = make_ref<Scene>();
     Scene::set_active_scene(scene);
@@ -256,7 +257,7 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
 #ifndef __platform_web
     info("Shutting down...");
 
-    glm::vec3 position = player->get_component<Transformed3D>()->get_global_transform().position();
+    glm::vec3 position = player->get_transform()->get_global_transform().position();
     config.get_category("player").set("x", position.x);
     config.get_category("player").set("y", position.y);
     config.get_category("player").set("z", position.z);
@@ -365,7 +366,7 @@ static void tick()
 
         if (ImGui::Begin("General info"))
         {
-            glm::vec3 pos = player->get_component<Transformed3D>()->get_transform().position();
+            glm::vec3 pos = player->get_transform()->get_transform().position();
             ImGui::Text("X: %f", pos.x);
             ImGui::Text("Y: %f", pos.y);
             ImGui::Text("Z: %f", pos.z);
@@ -374,7 +375,7 @@ static void tick()
     }
 #endif
 
-    const glm::vec3 player_pos = player->get_component<Transformed3D>()->get_global_transform().position();
+    const glm::vec3 player_pos = player->get_transform()->get_global_transform().position();
     gen->set_player_pos(player_pos);
     gen->load_around(int64_t(player_pos.x), int64_t(player_pos.y), int64_t(player_pos.z));
 

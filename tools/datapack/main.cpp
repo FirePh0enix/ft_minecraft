@@ -1,10 +1,10 @@
-#include "DataPack.hpp"
-
-#include <iostream>
-
 /*
     ./datapacktool <output> <prefix_to_remove> [files...]
  */
+
+#include "DataPack.hpp"
+
+#include <iostream>
 
 int main(int argc, char *argv[])
 {

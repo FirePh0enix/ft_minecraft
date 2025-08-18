@@ -208,6 +208,7 @@ enum class BindingKind : uint8_t
     Texture,
     UniformBuffer,
     StorageBuffer,
+    PushConstants,
 };
 
 struct Binding
@@ -216,6 +217,20 @@ struct Binding
     ShaderStageFlags shader_stage = ShaderStageFlagBits::Vertex;
     uint32_t group = 0;
     uint32_t binding = 0;
+
+    Binding()
+    {
+    }
+
+    Binding(BindingKind kind, ShaderStageFlags shader_stage, uint32_t group, uint32_t binding)
+        : kind(kind), shader_stage(shader_stage), group(group), binding(binding)
+    {
+    }
+
+    Binding(BindingKind kind, ShaderStageFlags shader_stage, uint32_t group, uint32_t binding, TextureDimension dimension)
+        : kind(kind), shader_stage(shader_stage), group(group), binding(binding), dimension(dimension)
+    {
+    }
 
     union
     {
