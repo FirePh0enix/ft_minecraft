@@ -91,6 +91,9 @@ target_compile_options(${TARGET_NAME} PUBLIC -Wall -Wextra)
 # Enable support for C++20
 set_property(TARGET ${TARGET_NAME} PROPERTY CXX_STANDARD 20)
 
+# Temporary to analyze the binary
+target_link_options(${TARGET_NAME} PUBLIC -Wl,-Map,ft_minecraft.map)
+
 if (TARGET_IS_LINUX)
     target_compile_definitions(${TARGET_NAME} PRIVATE __platform_linux)
 elseif(TARGET_IS_APPLE)
@@ -261,32 +264,32 @@ set(TINT_BUILD_CMD_TOOLS OFF)
 set(TINT_ENABLE_IR_VALIDATION OFF)
 
 # abseil
-FetchContent_Declare(
-    abseil
-    GIT_REPOSITORY https://github.com/abseil/abseil-cpp
-    GIT_TAG e430bb9b0833137c4365fee39dfa930657b408fc
-)
-FetchContent_MakeAvailable(abseil)
+# FetchContent_Declare(
+#     abseil
+#     GIT_REPOSITORY https://github.com/abseil/abseil-cpp
+#     GIT_TAG e430bb9b0833137c4365fee39dfa930657b408fc
+# )
+# FetchContent_MakeAvailable(abseil)
 
 # set(DAWN_THIRD_PARTY_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 # set(DAWN_EMDAWNWEBGPU_DIR ${CMAKE_BINARY_DIR}/_deps/dawn-src/third_party/emdawnwebgpu)
-set(DAWN_ABSEIL_DIR ${abseil_SOURCE_DIR})
+# set(DAWN_ABSEIL_DIR ${abseil_SOURCE_DIR})
 
 # SPIRV-Headers
-FetchContent_Declare(
-    spirvheaders
-    GIT_REPOSITORY https://github.com/KhronosGroup/SPIRV-Headers
-    GIT_TAG origin/vulkan-sdk-1.4.313
-)
-FetchContent_MakeAvailable(spirvheaders)
+# FetchContent_Declare(
+#     spirvheaders
+#     GIT_REPOSITORY https://github.com/KhronosGroup/SPIRV-Headers
+#     GIT_TAG origin/vulkan-sdk-1.4.313
+# )
+# FetchContent_MakeAvailable(spirvheaders)
 
 # SPIRV-Tools
-FetchContent_Declare(
-    spirvtools
-    GIT_REPOSITORY https://github.com/KhronosGroup/SPIRV-Tools
-    GIT_TAG origin/vulkan-sdk-1.4.313
-)
-FetchContent_MakeAvailable(spirvtools)
+# FetchContent_Declare(
+#     spirvtools
+#     GIT_REPOSITORY https://github.com/KhronosGroup/SPIRV-Tools
+#     GIT_TAG origin/vulkan-sdk-1.4.313
+# )
+# FetchContent_MakeAvailable(spirvtools)
 
 # glslang
 FetchContent_Declare(
@@ -313,11 +316,24 @@ target_link_libraries(shadercomp PUBLIC glslang)
 
 # SDL
 set(SDL_STATIC ON)
+set(SDL_DEPS_SHARED OFF)
+
+set(SDL_DUMMYAUDIO OFF)
+set(SDL_DUMMYVIDEO OFF)
+set(SDL_OPENGL OFF)
+set(SDL_OPENGLES OFF)
+set(SDL_METAL OFF)
+set(SDL_OPENVR OFF)
+set(SDL_KMSDRM OFF)
+set(SDL_OFFSCREEN OFF)
+set(SDL_RENDER OFF)
+set(SDL_CAMERA OFF)
+set(SDL_WAYLAND OFF) # Disable wayland for now
 
 FetchContent_Declare(
     SDL
     GIT_REPOSITORY https://github.com/libsdl-org/SDL
-    GIT_TAG 8aa5b97bb5be8e8f62fd76c3181439e20f3de5e9
+    GIT_TAG 96292a5b464258a2b926e0a3d72f8b98c2a81aa6 # 3.2.20
 )
 FetchContent_MakeAvailable(SDL)
 target_link_libraries(${TARGET_NAME} PUBLIC SDL3::SDL3)
@@ -373,13 +389,13 @@ FetchContent_MakeAvailable(FreeType)
 target_link_libraries(${TARGET_NAME} PRIVATE freetype)
 
 # simdjson
-FetchContent_Declare(
-    simdjson
-    GIT_REPOSITORY https://github.com/simdjson/simdjson
-    GIT_TAG 0c0ce1bd48baa0677dc7c0945ea7cd1e8b52b297 # v3.13.0
-)
-FetchContent_MakeAvailable(simdjson)
-target_link_libraries(${TARGET_NAME} PRIVATE simdjson) # TODO: Replace by nlohmann/json
+# FetchContent_Declare(
+#     simdjson
+#     GIT_REPOSITORY https://github.com/simdjson/simdjson
+#     GIT_TAG 0c0ce1bd48baa0677dc7c0945ea7cd1e8b52b297 # v3.13.0
+# )
+# FetchContent_MakeAvailable(simdjson)
+# target_link_libraries(${TARGET_NAME} PRIVATE simdjson) # TODO: Replace by nlohmann/json
 # target_link_libraries(shadercomp PRIVATE simdjson)
 
 # nlohmann/json

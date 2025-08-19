@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Core/Definitions.hpp"
 #include "Core/Error.hpp"
 
 template <typename T>
@@ -8,17 +9,17 @@ class Ref
 public:
     using ReferenceType = uint32_t;
 
-    Ref()
+    ALWAYS_INLINE Ref()
         : m_ptr(nullptr), m_references(nullptr)
     {
     }
 
-    Ref(std::nullptr_t)
+    ALWAYS_INLINE Ref(std::nullptr_t)
         : m_ptr(nullptr), m_references(nullptr)
     {
     }
 
-    explicit Ref(T *ptr)
+    ALWAYS_INLINE explicit Ref(T *ptr)
         : m_ptr(ptr), m_references(new ReferenceType(1))
     {
     }
@@ -43,17 +44,13 @@ public:
         : m_ptr(ptr), m_references(references)
     {
         if (!is_null())
-        {
             ref();
-        }
     }
 
     ~Ref()
     {
         if (!is_null())
-        {
             unref();
-        }
     }
 
     Ref& operator=(std::nullptr_t)
@@ -97,62 +94,62 @@ public:
         return *this;
     }
 
-    T *operator->()
+    inline T *operator->()
     {
         ERR_COND_V(is_null(), "Trying to access a null ref of type {}", T::get_static_class_name());
         return m_ptr;
     }
 
-    const T *operator->() const
+    inline const T *operator->() const
     {
         ERR_COND_V(is_null(), "Trying to access a null ref of type {}", T::get_static_class_name());
         return m_ptr;
     }
 
-    T& operator*()
+    inline T& operator*()
     {
         ERR_COND_V(is_null(), "Trying to dereference a null ref of type {}", T::get_static_class_name());
         return *m_ptr;
     }
 
-    const T& operator*() const
+    inline const T& operator*() const
     {
         ERR_COND_V(is_null(), "Trying to dereference a null ref of type {}", T::get_static_class_name());
         return *m_ptr;
     }
 
-    bool operator==(const Ref& other) const
+    ALWAYS_INLINE bool operator==(const Ref& other) const
     {
         return m_ptr == other.m_ptr;
     }
 
-    bool operator!=(const Ref& other) const
+    ALWAYS_INLINE bool operator!=(const Ref& other) const
     {
         return m_ptr != other.m_ptr;
     }
 
-    operator bool() const
+    ALWAYS_INLINE operator bool() const
     {
         return !is_null();
     }
 
     template <typename B, typename = std::is_base_of<B, T>>
-    operator Ref<B>() const
+    ALWAYS_INLINE operator Ref<B>() const
     {
         return cast_to<B>();
     }
 
-    inline ReferenceType references()
+    ALWAYS_INLINE ReferenceType references()
     {
         return m_references ? *m_references : 0;
     }
 
-    inline bool is_null() const
+    ALWAYS_INLINE bool is_null() const
     {
         return m_ptr == nullptr;
     }
 
-    inline T *ptr() const
+    ALWAYS_INLINE T *ptr() const
     {
         return m_ptr;
     }
@@ -176,7 +173,7 @@ private:
     T *m_ptr;
     ReferenceType *m_references;
 
-    void ref()
+    ALWAYS_INLINE void ref()
     {
         *m_references += 1;
     }
@@ -195,7 +192,7 @@ private:
 };
 
 template <typename T, typename... Args>
-inline Ref<T> make_ref(Args... args)
+ALWAYS_INLINE Ref<T> make_ref(Args... args)
 {
     return Ref<T>(new T(args...));
 }

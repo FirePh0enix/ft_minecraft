@@ -1,52 +1,63 @@
 #include "World/Registry.hpp"
 
 #include <filesystem>
+#include <fstream>
 
-#include <simdjson.h>
+#include <nlohmann/json.hpp>
+
+struct BlockManifest
+{
+    enum class Model
+    {
+        Cube,
+    };
+
+    std::string name;
+    Model model;
+    std::vector<std::string> faces;
+    std::optional<GradientType> gradient;
+};
+
+void from_json(const nlohmann::json& j, BlockManifest& m)
+{
+    j.at("name").get_to(m.name);
+    j.at("model").get_to(m.model);
+    j.at("faces").get_to(m.faces);
+
+    if (j.contains("gradient"))
+        m.gradient = j.at("gradient");
+}
+
+NLOHMANN_JSON_SERIALIZE_ENUM(BlockManifest::Model, {
+                                                       {BlockManifest::Model::Cube, "cube"},
+                                                   });
+
+NLOHMANN_JSON_SERIALIZE_ENUM(GradientType, {
+                                               {GradientType::None, nullptr},
+                                               {GradientType::Grass, "grass"},
+                                               {GradientType::Water, "water"},
+                                           });
 
 void BlockRegistry::load_blocks()
 {
+    // TODO: also change `std::filesystem::directory_iterator` to use the data pack system.
+
     for (auto& iter : std::filesystem::directory_iterator("assets/blocks"))
     {
-        simdjson::ondemand::parser parser;
-        simdjson::padded_string json_string = simdjson::padded_string::load(iter.path().string()).value_unsafe(); // TODO: Check errors
-        simdjson::ondemand::document block = parser.iterate(json_string).value_unsafe();
+        std::ifstream ifs(iter.path(), std::ifstream::ate);
+        std::string s;
+        s.resize(ifs.tellg());
+        ifs.seekg(0);
+        ifs.read(s.data(), (std::streamsize)s.size());
 
-        std::string_view name = block["name"].value_unsafe().get_string().value_unsafe();
-
-        simdjson::ondemand::array faces_json = block["faces"].value_unsafe().get_array().value_unsafe();
+        BlockManifest block = nlohmann::json::parse(s.data());
         std::array<std::string, 6> faces;
-        size_t i = 0;
 
-        for (auto face : faces_json)
-        {
-            if (i > 5)
-            {
-                break;
-            }
+        for (size_t i = 0; i < faces.size(); i++)
+            faces[i] = block.faces[i];
 
-            faces[i] = face.value_unsafe().get_string().value_unsafe();
-            i++;
-        }
+        info("Registering block `{}`", block.name);
 
-        GradientType gradient = GradientType::None;
-        simdjson::simdjson_result<simdjson::ondemand::value> gradient_json = block["gradient"];
-
-        if (gradient_json.error() == simdjson::SUCCESS && gradient_json.type().value_unsafe() == simdjson::ondemand::json_type::string)
-        {
-            std::string_view view = gradient_json.get_string().value_unsafe();
-            if (view == "grass")
-            {
-                gradient = GradientType::Grass;
-            }
-            else if (view == "water")
-            {
-                gradient = GradientType::Water;
-            }
-        }
-
-        info("Registering block `{}`", name);
-
-        register_block(make_ref<Block>(std::string(name), faces, gradient));
+        register_block(make_ref<Block>(block.name, faces, block.gradient.value_or(GradientType::None)));
     }
 }
