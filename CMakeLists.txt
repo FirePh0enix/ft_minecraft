@@ -92,7 +92,7 @@ target_compile_options(${TARGET_NAME} PUBLIC -Wall -Wextra)
 set_property(TARGET ${TARGET_NAME} PROPERTY CXX_STANDARD 20)
 
 # Temporary to analyze the binary
-target_link_options(${TARGET_NAME} PUBLIC -Wl,-Map,ft_minecraft.map)
+# target_link_options(${TARGET_NAME} PUBLIC -Wl,-Map,ft_minecraft.map)
 
 if (TARGET_IS_LINUX)
     target_compile_definitions(${TARGET_NAME} PRIVATE __platform_linux)
@@ -190,14 +190,18 @@ foreach(SHADER_BASE_PATH ${SHADER_BASE_PATHS})
     set(SHADER_OUTPUT_FILE ${SHADER_BASE_PATH}.map.json)
     cmake_path(RELATIVE_PATH SHADER_BASE_PATH BASE_DIRECTORY ${CMAKE_SOURCE_DIR})
 
+    # TODO: .spv on desktop, .wgsl on the web
+    list(TRANSFORM SHADER_DEPENDENCIES APPEND ".spv" OUTPUT_VARIABLE SHADER_OUTPUT_FILES)
+    list(TRANSFORM SHADER_OUTPUT_FILES PREPEND "${CMAKE_BINARY_DIR}/")
+
     add_custom_command(
-        OUTPUT ${SHADER_OUTPUT_FILE}
+        OUTPUT ${SHADER_OUTPUT_FILE} ${SHADER_OUTPUT_FILES}
         COMMAND ${CMAKE_BINARY_DIR}/shadercomp ${CMAKE_BINARY_DIR} ${SHADER_BASE_PATH}
         DEPENDS ${SHADER_DEPENDENCIES}
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     )
 
-    list(APPEND SHADER_OUTPUTS ${SHADER_OUTPUT_FILE})
+    list(APPEND SHADER_OUTPUTS ${SHADER_OUTPUT_FILE} ${SHADER_OUTPUT_FILES})
 endforeach()
 add_custom_target(shaders-generate ALL DEPENDS shadercomp ${SHADER_OUTPUTS})
 add_dependencies(${TARGET_NAME} shaders-generate)
@@ -276,20 +280,20 @@ set(TINT_ENABLE_IR_VALIDATION OFF)
 # set(DAWN_ABSEIL_DIR ${abseil_SOURCE_DIR})
 
 # SPIRV-Headers
-# FetchContent_Declare(
-#     spirvheaders
-#     GIT_REPOSITORY https://github.com/KhronosGroup/SPIRV-Headers
-#     GIT_TAG origin/vulkan-sdk-1.4.313
-# )
-# FetchContent_MakeAvailable(spirvheaders)
+FetchContent_Declare(
+    spirvheaders
+    GIT_REPOSITORY https://github.com/KhronosGroup/SPIRV-Headers
+    GIT_TAG origin/vulkan-sdk-1.4.313
+)
+FetchContent_MakeAvailable(spirvheaders)
 
 # SPIRV-Tools
-# FetchContent_Declare(
-#     spirvtools
-#     GIT_REPOSITORY https://github.com/KhronosGroup/SPIRV-Tools
-#     GIT_TAG origin/vulkan-sdk-1.4.313
-# )
-# FetchContent_MakeAvailable(spirvtools)
+FetchContent_Declare(
+    spirvtools
+    GIT_REPOSITORY https://github.com/KhronosGroup/SPIRV-Tools
+    GIT_TAG origin/vulkan-sdk-1.4.313
+)
+FetchContent_MakeAvailable(spirvtools)
 
 # glslang
 FetchContent_Declare(

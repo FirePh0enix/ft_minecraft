@@ -39,5 +39,5 @@ void main()
     vec3 R = normalize(-reflect(L, N));
     vec3 diffuse = max(dot(N, -L), 0.1) * color.rgb;
 
-    pixelColor = vec4(diffuse, 1.0) * color; // FIXME: ???
+    pixelColor = vec4(diffuse, 1.0);
 }
