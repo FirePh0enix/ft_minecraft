@@ -58,8 +58,8 @@ public:
 
     static std::filesystem::path current_executable_path();
 
-    static std::string read_file_to_string(const std::filesystem::path& path);
-    static std::vector<char> read_file_to_buffer(const std::filesystem::path& path);
+    static Result<std::string> read_file_to_string(const std::filesystem::path& path);
+    static Result<std::vector<char>> read_file_to_buffer(const std::filesystem::path& path);
 
 private:
     static inline DataPack s_data_pack;

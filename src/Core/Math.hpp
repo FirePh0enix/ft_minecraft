@@ -3,7 +3,7 @@
 namespace math
 {
 
-inline bool is_zero_e(const float& f)
+inline bool is_zero_e(float f)
 {
     return glm::abs(f) < glm::epsilon<float>();
 }

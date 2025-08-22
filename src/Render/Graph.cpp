@@ -88,6 +88,16 @@ void RenderGraph::bind_vertex_buffer(const Ref<Buffer>& buffer, uint32_t locatio
     m_instructions.push_back(BindVertexBufferInstruction{.buffer = buffer, .location = location});
 }
 
+void RenderGraph::push_constants(const std::vector<char>& buffer)
+{
+    m_instructions.push_back(PushConstantsInstruction{.buffer = std::move(buffer)});
+}
+
+void RenderGraph::draw(uint32_t vertex_count, uint32_t instance_count)
+{
+    m_instructions.push_back(Draw2Instruction{.vertex_count = vertex_count, .instance_count = instance_count});
+}
+
 void RenderGraph::dispatch(uint32_t group_x, uint32_t group_y, uint32_t group_z)
 {
     m_instructions.push_back(DispatchInstruction{.group_x = group_x, .group_y = group_y, .group_z = group_z});

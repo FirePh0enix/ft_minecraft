@@ -18,7 +18,7 @@ Result<Ref<Font>> Font::create(const std::string& font_name, uint32_t font_size)
 
     FT_Face face;
 
-    std::vector<char> file_bytes = Filesystem::read_file_to_buffer(font_name);
+    std::vector<char> file_bytes = Filesystem::read_file_to_buffer(font_name).value();
 
     if (FT_New_Memory_Face(g_lib, (FT_Byte *)file_bytes.data(), (int64_t)file_bytes.size(), 0, &face) != 0)
     {
@@ -156,7 +156,7 @@ Result<> Font::init_library()
                                                  InstanceLayoutInput(ShaderType::Float32x2, sizeof(float) * 7)};
     InstanceLayout instance_layout(inputs, sizeof(Instance));
 
-    auto shader_result = Shader::compile("assets/shaders/font");
+    auto shader_result = Shader::load("assets/shaders/font.slang");
     if (!shader_result.has_value())
     {
         return Error(ErrorKind::ShaderCompilationFailed);

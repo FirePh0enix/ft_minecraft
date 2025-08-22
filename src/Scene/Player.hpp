@@ -47,7 +47,6 @@ private:
 
     Ref<Mesh> m_cube_mesh;
     Ref<Entity> m_cube_highlight;
-    Ref<Buffer> m_cube_highlight_buffer;
 
     float m_speed = 2.0;
     float m_gravity_value = 9.81;

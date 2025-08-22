@@ -16,6 +16,19 @@ NLOHMANN_JSON_SERIALIZE_ENUM(ShaderStageFlagBits, {
                                                       {ShaderStageFlagBits::Compute, "compute"},
                                                   });
 
+enum class ShaderVariant
+{
+    Base = 0,
+    DepthPass = 1,
+};
+
+NLOHMANN_JSON_SERIALIZE_ENUM(ShaderVariant, {
+                                                {ShaderVariant::Base, "base"},
+                                                {ShaderVariant::DepthPass, "depth_pass"},
+                                            });
+
+static inline const char *variants[] = {"", "DEPTH_PASS"};
+
 struct ShaderMap
 {
     struct Uniform
@@ -33,9 +46,14 @@ struct ShaderMap
         std::string file;
     };
 
-    std::vector<Stage> stages;
+    struct Variant
+    {
+        ShaderVariant variant;
+        std::vector<Stage> stages;
+    };
+
+    std::vector<Variant> variants;
     std::vector<Uniform> uniforms;
-    std::vector<std::string> variants;
 };
 
 inline void to_json(nlohmann::json& j, const ShaderStageFlags& stage_mask)
@@ -90,14 +108,24 @@ inline void from_json(const nlohmann::json& j, ShaderMap::Stage& stage)
     j.at("file").get_to(stage.file);
 }
 
+inline void to_json(nlohmann::json& j, const ShaderMap::Variant& variant)
+{
+    j = nlohmann::json{{"stages", variant.stages}, {"variant", variant.variant}};
+}
+
+inline void from_json(const nlohmann::json& j, ShaderMap::Variant& variant)
+{
+    j.at("variant").get_to(variant.variant);
+    j.at("stages").get_to(variant.stages);
+}
+
 inline void to_json(nlohmann::json& j, const ShaderMap& map)
 {
-    j = nlohmann::json{{"stages", map.stages}, {"uniforms", map.uniforms}, {"variants", map.variants}};
+    j = nlohmann::json{{"variants", map.variants}, {"uniforms", map.uniforms}};
 }
 
 inline void from_json(const nlohmann::json& j, ShaderMap& map)
 {
-    j.at("stages").get_to(map.stages);
-    j.at("uniforms").get_to(map.uniforms);
     j.at("variants").get_to(map.variants);
+    j.at("uniforms").get_to(map.uniforms);
 }

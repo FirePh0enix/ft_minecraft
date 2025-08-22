@@ -1,6 +1,5 @@
 #pragma once
 
-#include "Core/Containers/StackVector.hpp"
 #include "Render/Driver.hpp"
 
 #include <chrono>
@@ -196,9 +195,6 @@ public:
     [[nodiscard]]
     virtual Result<Ref<MaterialLayout>> create_material_layout(Ref<Shader> shader, MaterialFlags flags = {}, std::optional<InstanceLayout> instance_layout = std::nullopt, CullMode cull_mode = CullMode::Back, PolygonMode polygon_mode = PolygonMode::Fill) override;
 
-    [[nodiscard]]
-    virtual Result<Ref<MaterialLayout>> create_compute_material_layout(Ref<Shader> shader) override;
-
     [[nodiscard]] virtual Result<Ref<Material>> create_material(const Ref<MaterialLayout>& layout) override;
 
     virtual void draw_graph(const RenderGraph& graph) override;
@@ -367,28 +363,6 @@ public:
 
     // Does the texture owned the `vk::Image` ?
     bool owned;
-};
-
-class MeshVulkan : public Mesh
-{
-    CLASS(MeshVulkan, Mesh);
-
-public:
-    MeshVulkan(IndexType index_type, vk::IndexType index_type_vk, size_t vertex_count, Ref<Buffer> index_buffer, Ref<Buffer> vertex_buffer, Ref<Buffer> normal_buffer, Ref<Buffer> uv_buffer)
-        : index_buffer(index_buffer), vertex_buffer(vertex_buffer), normal_buffer(normal_buffer), uv_buffer(uv_buffer), index_type_vk(index_type_vk)
-    {
-        this->m_index_type = index_type;
-        this->m_vertex_count = vertex_count;
-    }
-
-    virtual ~MeshVulkan() {}
-
-    Ref<Buffer> index_buffer;
-    Ref<Buffer> vertex_buffer;
-    Ref<Buffer> normal_buffer;
-    Ref<Buffer> uv_buffer;
-
-    vk::IndexType index_type_vk;
 };
 
 class DescriptorPool

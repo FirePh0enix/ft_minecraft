@@ -185,7 +185,7 @@ static vk::ShaderStageFlags convert_shader_stage_mask(ShaderStageFlags shader_fl
     else if (shader_flags.has_any(ShaderStageFlagBits::Compute))
         flags |= vk::ShaderStageFlagBits::eCompute;
 
-    return {};
+    return flags;
 }
 
 static vk::ShaderStageFlagBits convert_shader_stage(ShaderStageFlagBits shader_stage)
@@ -252,9 +252,6 @@ Result<vk::Pipeline> PipelineCache::get_or_create(Ref<Material> material, vk::Re
     {
         Ref<MaterialLayoutVulkan> layout = material->get_layout().cast_to<MaterialLayoutVulkan>();
 
-        // TODO: Add an in memory cache to store shader variants.
-        // Ref<Shader> shader = depth_pass ? layout->m_shader->recompile(ShaderFlagBits::DepthPass, ShaderStageFlagBits::Vertex | ShaderStageFlagBits::Fragment).value() : layout->m_shader;
-
         auto pipeline_result = RenderingDriverVulkan::get()->create_graphics_pipeline(layout->m_shader, layout->m_instance_layout, layout->m_polygon_mode, layout->m_cull_mode, layout->m_flags, layout->m_pipeline_layout, render_pass, use_previous_depth_pass);
         YEET(pipeline_result);
 
@@ -271,32 +268,10 @@ Result<vk::Pipeline> PipelineCache::get_compute(const Ref<Material>& material)
     auto iter = std::find_if(m_pipelines.begin(), m_pipelines.end(), [material](auto p)
                              { return p.first.material.ptr() == material.ptr() && (VkRenderPass)p.first.render_pass == nullptr && p.first.depth_pass == false && p.first.use_previous_depth_pass == false; });
 
-#ifdef __has_shader_hot_reload
-    if (iter != m_pipelines.end())
-    {
-        // TODO:
-        // - What if multiple material layouts are using the same shader ?
-
-        Ref<Shader>& shader = iter->first.material->get_layout().cast_to<MaterialLayoutVulkan>()->m_shader;
-
-        if (shader->was_reloaded())
-        {
-            shader->set_was_reloaded(false);
-
-            m_pipelines.erase(key);
-            return get_or_create(material, render_pass, depth_pass, use_previous_depth_pass);
-        }
-        else
-        {
-            return iter->second;
-        }
-    }
-#else
     if (iter != m_pipelines.end())
     {
         return iter->second;
     }
-#endif
     else
     {
         Ref<MaterialLayoutVulkan> layout = material->get_layout().cast_to<MaterialLayoutVulkan>();
@@ -1069,7 +1044,7 @@ Result<Ref<Mesh>> RenderingDriverVulkan::create_mesh(IndexType index_type, View<
     RenderingDriver::get()->update_buffer(normal_buffer, normals.as_bytes(), 0);
     RenderingDriver::get()->update_buffer(uv_buffer, uvs.as_bytes(), 0);
 
-    return make_ref<MeshVulkan>(index_type, convert_index_type(index_type), vertex_count, index_buffer, vertex_buffer, normal_buffer, uv_buffer).cast_to<Mesh>();
+    return make_ref<Mesh>(vertex_count, index_type, index_buffer, vertex_buffer, normal_buffer, uv_buffer);
 }
 
 Result<Ref<MaterialLayout>> RenderingDriverVulkan::create_material_layout(Ref<Shader> shader, MaterialFlags flags, std::optional<InstanceLayout> instance_layout, CullMode cull_mode, PolygonMode polygon_mode)
@@ -1087,66 +1062,19 @@ Result<Ref<MaterialLayout>> RenderingDriverVulkan::create_material_layout(Ref<Sh
             continue;
         }
 
-        switch (binding.kind)
-        {
-        case BindingKind::Texture:
-        {
-            // FIXME: This assume that a texture sampler is 1 binding after the texture.
-
-            bindings.push_back(vk::DescriptorSetLayoutBinding(binding.binding, vk::DescriptorType::eCombinedImageSampler, 1, convert_shader_stage_mask(binding.shader_stage), nullptr));
-        }
-        break;
-        case BindingKind::UniformBuffer:
-        {
-            bindings.push_back(vk::DescriptorSetLayoutBinding(binding.binding, vk::DescriptorType::eUniformBuffer, 1, convert_shader_stage_mask(binding.shader_stage), nullptr));
-        }
-        break;
-        }
-    }
-
-    auto layout_result = RenderingDriverVulkan::get()->get_device().createDescriptorSetLayout(vk::DescriptorSetLayoutCreateInfo({}, bindings));
-    YEET_RESULT(layout_result);
-
-    auto pool_result = DescriptorPool::create(layout_result.value, shader);
-    YEET(pool_result);
-
-    std::array<vk::PushConstantRange, 1> push_constant_ranges{
-        vk::PushConstantRange(vk::ShaderStageFlagBits::eVertex, 0, sizeof(PushConstants)),
-    };
-    std::array<vk::DescriptorSetLayout, 1> descriptor_set_layouts{layout_result.value};
-
-    auto pipeline_layout_result = RenderingDriverVulkan::get()->get_device().createPipelineLayout(vk::PipelineLayoutCreateInfo({}, descriptor_set_layouts, push_constant_ranges));
-    YEET_RESULT(pipeline_layout_result);
-
-    return make_ref<MaterialLayoutVulkan>(layout_result.value, pool_result.value(), shader, instance_layout, convert_polygon_mode(polygon_mode), convert_cull_mode(cull_mode), flags, pipeline_layout_result.value).cast_to<MaterialLayout>();
-}
-
-Result<Ref<MaterialLayout>> RenderingDriverVulkan::create_compute_material_layout(Ref<Shader> shader)
-{
-    std::vector<vk::DescriptorSetLayoutBinding> bindings;
-    bindings.reserve(shader->get_bindings().size());
-
-    for (const auto& binding_pair : shader->get_bindings())
-    {
-        const Binding& binding = binding_pair.second;
-
-        // TODO: Support multiple groups ?
-        if (binding.group != 0)
-        {
-            continue;
-        }
+        // vk::ShaderStageFlags shader_stage = convert_shader_stage_mask(binding.shader_stage);
+        vk::ShaderStageFlags shader_stage = vk::ShaderStageFlagBits::eAll;
 
         switch (binding.kind)
         {
         case BindingKind::Texture:
         {
-            // FIXME: This assume that a texture sampler is 1 binding after the texture.
-            bindings.push_back(vk::DescriptorSetLayoutBinding(binding.binding, vk::DescriptorType::eCombinedImageSampler, 1, convert_shader_stage_mask(binding.shader_stage), nullptr));
+            bindings.push_back(vk::DescriptorSetLayoutBinding(binding.binding, vk::DescriptorType::eCombinedImageSampler, 1, shader_stage, nullptr));
         }
         break;
         case BindingKind::UniformBuffer:
         {
-            bindings.push_back(vk::DescriptorSetLayoutBinding(binding.binding, vk::DescriptorType::eUniformBuffer, 1, convert_shader_stage_mask(binding.shader_stage), nullptr));
+            bindings.push_back(vk::DescriptorSetLayoutBinding(binding.binding, vk::DescriptorType::eUniformBuffer, 1, shader_stage, nullptr));
         }
         break;
         case BindingKind::PushConstants:
@@ -1161,14 +1089,14 @@ Result<Ref<MaterialLayout>> RenderingDriverVulkan::create_compute_material_layou
     YEET(pool_result);
 
     std::array<vk::PushConstantRange, 1> push_constant_ranges{
-        vk::PushConstantRange(vk::ShaderStageFlagBits::eVertex, 0, sizeof(PushConstants)),
+        vk::PushConstantRange(vk::ShaderStageFlagBits::eVertex, 0, sizeof(glm::mat4) * 2), // TODO: Don't harcode size
     };
     std::array<vk::DescriptorSetLayout, 1> descriptor_set_layouts{layout_result.value};
 
     auto pipeline_layout_result = RenderingDriverVulkan::get()->get_device().createPipelineLayout(vk::PipelineLayoutCreateInfo({}, descriptor_set_layouts, push_constant_ranges));
     YEET_RESULT(pipeline_layout_result);
 
-    return make_ref<MaterialLayoutVulkan>(layout_result.value, pool_result.value(), shader, std::nullopt, vk::PolygonMode::eFill, vk::CullModeFlagBits::eNone, MaterialFlags{}, pipeline_layout_result.value).cast_to<MaterialLayout>();
+    return make_ref<MaterialLayoutVulkan>(layout_result.value, pool_result.value(), shader, instance_layout, convert_polygon_mode(polygon_mode), convert_cull_mode(cull_mode), flags, pipeline_layout_result.value).cast_to<MaterialLayout>();
 }
 
 Result<Ref<Material>> RenderingDriverVulkan::create_material(const Ref<MaterialLayout>& layout)
@@ -1244,6 +1172,8 @@ void RenderingDriverVulkan::draw_graph(const RenderGraph& graph)
     // cb.pipelineBarrier(vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eBottomOfPipe, vk::DependencyFlagBits::eByRegion, {barrier}, {}, {});
 
     vk::RenderPass current_render_pass;
+    Ref<MaterialVulkan> material_bind;
+
     uint32_t render_pass_index = 0;
     bool depth_pass = false;
     bool use_previous_depth_pass = false;
@@ -1329,7 +1259,7 @@ void RenderingDriverVulkan::draw_graph(const RenderGraph& graph)
 
             const DrawInstruction& draw = std::get<DrawInstruction>(instruction);
 
-            Ref<MeshVulkan> mesh = draw.mesh.cast_to<MeshVulkan>();
+            Ref<Mesh> mesh = draw.mesh;
             Ref<MaterialVulkan> material = draw.material.cast_to<MaterialVulkan>();
 
             const Ref<MaterialLayoutVulkan>& material_layout = material->get_layout().cast_to<MaterialLayoutVulkan>();
@@ -1342,12 +1272,12 @@ void RenderingDriverVulkan::draw_graph(const RenderGraph& graph)
             cb.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline_result.value());
             cb.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, material_layout->m_pipeline_layout, 0, {material->descriptor_set}, {});
 
-            Ref<BufferVulkan> index_buffer = mesh->index_buffer.cast_to<BufferVulkan>();
-            Ref<BufferVulkan> vertex_buffer = mesh->vertex_buffer.cast_to<BufferVulkan>();
-            Ref<BufferVulkan> normal_buffer = mesh->normal_buffer.cast_to<BufferVulkan>();
-            Ref<BufferVulkan> uv_buffer = mesh->uv_buffer.cast_to<BufferVulkan>();
+            Ref<BufferVulkan> index_buffer = mesh->get_buffer(MeshBufferKind::Index).cast_to<BufferVulkan>();
+            Ref<BufferVulkan> vertex_buffer = mesh->get_buffer(MeshBufferKind::Position).cast_to<BufferVulkan>();
+            Ref<BufferVulkan> normal_buffer = mesh->get_buffer(MeshBufferKind::Normal).cast_to<BufferVulkan>();
+            Ref<BufferVulkan> uv_buffer = mesh->get_buffer(MeshBufferKind::UV).cast_to<BufferVulkan>();
 
-            cb.bindIndexBuffer(index_buffer->buffer, 0, mesh->index_type_vk);
+            cb.bindIndexBuffer(index_buffer->buffer, 0, convert_index_type(mesh->index_type()));
             cb.bindVertexBuffers(0, {vertex_buffer->buffer, normal_buffer->buffer, uv_buffer->buffer}, {0, 0, 0});
 
             if (instance_buffer.has_value())
@@ -1359,8 +1289,7 @@ void RenderingDriverVulkan::draw_graph(const RenderGraph& graph)
             cb.setScissor(0, {vk::Rect2D({0, 0}, {m_surface_extent.width, m_surface_extent.height})});
 
             PushConstants push_constants{
-                .view_matrix = draw.view_matrix,
-                .nan = 0.0f / 0.0f,
+                .view_matrix = glm::transpose(draw.view_matrix),
             };
 
             cb.pushConstants(material_layout->m_pipeline_layout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(PushConstants), &push_constants);
@@ -1388,6 +1317,8 @@ void RenderingDriverVulkan::draw_graph(const RenderGraph& graph)
 
             cb.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline_result.value());
             cb.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, material_layout->m_pipeline_layout, 0, {material->descriptor_set}, {});
+
+            material_bind = material;
         }
         else if (std::holds_alternative<BindIndexBufferInstruction>(instruction))
         {
@@ -1402,6 +1333,24 @@ void RenderingDriverVulkan::draw_graph(const RenderGraph& graph)
             const Ref<BufferVulkan>& buffer = bind.buffer.cast_to<BufferVulkan>();
 
             cb.bindVertexBuffers(bind.location, {buffer->buffer}, {0});
+        }
+        else if (std::holds_alternative<PushConstantsInstruction>(instruction))
+        {
+            ASSERT(!material_bind.is_null(), "A material must be bound to push constants");
+
+            const PushConstantsInstruction& push_constant = std::get<PushConstantsInstruction>(instruction);
+            const Ref<MaterialLayoutVulkan>& material_layout = material_bind->get_layout().cast_to<MaterialLayoutVulkan>();
+
+            cb.pushConstants(material_layout->m_pipeline_layout, vk::ShaderStageFlagBits::eVertex, 0, push_constant.buffer.size(), push_constant.buffer.data());
+        }
+        else if (std::holds_alternative<Draw2Instruction>(instruction))
+        {
+            const Draw2Instruction& draw = std::get<Draw2Instruction>(instruction);
+
+            cb.setViewport(0, {vk::Viewport(0.0, 0.0, (float)m_surface_extent.width, (float)m_surface_extent.height, 0.0, 1.0)});
+            cb.setScissor(0, {vk::Rect2D({0, 0}, {m_surface_extent.width, m_surface_extent.height})});
+
+            cb.draw(draw.vertex_count, draw.instance_count, 0, 0);
         }
         else if (std::holds_alternative<DispatchInstruction>(instruction))
         {
@@ -1429,15 +1378,13 @@ Result<vk::Pipeline> RenderingDriverVulkan::create_graphics_pipeline(const Ref<S
     ZoneScoped;
 
     StackVector<vk::PipelineShaderStageCreateInfo, 2> shader_stages;
+    const std::vector<uint32_t> spirv_blob = shader->get_code();
+    auto shader_module_result = m_device.createShaderModule(vk::ShaderModuleCreateInfo({}, spirv_blob.size() * sizeof(uint32_t), spirv_blob.data()));
 
-    for (ShaderStageFlagBits stage : shader->get_stage_mask().as_vector())
-    {
-        std::vector<uint32_t> code = shader->get_code(stage);
-        auto shader_module_result = m_device.createShaderModule(vk::ShaderModuleCreateInfo({}, code.size() * sizeof(uint32_t), code.data()));
-        YEET_RESULT(shader_module_result);
-
-        shader_stages.push_back(vk::PipelineShaderStageCreateInfo({}, convert_shader_stage(stage), shader_module_result.value, "main"));
-    }
+    if (shader->get_stage_mask().has_any(ShaderStageFlagBits::Vertex))
+        shader_stages.push_back(vk::PipelineShaderStageCreateInfo({}, vk::ShaderStageFlagBits::eVertex, shader_module_result.value, "vertexMain"));
+    if (shader->get_stage_mask().has_any(ShaderStageFlagBits::Fragment))
+        shader_stages.push_back(vk::PipelineShaderStageCreateInfo({}, vk::ShaderStageFlagBits::eFragment, shader_module_result.value, "fragmentMain"));
 
     StackVector<vk::VertexInputBindingDescription, 4> input_bindings; // 4 or 3 elements depending on `instance_layout`
 
@@ -1523,21 +1470,18 @@ Result<vk::Pipeline> RenderingDriverVulkan::create_graphics_pipeline(const Ref<S
                                                                         nullptr, 0));
     YEET_RESULT(pipeline_result);
 
-    for (const auto& shader_stage : shader_stages)
-    {
-        m_device.destroyShaderModule(shader_stage.module);
-    }
+    m_device.destroyShaderModule(shader_module_result.value);
 
     return pipeline_result.value;
 }
 
 Result<vk::Pipeline> RenderingDriverVulkan::create_compute_pipeline(const Ref<Shader>& shader, vk::PipelineLayout pipeline_layout)
 {
-    std::vector<uint32_t> code = shader->get_code(ShaderStageFlagBits::Compute);
+    std::vector<uint32_t> code = shader->get_code();
     auto shader_module_result = m_device.createShaderModule(vk::ShaderModuleCreateInfo({}, code.size() * sizeof(uint32_t), code.data()));
     YEET_RESULT(shader_module_result);
 
-    vk::PipelineShaderStageCreateInfo shader_info({}, vk::ShaderStageFlagBits::eCompute, shader_module_result.value, "compute_main");
+    vk::PipelineShaderStageCreateInfo shader_info({}, vk::ShaderStageFlagBits::eCompute, shader_module_result.value, "main");
 
     auto pipeline_result = m_device.createComputePipeline(nullptr, vk::ComputePipelineCreateInfo({}, shader_info, pipeline_layout));
     YEET_RESULT(pipeline_result);

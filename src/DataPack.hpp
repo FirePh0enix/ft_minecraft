@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Core/Class.hpp"
+#include "Core/Result.hpp"
 
 #include <cstring>
 #include <filesystem>
@@ -35,7 +36,7 @@ public:
     void load_from_file(const std::string& path);
 
     void add_file_to_data_pack(std::string_view path, const std::vector<char>& buffer);
-    std::vector<char> read_file(std::string_view path);
+    Result<std::vector<char>> read_file(std::string_view path);
 
 private:
     std::fstream m_stream;

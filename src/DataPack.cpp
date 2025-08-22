@@ -56,7 +56,7 @@ void DataPack::add_file_to_data_pack(std::string_view path, const std::vector<ch
     }
 }
 
-std::vector<char> DataPack::read_file(std::string_view path)
+Result<std::vector<char>> DataPack::read_file(std::string_view path)
 {
     size_t cursor = sector_size;
     m_stream.seekg(sector_size);
@@ -80,5 +80,5 @@ std::vector<char> DataPack::read_file(std::string_view path)
         }
     }
 
-    return {};
+    return Error(ErrorKind::FileNotFound);
 }

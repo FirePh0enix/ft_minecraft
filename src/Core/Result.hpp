@@ -2,7 +2,6 @@
 
 #include "Core/Error.hpp"
 
-#include <functional>
 #include <variant>
 
 template <typename T = char, typename E = Error>

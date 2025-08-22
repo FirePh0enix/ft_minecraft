@@ -2,6 +2,7 @@
 
 #include "Core/Types.hpp"
 
+#include <cstring>
 #include <map>
 #include <sstream>
 

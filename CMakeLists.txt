@@ -91,6 +91,9 @@ target_compile_options(${TARGET_NAME} PUBLIC -Wall -Wextra)
 # Enable support for C++20
 set_property(TARGET ${TARGET_NAME} PROPERTY CXX_STANDARD 20)
 
+# Should prevent FetchContent for trying to connect online after downloading dependencies.
+set(FETCHCONTENT_UPDATES_DISCONNECTED ON)
+
 # Temporary to analyze the binary
 # target_link_options(${TARGET_NAME} PUBLIC -Wl,-Map,ft_minecraft.map)
 
@@ -163,67 +166,16 @@ endif()
 # Tools
 #
 
-# shadercomp
-add_executable(shadercomp tools/shadercomp/main.cpp)
-target_include_directories(shadercomp PRIVATE src/)
-set_property(TARGET shadercomp PROPERTY CXX_STANDARD 20)
-
-file(GLOB_RECURSE Shaders_FILES
-    ${PROJECT_SOURCE_DIR}/assets/shaders/*
-)
-
-set(SHADER_BASE_PATHS "")
-set(SHADER_OUTPUTS "")
-
-foreach(SHADER_FILE IN LISTS Shaders_FILES)
-    cmake_path(REMOVE_EXTENSION SHADER_FILE)
-    message(STATUS "${SHADER_FILE}")
-    list(APPEND SHADER_BASE_PATHS ${SHADER_FILE})
-endforeach()
-list(REMOVE_DUPLICATES SHADER_BASE_PATHS)
-
-foreach(SHADER_BASE_PATH ${SHADER_BASE_PATHS})
-    file(GLOB_RECURSE SHADER_DEPENDENCIES
-        ${SHADER_BASE_PATH}.*
-    )
-
-    set(SHADER_OUTPUT_FILE ${SHADER_BASE_PATH}.map.json)
-    cmake_path(RELATIVE_PATH SHADER_BASE_PATH BASE_DIRECTORY ${CMAKE_SOURCE_DIR})
-
-    set(SHADER_COMPILED_FILES "")
-    foreach(SHADER_COMPILED_FILE IN LISTS SHADER_DEPENDENCIES)
-        cmake_path(RELATIVE_PATH SHADER_COMPILED_FILE BASE_DIRECTORY ${CMAKE_SOURCE_DIR})
-        list(APPEND SHADER_COMPILED_FILES ${SHADER_COMPILED_FILE})
-    endforeach()
-    # TODO: .spv on desktop, .wgsl on the web
-    list(TRANSFORM SHADER_COMPILED_FILES APPEND ".spv")
-    list(TRANSFORM SHADER_COMPILED_FILES PREPEND "${CMAKE_BINARY_DIR}/")
-
-    add_custom_command(
-        OUTPUT ${SHADER_OUTPUT_FILE} ${SHADER_COMPILED_FILES}
-        COMMAND ${CMAKE_BINARY_DIR}/shadercomp ${CMAKE_BINARY_DIR} ${SHADER_BASE_PATH}
-        DEPENDS ${SHADER_DEPENDENCIES}
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    )
-
-    list(APPEND SHADER_OUTPUTS ${SHADER_OUTPUT_FILE} ${SHADER_COMPILED_FILES})
-endforeach()
-add_custom_target(shaders-generate ALL DEPENDS shadercomp ${SHADER_OUTPUTS})
-add_dependencies(${TARGET_NAME} shaders-generate)
-
-
 # datapacktools
 add_executable(datapacktool tools/datapack/main.cpp src/DataPack.cpp)
 target_include_directories(datapacktool PRIVATE src/)
+set_property(TARGET datapacktool PROPERTY CXX_STANDARD 20)
 
 file(GLOB_RECURSE Assets_FILES
     ${PROJECT_SOURCE_DIR}/assets/blocks/*.json
     ${PROJECT_SOURCE_DIR}/assets/fonts/*
     ${PROJECT_SOURCE_DIR}/assets/textures/*.png
-    ${CMAKE_BINARY_DIR}/assets/shaders/*.spv
-    ${CMAKE_BINARY_DIR}/assets/shaders/*.map.json
-    ${CMAKE_BINARY_DIR}/assets/shaders/**/*.spv
-    ${CMAKE_BINARY_DIR}/assets/shaders/**/*.map.json
+    ${PROJECT_SOURCE_DIR}/assets/shaders/*.slang
 )
 string(REPLACE ";" " " "${Assets_FILES}" Assets_FILES)
 set(Assets_OUTPUT ${CMAKE_BINARY_DIR}/${TARGET_NAME}.data)
@@ -233,8 +185,8 @@ add_custom_command(
     COMMAND ${CMAKE_BINARY_DIR}/datapacktool ${Assets_OUTPUT} ${PROJECT_SOURCE_DIR}/ ${Assets_FILES}
     DEPENDS ${Assets_FILES}
 )
-add_custom_target(datapacktool-generate ALL DEPENDS ${Assets_OUTPUT})
-add_dependencies(datapacktool-generate shaders-generate)
+add_custom_target(datapacktool-generate ALL DEPENDS datapacktool ${Assets_OUTPUT})
+# add_dependencies(datapacktool-generate ${SHADER_TARGETS})
 add_dependencies(${TARGET_NAME} datapacktool-generate)
 
 
@@ -255,73 +207,53 @@ if(TARGET_IS_LINUX OR TARGET_IS_APPLE OR TARGET_IS_MSVC)
     target_link_libraries(${TARGET_NAME} PRIVATE Vulkan::Headers)
 endif()
 
-# tint (Dawn's shader compiler)
-set(TINT_BUILD_TESTS OFF)
+set(SLANG_VERSION "2025.14.3")
 
-set(TINT_BUILD_SPV_READER OFF)
-set(TINT_BUILD_WGSL_READER ON)
+if (TARGET_IS_LINUX)
+    set(SLANG_ARCH "linux-x86_64-glibc-2.27") # TODO: should be compiled from source since there is no web version
+elseif(TARGET_IS_MACOS)
+    set(SLANG_ARCH "macos-aarch64") # TODO: should be compiled from source since there is no web version
+else()
+    message(FATAL_ERROR "current target is not supported here")
+endif()
 
-set(TINT_BUILD_GLSL_WRITER OFF)
-set(TINT_BUILD_HLSL_WRITER OFF)
-set(TINT_BUILD_MSL_WRITER OFF)
-set(TINT_BUILD_SPV_WRITER ON)
-
-set(TINT_BUILD_GLSL_VALIDATOR OFF)
-set(TINT_BUILD_CMD_TOOLS OFF)
-
-# This disable automatic validation and allow us to perform our own and set capabilities.
-set(TINT_ENABLE_IR_VALIDATION OFF)
-
-# abseil
-# FetchContent_Declare(
-#     abseil
-#     GIT_REPOSITORY https://github.com/abseil/abseil-cpp
-#     GIT_TAG e430bb9b0833137c4365fee39dfa930657b408fc
-# )
-# FetchContent_MakeAvailable(abseil)
-
-# set(DAWN_THIRD_PARTY_DIR ${CMAKE_CURRENT_SOURCE_DIR})
-# set(DAWN_EMDAWNWEBGPU_DIR ${CMAKE_BINARY_DIR}/_deps/dawn-src/third_party/emdawnwebgpu)
-# set(DAWN_ABSEIL_DIR ${abseil_SOURCE_DIR})
+FetchContent_Declare(
+    slang
+    URL https://github.com/shader-slang/slang/releases/download/v${SLANG_VERSION}/slang-${SLANG_VERSION}-${SLANG_ARCH}.tar.gz
+    # GIT_REPOSITORY https://github.com/shader-slang/slang
+    # GIT_TAG b7df3c7aa27301f88e31ed0a7bbf230688adab6a # v2025.14.3
+)
+FetchContent_MakeAvailable(slang)
+target_link_directories(${TARGET_NAME} PRIVATE ${CMAKE_BINARY_DIR}/_deps/slang-src/lib)
+target_link_libraries(${TARGET_NAME} PRIVATE slang)
+target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_BINARY_DIR}/_deps/slang-src/include)
 
 # SPIRV-Headers
-FetchContent_Declare(
-    spirvheaders
-    GIT_REPOSITORY https://github.com/KhronosGroup/SPIRV-Headers
-    GIT_TAG origin/vulkan-sdk-1.4.313
-)
-FetchContent_MakeAvailable(spirvheaders)
+# FetchContent_Declare(
+#     spirvheaders
+#     GIT_REPOSITORY https://github.com/KhronosGroup/SPIRV-Headers
+#     GIT_TAG origin/vulkan-sdk-1.4.313
+# )
+# FetchContent_MakeAvailable(spirvheaders)
 
 # SPIRV-Tools
-FetchContent_Declare(
-    spirvtools
-    GIT_REPOSITORY https://github.com/KhronosGroup/SPIRV-Tools
-    GIT_TAG origin/vulkan-sdk-1.4.313
-)
-FetchContent_MakeAvailable(spirvtools)
+# FetchContent_Declare(
+#     spirvtools
+#     GIT_REPOSITORY https://github.com/KhronosGroup/SPIRV-Tools
+#     GIT_TAG origin/vulkan-sdk-1.4.313
+# )
+# FetchContent_MakeAvailable(spirvtools)
 
 # glslang
-FetchContent_Declare(
-    glslang
-    GIT_REPOSITORY https://github.com/KhronosGroup/glslang
-    GIT_TAG b888ebcee8ffaa59536b5f33277936536249d9be
-)
-FetchContent_MakeAvailable(glslang)
-
-target_link_libraries(shadercomp PUBLIC glslang)
-
-# TODO: Replace this with the dawn repository with patches
-# set(DAWN_SPIRV_TOOLS_DIR ${spirvtools_SOURCE_DIR})
-# set(DAWN_SPIRV_HEADERS_DIR ${spirvheaders_SOURCE_DIR})
-# set(DAWN_GLSLANG_DIR ${glslang_SOURCE_DIR})
-
 # FetchContent_Declare(
-#     dawn
-#     SOURCE_DIR ${CMAKE_SOURCE_DIR}/third_party/dawn
+#     glslang
+#     GIT_REPOSITORY https://github.com/KhronosGroup/glslang
+#     GIT_TAG b888ebcee8ffaa59536b5f33277936536249d9be
 # )
-# FetchContent_MakeAvailable(dawn)
+# FetchContent_MakeAvailable(glslang)
 
-# target_link_libraries(shadercomp PUBLIC tint_api tint_lang_spirv_writer_helpers)
+# target_link_libraries(shadercomp PUBLIC glslang)
+# target_link_libraries(${TARGET_NAME} PUBLIC glslang)
 
 # SDL
 set(SDL_STATIC ON)
@@ -415,7 +347,7 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(json)
 target_link_libraries(${TARGET_NAME} PRIVATE nlohmann_json::nlohmann_json)
-target_link_libraries(shadercomp PRIVATE nlohmann_json::nlohmann_json)
+# target_link_libraries(shadercomp PRIVATE nlohmann_json::nlohmann_json)
 
 # tracy
 FetchContent_Declare(

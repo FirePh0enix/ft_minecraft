@@ -197,32 +197,79 @@ static inline BindingKind convert_uniform_type(const char *s)
     return j;
 }
 
-static void compile_shaders(const std::vector<std::string>& files, const std::filesystem::path& output_folder, const std::filesystem::path& base_path);
+static void compile_shaders(ShaderVariant variant, ShaderMap& map, const std::vector<std::string>& files, const std::filesystem::path& output_folder, const std::filesystem::path& base_path);
 static void emit_spirv(TShader *shader, const std::filesystem::path& path);
 static ShaderStageFlags convert_stage_mask(EShLanguageMask mask);
 static ShaderStageFlags convert_stage(EShLanguage mask);
+
+struct Variant
+{
+    std::string name;
+    std::vector<std::string> files;
+};
 
 int main(int argc, char *argv[])
 {
     std::filesystem::path output_folder = argv[1];
     std::filesystem::path base_path = argv[2];
-    std::vector<std::string> files;
 
-    std::array<const char *, 3> extensions = {"vert", "frag", "comp"};
+    std::map<std::string, Variant> variants;
+    ShaderMap map{};
 
-    for (const char *extension : extensions)
+    for (int i = 3; i < argc; i++)
     {
-        std::filesystem::path filepath = base_path;
-        filepath.replace_extension(extension);
+        i++;
 
-        if (std::filesystem::exists(filepath))
-            files.push_back(filepath.string());
+        Variant variant{};
+        variant.name = argv[i++];
+
+        for (; i < argc && std::strcmp(argv[i], "--variant"); i++)
+        {
+            variant.files.push_back(argv[i]);
+        }
+
+        variants[variant.name] = variant;
     }
 
-    compile_shaders(files, output_folder, base_path);
+    for (const auto& [key, value] : variants)
+    {
+        // compile_shaders(ShaderVariant variant, map, value.files, output_folder, base_path);
+    }
+
+    // std::filesystem::path output_folder = argv[1];
+    // std::filesystem::path base_path = argv[2];
+    // std::vector<std::string> files;
+
+    // std::array<const char *, 3> extensions = {"vert", "frag", "comp"};
+
+    // for (const char *extension : extensions)
+    // {
+    //     std::filesystem::path filepath = base_path;
+    //     filepath.replace_extension(extension);
+
+    //     if (std::filesystem::exists(filepath))
+    //         files.push_back(filepath.string());
+    // }
+
+    // ShaderMap map{};
+
+    // compile_shaders(ShaderVariant::Base, map, files, output_folder, base_path);
+
+    // // Write the map file.
+    // std::filesystem::path map_filepath = output_folder;
+    // map_filepath.append(base_path.string());
+    // map_filepath.replace_extension(".map.json");
+
+    // std::filesystem::create_directories(map_filepath.parent_path());
+
+    // nlohmann::json j = map;
+
+    // std::ofstream os(map_filepath);
+    // assert(os.is_open() && "cannot open file for writing");
+    // os << nlohmann::to_string(j);
 }
 
-static void compile_shaders(const std::vector<std::string>& files, const std::filesystem::path& output_folder, const std::filesystem::path& base_path)
+static void compile_shaders(ShaderVariant variant, ShaderMap& map, const std::vector<std::string>& files, const std::filesystem::path& output_folder, const std::filesystem::path& base_path)
 {
     std::vector<TShader *> shaders;
     TProgram *program = (new TProgram());
@@ -258,9 +305,9 @@ static void compile_shaders(const std::vector<std::string>& files, const std::fi
     program->link(EShMsgDefault);
     program->buildReflection();
 
-    // Write the map file.
-    ShaderMap map;
+    ShaderMap::Variant variant_s{};
 
+    // Write the map file.
     for (size_t i = 0; i < files.size(); i++)
     {
         TShader *shader = shaders[i];
@@ -268,7 +315,7 @@ static void compile_shaders(const std::vector<std::string>& files, const std::fi
         std::filesystem::path path = files[i];
         path.replace_extension(stage_extension(shader->getStage()) + ".spv");
 
-        map.stages.push_back(ShaderMap::Stage{.stage = convert_stage(shader->getStage()), .file = path});
+        variant_s.stages.push_back(ShaderMap::Stage{.stage = convert_stage(shader->getStage()), .file = path});
     }
 
     for (int i = 0; i < program->getNumUniformVariables(); i++)
@@ -306,18 +353,6 @@ static void compile_shaders(const std::vector<std::string>& files, const std::fi
         map.uniforms.push_back(uniform);
     }
 
-    std::filesystem::path map_filepath = output_folder;
-    map_filepath.append(base_path.string());
-    map_filepath.replace_extension(".map.json");
-
-    std::filesystem::create_directories(map_filepath.parent_path());
-
-    nlohmann::json j = map;
-
-    std::ofstream os(map_filepath);
-    assert(os.is_open() && "cannot open file for writing");
-    os << nlohmann::to_string(j);
-
     // Emit SPIR-V for each shaders.
     for (size_t i = 0; i < files.size(); i++)
     {
@@ -326,6 +361,8 @@ static void compile_shaders(const std::vector<std::string>& files, const std::fi
 
         emit_spirv(shaders[i], path);
     }
+
+    map.variants.push_back(variant_s);
 }
 
 static void emit_spirv(TShader *shader, const std::filesystem::path& path)

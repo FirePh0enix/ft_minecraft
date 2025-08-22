@@ -58,6 +58,12 @@ struct BindVertexBufferInstruction
     uint32_t location = 0;
 };
 
+struct Draw2Instruction
+{
+    uint32_t vertex_count;
+    uint32_t instance_count;
+};
+
 struct DispatchInstruction
 {
     uint32_t group_x = 0;
@@ -65,13 +71,16 @@ struct DispatchInstruction
     uint32_t group_z = 0;
 };
 
-using Instruction = std::variant<BeginRenderPassInstruction, EndRenderPassInstruction, DrawInstruction, CopyInstruction, ImGuiDrawInstruction, BindIndexBufferInstruction, BindVertexBufferInstruction, BindMaterialInstruction, DispatchInstruction>;
+struct PushConstantsInstruction
+{
+    std::vector<char> buffer;
+};
+
+using Instruction = std::variant<BeginRenderPassInstruction, EndRenderPassInstruction, DrawInstruction, CopyInstruction, ImGuiDrawInstruction, BindIndexBufferInstruction, BindVertexBufferInstruction, BindMaterialInstruction, PushConstantsInstruction, Draw2Instruction, DispatchInstruction>;
 
 struct PushConstants
 {
     glm::mat4 view_matrix;
-    // NaN does not exists with WGSL. It is used to discard vertices in the vertex shader.
-    glm::float32 nan;
 };
 
 class RenderGraph
@@ -119,6 +128,10 @@ public:
     void bind_index_buffer(const Ref<Buffer>& buffer);
 
     void bind_vertex_buffer(const Ref<Buffer>& buffer, uint32_t location);
+
+    void push_constants(const std::vector<char>& buffer);
+
+    void draw(uint32_t vertex_count, uint32_t instance_count);
 
     void dispatch(uint32_t group_x, uint32_t group_y, uint32_t group_z);
 

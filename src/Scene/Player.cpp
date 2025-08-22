@@ -6,12 +6,6 @@
 #include "Scene/Scene.hpp"
 #include "World/Registry.hpp"
 
-struct CubeHighlightUniforms
-{
-    glm::mat4x4 model_matrix;
-    glm::vec3 color;
-};
-
 void Player::start()
 {
     m_transform = m_entity->get_transform();
@@ -20,7 +14,7 @@ void Player::start()
     m_camera = m_entity->get_child(0)->get_component<Camera>();
 
     // Create a special cube mesh and material to highlight targeted blocks.
-    auto shader_result = Shader::compile("assets/shaders/cube_highlight", {});
+    auto shader_result = Shader::load("assets/shaders/standard_mesh.slang");
     Ref<Shader> shader = shader_result.value();
 
     Result<Ref<MaterialLayout>> material_layout_result = RenderingDriver::get()->create_material_layout(shader, {.transparency = false, .priority = PriorityBefore}, std::nullopt, CullMode::Back, PolygonMode::Line);
@@ -31,15 +25,12 @@ void Player::start()
     EXPECT(material_result);
     Ref<Material> material = material_result.value();
 
-    Result<Ref<Buffer>> buffer_result = RenderingDriver::get()->create_buffer(sizeof(CubeHighlightUniforms), BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Uniform);
-    ERR_EXPECT_R(buffer_result, "Failed to create buffer for cube highlight");
-    m_cube_highlight_buffer = buffer_result.value();
-
-    material->set_param("uniforms", m_cube_highlight_buffer);
+    Ref<MeshInstance> mesh = make_ref<MeshInstance>(m_cube_mesh, material);
+    mesh->set_base_color(glm::vec3(1.0, 1.0, 0.0));
 
     m_cube_highlight = make_ref<Entity>();
     m_cube_highlight->add_component(make_ref<Transformed3D>());
-    m_cube_highlight->add_component(make_ref<MeshInstance>(m_cube_mesh, material));
+    m_cube_highlight->add_component(mesh);
     m_entity->get_scene()->add_entity(m_cube_highlight);
 }
 
@@ -200,11 +191,11 @@ void Player::on_block_aimed(BlockState state, int64_t x, int64_t y, int64_t z, g
     // FIXME: transform does not matter for MeshInstance, probably should instead of manipulating a buffer directly.
     // m_cube_highlight->get_transform->set_transform(transform);
 
-    CubeHighlightUniforms uniforms{};
-    uniforms.model_matrix = transform.translation_matrix();
-    uniforms.color = glm::vec3(1.0, 1.0, 0.0);
+    // CubeHighlightUniforms uniforms{};
+    // uniforms.model_matrix = transform.translation_matrix();
+    // uniforms.color = glm::vec3(1.0, 1.0, 0.0);
 
-    RenderingDriver::get()->update_buffer(m_cube_highlight_buffer, View(uniforms).as_bytes(), 0);
+    // RenderingDriver::get()->update_buffer(m_cube_highlight_buffer, View(uniforms).as_bytes(), 0);
 
     if (Input::is_action_pressed("attack") && !state.is_air())
     {

@@ -96,15 +96,15 @@ public:
         return glm::translate(glm::mat4(1.0), m_position);
     }
 
+    inline glm::mat4 to_matrix() const
+    {
+        return glm::translate(glm::mat4(1.0), m_position) * glm::mat4_cast(m_rotation) * glm::scale(glm::mat4(1.0), m_scale);
+    }
+
 private:
     glm::vec3 m_position;
     glm::quat m_rotation;
     glm::vec3 m_scale;
-
-    glm::mat4 to_matrix() const
-    {
-        return glm::translate(glm::mat4(1.0), m_position) * glm::mat4_cast(m_rotation) * glm::scale(glm::mat4(1.0), m_scale);
-    }
 
     static Transform3D from_matrix(glm::mat4 matrix)
     {

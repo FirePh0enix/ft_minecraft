@@ -63,7 +63,8 @@ void bt_error_callback(void *, const char *msg, int errnum)
 
 const StackTrace& StackTrace::current()
 {
-    backtrace_full(bt_state, 1, (backtrace_full_callback)bt_callback, (backtrace_error_callback)bt_error_callback, &stacktrace);
+    int skip = 0;
+    backtrace_full(bt_state, skip, (backtrace_full_callback)bt_callback, (backtrace_error_callback)bt_error_callback, &stacktrace);
     return stacktrace;
 }
 
@@ -120,7 +121,7 @@ void signal_handler(int sig)
     const StackTrace& st = StackTrace::current();
 
     println(stderr, "Received signal: {}\n", signal_name);
-    st.print(stderr, 1);
+    st.print(stderr, 0);
 
     exit(1);
 }

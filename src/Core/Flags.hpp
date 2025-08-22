@@ -18,12 +18,12 @@ public:
     {
     }
 
-    inline operator T()
+    inline operator T() const
     {
         return m_value;
     }
 
-    inline operator IntType()
+    inline operator IntType() const
     {
         return (IntType)m_value;
     }

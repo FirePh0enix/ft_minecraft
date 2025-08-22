@@ -5,7 +5,12 @@
 #include "Render/Driver.hpp"
 #include "Render/Types.hpp"
 
+#include <filesystem>
 #include <map>
+
+#include <slang-com-helper.h>
+#include <slang-com-ptr.h>
+#include <slang.h>
 
 enum class ShaderFlagBits
 {
@@ -14,29 +19,22 @@ enum class ShaderFlagBits
 using ShaderFlags = Flags<ShaderFlagBits>;
 DEFINE_FLAG_TRAITS(ShaderFlagBits);
 
-// TODO: Replace `ShaderFlags`
-enum class ShaderVariant
-{
-    DepthPass,
-};
-
 class Shader : public Object
 {
     CLASS(Shader, Object);
 
 public:
-    enum class ErrorKind : uint8_t
+    static Result<Ref<Shader>> load(const std::filesystem::path& path);
+
+    SamplerDescriptor get_sampler(const std::string& name) const
     {
-        FileNotFound,
-        MissingDirective,
-        RecursiveDirective,
-        Compilation,
-    };
-
-    template <typename T = char>
-    using Result = Result<T, ErrorKind>;
-
-    static Result<Ref<Shader>> compile(const std::string& filename, ShaderFlags flags = ShaderFlags());
+        auto iter = m_samplers.find(name);
+        if (iter != m_samplers.end())
+        {
+            return iter->second;
+        }
+        return SamplerDescriptor{};
+    }
 
     std::optional<Binding> get_binding(const std::string& name) const
     {
@@ -61,16 +59,6 @@ public:
         return m_bindings;
     }
 
-    SamplerDescriptor get_sampler(const std::string& name) const
-    {
-        auto iter = m_samplers.find(name);
-        if (iter != m_samplers.end())
-        {
-            return iter->second;
-        }
-        return SamplerDescriptor{};
-    }
-
     void set_sampler(const std::string& name, SamplerDescriptor sampler)
     {
         ERR_COND_V(!has_binding(name) || get_binding(name)->kind != BindingKind::Texture, "binding `{}` is not a texture", name);
@@ -82,28 +70,35 @@ public:
         return m_stage_mask;
     }
 
-#ifdef __platform_web
-    inline std::string get_code(ShaderStageFlagBits stage)
+#ifndef __platform_web
+    inline const std::vector<uint32_t> get_code() const
     {
-        return m_stages.at(stage);
+        return m_binary_code;
     }
 #else
-    inline std::vector<uint32_t> get_code(ShaderStageFlagBits stage) const
+    inline const std::string get_code() const
     {
-        return m_stages.at(stage);
+        return m_binary_code;
     }
 #endif
 
 private:
-    std::map<std::string, Binding> m_bindings;
-    std::map<std::string, SamplerDescriptor> m_samplers;
+    static inline Slang::ComPtr<slang::IGlobalSession> s_global_session;
+
+    std::string m_source_code;
+    Slang::ComPtr<slang::ISession> m_session;
+    Slang::ComPtr<slang::IModule> m_module;
+
+#ifndef __platform_web
+    std::vector<uint32_t> m_binary_code;
+#else
+    std::string m_shader_code;
+#endif
+
     ShaderStageFlags m_stage_mask;
 
-    Result<> compile_internal(const std::string& filename, ShaderFlags flags);
+    std::map<std::string, Binding> m_bindings;
+    std::map<std::string, SamplerDescriptor> m_samplers;
 
-#ifdef __platform_web
-    std::map<ShaderStageFlagBits, std::string> m_stages;
-#else
-    std::map<ShaderStageFlagBits, std::vector<uint32_t>> m_stages;
-#endif
+    static void dump_glsl(const std::filesystem::path& path);
 };

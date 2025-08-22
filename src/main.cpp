@@ -139,7 +139,7 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     auto init_result = RenderingDriver::get()->initialize(*window, args.has("enable-gpu-validation"));
     EXPECT(init_result);
 
-    auto shader_result = Shader::compile("assets/shaders/voxel", {});
+    Result<Ref<Shader>> shader_result = Shader::load("assets/shaders/voxel.slang");
     if (!shader_result.has_value())
     {
         Result<> error = Error(ErrorKind::ShaderCompilationFailed);
@@ -147,10 +147,6 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     }
 
     Ref<Shader> shader = shader_result.value();
-#ifdef __platform_web
-    shader->set_binding("images", Binding{.kind = BindingKind::Texture, .shader_stage = ShaderStageKind::Fragment, .group = 0, .binding = 0, .dimension = TextureDimension::D2DArray});
-#endif
-
     shader->set_sampler("images", {.min_filter = Filter::Nearest, .mag_filter = Filter::Nearest});
 
     std::array<InstanceLayoutInput, 3> inputs{
@@ -440,7 +436,6 @@ static void register_all_classes()
     RenderingDriverVulkan::register_class();
     BufferVulkan::register_class();
     TextureVulkan::register_class();
-    MeshVulkan::register_class();
     MaterialLayoutVulkan::register_class();
     MaterialVulkan::register_class();
 #endif
@@ -449,7 +444,6 @@ static void register_all_classes()
     RenderingDriverWebGPU::register_class();
     BufferWebGPU::register_class();
     TextureWebGPU::register_class();
-    MeshWebGPU::register_class();
     MaterialLayoutWebGPU::register_class();
     MaterialWebGPU::register_class();
 #endif
