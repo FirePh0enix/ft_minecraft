@@ -48,20 +48,24 @@ void RenderGraph::end_render_pass()
     m_renderpass = false;
 }
 
-void RenderGraph::add_draw(const Ref<Mesh>& mesh, const Ref<Material>& material, glm::mat4 view_matrix, uint32_t instance_count, std::optional<Ref<Buffer>> instance_buffer)
+void RenderGraph::begin_compute_pass()
 {
     ZoneScoped;
 
-    if (instance_count == 0)
-    {
-        return;
-    }
-
-    ERR_COND(!m_renderpass, "Cannot draw outside of a renderpass");
-    m_instructions.push_back(DrawInstruction{.mesh = mesh, .material = material, .instance_count = instance_count, .instance_buffer = instance_buffer, .view_matrix = view_matrix});
+    m_instructions.push_back(BeginComputePassInstruction{});
+    m_renderpass = true;
 }
 
-void RenderGraph::add_copy(const Ref<Buffer>& src, const Ref<Buffer>& dst, size_t size, size_t src_offset, size_t dst_offset)
+void RenderGraph::end_compute_pass()
+{
+    ZoneScoped;
+
+    ERR_COND(!m_renderpass, "Not inside a computepass");
+    m_instructions.push_back(EndComputePassInstruction{});
+    m_renderpass = false;
+}
+
+void RenderGraph::copy(const Ref<Buffer>& src, const Ref<Buffer>& dst, size_t size, size_t src_offset, size_t dst_offset)
 {
     m_copy_instructions.push_back(CopyInstruction{.src = src, .dst = dst, .src_offset = src_offset, .dst_offset = dst_offset, .size = size});
 }
@@ -73,7 +77,7 @@ void RenderGraph::add_imgui_draw()
 #endif
 }
 
-void RenderGraph::bind_material(const Ref<Material>& material)
+void RenderGraph::bind_material(const Ref<MaterialBase>& material)
 {
     m_instructions.push_back(BindMaterialInstruction{.material = material});
 }
@@ -88,14 +92,15 @@ void RenderGraph::bind_vertex_buffer(const Ref<Buffer>& buffer, uint32_t locatio
     m_instructions.push_back(BindVertexBufferInstruction{.buffer = buffer, .location = location});
 }
 
-void RenderGraph::push_constants(const std::vector<char>& buffer)
+void RenderGraph::push_constants(const DataBuffer& buffer)
 {
+    ERR_COND(!m_renderpass, "Not inside a pass");
     m_instructions.push_back(PushConstantsInstruction{.buffer = std::move(buffer)});
 }
 
 void RenderGraph::draw(uint32_t vertex_count, uint32_t instance_count)
 {
-    m_instructions.push_back(Draw2Instruction{.vertex_count = vertex_count, .instance_count = instance_count});
+    m_instructions.push_back(DrawInstruction{.vertex_count = vertex_count, .instance_count = instance_count});
 }
 
 void RenderGraph::dispatch(uint32_t group_x, uint32_t group_y, uint32_t group_z)

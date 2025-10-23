@@ -128,6 +128,11 @@ public:
         return m_ptr != other.m_ptr;
     }
 
+    ALWAYS_INLINE bool operator<(const Ref& other) const
+    {
+        return m_ptr < other.m_ptr;
+    }
+
     ALWAYS_INLINE operator bool() const
     {
         return !is_null();
@@ -157,12 +162,7 @@ public:
     template <typename B>
     Ref<B> cast_to() const
     {
-        if (is_null())
-        {
-            return nullptr;
-        }
-
-        if (m_ptr->template is<B>())
+        if (!is_null() && m_ptr->template is<B>())
         {
             return Ref<B>(static_cast<B *>((B *)m_ptr), m_references);
         }

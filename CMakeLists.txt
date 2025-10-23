@@ -43,8 +43,6 @@ list(APPEND SOURCES
     src/World/Registry.cpp
     src/World/Save.cpp
     src/World/World.cpp
-    src/World/Generation/SimplexNoise.cpp
-    src/World/Generation/Terrain.cpp
 )
 
 if (EMSCRIPTEN)
@@ -63,12 +61,12 @@ endif()
 
 if(TARGET_IS_WEB)
     list(APPEND SOURCES
-        src/Render/WebGPU/DriverWebGPU.cpp
         src/Platform/Emscripten.cpp
     )
 else()
     list(APPEND SOURCES
-        src/Render/Vulkan/DriverVulkan.cpp
+        # src/Render/Vulkan/DriverVulkan.cpp
+        src/Render/WebGPU/DriverWebGPU.cpp
     )
 endif()
 
@@ -152,7 +150,7 @@ if(TARGET_IS_WEB)
 endif()
 
 if(TARGET_IS_LINUX OR TARGET_IS_APPLE OR TARGET_IS_MSVC)
-    target_compile_definitions(${TARGET_NAME} PRIVATE __has_vulkan)
+    target_compile_definitions(${TARGET_NAME} PRIVATE __has_vulkan __has_webgpu)
 elseif(TARGET_IS_WEB)
     target_compile_definitions(${TARGET_NAME} PRIVATE __has_webgpu)
 endif()
@@ -176,6 +174,7 @@ file(GLOB_RECURSE Assets_FILES
     ${PROJECT_SOURCE_DIR}/assets/fonts/*
     ${PROJECT_SOURCE_DIR}/assets/textures/*.png
     ${PROJECT_SOURCE_DIR}/assets/shaders/*.slang
+    ${PROJECT_SOURCE_DIR}/assets/shaders/**/*.slang
 )
 string(REPLACE ";" " " "${Assets_FILES}" Assets_FILES)
 set(Assets_OUTPUT ${CMAKE_BINARY_DIR}/${TARGET_NAME}.data)
@@ -199,61 +198,57 @@ set(BUILD_SHARED_LIBS 0)
 
 if(TARGET_IS_LINUX OR TARGET_IS_APPLE OR TARGET_IS_MSVC)
     # VulkanHeaders
+    # FetchContent_Declare(
+    #     VulkanHeaders
+    #     URL https://github.com/KhronosGroup/Vulkan-Headers/archive/v1.4.313.tar.gz
+    # )
+    # FetchContent_MakeAvailable(VulkanHeaders)
+    # target_link_libraries(${TARGET_NAME} PRIVATE Vulkan::Headers)
+
+    if (TARGET_IS_LINUX)
+        set(WGPU_PLATFORM "linux")
+        set(WGPU_ARCH "x86_64")
+    elseif (TARGET_IS_APPLE)
+        set(WGPU_PLATFORM "macos")
+        set(WGPU_ARCH "aarch64")
+    elseif(TARGET_IS_MSVC)
+        set(WGPU_PLATFORM "windows")
+        set(WGPU_ARCH "x86_64")
+    endif()
+
+    # wgpu-native
     FetchContent_Declare(
-        VulkanHeaders
-        URL https://github.com/KhronosGroup/Vulkan-Headers/archive/v1.4.313.tar.gz
+        wgpu-native
+        URL https://github.com/gfx-rs/wgpu-native/releases/download/v27.0.2.0/wgpu-${WGPU_PLATFORM}-${WGPU_ARCH}-debug.zip
     )
-    FetchContent_MakeAvailable(VulkanHeaders)
-    target_link_libraries(${TARGET_NAME} PRIVATE Vulkan::Headers)
+    FetchContent_MakeAvailable(wgpu-native)
+
+    target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_BINARY_DIR}/_deps/wgpu-native-src/include)
+    target_link_directories(${TARGET_NAME} PRIVATE ${CMAKE_BINARY_DIR}/_deps/wgpu-native-src/lib)
+    target_link_libraries(${TARGET_NAME} PRIVATE wgpu_native)
 endif()
 
-set(SLANG_VERSION "2025.14.3")
-
-if (TARGET_IS_LINUX)
-    set(SLANG_ARCH "linux-x86_64-glibc-2.27") # TODO: should be compiled from source since there is no web version
-elseif(TARGET_IS_MACOS)
-    set(SLANG_ARCH "macos-aarch64") # TODO: should be compiled from source since there is no web version
-else()
-    message(FATAL_ERROR "current target is not supported here")
-endif()
-
+# TODO: Must tell slang to use our Vulkan-Headers or doctest or this will not build
 FetchContent_Declare(
     slang
-    URL https://github.com/shader-slang/slang/releases/download/v${SLANG_VERSION}/slang-${SLANG_VERSION}-${SLANG_ARCH}.tar.gz
-    # GIT_REPOSITORY https://github.com/shader-slang/slang
-    # GIT_TAG b7df3c7aa27301f88e31ed0a7bbf230688adab6a # v2025.14.3
+    # URL https://github.com/shader-slang/slang/releases/download/v${SLANG_VERSION}/slang-${SLANG_VERSION}-${SLANG_ARCH}.tar.gz
+    GIT_REPOSITORY https://github.com/shader-slang/slang
+    GIT_TAG b7df3c7aa27301f88e31ed0a7bbf230688adab6a # v2025.14.3
 )
+
+set(SLANG_LIB_TYPE STATIC)
+set(SLANG_ENABLE_TESTS OFF)
+set(SLANG_ENABLE_EXAMPLES OFF)
+set(SLANG_ENABLE_GFX OFF)
+set(SLANG_ENABLE_SLANGD OFF)
+set(SLANG_ENABLE_SLANGC OFF)
+set(SLANG_ENABLE_SLANGI OFF)
+set(SLANG_HAS_EXCEPTIONS)
+
 FetchContent_MakeAvailable(slang)
 target_link_directories(${TARGET_NAME} PRIVATE ${CMAKE_BINARY_DIR}/_deps/slang-src/lib)
 target_link_libraries(${TARGET_NAME} PRIVATE slang)
 target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_BINARY_DIR}/_deps/slang-src/include)
-
-# SPIRV-Headers
-# FetchContent_Declare(
-#     spirvheaders
-#     GIT_REPOSITORY https://github.com/KhronosGroup/SPIRV-Headers
-#     GIT_TAG origin/vulkan-sdk-1.4.313
-# )
-# FetchContent_MakeAvailable(spirvheaders)
-
-# SPIRV-Tools
-# FetchContent_Declare(
-#     spirvtools
-#     GIT_REPOSITORY https://github.com/KhronosGroup/SPIRV-Tools
-#     GIT_TAG origin/vulkan-sdk-1.4.313
-# )
-# FetchContent_MakeAvailable(spirvtools)
-
-# glslang
-# FetchContent_Declare(
-#     glslang
-#     GIT_REPOSITORY https://github.com/KhronosGroup/glslang
-#     GIT_TAG b888ebcee8ffaa59536b5f33277936536249d9be
-# )
-# FetchContent_MakeAvailable(glslang)
-
-# target_link_libraries(shadercomp PUBLIC glslang)
-# target_link_libraries(${TARGET_NAME} PUBLIC glslang)
 
 # SDL
 set(SDL_STATIC ON)
@@ -329,16 +324,6 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(FreeType)
 target_link_libraries(${TARGET_NAME} PRIVATE freetype)
 
-# simdjson
-# FetchContent_Declare(
-#     simdjson
-#     GIT_REPOSITORY https://github.com/simdjson/simdjson
-#     GIT_TAG 0c0ce1bd48baa0677dc7c0945ea7cd1e8b52b297 # v3.13.0
-# )
-# FetchContent_MakeAvailable(simdjson)
-# target_link_libraries(${TARGET_NAME} PRIVATE simdjson) # TODO: Replace by nlohmann/json
-# target_link_libraries(shadercomp PRIVATE simdjson)
-
 # nlohmann/json
 FetchContent_Declare(
     json
@@ -409,16 +394,16 @@ if (TARGET_IS_APPLE)
 endif()
 
 # doctest for unit tests.
-FetchContent_Declare(
-    doctest
-    GIT_REPOSITORY https://github.com/doctest/doctest
-    GIT_TAG 1da23a3e8119ec5cce4f9388e91b065e20bf06f5 # v2.4.12
-)
-FetchContent_MakeAvailable(doctest)
-target_link_libraries(${TARGET_NAME} PRIVATE doctest)
+# FetchContent_Declare(
+#     doctest
+#     GIT_REPOSITORY https://github.com/doctest/doctest
+#     GIT_TAG 1da23a3e8119ec5cce4f9388e91b065e20bf06f5 # v2.4.12
+# )
+# FetchContent_MakeAvailable(doctest)
+# target_link_libraries(${TARGET_NAME} PRIVATE doctest)
 
-if(NOT RUN_TESTS)
-    target_compile_definitions(${TARGET_NAME} PRIVATE DOCTEST_CONFIG_DISABLE=1)
+if(RUN_TESTS)
+    target_compile_definitions(${TARGET_NAME} PRIVATE DOCTEST_CONFIG_ENABLE=1)
 endif()
 
 # Build documention if doxygen is installed

@@ -30,6 +30,8 @@ enum class BufferVisibility : uint8_t
 
 enum class BufferUsageFlagBits : uint32_t
 {
+    None = 0,
+
     /**
      * @brief The buffer can be used as source in copy operation.
      */
@@ -190,7 +192,7 @@ struct SamplerDescriptor
 
     bool operator<(const SamplerDescriptor& o) const
     {
-        return min_filter < o.min_filter || mag_filter < o.mag_filter || address_mode.u < o.address_mode.u || address_mode.v < o.address_mode.v || address_mode.w < o.address_mode.w;
+        return std::tie(min_filter, mag_filter, address_mode.u, address_mode.v, address_mode.w) < std::tie(o.min_filter, o.mag_filter, o.address_mode.u, o.address_mode.v, o.address_mode.w);
     }
 };
 
@@ -208,7 +210,6 @@ enum class BindingKind : uint8_t
     Texture,
     UniformBuffer,
     StorageBuffer,
-    PushConstants,
 };
 
 struct Binding

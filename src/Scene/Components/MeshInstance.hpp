@@ -51,10 +51,11 @@ public:
             StandardMeshPushConstants push_constants{};
             push_constants.view_matrix = camera.get_view_proj_matrix();
             push_constants.model_matrix = m_transform->get_global_transform().to_matrix();
-            std::vector<char> bytes(sizeof(StandardMeshPushConstants));
-            std::memcpy(bytes.data(), (char *)&push_constants, sizeof(StandardMeshPushConstants));
-            graph.push_constants(bytes);
 
+            DataBuffer push_constants_buffer(sizeof(StandardMeshPushConstants));
+            push_constants_buffer.add(push_constants);
+
+            graph.push_constants(push_constants_buffer);
             graph.draw(m_mesh->vertex_count(), 1);
         }
     }

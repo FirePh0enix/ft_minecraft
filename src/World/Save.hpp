@@ -5,29 +5,31 @@
 constexpr uint32_t saved_world_magic = 0x57524C44;
 constexpr uint32_t saved_chunk_magic = 0x4B4E4843;
 
+constexpr uint32_t saved_current_version = 1;
+
 struct SavedWorldHeader
 {
     uint32_t magic = saved_world_magic;
-    uint32_t version;
+    uint32_t version = saved_current_version;
 
     // The block_table is a table of uint32_t indexed by block ids. The `uint32_t` is an offset relative
     // to the string_table.
-    uint32_t block_table_offset;
-    uint32_t block_table_count;
+    uint32_t block_table_offset = 0;
+    uint32_t block_table_count = 0;
 
     // Offset of the string table.
-    uint32_t string_table_offset;
+    uint32_t string_table_offset = 0;
 };
 
 struct SavedChunkHeader
 {
     uint32_t magic = saved_chunk_magic;
-    uint32_t version;
+    uint32_t version = saved_current_version;
 
     /**
      * The number of blocks saved.
      */
-    uint16_t blocks_count;
+    uint16_t blocks_count = 0;
 };
 
 class Save

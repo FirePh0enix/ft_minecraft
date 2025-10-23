@@ -8,7 +8,7 @@
 static FT_Library g_lib;
 static glm::mat4 g_ortho_matrix;
 static Ref<Mesh> g_mesh = nullptr;
-static Ref<MaterialLayout> g_material_layout = nullptr;
+static Ref<Shader> g_shader = nullptr;
 
 Result<Ref<Font>> Font::create(const std::string& font_name, uint32_t font_size)
 {
@@ -95,9 +95,7 @@ Result<Ref<Font>> Font::create(const std::string& font_name, uint32_t font_size)
     YEET(texture_result);
     font->m_bitmap = texture_result.value();
 
-    font->m_bitmap->transition_layout(TextureLayout::CopyDst);
     font->m_bitmap->update(buffer);
-    font->m_bitmap->transition_layout(TextureLayout::ShaderReadOnly);
 
     return font;
 }
@@ -137,10 +135,7 @@ Result<> Font::init_library()
 
     View<uint16_t> indices_span = indices;
 
-    auto mesh_result = RenderingDriver::get()->create_mesh(IndexType::Uint16, indices_span.as_bytes(), vertices, uvs, normals);
-    YEET(mesh_result);
-
-    g_mesh = mesh_result.value();
+    g_mesh = Mesh::create_from_data(indices_span.as_bytes(), vertices, normals, uvs, IndexType::Uint16);
 
     const Extent2D size = RenderingDriver::get()->get_surface_extent();
     const float aspect_radio = (float)size.width / (float)size.height;
@@ -162,24 +157,14 @@ Result<> Font::init_library()
         return Error(ErrorKind::ShaderCompilationFailed);
     }
 
-    Ref<Shader> shader = shader_result.value();
-
-#ifdef __platform_web
-    shader->set_binding("bitmap", Binding{.kind = BindingKind::Texture, .shader_stage = ShaderStageKind::Fragment, .group = 0, .binding = 0, .dimension = TextureDimension::D2D});
-    shader->set_binding("data", Binding{.kind = BindingKind::UniformBuffer, .shader_stage = ShaderStageKind::Vertex, .group = 0, .binding = 2});
-#endif
-
-    auto material_layout_result = RenderingDriver::get()->create_material_layout(shader, {.transparency = true}, instance_layout);
-    YEET(material_layout_result);
-
-    g_material_layout = material_layout_result.value();
+    g_shader = shader_result.value();
 
     return 0;
 }
 
 void Font::deinit_library()
 {
-    g_material_layout = nullptr;
+    g_shader = nullptr;
     g_mesh = nullptr;
 
     FT_Done_FreeType(g_lib);
@@ -196,10 +181,12 @@ Text::Text(size_t capacity, Ref<Font> font)
     ERR_EXPECT_R(buffer_result, "Cannot create the uniform buffer");
     m_uniform_buffer = font_uniform.value();
 
-    auto material_result = RenderingDriver::get()->create_material(g_material_layout);
-    ERR_EXPECT_R(buffer_result, "Cannot create the material");
-    m_material = material_result.value();
+    std::array<InstanceLayoutInput, 3> inputs = {InstanceLayoutInput(ShaderType::Float32x4, 0),
+                                                 InstanceLayoutInput(ShaderType::Float32x3, sizeof(float) * 4),
+                                                 InstanceLayoutInput(ShaderType::Float32x2, sizeof(float) * 7)};
+    InstanceLayout instance_layout(inputs, sizeof(Font::Instance));
 
+    m_material = Material::create(g_shader, sizeof(glm::mat4), instance_layout, MaterialFlagBits::Transparency);
     m_material->set_param("bitmap", font->get_bitmap());
     m_material->set_param("data", m_uniform_buffer);
 }
@@ -278,7 +265,8 @@ void Text::set_color(glm::vec4 color)
 
 void Text::encode_draw_calls(RenderGraph& graph)
 {
-    graph.add_draw(g_mesh, m_material, g_ortho_matrix, m_size, m_instance_buffer);
+    // graph.add_draw(g_mesh, m_material, g_ortho_matrix, m_size, m_instance_buffer);
+    (void)graph;
 }
 
 void Text::update_uniform_buffer()

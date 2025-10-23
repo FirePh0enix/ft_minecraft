@@ -99,32 +99,35 @@ bool Save::chunk_exists(int64_t x, int64_t z)
 
 Ref<Chunk> Save::load_chunk(int64_t x, int64_t z)
 {
-    const std::string path = get_path() + "/chunks/" + std::to_string(x) + "$" + std::to_string(z) + ".chunkdat";
-    std::ifstream is(path);
+    // const std::string path = get_path() + "/chunks/" + std::to_string(x) + "$" + std::to_string(z) + ".chunkdat";
+    // std::ifstream is(path);
 
-    ERR_COND_V(!is.is_open(), "Failed to open {}/chunks/{}${}.chunkdat", m_name, x, z);
+    // ERR_COND_V(!is.is_open(), "Failed to open {}/chunks/{}${}.chunkdat", m_name, x, z);
 
-    Ref<Chunk> chunk = make_ref<Chunk>(x, z);
+    // Ref<Chunk> chunk = make_ref<Chunk>(x, z);
 
-    if (!is.is_open())
-    {
-        return chunk;
-    }
+    // if (!is.is_open())
+    // {
+    //     return chunk;
+    // }
 
-    SavedChunkHeader header;
-    is.read((char *)&header, sizeof(SavedChunkHeader));
+    // SavedChunkHeader header;
+    // is.read((char *)&header, sizeof(SavedChunkHeader));
 
-    std::vector<PosStatePair> blocks;
-    blocks.resize(header.blocks_count);
-    is.read((char *)blocks.data(), (ssize_t)(sizeof(PosStatePair) * header.blocks_count));
+    // std::vector<PosStatePair> blocks;
+    // blocks.resize(header.blocks_count);
+    // is.read((char *)blocks.data(), (ssize_t)(sizeof(PosStatePair) * header.blocks_count));
 
-    for (const auto& pair : blocks)
-    {
-        uint32_t state = pair.state;
-        chunk->set_block(CHUNK_LOCAL_X(pair.pos), CHUNK_LOCAL_Y(pair.pos), CHUNK_LOCAL_Z(pair.pos), *(BlockState *)&state);
-    }
+    // for (const auto& pair : blocks)
+    // {
+    //     uint32_t state = pair.state;
+    //     chunk->set_block(CHUNK_LOCAL_X(pair.pos), CHUNK_LOCAL_Y(pair.pos), CHUNK_LOCAL_Z(pair.pos), *(BlockState *)&state);
+    // }
 
-    return chunk;
+    // return chunk;
+    (void)x;
+    (void)z;
+    return nullptr;
 }
 
 std::string Save::get_path()

@@ -1,7 +1,6 @@
 ---
 Checks: "
         google-runtime-int,
-        modernize-avoid-c-arrays,
         modernize-deprecated-headers,
         modernize-make-shared,
         modernize-make-unique,

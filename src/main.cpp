@@ -8,6 +8,7 @@
 #include "Render/Driver.hpp"
 #include "Render/Graph.hpp"
 #include "Render/Shader.hpp"
+#include "Render/WebGPU/DriverWebGPU.hpp"
 #include "Scene/Components/MeshInstance.hpp"
 #include "Scene/Components/RigidBody.hpp"
 #include "Scene/Components/Transformed3D.hpp"
@@ -15,20 +16,10 @@
 #include "Scene/Player.hpp"
 #include "Scene/Scene.hpp"
 #include "Window.hpp"
-#include "World/Generation/Generator.hpp"
-#include "World/Generation/Terrain.hpp"
 #include "World/Registry.hpp"
 #include "World/World.hpp"
 
 #include <SDL3_image/SDL_image.h>
-
-#ifdef __has_vulkan
-#include "Render/Vulkan/DriverVulkan.hpp"
-#endif
-
-#ifdef __has_webgpu
-#include "Render/WebGPU/DriverWebGPU.hpp"
-#endif
 
 #ifdef __has_debug_menu
 #include <imgui.h>
@@ -49,7 +40,7 @@
 
 #endif
 
-#ifdef DOCTEST_CONFIG_DISABLE
+#ifndef DOCTEST_CONFIG_ENABLE
 
 static void register_all_classes();
 static void tick();
@@ -72,10 +63,8 @@ z=0.0
 )";
 
 Ref<Window> window;
-Text text;
-
-Ref<WorldGenerator> gen;
 Ref<Entity> player;
+Ref<World> world;
 
 Config config;
 
@@ -130,11 +119,7 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     Input::add_action("escape");
     Input::add_action_mapping("escape", ActionMapping(ActionMappingKind::Key, SDLK_ESCAPE));
 
-#ifdef __platform_web
     RenderingDriver::create_singleton<RenderingDriverWebGPU>();
-#else
-    RenderingDriver::create_singleton<RenderingDriverVulkan>();
-#endif
 
     auto init_result = RenderingDriver::get()->initialize(*window, args.has("enable-gpu-validation"));
     EXPECT(init_result);
@@ -155,13 +140,7 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
         InstanceLayoutInput(ShaderType::Uint32, sizeof(glm::vec3) * 2),
     };
     InstanceLayout instance_layout(inputs, sizeof(BlockInstanceData));
-    auto material_layout_result = RenderingDriver::get()->create_material_layout(shader, {.transparency = true}, instance_layout, CullMode::Back, PolygonMode::Fill);
-    EXPECT(material_layout_result);
-    Ref<MaterialLayout> material_layout = material_layout_result.value();
-
-    auto material_result = RenderingDriver::get()->create_material(material_layout);
-    EXPECT(material_result);
-    Ref<Material> material = material_result.value();
+    Ref<Material> material = Material::create(shader, sizeof(glm::mat4), instance_layout, MaterialFlagBits::Transparency, PolygonMode::Fill, CullMode::Back);
 
     auto cube_result = create_cube_with_separate_faces(glm::vec3(1.0), glm::vec3(-0.5));
     EXPECT(cube_result);
@@ -177,8 +156,8 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     Ref<Scene> scene = make_ref<Scene>();
     Scene::set_active_scene(scene);
 
-    Ref<World> world = make_ref<World>(cube, material);
-    world->set_render_distance(16);
+    world = make_ref<World>(cube, material);
+    world->set_render_distance(3);
 
     Ref<Entity> world_entity = make_ref<Entity>();
     world_entity->add_component(world);
@@ -210,8 +189,8 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
         info("World won't be saved, `--disable-save` is present.");
     }
 
-    gen = make_ref<WorldGenerator>(world, args.has("disable-save"));
-    gen->set_terrain(make_ref<OverworldTerrainGenerator>());
+    // gen = make_ref<WorldGenerator>(world, args.has("disable-save"));
+    // gen->set_terrain(make_ref<OverworldTerrainGenerator>());
 
     player->get_component<RigidBody>()->disabled() = !config.get_category("physics").get<bool>("collisions");
     player->get_component<Player>()->set_gravity_enabled(config.get_category("physics").get<bool>("gravity"));
@@ -240,6 +219,9 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
         EXPECT(RenderingDriver::get()->initialize_imgui());
     }
 
+    const glm::vec3 player_pos = player->get_transform()->get_global_transform().position();
+    world->load_around(int64_t(player_pos.x), int64_t(player_pos.y), int64_t(player_pos.z));
+
 #ifdef __platform_web
     emscripten_set_main_loop_arg([](void *)
                                  { main_loop(); }, nullptr, 0, true);
@@ -260,9 +242,8 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
 
     config.save_to("config.ini");
 
-    (void)RenderingDriverVulkan::get()->get_device().waitIdle();
+    // (void)RenderingDriverVulkan::get()->get_device().waitIdle();
 
-    gen->stop_workers();
     BlockRegistry::destroy();
     Font::deinit_library();
 
@@ -371,9 +352,10 @@ static void tick()
     }
 #endif
 
-    const glm::vec3 player_pos = player->get_transform()->get_global_transform().position();
-    gen->set_player_pos(player_pos);
-    gen->load_around(int64_t(player_pos.x), int64_t(player_pos.y), int64_t(player_pos.z));
+    // const glm::vec3 player_pos = player->get_transform()->get_global_transform().position();
+    // world->load_around(int64_t(player_pos.x), int64_t(player_pos.y), int64_t(player_pos.z));
+    // gen->set_player_pos(player_pos);
+    // gen->load_around(int64_t(player_pos.x), int64_t(player_pos.y), int64_t(player_pos.z));
 
     Ref<Scene>& scene = Scene::get_active_scene();
 
@@ -419,8 +401,6 @@ static void register_all_classes()
     World::register_class();
     Chunk::register_class();
     Block::register_class();
-    TerrainGenerator::register_class();
-    OverworldTerrainGenerator::register_class();
 
     Font::register_class();
 
@@ -428,24 +408,21 @@ static void register_all_classes()
     Buffer::register_class();
     Texture::register_class();
     Mesh::register_class();
-    MaterialLayout::register_class();
+    MaterialBase::register_class();
     Material::register_class();
+    ComputeMaterial::register_class();
     Shader::register_class();
 
 #ifdef __has_vulkan
-    RenderingDriverVulkan::register_class();
-    BufferVulkan::register_class();
-    TextureVulkan::register_class();
-    MaterialLayoutVulkan::register_class();
-    MaterialVulkan::register_class();
+    // RenderingDriverVulkan::register_class();
+    // BufferVulkan::register_class();
+    // TextureVulkan::register_class();
 #endif
 
 #ifdef __has_webgpu
     RenderingDriverWebGPU::register_class();
     BufferWebGPU::register_class();
     TextureWebGPU::register_class();
-    MaterialLayoutWebGPU::register_class();
-    MaterialWebGPU::register_class();
 #endif
 }
 
@@ -454,4 +431,4 @@ static void register_all_classes()
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest/doctest.h"
 
-#endif // DOCTEST_CONFIG_DISABLE
+#endif // DOCTEST_CONFIG_ENABLE

@@ -9,7 +9,20 @@ constexpr uint8_t east_mask = 1 << 3;
 constexpr uint8_t top_mask = 1 << 4;
 constexpr uint8_t bottom_mask = 1 << 5;
 
-void Chunk::compute_full_visibility(const Ref<World>& world)
+void Chunk::generate()
+{
+    // RenderGraph& graph = RenderGraph::get();
+    // graph.bind_material(m_surface_material);
+    // graph.dispatch(16, 256, 16);
+
+    // TODO: Add back compute shaders.
+
+    for (size_t x = 0; x < 16; x++)
+        for (size_t z = 0; z < 16; z++)
+            get_block_ref(x, 0, z) = BlockState(BlockRegistry::get_block_id("stone"), GenericData());
+}
+
+void Chunk::compute_full_visibility(World *world)
 {
     ZoneScoped;
 
@@ -142,7 +155,7 @@ void Chunk::compute_visibility(const World *world, int64_t x, int64_t y, int64_t
     }
 
     get_block_ref(x, y, z).generic.visibility = visibility;
-    update_instance_buffer(world->get_buffer(get_buffer_id()));
+    update_instance_buffer();
 }
 
 void Chunk::compute_axis_neighbour_visibility(const Ref<World>& world, const Ref<Chunk>& neighbour)
@@ -190,7 +203,7 @@ void Chunk::compute_axis_neighbour_visibility(const Ref<World>& world, const Ref
     }
 }
 
-void Chunk::update_instance_buffer(const Ref<Buffer>& buffer)
+void Chunk::update_instance_buffer()
 {
     ZoneScoped;
 
@@ -253,6 +266,6 @@ void Chunk::update_instance_buffer(const Ref<Buffer>& buffer)
         }
     }
 
-    RenderingDriver::get()->update_buffer(buffer, View(instances).as_bytes(), 0);
+    RenderingDriver::get()->update_buffer(m_buffer, View(instances).as_bytes(), 0);
     m_block_count = instances.size();
 }

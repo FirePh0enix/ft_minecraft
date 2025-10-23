@@ -1,10 +1,10 @@
 #include "World.hpp"
-#include "Core/Format.hpp"
-#include "Core/Logger.hpp"
+#include "Core/DataBuffer.hpp"
 
 World::World(Ref<Mesh> mesh, Ref<Material> material)
     : m_mesh(mesh), m_material(material)
 {
+    m_surface_shader = Shader::load("assets/shaders/terrain/surface.slang").value_or(nullptr);
 }
 
 BlockState World::get_block_state(int64_t x, int64_t y, int64_t z) const
@@ -43,7 +43,7 @@ void World::set_block_state(int64_t x, int64_t y, int64_t z, BlockState state)
     const size_t chunk_local_z = z >= 0 ? (z % 16) : 16 + (z % 16);
 
     chunk->set_block(chunk_local_x, y, chunk_local_z, state);
-    update_visibility(x, y, z, true);
+    // update_visibility(x, y, z, true);
 }
 
 void World::update_visibility(int64_t x, int64_t y, int64_t z, bool recurse)
@@ -89,27 +89,7 @@ std::optional<Ref<Chunk>> World::get_chunk(int64_t x, int64_t z)
 
 void World::set_render_distance(uint32_t distance)
 {
-    const uint32_t old_buffer_count = m_buffers.size();
-    const uint32_t new_buffer_count = (distance * 2 + 1) * (distance * 2 + 1);
-
-    std::lock_guard<std::mutex> lock(m_buffers_mutex);
-
     m_distance = distance;
-
-    // Create or recreate instance buffers.
-    m_buffers.resize(new_buffer_count);
-
-    if (new_buffer_count <= old_buffer_count)
-        return;
-
-    for (size_t i = 0; i < new_buffer_count - old_buffer_count; i++)
-    {
-        auto buffer_result = RenderingDriver::get()->create_buffer(sizeof(BlockInstanceData) * Chunk::block_count, BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Vertex);
-        ERR_EXPECT_C(buffer_result, "Failed to create instance buffer");
-        m_buffers[i + old_buffer_count] = BufferInfo{.buffer = buffer_result.value(), .used = false};
-    }
-
-    info("{} bytes of VRAM allocated for chunk buffers", FormatBin(m_buffers.size() * sizeof(BlockInstanceData) * Chunk::block_count));
 }
 
 void World::encode_draw_calls(RenderGraph& graph, Camera& camera)
@@ -118,38 +98,56 @@ void World::encode_draw_calls(RenderGraph& graph, Camera& camera)
 
     std::lock_guard<std::mutex> lock(m_chunks_read_mutex);
 
-    for (const auto& chunk_pair : m_dims[0])
+    for (const auto& [pos, chunk] : m_dims[0])
     {
-        AABB aabb = AABB(glm::vec3((float)chunk_pair.first.x * 16.0 + 8.0, 128.0, (float)chunk_pair.first.z * 16.0 + 8.0), glm::vec3(8.0, 128.0, 8.0));
+        AABB aabb = AABB(glm::vec3((float)pos.x * 16.0 + 8.0, 128.0, (float)pos.z * 16.0 + 8.0), glm::vec3(8.0, 128.0, 8.0));
 
-        if (camera.frustum().contains(aabb))
-        {
-            const Ref<Buffer>& buffer = m_buffers[chunk_pair.second->get_buffer_id()].buffer;
-            graph.add_draw(m_mesh, m_material, camera.get_view_proj_matrix(), chunk_pair.second->get_block_count(), buffer);
-        }
+        if (!camera.frustum().contains(aabb))
+            continue;
+
+        const glm::mat4& view_matrix = camera.get_view_proj_matrix();
+
+        DataBuffer push_constants(sizeof(glm::mat4));
+        push_constants.add(view_matrix);
+
+        graph.bind_material(m_material);
+        graph.push_constants(push_constants);
+        graph.bind_index_buffer(m_mesh->get_buffer(MeshBufferKind::Index));
+        graph.bind_vertex_buffer(m_mesh->get_buffer(MeshBufferKind::Position), 0);
+        graph.bind_vertex_buffer(m_mesh->get_buffer(MeshBufferKind::Normal), 1);
+        graph.bind_vertex_buffer(m_mesh->get_buffer(MeshBufferKind::UV), 2);
+        graph.bind_vertex_buffer(chunk->get_buffer(), 3);
+        graph.draw(m_mesh->vertex_count(), chunk->get_block_count());
     }
 }
 
-std::optional<size_t> World::acquire_buffer()
+void World::load_chunk(int64_t x, int64_t z)
 {
-    std::lock_guard<std::mutex> lock(m_buffers_mutex);
+    Ref<Chunk> chunk = make_ref<Chunk>(x, z, m_surface_shader);
+    chunk->generate();
+    chunk->compute_full_visibility(this);
+    chunk->update_instance_buffer();
 
-    for (size_t i = 0; i < m_buffers.size(); i++)
-    {
-        auto& info = m_buffers[i];
-
-        if (!info.used)
-        {
-            info.used = true;
-            return i;
-        }
-    }
-
-    return std::nullopt;
+    m_dims[0].add_chunk(x, z, chunk);
 }
 
-void World::free_buffer(size_t index)
+void World::load_around(int64_t x, int64_t y, int64_t z)
 {
-    std::lock_guard<std::mutex> lock(m_buffers_mutex);
-    m_buffers[index].used = false;
+    ZoneScoped;
+
+    (void)y;
+
+    const int64_t chunk_x = (int64_t)((float)x / 16.0f);
+    const int64_t chunk_z = (int64_t)((float)z / 16.0f);
+    const int64_t distance = get_distance();
+
+    for (int64_t cx = -distance; cx <= distance; cx++)
+    {
+        for (int64_t cz = -distance; cz <= distance; cz++)
+        {
+            if (m_dims[0].has_chunk(cx + chunk_x, cz + chunk_z))
+                continue;
+            load_chunk(cx + chunk_x, cz + chunk_z);
+        }
+    }
 }

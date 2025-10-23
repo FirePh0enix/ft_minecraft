@@ -29,6 +29,16 @@ struct ChunkBounds
     glm::ivec3 max;
 };
 
+struct BlockInstanceData
+{
+    glm::vec3 position;
+    glm::uvec3 textures;
+    uint8_t visibility;
+    Biome biome : 8;
+    GradientType gradient_type;
+    uint8_t pad;
+};
+
 class Chunk : public Object
 {
     CLASS(Chunk, Object);
@@ -38,17 +48,19 @@ public:
     static constexpr int64_t height = 256;
     static constexpr int64_t block_count = width * width * height;
 
-    Chunk(int64_t x, int64_t z)
-        : m_x(x), m_z(z), m_buffer_id(0)
+    Chunk(int64_t x, int64_t z, Ref<Shader> shader)
+        : m_x(x), m_z(z)
     {
         m_blocks.resize(block_count);
+        m_surface_material = ComputeMaterial::create(shader);
+        m_gpu_blocks = RenderingDriver::get()->create_buffer(block_count * sizeof(Block), BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Uniform).value();
+        m_buffer = RenderingDriver::get()->create_buffer(block_count * sizeof(BlockInstanceData), BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Vertex).value();
     }
 
     inline BlockState get_block(size_t x, size_t y, size_t z) const
     {
         if (x > 15 || y > 255 || z > 15 || (z * width * height + y * width + x) >= m_blocks.size())
             return BlockState();
-        // FIXME: Sometimes this segfault even with x=1, y=107, z=10
         return m_blocks[z * width * height + y * width + x];
     }
 
@@ -74,16 +86,6 @@ public:
         return m_z;
     }
 
-    inline uint32_t get_buffer_id() const
-    {
-        return m_buffer_id;
-    }
-
-    inline void set_buffer_id(uint32_t buffer_id)
-    {
-        m_buffer_id = buffer_id;
-    }
-
     inline uint32_t get_block_count() const
     {
         return m_block_count;
@@ -99,12 +101,22 @@ public:
         m_biomes[x + z * width] = biome;
     }
 
-    void compute_full_visibility(const Ref<World>& world);
+    const Ref<Buffer>& get_buffer() const
+    {
+        return m_buffer;
+    }
+
+    /**
+        Generate the chunk.
+     */
+    void generate();
+
+    void compute_full_visibility(World *world);
     void compute_visibility(const World *world, int64_t x, int64_t y, int64_t z);
 
     void compute_axis_neighbour_visibility(const Ref<World>& world, const Ref<Chunk>& neighbour);
 
-    void update_instance_buffer(const Ref<Buffer>& buffer);
+    void update_instance_buffer();
 
 private:
     std::vector<BlockState> m_blocks;
@@ -112,7 +124,9 @@ private:
     int64_t m_x;
     int64_t m_z;
 
-    uint32_t m_buffer_id;
+    Ref<ComputeMaterial> m_surface_material;
+    Ref<Buffer> m_gpu_blocks;
+    Ref<Buffer> m_buffer;
 
     // TODO: transparent blocks
     uint32_t m_block_count = 0;

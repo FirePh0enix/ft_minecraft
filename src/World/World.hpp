@@ -7,25 +7,9 @@
 
 #include <mutex>
 
-struct BlockInstanceData
-{
-    glm::vec3 position;
-    glm::uvec3 textures;
-    uint8_t visibility;
-    Biome biome : 8;
-    GradientType gradient_type;
-    uint8_t pad;
-};
-
 class World : public VisualComponent
 {
     CLASS(World, VisualComponent);
-
-    struct BufferInfo
-    {
-        Ref<Buffer> buffer;
-        bool used = false;
-    };
 
 public:
     static constexpr size_t overworld = 0;
@@ -40,23 +24,6 @@ public:
     std::optional<Ref<Chunk>> get_chunk(int64_t x, int64_t z);
 
     void set_render_distance(uint32_t distance);
-
-    inline Ref<Buffer> get_buffer(size_t index) const
-    {
-        return m_buffers[index].buffer;
-    }
-
-    /**
-     * @brief Returns the index of the first free chunk buffer if any.
-     *
-     * This function is thread-safe.
-     */
-    std::optional<size_t> acquire_buffer();
-
-    /**
-     * @brief Mark a buffer as unused.
-     */
-    void free_buffer(size_t index);
 
     virtual void encode_draw_calls(RenderGraph& graph, Camera& camera) override;
 
@@ -105,13 +72,16 @@ public:
         return m_dims[index];
     }
 
+    void load_chunk(int64_t x, int64_t z);
+    void load_around(int64_t x, int64_t y, int64_t z);
+
 private:
     std::array<Dimension, 2> m_dims;
-    std::vector<BufferInfo> m_buffers;
     uint32_t m_distance = 0;
 
     Ref<Mesh> m_mesh;
     Ref<Material> m_material;
+    Ref<Shader> m_surface_shader;
 
     std::mutex m_chunks_add_mutex;
     std::mutex m_chunks_read_mutex;

@@ -1,9 +1,9 @@
 #include "Core/Ref.hpp"
 #include "Core/Class.hpp"
 
-#include <doctest/doctest.h>
+#ifdef DOCTEST_CONFIG_ENABLE
 
-#ifndef DOCTEST_CONFIG_DISABLE
+#include <doctest/doctest.h>
 
 class Foo : public Object
 {

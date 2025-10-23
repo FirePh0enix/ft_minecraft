@@ -7,7 +7,7 @@
 #include <cstring>
 
 #ifndef STACKTRACE_SIZE
-#define STACKTRACE_SIZE 16
+#define STACKTRACE_SIZE 32
 #endif
 
 struct StackTrace

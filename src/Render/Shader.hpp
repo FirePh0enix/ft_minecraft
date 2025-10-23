@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Core/Class.hpp"
+#include "Core/Containers/View.hpp"
 #include "Core/Ref.hpp"
 #include "Render/Driver.hpp"
 #include "Render/Types.hpp"
@@ -19,12 +20,20 @@ enum class ShaderFlagBits
 using ShaderFlags = Flags<ShaderFlagBits>;
 DEFINE_FLAG_TRAITS(ShaderFlagBits);
 
+struct PushConstantRange
+{
+    ShaderStageFlags stages;
+    size_t size = 0;
+};
+
 class Shader : public Object
 {
     CLASS(Shader, Object);
 
 public:
     static Result<Ref<Shader>> load(const std::filesystem::path& path);
+
+    ~Shader();
 
     SamplerDescriptor get_sampler(const std::string& name) const
     {
@@ -65,40 +74,45 @@ public:
         m_samplers[name] = sampler;
     }
 
+    inline const std::vector<PushConstantRange>& get_push_constants() const
+    {
+        return m_push_constants;
+    }
+
     ShaderStageFlags get_stage_mask() const
     {
         return m_stage_mask;
     }
 
-#ifndef __platform_web
-    inline const std::vector<uint32_t> get_code() const
+    std::string get_path() const
     {
-        return m_binary_code;
+        return m_path;
     }
-#else
-    inline const std::string get_code() const
+
+    inline View<char> get_code() const
     {
-        return m_binary_code;
+        return View((char *)m_code, m_size);
     }
-#endif
+
+    inline View<uint32_t> get_code_u32() const
+    {
+        return View((uint32_t *)m_code, m_size / sizeof(uint32_t));
+    }
 
 private:
     static inline Slang::ComPtr<slang::IGlobalSession> s_global_session;
 
+    std::string m_path;
     std::string m_source_code;
     Slang::ComPtr<slang::ISession> m_session;
     Slang::ComPtr<slang::IModule> m_module;
 
-#ifndef __platform_web
-    std::vector<uint32_t> m_binary_code;
-#else
-    std::string m_shader_code;
-#endif
+    char *m_code = nullptr;
+    size_t m_size;
 
     ShaderStageFlags m_stage_mask;
 
     std::map<std::string, Binding> m_bindings;
     std::map<std::string, SamplerDescriptor> m_samplers;
-
-    static void dump_glsl(const std::filesystem::path& path);
+    std::vector<PushConstantRange> m_push_constants;
 };

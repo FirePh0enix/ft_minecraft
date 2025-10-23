@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Core/Containers/View.hpp"
+#include "Core/DataBuffer.hpp"
 #include "Render/Driver.hpp"
 
 #include <variant>
@@ -19,13 +20,13 @@ struct EndRenderPassInstruction
 {
 };
 
-struct DrawInstruction
+struct BeginComputePassInstruction
 {
-    Ref<Mesh> mesh = nullptr;
-    Ref<Material> material = nullptr;
-    size_t instance_count = 0;
-    std::optional<Ref<Buffer>> instance_buffer = std::nullopt;
-    glm::mat4 view_matrix = glm::mat4(1.0);
+    std::string name;
+};
+
+struct EndComputePassInstruction
+{
 };
 
 struct CopyInstruction
@@ -43,7 +44,7 @@ struct ImGuiDrawInstruction
 
 struct BindMaterialInstruction
 {
-    Ref<Material> material = nullptr;
+    Ref<MaterialBase> material = nullptr;
 };
 
 struct BindIndexBufferInstruction
@@ -58,7 +59,7 @@ struct BindVertexBufferInstruction
     uint32_t location = 0;
 };
 
-struct Draw2Instruction
+struct DrawInstruction
 {
     uint32_t vertex_count;
     uint32_t instance_count;
@@ -73,10 +74,10 @@ struct DispatchInstruction
 
 struct PushConstantsInstruction
 {
-    std::vector<char> buffer;
+    DataBuffer buffer;
 };
 
-using Instruction = std::variant<BeginRenderPassInstruction, EndRenderPassInstruction, DrawInstruction, CopyInstruction, ImGuiDrawInstruction, BindIndexBufferInstruction, BindVertexBufferInstruction, BindMaterialInstruction, PushConstantsInstruction, Draw2Instruction, DispatchInstruction>;
+using Instruction = std::variant<BeginRenderPassInstruction, EndRenderPassInstruction, BeginComputePassInstruction, EndComputePassInstruction, DrawInstruction, CopyInstruction, ImGuiDrawInstruction, BindIndexBufferInstruction, BindVertexBufferInstruction, BindMaterialInstruction, PushConstantsInstruction, DispatchInstruction>;
 
 struct PushConstants
 {
@@ -105,31 +106,23 @@ public:
      */
     void end_render_pass();
 
-    /**
-     * @brief Add a draw call the the render pass.
-     * @param mesh
-     * @param material
-     * @param view_matrix
-     * @param instance_count Number of instance to draw. If this number is > 1, then `instance_buffer` must be present.
-     * @param instance_buffer Data used for instancing.
-     * @param ignore_depth_prepass
-     */
-    void add_draw(const Ref<Mesh>& mesh, const Ref<Material>& material, glm::mat4 view_matrix = {}, uint32_t instance_count = 1, std::optional<Ref<Buffer>> instance_buffer = {});
+    void begin_compute_pass();
+    void end_compute_pass();
 
-    void add_copy(const Ref<Buffer>& src, const Ref<Buffer>& dst, size_t size, size_t src_offset = 0, size_t dst_offset = 0);
+    void copy(const Ref<Buffer>& src, const Ref<Buffer>& dst, size_t size, size_t src_offset = 0, size_t dst_offset = 0);
 
     /**
      * @brief Add imgui draw calls. no-op when `__has_debug_menu` is not set.
      */
     void add_imgui_draw();
 
-    void bind_material(const Ref<Material>& material);
+    void bind_material(const Ref<MaterialBase>& material);
 
     void bind_index_buffer(const Ref<Buffer>& buffer);
 
     void bind_vertex_buffer(const Ref<Buffer>& buffer, uint32_t location);
 
-    void push_constants(const std::vector<char>& buffer);
+    void push_constants(const DataBuffer& buffer);
 
     void draw(uint32_t vertex_count, uint32_t instance_count);
 

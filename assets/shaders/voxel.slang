@@ -17,6 +17,13 @@ static const float3 grass_colors[14] = {
     plains_grass_color, // Ocean
 };
 
+enum GradientType
+{
+    None = 0,
+    Grass = 1,
+    Water = 2
+};
+
 struct PushConstants
 {
     float4x4 view_matrix;
@@ -47,7 +54,8 @@ struct VsOutput
     float3 gradient_color;
 };
 
-Sampler2DArray images;
+Texture2DArray images;
+SamplerState images_sampler;
 
 [push_constant]
 PushConstants constants;
@@ -57,40 +65,47 @@ VsOutput vertexMain(Vertex vertex)
 {
     uint visibility = vertex.visibility_biome_gradient & 0xFF;
     uint biome = (vertex.visibility_biome_gradient >> 8) & 0xFF;
-    uint gradient_type = (vertex.visibility_biome_gradient >> 16) & 0XFF;
+    GradientType gradient_type = GradientType((vertex.visibility_biome_gradient >> 16) & 0XFF);
 
     VsOutput out;
     out.gradient_color = float3(0.0, 0.0, 0.0);
 
-    if (((visibility & (1 << 1)) == 0 && vertex.index >= 0 && vertex.index < 4) ||
-        ((visibility & (1 << 0)) == 0 && vertex.index >= 4 && vertex.index < 8) ||
-        ((visibility & (1 << 2)) == 0 && vertex.index >= 8 && vertex.index < 12) ||
-        ((visibility & (1 << 3)) == 0 && vertex.index >= 12 && vertex.index < 16) ||
-        ((visibility & (1 << 4)) == 0 && vertex.index >= 16 && vertex.index < 20) ||
-        ((visibility & (1 << 5)) == 0 && vertex.index >= 20 && vertex.index < 24))
-    {
-        float nan = 0.0 / 0.0;
-        out.position = float4(nan, nan, nan, nan);
-        return out;
-    }
+    // if (((visibility & (1 << 1)) == 0 && vertex.index >= 0 && vertex.index < 4) ||
+    //     ((visibility & (1 << 0)) == 0 && vertex.index >= 4 && vertex.index < 8) ||
+    //     ((visibility & (1 << 2)) == 0 && vertex.index >= 8 && vertex.index < 12) ||
+    //     ((visibility & (1 << 3)) == 0 && vertex.index >= 12 && vertex.index < 16) ||
+    //     ((visibility & (1 << 4)) == 0 && vertex.index >= 16 && vertex.index < 20) ||
+    //     ((visibility & (1 << 5)) == 0 && vertex.index >= 20 && vertex.index < 24))
+    // {
+    //     // float nan = 0.0 / 0.0;
+    //     // out.position = float4(nan, nan, nan, nan);
+    //     return out;
+    // }
+
+    // float4x4 model_matrix = float4x4(
+    //     1.0, 0.0, 0.0, 0.0,
+    //     0.0, 1.0, 0.0, 0.0,
+    //     0.0, 0.0, 1.0, 0.0,
+    //     vertex.instance_position.x, vertex.instance_position.y, vertex.instance_position.z, 1.0
+    // );
 
     float4x4 model_matrix = float4x4(
         1.0, 0.0, 0.0, vertex.instance_position.x,
         0.0, 1.0, 0.0, vertex.instance_position.y,
         0.0, 0.0, 1.0, vertex.instance_position.z,
-        // vertex.instance_position.x, vertex.instance_position.y, vertex.instance_position.z, 1.0
         0.0, 0.0, 0.0, 1.0
     );
 
     out.world_position = mul(model_matrix, float4(vertex.position, 1.0));
     out.position = mul(constants.view_matrix, out.world_position);
 
-    if (gradient_type == 1) // Grass
+    switch (gradient_type)
     {
+    case GradientType.Grass:
         out.gradient_color = grass_colors[biome];
-    }
-    else if (gradient_type == 2) // Water
-    {
+        break;
+    case GradientType.Water:
+        break;
     }
 
     out.uv = vertex.uv;
@@ -119,7 +134,7 @@ float4 fragmentMain(VsOutput in)
     float2 uv2 = in.uv;
     uv2.y = 1.0 - uv2.y;
 
-    float4 color = images.Sample(float3(uv2, float(in.texture_index)));
+    float4 color = images.Sample(images_sampler, float3(uv2, float(in.texture_index)));
 
     if (is_grayscale(color) && !is_black(in.gradient_color))
     {

@@ -1,10 +1,10 @@
 #include "Core/Class.hpp"
 
-#include <doctest/doctest.h>
-
 #include <cstring>
 
-#ifndef DOCTEST_CONFIG_DISABLE
+#ifdef DOCTEST_CONFIG_ENABLE
+
+#include <doctest/doctest.h>
 
 class Foo : public Object
 {

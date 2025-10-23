@@ -113,5 +113,5 @@ inline Result<Ref<Mesh>> create_cube_with_separate_faces(glm::vec3 size = glm::v
 
     View<uint16_t> indices_span = indices;
 
-    return RenderingDriver::get()->create_mesh(IndexType::Uint16, indices_span.as_bytes(), vertices, uvs, normals);
+    return Mesh::create_from_data(indices_span.as_bytes(), vertices, normals, uvs, IndexType::Uint16);
 }

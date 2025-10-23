@@ -35,15 +35,12 @@ class Texture : public Object
     CLASS(Texture, Object);
 
 public:
+    virtual ~Texture() {}
+
     /**
      * @brief Update the content of a layer of the texture.
      */
     virtual void update(View<uint8_t> view, uint32_t layer = 0) = 0;
-
-    /**
-     * @brief Change the layout of the texture.
-     */
-    virtual void transition_layout(TextureLayout new_layout) = 0;
 
     inline uint32_t width() const
     {
@@ -54,8 +51,6 @@ public:
     {
         return m_height;
     }
-
-    virtual ~Texture() {}
 
 protected:
     uint32_t m_width;
@@ -77,6 +72,8 @@ class Mesh : public Object
     CLASS(Mesh, Object);
 
 public:
+    static Ref<Mesh> create_from_data(const View<uint8_t>& index, const View<glm::vec3>& positions, const View<glm::vec3>& normals, const View<glm::vec2>& uvs, IndexType index_type = IndexType::Uint32);
+
     Mesh(uint32_t vertex_count, IndexType index_type, const Ref<Buffer>& index_buffer, const Ref<Buffer>& position_buffer, const Ref<Buffer>& normal_buffer, const Ref<Buffer>& uv_buffer)
         : m_vertex_count(vertex_count), m_index_type(index_type)
     {
@@ -136,62 +133,138 @@ struct InstanceLayout
     }
 };
 
-enum DrawPriority : uint8_t
+union MaterialParamCache
 {
-    PriorityNormal = 0,
-    PriorityBefore = 1,
-};
-
-// TODO: Convert to a BitFlags ?
-struct MaterialFlags
-{
-    /**
-     * @brief Enable transparent blending for the material.
-     */
-    bool transparency : 1 = false;
-
-    /**
-     * @brief Indicate the render priority.
-     */
-    uint8_t priority : 2 = PriorityNormal;
+    BindingKind kind;
+    struct
+    {
+        BindingKind kind;
+        Texture *texture;
+    } texture;
+    struct
+    {
+        BindingKind kind;
+        Buffer *buffer;
+    } buffer;
 };
 
 /**
- * @brief Describe the layout of a material which can be used to create multiple materials.
- *
- * This contains information about a type of material, allowing the reuse of information to create multiple
- * materials derived from it.
+    Common code shared between graphics and compute materials.
  */
-class MaterialLayout : public Object
+class MaterialBase : public Object
 {
-    CLASS(MaterialLayout, Object);
+    CLASS(MaterialBase, Object);
 
 public:
-    virtual ~MaterialLayout() {}
-};
-
-class Material : public Object
-{
-    CLASS(Material, Object);
-
-public:
-    virtual void set_param(const std::string& name, const Ref<Buffer>& buffer) = 0;
-    virtual void set_param(const std::string& name, const Ref<Texture>& texture) = 0;
-
-    const Ref<MaterialLayout>& get_layout() const
+    MaterialBase(const Ref<Shader>& shader, size_t push_constant_size)
+        : m_shader(shader), m_push_constant_size(push_constant_size), m_param_changed(true)
     {
-        return m_layout;
     }
 
-    Ref<MaterialLayout>& get_layout()
+    virtual ~MaterialBase() {}
+
+    const Ref<Shader>& get_shader() const
     {
-        return m_layout;
+        return m_shader;
+    }
+
+    Ref<Shader>& get_shader()
+    {
+        return m_shader;
+    }
+
+    size_t get_push_constant_size() const
+    {
+        return m_push_constant_size;
+    }
+
+    bool has_param_changed() const
+    {
+        return m_param_changed;
+    }
+
+    void set_param(const std::string& name, const Ref<Buffer>& buffer);
+    void set_param(const std::string& name, const Ref<Texture>& texture);
+
+    const MaterialParamCache& get_param(const std::string& name) const;
+
+    void clear_param_changed();
+
+private:
+    Ref<Shader> m_shader;
+    size_t m_push_constant_size;
+    std::map<std::string, MaterialParamCache> m_caches;
+
+    bool m_param_changed : 1;
+};
+
+enum class MaterialFlagBits
+{
+    None,
+    Transparency = 1 << 0,
+    DrawBeforeEverything = 1 << 1,
+};
+using MaterialFlags = Flags<MaterialFlagBits>;
+DEFINE_FLAG_TRAITS(MaterialFlagBits);
+
+// TODO: push_constant_size could be determined while compiling the shader.
+class Material : public MaterialBase
+{
+    CLASS(Material, MaterialBase);
+
+public:
+    static Ref<Material> create(const Ref<Shader>& shader, size_t push_constant_size = 0, std::optional<InstanceLayout> instance_layout = std::nullopt, MaterialFlags flags = MaterialFlagBits::None, PolygonMode polygon_mode = PolygonMode::Fill, CullMode cull_mode = CullMode::Back);
+
+    Material(const Ref<Shader>& shader, size_t push_constant_size, std::optional<InstanceLayout> instance_layout, MaterialFlags flags, PolygonMode polygon_mode, CullMode cull_mode)
+        : MaterialBase(shader, push_constant_size), m_instance_layout(instance_layout), m_flags(flags), m_polygon_mode(polygon_mode), m_cull_mode(cull_mode)
+    {
     }
 
     virtual ~Material() {}
 
-protected:
-    Ref<MaterialLayout> m_layout;
+    std::optional<InstanceLayout> get_instance_layout() const
+    {
+        return m_instance_layout;
+    }
+
+    PolygonMode get_polygon_mode() const
+    {
+        return m_polygon_mode;
+    }
+
+    CullMode get_cull_mode() const
+    {
+        return m_cull_mode;
+    }
+
+    MaterialFlags get_flags() const
+    {
+        return m_flags;
+    }
+
+private:
+    std::optional<InstanceLayout> m_instance_layout;
+    MaterialFlags m_flags;
+    PolygonMode m_polygon_mode;
+    CullMode m_cull_mode;
+};
+
+/**
+ * @brief Type of material used for compute operations.
+ */
+class ComputeMaterial : public MaterialBase
+{
+    CLASS(ComputeMaterial, MaterialBase);
+
+public:
+    static Ref<ComputeMaterial> create(const Ref<Shader>& shader, size_t push_constant_size = 0);
+
+    ComputeMaterial(Ref<Shader> shader, size_t push_constant_size)
+        : MaterialBase(shader, push_constant_size)
+    {
+    }
+
+    virtual ~ComputeMaterial() {}
 };
 
 struct RenderPassColorAttachment
@@ -300,7 +373,7 @@ public:
      * @param visibility
      */
     [[nodiscard]]
-    virtual Result<Ref<Buffer>> create_buffer(size_t size, BufferUsageFlags flags = {}, BufferVisibility visibility = BufferVisibility::GPUOnly) = 0;
+    virtual Result<Ref<Buffer>> create_buffer(size_t size, BufferUsageFlags flags = BufferUsageFlagBits::None, BufferVisibility visibility = BufferVisibility::GPUOnly) = 0;
 
     /**
      * @brief Update the content of a buffer.
@@ -318,48 +391,17 @@ public:
      * @param visibility
      */
     [[nodiscard]]
-    virtual Result<Ref<Buffer>> create_buffer_from_data(size_t size, View<uint8_t> data, BufferUsageFlags flags = {}, BufferVisibility visibility = BufferVisibility::GPUOnly);
+    virtual Result<Ref<Buffer>> create_buffer_from_data(size_t size, View<uint8_t> data, BufferUsageFlags flags = BufferUsageFlagBits::None, BufferVisibility visibility = BufferVisibility::GPUOnly);
 
     /**
-     * @brief Create a 2D texture on the GPU.
+     * @brief Create texture stored on the GPU.
      * @param width Pixel width of the texture
      * @param height Pixel height of the texture
      * @param format Format of the pixel
      * @param usage
      */
     [[nodiscard]]
-    virtual Result<Ref<Texture>> create_texture(uint32_t width, uint32_t height, TextureFormat format, TextureUsageFlags usage) = 0;
-
-    /**
-     * @brief Create an array of 2D texture on the GPU.
-     * @param width Pixel width of the texture
-     * @param height Pixel height of the texture
-     * @param format Format of the pixel
-     * @param usage
-     * @param layers How many texture in the array
-     */
-    [[nodiscard]]
-    virtual Result<Ref<Texture>> create_texture_array(uint32_t width, uint32_t height, TextureFormat format, TextureUsageFlags usage, uint32_t layers) = 0;
-
-    [[nodiscard]]
-    virtual Result<Ref<Texture>> create_texture_cube(uint32_t width, uint32_t height, TextureFormat format, TextureUsageFlags usage) = 0;
-
-    /**
-     * @brief Create a mesh on the GPU.
-     * @param index_type Type of indices used for this mesh.
-     * @param indices Indices of the mesh. Must be an array of `uint32_t` if index_type is `IndexType::U32` or `uint16_t` if index_type is `IndexType::U16`.
-     * @param vertices Vertices of the mesh.
-     * @param uvs Texture coordinates (UV) of the mesh.
-     * @param normals Normals of the mesh.
-     */
-    [[nodiscard]]
-    virtual Result<Ref<Mesh>> create_mesh(IndexType index_type, View<uint8_t> indices, View<glm::vec3> vertices, View<glm::vec2> uvs, View<glm::vec3> normals) = 0;
-
-    [[nodiscard]]
-    virtual Result<Ref<MaterialLayout>> create_material_layout(Ref<Shader> shader, MaterialFlags flags = {}, std::optional<InstanceLayout> instance_layout = std::nullopt, CullMode cull_mode = CullMode::Back, PolygonMode polygon_mode = PolygonMode::Fill) = 0;
-
-    [[nodiscard]]
-    virtual Result<Ref<Material>> create_material(const Ref<MaterialLayout>& layout) = 0;
+    virtual Result<Ref<Texture>> create_texture(uint32_t width, uint32_t height, TextureFormat format, TextureUsageFlags usage, TextureDimension dimension = TextureDimension::D2D, uint32_t layers = 1) = 0;
 
     /**
      * @brief Draw a frame using a `RenderGraph`.
@@ -379,4 +421,45 @@ protected:
 
 private:
     static inline RenderingDriver *singleton = nullptr;
+};
+
+template <typename Value, typename Key>
+class Cache
+{
+public:
+    const Value& get(const Key& key) const
+    {
+        const auto& iter = m_objects.find(key);
+        if (iter != m_objects.end())
+        {
+            return iter.second;
+        }
+        else
+        {
+            Value obj = create_object(key);
+            m_objects[key] = obj;
+            return m_objects[key];
+        }
+    }
+
+    Value& get(const Key& key)
+    {
+        const auto& iter = m_objects.find(key);
+        if (iter != m_objects.end())
+        {
+            return iter->second;
+        }
+        else
+        {
+            Value obj = create_object(key);
+            m_objects[key] = obj;
+            return m_objects[key];
+        }
+    }
+
+protected:
+    virtual Value create_object(const Key& key) = 0;
+
+private:
+    std::map<Key, Value> m_objects;
 };

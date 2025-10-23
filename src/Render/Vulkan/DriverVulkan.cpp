@@ -236,53 +236,28 @@ static vk::SamplerCreateInfo convert_sampler(SamplerDescriptor sampler)
         vk::False);
 }
 
-Result<vk::Pipeline> PipelineCache::get_or_create(Ref<Material> material, vk::RenderPass render_pass, bool depth_pass, bool use_previous_depth_pass)
+vk::Pipeline GraphicsPipelineCache::create_object(const GraphicsPipelineCacheKey& key)
 {
-    ZoneScoped;
+    // TODO: Check errors
+    const Ref<Material>& material = key.material;
+    MaterialLayoutCacheValue value = RenderingDriverVulkan::get()->get_material_layout_cache().get(MaterialLayoutCacheKey{.material = key.material});
 
-    PipelineCache::Key key{.material = material, .render_pass = render_pass, .depth_pass = depth_pass, .use_previous_depth_pass = use_previous_depth_pass};
-    auto iter = std::find_if(m_pipelines.begin(), m_pipelines.end(), [material, render_pass, depth_pass, use_previous_depth_pass](auto p)
-                             { return p.first.material.ptr() == material.ptr() && (VkRenderPass)p.first.render_pass == (VkRenderPass)render_pass && p.first.depth_pass == depth_pass && p.first.use_previous_depth_pass == use_previous_depth_pass; });
+    auto pipeline_result = RenderingDriverVulkan::get()->create_graphics_pipeline(material->get_shader(), material->get_instance_layout(), convert_polygon_mode(material->get_polygon_mode()), convert_cull_mode(material->get_cull_mode()), material->get_flags(), value.pipeline_layout, key.render_pass, key.use_previous_depth_pass);
+    // YEET(pipeline_result);
 
-    if (iter != m_pipelines.end())
-    {
-        return iter->second;
-    }
-    else
-    {
-        Ref<MaterialLayoutVulkan> layout = material->get_layout().cast_to<MaterialLayoutVulkan>();
-
-        auto pipeline_result = RenderingDriverVulkan::get()->create_graphics_pipeline(layout->m_shader, layout->m_instance_layout, layout->m_polygon_mode, layout->m_cull_mode, layout->m_flags, layout->m_pipeline_layout, render_pass, use_previous_depth_pass);
-        YEET(pipeline_result);
-
-        m_pipelines[key] = pipeline_result.value();
-        return pipeline_result.value();
-    }
+    return pipeline_result.value();
 }
 
-Result<vk::Pipeline> PipelineCache::get_compute(const Ref<Material>& material)
+vk::Pipeline ComputePipelineCache::create_object(const ComputePipelineCacheKey& key)
 {
-    ZoneScoped;
+    // TODO: Check errors
+    const Ref<Material>& material = key.material;
+    MaterialLayoutCacheValue value = RenderingDriverVulkan::get()->get_material_layout_cache().get(MaterialLayoutCacheKey{.compute_material = key.material});
 
-    PipelineCache::Key key{.material = material, .render_pass = nullptr, .depth_pass = false, .use_previous_depth_pass = false};
-    auto iter = std::find_if(m_pipelines.begin(), m_pipelines.end(), [material](auto p)
-                             { return p.first.material.ptr() == material.ptr() && (VkRenderPass)p.first.render_pass == nullptr && p.first.depth_pass == false && p.first.use_previous_depth_pass == false; });
+    auto pipeline_result = RenderingDriverVulkan::get()->create_compute_pipeline(material->get_shader(), value.pipeline_layout);
+    // YEET(pipeline_result);
 
-    if (iter != m_pipelines.end())
-    {
-        return iter->second;
-    }
-    else
-    {
-        Ref<MaterialLayoutVulkan> layout = material->get_layout().cast_to<MaterialLayoutVulkan>();
-
-        Ref<Shader> shader = layout->m_shader;
-        Result<vk::Pipeline> pipeline_result = RenderingDriverVulkan::get()->create_compute_pipeline(shader, layout->m_pipeline_layout);
-        YEET(pipeline_result);
-
-        m_pipelines[key] = pipeline_result.value();
-        return pipeline_result.value();
-    }
+    return pipeline_result.value();
 }
 
 Result<vk::Sampler> SamplerCache::get_or_create(SamplerDescriptor sampler)
@@ -538,6 +513,67 @@ Result<Ref<Buffer>> StagingBufferPool::get_or_create(size_t size, BufferUsageFla
         Ref<Buffer> buffer = result.value();
         return buffer;
     }
+}
+
+static std::vector<vk::DescriptorSetLayoutBinding> convert_bindings(Ref<Shader> shader)
+{
+    std::vector<vk::DescriptorSetLayoutBinding> bindings;
+    bindings.reserve(shader->get_bindings().size());
+
+    for (const auto& binding_pair : shader->get_bindings())
+    {
+        const Binding& binding = binding_pair.second;
+
+        // TODO: Support multiple groups ?
+        if (binding.group != 0)
+        {
+            continue;
+        }
+
+        // vk::ShaderStageFlags shader_stage = convert_shader_stage_mask(binding.shader_stage);
+        vk::ShaderStageFlags shader_stage = vk::ShaderStageFlagBits::eAll;
+
+        switch (binding.kind)
+        {
+        case BindingKind::Texture:
+            bindings.push_back(vk::DescriptorSetLayoutBinding(binding.binding, vk::DescriptorType::eCombinedImageSampler, 1, shader_stage, nullptr));
+            break;
+        case BindingKind::UniformBuffer:
+            bindings.push_back(vk::DescriptorSetLayoutBinding(binding.binding, vk::DescriptorType::eUniformBuffer, 1, shader_stage, nullptr));
+            break;
+        case BindingKind::StorageBuffer:
+            bindings.push_back(vk::DescriptorSetLayoutBinding(binding.binding, vk::DescriptorType::eStorageBuffer, 1, shader_stage, nullptr));
+        }
+    }
+
+    return bindings;
+}
+
+MaterialLayoutCacheValue MaterialLayoutCache::create_object(const MaterialLayoutCacheKey& key)
+{
+    // TODO: Just replace this by an abstract class MaterialBase.
+    const bool is_graphics = key.compute_material.is_null();
+    Ref<Shader> shader = is_graphics ? key.material->get_shader() : key.compute_material->get_shader();
+    size_t push_constant_size = is_graphics ? key.material->get_push_constant_size() : key.compute_material->get_push_constant_size();
+
+    // TODO: Add error checks
+    std::vector<vk::DescriptorSetLayoutBinding> bindings = convert_bindings(key.material->get_shader());
+
+    auto layout_result = RenderingDriverVulkan::get()->get_device().createDescriptorSetLayout(vk::DescriptorSetLayoutCreateInfo({}, bindings));
+    // YEET_RESULT(layout_result);
+
+    auto pool_result = DescriptorPool::create(layout_result.value, key.material->get_shader());
+    // YEET(pool_result);
+
+    std::array<vk::PushConstantRange, 1> push_constant_ranges{
+        vk::PushConstantRange(vk::ShaderStageFlagBits::eVertex, 0, push_constant_size),
+    };
+    std::array<vk::DescriptorSetLayout, 1> descriptor_set_layouts{layout_result.value};
+
+    auto pipeline_layout_result = RenderingDriverVulkan::get()->get_device().createPipelineLayout(vk::PipelineLayoutCreateInfo({}, descriptor_set_layouts, push_constant_ranges));
+    // YEET_RESULT(pipeline_layout_result);
+
+    return MaterialLayoutCacheValue{.descriptor_pool = pool_result.value(), .bind_group_layout = layout_result.value, .pipeline_layout = pipeline_layout_result.value};
 }
 
 Result<> RenderingDriverVulkan::initialize(const Window& window, bool enable_validation)
@@ -850,13 +886,6 @@ void RenderingDriverVulkan::destroy_swapchain()
 
 void RenderingDriverVulkan::poll()
 {
-#ifdef __has_shader_hot_reload
-    for (auto& shader : Shader::shaders)
-    {
-        shader->reload_if_needed();
-    }
-#endif
-
 #ifdef __has_debug_menu
     ImGui_ImplSDL3_NewFrame();
     ImGui_ImplVulkan_NewFrame();
@@ -1019,94 +1048,30 @@ Result<Ref<Texture>> RenderingDriverVulkan::create_texture_cube(uint32_t width, 
     return make_ref<TextureVulkan>(image_result.value, memory_result.value(), image_view_result.value, width, height, width * height * size_of(format), aspect_mask, 1, true).cast_to<Texture>();
 }
 
-Result<Ref<Mesh>> RenderingDriverVulkan::create_mesh(IndexType index_type, View<uint8_t> indices, View<glm::vec3> vertices, View<glm::vec2> uvs, View<glm::vec3> normals)
+Result<Ref<Material>> RenderingDriverVulkan::create_material(Ref<Shader> shader, MaterialFlags flags, size_t push_constant_size, std::optional<InstanceLayout> instance_layout, CullMode cull_mode, PolygonMode polygon_mode)
 {
-    const size_t vertex_count = indices.size() / size_of(index_type);
+    Ref<MaterialVulkan> material = make_ref<MaterialVulkan>(shader, push_constant_size, instance_layout, flags, polygon_mode, cull_mode);
 
-    auto index_buffer_result = create_buffer(indices.size(), BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Index);
-    YEET(index_buffer_result);
-    Ref<Buffer> index_buffer = index_buffer_result.value();
-
-    auto vertex_buffer_result = create_buffer(vertices.size() * sizeof(glm::vec3), BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Vertex);
-    YEET(vertex_buffer_result);
-    Ref<Buffer> vertex_buffer = vertex_buffer_result.value();
-
-    auto normal_buffer_result = create_buffer(normals.size() * sizeof(glm::vec3), BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Vertex);
-    YEET(normal_buffer_result);
-    Ref<Buffer> normal_buffer = normal_buffer_result.value();
-
-    auto uv_buffer_result = create_buffer(uvs.size() * sizeof(glm::vec2), BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Vertex);
-    YEET(uv_buffer_result);
-    Ref<Buffer> uv_buffer = uv_buffer_result.value();
-
-    RenderingDriver::get()->update_buffer(index_buffer, indices.as_bytes(), 0);
-    RenderingDriver::get()->update_buffer(vertex_buffer, vertices.as_bytes(), 0);
-    RenderingDriver::get()->update_buffer(normal_buffer, normals.as_bytes(), 0);
-    RenderingDriver::get()->update_buffer(uv_buffer, uvs.as_bytes(), 0);
-
-    return make_ref<Mesh>(vertex_count, index_type, index_buffer, vertex_buffer, normal_buffer, uv_buffer);
-}
-
-Result<Ref<MaterialLayout>> RenderingDriverVulkan::create_material_layout(Ref<Shader> shader, MaterialFlags flags, std::optional<InstanceLayout> instance_layout, CullMode cull_mode, PolygonMode polygon_mode)
-{
-    std::vector<vk::DescriptorSetLayoutBinding> bindings;
-    bindings.reserve(shader->get_bindings().size());
-
-    for (const auto& binding_pair : shader->get_bindings())
-    {
-        const Binding& binding = binding_pair.second;
-
-        // TODO: Support multiple groups ?
-        if (binding.group != 0)
-        {
-            continue;
-        }
-
-        // vk::ShaderStageFlags shader_stage = convert_shader_stage_mask(binding.shader_stage);
-        vk::ShaderStageFlags shader_stage = vk::ShaderStageFlagBits::eAll;
-
-        switch (binding.kind)
-        {
-        case BindingKind::Texture:
-        {
-            bindings.push_back(vk::DescriptorSetLayoutBinding(binding.binding, vk::DescriptorType::eCombinedImageSampler, 1, shader_stage, nullptr));
-        }
-        break;
-        case BindingKind::UniformBuffer:
-        {
-            bindings.push_back(vk::DescriptorSetLayoutBinding(binding.binding, vk::DescriptorType::eUniformBuffer, 1, shader_stage, nullptr));
-        }
-        break;
-        case BindingKind::PushConstants:
-            break;
-        }
-    }
-
-    auto layout_result = RenderingDriverVulkan::get()->get_device().createDescriptorSetLayout(vk::DescriptorSetLayoutCreateInfo({}, bindings));
-    YEET_RESULT(layout_result);
-
-    auto pool_result = DescriptorPool::create(layout_result.value, shader);
-    YEET(pool_result);
-
-    std::array<vk::PushConstantRange, 1> push_constant_ranges{
-        vk::PushConstantRange(vk::ShaderStageFlagBits::eVertex, 0, sizeof(glm::mat4) * 2), // TODO: Don't harcode size
-    };
-    std::array<vk::DescriptorSetLayout, 1> descriptor_set_layouts{layout_result.value};
-
-    auto pipeline_layout_result = RenderingDriverVulkan::get()->get_device().createPipelineLayout(vk::PipelineLayoutCreateInfo({}, descriptor_set_layouts, push_constant_ranges));
-    YEET_RESULT(pipeline_layout_result);
-
-    return make_ref<MaterialLayoutVulkan>(layout_result.value, pool_result.value(), shader, instance_layout, convert_polygon_mode(polygon_mode), convert_cull_mode(cull_mode), flags, pipeline_layout_result.value).cast_to<MaterialLayout>();
-}
-
-Result<Ref<Material>> RenderingDriverVulkan::create_material(const Ref<MaterialLayout>& layout)
-{
-    Ref<MaterialLayoutVulkan> layout_vk = layout.cast_to<MaterialLayoutVulkan>();
-
-    auto set_result = layout_vk->m_descriptor_pool.allocate();
+    DescriptorPool& descriptor_pool = get_material_layout_cache().get(MaterialLayoutCacheKey{.material = material}).descriptor_pool;
+    auto set_result = descriptor_pool.allocate();
     YEET(set_result);
 
-    return make_ref<MaterialVulkan>(layout, set_result.value()).cast_to<Material>();
+    material->descriptor_set = set_result.value();
+
+    return material.cast_to<Material>();
+}
+
+Result<Ref<ComputeMaterial>> RenderingDriverVulkan::create_compute_material(Ref<Shader> shader, size_t push_constant_size)
+{
+    Ref<ComputeMaterialVulkan> material = make_ref<ComputeMaterialVulkan>(shader, push_constant_size);
+
+    DescriptorPool& descriptor_pool = get_material_layout_cache().get(MaterialLayoutCacheKey{.compute_material = material}).descriptor_pool;
+    auto set_result = descriptor_pool.allocate();
+    YEET(set_result);
+
+    material->descriptor_set = set_result.value();
+
+    return material.cast_to<ComputeMaterial>();
 }
 
 void RenderingDriverVulkan::draw_graph(const RenderGraph& graph)
@@ -1172,7 +1137,7 @@ void RenderingDriverVulkan::draw_graph(const RenderGraph& graph)
     // cb.pipelineBarrier(vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eBottomOfPipe, vk::DependencyFlagBits::eByRegion, {barrier}, {}, {});
 
     vk::RenderPass current_render_pass;
-    Ref<MaterialVulkan> material_bind;
+    Ref<MaterialBase> material_bind;
 
     uint32_t render_pass_index = 0;
     bool depth_pass = false;
@@ -1253,49 +1218,6 @@ void RenderingDriverVulkan::draw_graph(const RenderGraph& graph)
             depth_pass = false;
             use_previous_depth_pass = false;
         }
-        else if (std::holds_alternative<DrawInstruction>(instruction))
-        {
-            ZoneScopedN("draw_graph.draw");
-
-            const DrawInstruction& draw = std::get<DrawInstruction>(instruction);
-
-            Ref<Mesh> mesh = draw.mesh;
-            Ref<MaterialVulkan> material = draw.material.cast_to<MaterialVulkan>();
-
-            const Ref<MaterialLayoutVulkan>& material_layout = material->get_layout().cast_to<MaterialLayoutVulkan>();
-
-            std::optional<Ref<Buffer>> instance_buffer = draw.instance_buffer;
-
-            Result<vk::Pipeline> pipeline_result = m_pipeline_cache.get_or_create(material, current_render_pass, depth_pass, use_previous_depth_pass);
-            ERR_EXPECT_B(pipeline_result, "Pipeline creation failed");
-
-            cb.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline_result.value());
-            cb.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, material_layout->m_pipeline_layout, 0, {material->descriptor_set}, {});
-
-            Ref<BufferVulkan> index_buffer = mesh->get_buffer(MeshBufferKind::Index).cast_to<BufferVulkan>();
-            Ref<BufferVulkan> vertex_buffer = mesh->get_buffer(MeshBufferKind::Position).cast_to<BufferVulkan>();
-            Ref<BufferVulkan> normal_buffer = mesh->get_buffer(MeshBufferKind::Normal).cast_to<BufferVulkan>();
-            Ref<BufferVulkan> uv_buffer = mesh->get_buffer(MeshBufferKind::UV).cast_to<BufferVulkan>();
-
-            cb.bindIndexBuffer(index_buffer->buffer, 0, convert_index_type(mesh->index_type()));
-            cb.bindVertexBuffers(0, {vertex_buffer->buffer, normal_buffer->buffer, uv_buffer->buffer}, {0, 0, 0});
-
-            if (instance_buffer.has_value())
-            {
-                cb.bindVertexBuffers(3, {(instance_buffer.value().cast_to<BufferVulkan>())->buffer}, {0});
-            }
-
-            cb.setViewport(0, {vk::Viewport(0.0, 0.0, (float)m_surface_extent.width, (float)m_surface_extent.height, 0.0, 1.0)});
-            cb.setScissor(0, {vk::Rect2D({0, 0}, {m_surface_extent.width, m_surface_extent.height})});
-
-            PushConstants push_constants{
-                .view_matrix = glm::transpose(draw.view_matrix),
-            };
-
-            cb.pushConstants(material_layout->m_pipeline_layout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(PushConstants), &push_constants);
-
-            cb.drawIndexed(mesh->vertex_count(), draw.instance_count, 0, 0, 0);
-        }
         else if (std::holds_alternative<ImGuiDrawInstruction>(instruction))
         {
 #ifdef __has_debug_menu
@@ -1309,16 +1231,37 @@ void RenderingDriverVulkan::draw_graph(const RenderGraph& graph)
         {
             const BindMaterialInstruction& bind = std::get<BindMaterialInstruction>(instruction);
 
-            Ref<MaterialVulkan> material = bind.material.cast_to<MaterialVulkan>();
-            const Ref<MaterialLayoutVulkan>& material_layout = material->get_layout().cast_to<MaterialLayoutVulkan>();
+            vk::Pipeline pipeline;
+            vk::PipelineLayout pipeline_layout;
+            vk::DescriptorSet descriptor_set;
 
-            Result<vk::Pipeline> pipeline_result = m_pipeline_cache.get_or_create(material, current_render_pass, depth_pass, use_previous_depth_pass);
-            ERR_EXPECT_B(pipeline_result, "Pipeline creation failed");
+            if (Ref<MaterialVulkan> material = bind.material.cast_to<MaterialVulkan>())
+            {
+                const MaterialLayoutCacheValue& value = get_material_layout_cache().get(MaterialLayoutCacheKey{.material = material});
 
-            cb.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline_result.value());
-            cb.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, material_layout->m_pipeline_layout, 0, {material->descriptor_set}, {});
+                Result<vk::Pipeline> pipeline_result = m_pipeline_cache.get(GraphicsPipelineCacheKey{.material = material, .render_pass = current_render_pass, .depth_pass = depth_pass, .use_previous_depth_pass = use_previous_depth_pass});
+                ERR_EXPECT_B(pipeline_result, "Pipeline creation failed");
 
-            material_bind = material;
+                pipeline = pipeline_result.value();
+                pipeline_layout = value.pipeline_layout;
+                descriptor_set = material->descriptor_set;
+            }
+            else if (Ref<ComputeMaterialVulkan> material = bind.material.cast_to<ComputeMaterialVulkan>())
+            {
+                const MaterialLayoutCacheValue& value = get_material_layout_cache().get(MaterialLayoutCacheKey{.compute_material = material});
+
+                Result<vk::Pipeline> pipeline_result = m_compute_pipeline_cache.get(ComputePipelineCacheKey{.material = material});
+                ERR_EXPECT_B(pipeline_result, "Pipeline creation failed");
+
+                pipeline = pipeline_result.value();
+                pipeline_layout = value.pipeline_layout;
+                descriptor_set = material->descriptor_set;
+            }
+
+            cb.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline);
+            cb.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipeline_layout, 0, {descriptor_set}, {});
+
+            material_bind = bind.material;
         }
         else if (std::holds_alternative<BindIndexBufferInstruction>(instruction))
         {
@@ -1339,13 +1282,13 @@ void RenderingDriverVulkan::draw_graph(const RenderGraph& graph)
             ASSERT(!material_bind.is_null(), "A material must be bound to push constants");
 
             const PushConstantsInstruction& push_constant = std::get<PushConstantsInstruction>(instruction);
-            const Ref<MaterialLayoutVulkan>& material_layout = material_bind->get_layout().cast_to<MaterialLayoutVulkan>();
+            const MaterialLayoutCacheValue value = get_material_layout_cache().get(MaterialLayoutCacheKey{.material = material_bind});
 
-            cb.pushConstants(material_layout->m_pipeline_layout, vk::ShaderStageFlagBits::eVertex, 0, push_constant.buffer.size(), push_constant.buffer.data());
+            cb.pushConstants(value.pipeline_layout, vk::ShaderStageFlagBits::eVertex, 0, push_constant.buffer.size(), push_constant.buffer.data());
         }
-        else if (std::holds_alternative<Draw2Instruction>(instruction))
+        else if (std::holds_alternative<DrawInstruction>(instruction))
         {
-            const Draw2Instruction& draw = std::get<Draw2Instruction>(instruction);
+            const DrawInstruction& draw = std::get<DrawInstruction>(instruction);
 
             cb.setViewport(0, {vk::Viewport(0.0, 0.0, (float)m_surface_extent.width, (float)m_surface_extent.height, 0.0, 1.0)});
             cb.setScissor(0, {vk::Rect2D({0, 0}, {m_surface_extent.width, m_surface_extent.height})});
@@ -1357,6 +1300,9 @@ void RenderingDriverVulkan::draw_graph(const RenderGraph& graph)
             const DispatchInstruction& dispatch = std::get<DispatchInstruction>(instruction);
 
             cb.dispatch(dispatch.group_x, dispatch.group_y, dispatch.group_z);
+
+            vk::MemoryBarrier barrier(vk::AccessFlagBits::eMemoryRead, vk::AccessFlagBits::eMemoryRead);
+            cb.pipelineBarrier(vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eBottomOfPipe, vk::DependencyFlagBits::eByRegion, {barrier}, {}, {});
         }
     }
 
@@ -1423,7 +1369,7 @@ Result<vk::Pipeline> RenderingDriverVulkan::create_graphics_pipeline(const Ref<S
 
     vk::PipelineColorBlendAttachmentState color_blend_state{};
 
-    if (!flags.transparency)
+    if (!flags.has_any(MaterialFlagBits::Transparency))
     {
         color_blend_state.blendEnable = vk::False;
         color_blend_state.srcColorBlendFactor = vk::BlendFactor::eOne;
@@ -1446,7 +1392,7 @@ Result<vk::Pipeline> RenderingDriverVulkan::create_graphics_pipeline(const Ref<S
         color_blend_state.colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
     }
 
-    vk::CompareOp depth_compare_op = previous_depth_pass ? vk::CompareOp::eEqual : (flags.priority == PriorityNormal ? vk::CompareOp::eLess : vk::CompareOp::eLessOrEqual);
+    vk::CompareOp depth_compare_op = previous_depth_pass ? vk::CompareOp::eEqual : (!flags.has_any(MaterialFlagBits::DrawBeforeEverything) ? vk::CompareOp::eLess : vk::CompareOp::eLessOrEqual);
 
     vk::PipelineColorBlendStateCreateInfo blend_info({}, vk::False, vk::LogicOp::eCopy, {color_blend_state});
     vk::PipelineDepthStencilStateCreateInfo depth_info({}, vk::True, vk::True, depth_compare_op, vk::False, vk::False, {}, {}, 0.0, 1.0);
@@ -1786,10 +1732,11 @@ Result<DescriptorPool> DescriptorPool::create(vk::DescriptorSetLayout layout, Re
 {
     uint32_t image_sampler_count = 0;
     uint32_t uniform_buffer_count = 0;
+    uint32_t storage_buffer_count = 0;
 
-    for (const auto& binding : shader->get_bindings())
+    for (const auto& [key, binding] : shader->get_bindings())
     {
-        switch (binding.second.kind)
+        switch (binding.kind)
         {
         case BindingKind::Texture:
             image_sampler_count += 1;
@@ -1797,18 +1744,19 @@ Result<DescriptorPool> DescriptorPool::create(vk::DescriptorSetLayout layout, Re
         case BindingKind::UniformBuffer:
             uniform_buffer_count += 1;
             break;
+        case BindingKind::StorageBuffer:
+            storage_buffer_count += 1;
+            break;
         }
     }
 
     std::vector<vk::DescriptorPoolSize> sizes;
     if (image_sampler_count > 0)
-    {
         sizes.push_back(vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, image_sampler_count));
-    }
     if (uniform_buffer_count > 0)
-    {
         sizes.push_back(vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, uniform_buffer_count));
-    }
+    if (storage_buffer_count > 0)
+        sizes.push_back(vk::DescriptorPoolSize(vk::DescriptorType::eStorageBuffer, storage_buffer_count));
 
     auto pool_result = RenderingDriverVulkan::get()->get_device().createDescriptorPool(vk::DescriptorPoolCreateInfo({}, max_sets, sizes.size(), sizes.data()));
     YEET_RESULT(pool_result);
@@ -1847,24 +1795,16 @@ Result<> DescriptorPool::add_pool()
     return 0;
 }
 
-MaterialLayoutVulkan::~MaterialLayoutVulkan()
-{
-    RenderingDriverVulkan::get()->get_device().destroyPipelineLayout(m_pipeline_layout);
-    RenderingDriverVulkan::get()->get_device().destroyDescriptorSetLayout(m_descriptor_set_layout);
-}
-
 void MaterialVulkan::set_param(const std::string& name, const Ref<Texture>& texture)
 {
-    Ref<MaterialLayoutVulkan> layout_vk = m_layout.cast_to<MaterialLayoutVulkan>();
-
-    std::optional<Binding> binding_result = layout_vk->m_shader->get_binding(name);
+    std::optional<Binding> binding_result = get_shader()->get_binding(name);
     ERR_COND_VR(!binding_result.has_value(), "Invalid parameter name `{}`", name);
 
     Binding binding = binding_result.value();
 
     Ref<TextureVulkan> texture_vk = texture.cast_to<TextureVulkan>();
 
-    SamplerDescriptor sampler_desc = layout_vk->m_shader->get_sampler(name);
+    SamplerDescriptor sampler_desc = get_shader()->get_sampler(name);
 
     auto sampler_result = RenderingDriverVulkan::get()->get_sampler_cache().get_or_create(sampler_desc);
     ERR_COND_V(!sampler_result.has_value(), "Failed to create sampler for parameter `%s`", name.c_str());
@@ -1877,9 +1817,42 @@ void MaterialVulkan::set_param(const std::string& name, const Ref<Texture>& text
 
 void MaterialVulkan::set_param(const std::string& name, const Ref<Buffer>& buffer)
 {
-    Ref<MaterialLayoutVulkan> layout_vk = m_layout.cast_to<MaterialLayoutVulkan>();
+    std::optional<Binding> binding_result = get_shader()->get_binding(name);
+    ERR_COND_VR(!binding_result.has_value(), "Invalid parameter name `{}`", name);
 
-    std::optional<Binding> binding_result = layout_vk->m_shader->get_binding(name);
+    Binding binding = binding_result.value();
+
+    Ref<BufferVulkan> buffer_vk = buffer.cast_to<BufferVulkan>();
+
+    vk::DescriptorBufferInfo buffer_info(buffer_vk->buffer, 0, buffer_vk->size());
+    vk::WriteDescriptorSet write_buffer(descriptor_set, binding.binding, 0, 1, vk::DescriptorType::eUniformBuffer, nullptr, &buffer_info, nullptr);
+
+    RenderingDriverVulkan::get()->get_device().updateDescriptorSets({write_buffer}, {});
+}
+
+void ComputeMaterialVulkan::set_param(const std::string& name, const Ref<Texture>& texture)
+{
+    std::optional<Binding> binding_result = get_shader()->get_binding(name);
+    ERR_COND_VR(!binding_result.has_value(), "Invalid parameter name `{}`", name);
+
+    Binding binding = binding_result.value();
+
+    Ref<TextureVulkan> texture_vk = texture.cast_to<TextureVulkan>();
+
+    SamplerDescriptor sampler_desc = get_shader()->get_sampler(name);
+
+    auto sampler_result = RenderingDriverVulkan::get()->get_sampler_cache().get_or_create(sampler_desc);
+    ERR_COND_V(!sampler_result.has_value(), "Failed to create sampler for parameter `%s`", name.c_str());
+
+    vk::DescriptorImageInfo image_info(sampler_result.value(), texture_vk->image_view, vk::ImageLayout::eShaderReadOnlyOptimal);
+    vk::WriteDescriptorSet write_image(descriptor_set, binding.binding, 0, 1, vk::DescriptorType::eCombinedImageSampler, &image_info, nullptr, nullptr);
+
+    RenderingDriverVulkan::get()->get_device().updateDescriptorSets({write_image}, {});
+}
+
+void ComputeMaterialVulkan::set_param(const std::string& name, const Ref<Buffer>& buffer)
+{
+    std::optional<Binding> binding_result = get_shader()->get_binding(name);
     ERR_COND_VR(!binding_result.has_value(), "Invalid parameter name `{}`", name);
 
     Binding binding = binding_result.value();

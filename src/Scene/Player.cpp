@@ -14,24 +14,20 @@ void Player::start()
     m_camera = m_entity->get_child(0)->get_component<Camera>();
 
     // Create a special cube mesh and material to highlight targeted blocks.
-    auto shader_result = Shader::load("assets/shaders/standard_mesh.slang");
-    Ref<Shader> shader = shader_result.value();
+    // auto shader_result = Shader::load("assets/shaders/standard_mesh.slang");
+    // Ref<Shader> shader = shader_result.value();
 
-    Result<Ref<MaterialLayout>> material_layout_result = RenderingDriver::get()->create_material_layout(shader, {.transparency = false, .priority = PriorityBefore}, std::nullopt, CullMode::Back, PolygonMode::Line);
-    EXPECT(material_layout_result);
-    Ref<MaterialLayout> material_layout = material_layout_result.value();
+    // Result<Ref<Material>> material_result = Material::create(shader, sizeof(glm::mat4), std::nullopt, MaterialFlagBits::DrawBeforeEverything, PolygonMode::Line, CullMode::None);
+    // EXPECT(material_result);
+    // Ref<Material> material = material_result.value();
 
-    Result<Ref<Material>> material_result = RenderingDriver::get()->create_material(material_layout);
-    EXPECT(material_result);
-    Ref<Material> material = material_result.value();
+    // Ref<MeshInstance> mesh = make_ref<MeshInstance>(m_cube_mesh, material);
+    // mesh->set_base_color(glm::vec3(1.0, 1.0, 0.0));
 
-    Ref<MeshInstance> mesh = make_ref<MeshInstance>(m_cube_mesh, material);
-    mesh->set_base_color(glm::vec3(1.0, 1.0, 0.0));
-
-    m_cube_highlight = make_ref<Entity>();
-    m_cube_highlight->add_component(make_ref<Transformed3D>());
-    m_cube_highlight->add_component(mesh);
-    m_entity->get_scene()->add_entity(m_cube_highlight);
+    // m_cube_highlight = make_ref<Entity>();
+    // m_cube_highlight->add_component(make_ref<Transformed3D>());
+    // m_cube_highlight->add_component(mesh);
+    // m_entity->get_scene()->add_entity(m_cube_highlight);
 }
 
 void Player::tick(double delta)
@@ -97,13 +93,13 @@ void Player::tick(double delta)
 
             if (!state.is_air())
             {
-                m_cube_highlight->get_component<MeshInstance>()->set_visible(true);
+                // m_cube_highlight->get_component<MeshInstance>()->set_visible(true);
                 on_block_aimed(state, x, y, z, ray.dir());
                 break;
             }
             else
             {
-                m_cube_highlight->get_component<MeshInstance>()->set_visible(false);
+                // m_cube_highlight->get_component<MeshInstance>()->set_visible(false);
             }
 
             t += 0.1;

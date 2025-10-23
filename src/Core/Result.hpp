@@ -53,6 +53,11 @@ public:
         return std::get<T>(m_variant);
     }
 
+    inline T value_or(const T& default_value)
+    {
+        return has_value() ? value() : default_value;
+    }
+
     inline const E& error() const
     {
         return std::get<E>(m_variant);

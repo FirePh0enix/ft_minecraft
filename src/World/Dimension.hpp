@@ -35,12 +35,17 @@ public:
         m_chunks[ChunkPos{.x = x, .z = z}] = chunk;
     }
 
-    auto begin()
+    size_t get_chunk_count() const
+    {
+        return m_chunks.size();
+    }
+
+    std::map<ChunkPos, Ref<Chunk>>::iterator begin()
     {
         return m_chunks.begin();
     }
 
-    auto end()
+    std::map<ChunkPos, Ref<Chunk>>::iterator end()
     {
         return m_chunks.end();
     }
