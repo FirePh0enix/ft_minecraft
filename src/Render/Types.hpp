@@ -43,19 +43,24 @@ enum class BufferUsageFlagBits : uint32_t
     CopyDest = 1 << 1,
 
     /**
-     * @brief The buffer can be used as a uniform in shader.
+     * @brief The buffer can be used as a uniform in shaders.
      */
     Uniform = 1 << 2,
 
     /**
-     * @brief The buffer can be used as a index buffer in shader.
+     * @brief The buffer can be used as a index buffer in shaders.
      */
     Index = 1 << 3,
 
     /**
-     * @brief The buffer can be used as a vertex buffer in shader.
+     * @brief The buffer can be used as a vertex buffer in shaders.
      */
     Vertex = 1 << 4,
+
+    /**
+     * @brief The buffer can be used as a storage buffer in shaders.
+     */
+    Storage = 1 << 5,
 };
 using BufferUsageFlags = Flags<BufferUsageFlagBits>;
 DEFINE_FLAG_TRAITS(BufferUsageFlagBits);

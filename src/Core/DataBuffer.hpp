@@ -2,6 +2,8 @@
 
 #include "Core/Definitions.hpp"
 
+#include <cstring>
+
 class DataBuffer
 {
 public:

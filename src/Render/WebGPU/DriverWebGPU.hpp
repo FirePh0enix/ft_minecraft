@@ -29,6 +29,24 @@ public:
     WGPURenderPipeline create_object(const RenderPipelineCacheKey& key) override;
 };
 
+struct ComputePipelineCacheKey
+{
+    Ref<ComputeMaterial> material = nullptr;
+
+    bool operator<(const ComputePipelineCacheKey& other) const
+    {
+        return material.ptr() < other.material.ptr();
+    }
+};
+
+class ComputePipelineCache : public Cache<WGPUComputePipeline, ComputePipelineCacheKey>
+{
+public:
+    ComputePipelineCache() {}
+
+    WGPUComputePipeline create_object(const ComputePipelineCacheKey& key) override;
+};
+
 class SamplerCache : public Cache<WGPUSampler, SamplerDescriptor>
 {
 public:
@@ -46,7 +64,7 @@ struct MaterialLayoutCacheKey
 
     bool operator<(const MaterialLayoutCacheKey& other) const
     {
-        return std::tie(material) < std::tie(other.material);
+        return material.ptr() < other.material.ptr();
     }
 };
 
@@ -149,6 +167,7 @@ public:
     virtual void draw_graph(const RenderGraph& graph) override;
 
     Result<WGPURenderPipeline> create_render_pipeline(Ref<Shader> shader, std::optional<InstanceLayout> instance_layout, WGPUCullMode cull_mode, MaterialFlags flags, WGPUPipelineLayout pipeline_layout, const std::vector<RenderPassColorAttachment>& color_attachs, bool previous_depth_pass);
+    Result<WGPUComputePipeline> create_compute_pipeline(const Ref<Shader>& shader, WGPUPipelineLayout pipeline_layout);
 
     inline WGPUDevice get_device()
     {
@@ -193,6 +212,7 @@ private:
     Ref<TextureWebGPU> m_depth_texture = nullptr;
 
     RenderPipelineCache m_pipeline_cache;
+    ComputePipelineCache m_compute_pipeline_cache;
     SamplerCache m_sampler_cache;
     MaterialLayoutCache m_material_layout_cache;
     BindGroupCache m_bind_group_cache;
@@ -204,10 +224,11 @@ class BufferWebGPU : public Buffer
     CLASS(BufferWebGPU, Buffer);
 
 public:
-    BufferWebGPU(WGPUBuffer buffer, size_t size)
+    BufferWebGPU(WGPUBuffer buffer, size_t size, BufferUsageFlags usage)
         : buffer(buffer)
     {
         m_size = size;
+        m_usage = usage;
     }
 
     WGPUBuffer buffer;

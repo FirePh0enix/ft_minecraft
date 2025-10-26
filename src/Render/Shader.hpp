@@ -8,6 +8,7 @@
 
 #include <filesystem>
 #include <map>
+#include <optional>
 
 #include <slang-com-helper.h>
 #include <slang-com-ptr.h>
@@ -34,6 +35,8 @@ public:
     static Result<Ref<Shader>> load(const std::filesystem::path& path);
 
     ~Shader();
+
+    Result<> dump_glsl();
 
     SamplerDescriptor get_sampler(const std::string& name) const
     {
@@ -72,6 +75,11 @@ public:
     {
         ERR_COND_V(!has_binding(name) || get_binding(name)->kind != BindingKind::Texture, "binding `{}` is not a texture", name);
         m_samplers[name] = sampler;
+    }
+
+    std::string get_entry_point(ShaderStageFlagBits stage) const
+    {
+        return m_entry_point_names.at(stage);
     }
 
     inline const std::vector<PushConstantRange>& get_push_constants() const
@@ -115,4 +123,6 @@ private:
     std::map<std::string, Binding> m_bindings;
     std::map<std::string, SamplerDescriptor> m_samplers;
     std::vector<PushConstantRange> m_push_constants;
+
+    std::map<ShaderStageFlagBits, std::string> m_entry_point_names;
 };

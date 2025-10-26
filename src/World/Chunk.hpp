@@ -37,6 +37,12 @@ struct BlockInstanceData
     Biome biome : 8;
     GradientType gradient_type;
     uint8_t pad;
+} __attribute__((aligned(16)));
+
+struct ChunkGPUInfo
+{
+    uint32_t chunk_x;
+    uint32_t chunk_z;
 };
 
 class Chunk : public Object
@@ -53,8 +59,17 @@ public:
     {
         m_blocks.resize(block_count);
         m_surface_material = ComputeMaterial::create(shader);
-        m_gpu_blocks = RenderingDriver::get()->create_buffer(block_count * sizeof(Block), BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Uniform).value();
-        m_buffer = RenderingDriver::get()->create_buffer(block_count * sizeof(BlockInstanceData), BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Vertex).value();
+        m_instance_buffer = RenderingDriver::get()->create_buffer(block_count * sizeof(BlockInstanceData), BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Vertex | BufferUsageFlagBits::Storage).value();
+
+        m_gpu_blocks = RenderingDriver::get()->create_buffer(block_count * sizeof(BlockState), BufferUsageFlagBits::Uniform | BufferUsageFlagBits::Storage).value();
+        m_gpu_info = RenderingDriver::get()->create_buffer(sizeof(ChunkGPUInfo), BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Uniform).value();
+
+        ChunkGPUInfo info(x, z);
+        RenderingDriver::get()->update_buffer(m_gpu_info, View(info).as_bytes());
+
+        m_surface_material->set_param("info", m_gpu_info);
+        m_surface_material->set_param("blocks", m_gpu_blocks);
+        m_surface_material->set_param("instances", m_instance_buffer);
     }
 
     inline BlockState get_block(size_t x, size_t y, size_t z) const
@@ -101,9 +116,9 @@ public:
         m_biomes[x + z * width] = biome;
     }
 
-    const Ref<Buffer>& get_buffer() const
+    const Ref<Buffer>& get_instance_buffer() const
     {
-        return m_buffer;
+        return m_instance_buffer;
     }
 
     /**
@@ -125,8 +140,10 @@ private:
     int64_t m_z;
 
     Ref<ComputeMaterial> m_surface_material;
+    Ref<Buffer> m_instance_buffer;
+
     Ref<Buffer> m_gpu_blocks;
-    Ref<Buffer> m_buffer;
+    Ref<Buffer> m_gpu_info;
 
     // TODO: transparent blocks
     uint32_t m_block_count = 0;

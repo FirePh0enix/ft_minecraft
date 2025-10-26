@@ -1,17 +1,17 @@
-#ifdef __has_vulkan
+// #ifdef __has_vulkan
 
-#define VULKAN_HPP_NO_EXCEPTIONS
-#define VULKAN_HPP_DISPATCH_LOADER_DYNAMIC 1
+// #define VULKAN_HPP_NO_EXCEPTIONS
+// #define VULKAN_HPP_DISPATCH_LOADER_DYNAMIC 1
 
-#define VULKAN_HPP_ASSERT_ON_RESULT(X)
+// #define VULKAN_HPP_ASSERT_ON_RESULT(X)
 
-#ifdef __platform_macos
-#define VK_ENABLE_BETA_EXTENSIONS
-#endif
+// #ifdef __platform_macos
+// #define VK_ENABLE_BETA_EXTENSIONS
+// #endif
 
-#include <vulkan/vulkan.hpp>
+// #include <vulkan/vulkan.hpp>
 
-#endif
+// #endif
 
 // #define GLM_FORCE_LEFT_HANDED
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -27,8 +27,8 @@
 
 #include <tracy/Tracy.hpp>
 
-#ifdef __has_vulkan
-#define TRACY_VK_USE_SYMBOL_TABLE
+// #ifdef __has_vulkan
+// #define TRACY_VK_USE_SYMBOL_TABLE
 
-#include <tracy/TracyVulkan.hpp>
-#endif
+// #include <tracy/TracyVulkan.hpp>
+// #endif

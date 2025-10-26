@@ -11,15 +11,9 @@ constexpr uint8_t bottom_mask = 1 << 5;
 
 void Chunk::generate()
 {
-    // RenderGraph& graph = RenderGraph::get();
-    // graph.bind_material(m_surface_material);
-    // graph.dispatch(16, 256, 16);
-
-    // TODO: Add back compute shaders.
-
-    for (size_t x = 0; x < 16; x++)
-        for (size_t z = 0; z < 16; z++)
-            get_block_ref(x, 0, z) = BlockState(BlockRegistry::get_block_id("stone"), GenericData());
+    ComputePassEncoder encoder = RenderGraph::get().compute_pass_begin();
+    encoder.bind_material(m_surface_material);
+    encoder.dispatch(1, 1, 1);
 }
 
 void Chunk::compute_full_visibility(World *world)
@@ -266,6 +260,6 @@ void Chunk::update_instance_buffer()
         }
     }
 
-    RenderingDriver::get()->update_buffer(m_buffer, View(instances).as_bytes(), 0);
+    RenderingDriver::get()->update_buffer(m_instance_buffer, View(instances).as_bytes(), 0);
     m_block_count = instances.size();
 }

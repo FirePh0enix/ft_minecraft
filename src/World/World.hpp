@@ -25,7 +25,7 @@ public:
 
     void set_render_distance(uint32_t distance);
 
-    virtual void encode_draw_calls(RenderGraph& graph, Camera& camera) override;
+    virtual void encode_draw_calls(RenderPassEncoder& encoder, Camera& camera) override;
 
     inline int64_t get_distance() const
     {

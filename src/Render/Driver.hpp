@@ -24,10 +24,16 @@ public:
         return m_size;
     }
 
+    inline BufferUsageFlags flags()
+    {
+        return m_usage;
+    }
+
     virtual ~Buffer() {}
 
 protected:
     size_t m_size;
+    BufferUsageFlags m_usage;
 };
 
 class Texture : public Object
@@ -381,7 +387,7 @@ public:
      * @param view The data to upload to the buffer
      * @param offset Offset of the copy inside the destination buffer
      */
-    virtual void update_buffer(const Ref<Buffer>& dest, View<uint8_t> view, size_t offset) = 0;
+    virtual void update_buffer(const Ref<Buffer>& dest, View<uint8_t> view, size_t offset = 0) = 0;
 
     /**
      * @brief Allocate a buffer in the GPU memory and fill it with `data`.

@@ -203,14 +203,12 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
 
         // depth prepass
         {
-            graph.begin_render_pass({.name = "depth pass", .depth_attachment = RenderPassDepthAttachment{.save = true}});
-            graph.end_render_pass();
+            graph.render_pass_begin({.name = "depth pass", .depth_attachment = RenderPassDepthAttachment{.save = true}});
         }
 
         // main color pass
         {
-            graph.begin_render_pass({.name = "main pass", .color_attachments = {RenderPassColorAttachment{.surface_texture = true}}, .depth_attachment = RenderPassDepthAttachment{.load = true}});
-            graph.end_render_pass();
+            graph.render_pass_begin({.name = "main pass", .color_attachments = {RenderPassColorAttachment{.surface_texture = true}}, .depth_attachment = RenderPassDepthAttachment{.load = true}});
         }
 
         RenderingDriver::get()->draw_graph(graph);
@@ -367,18 +365,16 @@ static void tick()
 
     // depth prepass
     {
-        graph.begin_render_pass({.name = "depth pass", .depth_attachment = RenderPassDepthAttachment{.save = true}});
-        scene->encode_draw_calls(graph);
-        graph.end_render_pass();
+        RenderPassEncoder encoder = graph.render_pass_begin({.name = "depth pass", .depth_attachment = RenderPassDepthAttachment{.save = true}});
+        scene->encode_draw_calls(encoder);
     }
 
     // main color pass
     {
-        graph.begin_render_pass({.name = "main pass", .color_attachments = {RenderPassColorAttachment{.surface_texture = true}}, .depth_attachment = RenderPassDepthAttachment{.load = true}});
-        scene->encode_draw_calls(graph);
+        RenderPassEncoder encoder = graph.render_pass_begin({.name = "main pass", .color_attachments = {RenderPassColorAttachment{.surface_texture = true}}, .depth_attachment = RenderPassDepthAttachment{.load = true}});
+        scene->encode_draw_calls(encoder);
 
-        graph.add_imgui_draw();
-        graph.end_render_pass();
+        // graph.add_imgui_draw();
     }
 
     RenderingDriver::get()->draw_graph(graph);

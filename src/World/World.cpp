@@ -92,7 +92,7 @@ void World::set_render_distance(uint32_t distance)
     m_distance = distance;
 }
 
-void World::encode_draw_calls(RenderGraph& graph, Camera& camera)
+void World::encode_draw_calls(RenderPassEncoder& encoder, Camera& camera)
 {
     ZoneScoped;
 
@@ -110,14 +110,14 @@ void World::encode_draw_calls(RenderGraph& graph, Camera& camera)
         DataBuffer push_constants(sizeof(glm::mat4));
         push_constants.add(view_matrix);
 
-        graph.bind_material(m_material);
-        graph.push_constants(push_constants);
-        graph.bind_index_buffer(m_mesh->get_buffer(MeshBufferKind::Index));
-        graph.bind_vertex_buffer(m_mesh->get_buffer(MeshBufferKind::Position), 0);
-        graph.bind_vertex_buffer(m_mesh->get_buffer(MeshBufferKind::Normal), 1);
-        graph.bind_vertex_buffer(m_mesh->get_buffer(MeshBufferKind::UV), 2);
-        graph.bind_vertex_buffer(chunk->get_buffer(), 3);
-        graph.draw(m_mesh->vertex_count(), chunk->get_block_count());
+        encoder.bind_material(m_material);
+        encoder.push_constants(push_constants);
+        encoder.bind_index_buffer(m_mesh->get_buffer(MeshBufferKind::Index));
+        encoder.bind_vertex_buffer(m_mesh->get_buffer(MeshBufferKind::Position), 0);
+        encoder.bind_vertex_buffer(m_mesh->get_buffer(MeshBufferKind::Normal), 1);
+        encoder.bind_vertex_buffer(m_mesh->get_buffer(MeshBufferKind::UV), 2);
+        encoder.bind_vertex_buffer(chunk->get_instance_buffer(), 3);
+        encoder.draw(m_mesh->vertex_count(), Chunk::block_count);
     }
 }
 

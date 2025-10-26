@@ -150,7 +150,7 @@ if(TARGET_IS_WEB)
 endif()
 
 if(TARGET_IS_LINUX OR TARGET_IS_APPLE OR TARGET_IS_MSVC)
-    target_compile_definitions(${TARGET_NAME} PRIVATE __has_vulkan __has_webgpu)
+    target_compile_definitions(${TARGET_NAME} PRIVATE __has_webgpu)
 elseif(TARGET_IS_WEB)
     target_compile_definitions(${TARGET_NAME} PRIVATE __has_webgpu)
 endif()

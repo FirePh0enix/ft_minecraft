@@ -37,16 +37,16 @@ public:
         return m_material;
     }
 
-    virtual void encode_draw_calls(RenderGraph& graph, Camera& camera) override
+    virtual void encode_draw_calls(RenderPassEncoder& encoder, Camera& camera) override
     {
         if (is_visible())
         {
-            graph.bind_material(m_material);
+            encoder.bind_material(m_material);
 
-            graph.bind_index_buffer(m_mesh->get_buffer(MeshBufferKind::Index));
-            graph.bind_vertex_buffer(m_mesh->get_buffer(MeshBufferKind::Position), 0);
-            graph.bind_vertex_buffer(m_mesh->get_buffer(MeshBufferKind::Normal), 1);
-            graph.bind_vertex_buffer(m_mesh->get_buffer(MeshBufferKind::UV), 2);
+            encoder.bind_index_buffer(m_mesh->get_buffer(MeshBufferKind::Index));
+            encoder.bind_vertex_buffer(m_mesh->get_buffer(MeshBufferKind::Position), 0);
+            encoder.bind_vertex_buffer(m_mesh->get_buffer(MeshBufferKind::Normal), 1);
+            encoder.bind_vertex_buffer(m_mesh->get_buffer(MeshBufferKind::UV), 2);
 
             StandardMeshPushConstants push_constants{};
             push_constants.view_matrix = camera.get_view_proj_matrix();
@@ -55,8 +55,8 @@ public:
             DataBuffer push_constants_buffer(sizeof(StandardMeshPushConstants));
             push_constants_buffer.add(push_constants);
 
-            graph.push_constants(push_constants_buffer);
-            graph.draw(m_mesh->vertex_count(), 1);
+            encoder.push_constants(push_constants_buffer);
+            encoder.draw(m_mesh->vertex_count(), 1);
         }
     }
 

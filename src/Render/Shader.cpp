@@ -126,6 +126,8 @@ Result<Ref<Shader>> Shader::load(const std::filesystem::path& path)
 
         entry_points.push_back(entry_point);
         component_types.push_back(entry_point_comp);
+
+        shader->m_entry_point_names[entry_point.stage] = entry_point_comp->getFunctionReflection()->getName();
     }
 
     // Compile the program, link and receive the SPIR-V bytecode.
@@ -244,7 +246,7 @@ Result<Ref<Shader>> Shader::load(const std::filesystem::path& path)
         return Error(ErrorKind::ShaderCompilationFailed);
     }
 
-#ifdef __platform_linux
+#if defined(__platform_linux) || defined(__platform_windows) || defined(__platform_macos)
     shader->m_code = (char *)aligned_alloc(sizeof(uint32_t), output_code->getBufferSize());
     shader->m_size = output_code->getBufferSize();
     std::memcpy(shader->m_code, output_code->getBufferPointer(), output_code->getBufferSize());
@@ -256,6 +258,8 @@ Result<Ref<Shader>> Shader::load(const std::filesystem::path& path)
 
     // std::ofstream os(path2);
     // os.write(shader->m_code, shader->m_size);
+
+    shader->dump_glsl();
 
     // std::string source;
     // source.append((char *)output_code->getBufferPointer(), output_code->getBufferSize());
@@ -269,4 +273,99 @@ Result<Ref<Shader>> Shader::load(const std::filesystem::path& path)
 #endif
 
     return shader;
+}
+
+Result<> Shader::dump_glsl()
+{
+    // Re-use a global session to reduce load times.
+    if (!s_global_session)
+        slang::createGlobalSession(s_global_session.writeRef());
+
+    slang::SessionDesc session_desc{};
+    slang::TargetDesc target_desc{};
+
+    std::vector<slang::CompilerOptionEntry> options;
+
+    // NOTE: If we use slang's default of row major matrices we will need to transpose matrices before passing them to shaders.
+    options.push_back(slang::CompilerOptionEntry(slang::CompilerOptionName::MatrixLayoutColumn, slang::CompilerOptionValue(slang::CompilerOptionValueKind::Int, 1, 0, nullptr, nullptr)));
+
+    target_desc.format = SLANG_GLSL;
+
+    session_desc.targets = &target_desc;
+    session_desc.targetCount = 1;
+
+    session_desc.compilerOptionEntries = options.data();
+    session_desc.compilerOptionEntryCount = options.size();
+
+    std::vector<slang::PreprocessorMacroDesc> preprocessor_macro_desc{};
+    session_desc.preprocessorMacros = preprocessor_macro_desc.data();
+    session_desc.preprocessorMacroCount = (SlangInt)preprocessor_macro_desc.size();
+
+    Slang::ComPtr<slang::ISession> session;
+
+    SlangResult result = s_global_session->createSession(session_desc, session.writeRef());
+    if (SLANG_FAILED(result))
+        return Error(ErrorKind::ShaderCompilationFailed);
+
+    Slang::ComPtr<slang::IBlob> diagnostics_blob;
+
+    Slang::ComPtr<slang::IModule> module = Slang::ComPtr<slang::IModule>(session->loadModuleFromSourceString("shader", "shader.slang", m_source_code.data(), diagnostics_blob.writeRef()));
+    if (!module)
+    {
+        println("{}", (char *)diagnostics_blob->getBufferPointer());
+        return Error(ErrorKind::ShaderCompilationFailed);
+    }
+
+    std::vector<EntryPoint> entry_points;
+    std::vector<slang::IComponentType *> component_types{module};
+
+    for (SlangInt32 i = 0; i < module->getDefinedEntryPointCount(); i++)
+    {
+        Slang::ComPtr<slang::IEntryPoint> entry_point_comp;
+        module->getDefinedEntryPoint(i, entry_point_comp.writeRef());
+
+        // NOTE: This works but dont seems the best way to do it.
+        slang::Attribute *attrib = entry_point_comp->getFunctionReflection()->findAttributeByName(s_global_session, "shader");
+        size_t name_size = 0;
+        std::string_view name(attrib->getArgumentValueString(0, &name_size));
+
+        EntryPoint entry_point;
+        entry_point.entry_point = entry_point_comp;
+        entry_point.stage = stage_from_string(name);
+
+        entry_points.push_back(entry_point);
+        component_types.push_back(entry_point_comp);
+    }
+
+    // Compile the program, link and receive the SPIR-V bytecode.
+    Slang::ComPtr<slang::IComponentType> composed_program;
+    result = session->createCompositeComponentType(component_types.data(), (SlangInt)component_types.size(), composed_program.writeRef(), diagnostics_blob.writeRef());
+    if (SLANG_FAILED(result))
+    {
+        println("{}", (char *)diagnostics_blob->getBufferPointer());
+        return Error(ErrorKind::ShaderCompilationFailed);
+    }
+
+    Slang::ComPtr<slang::IComponentType> linked_program;
+    result = composed_program->link(linked_program.writeRef(), diagnostics_blob.writeRef());
+    if (SLANG_FAILED(result))
+    {
+        println("{}", (char *)diagnostics_blob->getBufferPointer());
+        return Error(ErrorKind::ShaderCompilationFailed);
+    }
+
+    // Get all entry points in one blob.
+    Slang::ComPtr<slang::IBlob> output_code;
+    result = linked_program->getTargetCode(0, output_code.writeRef(), diagnostics_blob.writeRef());
+    if (SLANG_FAILED(result))
+    {
+        println("{}", (char *)diagnostics_blob->getBufferPointer());
+        return Error(ErrorKind::ShaderCompilationFailed);
+    }
+
+    std::string s;
+    s.append((char *)output_code->getBufferPointer(), output_code->getBufferSize());
+    println("{}", s);
+
+    return 0;
 }

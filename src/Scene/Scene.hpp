@@ -12,7 +12,7 @@ class Scene : public Object
 public:
     Scene();
 
-    void encode_draw_calls(RenderGraph& graph);
+    void encode_draw_calls(RenderPassEncoder& encoder);
 
     void tick();
 

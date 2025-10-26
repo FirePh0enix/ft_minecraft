@@ -70,6 +70,11 @@ VsOutput vertexMain(Vertex vertex)
     VsOutput out;
     out.gradient_color = float3(0.0, 0.0, 0.0);
 
+    if (visibility == 0)
+    {
+        return out;
+    }
+
     // if (((visibility & (1 << 1)) == 0 && vertex.index >= 0 && vertex.index < 4) ||
     //     ((visibility & (1 << 0)) == 0 && vertex.index >= 4 && vertex.index < 8) ||
     //     ((visibility & (1 << 2)) == 0 && vertex.index >= 8 && vertex.index < 12) ||

@@ -357,7 +357,7 @@ private:
         }                                                      \
     } while (0)
 
-#define ERR_COND_B(COND, MESSAGE, ...)                         \
+#define ERR_COND_B(COND, MESSAGE)                              \
     do                                                         \
     {                                                          \
         if (COND)                                              \
@@ -365,6 +365,16 @@ private:
             ::error("{}:{}: {}", __FILE__, __LINE__, MESSAGE); \
             break;                                             \
         }                                                      \
+    } while (0)
+
+#define ERR_COND_BV(COND, MESSAGE, ...)                                     \
+    do                                                                      \
+    {                                                                       \
+        if (COND)                                                           \
+        {                                                                   \
+            ::error("{}:{}: {}", __FILE__, __LINE__, MESSAGE, __VA_ARGS__); \
+            break;                                                          \
+        }                                                                   \
     } while (0)
 
 #define ERR_COND_C(COND, MESSAGE, ...)                         \

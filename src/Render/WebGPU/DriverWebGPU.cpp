@@ -90,6 +90,8 @@ static WGPUBufferUsage convert_buffer_usage(BufferUsageFlags usage)
         flags |= WGPUBufferUsage_Index;
     if (usage.has_any(BufferUsageFlagBits::Vertex))
         flags |= WGPUBufferUsage_Vertex;
+    if (usage.has_any(BufferUsageFlagBits::Storage))
+        flags |= WGPUBufferUsage_Storage;
 
     return flags;
 }
@@ -267,6 +269,17 @@ static std::vector<WGPUBindGroupLayoutEntry> convert_bindings(const Ref<Shader>&
         }
         break;
         case BindingKind::StorageBuffer:
+        {
+            WGPUBindGroupLayoutEntry entry{};
+            entry.binding = binding.binding;
+            entry.visibility = convert_shader_stage(binding.shader_stage);
+            entry.buffer.type = WGPUBufferBindingType_Storage;
+
+            entries.push_back(entry);
+        }
+        break;
+        default:
+            ASSERT(false, "NOT IMPLEMENTED");
             break;
         }
     }
@@ -280,8 +293,7 @@ MaterialLayoutCacheValue MaterialLayoutCache::create_object(const MaterialLayout
     std::vector<WGPUBindGroupLayoutEntry> entries = convert_bindings(shader);
 
     WGPUBindGroupLayoutDescriptor bind_group_desc{};
-    bind_group_desc.nextInChain = nullptr;
-    bind_group_desc.entryCount = static_cast<uint32_t>(entries.size());
+    bind_group_desc.entryCount = entries.size();
     bind_group_desc.entries = entries.data();
 
     WGPUBindGroupLayout bind_group_layout = wgpuDeviceCreateBindGroupLayout(RenderingDriverWebGPU::get()->get_device(), &bind_group_desc);
@@ -291,7 +303,6 @@ MaterialLayoutCacheValue MaterialLayoutCache::create_object(const MaterialLayout
     std::array<WGPUBindGroupLayout, 1> layouts{bind_group_layout};
 
     WGPUPipelineLayoutDescriptor pipeline_layout_desc{};
-    pipeline_layout_desc.nextInChain = nullptr;
     pipeline_layout_desc.bindGroupLayoutCount = layouts.size();
     pipeline_layout_desc.bindGroupLayouts = layouts.data();
 
@@ -323,6 +334,15 @@ WGPURenderPipeline RenderPipelineCache::create_object(const RenderPipelineCacheK
     const MaterialLayoutCacheValue& cached_layout = RenderingDriverWebGPU::get()->get_material_layout_cache().get({.material = material});
 
     auto pipeline_result = RenderingDriverWebGPU::get()->create_render_pipeline(material->get_shader(), material->get_instance_layout(), convert_cull_mode(material->get_cull_mode()), material->get_flags(), cached_layout.pipeline_layout, key.color_attachs, key.previous_depth_pass);
+    return pipeline_result.value();
+}
+
+// TODO: Compute pipeline should be reused between materials.
+WGPUComputePipeline ComputePipelineCache::create_object(const ComputePipelineCacheKey& key)
+{
+    const MaterialLayoutCacheValue& cached_layout = RenderingDriverWebGPU::get()->get_material_layout_cache().get({.material = key.material});
+
+    auto pipeline_result = RenderingDriverWebGPU::get()->create_compute_pipeline(key.material->get_shader(), cached_layout.pipeline_layout);
     return pipeline_result.value();
 }
 
@@ -376,6 +396,7 @@ WGPUBindGroup BindGroupCache::get(Ref<MaterialBase> material)
             case BindingKind::UniformBuffer:
             {
                 const MaterialParamCache& cache = material->get_param(binding_pair.first);
+                ASSERT(cache.buffer.buffer->flags().has_all(BufferUsageFlagBits::Uniform), "Missing Storage flag on buffer");
 
                 WGPUBindGroupEntry entry{};
                 entry.binding = binding.binding;
@@ -387,8 +408,19 @@ WGPUBindGroup BindGroupCache::get(Ref<MaterialBase> material)
             }
             break;
             case BindingKind::StorageBuffer:
-                ERR_COND(false, "Unimplemented");
-                break;
+            {
+                const MaterialParamCache& cache = material->get_param(binding_pair.first);
+                ASSERT(cache.buffer.buffer->flags().has_all(BufferUsageFlagBits::Storage), "Missing Storage flag on buffer");
+
+                WGPUBindGroupEntry entry{};
+                entry.binding = binding.binding;
+                entry.buffer = ((BufferWebGPU *)cache.buffer.buffer)->buffer;
+                entry.offset = 0;
+                entry.size = cache.buffer.buffer->size();
+
+                entries.push_back(entry);
+            }
+            break;
             }
         }
 
@@ -653,7 +685,7 @@ Result<Ref<Buffer>> RenderingDriverWebGPU::create_buffer(size_t size, BufferUsag
     if (!buffer)
         return Error(ErrorKind::OutOfDeviceMemory);
 
-    return make_ref<BufferWebGPU>(buffer, desc.size).cast_to<Buffer>();
+    return make_ref<BufferWebGPU>(buffer, desc.size, usage).cast_to<Buffer>();
 }
 
 void RenderingDriverWebGPU::update_buffer(const Ref<Buffer>& dest, View<uint8_t> view, size_t offset)
@@ -791,12 +823,11 @@ void RenderingDriverWebGPU::draw_graph(const RenderGraph& graph)
             }
             else if (Ref<ComputeMaterial> material = bind.material.cast_to<ComputeMaterial>())
             {
-                // WGPUBindGroup bind_group = m_bind_group_cache.get(bind.material);
-                // wgpuComputePassEncoderSetBindGroup(compute_pass_encoder, 0, bind_group, 0, nullptr);
+                WGPUComputePipeline pipeline = m_compute_pipeline_cache.get(ComputePipelineCacheKey(bind.material));
+                wgpuComputePassEncoderSetPipeline(compute_pass_encoder, pipeline);
 
-                // WGPURenderPipeline pipeline = m_pipeline_cache.get(bind.material);
-                // wgpuComputePassEncoderSetPipeline(render_pass_encoder, pipeline);
-                ERR_COND(false, "Not implemented");
+                WGPUBindGroup bind_group = m_bind_group_cache.get(bind.material);
+                wgpuComputePassEncoderSetBindGroup(compute_pass_encoder, 0, bind_group, 0, nullptr);
             }
         }
         else if (std::holds_alternative<PushConstantsInstruction>(instruction))
@@ -910,10 +941,12 @@ Result<WGPURenderPipeline> RenderingDriverWebGPU::create_render_pipeline(Ref<Sha
     WGPUShaderModule module = wgpuDeviceCreateShaderModule(m_device, &module_desc);
     ERR_COND_R(module == nullptr, "Unable to compile shader", Error(ErrorKind::BadDriver));
 
+    const std::string& vertex_ep = shader->get_entry_point(ShaderStageFlagBits::Vertex);
+
     WGPUVertexState vertex_state{};
     vertex_state.buffers = buffers.data();
     vertex_state.bufferCount = buffers.size();
-    vertex_state.entryPoint = WGPU_STRING_VIEW("vertexMain");
+    vertex_state.entryPoint = WGPU_STRING_VIEW(vertex_ep.c_str());
     vertex_state.module = module;
 
     WGPUBlendState blend_state{};
@@ -947,10 +980,12 @@ Result<WGPURenderPipeline> RenderingDriverWebGPU::create_render_pipeline(Ref<Sha
         color_states.push_back(WGPUColorTargetState{.nextInChain = nullptr, .format = m_surface_format, .blend = &blend_state, .writeMask = WGPUColorWriteMask_All});
     }
 
+    const std::string& fragment_ep = shader->get_entry_point(ShaderStageFlagBits::Fragment);
+
     WGPUFragmentState fragment_state{};
     fragment_state.targets = color_states.data();
     fragment_state.targetCount = color_states.size();
-    fragment_state.entryPoint = WGPU_STRING_VIEW("fragmentMain");
+    fragment_state.entryPoint = WGPU_STRING_VIEW(fragment_ep.c_str());
     fragment_state.module = module;
 
     WGPUDepthStencilState depth_state{};
@@ -980,6 +1015,45 @@ Result<WGPURenderPipeline> RenderingDriverWebGPU::create_render_pipeline(Ref<Sha
     desc.multisample = WGPUMultisampleState(nullptr, 1, 0xFFFFFFFF, false);
 
     WGPURenderPipeline pipeline = wgpuDeviceCreateRenderPipeline(m_device, &desc);
+    if (!pipeline)
+        return Error(ErrorKind::BadDriver);
+
+    return pipeline;
+}
+
+Result<WGPUComputePipeline> RenderingDriverWebGPU::create_compute_pipeline(const Ref<Shader>& shader, WGPUPipelineLayout pipeline_layout)
+{
+    const View<uint32_t> shader_code = shader->get_code_u32();
+
+    WGPUShaderModuleDescriptor module_desc{};
+
+    WGPUShaderSourceSPIRV spirv_source{};
+    spirv_source.chain = {.next = nullptr, .sType = WGPUSType_ShaderSourceSPIRV};
+    spirv_source.code = shader_code.data();
+    spirv_source.codeSize = shader_code.size();
+    module_desc.nextInChain = &spirv_source.chain;
+
+    // TODO: Web version needs WGSL, slang can compile to it.
+    // WGPUShaderSourceWGSL wgsl_source{};
+    // wgsl_source.chain = {.next = nullptr, .sType = WGPUSType_ShaderSourceWGSL};
+    // wgsl_source.code = WGPUStringView(shader_code, std::strlen(shader_code));
+    // module_desc.nextInChain = &wgsl_source.chain;
+
+    WGPUShaderModule module = wgpuDeviceCreateShaderModule(m_device, &module_desc);
+    ERR_COND_R(module == nullptr, "Unable to compile shader", Error(ErrorKind::BadDriver));
+
+    // const std::string& entry_point = shader->get_entry_point(ShaderStageFlagBits::Compute);
+
+    WGPUProgrammableStageDescriptor compute_desc{};
+    compute_desc.module = module;
+    // FIXME: For some reason the entrypoint for compute shaders is always `main`.
+    compute_desc.entryPoint = WGPU_STRING_VIEW("main"); // WGPU_STRING_VIEW(entry_point.c_str())
+
+    WGPUComputePipelineDescriptor desc{};
+    desc.layout = pipeline_layout;
+    desc.compute = compute_desc;
+
+    WGPUComputePipeline pipeline = wgpuDeviceCreateComputePipeline(m_device, &desc);
     if (!pipeline)
         return Error(ErrorKind::BadDriver);
 
