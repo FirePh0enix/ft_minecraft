@@ -5,6 +5,7 @@
 #include <cstring>
 #include <map>
 #include <sstream>
+#include <vector>
 
 template <typename... _Args>
 class BasicFormatString

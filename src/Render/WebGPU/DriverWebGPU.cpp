@@ -402,7 +402,7 @@ WGPUBindGroup BindGroupCache::get(Ref<MaterialBase> material)
                 entry.binding = binding.binding;
                 entry.buffer = ((BufferWebGPU *)cache.buffer.buffer)->buffer;
                 entry.offset = 0;
-                entry.size = cache.buffer.buffer->size();
+                entry.size = cache.buffer.buffer->size_bytes();
 
                 entries.push_back(entry);
             }
@@ -416,7 +416,7 @@ WGPUBindGroup BindGroupCache::get(Ref<MaterialBase> material)
                 entry.binding = binding.binding;
                 entry.buffer = ((BufferWebGPU *)cache.buffer.buffer)->buffer;
                 entry.offset = 0;
-                entry.size = cache.buffer.buffer->size();
+                entry.size = cache.buffer.buffer->size_bytes();
 
                 entries.push_back(entry);
             }
@@ -667,10 +667,13 @@ void RenderingDriverWebGPU::limit_frames(uint32_t limit)
     // TODO
 }
 
-Result<Ref<Buffer>> RenderingDriverWebGPU::create_buffer(size_t size, BufferUsageFlags usage, BufferVisibility visibility)
+Result<Ref<Buffer>> RenderingDriverWebGPU::create_buffer(const char *name, size_t size, BufferUsageFlags usage, BufferVisibility visibility)
 {
+    const Struct& element = CoreRegistry::get().get_struct(name);
+    const size_t size_bytes = size * element.size;
+
     WGPUBufferDescriptor desc{};
-    desc.size = size;
+    desc.size = size_bytes;
     desc.mappedAtCreation = false;
     desc.usage = convert_buffer_usage(usage);
 
@@ -678,19 +681,14 @@ Result<Ref<Buffer>> RenderingDriverWebGPU::create_buffer(size_t size, BufferUsag
         desc.usage |= WGPUBufferUsage_MapRead | WGPUBufferUsage_MapWrite;
 
     // WebGPU requires the size of an uniform buffer to a multiple of 16 bytes.
-    if (usage.has_any(BufferUsageFlagBits::Uniform) && size % 16 > 0)
-        desc.size = (((size - 1) / 16) + 1) * 16;
+    if (usage.has_any(BufferUsageFlagBits::Uniform) && size_bytes % 16 > 0)
+        desc.size = (((size_bytes - 1) / 16) + 1) * 16;
 
     WGPUBuffer buffer = wgpuDeviceCreateBuffer(m_device, &desc);
     if (!buffer)
         return Error(ErrorKind::OutOfDeviceMemory);
 
-    return make_ref<BufferWebGPU>(buffer, desc.size, usage).cast_to<Buffer>();
-}
-
-void RenderingDriverWebGPU::update_buffer(const Ref<Buffer>& dest, View<uint8_t> view, size_t offset)
-{
-    wgpuQueueWriteBuffer(RenderingDriverWebGPU::get()->get_queue(), dest.cast_to<BufferWebGPU>()->buffer, static_cast<uint64_t>(offset), view.data(), view.size());
+    return make_ref<BufferWebGPU>(buffer, element, size, usage).cast_to<Buffer>();
 }
 
 Result<Ref<Texture>> RenderingDriverWebGPU::create_texture(uint32_t width, uint32_t height, TextureFormat format, TextureUsageFlags usage, TextureDimension dimension, uint32_t layers)
@@ -753,7 +751,7 @@ void RenderingDriverWebGPU::draw_graph(const RenderGraph& graph)
 
             WGPURenderPassDescriptor desc{};
 
-            StackVector<WGPURenderPassColorAttachment, 4> color_attachs;
+            InplaceVector<WGPURenderPassColorAttachment, 4> color_attachs;
             WGPURenderPassDepthStencilAttachment depth_attach{};
 
             for (const auto& color_attach : render_pass_cache.attachments)
@@ -801,13 +799,13 @@ void RenderingDriverWebGPU::draw_graph(const RenderGraph& graph)
         {
             const BindIndexBufferInstruction& bind = std::get<BindIndexBufferInstruction>(instruction);
             const Ref<BufferWebGPU>& buffer = bind.buffer.cast_to<BufferWebGPU>();
-            wgpuRenderPassEncoderSetIndexBuffer(render_pass_encoder, buffer->buffer, convert_index_type(bind.index_type), 0, buffer->size());
+            wgpuRenderPassEncoderSetIndexBuffer(render_pass_encoder, buffer->buffer, convert_index_type(bind.index_type), 0, buffer->size_bytes());
         }
         else if (std::holds_alternative<BindVertexBufferInstruction>(instruction))
         {
             const BindVertexBufferInstruction& bind = std::get<BindVertexBufferInstruction>(instruction);
             const Ref<BufferWebGPU>& buffer = bind.buffer.cast_to<BufferWebGPU>();
-            wgpuRenderPassEncoderSetVertexBuffer(render_pass_encoder, bind.location, buffer->buffer, 0, buffer->size());
+            wgpuRenderPassEncoderSetVertexBuffer(render_pass_encoder, bind.location, buffer->buffer, 0, buffer->size_bytes());
         }
         else if (std::holds_alternative<BindMaterialInstruction>(instruction))
         {
@@ -1058,6 +1056,11 @@ Result<WGPUComputePipeline> RenderingDriverWebGPU::create_compute_pipeline(const
         return Error(ErrorKind::BadDriver);
 
     return pipeline;
+}
+
+void BufferWebGPU::update(View<uint8_t> view, size_t offset)
+{
+    wgpuQueueWriteBuffer(RenderingDriverWebGPU::get()->get_queue(), buffer, static_cast<uint64_t>(offset), view.data(), view.size());
 }
 
 void TextureWebGPU::update(View<uint8_t> view, uint32_t layer)

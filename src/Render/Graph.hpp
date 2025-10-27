@@ -93,6 +93,10 @@ public:
     void bind_vertex_buffer(const Ref<Buffer>& buffer, uint32_t location);
     void push_constants(const DataBuffer& buffer);
     void draw(uint32_t vertex_count, uint32_t instance_count);
+    void end();
+
+private:
+    bool m_end = false;
 };
 
 class ComputePassEncoder
@@ -106,6 +110,10 @@ public:
 
     void bind_material(const Ref<ComputeMaterial>& material);
     void dispatch(uint32_t group_x, uint32_t group_y, uint32_t group_z);
+    void end();
+
+private:
+    bool m_end = false;
 };
 
 class RenderGraph

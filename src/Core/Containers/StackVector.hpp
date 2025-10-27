@@ -1,5 +1,7 @@
 #pragma once
 
+#include <array>
+
 #include "Core/Assert.hpp"
 #include "Core/Containers/Iterator.hpp"
 #include "Core/Format.hpp"
@@ -8,12 +10,31 @@
  * @brief A container that provide a similar interface than `std::vector`, except that the data is stored on the stack.
  */
 template <typename T, const size_t capacity>
-class StackVector
+class InplaceVector
 {
 public:
-    StackVector()
+    constexpr InplaceVector()
         : m_size(0)
     {
+    }
+
+    constexpr InplaceVector(const std::initializer_list<T>& list)
+        : m_size(list.size())
+    {
+        for (size_t i = 0; i < m_size; i++)
+            m_data[i] = *(list.begin() + i);
+    }
+
+    template <const size_t other_capacity>
+    constexpr InplaceVector(const InplaceVector<T, other_capacity>& vec, const std::initializer_list<T>& list)
+        : m_size(vec.size() + list.size())
+    {
+        size_t i = 0;
+        for (; i < vec.size(); i++)
+            m_data[i] = vec[i];
+
+        for (size_t j = 0; j < list.size(); i++, j++)
+            m_data[i] = *(list.begin() + j);
     }
 
     const T& operator[](size_t index) const
@@ -28,7 +49,7 @@ public:
         return m_data[index];
     }
 
-    bool operator==(const StackVector& other) const
+    bool operator==(const InplaceVector& other) const
     {
         if (m_size != other.m_size)
             return false;
@@ -42,9 +63,14 @@ public:
         return true;
     }
 
-    inline size_t size() const
+    constexpr size_t size() const
     {
         return m_size;
+    }
+
+    constexpr size_t max_capacity() const
+    {
+        return capacity;
     }
 
     inline const T *data() const
@@ -89,9 +115,9 @@ private:
 };
 
 template <typename T, const size_t capacity>
-struct Formatter<StackVector<T, capacity>>
+struct Formatter<InplaceVector<T, capacity>>
 {
-    void format(const StackVector<T, capacity>& vec, FormatContext& ctx) const
+    void format(const InplaceVector<T, capacity>& vec, FormatContext& ctx) const
     {
         ctx.write_str("{ ");
 

@@ -19,20 +19,33 @@ class Buffer : public Object
     CLASS(Buffer, Object);
 
 public:
+    virtual void update(View<uint8_t> view, size_t offset = 0) = 0;
+
     inline size_t size() const
     {
         return m_size;
     }
 
-    inline BufferUsageFlags flags()
+    inline size_t size_bytes() const
+    {
+        return m_size * m_element.size;
+    }
+
+    inline BufferUsageFlags flags() const
     {
         return m_usage;
+    }
+
+    const Struct& element() const
+    {
+        return m_element;
     }
 
     virtual ~Buffer() {}
 
 protected:
     size_t m_size;
+    Struct m_element;
     BufferUsageFlags m_usage;
 };
 
@@ -189,10 +202,10 @@ public:
         return m_param_changed;
     }
 
-    void set_param(const std::string& name, const Ref<Buffer>& buffer);
-    void set_param(const std::string& name, const Ref<Texture>& texture);
+    void set_param(const StringView& name, const Ref<Buffer>& buffer);
+    void set_param(const StringView& name, const Ref<Texture>& texture);
 
-    const MaterialParamCache& get_param(const std::string& name) const;
+    const MaterialParamCache& get_param(const StringView& name) const;
 
     void clear_param_changed();
 
@@ -379,15 +392,7 @@ public:
      * @param visibility
      */
     [[nodiscard]]
-    virtual Result<Ref<Buffer>> create_buffer(size_t size, BufferUsageFlags flags = BufferUsageFlagBits::None, BufferVisibility visibility = BufferVisibility::GPUOnly) = 0;
-
-    /**
-     * @brief Update the content of a buffer.
-     * @param dest The buffer to type
-     * @param view The data to upload to the buffer
-     * @param offset Offset of the copy inside the destination buffer
-     */
-    virtual void update_buffer(const Ref<Buffer>& dest, View<uint8_t> view, size_t offset = 0) = 0;
+    virtual Result<Ref<Buffer>> create_buffer(const char *name, size_t size, BufferUsageFlags flags = BufferUsageFlagBits::None, BufferVisibility visibility = BufferVisibility::GPUOnly) = 0;
 
     /**
      * @brief Allocate a buffer in the GPU memory and fill it with `data`.
@@ -397,7 +402,7 @@ public:
      * @param visibility
      */
     [[nodiscard]]
-    virtual Result<Ref<Buffer>> create_buffer_from_data(size_t size, View<uint8_t> data, BufferUsageFlags flags = BufferUsageFlagBits::None, BufferVisibility visibility = BufferVisibility::GPUOnly);
+    virtual Result<Ref<Buffer>> create_buffer_from_data(const char *name, size_t size, View<uint8_t> data, BufferUsageFlags flags = BufferUsageFlagBits::None, BufferVisibility visibility = BufferVisibility::GPUOnly);
 
     /**
      * @brief Create texture stored on the GPU.

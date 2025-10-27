@@ -14,6 +14,7 @@ struct StandardMeshMaterialInfo
 {
     glm::vec3 base_color = glm::vec3(1.0, 1.0, 1.0);
 };
+STRUCT(StandardMeshMaterialInfo);
 
 class MeshInstance : public VisualComponent
 {
@@ -23,7 +24,7 @@ public:
     MeshInstance(const Ref<Mesh>& mesh, const Ref<Material>& material)
         : m_mesh(mesh), m_material(material), m_visible(true)
     {
-        m_material_buffer = RenderingDriver::get()->create_buffer(sizeof(StandardMeshMaterialInfo), BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Uniform).value();
+        m_material_buffer = RenderingDriver::get()->create_buffer(STRUCTNAME(StandardMeshMaterialInfo), 1, BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Uniform).value();
         m_material->set_param("material", m_material_buffer);
     }
 
@@ -86,6 +87,6 @@ private:
 
     void update_buffer()
     {
-        RenderingDriver::get()->update_buffer(m_material_buffer, View(&m_material_info).as_bytes(), 0);
+        m_material_buffer->update(View(&m_material_info).as_bytes());
     }
 };

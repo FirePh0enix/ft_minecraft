@@ -30,6 +30,7 @@ list(APPEND SOURCES
     src/Core/Error.cpp
     src/Core/Filesystem.cpp
     src/Core/Ref.cpp
+    src/Core/Registry.cpp
     src/Platform/Platform.cpp
     src/Render/Driver.cpp
     src/Render/Graph.cpp

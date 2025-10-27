@@ -2,6 +2,7 @@
 #include "Config.hpp"
 #include "Core/Filesystem.hpp"
 #include "Core/Logger.hpp"
+#include "Core/Registry.hpp"
 #include "Font.hpp"
 #include "Input.hpp"
 #include "MeshPrimitives.hpp"
@@ -385,41 +386,21 @@ static void tick()
 
 static void register_all_classes()
 {
-    Entity::register_class();
-    Component::register_class();
-    VisualComponent::register_class();
-    MeshInstance::register_class();
-    RigidBody::register_class();
-    Player::register_class();
-    Camera::register_class();
-    Transformed3D::register_class();
-
-    World::register_class();
-    Chunk::register_class();
-    Block::register_class();
-
-    Font::register_class();
-
-    RenderingDriver::register_class();
-    Buffer::register_class();
-    Texture::register_class();
-    Mesh::register_class();
-    MaterialBase::register_class();
-    Material::register_class();
-    ComputeMaterial::register_class();
-    Shader::register_class();
-
-#ifdef __has_vulkan
-    // RenderingDriverVulkan::register_class();
-    // BufferVulkan::register_class();
-    // TextureVulkan::register_class();
-#endif
+    REGISTER_CLASSES(
+        Font,
+        Entity,
+        Component, VisualComponent, MeshInstance, RigidBody, Player, Camera, Transformed3D,
+        World, Chunk, Block,
+        RenderingDriver, Buffer, Texture, Mesh, MaterialBase, Material, ComputeMaterial, Shader);
 
 #ifdef __has_webgpu
-    RenderingDriverWebGPU::register_class();
-    BufferWebGPU::register_class();
-    TextureWebGPU::register_class();
+    REGISTER_CLASSES(RenderingDriverWebGPU, BufferWebGPU, TextureWebGPU);
 #endif
+
+    REGISTER_STRUCTS(
+        uint16_t, uint32_t, float, glm::vec2, glm::vec3, glm::vec4,
+        BlockState, BlockInstanceData, ChunkGPUInfo,
+        StandardMeshMaterialInfo);
 }
 
 #else

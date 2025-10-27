@@ -15,3 +15,9 @@ struct Extent2D
     {
     }
 };
+
+/**
+ * Structures that are used to share between the CPU and GPU should use this attribute, or manually pad the structure
+ * to respect GPU requirements.
+ */
+#define GPU_ATTRIBUTE __attribute__((aligned(16)))

@@ -200,17 +200,21 @@ Result<Ref<Shader>> Shader::load(const std::filesystem::path& path)
         switch (var->getType()->getKind())
         {
         case slang::TypeReflection::Kind::ConstantBuffer:
-            shader->m_bindings[name] = Binding(BindingKind::UniformBuffer, stages, group, binding);
+        {
             println(">> constbuffer at {}:{}", group, binding);
-            break;
+            const size_t byte_size = var->getTypeLayout()->getElementTypeLayout()->getSize();
+            shader->m_bindings[name] = Binding(BindingKind::UniformBuffer, stages, group, binding, BindingBuffer(byte_size, false));
+        }
+        break;
         case slang::TypeReflection::Kind::Resource:
         {
             SlangResourceShape shape = var->getType()->getResourceShape();
 
             if (shape == SLANG_STRUCTURED_BUFFER)
             {
-                shader->m_bindings[name] = Binding(BindingKind::StorageBuffer, stages, group, binding);
                 println(">> buffer at {}:{}", group, binding);
+                const size_t byte_size = var->getTypeLayout()->getElementTypeLayout()->getSize();
+                shader->m_bindings[name] = Binding(BindingKind::StorageBuffer, stages, group, binding, BindingBuffer(byte_size, true));
             }
             else if ((shape & SLANG_TEXTURE_COMBINED_FLAG) == SLANG_TEXTURE_COMBINED_FLAG || (shape & SLANG_TEXTURE_1D) == SLANG_TEXTURE_1D || (shape & SLANG_TEXTURE_2D) == SLANG_TEXTURE_2D || (shape & SLANG_TEXTURE_3D) == SLANG_TEXTURE_3D || (shape & SLANG_TEXTURE_CUBE) == SLANG_TEXTURE_CUBE)
             {
@@ -259,7 +263,7 @@ Result<Ref<Shader>> Shader::load(const std::filesystem::path& path)
     // std::ofstream os(path2);
     // os.write(shader->m_code, shader->m_size);
 
-    shader->dump_glsl();
+    // shader->dump_glsl();
 
     // std::string source;
     // source.append((char *)output_code->getBufferPointer(), output_code->getBufferSize());

@@ -260,6 +260,6 @@ void Chunk::update_instance_buffer()
         }
     }
 
-    RenderingDriver::get()->update_buffer(m_instance_buffer, View(instances).as_bytes(), 0);
+    m_instance_buffer->update(View(instances).as_bytes());
     m_block_count = instances.size();
 }

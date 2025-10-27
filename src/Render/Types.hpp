@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Core/Class.hpp"
 #include "Core/Flags.hpp"
 
 enum class VSync : uint8_t
@@ -217,6 +218,12 @@ enum class BindingKind : uint8_t
     StorageBuffer,
 };
 
+struct BindingBuffer
+{
+    size_t element_size;
+    bool is_array;
+};
+
 struct Binding
 {
     BindingKind kind = BindingKind::Texture;
@@ -228,21 +235,40 @@ struct Binding
     {
     }
 
-    Binding(BindingKind kind, ShaderStageFlags shader_stage, uint32_t group, uint32_t binding)
-        : kind(kind), shader_stage(shader_stage), group(group), binding(binding)
+    Binding(BindingKind kind, ShaderStageFlags shader_stage, uint32_t group, uint32_t binding, TextureDimension dimension)
+        : kind(kind), shader_stage(shader_stage), group(group), binding(binding), dimension(dimension)
     {
     }
 
-    Binding(BindingKind kind, ShaderStageFlags shader_stage, uint32_t group, uint32_t binding, TextureDimension dimension)
-        : kind(kind), shader_stage(shader_stage), group(group), binding(binding), dimension(dimension)
+    Binding(BindingKind kind, ShaderStageFlags shader_stage, uint32_t group, uint32_t binding, BindingBuffer buffer)
+        : kind(kind), shader_stage(shader_stage), group(group), binding(binding), buffer(buffer)
     {
     }
 
     union
     {
         /**
-         * Available only when binding is a `BindingKind::Texture`.
+         * Available only when binding is a `Texture`.
          */
         TextureDimension dimension = {};
+        /**
+         * Available only when binding is `UniformBuffer` or `StorageBuffer`.
+         */
+        BindingBuffer buffer;
     };
 };
+
+STRUCT(uint8_t);
+STRUCT(uint16_t);
+STRUCT(uint32_t);
+STRUCT(uint64_t);
+
+STRUCT(float);
+STRUCT(glm::vec2);
+STRUCT(glm::vec3);
+STRUCT(glm::vec4);
+
+STRUCT(double);
+STRUCT(glm::dvec2);
+STRUCT(glm::dvec3);
+STRUCT(glm::dvec4);

@@ -37,13 +37,15 @@ struct BlockInstanceData
     Biome biome : 8;
     GradientType gradient_type;
     uint8_t pad;
-} __attribute__((aligned(16)));
+} GPU_ATTRIBUTE;
+STRUCT(BlockInstanceData);
 
 struct ChunkGPUInfo
 {
     uint32_t chunk_x;
     uint32_t chunk_z;
-};
+} GPU_ATTRIBUTE;
+STRUCT(ChunkGPUInfo);
 
 class Chunk : public Object
 {
@@ -57,15 +59,17 @@ public:
     Chunk(int64_t x, int64_t z, Ref<Shader> shader)
         : m_x(x), m_z(z)
     {
+        // TODO: A simple position buffer (which map SV_InstanceID => glm::vec3) would be better + use SV_InstanceID to index the `m_gpu_blocks`
+
         m_blocks.resize(block_count);
         m_surface_material = ComputeMaterial::create(shader);
-        m_instance_buffer = RenderingDriver::get()->create_buffer(block_count * sizeof(BlockInstanceData), BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Vertex | BufferUsageFlagBits::Storage).value();
+        m_instance_buffer = RenderingDriver::get()->create_buffer(STRUCTNAME(BlockInstanceData), block_count, BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Vertex | BufferUsageFlagBits::Storage).value();
 
-        m_gpu_blocks = RenderingDriver::get()->create_buffer(block_count * sizeof(BlockState), BufferUsageFlagBits::Uniform | BufferUsageFlagBits::Storage).value();
-        m_gpu_info = RenderingDriver::get()->create_buffer(sizeof(ChunkGPUInfo), BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Uniform).value();
+        m_gpu_blocks = RenderingDriver::get()->create_buffer(STRUCTNAME(BlockState), block_count, BufferUsageFlagBits::Uniform | BufferUsageFlagBits::Storage).value();
+        m_gpu_info = RenderingDriver::get()->create_buffer(STRUCTNAME(ChunkGPUInfo), 1, BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Uniform).value();
 
         ChunkGPUInfo info(x, z);
-        RenderingDriver::get()->update_buffer(m_gpu_info, View(info).as_bytes());
+        m_gpu_info->update(View(info).as_bytes(), 0);
 
         m_surface_material->set_param("info", m_gpu_info);
         m_surface_material->set_param("blocks", m_gpu_blocks);

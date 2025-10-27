@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Core/Containers/Iterator.hpp"
+#include "Core/Containers/StackVector.hpp"
 
 template <typename T>
 class View
@@ -28,6 +29,12 @@ public:
 
     template <const size_t size>
     View(const std::array<T, size>& array)
+        : m_data(array.data()), m_size(array.size())
+    {
+    }
+
+    template <const size_t size>
+    View(const InplaceVector<T, size>& array)
         : m_data(array.data()), m_size(array.size())
     {
     }

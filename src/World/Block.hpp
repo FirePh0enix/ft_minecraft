@@ -50,6 +50,7 @@ struct BlockState
         return id == 0;
     }
 };
+STRUCT(BlockState);
 
 class Block : public Object
 {

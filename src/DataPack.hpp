@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <vector>
 
 static constexpr size_t sector_size = 512;
 static constexpr uint32_t data_pack_version = 1;

@@ -157,9 +157,7 @@ public:
     virtual void limit_frames(uint32_t limit) override;
 
     [[nodiscard]]
-    virtual Result<Ref<Buffer>> create_buffer(size_t size, BufferUsageFlags usage = {}, BufferVisibility visibility = BufferVisibility::GPUOnly) override;
-
-    void update_buffer(const Ref<Buffer>& dest, View<uint8_t> view, size_t offset) override;
+    virtual Result<Ref<Buffer>> create_buffer(const char *name, size_t size, BufferUsageFlags usage = {}, BufferVisibility visibility = BufferVisibility::GPUOnly) override;
 
     [[nodiscard]]
     virtual Result<Ref<Texture>> create_texture(uint32_t width, uint32_t height, TextureFormat format, TextureUsageFlags usage, TextureDimension dimension = TextureDimension::D2D, uint32_t layers = 1) override;
@@ -224,12 +222,15 @@ class BufferWebGPU : public Buffer
     CLASS(BufferWebGPU, Buffer);
 
 public:
-    BufferWebGPU(WGPUBuffer buffer, size_t size, BufferUsageFlags usage)
+    BufferWebGPU(WGPUBuffer buffer, Struct element, size_t size, BufferUsageFlags usage)
         : buffer(buffer)
     {
+        m_element = element;
         m_size = size;
         m_usage = usage;
     }
+
+    virtual void update(View<uint8_t> view, size_t offset) override;
 
     WGPUBuffer buffer;
 };

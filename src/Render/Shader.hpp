@@ -92,7 +92,7 @@ public:
         return m_stage_mask;
     }
 
-    std::string get_path() const
+    std::string path() const
     {
         return m_path;
     }

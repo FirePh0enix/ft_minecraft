@@ -36,13 +36,25 @@ size_t size_of(const IndexType& format)
     return 0;
 }
 
-Result<Ref<Buffer>> RenderingDriver::create_buffer_from_data(size_t size, View<uint8_t> data, BufferUsageFlags flags, BufferVisibility visibility)
+static const char *index_type_to_name(IndexType type)
 {
-    auto buffer_result = create_buffer(size, flags, visibility);
+    switch (type)
+    {
+    case IndexType::Uint16:
+        return "uint16_t";
+    case IndexType::Uint32:
+        return "uint32_t";
+    }
+    return nullptr;
+}
+
+Result<Ref<Buffer>> RenderingDriver::create_buffer_from_data(const char *name, size_t size, View<uint8_t> data, BufferUsageFlags flags, BufferVisibility visibility)
+{
+    auto buffer_result = create_buffer(name, size, flags, visibility);
     YEET(buffer_result);
 
     Ref<Buffer> buffer = buffer_result.value();
-    update_buffer(buffer, data, 0);
+    buffer->update(data);
 
     return buffer;
 }
@@ -51,22 +63,22 @@ Ref<Mesh> Mesh::create_from_data(const View<uint8_t>& indices, const View<glm::v
 {
     const size_t vertex_count = indices.size() / size_of(index_type);
 
-    auto index_buffer_result = RenderingDriver::get()->create_buffer(indices.size(), BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Index);
+    auto index_buffer_result = RenderingDriver::get()->create_buffer(index_type_to_name(index_type), indices.size(), BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Index);
     Ref<Buffer> index_buffer = index_buffer_result.value();
 
-    auto vertex_buffer_result = RenderingDriver::get()->create_buffer(positions.size() * sizeof(glm::vec3), BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Vertex);
+    auto vertex_buffer_result = RenderingDriver::get()->create_buffer(STRUCTNAME(glm::vec3), positions.size() * sizeof(glm::vec3), BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Vertex);
     Ref<Buffer> vertex_buffer = vertex_buffer_result.value();
 
-    auto normal_buffer_result = RenderingDriver::get()->create_buffer(normals.size() * sizeof(glm::vec3), BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Vertex);
+    auto normal_buffer_result = RenderingDriver::get()->create_buffer(STRUCTNAME(glm::vec3), normals.size() * sizeof(glm::vec3), BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Vertex);
     Ref<Buffer> normal_buffer = normal_buffer_result.value();
 
-    auto uv_buffer_result = RenderingDriver::get()->create_buffer(uvs.size() * sizeof(glm::vec2), BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Vertex);
+    auto uv_buffer_result = RenderingDriver::get()->create_buffer(STRUCTNAME(glm::vec2), uvs.size() * sizeof(glm::vec2), BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Vertex);
     Ref<Buffer> uv_buffer = uv_buffer_result.value();
 
-    RenderingDriver::get()->update_buffer(index_buffer, indices.as_bytes(), 0);
-    RenderingDriver::get()->update_buffer(vertex_buffer, positions.as_bytes(), 0);
-    RenderingDriver::get()->update_buffer(normal_buffer, normals.as_bytes(), 0);
-    RenderingDriver::get()->update_buffer(uv_buffer, uvs.as_bytes(), 0);
+    index_buffer->update(indices.as_bytes());
+    vertex_buffer->update(positions.as_bytes());
+    normal_buffer->update(normals.as_bytes());
+    uv_buffer->update(uvs.as_bytes());
 
     return make_ref<Mesh>(vertex_count, index_type, index_buffer, vertex_buffer, normal_buffer, uv_buffer);
 }
@@ -81,7 +93,7 @@ Ref<ComputeMaterial> ComputeMaterial::create(const Ref<Shader>& shader, size_t p
     return make_ref<ComputeMaterial>(shader, push_constant_size);
 }
 
-void MaterialBase::set_param(const std::string& name, const Ref<Texture>& texture)
+void MaterialBase::set_param(const StringView& name, const Ref<Texture>& texture)
 {
     auto binding_result = get_shader()->get_binding(name);
     ERR_COND_V(!binding_result.has_value(), "Invalid parameter name `%s`", name.c_str());
@@ -90,16 +102,17 @@ void MaterialBase::set_param(const std::string& name, const Ref<Texture>& textur
     m_param_changed = true;
 }
 
-void MaterialBase::set_param(const std::string& name, const Ref<Buffer>& buffer)
+void MaterialBase::set_param(const StringView& name, const Ref<Buffer>& buffer)
 {
     auto binding_result = get_shader()->get_binding(name);
     ERR_COND_V(!binding_result.has_value(), "Invalid parameter name `%s`", name.c_str());
+    ERR_COND_VR(binding_result->buffer.element_size != buffer->element().size, "Mismatch between what the shader expect (size = {}) and what is specified (size = {}) for parameter {} for shader {}", binding_result->buffer.element_size, buffer->element().size, name, m_shader->path());
 
     m_caches[name] = MaterialParamCache{.buffer = {.kind = BindingKind::UniformBuffer, .buffer = buffer.ptr()}};
     m_param_changed = true;
 }
 
-const MaterialParamCache& MaterialBase::get_param(const std::string& name) const
+const MaterialParamCache& MaterialBase::get_param(const StringView& name) const
 {
     return m_caches.at(name);
 }

@@ -3,6 +3,8 @@ public struct SimplexNoiseState
     uint8_t perms[256];
 };
 
-public void simplex2D(SimplexNoiseState *state, float2 coords)
+ConstantBuffer<SimplexNoiseState> noiseState;
+
+public void simplex2D(float2 coords)
 {
 }
