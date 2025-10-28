@@ -1,48 +1,20 @@
-static const float3 plains_grass_color = float3(63.0 / 255.0, 155.0 / 255.0, 11.0 / 255.0);
-
-static const float3 grass_colors[14] = {
-    plains_grass_color, // FrozenRiver
-    plains_grass_color, // River
-    plains_grass_color, // StonyShore
-    plains_grass_color, // StonyPeaks
-    plains_grass_color, // JaggedPeaks
-    plains_grass_color, // FrozenPeaks
-    plains_grass_color, // Beach
-    plains_grass_color, // Desert
-    plains_grass_color, // SnowyPlains
-    plains_grass_color, // Taiga
-    plains_grass_color, // Plains
-    plains_grass_color, // Savanna
-    plains_grass_color, // FrozenOcean
-    plains_grass_color, // Ocean
-};
-
-enum GradientType
-{
-    None = 0,
-    Grass = 1,
-    Water = 2
-};
-
 struct PushConstants
 {
     float4x4 view_matrix;
+    float4x4 model_matrix;
 };
 
-struct Vertex
+struct VertexInput
 {
     uint index : SV_VulkanVertexID;
+    uint instance_id : SV_VulkanInstanceID;
 
     float3 position : POSITION;
     float3 normal : NORMAL;
     float2 uv : UV;
-
-    float3 instance_position;
-    uint3 textures;
-    uint visibility_biome_gradient;
 };
 
-struct VsOutput
+struct VertexOutput
 {
     float4 position : SV_Position;
 
@@ -54,71 +26,51 @@ struct VsOutput
     float3 gradient_color;
 };
 
+// This structure need to be kept in sync with CPU code.
+struct BlockState
+{
+    uint id_raw;
+};
+
 Texture2DArray images;
 SamplerState images_sampler;
+
+StructuredBuffer<float4> positions;
+StructuredBuffer<BlockState> blocks;
 
 [push_constant]
 PushConstants constants;
 
 [shader("vertex")]
-VsOutput vertexMain(Vertex vertex)
+VertexOutput vertexMain(VertexInput vertex)
 {
-    uint visibility = vertex.visibility_biome_gradient & 0xFF;
-    uint biome = (vertex.visibility_biome_gradient >> 8) & 0xFF;
-    GradientType gradient_type = GradientType((vertex.visibility_biome_gradient >> 16) & 0XFF);
-
-    VsOutput out;
+    VertexOutput out;
     out.gradient_color = float3(0.0, 0.0, 0.0);
 
-    if (visibility == 0)
-    {
+    BlockState block = blocks[vertex.instance_id];
+    float3 position = positions[vertex.instance_id].xyz;
+
+    if (block.id_raw == 0)
         return out;
-    }
-
-    // if (((visibility & (1 << 1)) == 0 && vertex.index >= 0 && vertex.index < 4) ||
-    //     ((visibility & (1 << 0)) == 0 && vertex.index >= 4 && vertex.index < 8) ||
-    //     ((visibility & (1 << 2)) == 0 && vertex.index >= 8 && vertex.index < 12) ||
-    //     ((visibility & (1 << 3)) == 0 && vertex.index >= 12 && vertex.index < 16) ||
-    //     ((visibility & (1 << 4)) == 0 && vertex.index >= 16 && vertex.index < 20) ||
-    //     ((visibility & (1 << 5)) == 0 && vertex.index >= 20 && vertex.index < 24))
-    // {
-    //     // float nan = 0.0 / 0.0;
-    //     // out.position = float4(nan, nan, nan, nan);
-    //     return out;
-    // }
-
-    // float4x4 model_matrix = float4x4(
-    //     1.0, 0.0, 0.0, 0.0,
-    //     0.0, 1.0, 0.0, 0.0,
-    //     0.0, 0.0, 1.0, 0.0,
-    //     vertex.instance_position.x, vertex.instance_position.y, vertex.instance_position.z, 1.0
-    // );
 
     float4x4 model_matrix = float4x4(
-        1.0, 0.0, 0.0, vertex.instance_position.x,
-        0.0, 1.0, 0.0, vertex.instance_position.y,
-        0.0, 0.0, 1.0, vertex.instance_position.z,
+        1.0, 0.0, 0.0, position.x,
+        0.0, 1.0, 0.0, position.y,
+        0.0, 0.0, 1.0, position.z,
         0.0, 0.0, 0.0, 1.0
     );
 
-    out.world_position = mul(model_matrix, float4(vertex.position, 1.0));
+    out.world_position = mul(mul(model_matrix, constants.model_matrix), float4(vertex.position, 1.0));
     out.position = mul(constants.view_matrix, out.world_position);
-
-    switch (gradient_type)
-    {
-    case GradientType.Grass:
-        out.gradient_color = grass_colors[biome];
-        break;
-    case GradientType.Water:
-        break;
-    }
 
     out.uv = vertex.uv;
     out.normal = vertex.normal;
     out.light_vec = float3(-1.0, -1.0, 0.0);
 
-    uint texture_indices[6] = { vertex.textures.x & 0xFFFF, vertex.textures.x >> 16, vertex.textures.y & 0xFFFF, vertex.textures.y >> 16, vertex.textures.z & 0xFFFF, vertex.textures.z >> 16 };
-    out.texture_index = texture_indices[vertex.index / 4];
+    // uint texture_indices[6] = { vertex.textures.x & 0xFFFF, vertex.textures.x >> 16, vertex.textures.y & 0xFFFF, vertex.textures.y >> 16, vertex.textures.z & 0xFFFF, vertex.textures.z >> 16 };
+    // out.texture_index = texture_indices[vertex.index / 4];
+    // TODO: texturing
+    out.texture_index = 1;
 
     return out;
 }
@@ -134,7 +86,7 @@ inline bool is_black(float3 color)
 }
 
 [shader("fragment")]
-float4 fragmentMain(VsOutput in)
+float4 fragmentMain(VertexOutput in)
 {
     float2 uv2 = in.uv;
     uv2.y = 1.0 - uv2.y;

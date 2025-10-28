@@ -184,16 +184,8 @@ Result<Ref<Shader>> Shader::load(const std::filesystem::path& path)
 
         if (binding_type == slang::BindingType::PushConstant)
         {
-            // FIXME: stages is 0 for push constants.
-
-            // for (size_t field_index = 0; field_index < var->getTypeLayout()->getFieldCount(); field_index++)
-            // {
-            //     println("{}", var->getTypeLayout()->getFieldByIndex(0)->getTypeLayout()->getSize());
-            // }
-
-            // println("{}", size);
-
-            shader->m_push_constants.push_back(PushConstantRange(stages, 128)); // FIXME: Size should not be hardcoded
+            println(">> push_constants, size = {}", var->getTypeLayout()->getElementTypeLayout()->getSize());
+            shader->m_push_constants.push_back(PushConstantRange(stages, var->getTypeLayout()->getElementTypeLayout()->getSize()));
             continue;
         }
 
@@ -209,6 +201,7 @@ Result<Ref<Shader>> Shader::load(const std::filesystem::path& path)
         case slang::TypeReflection::Kind::Resource:
         {
             SlangResourceShape shape = var->getType()->getResourceShape();
+            SlangResourceAccess access = var->getType()->getResourceAccess();
 
             if (shape == SLANG_STRUCTURED_BUFFER)
             {

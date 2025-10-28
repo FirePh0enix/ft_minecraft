@@ -186,7 +186,7 @@ Text::Text(size_t capacity, Ref<Font> font)
                                                  InstanceLayoutInput(ShaderType::Float32x2, sizeof(float) * 7)};
     InstanceLayout instance_layout(inputs, sizeof(Font::Instance));
 
-    m_material = Material::create(g_shader, sizeof(glm::mat4), instance_layout, MaterialFlagBits::Transparency);
+    m_material = Material::create(g_shader, instance_layout, MaterialFlagBits::Transparency);
     m_material->set_param("bitmap", font->get_bitmap());
     m_material->set_param("data", m_uniform_buffer);
 }

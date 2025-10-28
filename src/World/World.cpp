@@ -5,6 +5,17 @@ World::World(Ref<Mesh> mesh, Ref<Material> material)
     : m_mesh(mesh), m_material(material)
 {
     m_surface_shader = Shader::load("assets/shaders/terrain/surface.slang").value_or(nullptr);
+    m_position_buffer = RenderingDriver::get()->create_buffer(STRUCTNAME(glm::vec4), Chunk::block_count, BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Storage).value();
+
+    std::vector<glm::vec4> positions(Chunk::block_count);
+
+    for (size_t x = 0; x < 16; x++)
+        for (size_t y = 0; y < 256; y++)
+            for (size_t z = 0; z < 16; z++)
+                positions[x + y * 16 + z * 16 * 256] = glm::vec4(x, y, z, 0.0);
+
+    m_position_buffer->update(View(positions).as_bytes());
+    m_material->set_param("positions", m_position_buffer);
 }
 
 BlockState World::get_block_state(int64_t x, int64_t y, int64_t z) const
@@ -43,38 +54,6 @@ void World::set_block_state(int64_t x, int64_t y, int64_t z, BlockState state)
     const size_t chunk_local_z = z >= 0 ? (z % 16) : 16 + (z % 16);
 
     chunk->set_block(chunk_local_x, y, chunk_local_z, state);
-    // update_visibility(x, y, z, true);
-}
-
-void World::update_visibility(int64_t x, int64_t y, int64_t z, bool recurse)
-{
-    int64_t chunk_x = x >= 0 ? (x / 16) : (x / 16 - 1);
-    int64_t chunk_z = z >= 0 ? (z / 16) : (z / 16 - 1);
-
-    std::optional<Ref<Chunk>> chunk_value = get_chunk(chunk_x, chunk_z);
-
-    if (!chunk_value.has_value())
-    {
-        return;
-    }
-
-    Ref<Chunk> chunk = chunk_value.value();
-    const int64_t chunk_local_x = x >= 0 ? (x % 16) : 16 + (x % 16);
-    const int64_t chunk_local_z = z >= 0 ? (z % 16) : 16 + (z % 16);
-
-    chunk->compute_visibility(this, chunk_local_x, y, chunk_local_z);
-
-    if (recurse)
-    {
-        update_visibility(x - 1, y, z, false);
-        update_visibility(x + 1, y, z, false);
-
-        update_visibility(x, y - 1, z, false);
-        update_visibility(x, y + 1, z, false);
-
-        update_visibility(x, y, z - 1, false);
-        update_visibility(x, y, z + 1, false);
-    }
 }
 
 std::optional<Ref<Chunk>> World::get_chunk(int64_t x, int64_t z) const
@@ -106,9 +85,13 @@ void World::encode_draw_calls(RenderPassEncoder& encoder, Camera& camera)
             continue;
 
         const glm::mat4& view_matrix = camera.get_view_proj_matrix();
+        const glm::mat4 model_matrix = glm::translate(glm::identity<glm::mat4>(), glm::vec3(pos.x * 16, 0.0, pos.z * 16));
 
         DataBuffer push_constants(sizeof(glm::mat4));
         push_constants.add(view_matrix);
+        push_constants.add(model_matrix);
+
+        m_material->set_param("blocks", chunk->get_block_buffer());
 
         encoder.bind_material(m_material);
         encoder.push_constants(push_constants);
@@ -116,7 +99,6 @@ void World::encode_draw_calls(RenderPassEncoder& encoder, Camera& camera)
         encoder.bind_vertex_buffer(m_mesh->get_buffer(MeshBufferKind::Position), 0);
         encoder.bind_vertex_buffer(m_mesh->get_buffer(MeshBufferKind::Normal), 1);
         encoder.bind_vertex_buffer(m_mesh->get_buffer(MeshBufferKind::UV), 2);
-        encoder.bind_vertex_buffer(chunk->get_instance_buffer(), 3);
         encoder.draw(m_mesh->vertex_count(), Chunk::block_count);
     }
 }
@@ -125,8 +107,6 @@ void World::load_chunk(int64_t x, int64_t z)
 {
     Ref<Chunk> chunk = make_ref<Chunk>(x, z, m_surface_shader);
     chunk->generate();
-    chunk->compute_full_visibility(this);
-    chunk->update_instance_buffer();
 
     m_dims[0].add_chunk(x, z, chunk);
 }

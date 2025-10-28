@@ -28,7 +28,7 @@ public:
         constexpr size_t size = sizeof(T);
         const size_t previous_vec_size = m_data.size();
 
-        m_data.resize(m_data.capacity() + sizeof(T));
+        m_data.resize(m_data.size() + sizeof(T));
         std::memcpy(m_data.data() + previous_vec_size, (char *)&value, size);
     }
 

@@ -273,7 +273,9 @@ static std::vector<WGPUBindGroupLayoutEntry> convert_bindings(const Ref<Shader>&
             WGPUBindGroupLayoutEntry entry{};
             entry.binding = binding.binding;
             entry.visibility = convert_shader_stage(binding.shader_stage);
-            entry.buffer.type = WGPUBufferBindingType_Storage;
+            // Vertex shaders does not support Writable storage buffer, a feature can be enabled in wgpu-native but it
+            // only works on native.
+            entry.buffer.type = binding.shader_stage.has_any(ShaderStageFlagBits::Vertex) ? WGPUBufferBindingType_ReadOnlyStorage : WGPUBufferBindingType_Storage;
 
             entries.push_back(entry);
         }
@@ -365,15 +367,13 @@ WGPUBindGroup BindGroupCache::get(Ref<MaterialBase> material)
         std::vector<WGPUBindGroupEntry> entries;
         entries.reserve(material->get_shader()->get_bindings().size());
 
-        for (const auto& binding_pair : material->get_shader()->get_bindings())
+        for (const auto& [name, binding] : material->get_shader()->get_bindings())
         {
-            const Binding& binding = binding_pair.second;
-
             switch (binding.kind)
             {
             case BindingKind::Texture:
             {
-                const MaterialParamCache& cache = material->get_param(binding_pair.first);
+                const MaterialParamCache& cache = material->get_param(name);
 
                 WGPUBindGroupEntry entry{};
                 entry.binding = binding.binding;
@@ -381,7 +381,7 @@ WGPUBindGroup BindGroupCache::get(Ref<MaterialBase> material)
 
                 entries.push_back(entry);
 
-                SamplerDescriptor sampler = material->get_shader()->get_sampler(binding_pair.first);
+                SamplerDescriptor sampler = material->get_shader()->get_sampler(name);
 
                 WGPUSampler sampler_result = RenderingDriverWebGPU::get()->get_sampler_cache().get(sampler);
                 ERR_COND_B(sampler_result == nullptr, "Unable to create a sampler");
@@ -395,8 +395,8 @@ WGPUBindGroup BindGroupCache::get(Ref<MaterialBase> material)
             break;
             case BindingKind::UniformBuffer:
             {
-                const MaterialParamCache& cache = material->get_param(binding_pair.first);
-                ASSERT(cache.buffer.buffer->flags().has_all(BufferUsageFlagBits::Uniform), "Missing Storage flag on buffer");
+                const MaterialParamCache& cache = material->get_param(name);
+                ASSERT(cache.buffer.buffer->flags().has_any(BufferUsageFlagBits::Uniform), "Missing Uniform flag on buffer");
 
                 WGPUBindGroupEntry entry{};
                 entry.binding = binding.binding;
@@ -409,8 +409,8 @@ WGPUBindGroup BindGroupCache::get(Ref<MaterialBase> material)
             break;
             case BindingKind::StorageBuffer:
             {
-                const MaterialParamCache& cache = material->get_param(binding_pair.first);
-                ASSERT(cache.buffer.buffer->flags().has_all(BufferUsageFlagBits::Storage), "Missing Storage flag on buffer");
+                const MaterialParamCache& cache = material->get_param(name);
+                ASSERT(cache.buffer.buffer->flags().has_any(BufferUsageFlagBits::Storage), "Missing Storage flag on buffer");
 
                 WGPUBindGroupEntry entry{};
                 entry.binding = binding.binding;

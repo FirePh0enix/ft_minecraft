@@ -135,13 +135,13 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     Ref<Shader> shader = shader_result.value();
     shader->set_sampler("images", {.min_filter = Filter::Nearest, .mag_filter = Filter::Nearest});
 
-    std::array<InstanceLayoutInput, 3> inputs{
-        InstanceLayoutInput(ShaderType::Float32x3, 0),
-        InstanceLayoutInput(ShaderType::Uint32x3, sizeof(glm::vec3) * 1),
-        InstanceLayoutInput(ShaderType::Uint32, sizeof(glm::vec3) * 2),
-    };
-    InstanceLayout instance_layout(inputs, sizeof(BlockInstanceData));
-    Ref<Material> material = Material::create(shader, sizeof(glm::mat4), instance_layout, MaterialFlagBits::Transparency, PolygonMode::Fill, CullMode::Back);
+    // std::array<InstanceLayoutInput, 3> inputs{
+    //     InstanceLayoutInput(ShaderType::Float32x3, 0),
+    //     InstanceLayoutInput(ShaderType::Uint32x3, sizeof(glm::vec3) * 1),
+    //     InstanceLayoutInput(ShaderType::Uint32, sizeof(glm::vec3) * 2),
+    // };
+    // InstanceLayout instance_layout(inputs, sizeof(BlockInstanceData));
+    Ref<Material> material = Material::create(shader, std::nullopt, MaterialFlagBits::Transparency, PolygonMode::Fill, CullMode::Back);
 
     auto cube_result = create_cube_with_separate_faces(glm::vec3(1.0), glm::vec3(-0.5));
     EXPECT(cube_result);
@@ -399,7 +399,7 @@ static void register_all_classes()
 
     REGISTER_STRUCTS(
         uint16_t, uint32_t, float, glm::vec2, glm::vec3, glm::vec4,
-        BlockState, BlockInstanceData, ChunkGPUInfo,
+        BlockState, ChunkGPUInfo,
         StandardMeshMaterialInfo);
 }
 

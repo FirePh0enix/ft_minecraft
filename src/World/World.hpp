@@ -83,9 +83,11 @@ private:
     Ref<Material> m_material;
     Ref<Shader> m_surface_shader;
 
+    Ref<Buffer> m_position_buffer;
+
     std::mutex m_chunks_add_mutex;
     std::mutex m_chunks_read_mutex;
     std::mutex m_buffers_mutex;
 
-    void update_visibility(int64_t x, int64_t y, int64_t z, bool recurse);
+    // void update_visibility(int64_t x, int64_t y, int64_t z, bool recurse);
 };

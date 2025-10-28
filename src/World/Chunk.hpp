@@ -29,17 +29,6 @@ struct ChunkBounds
     glm::ivec3 max;
 };
 
-struct BlockInstanceData
-{
-    glm::vec3 position;
-    glm::uvec3 textures;
-    uint8_t visibility;
-    Biome biome : 8;
-    GradientType gradient_type;
-    uint8_t pad;
-} GPU_ATTRIBUTE;
-STRUCT(BlockInstanceData);
-
 struct ChunkGPUInfo
 {
     uint32_t chunk_x;
@@ -56,25 +45,7 @@ public:
     static constexpr int64_t height = 256;
     static constexpr int64_t block_count = width * width * height;
 
-    Chunk(int64_t x, int64_t z, Ref<Shader> shader)
-        : m_x(x), m_z(z)
-    {
-        // TODO: A simple position buffer (which map SV_InstanceID => glm::vec3) would be better + use SV_InstanceID to index the `m_gpu_blocks`
-
-        m_blocks.resize(block_count);
-        m_surface_material = ComputeMaterial::create(shader);
-        m_instance_buffer = RenderingDriver::get()->create_buffer(STRUCTNAME(BlockInstanceData), block_count, BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Vertex | BufferUsageFlagBits::Storage).value();
-
-        m_gpu_blocks = RenderingDriver::get()->create_buffer(STRUCTNAME(BlockState), block_count, BufferUsageFlagBits::Uniform | BufferUsageFlagBits::Storage).value();
-        m_gpu_info = RenderingDriver::get()->create_buffer(STRUCTNAME(ChunkGPUInfo), 1, BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Uniform).value();
-
-        ChunkGPUInfo info(x, z);
-        m_gpu_info->update(View(info).as_bytes(), 0);
-
-        m_surface_material->set_param("info", m_gpu_info);
-        m_surface_material->set_param("blocks", m_gpu_blocks);
-        m_surface_material->set_param("instances", m_instance_buffer);
-    }
+    Chunk(int64_t x, int64_t z, const Ref<Shader>& shader);
 
     inline BlockState get_block(size_t x, size_t y, size_t z) const
     {
@@ -120,9 +91,9 @@ public:
         m_biomes[x + z * width] = biome;
     }
 
-    const Ref<Buffer>& get_instance_buffer() const
+    Ref<Buffer> get_block_buffer() const
     {
-        return m_instance_buffer;
+        return m_gpu_blocks;
     }
 
     /**
@@ -130,12 +101,12 @@ public:
      */
     void generate();
 
-    void compute_full_visibility(World *world);
-    void compute_visibility(const World *world, int64_t x, int64_t y, int64_t z);
+    // void compute_full_visibility(World *world);
+    // void compute_visibility(const World *world, int64_t x, int64_t y, int64_t z);
 
-    void compute_axis_neighbour_visibility(const Ref<World>& world, const Ref<Chunk>& neighbour);
+    // void compute_axis_neighbour_visibility(const Ref<World>& world, const Ref<Chunk>& neighbour);
 
-    void update_instance_buffer();
+    // void update_instance_buffer();
 
 private:
     std::vector<BlockState> m_blocks;
@@ -144,7 +115,6 @@ private:
     int64_t m_z;
 
     Ref<ComputeMaterial> m_surface_material;
-    Ref<Buffer> m_instance_buffer;
 
     Ref<Buffer> m_gpu_blocks;
     Ref<Buffer> m_gpu_info;

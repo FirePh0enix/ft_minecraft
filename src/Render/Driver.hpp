@@ -167,16 +167,13 @@ union MaterialParamCache
     } buffer;
 };
 
-/**
-    Common code shared between graphics and compute materials.
- */
 class MaterialBase : public Object
 {
     CLASS(MaterialBase, Object);
 
 public:
-    MaterialBase(const Ref<Shader>& shader, size_t push_constant_size)
-        : m_shader(shader), m_push_constant_size(push_constant_size), m_param_changed(true)
+    MaterialBase(const Ref<Shader>& shader)
+        : m_shader(shader), m_param_changed(true)
     {
     }
 
@@ -190,11 +187,6 @@ public:
     Ref<Shader>& get_shader()
     {
         return m_shader;
-    }
-
-    size_t get_push_constant_size() const
-    {
-        return m_push_constant_size;
     }
 
     bool has_param_changed() const
@@ -211,7 +203,6 @@ public:
 
 private:
     Ref<Shader> m_shader;
-    size_t m_push_constant_size;
     std::map<std::string, MaterialParamCache> m_caches;
 
     bool m_param_changed : 1;
@@ -226,16 +217,15 @@ enum class MaterialFlagBits
 using MaterialFlags = Flags<MaterialFlagBits>;
 DEFINE_FLAG_TRAITS(MaterialFlagBits);
 
-// TODO: push_constant_size could be determined while compiling the shader.
 class Material : public MaterialBase
 {
     CLASS(Material, MaterialBase);
 
 public:
-    static Ref<Material> create(const Ref<Shader>& shader, size_t push_constant_size = 0, std::optional<InstanceLayout> instance_layout = std::nullopt, MaterialFlags flags = MaterialFlagBits::None, PolygonMode polygon_mode = PolygonMode::Fill, CullMode cull_mode = CullMode::Back);
+    static Ref<Material> create(const Ref<Shader>& shader, std::optional<InstanceLayout> instance_layout = std::nullopt, MaterialFlags flags = MaterialFlagBits::None, PolygonMode polygon_mode = PolygonMode::Fill, CullMode cull_mode = CullMode::Back);
 
-    Material(const Ref<Shader>& shader, size_t push_constant_size, std::optional<InstanceLayout> instance_layout, MaterialFlags flags, PolygonMode polygon_mode, CullMode cull_mode)
-        : MaterialBase(shader, push_constant_size), m_instance_layout(instance_layout), m_flags(flags), m_polygon_mode(polygon_mode), m_cull_mode(cull_mode)
+    Material(const Ref<Shader>& shader, std::optional<InstanceLayout> instance_layout, MaterialFlags flags, PolygonMode polygon_mode, CullMode cull_mode)
+        : MaterialBase(shader), m_instance_layout(instance_layout), m_flags(flags), m_polygon_mode(polygon_mode), m_cull_mode(cull_mode)
     {
     }
 
@@ -276,10 +266,10 @@ class ComputeMaterial : public MaterialBase
     CLASS(ComputeMaterial, MaterialBase);
 
 public:
-    static Ref<ComputeMaterial> create(const Ref<Shader>& shader, size_t push_constant_size = 0);
+    static Ref<ComputeMaterial> create(const Ref<Shader>& shader);
 
-    ComputeMaterial(Ref<Shader> shader, size_t push_constant_size)
-        : MaterialBase(shader, push_constant_size)
+    ComputeMaterial(Ref<Shader> shader)
+        : MaterialBase(shader)
     {
     }
 

@@ -83,14 +83,14 @@ Ref<Mesh> Mesh::create_from_data(const View<uint8_t>& indices, const View<glm::v
     return make_ref<Mesh>(vertex_count, index_type, index_buffer, vertex_buffer, normal_buffer, uv_buffer);
 }
 
-Ref<Material> Material::create(const Ref<Shader>& shader, size_t push_constant_size, std::optional<InstanceLayout> instance_layout, MaterialFlags flags, PolygonMode polygon_mode, CullMode cull_mode)
+Ref<Material> Material::create(const Ref<Shader>& shader, std::optional<InstanceLayout> instance_layout, MaterialFlags flags, PolygonMode polygon_mode, CullMode cull_mode)
 {
-    return make_ref<Material>(shader, push_constant_size, instance_layout, flags, polygon_mode, cull_mode);
+    return make_ref<Material>(shader, instance_layout, flags, polygon_mode, cull_mode);
 }
 
-Ref<ComputeMaterial> ComputeMaterial::create(const Ref<Shader>& shader, size_t push_constant_size)
+Ref<ComputeMaterial> ComputeMaterial::create(const Ref<Shader>& shader)
 {
-    return make_ref<ComputeMaterial>(shader, push_constant_size);
+    return make_ref<ComputeMaterial>(shader);
 }
 
 void MaterialBase::set_param(const StringView& name, const Ref<Texture>& texture)
