@@ -197,6 +197,15 @@ set(BUILD_SHARED_LIBS 0)
 # Fetch dependencies
 #
 
+# doctest for unit tests.
+# FetchContent_Declare(
+#     doctest
+#     GIT_REPOSITORY https://github.com/doctest/doctest
+#     GIT_TAG 1da23a3e8119ec5cce4f9388e91b065e20bf06f5 # v2.4.12
+# )
+# FetchContent_MakeAvailable(doctest)
+# target_link_libraries(${TARGET_NAME} PRIVATE doctest)
+
 if(TARGET_IS_LINUX OR TARGET_IS_APPLE OR TARGET_IS_MSVC)
     # VulkanHeaders
     # FetchContent_Declare(
@@ -244,7 +253,9 @@ set(SLANG_ENABLE_GFX OFF)
 set(SLANG_ENABLE_SLANGD OFF)
 set(SLANG_ENABLE_SLANGC OFF)
 set(SLANG_ENABLE_SLANGI OFF)
-set(SLANG_HAS_EXCEPTIONS)
+set(SLANG_HAS_EXCEPTIONS OFF)
+
+# set(SLANG_OVERRIDE_DOCTEST ${doctest_SOURCE_DIR})
 
 FetchContent_MakeAvailable(slang)
 target_link_directories(${TARGET_NAME} PRIVATE ${CMAKE_BINARY_DIR}/_deps/slang-src/lib)
@@ -393,15 +404,6 @@ if (TARGET_IS_APPLE)
     # configure_file(${moltenvk_SOURCE_DIR}/MoltenVK/dynamic/dylib/macOS/MoltenVK_icd.json ${CMAKE_BINARY_DIR}/vulkan/icd.d/MoltenVK_icd.json COPYONLY)
     # configure_file(${moltenvk_SOURCE_DIR}/MoltenVK/dynamic/dylib/macOS/libMoltenVK.dylib ${CMAKE_BINARY_DIR}/vulkan/icd.d/libMoltenVK.dylib COPYONLY)
 endif()
-
-# doctest for unit tests.
-# FetchContent_Declare(
-#     doctest
-#     GIT_REPOSITORY https://github.com/doctest/doctest
-#     GIT_TAG 1da23a3e8119ec5cce4f9388e91b065e20bf06f5 # v2.4.12
-# )
-# FetchContent_MakeAvailable(doctest)
-# target_link_libraries(${TARGET_NAME} PRIVATE doctest)
 
 if(RUN_TESTS)
     target_compile_definitions(${TARGET_NAME} PRIVATE DOCTEST_CONFIG_ENABLE=1)
