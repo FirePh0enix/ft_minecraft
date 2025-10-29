@@ -2,7 +2,7 @@
 #include "World/Registry.hpp"
 #include "World/World.hpp"
 
-Chunk::Chunk(int64_t x, int64_t z, const Ref<Shader>& shader)
+Chunk::Chunk(int64_t x, int64_t z, const Ref<Shader>& shader, World *world)
     : m_x(x), m_z(z)
 {
     m_blocks.resize(block_count);
@@ -16,6 +16,7 @@ Chunk::Chunk(int64_t x, int64_t z, const Ref<Shader>& shader)
 
     m_surface_material->set_param("info", m_gpu_info);
     m_surface_material->set_param("blocks", m_gpu_blocks);
+    m_surface_material->set_param("simplexState", world->get_perm_buffer());
 }
 
 void Chunk::generate()

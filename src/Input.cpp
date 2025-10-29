@@ -2,7 +2,9 @@
 
 void Input::init(const Window& window)
 {
+#ifndef __platform_web
     s_window = window.get_window_ptr();
+#endif
 }
 
 bool Input::is_action_pressed(const std::string& action)
@@ -28,7 +30,9 @@ glm::vec2 Input::get_vector(const std::string& x_negative, const std::string& x_
 void Input::set_mouse_grabbed(bool value)
 {
     s_mouse_grabbed = value;
+#ifndef __platform_web
     SDL_SetWindowRelativeMouseMode(s_window, value);
+#endif
 }
 
 bool Input::is_mouse_grabbed()

@@ -22,6 +22,10 @@
 
 #include <SDL3_image/SDL_image.h>
 
+#ifdef __platform_web
+#include <emscripten/html5.h>
+#endif
+
 #ifdef __has_debug_menu
 #include <imgui.h>
 
@@ -71,7 +75,7 @@ Config config;
 
 MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
 {
-#ifndef __has_address_sanitizer
+#if !defined(__has_address_sanitizer) || !defined(__platform_web)
     initialize_error_handling(argv[0]);
 #endif
 
@@ -400,7 +404,8 @@ static void register_all_classes()
     REGISTER_STRUCTS(
         uint16_t, uint32_t, float, glm::vec2, glm::vec3, glm::vec4,
         BlockState, ChunkGPUInfo,
-        StandardMeshMaterialInfo);
+        StandardMeshMaterialInfo,
+        SimplexState);
 }
 
 #else

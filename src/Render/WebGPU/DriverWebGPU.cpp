@@ -5,7 +5,13 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_video.h>
 
+#ifdef __platform_web
+#define WGPU_STRING_VIEW_INIT nullptr
+#define WGPU_STRING_VIEW(NAME) (NAME)
+#define WGPUOptionalBool_True true
+#else
 #define WGPU_STRING_VIEW(NAME) {NAME, WGPU_STRLEN}
+#endif
 
 template <typename T>
 static bool find_chain_entry(WGPUSType type, WGPUChainedStructOut *chain, T& out)
@@ -78,7 +84,7 @@ static WGPUVertexFormat convert_shader_type(ShaderType type)
 
 static WGPUBufferUsage convert_buffer_usage(BufferUsageFlags usage)
 {
-    WGPUBufferUsage flags = {};
+    uint32_t flags = {};
 
     if (usage.has_any(BufferUsageFlagBits::CopySource))
         flags |= WGPUBufferUsage_CopySrc;
@@ -93,12 +99,12 @@ static WGPUBufferUsage convert_buffer_usage(BufferUsageFlags usage)
     if (usage.has_any(BufferUsageFlagBits::Storage))
         flags |= WGPUBufferUsage_Storage;
 
-    return flags;
+    return (WGPUBufferUsage)flags;
 }
 
 static WGPUTextureUsage convert_texture_usage(TextureUsageFlags usage)
 {
-    WGPUTextureUsage flags = {};
+    uint32_t flags = {};
 
     if (usage.has_any(TextureUsageFlagBits::ColorAttachment | TextureUsageFlagBits::DepthAttachment))
         flags |= WGPUTextureUsage_RenderAttachment;
@@ -109,7 +115,7 @@ static WGPUTextureUsage convert_texture_usage(TextureUsageFlags usage)
     if (usage.has_any(TextureUsageFlagBits::Sampled))
         flags |= WGPUTextureUsage_TextureBinding;
 
-    return flags;
+    return (WGPUTextureUsage)flags;
 }
 
 static WGPUIndexFormat convert_index_type(IndexType type)
@@ -308,6 +314,7 @@ MaterialLayoutCacheValue MaterialLayoutCache::create_object(const MaterialLayout
     pipeline_layout_desc.bindGroupLayoutCount = layouts.size();
     pipeline_layout_desc.bindGroupLayouts = layouts.data();
 
+#ifndef __platform_web
     std::vector<WGPUPushConstantRange> ranges;
     ranges.reserve(shader->get_push_constants().size());
 
@@ -323,6 +330,7 @@ MaterialLayoutCacheValue MaterialLayoutCache::create_object(const MaterialLayout
     extras.pushConstantRangeCount = ranges.size();
     extras.pushConstantRanges = ranges.data();
     pipeline_layout_desc.nextInChain = &extras.chain;
+#endif
 
     WGPUPipelineLayout pipeline_layout = wgpuDeviceCreatePipelineLayout(RenderingDriverWebGPU::get()->get_device(), &pipeline_layout_desc);
     ERR_COND_R(pipeline_layout == nullptr, "PipelineLayout is invalid", {});
@@ -451,6 +459,8 @@ RenderingDriverWebGPU::~RenderingDriverWebGPU()
 {
 }
 
+#ifndef __platform_web
+
 WGPUAdapter request_adapter_sync(WGPUInstance instance)
 {
     WGPUAdapter adapter;
@@ -493,12 +503,16 @@ WGPUDevice request_device_sync(WGPUAdapter adapter, const WGPUDeviceDescriptor& 
     return device;
 }
 
-static WGPUSurface create_surface(WGPUInstance instance, const Window& window)
+#endif
+
+WGPUSurface RenderingDriverWebGPU::create_surface(WGPUInstance instance, const Window& window)
 {
     WGPUSurfaceDescriptor surface_desc{};
 
 #ifdef __platform_web
     WGPUSurfaceDescriptorFromCanvasHTMLSelector canvas_selector{};
+    // NOTE: Emscripten expect 262144 instead of WGPUSType_SurfaceDescriptorFromCanvasHTMLSelector (which is 4)
+    canvas_selector.chain = {.next = nullptr, .sType = (WGPUSType)262144};
     canvas_selector.selector = "#canvas";
     surface_desc.nextInChain = &canvas_selector.chain;
 #elif defined(__platform_linux)
@@ -521,9 +535,10 @@ static WGPUSurface create_surface(WGPUInstance instance, const Window& window)
         wayland_source.surface = SDL_GetPointerProperty(properties, SDL_PROP_WINDOW_WAYLAND_SURFACE_POINTER, nullptr);
         surface_desc.nextInChain = &wayland_source.chain;
     }
-#elif
+#elif defined(__platform_macos)
     WGPUSurfaceSourceMetalLayer metal_source{};
-    metal_source.layer = SDL_GetPointerProperty(properties, SDL_PROP_WINDOW_, void *default_value);
+    metal_source.chain.sType = WGPUSType_SurfaceSourceMetalLayer;
+    metal_source.layer = SDL_Metal_GetLayer(m_metal_view);
     surface_desc.nextInChain = &metal_source.chain;
 #else
 #error "Platform not supported"
@@ -541,19 +556,23 @@ Result<> RenderingDriverWebGPU::initialize(const Window& window, bool enable_val
 
     WGPUInstanceExtras extras{};
     extras.chain = {.next = nullptr, .sType = (WGPUSType)WGPUSType_InstanceExtras};
-    extras.backends = WGPUInstanceBackend_Vulkan;
+    extras.backends = WGPUInstanceBackend_Primary;
     instance_desc.nextInChain = &extras.chain;
 
     m_instance = wgpuCreateInstance(&instance_desc);
 #else
-#error "Platform not supported"
+    m_instance = wgpuCreateInstance(nullptr);
+#endif
+
+#ifdef __platform_macos
+    m_metal_view = SDL_Metal_CreateView(window.window_ptr());
 #endif
 
     m_surface = create_surface(m_instance, window);
 
 #ifdef __platform_web
     // On the web we use glue code to acquire a WGPUDevice.
-    m_device = WGPUDevice(emscripten_webgpu_get_device());
+    m_device = emscripten_webgpu_get_device();
     if (!m_device)
         return Error(ErrorKind::BadDriver);
 #else
@@ -632,6 +651,7 @@ Result<> RenderingDriverWebGPU::configure_surface(const Window& window, VSync vs
 {
     Extent2D surface_extent = window.size();
 
+#ifndef __platform_web
     WGPUSurfaceCapabilities capabilities;
     wgpuSurfaceGetCapabilities(m_surface, m_adapter, &capabilities);
 
@@ -643,6 +663,16 @@ Result<> RenderingDriverWebGPU::configure_surface(const Window& window, VSync vs
     config.height = surface_extent.height;
     config.presentMode = vsync == VSync::On ? WGPUPresentMode_Fifo : WGPUPresentMode_Immediate;
     config.alphaMode = capabilities.alphaModes[0];
+#else
+    WGPUSurfaceConfiguration config{};
+    config.device = m_device;
+    config.format = WGPUTextureFormat_RGBA8UnormSrgb;
+    config.usage = WGPUTextureUsage_RenderAttachment;
+    config.width = surface_extent.width;
+    config.height = surface_extent.height;
+    config.presentMode = WGPUPresentMode(1); // only FIFO is supported
+    config.alphaMode = WGPUCompositeAlphaMode_Auto;
+#endif
 
     auto depth_texture_result = create_texture(surface_extent.width, surface_extent.height, TextureFormat::Depth32, TextureUsageFlagBits::DepthAttachment, TextureDimension::D2D, 1);
     YEET(depth_texture_result);
@@ -652,7 +682,7 @@ Result<> RenderingDriverWebGPU::configure_surface(const Window& window, VSync vs
     wgpuSurfaceConfigure(m_surface, &config);
     m_surface_extent = surface_extent;
     m_depth_texture = depth_texture;
-    m_surface_format = capabilities.formats[0];
+    m_surface_format = config.format;
 
     return 0;
 }
@@ -832,10 +862,14 @@ void RenderingDriverWebGPU::draw_graph(const RenderGraph& graph)
         {
             const PushConstantsInstruction& push_constants = std::get<PushConstantsInstruction>(instruction);
 
+#ifndef __platform_web
             if (render_pass_encoder)
                 wgpuRenderPassEncoderSetPushConstants(render_pass_encoder, WGPUShaderStage_Vertex, 0, push_constants.buffer.size(), push_constants.buffer.data());
             else if (compute_pass_encoder)
                 wgpuComputePassEncoderSetPushConstants(compute_pass_encoder, 0, push_constants.buffer.size(), push_constants.buffer.data());
+#else
+            ASSERT(false, "unimplemented");
+#endif
         }
         else if (std::holds_alternative<BeginComputePassInstruction>(instruction))
         {
@@ -919,22 +953,25 @@ Result<WGPURenderPipeline> RenderingDriverWebGPU::create_render_pipeline(Ref<Sha
         buffers.push_back(WGPUVertexBufferLayout{.stepMode = WGPUVertexStepMode_Instance, .arrayStride = layout.stride, .attributeCount = instance_attribs.size(), .attributes = instance_attribs.data()});
     }
 
-    const View<uint32_t> shader_code = shader->get_code_u32();
-
     WGPUShaderModuleDescriptor module_desc{};
     module_desc.label = WGPU_STRING_VIEW_INIT;
+
+#ifndef __platform_web
+    const View<uint32_t> shader_code = shader->get_code_u32();
 
     WGPUShaderSourceSPIRV spirv_source{};
     spirv_source.chain = {.next = nullptr, .sType = WGPUSType_ShaderSourceSPIRV};
     spirv_source.code = shader_code.data();
     spirv_source.codeSize = shader_code.size();
     module_desc.nextInChain = &spirv_source.chain;
+#else
+    const View<char> shader_code = shader->get_code();
 
-    // TODO: Web version needs WGSL, slang can compile to it.
-    // WGPUShaderSourceWGSL wgsl_source{};
-    // wgsl_source.chain = {.next = nullptr, .sType = WGPUSType_ShaderSourceWGSL};
-    // wgsl_source.code = WGPUStringView(shader_code, std::strlen(shader_code));
-    // module_desc.nextInChain = &wgsl_source.chain;
+    WGPUShaderModuleWGSLDescriptor wgsl_source{};
+    wgsl_source.chain = {.next = nullptr, .sType = WGPUSType_ShaderModuleWGSLDescriptor};
+    wgsl_source.code = shader_code.data();
+    module_desc.nextInChain = &wgsl_source.chain;
+#endif
 
     WGPUShaderModule module = wgpuDeviceCreateShaderModule(m_device, &module_desc);
     ERR_COND_R(module == nullptr, "Unable to compile shader", Error(ErrorKind::BadDriver));
@@ -1002,7 +1039,6 @@ Result<WGPURenderPipeline> RenderingDriverWebGPU::create_render_pipeline(Ref<Sha
     primitive_state.frontFace = WGPUFrontFace_CCW; // FIXME
     primitive_state.topology = WGPUPrimitiveTopology_TriangleList;
     primitive_state.stripIndexFormat = WGPUIndexFormat_Undefined;
-    primitive_state.unclippedDepth = false;
 
     WGPURenderPipelineDescriptor desc{};
     desc.layout = pipeline_layout;
@@ -1021,21 +1057,24 @@ Result<WGPURenderPipeline> RenderingDriverWebGPU::create_render_pipeline(Ref<Sha
 
 Result<WGPUComputePipeline> RenderingDriverWebGPU::create_compute_pipeline(const Ref<Shader>& shader, WGPUPipelineLayout pipeline_layout)
 {
-    const View<uint32_t> shader_code = shader->get_code_u32();
-
     WGPUShaderModuleDescriptor module_desc{};
+
+#ifndef __platform_web
+    const View<uint32_t> shader_code = shader->get_code_u32();
 
     WGPUShaderSourceSPIRV spirv_source{};
     spirv_source.chain = {.next = nullptr, .sType = WGPUSType_ShaderSourceSPIRV};
     spirv_source.code = shader_code.data();
     spirv_source.codeSize = shader_code.size();
     module_desc.nextInChain = &spirv_source.chain;
+#else
+    const View<char> shader_code = shader->get_code();
 
-    // TODO: Web version needs WGSL, slang can compile to it.
-    // WGPUShaderSourceWGSL wgsl_source{};
-    // wgsl_source.chain = {.next = nullptr, .sType = WGPUSType_ShaderSourceWGSL};
-    // wgsl_source.code = WGPUStringView(shader_code, std::strlen(shader_code));
-    // module_desc.nextInChain = &wgsl_source.chain;
+    WGPUShaderModuleWGSLDescriptor wgsl_source{};
+    wgsl_source.chain = {.next = nullptr, .sType = WGPUSType_ShaderModuleWGSLDescriptor};
+    wgsl_source.code = shader_code.data();
+    module_desc.nextInChain = &wgsl_source.chain;
+#endif
 
     WGPUShaderModule module = wgpuDeviceCreateShaderModule(m_device, &module_desc);
     ERR_COND_R(module == nullptr, "Unable to compile shader", Error(ErrorKind::BadDriver));
@@ -1065,6 +1104,7 @@ void BufferWebGPU::update(View<uint8_t> view, size_t offset)
 
 void TextureWebGPU::update(View<uint8_t> view, uint32_t layer)
 {
+#ifndef __platform_web
     WGPUTexelCopyTextureInfo copy_info{};
     copy_info.texture = texture;
     copy_info.aspect = WGPUTextureAspect_All;
@@ -1081,6 +1121,24 @@ void TextureWebGPU::update(View<uint8_t> view, uint32_t layer)
     WGPUExtent3D write_size(m_width, m_height, 1);
 
     wgpuQueueWriteTexture(RenderingDriverWebGPU::get()->get_queue(), &copy_info, view.data(), view.size(), &layout, &write_size);
+#else
+    WGPUImageCopyTexture copy_info{};
+    copy_info.texture = texture;
+    copy_info.aspect = WGPUTextureAspect_All;
+    copy_info.origin.x = 0;
+    copy_info.origin.y = 0;
+    copy_info.origin.z = layer;
+    copy_info.mipLevel = 0;
+
+    WGPUTextureDataLayout layout{};
+    layout.bytesPerRow = size_of(format) * m_width;
+    layout.rowsPerImage = m_height;
+    layout.offset = 0;
+
+    WGPUExtent3D write_size(m_width, m_height, 1);
+
+    wgpuQueueWriteTexture(RenderingDriverWebGPU::get()->get_queue(), &copy_info, view.data(), view.size(), &layout, &write_size);
+#endif
 }
 
 RenderGraphCache::RenderPass& RenderGraphCache::set_render_pass(uint32_t index, RenderPassDescriptor desc)

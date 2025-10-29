@@ -7,6 +7,12 @@
 
 #include <mutex>
 
+struct SimplexState
+{
+    std::array<uint8_t, 256> perms;
+};
+STRUCT(SimplexState);
+
 class World : public VisualComponent
 {
     CLASS(World, VisualComponent);
@@ -72,6 +78,11 @@ public:
         return m_dims[index];
     }
 
+    const Ref<Buffer>& get_perm_buffer() const
+    {
+        return m_permutation_buffer;
+    }
+
     void load_chunk(int64_t x, int64_t z);
     void load_around(int64_t x, int64_t y, int64_t z);
 
@@ -84,6 +95,7 @@ private:
     Ref<Shader> m_surface_shader;
 
     Ref<Buffer> m_position_buffer;
+    Ref<Buffer> m_permutation_buffer;
 
     std::mutex m_chunks_add_mutex;
     std::mutex m_chunks_read_mutex;

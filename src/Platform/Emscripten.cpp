@@ -35,7 +35,8 @@ EM_JS(void, glue_preinit, (), {
 
 __attribute__((used, visibility("default"))) extern "C" void _glue_main_()
 {
-    emscripten_main(0, nullptr);
+    char *argv[]{"ft_minecraft"};
+    emscripten_main(sizeof(argv) / sizeof(char *), argv);
 }
 
 int main(int argc, char *argv[])

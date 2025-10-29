@@ -60,5 +60,8 @@ private:
     static inline std::map<std::string, Status> s_actions;
     static inline bool s_mouse_grabbed;
     static inline glm::vec2 s_mouse_relative;
+
+#ifndef __platform_web
     static inline SDL_Window *s_window;
+#endif
 };

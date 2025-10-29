@@ -1,6 +1,8 @@
 #include "World.hpp"
 #include "Core/DataBuffer.hpp"
 
+#include <random>
+
 World::World(Ref<Mesh> mesh, Ref<Material> material)
     : m_mesh(mesh), m_material(material)
 {
@@ -16,6 +18,13 @@ World::World(Ref<Mesh> mesh, Ref<Material> material)
 
     m_position_buffer->update(View(positions).as_bytes());
     m_material->set_param("positions", m_position_buffer);
+
+    m_permutation_buffer = RenderingDriver::get()->create_buffer(STRUCTNAME(SimplexState), 1, BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Uniform).value();
+    SimplexState state{};
+    for (size_t i = 0; i < 256; i++)
+        state.perms[i] = i;
+    std::shuffle(state.perms.begin(), state.perms.end(), std::mt19937{std::random_device{}()});
+    m_permutation_buffer->update(View(state).as_bytes());
 }
 
 BlockState World::get_block_state(int64_t x, int64_t y, int64_t z) const
@@ -105,7 +114,7 @@ void World::encode_draw_calls(RenderPassEncoder& encoder, Camera& camera)
 
 void World::load_chunk(int64_t x, int64_t z)
 {
-    Ref<Chunk> chunk = make_ref<Chunk>(x, z, m_surface_shader);
+    Ref<Chunk> chunk = make_ref<Chunk>(x, z, m_surface_shader, this);
     chunk->generate();
 
     m_dims[0].add_chunk(x, z, chunk);

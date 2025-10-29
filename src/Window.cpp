@@ -1,40 +1,48 @@
 #include "Window.hpp"
 
+#ifdef __platform_web
+#include <emscripten/html5.h>
+#endif
+
 Window::Window(const std::string& title, uint32_t width, uint32_t height, bool resizable)
 {
-#ifdef __platform_web
-    // SDL does not support WebGPU.
-    SDL_Init(SDL_INIT_EVENTS);
-#else
+#ifndef __platform_web
     SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
-#endif
 
     SDL_WindowFlags flags = 0;
 
-#ifndef __platform_web
+#ifdef __platform_linux
     flags |= SDL_WINDOW_VULKAN;
+#elif defined(__platform_macos)
+    flags |= SDL_WINDOW_METAL;
+#elif defined(__platform_windows)
+#error "Windows not implemented"
 #endif
 
     if (resizable)
         flags |= SDL_WINDOW_RESIZABLE;
 
     m_window = SDL_CreateWindow(title.c_str(), (int)width, (int)height, flags);
-
-#ifndef __platform_web
-    SDL_Vulkan_LoadLibrary(nullptr);
+#else
+    SDL_Init(SDL_INIT_EVENTS);
 #endif
 }
 
 Window::~Window()
 {
+#ifndef __platform_web
     SDL_DestroyWindow(m_window);
     SDL_Quit();
+#endif
 }
 
 Extent2D Window::size() const
 {
 #ifdef __platform_web
-    return Extent2D(1280, 720);
+    int width;
+    int height;
+    emscripten_get_canvas_element_size("#canvas", &width, &height);
+    return Extent2D(width, height);
 #else
     int w = 0, h = 0;
     SDL_GetWindowSizeInPixels(m_window, &w, &h);
@@ -54,7 +62,9 @@ std::optional<SDL_Event> Window::poll_event() const
 
 void Window::set_fullscreen(bool f)
 {
+#ifndef __platform_web
     SDL_SetWindowFullscreen(m_window, f);
+#endif
 }
 
 void Window::close()

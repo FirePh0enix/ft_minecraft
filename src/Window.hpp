@@ -5,10 +5,6 @@
 
 #include <SDL3/SDL.h>
 
-#ifndef __platform_web
-#include <SDL3/SDL_vulkan.h>
-#endif
-
 #include <optional>
 
 class Window : public Object
@@ -36,12 +32,17 @@ public:
         return m_running;
     }
 
+#ifndef __platform_web
     inline SDL_Window *get_window_ptr() const
     {
         return m_window;
     }
+#endif
 
 private:
+#ifndef __platform_web
     SDL_Window *m_window = nullptr;
+#endif
+
     bool m_running = true;
 };

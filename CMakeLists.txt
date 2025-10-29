@@ -32,6 +32,7 @@ list(APPEND SOURCES
     src/Core/Ref.cpp
     src/Core/Registry.cpp
     src/Platform/Platform.cpp
+    src/Render/WebGPU/DriverWebGPU.cpp
     src/Render/Driver.cpp
     src/Render/Graph.cpp
     src/Render/Shader.cpp
@@ -65,10 +66,8 @@ if(TARGET_IS_WEB)
         src/Platform/Emscripten.cpp
     )
 else()
-    list(APPEND SOURCES
-        # src/Render/Vulkan/DriverVulkan.cpp
-        src/Render/WebGPU/DriverWebGPU.cpp
-    )
+    # list(APPEND SOURCES
+    # )
 endif()
 
 # Generate the `compile_commands.json`
@@ -139,7 +138,13 @@ endif()
 if(TARGET_IS_WEB)
     configure_file(${CMAKE_SOURCE_DIR}/web/index.html ${CMAKE_BINARY_DIR}/index.html COPYONLY)
 
-    set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS "-sUSE_WEBGPU=1 -sASYNCIFY=1 -sALLOW_MEMORY_GROWTH=1 --preload-file assets --bind")
+    set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS "--use-port=emdawnwebgpu -sALLOW_MEMORY_GROWTH=1") # --bind -sERROR_ON_WASM_CHANGES_AFTER_LINK -sWASM_BIGINT -O0 -sASYNCIFY=1
+
+    target_link_options(${TARGET_NAME} PRIVATE
+            "-Wl,--threads=20"
+            "-Wl,--lto-partitions=20"
+            "-Wl,--lto-O0"
+            "-Wl,--lto-CGO0")
 
     # Make clangd recognize emscripten paths
     execute_process(COMMAND ${CMAKE_C_COMPILER} --cflags OUTPUT_VARIABLE CLANGD_FLAGS_TO_ADD)
@@ -165,10 +170,13 @@ endif()
 # Tools
 #
 
-# datapacktools
-add_executable(datapacktool tools/datapack/main.cpp src/DataPack.cpp)
-target_include_directories(datapacktool PRIVATE src/)
+# datapacktool
+# add_subdirectory(tools/datapack)
+
+add_executable(datapacktool tools/datapack/main.cpp ./src/DataPack.cpp)
+target_include_directories(datapacktool PRIVATE ./src/)
 set_property(TARGET datapacktool PROPERTY CXX_STANDARD 20)
+set(DATAPACKTOOL_COMMAND "${CMAKE_BINARY_DIR}/datapacktool")
 
 file(GLOB_RECURSE Assets_FILES
     ${PROJECT_SOURCE_DIR}/assets/blocks/*.json
@@ -182,11 +190,10 @@ set(Assets_OUTPUT ${CMAKE_BINARY_DIR}/${TARGET_NAME}.data)
 
 add_custom_command(
     OUTPUT ${Assets_OUTPUT}
-    COMMAND ${CMAKE_BINARY_DIR}/datapacktool ${Assets_OUTPUT} ${PROJECT_SOURCE_DIR}/ ${Assets_FILES}
+    COMMAND ${DATAPACKTOOL_COMMAND} ${Assets_OUTPUT} ${PROJECT_SOURCE_DIR}/ ${Assets_FILES}
     DEPENDS ${Assets_FILES}
 )
 add_custom_target(datapacktool-generate ALL DEPENDS datapacktool ${Assets_OUTPUT})
-# add_dependencies(datapacktool-generate ${SHADER_TARGETS})
 add_dependencies(${TARGET_NAME} datapacktool-generate)
 
 
@@ -207,14 +214,6 @@ set(BUILD_SHARED_LIBS 0)
 # target_link_libraries(${TARGET_NAME} PRIVATE doctest)
 
 if(TARGET_IS_LINUX OR TARGET_IS_APPLE OR TARGET_IS_MSVC)
-    # VulkanHeaders
-    # FetchContent_Declare(
-    #     VulkanHeaders
-    #     URL https://github.com/KhronosGroup/Vulkan-Headers/archive/v1.4.313.tar.gz
-    # )
-    # FetchContent_MakeAvailable(VulkanHeaders)
-    # target_link_libraries(${TARGET_NAME} PRIVATE Vulkan::Headers)
-
     if (TARGET_IS_LINUX)
         set(WGPU_PLATFORM "linux")
         set(WGPU_ARCH "x86_64")
@@ -241,7 +240,6 @@ endif()
 # TODO: Must tell slang to use our Vulkan-Headers or doctest or this will not build
 FetchContent_Declare(
     slang
-    # URL https://github.com/shader-slang/slang/releases/download/v${SLANG_VERSION}/slang-${SLANG_VERSION}-${SLANG_ARCH}.tar.gz
     GIT_REPOSITORY https://github.com/shader-slang/slang
     GIT_TAG b7df3c7aa27301f88e31ed0a7bbf230688adab6a # v2025.14.3
 )
@@ -249,11 +247,30 @@ FetchContent_Declare(
 set(SLANG_LIB_TYPE STATIC)
 set(SLANG_ENABLE_TESTS OFF)
 set(SLANG_ENABLE_EXAMPLES OFF)
+set(SLANG_ENABLE_CUDA OFF)
 set(SLANG_ENABLE_GFX OFF)
+set(SLANG_ENABLE_XLIB OFF)
 set(SLANG_ENABLE_SLANGD OFF)
 set(SLANG_ENABLE_SLANGC OFF)
 set(SLANG_ENABLE_SLANGI OFF)
+# set(SLANG_ENABLE_SLANGRT OFF)
+set(SLANG_ENABLE_REPLAYER OFF)
+set(SLANG_ENABLE_OPTIX OFF)
+# set(SLANG_ENABLE_SLANG_RHI OFF)
+# set(SLANG_ENABLE_SPLIT_DEBUG_INFO OFF)
+# set(SLANG_LLVM_FLAVOUR DISABLE)
 set(SLANG_HAS_EXCEPTIONS OFF)
+set(SLANG_SERIALIZE_FOSSIL_ENABLE_VALIDATION_CHECKS OFF)
+
+# set(SLANG_GENERATORS_PATH ${CMAKE_SOURCE_DIR}/build-emscripten/slang/build/generators/Release/bin)
+
+# if (NOT TARGET_IS_MSVC)
+#     set(SLANG_ENABLE_DXIL OFF)
+# endif()
+
+# if (TARGET_IS_WEB)
+#     set(SLANG_ENABLE_SLANG_GLSLANG OFF)
+# endif()
 
 # set(SLANG_OVERRIDE_DOCTEST ${doctest_SOURCE_DIR})
 

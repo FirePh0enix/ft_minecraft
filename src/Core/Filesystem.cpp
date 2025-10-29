@@ -26,6 +26,8 @@ std::filesystem::path Filesystem::current_executable_path()
     }
 
     return "";
+#elif defined(__platform_web)
+    return "/";
 #endif
 }
 

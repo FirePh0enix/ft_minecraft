@@ -5,7 +5,13 @@
 
 #include <map>
 
+#ifdef __platform_web
+#include <emscripten/html5.h>
+#include <emscripten/html5_webgpu.h>
+#include <webgpu/webgpu.h>
+#else
 #include <webgpu/wgpu.h>
+#endif
 
 class TextureWebGPU;
 
@@ -164,6 +170,8 @@ public:
 
     virtual void draw_graph(const RenderGraph& graph) override;
 
+    WGPUSurface create_surface(WGPUInstance instance, const Window& window);
+
     Result<WGPURenderPipeline> create_render_pipeline(Ref<Shader> shader, std::optional<InstanceLayout> instance_layout, WGPUCullMode cull_mode, MaterialFlags flags, WGPUPipelineLayout pipeline_layout, const std::vector<RenderPassColorAttachment>& color_attachs, bool previous_depth_pass);
     Result<WGPUComputePipeline> create_compute_pipeline(const Ref<Shader>& shader, WGPUPipelineLayout pipeline_layout);
 
@@ -215,6 +223,10 @@ private:
     MaterialLayoutCache m_material_layout_cache;
     BindGroupCache m_bind_group_cache;
     RenderGraphCache m_render_graph_cache;
+
+#ifdef __platform_macos
+    SDL_MetalView m_metal_view;
+#endif
 };
 
 class BufferWebGPU : public Buffer

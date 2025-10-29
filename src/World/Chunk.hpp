@@ -45,7 +45,7 @@ public:
     static constexpr int64_t height = 256;
     static constexpr int64_t block_count = width * width * height;
 
-    Chunk(int64_t x, int64_t z, const Ref<Shader>& shader);
+    Chunk(int64_t x, int64_t z, const Ref<Shader>& shader, World *world);
 
     inline BlockState get_block(size_t x, size_t y, size_t z) const
     {

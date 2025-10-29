@@ -67,6 +67,8 @@ Result<Ref<Shader>> Shader::load(const std::filesystem::path& path)
     slang::SessionDesc session_desc{};
     slang::TargetDesc target_desc{};
 
+    // noise -> noise.slang
+
     std::vector<slang::CompilerOptionEntry> options;
 
     // NOTE: If we use slang's default of row major matrices we will need to transpose matrices before passing them to shaders.
@@ -266,7 +268,14 @@ Result<Ref<Shader>> Shader::load(const std::filesystem::path& path)
     // shader->m_code = (char *)aligned_alloc(sizeof(uint32_t), output_code->getBufferSize());
     // std::memcpy(shader->m_code, output_code->getBufferPointer(), output_code->getBufferSize());
 #else
-#error "Not implemented"
+    shader->m_code = (char *)malloc(sizeof(char) * (output_code->getBufferSize() + 1));
+    shader->m_size = output_code->getBufferSize();
+    std::memcpy(shader->m_code, output_code->getBufferPointer(), output_code->getBufferSize());
+    shader->m_code[shader->m_size] = '\0';
+
+    println(">>>> Shader `{}` <<<<", shader->m_path);
+    std::string source;
+    source.append((char *)output_code->getBufferPointer(), output_code->getBufferSize());
 #endif
 
     return shader;
