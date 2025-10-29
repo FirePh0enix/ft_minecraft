@@ -316,7 +316,7 @@ target_link_libraries(${TARGET_NAME} PUBLIC SDL3_image::SDL3_image)
 FetchContent_Declare(
     ImGui
     GIT_REPOSITORY https://github.com/ocornut/imgui
-    GIT_TAG b5a73033ab54009186bb8e4c711e03e6b939cb91
+    GIT_TAG 9a5d5c45f54b1301ea471622eddede70384243af # v1.92.4
 )
 FetchContent_MakeAvailable(ImGui)
 target_sources(${TARGET_NAME} PRIVATE
@@ -325,14 +325,15 @@ target_sources(${TARGET_NAME} PRIVATE
     ${imgui_SOURCE_DIR}/imgui_tables.cpp
     ${imgui_SOURCE_DIR}/imgui_widgets.cpp
     ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp
+    ${imgui_SOURCE_DIR}/backends/imgui_impl_wgpu.cpp
 )
 target_include_directories(${TARGET_NAME} PRIVATE ${imgui_SOURCE_DIR})
 target_compile_definitions(${TARGET_NAME} PRIVATE IMGUI_IMPL_VULKAN_NO_PROTOTYPES VK_NO_PROTOTYPES)
 
-if(TARGET_IS_LINUX OR TARGET_IS_APPLE OR TARGET_IS_MSVC)
-    target_sources(${TARGET_NAME} PRIVATE ${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp)
-elseif(TARGET_IS_WEB)
-    target_sources(${TARGET_NAME} PRIVATE ${imgui_SOURCE_DIR}/backends/imgui_impl_wgpu.cpp)
+if(TARGET_IS_WEB)
+    target_compile_definitions(${TARGET_NAME} PRIVATE IMGUI_IMPL_WEBGPU_BACKEND_DAWN=1)
+else()
+    target_compile_definitions(${TARGET_NAME} PRIVATE IMGUI_IMPL_WEBGPU_BACKEND_WGPU=1)
 endif()
 
 # glm

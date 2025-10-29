@@ -13,6 +13,11 @@
 #include <webgpu/wgpu.h>
 #endif
 
+#ifdef __has_debug_menu
+#include <backends/imgui_impl_sdl3.h>
+#include <backends/imgui_impl_wgpu.h>
+#endif
+
 class TextureWebGPU;
 
 struct RenderPipelineCacheKey
@@ -150,10 +155,7 @@ public:
     virtual Result<> initialize(const Window& window, bool enable_validation) override;
 
     [[nodiscard]]
-    virtual Result<> initialize_imgui() override
-    {
-        return 0;
-    }
+    virtual Result<> initialize_imgui(const Window& window) override;
 
     [[nodiscard]]
     virtual Result<> configure_surface(const Window& window, VSync vsync) override;

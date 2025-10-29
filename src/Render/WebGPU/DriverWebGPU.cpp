@@ -647,6 +647,27 @@ Result<> RenderingDriverWebGPU::initialize(const Window& window, bool enable_val
     return 0;
 }
 
+Result<> RenderingDriverWebGPU::initialize_imgui(const Window& window)
+{
+#ifdef __has_debug_menu
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+
+    // ImGuiIO& io = ImGui::GetIO();
+    // io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+
+    ImGui_ImplSDL3_InitForOther(window.get_window_ptr());
+
+    ImGui_ImplWGPU_InitInfo init_info{};
+    init_info.Device = m_device;
+    init_info.NumFramesInFlight = 3;
+    init_info.RenderTargetFormat = m_surface_format;
+    init_info.DepthStencilFormat = WGPUTextureFormat_Depth32Float;
+    ImGui_ImplWGPU_Init(&init_info);
+#endif
+    return 0;
+}
+
 Result<> RenderingDriverWebGPU::configure_surface(const Window& window, VSync vsync)
 {
     Extent2D surface_extent = window.size();
@@ -689,6 +710,8 @@ Result<> RenderingDriverWebGPU::configure_surface(const Window& window, VSync vs
 
 void RenderingDriverWebGPU::poll()
 {
+    ImGui_ImplWGPU_NewFrame();
+    ImGui_ImplSDL3_NewFrame();
 }
 
 void RenderingDriverWebGPU::limit_frames(uint32_t limit)
@@ -892,8 +915,11 @@ void RenderingDriverWebGPU::draw_graph(const RenderGraph& graph)
             const DispatchInstruction& dispatch = std::get<DispatchInstruction>(instruction);
             wgpuComputePassEncoderDispatchWorkgroups(compute_pass_encoder, dispatch.group_x, dispatch.group_y, dispatch.group_z);
         }
-
-        // TODO: Imgui
+        else if (std::holds_alternative<ImGuiDrawInstruction>(instruction))
+        {
+            ImGui::Render();
+            ImGui_ImplWGPU_RenderDrawData(ImGui::GetDrawData(), render_pass_encoder);
+        }
     }
 
     WGPUCommandBufferDescriptor buffer_desc{};

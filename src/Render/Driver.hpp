@@ -357,7 +357,7 @@ public:
      * @brief Initialize ImGui. no-op when `__has_debug_menu`.
      */
     [[nodiscard]]
-    virtual Result<> initialize_imgui() = 0;
+    virtual Result<> initialize_imgui(const Window& window) = 0;
 
     /**
      * @brief Configure the surface and swapchain.

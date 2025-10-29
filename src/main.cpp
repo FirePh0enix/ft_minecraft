@@ -26,13 +26,6 @@
 #include <emscripten/html5.h>
 #endif
 
-#ifdef __has_debug_menu
-#include <imgui.h>
-
-#include <backends/imgui_impl_sdl3.h>
-#include <backends/imgui_impl_vulkan.h>
-#endif
-
 #ifdef __platform_web
 
 #define MAIN_FUNC_NAME emscripten_main
@@ -188,33 +181,32 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
         info("World won't be saved, `--disable-save` is present.");
     }
 
-    // gen = make_ref<WorldGenerator>(world, args.has("disable-save"));
-    // gen->set_terrain(make_ref<OverworldTerrainGenerator>());
-
     player->get_component<RigidBody>()->disabled() = !config.get_category("physics").get<bool>("collisions");
     player->get_component<Player>()->set_gravity_enabled(config.get_category("physics").get<bool>("gravity"));
     player->get_component<Player>()->set_gravity_value(config.get_category("physics").get<float>("gravity_value"));
 
     // This is very hacky but the only way to create the render pass required for ImGui.
     // TODO: Maybe a solution would be to create a render pass only for imgui ?
-    {
-        RenderGraph& graph = RenderGraph::get();
+    // {
+    //     RenderGraph& graph = RenderGraph::get();
 
-        // depth prepass
-        {
-            graph.render_pass_begin({.name = "depth pass", .depth_attachment = RenderPassDepthAttachment{.save = true}});
-        }
+    //     // depth prepass
+    //     {
+    //         graph.render_pass_begin({.name = "depth pass", .depth_attachment = RenderPassDepthAttachment{.save = true}});
+    //     }
 
-        // main color pass
-        {
-            graph.render_pass_begin({.name = "main pass", .color_attachments = {RenderPassColorAttachment{.surface_texture = true}}, .depth_attachment = RenderPassDepthAttachment{.load = true}});
-        }
+    //     // main color pass
+    //     {
+    //         graph.render_pass_begin({.name = "main pass", .color_attachments = {RenderPassColorAttachment{.surface_texture = true}}, .depth_attachment = RenderPassDepthAttachment{.load = true}});
+    //     }
 
-        RenderingDriver::get()->draw_graph(graph);
-        graph.reset();
+    //     RenderingDriver::get()->draw_graph(graph);
+    //     graph.reset();
 
-        EXPECT(RenderingDriver::get()->initialize_imgui());
-    }
+    //     EXPECT(RenderingDriver::get()->initialize_imgui(*window));
+    // }
+
+    EXPECT(RenderingDriver::get()->initialize_imgui(*window));
 
     const glm::vec3 player_pos = player->get_transform()->get_global_transform().position();
     world->load_around(int64_t(player_pos.x), int64_t(player_pos.y), int64_t(player_pos.z));
@@ -372,8 +364,7 @@ static void tick()
     {
         RenderPassEncoder encoder = graph.render_pass_begin({.name = "main pass", .color_attachments = {RenderPassColorAttachment{.surface_texture = true}}, .depth_attachment = RenderPassDepthAttachment{.load = true}});
         scene->encode_draw_calls(encoder);
-
-        // graph.add_imgui_draw();
+        encoder.imgui();
     }
 
     RenderingDriver::get()->draw_graph(graph);

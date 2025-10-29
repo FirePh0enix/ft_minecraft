@@ -36,6 +36,13 @@ void RenderPassEncoder::draw(uint32_t vertex_count, uint32_t instance_count)
     g_graph.add_instruction(DrawInstruction{.vertex_count = vertex_count, .instance_count = instance_count});
 }
 
+void RenderPassEncoder::imgui()
+{
+#ifdef __has_debug_menu
+    g_graph.add_instruction(ImGuiDrawInstruction{});
+#endif
+}
+
 void RenderPassEncoder::end()
 {
     m_end = true;

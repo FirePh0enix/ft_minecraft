@@ -93,6 +93,7 @@ public:
     void bind_vertex_buffer(const Ref<Buffer>& buffer, uint32_t location);
     void push_constants(const DataBuffer& buffer);
     void draw(uint32_t vertex_count, uint32_t instance_count);
+    void imgui();
     void end();
 
 private:
