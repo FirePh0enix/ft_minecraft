@@ -100,6 +100,4 @@ private:
     std::mutex m_chunks_add_mutex;
     std::mutex m_chunks_read_mutex;
     std::mutex m_buffers_mutex;
-
-    // void update_visibility(int64_t x, int64_t y, int64_t z, bool recurse);
 };

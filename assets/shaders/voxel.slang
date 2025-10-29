@@ -37,6 +37,7 @@ SamplerState images_sampler;
 
 StructuredBuffer<float4> positions;
 StructuredBuffer<BlockState> blocks;
+StructuredBuffer<uint4> textureRegistry;
 
 [push_constant]
 PushConstants constants;
@@ -67,10 +68,9 @@ VertexOutput vertexMain(VertexInput vertex)
     out.normal = vertex.normal;
     out.light_vec = float3(-1.0, -1.0, 0.0);
 
-    // uint texture_indices[6] = { vertex.textures.x & 0xFFFF, vertex.textures.x >> 16, vertex.textures.y & 0xFFFF, vertex.textures.y >> 16, vertex.textures.z & 0xFFFF, vertex.textures.z >> 16 };
-    // out.texture_index = texture_indices[vertex.index / 4];
-    // TODO: texturing
-    out.texture_index = 1;
+    uint4 encodedTextureIndices = textureRegistry[(block.id_raw & 0xFFFF) - 1];
+    uint textureIndices[6] = { encodedTextureIndices.x & 0xFFFF, encodedTextureIndices.x >> 16, encodedTextureIndices.y & 0xFFFF, encodedTextureIndices.y >> 16, encodedTextureIndices.z & 0xFFFF, encodedTextureIndices.z >> 16 };
+    out.texture_index = textureIndices[vertex.index / 4];
 
     return out;
 }

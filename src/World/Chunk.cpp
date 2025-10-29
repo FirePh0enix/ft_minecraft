@@ -1,5 +1,4 @@
 #include "World/Chunk.hpp"
-#include "World/Registry.hpp"
 #include "World/World.hpp"
 
 Chunk::Chunk(int64_t x, int64_t z, const Ref<Shader>& shader, World *world)

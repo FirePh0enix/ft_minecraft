@@ -129,6 +129,9 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     auto init_result = RenderingDriver::get()->initialize(*window, args.has("enable-gpu-validation"));
     EXPECT(init_result);
 
+    BlockRegistry::load_blocks();
+    BlockRegistry::create_gpu_resources();
+
     Result<Ref<Shader>> shader_result = Shader::load("assets/shaders/voxel.slang");
     if (!shader_result.has_value())
     {
@@ -139,12 +142,6 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     Ref<Shader> shader = shader_result.value();
     shader->set_sampler("images", {.min_filter = Filter::Nearest, .mag_filter = Filter::Nearest});
 
-    // std::array<InstanceLayoutInput, 3> inputs{
-    //     InstanceLayoutInput(ShaderType::Float32x3, 0),
-    //     InstanceLayoutInput(ShaderType::Uint32x3, sizeof(glm::vec3) * 1),
-    //     InstanceLayoutInput(ShaderType::Uint32, sizeof(glm::vec3) * 2),
-    // };
-    // InstanceLayout instance_layout(inputs, sizeof(BlockInstanceData));
     Ref<Material> material = Material::create(shader, std::nullopt, MaterialFlagBits::Transparency, PolygonMode::Fill, CullMode::Back);
 
     auto cube_result = create_cube_with_separate_faces(glm::vec3(1.0), glm::vec3(-0.5));
@@ -184,9 +181,6 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     scene->add_entity(player);
     scene->set_active_camera(camera);
 
-    BlockRegistry::load_blocks();
-
-    BlockRegistry::create_texture_array();
     material->set_param("images", BlockRegistry::get_texture_array());
 
     if (args.has("disable-save"))
@@ -402,7 +396,7 @@ static void register_all_classes()
 #endif
 
     REGISTER_STRUCTS(
-        uint16_t, uint32_t, float, glm::vec2, glm::vec3, glm::vec4,
+        uint16_t, uint32_t, float, glm::vec2, glm::vec3, glm::vec4, glm::uvec2, glm::uvec3, glm::uvec4,
         BlockState, ChunkGPUInfo,
         StandardMeshMaterialInfo,
         SimplexState);

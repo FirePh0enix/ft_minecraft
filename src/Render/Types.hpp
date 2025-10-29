@@ -272,3 +272,7 @@ STRUCT(double);
 STRUCT(glm::dvec2);
 STRUCT(glm::dvec3);
 STRUCT(glm::dvec4);
+
+STRUCT(glm::uvec2);
+STRUCT(glm::uvec3);
+STRUCT(glm::uvec4);

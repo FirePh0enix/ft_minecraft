@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Render/Driver.hpp"
-#include "World/Biome.hpp"
 #include "World/Block.hpp"
 
 class World;
@@ -86,11 +85,6 @@ public:
         return ChunkBounds{.min = glm::ivec3(m_min_x, m_min_y, m_min_z), .max = glm::ivec3(m_max_x, m_max_y, m_max_z)};
     }
 
-    void set_biome(int64_t x, int64_t z, Biome biome)
-    {
-        m_biomes[x + z * width] = biome;
-    }
-
     Ref<Buffer> get_block_buffer() const
     {
         return m_gpu_blocks;
@@ -101,16 +95,8 @@ public:
      */
     void generate();
 
-    // void compute_full_visibility(World *world);
-    // void compute_visibility(const World *world, int64_t x, int64_t y, int64_t z);
-
-    // void compute_axis_neighbour_visibility(const Ref<World>& world, const Ref<Chunk>& neighbour);
-
-    // void update_instance_buffer();
-
 private:
     std::vector<BlockState> m_blocks;
-    std::array<Biome, 16 * 16> m_biomes = {Biome::Plains};
     int64_t m_x;
     int64_t m_z;
 

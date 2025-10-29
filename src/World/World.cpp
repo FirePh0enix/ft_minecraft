@@ -1,5 +1,6 @@
-#include "World.hpp"
+#include "World/World.hpp"
 #include "Core/DataBuffer.hpp"
+#include "World/Registry.hpp"
 
 #include <random>
 
@@ -19,6 +20,10 @@ World::World(Ref<Mesh> mesh, Ref<Material> material)
     m_position_buffer->update(View(positions).as_bytes());
     m_material->set_param("positions", m_position_buffer);
 
+    m_material->set_param("textureRegistry", BlockRegistry::get_texture_buffer());
+
+    // Create the permutation table used by the noise algorithms.
+    // TODO: Add seed
     m_permutation_buffer = RenderingDriver::get()->create_buffer(STRUCTNAME(SimplexState), 1, BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Uniform).value();
     SimplexState state{};
     for (size_t i = 0; i < 256; i++)
