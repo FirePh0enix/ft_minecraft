@@ -12,6 +12,11 @@ public:
     {
     }
 
+    ALWAYS_INLINE StringView(const char *str, size_t size)
+        : m_data(str), m_size(size)
+    {
+    }
+
     ALWAYS_INLINE StringView(const std::string& str)
         : m_data(str.data()), m_size(str.size())
     {
@@ -20,7 +25,7 @@ public:
     operator std::string() const
     {
         std::string s;
-        s.append(c_str(), m_size);
+        s.append(m_data, m_size);
         return s;
     }
 

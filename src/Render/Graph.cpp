@@ -1,5 +1,4 @@
 #include "Render/Graph.hpp"
-#include "Core/Error.hpp"
 
 RenderPassEncoder::RenderPassEncoder(const RenderPassDescriptor& desc)
 {
@@ -46,6 +45,7 @@ void RenderPassEncoder::imgui()
 void RenderPassEncoder::end()
 {
     m_end = true;
+    g_graph.add_instruction(EndRenderPassInstruction{});
 }
 
 ComputePassEncoder::ComputePassEncoder()
@@ -72,6 +72,7 @@ void ComputePassEncoder::dispatch(uint32_t group_x, uint32_t group_y, uint32_t g
 void ComputePassEncoder::end()
 {
     m_end = true;
+    g_graph.add_instruction(EndComputePassInstruction{});
 }
 
 RenderGraph& RenderGraph::get()
@@ -111,4 +112,9 @@ RenderPassEncoder RenderGraph::render_pass_begin(const RenderPassDescriptor& des
 ComputePassEncoder RenderGraph::compute_pass_begin()
 {
     return ComputePassEncoder();
+}
+
+void RenderGraph::copy_buffer(const Ref<Buffer>& dest, const Ref<Buffer>& source)
+{
+    m_instructions.push_back(CopyInstruction{.src = source, .dst = dest, .src_offset = 0, .dst_offset = 0, .size = dest->size_bytes()});
 }

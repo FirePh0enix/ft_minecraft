@@ -731,7 +731,7 @@ Result<Ref<Buffer>> RenderingDriverWebGPU::create_buffer(const char *name, size_
     desc.usage = convert_buffer_usage(usage);
 
     if (visibility == BufferVisibility::GPUAndCPU)
-        desc.usage |= WGPUBufferUsage_MapRead | WGPUBufferUsage_MapWrite;
+        desc.usage |= WGPUBufferUsage_MapRead;
 
     // WebGPU requires the size of an uniform buffer to a multiple of 16 bytes.
     if (usage.has_any(BufferUsageFlagBits::Uniform) && size_bytes % 16 > 0)
@@ -914,6 +914,11 @@ void RenderingDriverWebGPU::draw_graph(const RenderGraph& graph)
         {
             const DispatchInstruction& dispatch = std::get<DispatchInstruction>(instruction);
             wgpuComputePassEncoderDispatchWorkgroups(compute_pass_encoder, dispatch.group_x, dispatch.group_y, dispatch.group_z);
+        }
+        else if (std::holds_alternative<CopyInstruction>(instruction))
+        {
+            const CopyInstruction& copy = std::get<CopyInstruction>(instruction);
+            wgpuCommandEncoderCopyBufferToBuffer(command_encoder, copy.src.cast_to<BufferWebGPU>()->buffer, copy.src_offset, copy.dst.cast_to<BufferWebGPU>()->buffer, copy.dst_offset, copy.size);
         }
         else if (std::holds_alternative<ImGuiDrawInstruction>(instruction))
         {
@@ -1126,6 +1131,35 @@ Result<WGPUComputePipeline> RenderingDriverWebGPU::create_compute_pipeline(const
 void BufferWebGPU::update(View<uint8_t> view, size_t offset)
 {
     wgpuQueueWriteBuffer(RenderingDriverWebGPU::get()->get_queue(), buffer, static_cast<uint64_t>(offset), view.data(), view.size());
+}
+
+void BufferWebGPU::read_async(size_t offset, size_t size, BufferReadCallback callback, void *user)
+{
+    WGPUQueueWorkDoneCallbackInfo callback_info{};
+    callback_info.mode = WGPUCallbackMode_AllowSpontaneous;
+    callback_info.userdata1 = new BufferWebGPURead(buffer, callback, offset, size);
+    callback_info.userdata2 = user;
+    callback_info.callback = [](WGPUQueueWorkDoneStatus status, void *user1, void *user2)
+    {
+        WGPUBufferMapCallbackInfo map_callback_info{};
+        map_callback_info.mode = WGPUCallbackMode_AllowSpontaneous;
+        map_callback_info.callback = [](WGPUMapAsyncStatus status, WGPUStringView message, void *user1, void *user2)
+        {
+            (void)status;
+            (void)message;
+            BufferWebGPURead *read = static_cast<BufferWebGPURead *>(user1);
+            const void *ptr = wgpuBufferGetConstMappedRange(read->buffer, read->offset, read->size);
+            read->callback(ptr, read->size, user2);
+            wgpuBufferUnmap(read->buffer);
+            delete read;
+        };
+        map_callback_info.userdata1 = user1;
+        map_callback_info.userdata2 = user2;
+
+        BufferWebGPURead *read = (BufferWebGPURead *)user1;
+        wgpuBufferMapAsync(read->buffer, WGPUMapMode_Read, read->offset, read->size, map_callback_info);
+    };
+    wgpuQueueOnSubmittedWorkDone(RenderingDriverWebGPU::get()->get_queue(), callback_info);
 }
 
 void TextureWebGPU::update(View<uint8_t> view, uint32_t layer)

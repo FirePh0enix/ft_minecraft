@@ -99,6 +99,8 @@ void MaterialBase::set_param(const StringView& name, const Ref<Texture>& texture
     ERR_COND_VR(texture.is_null(), "Parameter specified for {} is null", name);
     ERR_COND_VR(!binding_result.has_value(), "Invalid parameter name `{}`", name.c_str());
 
+    // TODO: Check dimensions.
+
     m_caches[name] = MaterialParamCache{.texture = {.kind = BindingKind::Texture, .texture = texture.ptr()}};
     m_param_changed = true;
 }

@@ -138,7 +138,12 @@ public:
         }
     }
 
-    inline Transform3D get_transform() const
+    inline const Transform3D& get_transform() const
+    {
+        return m_transform;
+    }
+
+    inline Transform3D& get_transform()
     {
         return m_transform;
     }

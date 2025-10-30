@@ -21,6 +21,7 @@ option(SANITIZE_THREAD "Enable ThreadSanitizer" OFF)
 list(APPEND SOURCES
     src/Args.cpp
     src/Config.cpp
+    src/Console.cpp
     src/DataPack.cpp
     src/Font.cpp
     src/Input.cpp
@@ -155,11 +156,7 @@ if(TARGET_IS_WEB)
     configure_file(${CMAKE_SOURCE_DIR}/web/clangd.in ${CMAKE_SOURCE_DIR}/.clangd @ONLY)
 endif()
 
-if(TARGET_IS_LINUX OR TARGET_IS_APPLE OR TARGET_IS_MSVC)
-    target_compile_definitions(${TARGET_NAME} PRIVATE __has_webgpu)
-elseif(TARGET_IS_WEB)
-    target_compile_definitions(${TARGET_NAME} PRIVATE __has_webgpu)
-endif()
+target_compile_definitions(${TARGET_NAME} PRIVATE __has_webgpu)
 
 if (TARGET_IS_LINUX OR TARGET_IS_APPLE)
     target_compile_options(${TARGET_NAME} PRIVATE -fdiagnostics-color)

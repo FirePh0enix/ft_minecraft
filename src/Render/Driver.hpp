@@ -14,12 +14,25 @@
 class Shader;
 class RenderGraph;
 
+typedef void (*BufferReadCallback)(const void *data, size_t size, void *user);
+
 class Buffer : public Object
 {
     CLASS(Buffer, Object);
 
 public:
     virtual void update(View<uint8_t> view, size_t offset = 0) = 0;
+    virtual void read_async(size_t offset, size_t size, BufferReadCallback callback, void *user) = 0;
+
+    void read_async(size_t size, BufferReadCallback callback, void *user)
+    {
+        read_async(0, size, callback, user);
+    }
+
+    void read_async(BufferReadCallback callback, void *user)
+    {
+        read_async(0, size_bytes(), callback, user);
+    }
 
     inline size_t size() const
     {

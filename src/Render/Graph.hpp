@@ -6,10 +6,6 @@
 
 #include <variant>
 
-class Buffer;
-class Mesh;
-class Material;
-
 struct BeginRenderPassInstruction
 {
     std::string name;
@@ -131,37 +127,7 @@ public:
 
     RenderPassEncoder render_pass_begin(const RenderPassDescriptor& descriptor);
     ComputePassEncoder compute_pass_begin();
-
-    /**
-     * @brief Start a render pass.
-     * @param descriptor Structure to describe the render pass.
-     */
-    // void begin_render_pass(RenderPassDescriptor descriptor);
-
-    // /**
-    //  * @brief End the current render pass.
-    //  */
-    // void end_render_pass();
-
-    // void begin_compute_pass();
-    // void end_compute_pass();
-
-    /**
-     * @brief Add imgui draw calls. no-op when `__has_debug_menu` is not set.
-     */
-    // void add_imgui_draw();
-
-    // void bind_material(const Ref<MaterialBase>& material);
-
-    // void bind_index_buffer(const Ref<Buffer>& buffer);
-
-    // void bind_vertex_buffer(const Ref<Buffer>& buffer, uint32_t location);
-
-    // void push_constants(const DataBuffer& buffer);
-
-    // void draw(uint32_t vertex_count, uint32_t instance_count);
-
-    // void dispatch(uint32_t group_x, uint32_t group_y, uint32_t group_z);
+    void copy_buffer(const Ref<Buffer>& dest, const Ref<Buffer>& source);
 
 private:
     std::vector<Instruction> m_instructions;

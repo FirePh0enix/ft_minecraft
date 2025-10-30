@@ -231,6 +231,14 @@ private:
 #endif
 };
 
+struct BufferWebGPURead
+{
+    WGPUBuffer buffer;
+    BufferReadCallback callback;
+    size_t offset;
+    size_t size;
+};
+
 class BufferWebGPU : public Buffer
 {
     CLASS(BufferWebGPU, Buffer);
@@ -245,6 +253,7 @@ public:
     }
 
     virtual void update(View<uint8_t> view, size_t offset) override;
+    virtual void read_async(size_t offset, size_t size, BufferReadCallback callback, void *user) override;
 
     WGPUBuffer buffer;
 };

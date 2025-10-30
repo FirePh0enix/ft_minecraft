@@ -1,5 +1,6 @@
 #include "Args.hpp"
 #include "Config.hpp"
+#include "Console.hpp"
 #include "Core/Filesystem.hpp"
 #include "Core/Logger.hpp"
 #include "Core/Registry.hpp"
@@ -65,6 +66,7 @@ Ref<Entity> player;
 Ref<World> world;
 
 Config config;
+Console console;
 
 MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
 {
@@ -178,6 +180,7 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
 
     if (args.has("disable-save"))
     {
+        // TODO
         info("World won't be saved, `--disable-save` is present.");
     }
 
@@ -185,26 +188,8 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     player->get_component<Player>()->set_gravity_enabled(config.get_category("physics").get<bool>("gravity"));
     player->get_component<Player>()->set_gravity_value(config.get_category("physics").get<float>("gravity_value"));
 
-    // This is very hacky but the only way to create the render pass required for ImGui.
-    // TODO: Maybe a solution would be to create a render pass only for imgui ?
-    // {
-    //     RenderGraph& graph = RenderGraph::get();
-
-    //     // depth prepass
-    //     {
-    //         graph.render_pass_begin({.name = "depth pass", .depth_attachment = RenderPassDepthAttachment{.save = true}});
-    //     }
-
-    //     // main color pass
-    //     {
-    //         graph.render_pass_begin({.name = "main pass", .color_attachments = {RenderPassColorAttachment{.surface_texture = true}}, .depth_attachment = RenderPassDepthAttachment{.load = true}});
-    //     }
-
-    //     RenderingDriver::get()->draw_graph(graph);
-    //     graph.reset();
-
-    //     EXPECT(RenderingDriver::get()->initialize_imgui(*window));
-    // }
+    console.register_command("tp", {CmdArgInfo(CmdArgKind::Int, "x"), CmdArgInfo(CmdArgKind::Int, "y"), CmdArgInfo(CmdArgKind::Int, "z")}, [](const Command& cmd)
+                             { player->get_component<Transformed3D>()->get_transform().position() = glm::vec3(cmd.get_arg_int("x"), cmd.get_arg_int("y"), cmd.get_arg_int("z")); });
 
     EXPECT(RenderingDriver::get()->initialize_imgui(*window));
 
@@ -338,13 +323,22 @@ static void tick()
             ImGui::Text("Z: %f", pos.z);
         }
         ImGui::End();
+
+        if (ImGui::Begin("Commands"))
+        {
+            ImGui::InputText("##", console.get_buffer(), console.get_buffer_size(), ImGuiInputTextFlags_None);
+            ImGui::SameLine();
+            if (ImGui::Button(">"))
+            {
+                console.exec();
+            }
+        }
+        ImGui::End();
     }
 #endif
 
-    // const glm::vec3 player_pos = player->get_transform()->get_global_transform().position();
-    // world->load_around(int64_t(player_pos.x), int64_t(player_pos.y), int64_t(player_pos.z));
-    // gen->set_player_pos(player_pos);
-    // gen->load_around(int64_t(player_pos.x), int64_t(player_pos.y), int64_t(player_pos.z));
+    const glm::vec3 player_pos = player->get_transform()->get_global_transform().position();
+    world->load_around(int64_t(player_pos.x), int64_t(player_pos.y), int64_t(player_pos.z));
 
     Ref<Scene>& scene = Scene::get_active_scene();
 

@@ -103,6 +103,7 @@ private:
     Ref<ComputeMaterial> m_surface_material;
 
     Ref<Buffer> m_gpu_blocks;
+    Ref<Buffer> m_cpu_blocks;
     Ref<Buffer> m_gpu_info;
 
     // TODO: transparent blocks
