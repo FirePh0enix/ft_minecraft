@@ -53,7 +53,7 @@ Shader::~Shader()
 
 Result<Ref<Shader>> Shader::load(const std::filesystem::path& path)
 {
-    Ref<Shader> shader = make_ref<Shader>();
+    Ref<Shader> shader = newobj(Shader);
     Result<std::string> source_code_result = Filesystem::read_file_to_string(path);
     YEET(source_code_result);
 

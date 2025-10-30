@@ -21,7 +21,7 @@ public:
     static constexpr size_t overworld = 0;
     static constexpr size_t underworld = 1;
 
-    World(Ref<Mesh> mesh, Ref<Material> material);
+    World(Ref<Mesh> mesh, Ref<Material> material, uint64_t seed);
 
     BlockState get_block_state(int64_t x, int64_t y, int64_t z) const;
     void set_block_state(int64_t x, int64_t y, int64_t z, BlockState state);

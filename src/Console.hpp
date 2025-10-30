@@ -20,7 +20,7 @@ struct CmdArg
     std::string s = "";
 };
 
-class CommandInfo;
+struct CommandInfo;
 
 class Command
 {

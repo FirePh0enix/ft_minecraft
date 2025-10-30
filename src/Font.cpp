@@ -27,7 +27,7 @@ Result<Ref<Font>> Font::create(const std::string& font_name, uint32_t font_size)
 
     FT_Set_Pixel_Sizes(face, 0, font_size);
 
-    Ref<Font> font = make_ref<Font>();
+    Ref<Font> font = newobj(Font);
 
     for (uint8_t c = 0; c < 128; c++)
     {

@@ -191,8 +191,4 @@ private:
     }
 };
 
-template <typename T, typename... Args>
-ALWAYS_INLINE Ref<T> make_ref(Args... args)
-{
-    return Ref<T>(new T(args...));
-}
+#define newobj(T, ...) Ref<T>(new T(__VA_ARGS__))

@@ -89,7 +89,7 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
 
     Filesystem::init();
 
-    window = make_ref<Window>("ft_minecraft", config.get_category("window").get<int64_t>("width"), config.get_category("window").get<int64_t>("height"));
+    window = newobj(Window, "ft_minecraft", config.get_category("window").get<int64_t>("width"), config.get_category("window").get<int64_t>("height"));
     Input::init(*window);
 
     Input::add_action("forward");
@@ -150,27 +150,27 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     // EXPECT(font_result);
     // Ref<Font> font = font_result.value();
 
-    Ref<Scene> scene = make_ref<Scene>();
+    Ref<Scene> scene = newobj(Scene);
     Scene::set_active_scene(scene);
 
-    world = make_ref<World>(cube, material);
+    world = newobj(World, cube, material, 1);
     world->set_render_distance(3);
 
-    Ref<Entity> world_entity = make_ref<Entity>();
+    Ref<Entity> world_entity = newobj(Entity);
     world_entity->add_component(world);
 
     scene->add_entity(world_entity);
 
-    Ref<Camera> camera = make_ref<Camera>();
+    Ref<Camera> camera = newobj(Camera);
 
-    Ref<Entity> player_head = make_ref<Entity>();
-    player_head->add_component(make_ref<Transformed3D>(glm::vec3(0.0, 0.85, 0.0)));
+    Ref<Entity> player_head = newobj(Entity);
+    player_head->add_component(newobj(Transformed3D, glm::vec3(0.0, 0.85, 0.0)));
     player_head->add_component(camera);
 
-    player = make_ref<Entity>();
-    player->add_component(make_ref<Transformed3D>(Transform3D(glm::vec3(config.get_category("player").get<float>("x"), config.get_category("player").get<float>("y"), config.get_category("player").get<float>("z")))));
-    player->add_component(make_ref<RigidBody>(AABB(glm::vec3(), glm::vec3(0.3, 0.9, 0.3))));
-    player->add_component(make_ref<Player>(world, cube));
+    player = newobj(Entity);
+    player->add_component(newobj(Transformed3D, Transform3D(glm::vec3(config.get_category("player").get<float>("x"), config.get_category("player").get<float>("y"), config.get_category("player").get<float>("z")))));
+    player->add_component(newobj(RigidBody, AABB(glm::vec3(), glm::vec3(0.3, 0.9, 0.3))));
+    player->add_component(newobj(Player, world, cube));
     player->add_child(player_head);
 
     scene->add_entity(player);

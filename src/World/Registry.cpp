@@ -58,6 +58,6 @@ void BlockRegistry::load_blocks()
 
         info("Registering block `{}`", block.name);
 
-        register_block(make_ref<Block>(block.name, faces, block.gradient.value_or(GradientType::None)));
+        register_block(newobj(Block, block.name, faces, block.gradient.value_or(GradientType::None)));
     }
 }

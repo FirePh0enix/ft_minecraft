@@ -741,7 +741,7 @@ Result<Ref<Buffer>> RenderingDriverWebGPU::create_buffer(const char *name, size_
     if (!buffer)
         return Error(ErrorKind::OutOfDeviceMemory);
 
-    return make_ref<BufferWebGPU>(buffer, element, size, usage).cast_to<Buffer>();
+    return newobj(BufferWebGPU, buffer, element, size, usage).cast_to<Buffer>();
 }
 
 Result<Ref<Texture>> RenderingDriverWebGPU::create_texture(uint32_t width, uint32_t height, TextureFormat format, TextureUsageFlags usage, TextureDimension dimension, uint32_t layers)
@@ -774,7 +774,7 @@ Result<Ref<Texture>> RenderingDriverWebGPU::create_texture(uint32_t width, uint3
     if (!view)
         return Error(ErrorKind::OutOfDeviceMemory);
 
-    return make_ref<TextureWebGPU>(texture, view, width, height, format).cast_to<Texture>();
+    return newobj(TextureWebGPU, texture, view, width, height, format).cast_to<Texture>();
 }
 
 void RenderingDriverWebGPU::draw_graph(const RenderGraph& graph)

@@ -4,7 +4,7 @@
 
 #include <random>
 
-World::World(Ref<Mesh> mesh, Ref<Material> material)
+World::World(Ref<Mesh> mesh, Ref<Material> material, uint64_t seed)
     : m_mesh(mesh), m_material(material)
 {
     m_surface_shader = Shader::load("assets/shaders/terrain/surface.slang").value_or(nullptr);
@@ -23,12 +23,15 @@ World::World(Ref<Mesh> mesh, Ref<Material> material)
     m_material->set_param("textureRegistry", BlockRegistry::get_texture_buffer());
 
     // Create the permutation table used by the noise algorithms.
-    // TODO: Add seed
     m_permutation_buffer = RenderingDriver::get()->create_buffer(STRUCTNAME(SimplexState), 1, BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Uniform).value();
     SimplexState state{};
     for (size_t i = 0; i < 256; i++)
         state.perms[i] = i;
-    std::shuffle(state.perms.begin(), state.perms.end(), std::mt19937{std::random_device{}()});
+
+    std::mt19937 prng{std::random_device{}()};
+    prng.seed(seed);
+
+    std::shuffle(state.perms.begin(), state.perms.end(), prng);
     m_permutation_buffer->update(View(state).as_bytes());
 }
 
@@ -119,7 +122,7 @@ void World::encode_draw_calls(RenderPassEncoder& encoder, Camera& camera)
 
 void World::load_chunk(int64_t x, int64_t z)
 {
-    Ref<Chunk> chunk = make_ref<Chunk>(x, z, m_surface_shader, this);
+    Ref<Chunk> chunk = newobj(Chunk, x, z, m_surface_shader, this);
     chunk->generate();
 
     m_dims[0].add_chunk(x, z, chunk);
