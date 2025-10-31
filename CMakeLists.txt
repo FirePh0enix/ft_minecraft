@@ -17,6 +17,7 @@ option(ENABLE_SHADER_HOTRELOAD "Shader hot reloading" OFF)
 option(ENABLE_DEBUG_MENU "Enable an advanced debug menu" OFF)
 option(SANITIZE_ADDRESS "Enable AddressSanitizer" OFF)
 option(SANITIZE_THREAD "Enable ThreadSanitizer" OFF)
+option(DETERMINISTIC "Try to guaranty deterministic maths" OFF)
 
 list(APPEND SOURCES
     src/Args.cpp
@@ -88,6 +89,14 @@ target_precompile_headers(${TARGET_NAME} PUBLIC src/precompiled.hpp)
 # Disable exceptions
 target_compile_options(${TARGET_NAME} PUBLIC -fno-exceptions -fno-rtti)
 
+if(DETERMINISTIC)
+    if(TARGET_IS_LINUX OR TARGET_IS_MACOS)
+        target_compile_options(${TARGET_NAME} PUBLIC -ffp-model=precise -ffp-contract=off)
+    elseif(TARGET_IS_WINDOWS)
+        target_compile_options(${TARGET_NAME} PUBLIC /fp:precise)
+    endif()
+endif()
+
 # Enable warnings
 target_compile_options(${TARGET_NAME} PUBLIC -Wall -Wextra)
 
@@ -136,7 +145,7 @@ endif()
 
 # Use mold when available to speed-up linking
 find_program(MOLD mold)
-if(MOLD AND NOT TARGET_IS_WEB)
+if(MOLD_FOUND AND NOT TARGET_IS_WEB)
     target_link_options(${TARGET_NAME} PUBLIC -fuse-ld=mold)
 endif()
 
@@ -329,7 +338,7 @@ target_sources(${TARGET_NAME} PRIVATE
     ${imgui_SOURCE_DIR}/backends/imgui_impl_wgpu.cpp
 )
 target_include_directories(${TARGET_NAME} PRIVATE ${imgui_SOURCE_DIR})
-target_compile_definitions(${TARGET_NAME} PRIVATE IMGUI_IMPL_VULKAN_NO_PROTOTYPES VK_NO_PROTOTYPES)
+# target_compile_definitions(${TARGET_NAME} PRIVATE IMGUI_IMPL_VULKAN_NO_PROTOTYPES VK_NO_PROTOTYPES)
 
 if(TARGET_IS_WEB)
     target_compile_definitions(${TARGET_NAME} PRIVATE IMGUI_IMPL_WEBGPU_BACKEND_DAWN=1)
@@ -365,14 +374,13 @@ FetchContent_MakeAvailable(json)
 target_link_libraries(${TARGET_NAME} PRIVATE nlohmann_json::nlohmann_json)
 
 # toml++
+set(TOML_EXCEPTIONS OFF)
+
 FetchContent_Declare(
     tomlplusplus
     GIT_REPOSITORY https://github.com/marzer/tomlplusplus
     GIT_TAG e7aaccca3fa3dbde9818ab8313250f3da4976e37
 )
-
-set(TOML_EXCEPTIONS OFF)
-
 FetchContent_MakeAvailable(tomlplusplus)
 target_link_libraries(${TARGET_NAME} PRIVATE tomlplusplus::tomlplusplus)
 
@@ -420,19 +428,6 @@ if(TARGET_IS_LINUX) # TARGET_IS_MACOS FIXME: libbacktrace does not compile on ma
     target_include_directories(${TARGET_NAME} PRIVATE ${libbacktrace_SOURCE_DIR})
 
     target_compile_definitions(${TARGET_NAME} PRIVATE __has_libbacktrace)
-endif()
-
-# MacOS dependencies
-if (TARGET_IS_MACOS)
-    # MoltenVK
-    # FetchContent_Declare(
-    #     MoltenVK
-    #     URL https://github.com/KhronosGroup/MoltenVK/releases/download/v1.2.11-artifacts/MoltenVK-macos.tar
-    # )
-    # FetchContent_MakeAvailable(MoltenVK)
-
-    # configure_file(${moltenvk_SOURCE_DIR}/MoltenVK/dynamic/dylib/macOS/MoltenVK_icd.json ${CMAKE_BINARY_DIR}/vulkan/icd.d/MoltenVK_icd.json COPYONLY)
-    # configure_file(${moltenvk_SOURCE_DIR}/MoltenVK/dynamic/dylib/macOS/libMoltenVK.dylib ${CMAKE_BINARY_DIR}/vulkan/icd.d/libMoltenVK.dylib COPYONLY)
 endif()
 
 if(RUN_TESTS)
