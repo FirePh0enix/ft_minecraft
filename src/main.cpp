@@ -1,5 +1,4 @@
 #include "Args.hpp"
-#include "Config.hpp"
 #include "Console.hpp"
 #include "Core/Filesystem.hpp"
 #include "Core/Logger.hpp"
@@ -17,6 +16,7 @@
 #include "Scene/Components/Visual.hpp"
 #include "Scene/Player.hpp"
 #include "Scene/Scene.hpp"
+#include "Toml.hpp"
 #include "Window.hpp"
 #include "World/Registry.hpp"
 #include "World/World.hpp"
@@ -65,7 +65,8 @@ Ref<Window> window;
 Ref<Entity> player;
 Ref<World> world;
 
-Config config;
+// Config config;
+toml::table config2;
 Console console;
 
 MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
@@ -80,8 +81,10 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
 
     args.parse(argv, argc);
 
-    config.load_from_str(default_config);
-    config.load_from_file("config.ini");
+    toml::table default_config2 = toml::operator""_toml(default_config.data(), default_config.size()).table();
+    config2 = default_config2;
+    if (std::filesystem::exists("config.toml"))
+        toml_merge_left(config2, toml::parse_file("config.toml").table());
 
     tracy::SetThreadName("Main");
 
@@ -89,35 +92,9 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
 
     Filesystem::init();
 
-    window = newobj(Window, "ft_minecraft", config.get_category("window").get<int64_t>("width"), config.get_category("window").get<int64_t>("height"));
+    window = newobj(Window, "ft_minecraft", config2["window"]["width"].as<int64_t>()->get(), config2["window"]["height"].as<int64_t>()->get());
     Input::init(*window);
-
-    Input::add_action("forward");
-    Input::add_action_mapping("forward", ActionMapping(ActionMappingKind::Key, SDLK_W));
-
-    Input::add_action("backward");
-    Input::add_action_mapping("backward", ActionMapping(ActionMappingKind::Key, SDLK_S));
-
-    Input::add_action("left");
-    Input::add_action_mapping("left", ActionMapping(ActionMappingKind::Key, SDLK_A));
-
-    Input::add_action("right");
-    Input::add_action_mapping("right", ActionMapping(ActionMappingKind::Key, SDLK_D));
-
-    Input::add_action("up");
-    Input::add_action_mapping("up", ActionMapping(ActionMappingKind::Key, SDLK_SPACE));
-
-    Input::add_action("down");
-    Input::add_action_mapping("down", ActionMapping(ActionMappingKind::Key, SDLK_LCTRL));
-
-    Input::add_action("attack");
-    Input::add_action_mapping("attack", ActionMapping(ActionMappingKind::MouseButton, SDL_BUTTON_LEFT));
-
-    Input::add_action("place");
-    Input::add_action_mapping("place", ActionMapping(ActionMappingKind::MouseButton, SDL_BUTTON_RIGHT));
-
-    Input::add_action("escape");
-    Input::add_action_mapping("escape", ActionMapping(ActionMappingKind::Key, SDLK_ESCAPE));
+    Input::load_config();
 
     RenderingDriver::create_singleton<RenderingDriverWebGPU>();
 
@@ -168,8 +145,8 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     player_head->add_component(camera);
 
     player = newobj(Entity);
-    player->add_component(newobj(Transformed3D, Transform3D(glm::vec3(config.get_category("player").get<float>("x"), config.get_category("player").get<float>("y"), config.get_category("player").get<float>("z")))));
-    player->add_component(newobj(RigidBody, AABB(glm::vec3(), glm::vec3(0.3, 0.9, 0.3))));
+    player->add_component(newobj(Transformed3D, Transform3D(glm::vec3(config2["player"]["x"].as<double>()->get(), config2["player"]["y"].as<double>()->get(), config2["player"]["z"].as<double>()->get()))));
+    player->add_component(newobj(RigidBody));
     player->add_component(newobj(Player, world, cube));
     player->add_child(player_head);
 
@@ -184,9 +161,9 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
         info("World won't be saved, `--disable-save` is present.");
     }
 
-    player->get_component<RigidBody>()->disabled() = !config.get_category("physics").get<bool>("collisions");
-    player->get_component<Player>()->set_gravity_enabled(config.get_category("physics").get<bool>("gravity"));
-    player->get_component<Player>()->set_gravity_value(config.get_category("physics").get<float>("gravity_value"));
+    player->get_component<RigidBody>()->set_disabled(!config2["physics"]["collisions"].as<bool>()->get());
+    player->get_component<Player>()->set_gravity_enabled(config2["physics"]["gravity"].as<bool>()->get());
+    player->get_component<Player>()->set_gravity_value(static_cast<float>(config2["physics"]["gravity_value"].as<double>()->get()));
 
     console.register_command("tp", {CmdArgInfo(CmdArgKind::Int, "x"), CmdArgInfo(CmdArgKind::Int, "y"), CmdArgInfo(CmdArgKind::Int, "z")}, [](const Command& cmd)
                              { player->get_component<Transformed3D>()->get_transform().position() = glm::vec3(cmd.get_arg_int("x"), cmd.get_arg_int("y"), cmd.get_arg_int("z")); });
@@ -210,11 +187,11 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     info("Shutting down...");
 
     glm::vec3 position = player->get_transform()->get_global_transform().position();
-    config.get_category("player").set("x", position.x);
-    config.get_category("player").set("y", position.y);
-    config.get_category("player").set("z", position.z);
+    config2["player"]["x"].value<float>().emplace(position.x);
+    config2["player"]["y"].value<float>().emplace(position.y);
+    config2["player"]["z"].value<float>().emplace(position.z);
 
-    config.save_to("config.ini");
+    // config.save_to("config.ini");
 
     // (void)RenderingDriverVulkan::get()->get_device().waitIdle();
 
@@ -259,9 +236,10 @@ static void tick()
             Result<> result = RenderingDriver::get()->configure_surface(*window, VSync::Off);
             ERR_EXPECT_B(result, "Failed to configure the surface");
 
-            config.get_category("window").set("width", (int64_t)window->size().width);
-            config.get_category("window").set("height", (int64_t)window->size().height);
-            config.save_to("config.ini");
+            // TODO
+            // config.get_category("window").set("width", (int64_t)window->size().width);
+            // config.get_category("window").set("height", (int64_t)window->size().height);
+            // config.save_to("config.ini");
         }
         break;
         default:
@@ -292,24 +270,24 @@ static void tick()
 
         if (ImGui::Begin("Physics"))
         {
-            bool collisions = !player->get_component<RigidBody>()->disabled();
+            bool collisions = !player->get_component<RigidBody>()->is_disabled();
             if (ImGui::Checkbox("Enable collisions", &collisions))
             {
-                config.get_category("physics").set("collisions", collisions);
-                player->get_component<RigidBody>()->disabled() = !collisions;
+                config2.at_path("physics.collisions").value<bool>().emplace(collisions);
+                player->get_component<RigidBody>()->set_disabled(!collisions);
             }
 
             bool gravity = player->get_component<Player>()->is_gravity_enabled();
             if (ImGui::Checkbox("Enable gravity", &gravity))
             {
-                config.get_category("physics").set("gravity", gravity);
+                config2.at_path("physics.gravity").value<bool>().emplace(gravity);
                 player->get_component<Player>()->set_gravity_enabled(gravity);
             }
 
             float gravity_value = player->get_component<Player>()->get_gravity_value();
             if (ImGui::SliderFloat("Gravity value", &gravity_value, 0.0, 20.0))
             {
-                config.get_category("physics").set("gravity_value", gravity_value);
+                config2.at_path("physics.gravity_value").value<double>().emplace(gravity_value);
                 player->get_component<Player>()->set_gravity_value(gravity_value);
             }
         }
@@ -342,7 +320,8 @@ static void tick()
 
     Ref<Scene>& scene = Scene::get_active_scene();
 
-    scene->tick();
+    // TODO: Differentiate between rendering ticks and physics ticks.
+    scene->tick(time_between_ticks);
 
     Input::post_events();
 

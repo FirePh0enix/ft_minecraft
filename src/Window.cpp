@@ -32,8 +32,8 @@ Window::~Window()
 {
 #ifndef __platform_web
     SDL_DestroyWindow(m_window);
-    SDL_Quit();
 #endif
+    SDL_Quit();
 }
 
 Extent2D Window::size() const

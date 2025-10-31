@@ -16,12 +16,9 @@ void Scene::encode_draw_calls(RenderPassEncoder& encoder)
     }
 }
 
-void Scene::tick()
+void Scene::tick(float delta)
 {
-    ZoneScopedN("Scene::tick");
-
-    for (auto& entity : m_entites)
-    {
-        entity->tick();
-    }
+    m_physics_space.step(delta);
+    for (Ref<Entity>& entity : m_entites)
+        entity->tick(delta);
 }

@@ -30,6 +30,7 @@ class Input
 {
 public:
     static void init(const Window& window);
+    static void load_config();
 
     static bool is_action_pressed(const std::string& action);
     static float get_action_value(const std::string& action);

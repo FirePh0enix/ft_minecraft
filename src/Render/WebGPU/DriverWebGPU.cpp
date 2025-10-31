@@ -505,48 +505,6 @@ WGPUDevice request_device_sync(WGPUAdapter adapter, const WGPUDeviceDescriptor& 
 
 #endif
 
-WGPUSurface RenderingDriverWebGPU::create_surface(WGPUInstance instance, const Window& window)
-{
-    WGPUSurfaceDescriptor surface_desc{};
-
-#ifdef __platform_web
-    WGPUSurfaceDescriptorFromCanvasHTMLSelector canvas_selector{};
-    // NOTE: Emscripten expect 262144 instead of WGPUSType_SurfaceDescriptorFromCanvasHTMLSelector (which is 4)
-    canvas_selector.chain = {.next = nullptr, .sType = (WGPUSType)262144};
-    canvas_selector.selector = "#canvas";
-    surface_desc.nextInChain = &canvas_selector.chain;
-#elif defined(__platform_linux)
-    SDL_PropertiesID properties = SDL_GetWindowProperties(window.get_window_ptr());
-
-    WGPUSurfaceSourceXlibWindow xlib_source{};
-    WGPUSurfaceSourceWaylandSurface wayland_source{};
-
-    if (std::strcmp(SDL_GetCurrentVideoDriver(), "x11") == 0)
-    {
-        xlib_source.chain.sType = WGPUSType_SurfaceSourceXlibWindow;
-        xlib_source.window = SDL_GetNumberProperty(properties, SDL_PROP_WINDOW_X11_WINDOW_NUMBER, 0);
-        xlib_source.display = SDL_GetPointerProperty(properties, SDL_PROP_WINDOW_X11_DISPLAY_POINTER, nullptr);
-        surface_desc.nextInChain = &xlib_source.chain;
-    }
-    else
-    {
-        wayland_source.chain.sType = WGPUSType_SurfaceSourceWaylandSurface;
-        wayland_source.display = SDL_GetPointerProperty(properties, SDL_PROP_WINDOW_WAYLAND_DISPLAY_POINTER, nullptr);
-        wayland_source.surface = SDL_GetPointerProperty(properties, SDL_PROP_WINDOW_WAYLAND_SURFACE_POINTER, nullptr);
-        surface_desc.nextInChain = &wayland_source.chain;
-    }
-#elif defined(__platform_macos)
-    WGPUSurfaceSourceMetalLayer metal_source{};
-    metal_source.chain.sType = WGPUSType_SurfaceSourceMetalLayer;
-    metal_source.layer = SDL_Metal_GetLayer(m_metal_view);
-    surface_desc.nextInChain = &metal_source.chain;
-#else
-#error "Platform not supported"
-#endif
-
-    return wgpuInstanceCreateSurface(instance, &surface_desc);
-}
-
 Result<> RenderingDriverWebGPU::initialize(const Window& window, bool enable_validation)
 {
     (void)enable_validation;
@@ -564,11 +522,7 @@ Result<> RenderingDriverWebGPU::initialize(const Window& window, bool enable_val
     m_instance = wgpuCreateInstance(nullptr);
 #endif
 
-#ifdef __platform_macos
-    m_metal_view = SDL_Metal_CreateView(window.window_ptr());
-#endif
-
-    m_surface = create_surface(m_instance, window);
+    m_surface = create_surface(m_instance, window.get_window_ptr());
 
 #ifdef __platform_web
     // On the web we use glue code to acquire a WGPUDevice.
@@ -942,6 +896,8 @@ void RenderingDriverWebGPU::draw_graph(const RenderGraph& graph)
 
     wgpuCommandBufferRelease(command_buffer);
     wgpuCommandEncoderRelease(command_encoder);
+
+    wgpuTextureViewRelease(view);
 }
 
 Result<WGPURenderPipeline> RenderingDriverWebGPU::create_render_pipeline(Ref<Shader> shader, std::optional<InstanceLayout> instance_layout, WGPUCullMode cull_mode, MaterialFlags flags, WGPUPipelineLayout pipeline_layout, const std::vector<RenderPassColorAttachment>& color_attachs, bool previous_depth_pass)
@@ -1259,4 +1215,80 @@ RenderGraphCache::RenderPass& RenderGraphCache::get_render_pass(int32_t index)
         return m_render_passes[m_render_passes.size() + index];
     }
     return m_render_passes[index];
+}
+
+#ifdef __platform_macos
+#include <Cocoa/Cocoa.h>
+#include <QuartzCore/CAMetalLayer.h>
+#elif defined(__platform_windows)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN 1
+#endif
+#include <windows.h>
+#endif
+
+WGPUSurface create_surface(WGPUInstance instance, SDL_Window *window)
+{
+    SDL_PropertiesID id = SDL_GetWindowProperties(window);
+    WGPUSurfaceDescriptor surface_descriptor = {};
+    WGPUSurface surface = {};
+#if defined(__platform_macos)
+    {
+        id metal_layer = NULL;
+        NSWindow *ns_window = (__bridge NSWindow *)SDL_GetPointerProperty(id, SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, NULL);
+        if (!ns_window)
+            return NULL;
+        [ns_window.contentView setWantsLayer:YES];
+        metal_layer = [CAMetalLayer layer];
+        [ns_window.contentView setLayer:metal_layer];
+        WGPUSurfaceSourceMetalLayer surface_src_metal = {};
+        surface_src_metal.chain.sType = WGPUSType_SurfaceSourceMetalLayer;
+        surface_src_metal.layer = metal_layer;
+        surface_descriptor.nextInChain = &surface_src_metal.chain;
+        surface = wgpuInstanceCreateSurface(instance, &surface_descriptor);
+    }
+#elif defined(__platform_linux)
+    if (SDL_strcmp(SDL_GetCurrentVideoDriver(), "wayland") == 0)
+    {
+        void *w_display = SDL_GetPointerProperty(id, SDL_PROP_WINDOW_WAYLAND_DISPLAY_POINTER, NULL);
+        void *w_surface = SDL_GetPointerProperty(id, SDL_PROP_WINDOW_WAYLAND_SURFACE_POINTER, NULL);
+        if (!w_display || !w_surface)
+            return NULL;
+        WGPUSurfaceSourceWaylandSurface surface_src_wayland = {};
+        surface_src_wayland.chain.sType = WGPUSType_SurfaceSourceWaylandSurface;
+        surface_src_wayland.display = w_display;
+        surface_src_wayland.surface = w_surface;
+        surface_descriptor.nextInChain = &surface_src_wayland.chain;
+        surface = wgpuInstanceCreateSurface(instance, &surface_descriptor);
+    }
+    else if (!SDL_strcmp(SDL_GetCurrentVideoDriver(), "x11"))
+    {
+        void *x_display = SDL_GetPointerProperty(id, SDL_PROP_WINDOW_X11_DISPLAY_POINTER, NULL);
+        uint64_t x_window = SDL_GetNumberProperty(id, SDL_PROP_WINDOW_X11_WINDOW_NUMBER, 0);
+        if (!x_display || !x_window)
+            return NULL;
+        WGPUSurfaceSourceXlibWindow surface_src_xlib = {};
+        surface_src_xlib.chain.sType = WGPUSType_SurfaceSourceXlibWindow;
+        surface_src_xlib.display = x_display;
+        surface_src_xlib.window = x_window;
+        surface_descriptor.nextInChain = &surface_src_xlib.chain;
+        surface = wgpuInstanceCreateSurface(instance, &surface_descriptor);
+    }
+#elif defined(__platform_windows)
+    {
+        HWND hwnd = (HWND)SDL_GetPointerProperty(id, SDL_PROP_WINDOW_WIN32_HWND_POINTER, NULL);
+        if (!hwnd)
+            return NULL;
+        HINSTANCE hinstance = ::GetModuleHandle(NULL);
+        WGPUSurfaceSourceWindowsHWND surface_src_hwnd = {};
+        surface_src_hwnd.chain.sType = WGPUSType_SurfaceSourceWindowsHWND;
+        surface_src_hwnd.hinstance = hinstance;
+        surface_src_hwnd.hwnd = hwnd;
+        surface_descriptor.nextInChain = &surface_src_hwnd.chain;
+        surface = wgpuInstanceCreateSurface(instance, &surface_descriptor);
+    }
+#else
+#error "Unsupported WebGPU native platform!"
+#endif
+    return surface;
 }

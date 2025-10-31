@@ -1,0 +1,35 @@
+[[actions.forward]]
+type = "key"
+key = "w"
+
+[[actions.backward]]
+type = "key"
+key = "s"
+
+[[actions.left]]
+type = "key"
+key = "a"
+
+[[actions.right]]
+type = "key"
+key = "d"
+
+[[actions.up]]
+type = "key"
+key = "space"
+
+[[actions.down]]
+type = "key"
+key = "lctrl"
+
+[[actions.attack]]
+type = "mouse_button"
+button = 1
+
+[[actions.place]]
+type = "mouse_button"
+button = 3
+
+[[actions.escape]]
+type = "key"
+key = "escape"

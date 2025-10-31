@@ -109,13 +109,13 @@ public:
             comp->start();
     }
 
-    void tick()
+    void tick(float delta)
     {
         for (auto& comp : m_components)
-            comp->tick(0.166666666666666);
+            comp->tick(delta);
 
         for (auto& child : m_children)
-            child->tick();
+            child->tick(delta);
     }
 
     void do_start()

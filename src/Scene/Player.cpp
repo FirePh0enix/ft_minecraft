@@ -1,9 +1,7 @@
 #include "Scene/Player.hpp"
 #include "Input.hpp"
 #include "Ray.hpp"
-#include "Scene/Components/MeshInstance.hpp"
 #include "Scene/Entity.hpp"
-#include "Scene/Scene.hpp"
 #include "World/Registry.hpp"
 
 void Player::start()
@@ -105,38 +103,42 @@ void Player::tick(double delta)
             t += 0.1;
         }
     }
-    m_body->velocity() += forward * dir.y * m_speed;
-    m_body->velocity() += right * dir.x * m_speed;
 
-    if (!m_gravity_enabled)
-    {
-        m_body->velocity() += up * updown_dir * m_speed;
-    }
+    glm::vec3 velocity = m_body->get_body()->get_velocity();
+    velocity = forward * dir.y * m_speed;
+    velocity += right * dir.x * m_speed;
+    velocity += up * updown_dir * m_speed;
+    m_body->get_body()->set_velocity(velocity);
 
-    if (m_body->is_on_ground(m_world) && Input::is_action_pressed("up") && !m_has_jumped && m_gravity_enabled)
-    {
-        m_body->velocity() += up * 0.1f;
-        m_has_jumped = true;
-    }
-    else if (!Input::is_action_pressed("up"))
-    {
-        m_has_jumped = false;
-    }
+    // if (!m_gravity_enabled)
+    // {
+    //     velocity += up * updown_dir * m_speed;
+    // }
 
-    if (m_gravity_enabled && !m_body->is_on_ground(m_world))
-    {
-        m_body->velocity().y -= m_gravity_value * (float)delta;
-    }
+    // if (m_body->is_on_ground(m_world) && Input::is_action_pressed("up") && !m_has_jumped && m_gravity_enabled)
+    // {
+    //     m_body->velocity() += up * 0.1f;
+    //     m_has_jumped = true;
+    // }
+    // else if (!Input::is_action_pressed("up"))
+    // {
+    //     m_has_jumped = false;
+    // }
 
-    m_body->move_and_collide(m_world, delta);
+    // if (m_gravity_enabled && !m_body->is_on_ground(m_world))
+    // {
+    //     m_body->velocity().y -= m_gravity_value * (float)delta;
+    // }
 
-    m_body->velocity().x = 0; // FIXME: Add friction, ...
-    m_body->velocity().z = 0;
+    // m_body->move_and_collide(m_world, delta);
 
-    if (!m_gravity_enabled)
-    {
-        m_body->velocity().y = 0;
-    }
+    // m_body->velocity().x = 0; // FIXME: Add friction, ...
+    // m_body->velocity().z = 0;
+
+    // if (!m_gravity_enabled)
+    // {
+    //     m_body->velocity().y = 0;
+    // }
 }
 
 enum class Face

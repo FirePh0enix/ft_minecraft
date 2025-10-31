@@ -1,10 +1,51 @@
 #include "Input.hpp"
+#include "Toml.hpp"
 
 void Input::init(const Window& window)
 {
 #ifndef __platform_web
     s_window = window.get_window_ptr();
 #endif
+}
+
+static uint32_t convert_key(const std::string_view& key)
+{
+    if (key == "lctrl")
+        return SDLK_LCTRL;
+    else if (key == "rctrl")
+        return SDLK_RCTRL;
+    else if (key == "escape")
+        return SDLK_ESCAPE;
+    else if (key == "space")
+        return SDLK_SPACE;
+    return key[0];
+}
+
+void Input::load_config()
+{
+    toml::table table = toml::parse_file("inputs.toml").table();
+    toml::table *actions = table["actions"].as_table();
+
+    actions->for_each([](const auto& key, const auto& value)
+                      {
+                          const std::string action_name = std::string(key.str());
+                          Input::add_action(action_name);
+                          const toml::array *array = value.as_array();
+                        array->for_each([action_name](const auto& value) {
+
+                            const toml::table *action = value.as_table();
+                            const std::string_view action_type = action->get("type")->as_string()->get();
+                            if (action_type == "key")
+                            {
+                                const std::string_view key = action->get("key")->as_string()->get();
+                                Input::add_action_mapping(action_name, ActionMapping(ActionMappingKind::Key, convert_key(key)));
+                            }
+                            else if (action_type == "mouse_button")
+                            {
+                                const int64_t button = action->get("button")->as_integer()->get();
+                                Input::add_action_mapping(action_name, ActionMapping(ActionMappingKind::MouseButton, button));
+                            }
+                        }); });
 }
 
 bool Input::is_action_pressed(const std::string& action)

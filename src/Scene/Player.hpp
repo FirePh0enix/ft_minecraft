@@ -5,6 +5,7 @@
 #include "Scene/Components/Component.hpp"
 #include "Scene/Components/RigidBody.hpp"
 #include "Scene/Components/Transformed3D.hpp"
+#include "World/World.hpp"
 
 class Player : public Component
 {
@@ -48,7 +49,7 @@ private:
     Ref<Mesh> m_cube_mesh;
     Ref<Entity> m_cube_highlight;
 
-    float m_speed = 2.0;
+    float m_speed = 10.0;
     float m_gravity_value = 9.81;
     bool m_gravity_enabled = true;
 

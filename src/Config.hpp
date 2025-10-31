@@ -4,6 +4,8 @@
 #include <map>
 #include <variant>
 
+#include <toml++/toml.hpp>
+
 using ConfigValue = std::variant<std::string, int64_t, float, bool>;
 
 inline void operator<<(std::ostream& os, const ConfigValue& value)
@@ -51,14 +53,11 @@ public:
     template <float>
     float get(const std::string& name)
     {
-        if (std::holds_alternative<float>(m_values[name]))
+        if (std::holds_alternative<int64_t>(m_values[name]))
         {
-            return std::get<float>(m_values[name]);
+            return float(std::get<int64_t>(m_values[name]));
         }
-        else
-        {
-            return (float)std::get<int64_t>(m_values[name]);
-        }
+        return std::get<float>(m_values[name]);
     }
 
     bool has(const std::string& name) const

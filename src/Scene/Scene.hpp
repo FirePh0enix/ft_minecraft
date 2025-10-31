@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Core/Ref.hpp"
+#include "Physics/PhysicsSpace.hpp"
 #include "Render/Graph.hpp"
 #include "Scene/Components/Camera.hpp"
 #include "Scene/Entity.hpp"
@@ -14,7 +15,7 @@ public:
 
     void encode_draw_calls(RenderPassEncoder& encoder);
 
-    void tick();
+    void tick(float delta);
 
     inline Ref<Camera>& get_active_camera()
     {
@@ -40,6 +41,16 @@ public:
         return m_entites;
     }
 
+    const PhysicsSpace& get_physics_space() const
+    {
+        return m_physics_space;
+    }
+
+    PhysicsSpace& get_physics_space()
+    {
+        return m_physics_space;
+    }
+
     static EntityId allocate_next_id()
     {
         EntityId id = s_id;
@@ -60,6 +71,7 @@ public:
 private:
     Ref<Camera> m_active_camera;
     std::vector<Ref<Entity>> m_entites;
+    PhysicsSpace m_physics_space;
 
     static inline EntityId s_id = EntityId(1);
     static inline Ref<Scene> s_active_scene;

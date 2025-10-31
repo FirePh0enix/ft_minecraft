@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.20)
 
 set(PROJECT_NAME ft_minecraft)
-set(VERSION_MAJOR 1)
-set(VERSION_MINOR 0)
+set(VERSION_MAJOR 0)
+set(VERSION_MINOR 1)
 set(VERSION_PATCH 0)
 
 set(TARGET_NAME ft_minecraft)
@@ -33,6 +33,8 @@ list(APPEND SOURCES
     src/Core/Ref.cpp
     src/Core/Registry.cpp
     src/Platform/Platform.cpp
+    src/Physics/PhysicsBody.cpp
+    src/Physics/PhysicsSpace.cpp
     src/Render/WebGPU/DriverWebGPU.cpp
     src/Render/Driver.cpp
     src/Render/Graph.cpp
@@ -53,9 +55,9 @@ if (EMSCRIPTEN)
 elseif (UNIX AND NOT APPLE)
     set(TARGET_IS_LINUX YES)
 elseif(APPLE)
-    set(TARGET_IS_APPLE YES)
+    set(TARGET_IS_MACOS YES)
 elseif(WIN32)
-    set(TARGET_IS_MSVC YES)
+    set(TARGET_IS_WINDOWS YES)
 endif()
 
 if(NOT CMAKE_BUILD_TYPE)
@@ -66,9 +68,11 @@ if(TARGET_IS_WEB)
     list(APPEND SOURCES
         src/Platform/Emscripten.cpp
     )
-else()
-    # list(APPEND SOURCES
-    # )
+endif()
+
+if (TARGET_IS_MACOS)
+    # Some Objective-C is called to initialize WebGPU.
+    set_source_files_properties(src/Render/WebGPU/DriverWebGPU.cpp PROPERTIES COMPILE_FLAGS "-x objective-c++")
 endif()
 
 # Generate the `compile_commands.json`
@@ -98,10 +102,10 @@ set(FETCHCONTENT_UPDATES_DISCONNECTED ON)
 
 if (TARGET_IS_LINUX)
     target_compile_definitions(${TARGET_NAME} PRIVATE __platform_linux)
-elseif(TARGET_IS_APPLE)
+elseif(TARGET_IS_MACOS)
     target_compile_definitions(${TARGET_NAME} PRIVATE __platform_macos)
-elseif(TARGET_IS_MSVC)
-    target_compile_definitions(${TARGET_NAME} PRIVATE __platform_msvc)
+elseif(TARGET_IS_WINDOWS)
+    target_compile_definitions(${TARGET_NAME} PRIVATE __platform_windows)
 elseif(TARGET_IS_WEB)
     target_compile_definitions(${TARGET_NAME} PRIVATE __platform_web)
 endif()
@@ -158,7 +162,7 @@ endif()
 
 target_compile_definitions(${TARGET_NAME} PRIVATE __has_webgpu)
 
-if (TARGET_IS_LINUX OR TARGET_IS_APPLE)
+if (TARGET_IS_LINUX OR TARGET_IS_MACOS)
     target_compile_options(${TARGET_NAME} PRIVATE -fdiagnostics-color)
 endif()
 
@@ -210,14 +214,14 @@ set(BUILD_SHARED_LIBS 0)
 # FetchContent_MakeAvailable(doctest)
 # target_link_libraries(${TARGET_NAME} PRIVATE doctest)
 
-if(TARGET_IS_LINUX OR TARGET_IS_APPLE OR TARGET_IS_MSVC)
+if(TARGET_IS_LINUX OR TARGET_IS_MACOS OR TARGET_IS_WINDOWS)
     if (TARGET_IS_LINUX)
         set(WGPU_PLATFORM "linux")
         set(WGPU_ARCH "x86_64")
-    elseif (TARGET_IS_APPLE)
+    elseif (TARGET_IS_MACOS)
         set(WGPU_PLATFORM "macos")
         set(WGPU_ARCH "aarch64")
-    elseif(TARGET_IS_MSVC)
+    elseif(TARGET_IS_WINDOWS)
         set(WGPU_PLATFORM "windows")
         set(WGPU_ARCH "x86_64")
     endif()
@@ -261,7 +265,7 @@ set(SLANG_SERIALIZE_FOSSIL_ENABLE_VALIDATION_CHECKS OFF)
 
 # set(SLANG_GENERATORS_PATH ${CMAKE_SOURCE_DIR}/build-emscripten/slang/build/generators/Release/bin)
 
-# if (NOT TARGET_IS_MSVC)
+# if (NOT TARGET_IS_WINDOWS)
 #     set(SLANG_ENABLE_DXIL OFF)
 # endif()
 
@@ -359,7 +363,18 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(json)
 target_link_libraries(${TARGET_NAME} PRIVATE nlohmann_json::nlohmann_json)
-# target_link_libraries(shadercomp PRIVATE nlohmann_json::nlohmann_json)
+
+# toml++
+FetchContent_Declare(
+    tomlplusplus
+    GIT_REPOSITORY https://github.com/marzer/tomlplusplus
+    GIT_TAG e7aaccca3fa3dbde9818ab8313250f3da4976e37
+)
+
+set(TOML_EXCEPTIONS OFF)
+
+FetchContent_MakeAvailable(tomlplusplus)
+target_link_libraries(${TARGET_NAME} PRIVATE tomlplusplus::tomlplusplus)
 
 # tracy
 FetchContent_Declare(
@@ -382,7 +397,7 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(libbacktrace)
 
-if(TARGET_IS_LINUX) # TARGET_IS_APPLE FIXME: libbacktrace does not compile on macOS
+if(TARGET_IS_LINUX) # TARGET_IS_MACOS FIXME: libbacktrace does not compile on macOS
     set(ENV{CC} ${CMAKE_C_COMPILER})
     set(ENV{CXX} ${CMAKE_CXX_COMPILER})
 
@@ -408,7 +423,7 @@ if(TARGET_IS_LINUX) # TARGET_IS_APPLE FIXME: libbacktrace does not compile on ma
 endif()
 
 # MacOS dependencies
-if (TARGET_IS_APPLE)
+if (TARGET_IS_MACOS)
     # MoltenVK
     # FetchContent_Declare(
     #     MoltenVK

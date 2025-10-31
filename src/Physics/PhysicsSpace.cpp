@@ -1,0 +1,74 @@
+#include "Physics/PhysicsSpace.hpp"
+
+static CollisionResult test_box_box(Collider *collider_a, glm::vec3 position_a, Collider *collider_b, glm::vec3 position_b);
+
+static TestCollisionFunc test_collision_funcs[1][1]{
+    // Box
+    {test_box_box},
+};
+
+static CollisionResult test_box_box(Collider *collider_a, glm::vec3 position_a, Collider *collider_b, glm::vec3 position_b)
+{
+    (void)collider_a;
+    (void)collider_b;
+    (void)position_a;
+    (void)position_b;
+    return CollisionResult();
+}
+
+PhysicsSpace::PhysicsSpace()
+{
+}
+
+void PhysicsSpace::step(float delta)
+{
+    for (PhysicsBody *body : m_bodies)
+        body->step(delta);
+}
+
+CollisionResult PhysicsSpace::test_collision(Collider *collider_a, glm::vec3 position_a, Collider *collider_b, glm::vec3 position_b)
+{
+    bool swap = false;
+
+    if (collider_a->type > collider_b->type)
+    {
+        std::swap(collider_a, collider_b);
+        swap = true;
+    }
+
+    CollisionResult result = test_collision_funcs[(int)collider_a->type][(int)collider_b->type](collider_a, position_a, collider_b, position_b);
+
+    if (swap)
+    {
+        std::swap(result.a, result.b);
+        result.normal *= -1;
+    }
+
+    return result;
+}
+
+void PhysicsSpace::resolve_collisions(float delta)
+{
+    (void)delta;
+    std::vector<CollisionResult> collisions;
+
+    for (PhysicsBody *body_a : m_bodies)
+        for (PhysicsBody *body_b : m_bodies)
+        {
+            if (body_a == body_b)
+                break;
+
+            if (!body_a->get_collider() || !body_b->get_collider())
+                continue;
+
+            CollisionResult result = test_collision(body_a->get_collider(), body_a->get_position(), body_b->get_collider(), body_b->get_position());
+
+            if (result.has_collision)
+                collisions.push_back(result);
+        }
+
+    for (const CollisionResult& collision : collisions)
+    {
+        (void)collision;
+    }
+}
