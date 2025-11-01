@@ -40,10 +40,41 @@ public:
         return nullptr;
     }
 
+    Ref<Component> get_component(ClassHashCode class_hash) const
+    {
+        for (const auto& comp : m_components)
+        {
+            if (comp->is(class_hash))
+                return comp;
+        }
+        return nullptr;
+    }
+
     template <typename T>
     inline Ref<T> get_component(size_t index) const
     {
         return m_components[index].cast_to<T>();
+    }
+
+    template <typename T>
+    bool has_component() const
+    {
+        for (const auto& comp : m_components)
+        {
+            if (comp->is<T>())
+                return true;
+        }
+        return false;
+    }
+
+    bool has_component(ClassHashCode class_hash) const
+    {
+        for (const auto& comp : m_components)
+        {
+            if (comp->is(class_hash))
+                return true;
+        }
+        return false;
     }
 
     void add_component(Ref<Component> comp)
@@ -107,15 +138,6 @@ public:
     {
         for (auto& comp : m_components)
             comp->start();
-    }
-
-    void tick(float delta)
-    {
-        for (auto& comp : m_components)
-            comp->tick(delta);
-
-        for (auto& child : m_children)
-            child->tick(delta);
     }
 
     void do_start()

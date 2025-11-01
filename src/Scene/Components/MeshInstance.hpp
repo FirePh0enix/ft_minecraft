@@ -28,11 +28,6 @@ public:
         m_material->set_param("material", m_material_buffer);
     }
 
-    virtual void start() override
-    {
-        m_transform = m_entity->get_transform();
-    }
-
     inline Ref<Material>& get_material()
     {
         return m_material;
@@ -51,7 +46,7 @@ public:
 
             StandardMeshPushConstants push_constants{};
             push_constants.view_matrix = camera.get_view_proj_matrix();
-            push_constants.model_matrix = m_transform->get_global_transform().to_matrix();
+            push_constants.model_matrix = m_entity->get_transform()->get_global_transform().to_matrix();
 
             DataBuffer push_constants_buffer(sizeof(StandardMeshPushConstants));
             push_constants_buffer.add(push_constants);
@@ -80,7 +75,6 @@ public:
 private:
     Ref<Mesh> m_mesh;
     Ref<Material> m_material;
-    Ref<Transformed3D> m_transform;
     bool m_visible;
     Ref<Buffer> m_material_buffer;
     StandardMeshMaterialInfo m_material_info{};

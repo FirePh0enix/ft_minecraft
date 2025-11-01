@@ -5,6 +5,7 @@
 #include "Scene/Components/Component.hpp"
 #include "Scene/Components/RigidBody.hpp"
 #include "Scene/Components/Transformed3D.hpp"
+#include "Scene/System.hpp"
 #include "World/World.hpp"
 
 class Player : public Component
@@ -18,7 +19,8 @@ public:
     }
 
     virtual void start() override;
-    virtual void tick(double delta) override;
+
+    static void update(const Query<Transformed3D, RigidBody, Player, Child<Transformed3D, Camera>>& query);
 
     void set_gravity_enabled(bool v)
     {
@@ -39,6 +41,9 @@ public:
     {
         return m_gravity_value;
     }
+
+    float get_speed() const { return m_speed; }
+    void set_speed(float speed) { m_speed = speed; }
 
 private:
     Ref<Transformed3D> m_transform;

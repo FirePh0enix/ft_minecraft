@@ -1,4 +1,4 @@
-#include "Camera.hpp"
+#include "Scene/Components/Camera.hpp"
 #include "Scene/Entity.hpp"
 
 Frustum::Frustum()
@@ -77,13 +77,18 @@ bool Frustum::contains(const AABB& aabb) const
     return true;
 }
 
-void Camera::start()
-{
-    m_transform = m_entity->get_transform();
-}
+// void Camera::start()
+// {
+//     m_transform = m_entity->get_transform();
+// }
 
-void Camera::tick(double delta)
+// void Camera::tick(double delta)
+// {
+//     (void)delta;
+//     update_frustum();
+// }
+
+void Camera::update_frustum()
 {
-    (void)delta;
     m_frustum = Frustum(get_view_proj_matrix());
 }

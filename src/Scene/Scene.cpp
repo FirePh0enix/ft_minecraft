@@ -7,7 +7,7 @@ Scene::Scene()
 
 void Scene::encode_draw_calls(RenderPassEncoder& encoder)
 {
-    for (const auto& entity : m_entites)
+    for (const auto& entity : m_entities)
     {
         if (Ref<VisualComponent> visual_comp = entity->get_component<VisualComponent>())
         {
@@ -19,6 +19,6 @@ void Scene::encode_draw_calls(RenderPassEncoder& encoder)
 void Scene::tick(float delta)
 {
     m_physics_space.step(delta);
-    for (Ref<Entity>& entity : m_entites)
-        entity->tick(delta);
+    // for (Ref<Entity>& entity : m_entities)
+    //     entity->tick(delta);
 }

@@ -130,6 +130,38 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     Ref<Scene> scene = newobj(Scene);
     Scene::set_active_scene(scene);
 
+    scene->add_system<Camera>(EarlyUpdate, [](auto query)
+                              { query.single().template get<Camera>()->update_frustum(); });
+
+    scene->add_system<Transformed3D, RigidBody>(Update, [](auto query)
+                                                {
+                                                    for (const auto& result : query.results())
+                                                    {
+                                                        result.template get<Transformed3D>()->get_transform().position() = result.template get<RigidBody>()->get_body()->get_position();
+                                                    } });
+
+    scene->add_system<Transformed3D, RigidBody, Player, Child<Transformed3D, Camera>>(Update, &Player::update);
+
+    scene->add_system<VisualComponent>(LateUpdate, [](auto query)
+                                       {
+                            // depth pass
+                            {
+                                RenderPassEncoder encoder = RenderGraph::get().render_pass_begin({.name = "depth pass", .depth_attachment = RenderPassDepthAttachment{.save = true}});
+                                for (const auto& result : query.results())
+                                {
+                                    result.template get<VisualComponent>()->encode_draw_calls(encoder, *Scene::get_active_scene()->get_active_camera());
+                                }
+                            }
+                            // color pass
+                            {
+                                RenderPassEncoder encoder = RenderGraph::get().render_pass_begin({.name = "main pass", .color_attachments = {RenderPassColorAttachment{.surface_texture = true}}, .depth_attachment = RenderPassDepthAttachment{.load = true}});
+                                for (const auto& result : query.results())
+                                {
+                                    result.template get<VisualComponent>()->encode_draw_calls(encoder, *Scene::get_active_scene()->get_active_camera());
+                                }
+                                encoder.imgui();
+                            } });
+
     world = newobj(World, cube, material, 1);
     world->set_render_distance(3);
 
@@ -323,27 +355,19 @@ static void tick()
     // TODO: Differentiate between rendering ticks and physics ticks.
     scene->tick(time_between_ticks);
 
+    scene->run_systems(EarlyUpdate);
+    scene->run_systems(Update);
+    scene->run_systems(LateUpdate);
+
+    scene->run_systems(EarlyFixedUpdate);
+    scene->run_systems(FixedUpdate);
+    scene->run_systems(LateFixedUpdate);
+
     Input::post_events();
-
-    RenderGraph& graph = RenderGraph::get();
-
-    // depth prepass
-    {
-        RenderPassEncoder encoder = graph.render_pass_begin({.name = "depth pass", .depth_attachment = RenderPassDepthAttachment{.save = true}});
-        scene->encode_draw_calls(encoder);
-    }
-
-    // main color pass
-    {
-        RenderPassEncoder encoder = graph.render_pass_begin({.name = "main pass", .color_attachments = {RenderPassColorAttachment{.surface_texture = true}}, .depth_attachment = RenderPassDepthAttachment{.load = true}});
-        scene->encode_draw_calls(encoder);
-        encoder.imgui();
-    }
-
-    RenderingDriver::get()->draw_graph(graph);
+    RenderingDriver::get()->draw_graph(RenderGraph::get());
 
     // Reset after drawing the graph, not before drawing so that `main` can add copy calls.
-    graph.reset();
+    RenderGraph::get().reset();
 }
 
 static void register_all_classes()

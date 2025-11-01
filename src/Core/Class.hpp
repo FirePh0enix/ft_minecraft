@@ -8,7 +8,22 @@
 #include "Core/Containers/View.hpp"
 #include "Core/Registry.hpp"
 
-constexpr uint32_t fnv32_class_hash(const char *filename, const char *class_name)
+struct ClassHashCode
+{
+    uint32_t value;
+};
+
+inline std::strong_ordering operator<=>(ClassHashCode lhs, ClassHashCode rhs)
+{
+    return lhs.value <=> rhs.value;
+}
+
+inline bool operator==(ClassHashCode lhs, ClassHashCode rhs)
+{
+    return (lhs <=> rhs) == std::strong_ordering::equal;
+}
+
+constexpr ClassHashCode fnv32_class_hash(const char *filename, const char *class_name)
 {
     size_t filename_len = 0;
     while (filename[filename_len])
@@ -33,59 +48,53 @@ constexpr uint32_t fnv32_class_hash(const char *filename, const char *class_name
         h *= fnv_32_prime;
     }
 
-    return h;
+    return ClassHashCode(h);
 }
 
-#define CLASS(NAME, BASE)                                                                                                                                                       \
-private:                                                                                                                                                                        \
-    static inline const char *s_class_name = #NAME;                                                                                                                             \
-    static inline uint32_t s_class_hash = fnv32_class_hash(__FILE__, #NAME);                                                                                                    \
-                                                                                                                                                                                \
-    static_assert(sizeof(NAME *) || true);                                                                                                                                      \
-                                                                                                                                                                                \
-public:                                                                                                                                                                         \
-    static inline InplaceVector<uint32_t, BASE::classes.max_capacity() + 1> classes = InplaceVector<uint32_t, BASE::classes.max_capacity() + 1>(BASE::classes, {s_class_hash}); \
-                                                                                                                                                                                \
-    static void register_class()                                                                                                                                                \
-    {                                                                                                                                                                           \
-    }                                                                                                                                                                           \
-                                                                                                                                                                                \
-    static View<uint32_t> get_static_classes()                                                                                                                                  \
-    {                                                                                                                                                                           \
-        return View(classes);                                                                                                                                                   \
-    }                                                                                                                                                                           \
-                                                                                                                                                                                \
-    static const char *get_static_class_name()                                                                                                                                  \
-    {                                                                                                                                                                           \
-        return s_class_name;                                                                                                                                                    \
-    }                                                                                                                                                                           \
-                                                                                                                                                                                \
-    static uint32_t get_static_hash_code()                                                                                                                                      \
-    {                                                                                                                                                                           \
-        return s_class_hash;                                                                                                                                                    \
-    }                                                                                                                                                                           \
-                                                                                                                                                                                \
-    template <typename T>                                                                                                                                                       \
-    bool is() const                                                                                                                                                             \
-    {                                                                                                                                                                           \
-        for (const auto& class_name : get_classes())                                                                                                                            \
-        {                                                                                                                                                                       \
-            if (class_name == T::get_static_hash_code())                                                                                                                        \
-                return true;                                                                                                                                                    \
-        }                                                                                                                                                                       \
-        return false;                                                                                                                                                           \
-    }                                                                                                                                                                           \
-                                                                                                                                                                                \
-    virtual View<uint32_t> get_classes() const override                                                                                                                         \
-    {                                                                                                                                                                           \
-        return classes;                                                                                                                                                         \
-    }                                                                                                                                                                           \
-                                                                                                                                                                                \
-    virtual const char *get_class_name() const override                                                                                                                         \
-    {                                                                                                                                                                           \
-        return #NAME;                                                                                                                                                           \
-    }                                                                                                                                                                           \
-                                                                                                                                                                                \
+#define CLASS(NAME, BASE)                                                                                                                                                                 \
+private:                                                                                                                                                                                  \
+    static inline const char *s_class_name = #NAME;                                                                                                                                       \
+    static inline ClassHashCode s_class_hash = fnv32_class_hash(__FILE__, #NAME);                                                                                                         \
+                                                                                                                                                                                          \
+    static_assert(sizeof(NAME *) || true);                                                                                                                                                \
+                                                                                                                                                                                          \
+public:                                                                                                                                                                                   \
+    static inline InplaceVector<ClassHashCode, BASE::classes.max_capacity() + 1> classes = InplaceVector<ClassHashCode, BASE::classes.max_capacity() + 1>(BASE::classes, {s_class_hash}); \
+                                                                                                                                                                                          \
+    static void register_class()                                                                                                                                                          \
+    {                                                                                                                                                                                     \
+    }                                                                                                                                                                                     \
+                                                                                                                                                                                          \
+    static View<ClassHashCode> get_static_classes()                                                                                                                                       \
+    {                                                                                                                                                                                     \
+        return View(classes);                                                                                                                                                             \
+    }                                                                                                                                                                                     \
+                                                                                                                                                                                          \
+    static const char *get_static_class_name()                                                                                                                                            \
+    {                                                                                                                                                                                     \
+        return s_class_name;                                                                                                                                                              \
+    }                                                                                                                                                                                     \
+                                                                                                                                                                                          \
+    static ClassHashCode get_static_hash_code()                                                                                                                                           \
+    {                                                                                                                                                                                     \
+        return s_class_hash;                                                                                                                                                              \
+    }                                                                                                                                                                                     \
+                                                                                                                                                                                          \
+    virtual View<ClassHashCode> get_classes() const override                                                                                                                              \
+    {                                                                                                                                                                                     \
+        return classes;                                                                                                                                                                   \
+    }                                                                                                                                                                                     \
+                                                                                                                                                                                          \
+    virtual const char *get_class_name() const override                                                                                                                                   \
+    {                                                                                                                                                                                     \
+        return #NAME;                                                                                                                                                                     \
+    }                                                                                                                                                                                     \
+                                                                                                                                                                                          \
+    virtual ClassHashCode get_class_hash_code() const override                                                                                                                            \
+    {                                                                                                                                                                                     \
+        return s_class_hash;                                                                                                                                                              \
+    }                                                                                                                                                                                     \
+                                                                                                                                                                                          \
 private:
 
 template <typename T>
@@ -108,10 +117,10 @@ struct TypeInfo;
 class Object
 {
     static inline const char *s_class_name = "Object";
-    static inline uint32_t s_class_hash = fnv32_class_hash(__FILE__, "Object");
+    static inline ClassHashCode s_class_hash = fnv32_class_hash(__FILE__, "Object");
 
 public:
-    static inline InplaceVector<uint32_t, 1> classes{s_class_hash};
+    static inline InplaceVector<ClassHashCode, 1> classes{s_class_hash};
 
     virtual ~Object() {}
 
@@ -120,12 +129,12 @@ public:
         return s_class_name;
     }
 
-    static uint32_t get_static_hash_code()
+    static ClassHashCode get_static_hash_code()
     {
         return s_class_hash;
     }
 
-    virtual View<uint32_t> get_classes() const
+    virtual View<ClassHashCode> get_classes() const
     {
         return View(classes);
     }
@@ -135,12 +144,27 @@ public:
         return s_class_name;
     }
 
+    virtual ClassHashCode get_class_hash_code() const
+    {
+        return s_class_hash;
+    }
+
     template <typename T>
     bool is() const
     {
-        for (const auto& class_name : get_classes())
+        for (const auto& class_hash : get_classes())
         {
-            if (class_name == T::get_static_hash_code())
+            if (class_hash == T::get_static_hash_code())
+                return true;
+        }
+        return false;
+    }
+
+    bool is(ClassHashCode hash_code) const
+    {
+        for (ClassHashCode class_hash : get_classes())
+        {
+            if (class_hash == hash_code)
                 return true;
         }
         return false;

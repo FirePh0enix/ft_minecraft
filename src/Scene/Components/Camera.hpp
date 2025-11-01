@@ -31,13 +31,13 @@ public:
         m_projection_matrix = calculate_projection_matrix();
     }
 
-    virtual void start() override;
-    virtual void tick(double delta) override;
+    // void tick(double delta) override;
 
     glm::mat4 get_view_matrix() const
     {
-        const glm::mat4 rotation = glm::toMat4(m_transform->get_global_transform().rotation());
-        const glm::mat4 translation = glm::translate(glm::mat4(1.0), -m_transform->get_global_transform().position());
+        const Ref<Transformed3D> transform = m_entity->get_transform();
+        const glm::mat4 rotation = glm::toMat4(transform->get_global_transform().rotation());
+        const glm::mat4 translation = glm::translate(glm::mat4(1.0), -transform->get_global_transform().position());
         return rotation * translation;
     }
 
@@ -60,6 +60,8 @@ public:
     {
         return m_frustum;
     }
+
+    void update_frustum();
 
 private:
     Ref<Transformed3D> m_transform;

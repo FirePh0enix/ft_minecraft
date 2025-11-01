@@ -28,117 +28,121 @@ void Player::start()
     // m_entity->get_scene()->add_entity(m_cube_highlight);
 }
 
-void Player::tick(double delta)
+void Player::update(const Query<Transformed3D, RigidBody, Player, Child<Transformed3D, Camera>>& query)
 {
-    ZoneScopedN("Player::tick");
-
-    if (Input::is_action_pressed("attack") && !Input::is_mouse_grabbed())
+    for (auto& result : query.results())
     {
-        Input::set_mouse_grabbed(true);
-        return;
-    }
-    else if (Input::is_action_pressed("escape") && Input::is_mouse_grabbed())
-    {
-        Input::set_mouse_grabbed(false);
-        return;
-    }
+        Ref<Transformed3D> transform_comp = result.get<Transformed3D>();
+        Ref<RigidBody> body = result.get<RigidBody>();
+        Ref<Player> player = result.get<Player>();
 
-    Transform3D transform = m_transform->get_transform();
-
-    const glm::vec3 forward = transform.forward();
-    const glm::vec3 right = transform.right();
-    const glm::vec3 up(0.0, 1.0, 0.0);
-    const glm::vec2 dir = Input::get_vector("left", "right", "backward", "forward");
-    const float updown_dir = Input::get_action_value("up") - Input::get_action_value("down");
-
-    if (Input::is_mouse_grabbed())
-    {
-        ZoneScopedN("Player::tick.mouse_movements");
-
-        constexpr float mouse_sensibility = 0.03f;
-
-        const glm::vec2 relative = Input::get_mouse_relative();
-        const glm::quat q_yaw = glm::angleAxis(relative.x * mouse_sensibility, up);
-
-        transform.rotation() *= q_yaw;
-        m_transform->set_transform(transform);
-
-        Ref<Transformed3D> camera_transform_comp = m_camera->get_entity()->get_transform();
-        Transform3D camera_transform = camera_transform_comp->get_transform();
-
-        const glm::quat q_pitch = glm::angleAxis(relative.y * mouse_sensibility, glm::vec3(1.0, 0.0, 0.0));
-        camera_transform.rotation() *= q_pitch;
-
-        camera_transform_comp->set_transform(camera_transform);
-    }
-
-    const glm::vec3 camera_forward = m_camera->get_entity()->get_transform()->get_global_transform().forward();
-    Ray ray(transform.position(), camera_forward);
-    float t = 0.0;
-
-    {
-        ZoneScopedN("Player::tick.aim");
-
-        while (t < 5.0)
+        if (Input::is_action_pressed("attack") && !Input::is_mouse_grabbed())
         {
-            glm::vec3 pos = ray.at(t);
-
-            int64_t x = (int64_t)(pos.x + 0.5);
-            int64_t y = (int64_t)(pos.y + 0.5);
-            int64_t z = (int64_t)(pos.z + 0.5);
-
-            BlockState state = m_world->get_block_state(x, y, z);
-
-            if (!state.is_air())
-            {
-                // m_cube_highlight->get_component<MeshInstance>()->set_visible(true);
-                on_block_aimed(state, x, y, z, ray.dir());
-                break;
-            }
-            else
-            {
-                // m_cube_highlight->get_component<MeshInstance>()->set_visible(false);
-            }
-
-            t += 0.1;
+            Input::set_mouse_grabbed(true);
+            return;
         }
+        else if (Input::is_action_pressed("escape") && Input::is_mouse_grabbed())
+        {
+            Input::set_mouse_grabbed(false);
+            return;
+        }
+
+        Transform3D transform = transform_comp->get_transform();
+
+        const glm::vec3 forward = transform.forward();
+        const glm::vec3 right = transform.right();
+        const glm::vec3 up(0.0, 1.0, 0.0);
+        const glm::vec2 dir = Input::get_vector("left", "right", "backward", "forward");
+        const float updown_dir = Input::get_action_value("up") - Input::get_action_value("down");
+
+        if (Input::is_mouse_grabbed())
+        {
+            ZoneScopedN("Player::tick.mouse_movements");
+
+            constexpr float mouse_sensibility = 0.03f;
+
+            const glm::vec2 relative = Input::get_mouse_relative();
+            const glm::quat q_yaw = glm::angleAxis(relative.x * mouse_sensibility, up);
+
+            transform.rotation() *= q_yaw;
+            result.get<Transformed3D>()->set_transform(transform);
+
+            Ref<Transformed3D> camera_transform_comp = result.children<Transformed3D, Camera>()[0].get<Transformed3D>();
+            Transform3D camera_transform = camera_transform_comp->get_transform();
+
+            const glm::quat q_pitch = glm::angleAxis(relative.y * mouse_sensibility, glm::vec3(1.0, 0.0, 0.0));
+            camera_transform.rotation() *= q_pitch;
+
+            camera_transform_comp->set_transform(camera_transform);
+        }
+
+        // {
+        //     ZoneScopedN("Player::tick.aim");
+
+        //     const glm::vec3 camera_forward = result.children<Transformed3D, Camera>()[0].get<Transformed3D>()->get_global_transform().forward();
+        //     Ray ray(transform.position(), camera_forward);
+        //     float t = 0.0;
+        //     while (t < 5.0)
+        //     {
+        //         glm::vec3 pos = ray.at(t);
+
+        //         int64_t x = (int64_t)(pos.x + 0.5);
+        //         int64_t y = (int64_t)(pos.y + 0.5);
+        //         int64_t z = (int64_t)(pos.z + 0.5);
+
+        //         BlockState state = m_world->get_block_state(x, y, z);
+
+        //         if (!state.is_air())
+        //         {
+        //             // m_cube_highlight->get_component<MeshInstance>()->set_visible(true);
+        //             on_block_aimed(state, x, y, z, ray.dir());
+        //             break;
+        //         }
+        //         else
+        //         {
+        //             // m_cube_highlight->get_component<MeshInstance>()->set_visible(false);
+        //         }
+
+        //         t += 0.1;
+        //     }
+        // }
+
+        glm::vec3 velocity = body->get_body()->get_velocity();
+        velocity = forward * dir.y * player->get_speed();
+        velocity += right * dir.x * player->get_speed();
+        velocity += up * updown_dir * player->get_speed();
+        body->get_body()->set_velocity(velocity);
+
+        // if (!m_gravity_enabled)
+        // {
+        //     velocity += up * updown_dir * m_speed;
+        // }
+
+        // if (m_body->is_on_ground(m_world) && Input::is_action_pressed("up") && !m_has_jumped && m_gravity_enabled)
+        // {
+        //     m_body->velocity() += up * 0.1f;
+        //     m_has_jumped = true;
+        // }
+        // else if (!Input::is_action_pressed("up"))
+        // {
+        //     m_has_jumped = false;
+        // }
+
+        // if (m_gravity_enabled && !m_body->is_on_ground(m_world))
+        // {
+        //     m_body->velocity().y -= m_gravity_value * (float)delta;
+        // }
+
+        // m_body->move_and_collide(m_world, delta);
+
+        // m_body->velocity().x = 0; // FIXME: Add friction, ...
+        // m_body->velocity().z = 0;
+
+        // if (!m_gravity_enabled)
+        // {
+        //     m_body->velocity().y = 0;
+        // }
     }
-
-    glm::vec3 velocity = m_body->get_body()->get_velocity();
-    velocity = forward * dir.y * m_speed;
-    velocity += right * dir.x * m_speed;
-    velocity += up * updown_dir * m_speed;
-    m_body->get_body()->set_velocity(velocity);
-
-    // if (!m_gravity_enabled)
-    // {
-    //     velocity += up * updown_dir * m_speed;
-    // }
-
-    // if (m_body->is_on_ground(m_world) && Input::is_action_pressed("up") && !m_has_jumped && m_gravity_enabled)
-    // {
-    //     m_body->velocity() += up * 0.1f;
-    //     m_has_jumped = true;
-    // }
-    // else if (!Input::is_action_pressed("up"))
-    // {
-    //     m_has_jumped = false;
-    // }
-
-    // if (m_gravity_enabled && !m_body->is_on_ground(m_world))
-    // {
-    //     m_body->velocity().y -= m_gravity_value * (float)delta;
-    // }
-
-    // m_body->move_and_collide(m_world, delta);
-
-    // m_body->velocity().x = 0; // FIXME: Add friction, ...
-    // m_body->velocity().z = 0;
-
-    // if (!m_gravity_enabled)
-    // {
-    //     m_body->velocity().y = 0;
-    // }
 }
 
 enum class Face
