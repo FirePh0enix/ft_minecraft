@@ -23,68 +23,6 @@ enum Lifecycle
     LifeCycleSize,
 };
 
-struct QueryResultInternal
-{
-    std::vector<Ref<Component>> components;
-    std::vector<QueryResultInternal> children_;
-};
-
-template <typename... Ts>
-struct QueryResult : QueryResultInternal
-{
-    template <typename B>
-    Ref<B> get() const { return components[IndexOf<B, Ts...>::value].template cast_to<B>(); }
-
-    template <typename... B>
-    const std::vector<QueryResult<B...>>& children() const { return *(std::vector<QueryResult<B...>> *)&children_; }
-};
-
-struct QueryCollectionInternal
-{
-    std::vector<QueryResultInternal> results_;
-};
-
-template <typename... Ts>
-struct QueryCollection : QueryCollectionInternal
-{
-    const std::vector<QueryResult<Ts...>>& results() const { return *(std::vector<QueryResult<Ts...>> *)&results_; };
-    const QueryResult<Ts...>& single() const { return *(QueryResult<Ts...> *)&results_[0]; }
-};
-
-struct QueryInternal
-{
-    Scene *scene;
-    std::vector<QueryCollectionInternal> collections;
-};
-
-/**
- * In a system, the Query arguments tell the engine which entities to retrieve. It use template arguments to construct
- * complex conditions.
- *
- * To query all RigidBody present in the scene, the argument would look like `Query<Many<RigidBody>>` where `Many`
- * indicates to query all entities matching the condition. Multiple components can be specified like
- * `Query<Many<Transformed3D, RigidBody>>` which will retrieve both the RigidBody component and their transform.
- * `Not<...>` can be use to exclude a component, in that case `Query<Many<Transformed3D, Not<RigidBody>>` will query all
- * entities with a transform that does not have a `RigidBody` attached to them.
- */
-template <typename... Ts>
-struct Query : QueryInternal
-{
-    // TODO: Is this even possible to have type checking with this ?
-    //       - This should check if there is either `Maybe<B...>` or `One<B...>` in the template list.
-    //       - Maybe at least at runtime with reflection.
-    template <typename... B>
-    const QueryCollection<B...>& get(size_t index) const
-    {
-        return *(QueryCollection<B...> *)&collections[index];
-    }
-
-    Scene *scene() const
-    {
-        return QueryInternal::scene;
-    }
-};
-
 /**
  * Query the first entity which respect the constraints.
  */
@@ -120,6 +58,83 @@ struct Not
 template <typename... Ts>
 struct Child
 {
+};
+
+struct QueryResultInternal
+{
+    std::vector<Ref<Component>> components;
+    std::vector<QueryResultInternal> children_;
+};
+
+template <typename... Ts>
+struct QueryResult : QueryResultInternal
+{
+    template <typename B>
+    Ref<B> get() const { return components[IndexOf<B, Ts...>::value].template cast_to<B>(); }
+
+    template <typename... B>
+    const std::vector<QueryResult<B...>>& children() const { return *(std::vector<QueryResult<B...>> *)&children_; }
+};
+
+struct QueryCollectionInternal
+{
+    std::vector<QueryResultInternal> results_;
+};
+
+template <typename... Ts>
+struct QueryCollection : QueryCollectionInternal
+{
+    const std::vector<QueryResult<Ts...>>& results() const { return *(std::vector<QueryResult<Ts...>> *)&results_; };
+    const QueryResult<Ts...>& single() const { return *(QueryResult<Ts...> *)&results_[0]; }
+};
+
+struct QueryInternal
+{
+    Scene *scene;
+    std::vector<QueryCollectionInternal> collections;
+};
+
+template <typename>
+struct RebindQueryCollection;
+
+template <typename... Ts>
+struct RebindQueryCollection<Many<Ts...>>
+{
+    using Type = QueryCollection<Ts...>;
+};
+
+template <typename... Ts>
+struct RebindQueryCollection<One<Ts...>>
+{
+    using Type = QueryCollection<Ts...>;
+};
+
+/**
+ * In a system, the Query arguments tell the engine which entities to retrieve. It use template arguments to construct
+ * complex conditions.
+ *
+ * To query all RigidBody present in the scene, the argument would look like `Query<Many<RigidBody>>` where `Many`
+ * indicates to query all entities matching the condition. Multiple components can be specified like
+ * `Query<Many<Transformed3D, RigidBody>>` which will retrieve both the RigidBody component and their transform.
+ * `Not<...>` can be use to exclude a component, in that case `Query<Many<Transformed3D, Not<RigidBody>>` will query all
+ * entities with a transform that does not have a `RigidBody` attached to them.
+ */
+template <typename... Ts>
+struct Query : QueryInternal
+{
+    template <const size_t Index>
+    using DeduceQueryCollection = RebindQueryCollection<std::tuple_element_t<Index, std::tuple<Ts...>>>::Type;
+
+    template <const size_t Index>
+    const DeduceQueryCollection<Index>& get() const
+    {
+        return *(DeduceQueryCollection<Index> *)&collections[Index];
+    }
+
+    Scene *scene() const
+    {
+        return QueryInternal::scene;
+    }
 };
 
 using SystemInternalFunc = void (*)(const QueryInternal& query);

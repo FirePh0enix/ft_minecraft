@@ -30,7 +30,7 @@ void Player::start()
 
 void Player::update(const Query<Many<Transformed3D, RigidBody, Player, Child<Transformed3D, Camera>>, One<World>>& query)
 {
-    const auto& collection = query.get<Transformed3D, RigidBody, Player, Child<Transformed3D, Camera>>(0);
+    const auto& collection = query.get<0>();
 
     for (auto& result : collection.results())
     {
