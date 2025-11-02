@@ -130,24 +130,25 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     Ref<Scene> scene = newobj(Scene);
     Scene::set_active_scene(scene);
 
-    scene->add_system<Camera>(EarlyUpdate, [](auto query)
-                              { query.single().template get<Camera>()->update_frustum(); });
+    scene->add_system<One<Camera>>(EarlyUpdate, [](auto query)
+                                   { query.template get<Camera>(0).single().template get<Camera>()->update_frustum(); });
 
-    scene->add_system<Transformed3D, RigidBody>(Update, [](auto query)
-                                                {
-                                                    for (const auto& result : query.results())
+    scene->add_system<Many<Transformed3D, RigidBody>>(Update, [](auto query)
+                                                      {
+                                                    for (const auto& result : query.template get<Transformed3D, RigidBody>(0).results())
                                                     {
                                                         result.template get<Transformed3D>()->get_transform().position() = result.template get<RigidBody>()->get_body()->get_position();
                                                     } });
 
-    scene->add_system<Transformed3D, RigidBody, Player, Child<Transformed3D, Camera>>(Update, &Player::update);
+    scene->add_system<Many<Transformed3D, RigidBody, Player, Child<Transformed3D, Camera>>, One<World>>(Update, &Player::update);
 
-    scene->add_system<VisualComponent>(LateUpdate, [](auto query)
-                                       {
+    scene->add_system<Many<VisualComponent>>(LateUpdate, [](auto query)
+                                             {
+                            const QueryCollection<VisualComponent>& collection = query.template get<VisualComponent>(0);
                             // depth pass
                             {
                                 RenderPassEncoder encoder = RenderGraph::get().render_pass_begin({.name = "depth pass", .depth_attachment = RenderPassDepthAttachment{.save = true}});
-                                for (const auto& result : query.results())
+                                for (const auto& result : collection.results())
                                 {
                                     result.template get<VisualComponent>()->encode_draw_calls(encoder, *Scene::get_active_scene()->get_active_camera());
                                 }
@@ -155,7 +156,7 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
                             // color pass
                             {
                                 RenderPassEncoder encoder = RenderGraph::get().render_pass_begin({.name = "main pass", .color_attachments = {RenderPassColorAttachment{.surface_texture = true}}, .depth_attachment = RenderPassDepthAttachment{.load = true}});
-                                for (const auto& result : query.results())
+                                for (const auto& result : collection.results())
                                 {
                                     result.template get<VisualComponent>()->encode_draw_calls(encoder, *Scene::get_active_scene()->get_active_camera());
                                 }

@@ -26,8 +26,17 @@ public:
 
     void run_systems(Lifecycle lifecycle)
     {
-        m_system_map.for_each(lifecycle, [this](const auto& system)
-                              { system.func(QueryInternal(this, query_internal(m_entities, system.classes))); });
+        m_system_map.for_each(lifecycle, [this](const auto& meta)
+                              {
+                                  QueryInternal internal;
+                                  internal.scene = this;
+
+                                  for (auto& result : meta.results)
+                                  {
+                                      internal.collections.push_back(QueryCollectionInternal(query_internal(m_entities, result)));
+                                  }
+
+                                  meta.func(internal); });
     }
 
     inline Ref<Camera>& get_active_camera()
@@ -91,19 +100,19 @@ private:
     static inline EntityId s_id = EntityId(1);
     static inline Ref<Scene> s_active_scene;
 
-    std::vector<QueryResultInternal> query_internal(const std::vector<Ref<Entity>>& entities, const SystemMap::EntryClasses& classes)
+    std::vector<QueryResultInternal> query_internal(const std::vector<Ref<Entity>>& entities, const QueryResultMeta& meta)
     {
         std::vector<QueryResultInternal> results;
 
         std::vector<Ref<Component>> components;
-        components.reserve(classes.included.size());
+        components.reserve(meta.included_classes.size());
 
         for (Ref<Entity> entity : entities)
         {
             bool has_excluded = false;
-            std::vector<QueryResultInternal> sub_results = query_internal(entity->get_children(), classes);
+            std::vector<QueryResultInternal> sub_results = query_internal(entity->get_children(), meta);
 
-            for (ClassHashCode class_hash : classes.excluded)
+            for (ClassHashCode class_hash : meta.excluded_classes)
             {
                 if (entity->has_component(class_hash))
                 {
@@ -115,7 +124,7 @@ private:
             if (has_excluded)
                 continue;
 
-            for (ClassHashCode class_hash : classes.included)
+            for (ClassHashCode class_hash : meta.included_classes)
             {
                 Ref<Component> comp = entity->get_component(class_hash);
                 if (comp.is_null())
@@ -123,12 +132,12 @@ private:
                 components.push_back(comp);
             }
 
-            if (components.size() == classes.included.size())
+            if (components.size() == meta.included_classes.size())
             {
                 std::vector<QueryResultInternal> child_results;
-                for (const SystemMap::EntryClasses& children_classes : classes.children)
+                for (const QueryResultMeta& child : meta.children)
                 {
-                    std::vector<QueryResultInternal> child_res = query_internal(entity->get_children(), children_classes);
+                    std::vector<QueryResultInternal> child_res = query_internal(entity->get_children(), child);
                     child_results.insert(results.end(), child_res.begin(), child_res.end());
                 }
                 results.push_back(QueryResultInternal(std::move(components), std::move(child_results)));

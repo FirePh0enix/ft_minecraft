@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Core/Ref.hpp"
+#include "Core/Traits.hpp"
 #include "Scene/Components/Component.hpp"
 
 class Scene;
@@ -22,82 +23,83 @@ enum Lifecycle
     LifeCycleSize,
 };
 
-template <typename T, typename... Ts>
-struct Index;
-
-template <typename T, typename... Ts>
-struct Index<T, T, Ts...> : std::integral_constant<std::size_t, 0>
-{
-};
-
-template <typename T, typename U, typename... Ts>
-struct Index<T, U, Ts...> : std::integral_constant<std::size_t, 1 + Index<T, Ts...>::value>
-{
-};
-
 struct QueryResultInternal
 {
-    QueryResultInternal(const std::vector<Ref<Component>>&& components, const std::vector<QueryResultInternal>&& child_results)
-        : components(components), child_results(child_results)
-    {
-    }
-
-protected:
     std::vector<Ref<Component>> components;
-    std::vector<QueryResultInternal> child_results;
+    std::vector<QueryResultInternal> children_;
+};
+
+template <typename... Ts>
+struct QueryResult : QueryResultInternal
+{
+    template <typename B>
+    Ref<B> get() const { return components[IndexOf<B, Ts...>::value].template cast_to<B>(); }
+
+    template <typename... B>
+    const std::vector<QueryResult<B...>>& children() const { return *(std::vector<QueryResult<B...>> *)&children_; }
+};
+
+struct QueryCollectionInternal
+{
+    std::vector<QueryResultInternal> results_;
+};
+
+template <typename... Ts>
+struct QueryCollection : QueryCollectionInternal
+{
+    const std::vector<QueryResult<Ts...>>& results() const { return *(std::vector<QueryResult<Ts...>> *)&results_; };
+    const QueryResult<Ts...>& single() const { return *(QueryResult<Ts...> *)&results_[0]; }
 };
 
 struct QueryInternal
 {
-    QueryInternal(Scene *scene, const std::vector<QueryResultInternal>&& results)
-        : scene(scene), results_internal(results)
-    {
-    }
-
-protected:
     Scene *scene;
-    std::vector<QueryResultInternal> results_internal;
+    std::vector<QueryCollectionInternal> collections;
 };
 
-template <typename... T>
-struct QueryResult : public QueryResultInternal
+/**
+ * In a system, the Query arguments tell the engine which entities to retrieve. It use template arguments to construct
+ * complex conditions.
+ *
+ * To query all RigidBody present in the scene, the argument would look like `Query<Many<RigidBody>>` where `Many`
+ * indicates to query all entities matching the condition. Multiple components can be specified like
+ * `Query<Many<Transformed3D, RigidBody>>` which will retrieve both the RigidBody component and their transform.
+ * `Not<...>` can be use to exclude a component, in that case `Query<Many<Transformed3D, Not<RigidBody>>` will query all
+ * entities with a transform that does not have a `RigidBody` attached to them.
+ */
+template <typename... Ts>
+struct Query : QueryInternal
 {
-    explicit QueryResult(QueryResultInternal internal)
-        : QueryResultInternal(internal)
-    {
-    }
-
-    template <typename B>
-    Ref<B> get() const
-    {
-        return components[Index<B, T...>::value].template cast_to<B>();
-    }
-
+    // TODO: Is this even possible to have type checking with this ?
+    //       - This should check if there is either `Maybe<B...>` or `One<B...>` in the template list.
+    //       - Maybe at least at runtime with reflection.
     template <typename... B>
-    const std::vector<QueryResult<B...>>& children() const
+    const QueryCollection<B...>& get(size_t index) const
     {
-        return *(std::vector<QueryResult<B...>> *)&child_results;
+        return *(QueryCollection<B...> *)&collections[index];
+    }
+
+    Scene *scene() const
+    {
+        return QueryInternal::scene;
     }
 };
 
-template <typename... T>
-struct Query : public QueryInternal
+/**
+ * Query the first entity which respect the constraints.
+ */
+template <typename... Ts>
+struct One
 {
-    QueryResult<T...> single() const
-    {
-        return QueryResult<T...>(results_internal[0]);
-    }
-
-    const std::vector<QueryResult<T...>>& results() const
-    {
-        return *(std::vector<QueryResult<T...>> *)&results_internal;
-    }
 };
 
-using SystemInternalFunc = void (*)(const QueryInternal& query);
-
-template <typename... T>
-using SystemFunc = void (*)(const Query<T...>& query);
+/**
+ * Query all entities which respect the constraints.
+ */
+template <typename... Ts>
+struct Many
+{
+};
 
 /**
  * Exclude a component during a system query. Use it like `Query<Transformed3D, Not<RigidBody>>` which will query all
@@ -120,68 +122,92 @@ struct Child
 {
 };
 
-template <typename T>
-struct Tag
+using SystemInternalFunc = void (*)(const QueryInternal& query);
+
+template <typename... T>
+using SystemFunc = void (*)(const Query<T...>& query);
+
+enum class QueryKind
 {
-    using Type = T;
+    One,
+    Many,
+};
+
+struct QueryResultMeta
+{
+    QueryKind kind = QueryKind::One;
+    std::vector<ClassHashCode> included_classes;
+    std::vector<ClassHashCode> excluded_classes;
+    std::vector<QueryResultMeta> children;
+};
+
+struct QueryMeta
+{
+    SystemInternalFunc func;
+    std::vector<QueryResultMeta> results;
 };
 
 struct SystemMap
 {
-    struct EntryClasses
-    {
-        std::vector<ClassHashCode> included;
-        std::vector<ClassHashCode> excluded;
-        std::vector<EntryClasses> children;
-    };
-
-    struct Entry
-    {
-        SystemInternalFunc func;
-        EntryClasses classes;
-    };
-
     template <typename... Ts>
-    void add_system(Lifecycle lifecycle, std::type_identity_t<SystemFunc<Ts...>> system)
+    void add_system(Lifecycle lifecycle, SystemFunc<Ts...> system)
     {
-        std::vector<ClassHashCode> classes;
-        std::vector<ClassHashCode> excluded_classes;
-        std::vector<EntryClasses> children;
+        std::vector<QueryResultMeta> results;
+        (process_one_many(Tag<Ts>{}, results), ...);
 
-        place_in_correct_array(Tag<Child<Ts...>>{}, classes, excluded_classes, children);
-
-        m_systems[lifecycle].push_back(Entry{.func = (SystemInternalFunc)(void *)system, .classes = children[0]});
+        m_systems[lifecycle].push_back(QueryMeta{.func = (SystemInternalFunc)(void *)system, .results = results});
     }
 
-    void for_each(Lifecycle lifecycle, std::function<void(const Entry& system)> f)
+    void for_each(Lifecycle lifecycle, std::function<void(const QueryMeta&)> f)
     {
-        for (const Entry& system : m_systems[lifecycle])
+        for (const QueryMeta& system : m_systems[lifecycle])
             f(system);
     }
 
 private:
-    std::vector<Entry> m_systems[LifeCycleSize];
+    std::vector<QueryMeta> m_systems[LifeCycleSize];
 
-    template <typename T>
-    void place_in_correct_array(Tag<T>, std::vector<ClassHashCode>& classes, std::vector<ClassHashCode>&, std::vector<EntryClasses>&)
+    template <typename... Ts>
+    void process_one_many(Tag<One<Ts...>>, std::vector<QueryResultMeta>& results)
     {
-        classes.push_back(T::get_static_hash_code());
+        QueryResultMeta result;
+        result.kind = QueryKind::One;
+
+        (process_queries(Tag<Ts>{}, result), ...);
+
+        results.push_back(result);
     }
 
     template <typename... Ts>
-    void place_in_correct_array(Tag<Child<Ts...>>, std::vector<ClassHashCode>&, std::vector<ClassHashCode>&, std::vector<EntryClasses>& children)
+    void process_one_many(Tag<Many<Ts...>>, std::vector<QueryResultMeta>& results)
     {
-        std::vector<ClassHashCode> classes2;
-        std::vector<ClassHashCode> excluded_classes2;
-        std::vector<EntryClasses> children2;
-        (place_in_correct_array(Tag<Ts>{}, classes2, excluded_classes2, children2), ...);
+        QueryResultMeta result;
+        result.kind = QueryKind::Many;
 
-        children.push_back(EntryClasses(classes2, excluded_classes2, children2));
+        (process_queries(Tag<Ts>{}, result), ...);
+
+        results.push_back(result);
     }
 
     template <typename T>
-    void place_in_correct_array(Tag<Not<T>>, std::vector<ClassHashCode>&, std::vector<ClassHashCode>& excluded_classes, std::vector<EntryClasses>&)
+    void process_queries(Tag<T>, QueryResultMeta& result)
     {
-        excluded_classes.push_back(T::get_static_hash_code());
+        result.included_classes.push_back(T::get_static_hash_code());
+    }
+
+    template <typename... Ts>
+    void process_queries(Tag<Child<Ts...>>, QueryResultMeta& result)
+    {
+        QueryResultMeta result2;
+        result2.kind = QueryKind::Many; // TODO: Add Child/Children (or ChildOne/ChildMany) as equivalent One/Many
+        (process_queries(Tag<Ts>{}, result2), ...);
+
+        result.children.push_back(result2);
+    }
+
+    template <typename T>
+    void process_queries(Tag<Not<T>>, QueryResultMeta& result)
+    {
+        result.excluded_classes.push_back(T::get_static_hash_code());
     }
 };

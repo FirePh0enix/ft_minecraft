@@ -20,7 +20,7 @@ public:
 
     virtual void start() override;
 
-    static void update(const Query<Transformed3D, RigidBody, Player, Child<Transformed3D, Camera>>& query);
+    static void update(const Query<Many<Transformed3D, RigidBody, Player, Child<Transformed3D, Camera>>, One<World>>& query);
 
     void set_gravity_enabled(bool v)
     {

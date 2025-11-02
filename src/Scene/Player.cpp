@@ -28,9 +28,11 @@ void Player::start()
     // m_entity->get_scene()->add_entity(m_cube_highlight);
 }
 
-void Player::update(const Query<Transformed3D, RigidBody, Player, Child<Transformed3D, Camera>>& query)
+void Player::update(const Query<Many<Transformed3D, RigidBody, Player, Child<Transformed3D, Camera>>, One<World>>& query)
 {
-    for (auto& result : query.results())
+    const auto& collection = query.get<Transformed3D, RigidBody, Player, Child<Transformed3D, Camera>>(0);
+
+    for (auto& result : collection.results())
     {
         Ref<Transformed3D> transform_comp = result.get<Transformed3D>();
         Ref<RigidBody> body = result.get<RigidBody>();
