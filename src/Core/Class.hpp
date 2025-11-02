@@ -3,9 +3,16 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <variant>
+
+#include <glm/ext/quaternion_float.hpp>
+#include <glm/vec2.hpp>
+#include <glm/vec3.hpp>
+#include <glm/vec4.hpp>
 
 #include "Core/Containers/StackVector.hpp"
 #include "Core/Containers/View.hpp"
+#include "Core/Ref.hpp"
 #include "Core/Registry.hpp"
 
 struct ClassHashCode
@@ -63,6 +70,7 @@ public:                                                                         
                                                                                                                                                                                           \
     static void register_class()                                                                                                                                                          \
     {                                                                                                                                                                                     \
+        ClassRegistry::get().register_class<NAME>();                                                                                                                                      \
     }                                                                                                                                                                                     \
                                                                                                                                                                                           \
     static View<ClassHashCode> get_static_classes()                                                                                                                                       \
@@ -169,4 +177,82 @@ public:
         }
         return false;
     }
+};
+
+enum class PrimitiveType
+{
+    Bool,
+
+    Float,
+    Vec2,
+    Vec3,
+    Vec4,
+    Quat,
+};
+
+struct Variant : public std::variant<bool, float, glm::vec2, glm::vec3, glm::vec4, glm::quat>
+{
+    template <typename T>
+    operator T() { return std::get<T>(*this); }
+
+    template <typename T>
+    constexpr bool is() { return std::holds_alternative<T>(); }
+};
+
+using PropertyGetter = std::function<Variant(Ref<Object>)>;
+using PropertySetter = std::function<void(Ref<Object>, Variant)>;
+
+struct Property
+{
+    PrimitiveType type;
+    PropertyGetter getter;
+    PropertySetter setter;
+};
+
+struct Class
+{
+    std::map<std::string, Property> properties;
+};
+
+template <typename T>
+concept HasBindMethods = requires() {
+    { T::bind_methods() } -> std::same_as<void>;
+};
+
+class ClassRegistry
+{
+public:
+    static ClassRegistry& get()
+    {
+        static ClassRegistry singleton;
+        return singleton;
+    }
+
+    template <typename T>
+    void register_class()
+    {
+        m_classes[T::get_static_hash_code()] = Class{};
+    }
+
+    template <typename T>
+        requires HasBindMethods<T>
+    void register_class()
+    {
+        m_classes[T::get_static_hash_code()] = Class{};
+        T::bind_methods();
+    }
+
+    template <typename T>
+    void register_property(const std::string& property_name, PrimitiveType type, PropertyGetter getter, PropertySetter setter)
+    {
+        m_classes[T::get_static_hash_code()].properties[property_name] = Property{.type = type, .getter = getter, .setter = setter};
+    }
+
+    const Class& get_class(ClassHashCode hash) const
+    {
+        return m_classes.at(hash);
+    }
+
+private:
+    std::map<ClassHashCode, Class> m_classes;
 };

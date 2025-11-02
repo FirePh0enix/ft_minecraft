@@ -33,7 +33,8 @@ public:
 
     void run_systems(Lifecycle lifecycle)
     {
-        m_system_map.for_each(lifecycle, [this](const auto& meta)
+        Action action;
+        m_system_map.for_each(lifecycle, [this, &action](const auto& meta)
                               {
                                   QueryInternal internal;
                                   internal.scene = this;
@@ -43,7 +44,14 @@ public:
                                       internal.collections.push_back(QueryCollectionInternal(query_internal(m_entities, result)));
                                   }
 
-                                  meta.func(internal); });
+                                  meta.func(internal, action); });
+        flush_actions(action);
+    }
+
+    void flush_actions(const Action& action)
+    {
+        for (Ref<Entity> entity : action.get_entities())
+            add_entity(entity);
     }
 
     inline Ref<Camera>& get_active_camera()
@@ -97,12 +105,21 @@ public:
         s_active_scene = scene;
     }
 
+#ifdef __has_debug_menu
+    void imgui_debug_window();
+    void imgui_debug_with_entity(const Ref<Entity>& entity, size_t index);
+#endif
+
 private:
     Ref<Camera> m_active_camera;
     std::vector<Ref<Entity>> m_entities;
     PhysicsSpace m_physics_space;
 
     SystemMap m_system_map;
+
+#ifdef __has_debug_menu
+    Ref<Component> m_selected_component;
+#endif
 
     static inline EntityId s_id = EntityId(1);
     static inline Ref<Scene> s_active_scene;

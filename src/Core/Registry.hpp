@@ -7,10 +7,6 @@
 template <typename T>
 struct TypeInfo;
 
-struct Class
-{
-};
-
 struct Struct
 {
     const char *name;

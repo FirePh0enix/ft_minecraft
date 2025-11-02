@@ -29,6 +29,11 @@ public:
         m_id = id;
     }
 
+    const std::vector<Ref<Component>> get_components() const
+    {
+        return m_components;
+    }
+
     template <typename T>
     Ref<T> get_component() const
     {

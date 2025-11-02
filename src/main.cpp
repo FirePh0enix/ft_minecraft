@@ -62,6 +62,7 @@ z=0.0
 )";
 
 Ref<Window> window;
+Ref<Scene> scene;
 Ref<Entity> player;
 Ref<World> world;
 
@@ -127,13 +128,13 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     // EXPECT(font_result);
     // Ref<Font> font = font_result.value();
 
-    Ref<Scene> scene = newobj(Scene);
+    scene = newobj(Scene);
     Scene::set_active_scene(scene);
 
-    scene->add_system(EarlyUpdate, [](const Query<One<Camera>>& query)
+    scene->add_system(EarlyUpdate, [](const Query<One<Camera>>& query, Action&)
                       { query.template get<0>().single().template get<Camera>()->update_frustum(); });
 
-    scene->add_system(Update, [](const Query<Many<Transformed3D, RigidBody>>& query)
+    scene->add_system(Update, [](const Query<Many<Transformed3D, RigidBody>>& query, Action&)
                       {
                                                     for (const auto& result : query.template get<0>().results())
                                                     {
@@ -142,7 +143,7 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
 
     scene->add_system(Update, Player::update);
 
-    scene->add_system(LateUpdate, [](const Query<Many<VisualComponent>>& query)
+    scene->add_system(LateUpdate, [](const Query<Many<VisualComponent>>& query, Action&)
                       {
                             // depth pass
                             {
@@ -300,50 +301,18 @@ static void tick()
 
         ImGui::NewFrame();
 
-        if (ImGui::Begin("Physics"))
-        {
-            bool collisions = !player->get_component<RigidBody>()->is_disabled();
-            if (ImGui::Checkbox("Enable collisions", &collisions))
-            {
-                config2.at_path("physics.collisions").value<bool>().emplace(collisions);
-                player->get_component<RigidBody>()->set_disabled(!collisions);
-            }
+        // if (ImGui::Begin("Commands"))
+        // {
+        //     ImGui::InputText("##", console.get_buffer(), console.get_buffer_size(), ImGuiInputTextFlags_None);
+        //     ImGui::SameLine();
+        //     if (ImGui::Button(">"))
+        //     {
+        //         console.exec();
+        //     }
+        // }
+        // ImGui::End();
 
-            bool gravity = player->get_component<Player>()->is_gravity_enabled();
-            if (ImGui::Checkbox("Enable gravity", &gravity))
-            {
-                config2.at_path("physics.gravity").value<bool>().emplace(gravity);
-                player->get_component<Player>()->set_gravity_enabled(gravity);
-            }
-
-            float gravity_value = player->get_component<Player>()->get_gravity_value();
-            if (ImGui::SliderFloat("Gravity value", &gravity_value, 0.0, 20.0))
-            {
-                config2.at_path("physics.gravity_value").value<double>().emplace(gravity_value);
-                player->get_component<Player>()->set_gravity_value(gravity_value);
-            }
-        }
-        ImGui::End();
-
-        if (ImGui::Begin("General info"))
-        {
-            glm::vec3 pos = player->get_transform()->get_transform().position();
-            ImGui::Text("X: %f", pos.x);
-            ImGui::Text("Y: %f", pos.y);
-            ImGui::Text("Z: %f", pos.z);
-        }
-        ImGui::End();
-
-        if (ImGui::Begin("Commands"))
-        {
-            ImGui::InputText("##", console.get_buffer(), console.get_buffer_size(), ImGuiInputTextFlags_None);
-            ImGui::SameLine();
-            if (ImGui::Button(">"))
-            {
-                console.exec();
-            }
-        }
-        ImGui::End();
+        scene->imgui_debug_window();
     }
 #endif
 

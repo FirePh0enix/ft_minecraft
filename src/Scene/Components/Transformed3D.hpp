@@ -118,9 +118,22 @@ private:
 
 class Transformed3D : public Component
 {
-    CLASS(Transform3D, Component);
+    CLASS(Transformed3D, Component);
 
 public:
+    static void bind_methods()
+    {
+        ClassRegistry::get().register_property<Transformed3D>("position", PrimitiveType::Vec3, [](Ref<Object> self)
+                                                              { return Variant(self.cast_to<Transformed3D>()->get_transform().position()); }, [](Ref<Object> self, Variant value)
+                                                              { self.cast_to<Transformed3D>()->get_transform().position() = value; });
+        ClassRegistry::get().register_property<Transformed3D>("rotation", PrimitiveType::Quat, [](Ref<Object> self)
+                                                              { return Variant(self.cast_to<Transformed3D>()->get_transform().rotation()); }, [](Ref<Object> self, Variant value)
+                                                              { self.cast_to<Transformed3D>()->get_transform().rotation() = value; });
+        ClassRegistry::get().register_property<Transformed3D>("scale", PrimitiveType::Vec3, [](Ref<Object> self)
+                                                              { return Variant(self.cast_to<Transformed3D>()->get_transform().scale()); }, [](Ref<Object> self, Variant value)
+                                                              { self.cast_to<Transformed3D>()->get_transform().scale() = value; });
+    }
+
     Transformed3D()
     {
     }

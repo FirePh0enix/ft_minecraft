@@ -28,7 +28,7 @@ void Player::start()
     // m_entity->get_scene()->add_entity(m_cube_highlight);
 }
 
-void Player::update(const Query<Many<Transformed3D, RigidBody, Player, Child<Transformed3D, Camera>>, One<World>>& query)
+void Player::update(const Query<Many<Transformed3D, RigidBody, Player, Child<Transformed3D, Camera>>, One<World>>& query, Action&)
 {
     const auto& collection = query.get<0>();
 

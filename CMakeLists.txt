@@ -348,6 +348,18 @@ else()
     target_compile_definitions(${TARGET_NAME} PRIVATE IMGUI_IMPL_WEBGPU_BACKEND_WGPU=1)
 endif()
 
+# enet
+set(BUILD_SHARED_LIBS 0)
+
+FetchContent_Declare(
+    enet
+    GIT_REPOSITORY https://github.com/lsalzman/enet
+    GIT_TAG 8be2368a8001f28db44e81d5939de5e613025023
+)
+FetchContent_MakeAvailable(enet)
+target_link_libraries(${TARGET_NAME} PRIVATE enet)
+target_include_directories(${TARGET_NAME} PRIVATE ${enet_SOURCE_DIR}/include)
+
 # glm
 FetchContent_Declare(
     glm

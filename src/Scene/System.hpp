@@ -137,19 +137,31 @@ struct Query : QueryInternal
     }
 };
 
-using SystemInternalFunc = void (*)(const QueryInternal& query);
+/**
+ *
+ */
+struct Action
+{
+    void spawn(const Ref<Entity>& entity);
+
+    const std::vector<Ref<Entity>>& get_entities() const { return m_entities; };
+
+private:
+    std::vector<Ref<Entity>> m_entities;
+};
+
+using SystemInternalFunc = void (*)(const QueryInternal& query, Action& action);
 
 template <typename... T>
-using SystemFunc = void (*)(const Query<T...>& query);
+using SystemFunc = void (*)(const Query<T...>& query, Action& action);
 
 template <class F>
 struct SystemTraits;
 
 template <class... Ts>
-struct SystemTraits<void (*)(const Query<Ts...>&)>
+struct SystemTraits<void (*)(const Query<Ts...>&, Action&)>
 {
-    using Pack = std::tuple<Ts...>;
-    using Pointer = void (*)(const Query<Ts...>&);
+    using Pointer = void (*)(const Query<Ts...>&, Action&);
 };
 
 enum class QueryKind
