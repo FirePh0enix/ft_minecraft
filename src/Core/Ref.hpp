@@ -160,6 +160,12 @@ public:
     }
 
     template <typename B>
+    Ref<B> unchecked_cast_to() const
+    {
+        return Ref<B>(static_cast<B *>((B *)m_ptr), m_references);
+    }
+
+    template <typename B>
     Ref<B> cast_to() const
     {
         if (!is_null() && m_ptr->template is<B>())

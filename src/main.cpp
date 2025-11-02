@@ -130,20 +130,20 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     Ref<Scene> scene = newobj(Scene);
     Scene::set_active_scene(scene);
 
-    scene->add_system<One<Camera>>(EarlyUpdate, [](auto query)
-                                   { query.template get<0>().single().template get<Camera>()->update_frustum(); });
+    scene->add_system(EarlyUpdate, [](const Query<One<Camera>>& query)
+                      { query.template get<0>().single().template get<Camera>()->update_frustum(); });
 
-    scene->add_system<Many<Transformed3D, RigidBody>>(Update, [](auto query)
-                                                      {
+    scene->add_system(Update, [](const Query<Many<Transformed3D, RigidBody>>& query)
+                      {
                                                     for (const auto& result : query.template get<0>().results())
                                                     {
                                                         result.template get<Transformed3D>()->get_transform().position() = result.template get<RigidBody>()->get_body()->get_position();
                                                     } });
 
-    scene->add_system<Many<Transformed3D, RigidBody, Player, Child<Transformed3D, Camera>>, One<World>>(Update, &Player::update);
+    scene->add_system(Update, Player::update);
 
-    scene->add_system<Many<VisualComponent>>(LateUpdate, [](auto query)
-                                             {
+    scene->add_system(LateUpdate, [](const Query<Many<VisualComponent>>& query)
+                      {
                             // depth pass
                             {
                                 RenderPassEncoder encoder = RenderGraph::get().render_pass_begin({.name = "depth pass", .depth_attachment = RenderPassDepthAttachment{.save = true}});

@@ -18,10 +18,17 @@ public:
 
     void tick(float delta);
 
-    template <typename... T>
-    void add_system(Lifecycle lifecycle, SystemFunc<std::type_identity_t<T>...> system)
+    template <class F>
+    void add_system(Lifecycle lifecycle, F&& f)
     {
-        m_system_map.add_system<T...>(lifecycle, system);
+        using PtrType = decltype(+std::forward<F>(f));
+        using Traits = SystemTraits<PtrType>;
+
+        static_assert(std::is_same_v<PtrType, typename Traits::Pointer>,
+                      "Callable must have signature void(const Query<...>&)");
+
+        PtrType sys = +std::forward<F>(f);
+        m_system_map.add_system(lifecycle, sys);
     }
 
     void run_systems(Lifecycle lifecycle)

@@ -63,29 +63,29 @@ struct Child
 struct QueryResultInternal
 {
     std::vector<Ref<Component>> components;
-    std::vector<QueryResultInternal> children_;
+    std::vector<QueryResultInternal> children_internal;
 };
 
 template <typename... Ts>
 struct QueryResult : QueryResultInternal
 {
     template <typename B>
-    Ref<B> get() const { return components[IndexOf<B, Ts...>::value].template cast_to<B>(); }
+    Ref<B> get() const { return components[IndexOf<B, Ts...>::value].template unchecked_cast_to<B>(); }
 
     template <typename... B>
-    const std::vector<QueryResult<B...>>& children() const { return *(std::vector<QueryResult<B...>> *)&children_; }
+    const std::vector<QueryResult<B...>>& children() const { return *(std::vector<QueryResult<B...>> *)&children_internal; }
 };
 
 struct QueryCollectionInternal
 {
-    std::vector<QueryResultInternal> results_;
+    std::vector<QueryResultInternal> results_internal;
 };
 
 template <typename... Ts>
 struct QueryCollection : QueryCollectionInternal
 {
-    const std::vector<QueryResult<Ts...>>& results() const { return *(std::vector<QueryResult<Ts...>> *)&results_; };
-    const QueryResult<Ts...>& single() const { return *(QueryResult<Ts...> *)&results_[0]; }
+    const std::vector<QueryResult<Ts...>>& results() const { return *(std::vector<QueryResult<Ts...>> *)&results_internal; };
+    const QueryResult<Ts...>& single() const { return *(QueryResult<Ts...> *)&results_internal[0]; }
 };
 
 struct QueryInternal
@@ -141,6 +141,16 @@ using SystemInternalFunc = void (*)(const QueryInternal& query);
 
 template <typename... T>
 using SystemFunc = void (*)(const Query<T...>& query);
+
+template <class F>
+struct SystemTraits;
+
+template <class... Ts>
+struct SystemTraits<void (*)(const Query<Ts...>&)>
+{
+    using Pack = std::tuple<Ts...>;
+    using Pointer = void (*)(const Query<Ts...>&);
+};
 
 enum class QueryKind
 {
