@@ -15,7 +15,7 @@ void DataPack::open(const std::filesystem::path& path)
 void DataPack::load_from_file(const std::string& path)
 {
     m_stream.open(path, std::ifstream::in | std::ifstream::binary | std::ifstream::ate);
-
+    assert(m_stream.is_open() && "Cannot open file for writing");
     m_file_size = m_stream.tellg();
     m_stream.seekg(0);
 }
