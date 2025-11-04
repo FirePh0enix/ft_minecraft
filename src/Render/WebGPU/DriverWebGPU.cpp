@@ -1218,8 +1218,8 @@ RenderGraphCache::RenderPass& RenderGraphCache::get_render_pass(int32_t index)
 }
 
 #ifdef __platform_macos
-#include <Cocoa/Cocoa.h>
-#include <QuartzCore/CAMetalLayer.h>
+// #include <Cocoa/Cocoa.h>
+// #include <QuartzCore/CAMetalLayer.h>
 #elif defined(__platform_windows)
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN 1
@@ -1227,7 +1227,7 @@ RenderGraphCache::RenderPass& RenderGraphCache::get_render_pass(int32_t index)
 #include <windows.h>
 #endif
 
-WGPUSurface create_surface(WGPUInstance instance, SDL_Window *window)
+WGPUSurface RenderingDriverWebGPU::create_surface(WGPUInstance instance, SDL_Window *window)
 {
     SDL_PropertiesID id = SDL_GetWindowProperties(window);
     WGPUSurfaceDescriptor surface_descriptor = {};

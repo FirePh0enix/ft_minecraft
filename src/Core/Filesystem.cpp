@@ -17,13 +17,13 @@ std::filesystem::path Filesystem::current_executable_path()
 
     char buf[PATH_MAX];
     uint32_t buf_size = PATH_MAX;
-    if (_NSGetExecutablePath(buf, &buf_size) == 0)
-    {
-        std::string s;
-        s.resize(buf_size);
-        s.append(buf, buf_size);
-        return s;
-    }
+    // if (_NSGetExecutablePath(buf, &buf_size) == 0)
+    // {
+    //     std::string s;
+    //     s.resize(buf_size);
+    //     s.append(buf, buf_size);
+    //     return s;
+    // }
 
     return "";
 #elif defined(__platform_web)

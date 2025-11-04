@@ -208,7 +208,7 @@ struct Property
     PropertySetter<> setter;
 };
 
-struct Class
+struct ClassInfo
 {
     std::map<std::string, Property> properties;
 };
@@ -230,14 +230,14 @@ public:
     template <typename T>
     void register_class()
     {
-        m_classes[T::get_static_hash_code()] = Class{};
+        m_classes[T::get_static_hash_code()] = ClassInfo{};
     }
 
     template <typename T>
         requires HasBindMethods<T>
     void register_class()
     {
-        m_classes[T::get_static_hash_code()] = Class{};
+        m_classes[T::get_static_hash_code()] = ClassInfo{};
         T::bind_methods();
     }
 
@@ -247,11 +247,11 @@ public:
         m_classes[T::get_static_hash_code()].properties[property_name] = Property{.type = type, .getter = reinterpret_cast<PropertyGetter<>>(getter), .setter = reinterpret_cast<PropertySetter<>>(setter)};
     }
 
-    const Class& get_class(ClassHashCode hash) const
+    const ClassInfo& get_class(ClassHashCode hash) const
     {
         return m_classes.at(hash);
     }
 
 private:
-    std::map<ClassHashCode, Class> m_classes;
+    std::map<ClassHashCode, ClassInfo> m_classes;
 };
