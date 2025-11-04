@@ -225,6 +225,10 @@ private:
     MaterialLayoutCache m_material_layout_cache;
     BindGroupCache m_bind_group_cache;
     RenderGraphCache m_render_graph_cache;
+
+#ifdef __platform_macos
+    SDL_MetalView m_metal_view;
+#endif
 };
 
 struct BufferWebGPURead

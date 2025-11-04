@@ -71,10 +71,10 @@ if(TARGET_IS_WEB)
     )
 endif()
 
-if (TARGET_IS_MACOS)
-    # Some Objective-C is called to initialize WebGPU.
-    set_source_files_properties(src/Render/WebGPU/DriverWebGPU.cpp PROPERTIES COMPILE_FLAGS "-x objective-c++")
-endif()
+# if (TARGET_IS_MACOS)
+#     # Some Objective-C is called to initialize WebGPU.
+#     set_source_files_properties(src/Render/WebGPU/DriverWebGPU.cpp PROPERTIES COMPILE_FLAGS "-x objective-c++")
+# endif()
 
 # Generate the `compile_commands.json`
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)

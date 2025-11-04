@@ -1234,26 +1234,21 @@ WGPUSurface create_surface(WGPUInstance instance, SDL_Window *window)
     WGPUSurface surface = {};
 #if defined(__platform_macos)
     {
-        id metal_layer = NULL;
-        NSWindow *ns_window = (__bridge NSWindow *)SDL_GetPointerProperty(id, SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, NULL);
-        if (!ns_window)
-            return NULL;
-        [ns_window.contentView setWantsLayer:YES];
-        metal_layer = [CAMetalLayer layer];
-        [ns_window.contentView setLayer:metal_layer];
+        m_metal_view = SDL_Metal_CreateView(window);
+
         WGPUSurfaceSourceMetalLayer surface_src_metal = {};
         surface_src_metal.chain.sType = WGPUSType_SurfaceSourceMetalLayer;
-        surface_src_metal.layer = metal_layer;
+        surface_src_metal.layer = SDL_Metal_GetLayer(m_metal_view);
         surface_descriptor.nextInChain = &surface_src_metal.chain;
         surface = wgpuInstanceCreateSurface(instance, &surface_descriptor);
     }
 #elif defined(__platform_linux)
     if (SDL_strcmp(SDL_GetCurrentVideoDriver(), "wayland") == 0)
     {
-        void *w_display = SDL_GetPointerProperty(id, SDL_PROP_WINDOW_WAYLAND_DISPLAY_POINTER, NULL);
-        void *w_surface = SDL_GetPointerProperty(id, SDL_PROP_WINDOW_WAYLAND_SURFACE_POINTER, NULL);
+        void *w_display = SDL_GetPointerProperty(id, SDL_PROP_WINDOW_WAYLAND_DISPLAY_POINTER, nullptr);
+        void *w_surface = SDL_GetPointerProperty(id, SDL_PROP_WINDOW_WAYLAND_SURFACE_POINTER, nullptr);
         if (!w_display || !w_surface)
-            return NULL;
+            return nullptr;
         WGPUSurfaceSourceWaylandSurface surface_src_wayland = {};
         surface_src_wayland.chain.sType = WGPUSType_SurfaceSourceWaylandSurface;
         surface_src_wayland.display = w_display;
@@ -1263,10 +1258,10 @@ WGPUSurface create_surface(WGPUInstance instance, SDL_Window *window)
     }
     else if (!SDL_strcmp(SDL_GetCurrentVideoDriver(), "x11"))
     {
-        void *x_display = SDL_GetPointerProperty(id, SDL_PROP_WINDOW_X11_DISPLAY_POINTER, NULL);
+        void *x_display = SDL_GetPointerProperty(id, SDL_PROP_WINDOW_X11_DISPLAY_POINTER, nullptr);
         uint64_t x_window = SDL_GetNumberProperty(id, SDL_PROP_WINDOW_X11_WINDOW_NUMBER, 0);
         if (!x_display || !x_window)
-            return NULL;
+            return nullptr;
         WGPUSurfaceSourceXlibWindow surface_src_xlib = {};
         surface_src_xlib.chain.sType = WGPUSType_SurfaceSourceXlibWindow;
         surface_src_xlib.display = x_display;
@@ -1276,10 +1271,10 @@ WGPUSurface create_surface(WGPUInstance instance, SDL_Window *window)
     }
 #elif defined(__platform_windows)
     {
-        HWND hwnd = (HWND)SDL_GetPointerProperty(id, SDL_PROP_WINDOW_WIN32_HWND_POINTER, NULL);
+        HWND hwnd = (HWND)SDL_GetPointerProperty(id, SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr);
         if (!hwnd)
-            return NULL;
-        HINSTANCE hinstance = ::GetModuleHandle(NULL);
+            return nullptr;
+        HINSTANCE hinstance = ::GetModuleHandle(nullptr);
         WGPUSurfaceSourceWindowsHWND surface_src_hwnd = {};
         surface_src_hwnd.chain.sType = WGPUSType_SurfaceSourceWindowsHWND;
         surface_src_hwnd.hinstance = hinstance;
