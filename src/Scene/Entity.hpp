@@ -11,6 +11,34 @@ enum class EntityId : uint32_t
 {
 };
 
+struct EntityPath
+{
+    EntityPath()
+    {
+    }
+
+    EntityPath(const std::string& path)
+    {
+        if (!path.starts_with('/'))
+            m_path = "/" + path;
+        else
+            m_path = path;
+    }
+
+    EntityPath(EntityPath parent, const std::string& path)
+    {
+        m_path = parent.m_path + "/" + path;
+    }
+
+    const std::string& path() const
+    {
+        return m_path;
+    }
+
+private:
+    std::string m_path;
+};
+
 class Entity : public Object
 {
     CLASS(Entity, Object);
@@ -155,8 +183,25 @@ public:
         }
     }
 
+    const std::string& get_name() const { return m_name; }
+    void set_name(const std::string& name) { m_name = name; }
+
+    EntityPath get_path()
+    {
+        if (m_parent)
+        {
+            EntityPath parent_path = m_parent->get_path();
+            return EntityPath(parent_path, m_name);
+        }
+        else
+        {
+            return EntityPath(m_name);
+        }
+    }
+
 private:
     EntityId m_id = EntityId(0);
+    std::string m_name;
     Entity *m_parent = nullptr;               // FIXME: This must be changed by either a Ref<Entity> or a EntityId.
     Scene *m_scene = nullptr;                 // FIXME: Must be replaced by a Ref<Scene>
     std::vector<Ref<Component>> m_components; // TODO: Could be replaced by a map to lower lookup time since components must be unique.

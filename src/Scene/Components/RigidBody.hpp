@@ -11,9 +11,9 @@ class RigidBody : public Component
 public:
     static void bind_methods()
     {
-        ClassRegistry::get().register_property<RigidBody>("disabled", PrimitiveType::Bool, [](Ref<Object> self)
-                                                          { return Variant(self.cast_to<RigidBody>()->is_disabled()); }, [](Ref<Object> self, Variant value)
-                                                          { self.cast_to<RigidBody>()->set_disabled(value); });
+        ClassRegistry::get().register_property<RigidBody>("disabled", PrimitiveType::Bool, [](RigidBody *self)
+                                                          { return Variant(self->is_disabled()); }, [](RigidBody *self, Variant value)
+                                                          { self->set_disabled(value); });
     }
 
     RigidBody();

@@ -4,6 +4,8 @@
 #include "Scene/Entity.hpp"
 #include "World/Registry.hpp"
 
+#include <tracy/Tracy.hpp>
+
 void Player::start()
 {
     m_transform = m_entity->get_transform();

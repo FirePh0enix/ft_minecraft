@@ -5,6 +5,8 @@
 #include "Core/Registry.hpp"
 #include "Font.hpp"
 #include "Input.hpp"
+#include "MP/Peer.hpp"
+#include "MP/Synchronizer.hpp"
 #include "MeshPrimitives.hpp"
 #include "Render/Driver.hpp"
 #include "Render/Graph.hpp"
@@ -22,6 +24,7 @@
 #include "World/World.hpp"
 
 #include <SDL3_image/SDL_image.h>
+#include <tracy/Tracy.hpp>
 
 #ifdef __platform_web
 #include <emscripten/html5.h>
@@ -167,6 +170,7 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     world->set_render_distance(3);
 
     Ref<Entity> world_entity = newobj(Entity);
+    world_entity->set_name("World");
     world_entity->add_component(world);
 
     scene->add_entity(world_entity);
@@ -174,10 +178,12 @@ MAIN_ATTRIB int MAIN_FUNC_NAME(int argc, char *argv[])
     Ref<Camera> camera = newobj(Camera);
 
     Ref<Entity> player_head = newobj(Entity);
+    player_head->set_name("Head");
     player_head->add_component(newobj(Transformed3D, glm::vec3(0.0, 0.85, 0.0)));
     player_head->add_component(camera);
 
     player = newobj(Entity);
+    player->set_name("Player");
     player->add_component(newobj(Transformed3D, Transform3D(glm::vec3(config2["player"]["x"].as<double>()->get(), config2["player"]["y"].as<double>()->get(), config2["player"]["z"].as<double>()->get()))));
     player->add_component(newobj(RigidBody));
     player->add_component(newobj(Player, world, cube));
@@ -344,7 +350,7 @@ static void register_all_classes()
     REGISTER_CLASSES(
         Font,
         Entity,
-        Component, VisualComponent, MeshInstance, RigidBody, Player, Camera, Transformed3D,
+        Component, VisualComponent, MeshInstance, RigidBody, Player, Camera, Transformed3D, MPPeer, MPSynchronizer,
         World, Chunk, Block,
         RenderingDriver, Buffer, Texture, Mesh, MaterialBase, Material, ComputeMaterial, Shader);
 

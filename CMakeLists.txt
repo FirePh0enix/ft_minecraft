@@ -21,7 +21,6 @@ option(DETERMINISTIC "Try to guaranty deterministic maths" OFF)
 
 list(APPEND SOURCES
     src/Args.cpp
-    src/Config.cpp
     src/Console.cpp
     src/DataPack.cpp
     src/Font.cpp
@@ -42,6 +41,7 @@ list(APPEND SOURCES
     src/Render/Shader.cpp
     src/Scene/Components/Camera.cpp
     src/Scene/Components/RigidBody.cpp
+    src/Scene/Components/Transformed3D.cpp
     src/Scene/Entity.cpp
     src/Scene/Player.cpp
     src/Scene/Scene.cpp
@@ -82,9 +82,6 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 add_executable(${TARGET_NAME} ${SOURCES})
 
 target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/src)
-
-# Speed-up compilation by precompiling large headers
-target_precompile_headers(${TARGET_NAME} PUBLIC src/precompiled.hpp)
 
 # Disable exceptions
 target_compile_options(${TARGET_NAME} PUBLIC -fno-exceptions -fno-rtti)

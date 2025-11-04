@@ -2,6 +2,8 @@
 #include "Core/DataBuffer.hpp"
 #include "World/Registry.hpp"
 
+#include <tracy/Tracy.hpp>
+
 #include <random>
 
 World::World(Ref<Mesh> mesh, Ref<Material> material, uint64_t seed)

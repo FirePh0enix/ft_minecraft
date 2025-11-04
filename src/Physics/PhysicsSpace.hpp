@@ -2,6 +2,8 @@
 
 #include "Physics/PhysicsBody.hpp"
 
+#include <algorithm>
+
 class PhysicsSpace
 {
 public:

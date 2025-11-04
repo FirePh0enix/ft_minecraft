@@ -86,8 +86,6 @@ RenderGraph::RenderGraph()
 
 void RenderGraph::reset()
 {
-    ZoneScoped;
-
     m_renderpass = false;
     m_instructions.clear();
 

@@ -2,6 +2,8 @@
 #include "Core/Filesystem.hpp"
 #include "Render/Graph.hpp"
 
+#include <tracy/Tracy.hpp>
+
 #include <ft2build.h>
 #include FT_FREETYPE_H
 

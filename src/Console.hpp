@@ -1,6 +1,10 @@
 #pragma once
 
+#include <array>
+#include <cstdint>
 #include <map>
+#include <string>
+#include <vector>
 
 enum class CmdArgKind
 {

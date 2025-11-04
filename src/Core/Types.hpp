@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 struct Extent2D
 {
     uint32_t width;

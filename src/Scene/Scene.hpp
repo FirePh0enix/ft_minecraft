@@ -54,6 +54,11 @@ public:
             add_entity(entity);
     }
 
+    /**
+     * Find an entity from a path.
+     */
+    Ref<Entity> get_entity(const EntityPath& path) const;
+
     inline Ref<Camera>& get_active_camera()
     {
         return m_active_camera;
@@ -71,6 +76,9 @@ public:
         entity->set_id(allocate_next_id());
         entity->set_scene(this);
         entity->do_start();
+
+        if (entity->get_name().empty())
+            entity->set_name(format("Entity #{}", (uint32_t)entity->get_id()));
     }
 
     inline std::vector<Ref<Entity>>& get_entities()

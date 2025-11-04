@@ -123,15 +123,15 @@ class Transformed3D : public Component
 public:
     static void bind_methods()
     {
-        ClassRegistry::get().register_property<Transformed3D>("position", PrimitiveType::Vec3, [](Ref<Object> self)
-                                                              { return Variant(self.cast_to<Transformed3D>()->get_transform().position()); }, [](Ref<Object> self, Variant value)
-                                                              { self.cast_to<Transformed3D>()->get_transform().position() = value; });
-        ClassRegistry::get().register_property<Transformed3D>("rotation", PrimitiveType::Quat, [](Ref<Object> self)
-                                                              { return Variant(self.cast_to<Transformed3D>()->get_transform().rotation()); }, [](Ref<Object> self, Variant value)
-                                                              { self.cast_to<Transformed3D>()->get_transform().rotation() = value; });
-        ClassRegistry::get().register_property<Transformed3D>("scale", PrimitiveType::Vec3, [](Ref<Object> self)
-                                                              { return Variant(self.cast_to<Transformed3D>()->get_transform().scale()); }, [](Ref<Object> self, Variant value)
-                                                              { self.cast_to<Transformed3D>()->get_transform().scale() = value; });
+        ClassRegistry::get().register_property<Transformed3D>("position", PrimitiveType::Vec3, [](Transformed3D *self)
+                                                              { return Variant(self->get_transform().position()); }, [](Transformed3D *self, Variant value)
+                                                              { self->set_position(value); });
+        ClassRegistry::get().register_property<Transformed3D>("rotation", PrimitiveType::Quat, [](Transformed3D *self)
+                                                              { return Variant(self->get_transform().rotation()); }, [](Transformed3D *self, Variant value)
+                                                              { self->get_transform().rotation() = value; });
+        ClassRegistry::get().register_property<Transformed3D>("scale", PrimitiveType::Vec3, [](Transformed3D *self)
+                                                              { return Variant(self->get_transform().scale()); }, [](Transformed3D *self, Variant value)
+                                                              { self->get_transform().scale() = value; });
     }
 
     Transformed3D()
@@ -179,4 +179,6 @@ public:
 private:
     Transform3D m_transform;
     Ref<Transformed3D> m_parent_transform;
+
+    void set_position(Variant position);
 };

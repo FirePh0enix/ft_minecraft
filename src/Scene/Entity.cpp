@@ -17,4 +17,7 @@ void Entity::add_child(Ref<Entity> entity)
     entity->set_parent(this);
     entity->set_scene(m_scene);
     entity->set_id(Scene::allocate_next_id());
+
+    if (entity->get_name().empty())
+        entity->set_name(format("Entity #{}", (uint32_t)entity->get_id()));
 }

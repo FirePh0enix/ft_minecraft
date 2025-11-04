@@ -5,13 +5,9 @@
 #include <cstdint>
 #include <variant>
 
-#include <glm/ext/quaternion_float.hpp>
-#include <glm/vec2.hpp>
-#include <glm/vec3.hpp>
-#include <glm/vec4.hpp>
-
 #include "Core/Containers/StackVector.hpp"
 #include "Core/Containers/View.hpp"
+#include "Core/Math.hpp"
 #include "Core/Ref.hpp"
 #include "Core/Registry.hpp"
 
@@ -190,7 +186,7 @@ enum class PrimitiveType
     Quat,
 };
 
-struct Variant : public std::variant<bool, float, glm::vec2, glm::vec3, glm::vec4, glm::quat>
+struct Variant : public std::variant<std::nullptr_t, bool, float, glm::vec2, glm::vec3, glm::vec4, glm::quat>
 {
     template <typename T>
     operator T() { return std::get<T>(*this); }
@@ -199,14 +195,17 @@ struct Variant : public std::variant<bool, float, glm::vec2, glm::vec3, glm::vec
     constexpr bool is() { return std::holds_alternative<T>(); }
 };
 
-using PropertyGetter = std::function<Variant(Ref<Object>)>;
-using PropertySetter = std::function<void(Ref<Object>, Variant)>;
+template <typename T = Object>
+using PropertyGetter = Variant (*)(T *);
+
+template <typename T = Object>
+using PropertySetter = void (*)(T *, Variant);
 
 struct Property
 {
     PrimitiveType type;
-    PropertyGetter getter;
-    PropertySetter setter;
+    PropertyGetter<> getter;
+    PropertySetter<> setter;
 };
 
 struct Class
@@ -243,9 +242,9 @@ public:
     }
 
     template <typename T>
-    void register_property(const std::string& property_name, PrimitiveType type, PropertyGetter getter, PropertySetter setter)
+    void register_property(const std::string& property_name, PrimitiveType type, PropertyGetter<T> getter, PropertySetter<T> setter)
     {
-        m_classes[T::get_static_hash_code()].properties[property_name] = Property{.type = type, .getter = getter, .setter = setter};
+        m_classes[T::get_static_hash_code()].properties[property_name] = Property{.type = type, .getter = reinterpret_cast<PropertyGetter<>>(getter), .setter = reinterpret_cast<PropertySetter<>>(setter)};
     }
 
     const Class& get_class(ClassHashCode hash) const

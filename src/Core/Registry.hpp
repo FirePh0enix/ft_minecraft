@@ -1,6 +1,8 @@
 #pragma once
 
+#include <cstdint>
 #include <map>
+#include <string>
 
 #include "Core/StringView.hpp"
 

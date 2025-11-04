@@ -1,10 +1,13 @@
 #pragma once
 
+#include <cstdint>
+#include <iterator>
+
 template <typename T>
 class ForwardIterator
 {
 public:
-    using difference_type = ssize_t;
+    using difference_type = int64_t;
     using value_type = T;
     using pointer = const T *;
     using reference = const T&;
