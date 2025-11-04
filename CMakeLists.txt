@@ -296,13 +296,17 @@ set(SDL_DUMMYAUDIO OFF)
 set(SDL_DUMMYVIDEO OFF)
 set(SDL_OPENGL OFF)
 set(SDL_OPENGLES OFF)
-set(SDL_METAL OFF)
 set(SDL_OPENVR OFF)
 set(SDL_KMSDRM OFF)
 set(SDL_OFFSCREEN OFF)
 set(SDL_RENDER OFF)
 set(SDL_CAMERA OFF)
 set(SDL_WAYLAND OFF) # Disable wayland for now
+
+if (TARGET_IS_MACOS)
+    set(SDL_METAL ON)
+endif()
+
 
 FetchContent_Declare(
     SDL
@@ -365,6 +369,9 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(glm)
 target_link_libraries(${TARGET_NAME} PRIVATE glm::glm-header-only)
+target_link_libraries(datapacktool PRIVATE glm::glm-header-only)
+# target_include_directories(${TARGET_NAME} PRIVATE ${glm_SOURCE_DIR})
+# target_include_directories(datapacktool PRIVATE ${glm_SOURCE_DIR})
 
 # FreeType
 FetchContent_Declare(

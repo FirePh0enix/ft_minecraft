@@ -207,6 +207,8 @@ public:
     //     return m_push_constant_layout;
     // }
 
+    WGPUSurface create_surface(WGPUInstance instance, SDL_Window *window);
+
 private:
     WGPUInstance m_instance = nullptr;
     WGPUAdapter m_adapter = nullptr;
