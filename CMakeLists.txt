@@ -423,7 +423,7 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(libbacktrace)
 
-if(TARGET_IS_LINUX) # TARGET_IS_MACOS FIXME: libbacktrace does not compile on macOS
+if(TARGET_IS_LINUX OR TARGET_IS_MACOS) # TARGET_IS_MACOS FIXME: libbacktrace does not compile on macOS
     set(ENV{CC} ${CMAKE_C_COMPILER})
     set(ENV{CXX} ${CMAKE_CXX_COMPILER})
 

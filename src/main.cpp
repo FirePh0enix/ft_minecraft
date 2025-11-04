@@ -2,6 +2,7 @@
 #include "Console.hpp"
 #include "Core/Filesystem.hpp"
 #include "Core/Logger.hpp"
+#include "Core/Print.hpp"
 #include "Core/Registry.hpp"
 #include "Font.hpp"
 #include "Input.hpp"

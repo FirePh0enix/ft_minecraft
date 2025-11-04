@@ -1,6 +1,7 @@
 #include "Render/Shader.hpp"
 #include "Core/Assert.hpp"
 #include "Core/Filesystem.hpp"
+#include "Core/Print.hpp"
 
 // TODO: add shader variants back.
 
@@ -246,7 +247,13 @@ Result<Ref<Shader>> Shader::load(const std::filesystem::path& path)
     }
 
 #if defined(__platform_linux) || defined(__platform_windows) || defined(__platform_macos)
-    shader->m_code = (char *)aligned_alloc(sizeof(uint32_t), output_code->getBufferSize());
+
+    // ! FIXME: On MacOS it does not work for some reason.
+    // shader->m_code = (char *)aligned_alloc(sizeof(uint32_t), output_code->getBufferSize());
+    shader->m_code = (char *)malloc((output_code->getBufferSize()));
+
+    println("mcode is : {} size : {}", (void *)shader->m_code, output_code->getBufferSize());
+
     shader->m_size = output_code->getBufferSize();
     std::memcpy(shader->m_code, output_code->getBufferPointer(), output_code->getBufferSize());
 

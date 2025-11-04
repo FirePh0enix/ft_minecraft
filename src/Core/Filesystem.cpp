@@ -1,8 +1,16 @@
 #include "Core/Filesystem.hpp"
+#include "Core/Print.hpp"
+
+#ifdef __platform_macos
+#include <mach-o/dyld.h>
+#endif
 
 Result<int> Filesystem::init()
 {
+    println("{}", current_executable_path().string());
+
     s_data_pack.load_from_file(current_executable_path().string() + "/ft_minecraft.data");
+
     return 0;
 }
 
@@ -17,13 +25,12 @@ std::filesystem::path Filesystem::current_executable_path()
 
     char buf[PATH_MAX];
     uint32_t buf_size = PATH_MAX;
-    // if (_NSGetExecutablePath(buf, &buf_size) == 0)
-    // {
-    //     std::string s;
-    //     s.resize(buf_size);
-    //     s.append(buf, buf_size);
-    //     return s;
-    // }
+    if (_NSGetExecutablePath(buf, &buf_size) == 0)
+    {
+        std::string s;
+        s.append(buf, buf_size);
+        return std::filesystem::path(s).parent_path();
+    }
 
     return "";
 #elif defined(__platform_web)
