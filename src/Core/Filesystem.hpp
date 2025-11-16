@@ -56,7 +56,15 @@ class Filesystem
 public:
     static Result<int> init();
 
+    /**
+     * Returns the path of the executable (ex: `/usr/bin/ft_minecraft`).
+     */
     static std::filesystem::path current_executable_path();
+
+    /**
+     * Returns the directory where is located the executable (ex: `/usr/bin`).
+     */
+    static std::filesystem::path current_executable_directory();
 
     static Result<std::string> read_file_to_string(const std::filesystem::path& path);
     static Result<std::vector<char>> read_file_to_buffer(const std::filesystem::path& path);

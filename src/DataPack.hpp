@@ -39,6 +39,8 @@ public:
     void add_file_to_data_pack(std::string_view path, const std::vector<char>& buffer);
     Result<std::vector<char>> read_file(std::string_view path);
 
+    bool is_open() const { return m_stream.is_open(); }
+
 private:
     std::fstream m_stream;
     size_t m_file_size = 0;

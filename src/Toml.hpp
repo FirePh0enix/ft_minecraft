@@ -1,5 +1,6 @@
 #pragma once
 
+#define TOML_COMPILER_HAS_EXCEPTIONS 0
 #include <toml++/toml.hpp>
 
 inline void toml_merge_left(toml::table& lhs, toml::table&& rhs);

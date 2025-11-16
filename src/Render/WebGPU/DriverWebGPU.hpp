@@ -233,14 +233,6 @@ private:
 #endif
 };
 
-struct BufferWebGPURead
-{
-    WGPUBuffer buffer;
-    BufferReadCallback callback;
-    size_t offset;
-    size_t size;
-};
-
 class BufferWebGPU : public Buffer
 {
     CLASS(BufferWebGPU, Buffer);
