@@ -47,6 +47,7 @@ public:
     }
 
 private:
+    std::string m_executable_name;
     std::map<std::string, ArgInfo> m_infos;
     std::map<std::string, ArgValue> m_values;
     std::vector<std::string> m_args;

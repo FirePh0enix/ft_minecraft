@@ -10,10 +10,6 @@
 #include <map>
 #include <optional>
 
-#include <slang-com-helper.h>
-#include <slang-com-ptr.h>
-#include <slang.h>
-
 enum class ShaderFlagBits
 {
     DepthPass = 1 << 0,
@@ -108,12 +104,10 @@ public:
     }
 
 private:
-    static inline Slang::ComPtr<slang::IGlobalSession> s_global_session;
-
     std::string m_path;
     std::string m_source_code;
-    Slang::ComPtr<slang::ISession> m_session;
-    Slang::ComPtr<slang::IModule> m_module;
+    // Slang::ComPtr<slang::ISession> m_session;
+    // Slang::ComPtr<slang::IModule> m_module;
 
     char *m_code = nullptr;
     size_t m_size;

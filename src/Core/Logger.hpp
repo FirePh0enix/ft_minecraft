@@ -3,6 +3,8 @@
 #include "Core/Format.hpp"
 #include "Core/Print.hpp"
 
+#include <cstdint>
+
 enum class LogLevel : uint8_t
 {
     Info = 0,

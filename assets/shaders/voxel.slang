@@ -1,3 +1,5 @@
+import terrain.defs;
+
 struct PushConstants
 {
     float4x4 view_matrix;
@@ -24,12 +26,6 @@ struct VertexOutput
     float3 light_vec;
     uint texture_index;
     float3 gradient_color;
-};
-
-// This structure need to be kept in sync with CPU code.
-struct BlockState
-{
-    uint id_raw;
 };
 
 Texture2DArray images;

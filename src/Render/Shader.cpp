@@ -3,7 +3,95 @@
 #include "Core/Filesystem.hpp"
 #include "Core/Print.hpp"
 
+#include <slang-com-helper.h>
+#include <slang-com-ptr.h>
+#include <slang.h>
+
 // TODO: add shader variants back.
+
+static Slang::ComPtr<slang::IGlobalSession> s_global_session;
+
+struct MemoryBlob : public ISlangBlob
+{
+    SLANG_REF_OBJECT_IUNKNOWN_ALL;
+
+    MemoryBlob(const std::vector<char>& buffer)
+        : m_buffer(buffer)
+    {
+    }
+
+    virtual SLANG_NO_THROW void const *SLANG_MCALL getBufferPointer() override
+    {
+        return (void *)m_buffer.data();
+    }
+
+    virtual SLANG_NO_THROW size_t SLANG_MCALL getBufferSize() override
+    {
+        return m_buffer.size();
+    }
+
+    ISlangUnknown *getInterface(const SlangUUID& uuid)
+    {
+        (void)uuid;
+        return nullptr;
+    }
+
+    uint32_t addReference()
+    {
+        return ++m_refCount;
+    }
+
+    uint32_t releaseReference()
+    {
+        return --m_refCount;
+    }
+
+private:
+    uint32_t m_refCount = 0;
+    std::vector<char> m_buffer;
+};
+
+struct UnimplementedFileSystem : public ISlangFileSystem
+{
+    SLANG_REF_OBJECT_IUNKNOWN_ALL;
+
+    virtual SLANG_NO_THROW SlangResult SLANG_MCALL loadFile(char const *path, ISlangBlob **out_blob) override
+    {
+        (void)path;
+        (void)out_blob;
+
+        Result<std::vector<char>> result = Filesystem::read_file_to_buffer(path);
+        if (result.has_error())
+            return SLANG_E_NOT_FOUND;
+        *out_blob = new MemoryBlob(result.value());
+
+        return SLANG_OK;
+    }
+
+    ISlangUnknown *getInterface(const SlangUUID& uuid)
+    {
+        (void)uuid;
+        return nullptr;
+    }
+
+    uint32_t addReference()
+    {
+        return ++m_refCount;
+    }
+
+    uint32_t releaseReference()
+    {
+        return --m_refCount;
+    }
+
+    virtual SLANG_NO_THROW void *SLANG_MCALL castAs(const SlangUUID& guid) override
+    {
+        (void)guid;
+        return nullptr;
+    }
+
+    uint32_t m_refCount = 0;
+};
 
 struct EntryPoint
 {
@@ -68,7 +156,9 @@ Result<Ref<Shader>> Shader::load(const std::filesystem::path& path)
     slang::SessionDesc session_desc{};
     slang::TargetDesc target_desc{};
 
-    // noise -> noise.slang
+    // NOTE:
+    Slang::ComPtr<ISlangFileSystem> filesystem = Slang::ComPtr<ISlangFileSystem>(new UnimplementedFileSystem());
+    session_desc.fileSystem = filesystem.get();
 
     std::vector<slang::CompilerOptionEntry> options;
 
@@ -95,28 +185,32 @@ Result<Ref<Shader>> Shader::load(const std::filesystem::path& path)
     session_desc.preprocessorMacroCount = (SlangInt)preprocessor_macro_desc.size();
 
     // TODO: Add type specialization
-
-    SlangResult result = s_global_session->createSession(session_desc, shader->m_session.writeRef());
-    if (SLANG_FAILED(result))
-        return Error(ErrorKind::ShaderCompilationFailed);
-
     Slang::ComPtr<slang::IBlob> diagnostics_blob;
+
+    Slang::ComPtr<slang::ISession> session;
+    SlangResult result = s_global_session->createSession(session_desc, session.writeRef());
+    if (SLANG_FAILED(result))
+    {
+        println("{}", (char *)diagnostics_blob->getBufferPointer());
+        return Error(ErrorKind::ShaderCompilationFailed);
+    }
+
     std::filesystem::path module_name = path.filename().replace_extension();
 
-    shader->m_module = shader->m_session->loadModuleFromSourceString(module_name.string().c_str(), path.string().c_str(), shader->m_source_code.data(), diagnostics_blob.writeRef());
-    if (!shader->m_module)
+    Slang::ComPtr<slang::IModule> module = Slang::ComPtr(session->loadModuleFromSourceString(module_name.string().c_str(), path.string().c_str(), shader->m_source_code.data(), diagnostics_blob.writeRef()));
+    if (!module)
     {
         println("{}", (char *)diagnostics_blob->getBufferPointer());
         return Error(ErrorKind::ShaderCompilationFailed);
     }
 
     std::vector<EntryPoint> entry_points;
-    std::vector<slang::IComponentType *> component_types{shader->m_module};
+    std::vector<slang::IComponentType *> component_types{module};
 
-    for (SlangInt32 i = 0; i < shader->m_module->getDefinedEntryPointCount(); i++)
+    for (SlangInt32 i = 0; i < module->getDefinedEntryPointCount(); i++)
     {
         Slang::ComPtr<slang::IEntryPoint> entry_point_comp;
-        shader->m_module->getDefinedEntryPoint(i, entry_point_comp.writeRef());
+        module->getDefinedEntryPoint(i, entry_point_comp.writeRef());
 
         // NOTE: This works but dont seems the best way to do it.
         slang::Attribute *attrib = entry_point_comp->getFunctionReflection()->findAttributeByName(s_global_session, "shader");
@@ -135,7 +229,7 @@ Result<Ref<Shader>> Shader::load(const std::filesystem::path& path)
 
     // Compile the program, link and receive the SPIR-V bytecode.
     Slang::ComPtr<slang::IComponentType> composed_program;
-    result = shader->m_session->createCompositeComponentType(component_types.data(), (SlangInt)component_types.size(), composed_program.writeRef(), diagnostics_blob.writeRef());
+    result = session->createCompositeComponentType(component_types.data(), (SlangInt)component_types.size(), composed_program.writeRef(), diagnostics_blob.writeRef());
     if (SLANG_FAILED(result))
     {
         println("{}", (char *)diagnostics_blob->getBufferPointer());
@@ -152,8 +246,6 @@ Result<Ref<Shader>> Shader::load(const std::filesystem::path& path)
 
     // Extract reflection informations.
     slang::ProgramLayout *program_layout = linked_program->getLayout();
-    slang::VariableLayoutReflection *gvar_layout = program_layout->getGlobalParamsVarLayout();
-    slang::TypeLayoutReflection *type_layout = gvar_layout->getTypeLayout();
 
     for (size_t i = 0; i < entry_points.size(); i++)
     {
@@ -166,10 +258,11 @@ Result<Ref<Shader>> Shader::load(const std::filesystem::path& path)
     }
 
     println("> shader `{}`", path);
+    // println(">>> {}", program_layout->getParameterByIndex(0)->getName());
 
-    for (size_t i = 0; i < type_layout->getFieldCount(); i++)
+    for (size_t i = 0; i < program_layout->getParameterCount(); i++)
     {
-        slang::VariableLayoutReflection *var = type_layout->getFieldByIndex(i);
+        slang::VariableLayoutReflection *var = program_layout->getParameterByIndex(i);
         std::string name = var->getName();
         uint32_t group = var->getBindingSpace();
         uint32_t binding = var->getBindingIndex();
@@ -204,7 +297,7 @@ Result<Ref<Shader>> Shader::load(const std::filesystem::path& path)
         case slang::TypeReflection::Kind::Resource:
         {
             SlangResourceShape shape = var->getType()->getResourceShape();
-            SlangResourceAccess access = var->getType()->getResourceAccess();
+            // SlangResourceAccess access = var->getType()->getResourceAccess();
 
             if (shape == SLANG_STRUCTURED_BUFFER)
             {
@@ -247,13 +340,9 @@ Result<Ref<Shader>> Shader::load(const std::filesystem::path& path)
     }
 
 #if defined(__platform_linux) || defined(__platform_windows) || defined(__platform_macos)
-
-    // ! FIXME: On MacOS it does not work for some reason.
+    // FIXME: On MacOS `aligned_alloc(sizeof(uint32_t), output_code->getBufferSize())` returns nullptr
     // shader->m_code = (char *)aligned_alloc(sizeof(uint32_t), output_code->getBufferSize());
-    shader->m_code = (char *)malloc((output_code->getBufferSize()));
-
-    println("mcode is : {} size : {}", (void *)shader->m_code, output_code->getBufferSize());
-
+    shader->m_code = (char *)malloc(output_code->getBufferSize());
     shader->m_size = output_code->getBufferSize();
     std::memcpy(shader->m_code, output_code->getBufferPointer(), output_code->getBufferSize());
 

@@ -3,10 +3,6 @@
 
 #include <ranges>
 
-#ifdef __has_debug_menu
-#include <imgui.h>
-#endif
-
 Scene::Scene()
 {
 }
@@ -56,6 +52,7 @@ Ref<Entity> Scene::get_entity(const EntityPath& path) const
 }
 
 #ifdef __has_debug_menu
+#include <imgui.h>
 
 void Scene::imgui_debug_window()
 {

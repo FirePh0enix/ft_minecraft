@@ -1,10 +1,5 @@
+import defs;
 import noise;
-
-// This structure need to be kept in sync with CPU code.
-struct BlockState
-{
-    uint id_raw;
-};
 
 // This structure need to be kept in sync with CPU code.
 struct GeneralInfo

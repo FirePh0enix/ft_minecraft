@@ -1089,6 +1089,14 @@ void BufferWebGPU::update(View<uint8_t> view, size_t offset)
     wgpuQueueWriteBuffer(RenderingDriverWebGPU::get()->get_queue(), buffer, static_cast<uint64_t>(offset), view.data(), view.size());
 }
 
+struct BufferWebGPURead
+{
+    WGPUBuffer buffer;
+    BufferReadCallback callback;
+    size_t offset;
+    size_t size;
+};
+
 void BufferWebGPU::read_async(size_t offset, size_t size, BufferReadCallback callback, void *user)
 {
     WGPUQueueWorkDoneCallbackInfo callback_info{};

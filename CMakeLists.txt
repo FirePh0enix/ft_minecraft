@@ -23,6 +23,7 @@ list(APPEND SOURCES
     src/Args.cpp
     src/Console.cpp
     src/DataPack.cpp
+    src/Engine.cpp
     src/Font.cpp
     src/Input.cpp
     src/main.cpp
@@ -84,7 +85,7 @@ add_executable(${TARGET_NAME} ${SOURCES})
 target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/src)
 
 # Disable exceptions
-target_compile_options(${TARGET_NAME} PUBLIC -fno-exceptions -fno-rtti)
+# target_compile_options(${TARGET_NAME} PUBLIC -fno-exceptions -fno-rtti)
 
 if(DETERMINISTIC)
     if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
@@ -265,10 +266,10 @@ set(SLANG_ENABLE_SLANGI OFF)
 # set(SLANG_ENABLE_SLANGRT OFF)
 set(SLANG_ENABLE_REPLAYER OFF)
 set(SLANG_ENABLE_OPTIX OFF)
-# set(SLANG_ENABLE_SLANG_RHI OFF)
+set(SLANG_ENABLE_SLANG_RHI OFF)
 # set(SLANG_ENABLE_SPLIT_DEBUG_INFO OFF)
-# set(SLANG_LLVM_FLAVOUR DISABLE)
-set(SLANG_HAS_EXCEPTIONS OFF)
+set(SLANG_LLVM_FLAVOUR DISABLE)
+# set(SLANG_HAS_EXCEPTIONS ON)
 set(SLANG_SERIALIZE_FOSSIL_ENABLE_VALIDATION_CHECKS OFF)
 
 # set(SLANG_GENERATORS_PATH ${CMAKE_SOURCE_DIR}/build-emscripten/slang/build/generators/Release/bin)
@@ -287,6 +288,7 @@ FetchContent_MakeAvailable(slang)
 target_link_directories(${TARGET_NAME} PRIVATE ${CMAKE_BINARY_DIR}/_deps/slang-src/lib)
 target_link_libraries(${TARGET_NAME} PRIVATE slang)
 target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_BINARY_DIR}/_deps/slang-src/include)
+target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_BINARY_DIR}/_deps/slang-src/source/core)
 
 # SDL
 set(SDL_STATIC ON)
@@ -370,8 +372,6 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(glm)
 target_link_libraries(${TARGET_NAME} PRIVATE glm::glm-header-only)
 target_link_libraries(datapacktool PRIVATE glm::glm-header-only)
-# target_include_directories(${TARGET_NAME} PRIVATE ${glm_SOURCE_DIR})
-# target_include_directories(datapacktool PRIVATE ${glm_SOURCE_DIR})
 
 # FreeType
 FetchContent_Declare(

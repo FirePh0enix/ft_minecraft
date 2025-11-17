@@ -1,5 +1,4 @@
 #include "Core/Filesystem.hpp"
-#include "Core/Print.hpp"
 
 #ifdef __platform_macos
 #include <mach-o/dyld.h>
@@ -7,19 +6,15 @@
 
 Result<int> Filesystem::init()
 {
-    println("{}", current_executable_path().string());
-
-    s_data_pack.load_from_file(current_executable_path().string() + "/ft_minecraft.data");
-
+    s_data_pack.load_from_file(current_executable_directory().string() + "/ft_minecraft.data");
     return 0;
 }
 
 std::filesystem::path Filesystem::current_executable_path()
 {
 #ifdef __platform_linux
-    return std::filesystem::canonical("/proc/self/exe").parent_path();
+    return std::filesystem::canonical("/proc/self/exe");
 #elif defined(__platform_windows)
-#error "FIXME"
     return GetModuleFileName(nullptr);
 #elif defined(__platform_macos)
 
@@ -29,7 +24,7 @@ std::filesystem::path Filesystem::current_executable_path()
     {
         std::string s;
         s.append(buf, buf_size);
-        return std::filesystem::path(s).parent_path();
+        return std::filesystem::path(s);
     }
 
     return "";
@@ -38,8 +33,14 @@ std::filesystem::path Filesystem::current_executable_path()
 #endif
 }
 
+std::filesystem::path Filesystem::current_executable_directory()
+{
+    return current_executable_path().parent_path();
+}
+
 Result<std::string> Filesystem::read_file_to_string(const std::filesystem::path& path)
 {
+    ASSERT(s_data_pack.is_open(), "");
     Result<std::vector<char>> data_result = s_data_pack.read_file(path.string());
     YEET(data_result);
     std::vector<char> data = data_result.value();
@@ -50,6 +51,7 @@ Result<std::string> Filesystem::read_file_to_string(const std::filesystem::path&
 
 Result<std::vector<char>> Filesystem::read_file_to_buffer(const std::filesystem::path& path)
 {
+    ASSERT(s_data_pack.is_open(), "");
     Result<std::vector<char>> data_result = s_data_pack.read_file(path.string());
     YEET(data_result);
     return data_result.value();
