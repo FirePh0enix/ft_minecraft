@@ -278,7 +278,11 @@ Result<Ref<Shader>> Shader::load(const std::filesystem::path& path)
                 stages |= entry_points[i].stage;
         }
 
-        if (binding_type == slang::BindingType::PushConstant)
+        if (binding_type == slang::BindingType::Unknown)
+        {
+            continue;
+        }
+        else if (binding_type == slang::BindingType::PushConstant)
         {
             println(">> push_constants, size = {}", var->getTypeLayout()->getElementTypeLayout()->getSize());
             shader->m_push_constants.push_back(PushConstantRange(stages, var->getTypeLayout()->getElementTypeLayout()->getSize()));

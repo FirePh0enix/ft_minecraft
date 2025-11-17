@@ -4,14 +4,13 @@
 #include "Core/Registry.hpp"
 #include "Engine.hpp"
 #include "Font.hpp"
+#include "MP/Manager.hpp"
 #include "MeshPrimitives.hpp"
 #include "Render/Driver.hpp"
-#include "Render/Graph.hpp"
 #include "Render/Shader.hpp"
 #include "Scene/Components/MeshInstance.hpp"
 #include "Scene/Components/RigidBody.hpp"
 #include "Scene/Components/Transformed3D.hpp"
-#include "Scene/Components/Visual.hpp"
 #include "Scene/Player.hpp"
 #include "Scene/Scene.hpp"
 #include "Toml.hpp"
@@ -45,6 +44,7 @@ ENGINE_MAIN(int argc, char *argv[])
 {
     Args args = default_args();
     args.add_arg("disable-save", {.type = ArgType::Bool});
+    args.add_arg("connect-to", {.type = ArgType::String});
     args.parse(argv, argc);
 
     Engine engine(args, "ft_minecraft");
@@ -82,39 +82,8 @@ ENGINE_MAIN(int argc, char *argv[])
     scene = newobj(Scene);
     Scene::set_active_scene(scene);
 
-    scene->add_system(EarlyUpdate, [](const Query<One<Camera>>& query, Action&)
-                      { query.template get<0>().single().template get<Camera>()->update_frustum(); });
-
-    scene->add_system(Update, [](const Query<Many<Transformed3D, RigidBody>>& query, Action&)
-                      {
-                                                    for (const auto& result : query.template get<0>().results())
-                                                    {
-                                                        result.template get<Transformed3D>()->get_transform().position() = result.template get<RigidBody>()->get_body()->get_position();
-                                                    } });
-
+    scene->add_plugins<RenderingPlugin, PhysicsPlugin, MultiplayerPlugin>();
     scene->add_system(Update, Player::update);
-
-    scene->add_system(LateUpdate, [](const Query<Many<VisualComponent>>& query, Action&)
-                      {
-                            // depth pass
-                            {
-                                RenderPassEncoder encoder = RenderGraph::get().render_pass_begin({.name = "depth pass", .depth_attachment = RenderPassDepthAttachment{.save = true}});
-                                for (const auto& result : query.template get<0>().results())
-                                {
-                                    result.template get<VisualComponent>()->encode_draw_calls(encoder, *Scene::get_active_scene()->get_active_camera());
-                                }
-                            }
-                            // color pass
-                            {
-                                RenderPassEncoder encoder = RenderGraph::get().render_pass_begin({.name = "main pass", .color_attachments = {RenderPassColorAttachment{.surface_texture = true}}, .depth_attachment = RenderPassDepthAttachment{.load = true}});
-                                for (const auto& result : query.template get<0>().results())
-                                {
-                                    result.template get<VisualComponent>()->encode_draw_calls(encoder, *Scene::get_active_scene()->get_active_camera());
-                                }
-                                encoder.imgui();
-                            }
-                            RenderingDriver::get()->draw_graph(RenderGraph::get());
-                            RenderGraph::get().reset(); });
 
     world = newobj(World, cube, material, 1);
     world->set_render_distance(3);

@@ -1,4 +1,7 @@
 #include "Render/Driver.hpp"
+#include "Render/Graph.hpp"
+#include "Scene/Components/Visual.hpp"
+#include "Scene/Scene.hpp"
 
 size_t size_of(const TextureFormat& format)
 {
@@ -124,4 +127,41 @@ const MaterialParamCache& MaterialBase::get_param(const StringView& name) const
 void MaterialBase::clear_param_changed()
 {
     m_param_changed = false;
+}
+
+void RenderingPlugin::setup(Scene *scene)
+{
+    scene->add_system(EarlyUpdate, update_camera_frustum_system);
+    scene->add_system(LateUpdate, render_system);
+}
+
+void RenderingPlugin::render_system(const Query<Many<VisualComponent>>& query, Action&)
+{
+    // depth pass
+    {
+        RenderPassEncoder encoder = RenderGraph::get().render_pass_begin({.name = "depth pass", .depth_attachment = RenderPassDepthAttachment{.save = true}});
+        for (const auto& result : query.template get<0>().results())
+        {
+            result.template get<VisualComponent>()->encode_draw_calls(encoder, *Scene::get_active_scene()->get_active_camera());
+        }
+    }
+
+    // color pass
+    {
+        RenderPassEncoder encoder = RenderGraph::get().render_pass_begin({.name = "main pass", .color_attachments = {RenderPassColorAttachment{.surface_texture = true}}, .depth_attachment = RenderPassDepthAttachment{.load = true}});
+        for (const auto& result : query.template get<0>().results())
+        {
+            result.template get<VisualComponent>()->encode_draw_calls(encoder, *Scene::get_active_scene()->get_active_camera());
+        }
+        encoder.imgui();
+    }
+
+    RenderingDriver::get()->draw_graph(RenderGraph::get());
+    RenderGraph::get().reset();
+}
+
+void RenderingPlugin::update_camera_frustum_system(const Query<Many<Camera>>& query, Action&)
+{
+    for (const auto& camera : query.get<0>().results())
+        camera.get<Camera>()->update_frustum();
 }

@@ -7,6 +7,13 @@
 #include "Scene/Entity.hpp"
 #include "Scene/System.hpp"
 
+class Scene;
+
+template <typename T>
+concept IsPlugin = requires(Scene *scene) {
+    { T::setup(scene) } -> std::same_as<void>;
+};
+
 class Scene : public Object
 {
     CLASS(Scene, Object);
@@ -17,6 +24,27 @@ public:
     void encode_draw_calls(RenderPassEncoder& encoder);
 
     void tick(float delta);
+
+    /**
+     * Add a plugin to the scene.
+     * A plugin is a type which has a single `static void setup(Scene *scene)` function which add system and entities.
+     */
+    template <typename T>
+        requires IsPlugin<T>
+    void add_plugin()
+    {
+        T::setup(this);
+    }
+
+    /**
+     * Add multiple plugins at once, see `Scene::add_plugin` for more informations.
+     */
+    template <typename... T>
+        requires(IsPlugin<T>, ...)
+    void add_plugins()
+    {
+        (T::setup(this), ...);
+    }
 
     template <class F>
     void add_system(Lifecycle lifecycle, F&& f)

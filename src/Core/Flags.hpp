@@ -1,6 +1,8 @@
 #pragma once
 
+#include <compare>
 #include <type_traits>
+#include <vector>
 
 template <typename T, typename = std::is_enum<T>>
 struct Flags

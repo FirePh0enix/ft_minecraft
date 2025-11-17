@@ -40,8 +40,8 @@ struct Many
 };
 
 /**
- * Exclude a component during a system query. Use it like `Query<Transformed3D, Not<RigidBody>>` which will query all
- * entities except those which have a `RigidBody` component.
+ * Exclude a component during a system query. Use it like `Many<Transformed3D, Not<RigidBody>>` which will query all
+ * entities with a Transformed3D except those which have a `RigidBody` component.
  *
  * /!\ Must be specified at the END of the query parameters /!\
  */

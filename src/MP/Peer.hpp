@@ -3,6 +3,8 @@
 #include "Core/Class.hpp"
 #include "Scene/Components/Component.hpp"
 
+#include <enet/enet.h>
+
 class MPPeer : public Component
 {
     CLASS(MPPeer, Component);
@@ -16,4 +18,7 @@ public:
 private:
     bool m_authority;
     uint32_t m_id;
+
+    // This can be either a host or a client.
+    ENetHost *m_enet_host;
 };

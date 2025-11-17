@@ -44,7 +44,6 @@ template <typename... T>
 inline void register_structs_internal()
 {
     (TypeInfo<T>::register_type(), ...);
-    // (println("{}", TypeInfo<T>::struct_name), ...);
 }
 
 #define REGISTER_STRUCTS(...) register_structs_internal<__VA_ARGS__>()

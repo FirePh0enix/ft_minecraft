@@ -1,4 +1,7 @@
 #include "Physics/PhysicsSpace.hpp"
+#include "Scene/Components/RigidBody.hpp"
+#include "Scene/Components/Transformed3D.hpp"
+#include "Scene/Scene.hpp"
 
 static CollisionResult test_box_box(Collider *collider_a, glm::vec3 position_a, Collider *collider_b, glm::vec3 position_b);
 
@@ -71,4 +74,15 @@ void PhysicsSpace::resolve_collisions(float delta)
     {
         (void)collision;
     }
+}
+
+void PhysicsPlugin::setup(Scene *scene)
+{
+    scene->add_system(EarlyFixedUpdate, sync_rigidbody_transform_system);
+}
+
+void PhysicsPlugin::sync_rigidbody_transform_system(const Query<Many<Transformed3D, RigidBody>>& query, Action&)
+{
+    for (const auto& result : query.get<0>().results())
+        result.get<Transformed3D>()->get_transform().position() = result.get<RigidBody>()->get_body()->get_position();
 }

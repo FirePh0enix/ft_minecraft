@@ -160,7 +160,7 @@ public:
     }
 
     template <typename B>
-    Ref<B> unchecked_cast_to() const
+    ALWAYS_INLINE Ref<B> unchecked_cast_to() const
     {
         return Ref<B>(static_cast<B *>((B *)m_ptr), m_references);
     }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Physics/PhysicsBody.hpp"
+#include "Scene/System.hpp"
 
 #include <algorithm>
 
@@ -19,4 +20,14 @@ public:
 
 private:
     std::vector<PhysicsBody *> m_bodies;
+};
+
+class Scene;
+class RigidBody;
+class Transformed3D;
+
+struct PhysicsPlugin
+{
+    static void setup(Scene *scene);
+    static void sync_rigidbody_transform_system(const Query<Many<Transformed3D, RigidBody>>& query, Action&);
 };
