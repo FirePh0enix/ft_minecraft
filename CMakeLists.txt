@@ -85,7 +85,7 @@ add_executable(${TARGET_NAME} ${SOURCES})
 target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/src)
 
 # Disable exceptions
-target_compile_options(${TARGET_NAME} PUBLIC -fno-exceptions -fno-rtti)
+# target_compile_options(${TARGET_NAME} PUBLIC -fno-exceptions -fno-rtti)
 
 if(DETERMINISTIC)
     if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
@@ -288,6 +288,7 @@ FetchContent_MakeAvailable(slang)
 target_link_directories(${TARGET_NAME} PRIVATE ${CMAKE_BINARY_DIR}/_deps/slang-src/lib)
 target_link_libraries(${TARGET_NAME} PRIVATE slang)
 target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_BINARY_DIR}/_deps/slang-src/include)
+target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_BINARY_DIR}/_deps/slang-src/source/core)
 
 # SDL
 set(SDL_STATIC ON)

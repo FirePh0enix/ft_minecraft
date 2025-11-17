@@ -11,6 +11,88 @@
 
 static Slang::ComPtr<slang::IGlobalSession> s_global_session;
 
+struct MemoryBlob : public ISlangBlob
+{
+    SLANG_REF_OBJECT_IUNKNOWN_ALL;
+
+    MemoryBlob(const std::vector<char>& buffer)
+        : m_buffer(buffer)
+    {
+    }
+
+    virtual SLANG_NO_THROW void const *SLANG_MCALL getBufferPointer() override
+    {
+        return (void *)m_buffer.data();
+    }
+
+    virtual SLANG_NO_THROW size_t SLANG_MCALL getBufferSize() override
+    {
+        return m_buffer.size();
+    }
+
+    ISlangUnknown *getInterface(const SlangUUID& uuid)
+    {
+        (void)uuid;
+        return nullptr;
+    }
+
+    uint32_t addReference()
+    {
+        return ++m_refCount;
+    }
+
+    uint32_t releaseReference()
+    {
+        return --m_refCount;
+    }
+
+private:
+    uint32_t m_refCount = 0;
+    std::vector<char> m_buffer;
+};
+
+struct UnimplementedFileSystem : public ISlangFileSystem
+{
+    SLANG_REF_OBJECT_IUNKNOWN_ALL;
+
+    virtual SLANG_NO_THROW SlangResult SLANG_MCALL loadFile(char const *path, ISlangBlob **out_blob) override
+    {
+        (void)path;
+        (void)out_blob;
+
+        Result<std::vector<char>> result = Filesystem::read_file_to_buffer(path);
+        if (result.has_error())
+            return SLANG_E_NOT_FOUND;
+        *out_blob = new MemoryBlob(result.value());
+
+        return SLANG_OK;
+    }
+
+    ISlangUnknown *getInterface(const SlangUUID& uuid)
+    {
+        (void)uuid;
+        return nullptr;
+    }
+
+    uint32_t addReference()
+    {
+        return ++m_refCount;
+    }
+
+    uint32_t releaseReference()
+    {
+        return --m_refCount;
+    }
+
+    virtual SLANG_NO_THROW void *SLANG_MCALL castAs(const SlangUUID& guid) override
+    {
+        (void)guid;
+        return nullptr;
+    }
+
+    uint32_t m_refCount = 0;
+};
+
 struct EntryPoint
 {
     ShaderStageFlagBits stage = ShaderStageFlagBits::Vertex;
@@ -74,6 +156,10 @@ Result<Ref<Shader>> Shader::load(const std::filesystem::path& path)
     slang::SessionDesc session_desc{};
     slang::TargetDesc target_desc{};
 
+    // NOTE:
+    Slang::ComPtr<ISlangFileSystem> filesystem = Slang::ComPtr<ISlangFileSystem>(new UnimplementedFileSystem());
+    session_desc.fileSystem = filesystem.get();
+
     std::vector<slang::CompilerOptionEntry> options;
 
     // NOTE: If we use slang's default of row major matrices we will need to transpose matrices before passing them to shaders.
@@ -118,35 +204,8 @@ Result<Ref<Shader>> Shader::load(const std::filesystem::path& path)
         return Error(ErrorKind::ShaderCompilationFailed);
     }
 
-    println("Initial module name: {}", module_name);
-
-    std::vector<Slang::ComPtr<slang::IModule>> dependencies;
-
-    // Starts at 1 since the first dependency is the main file will already loaded before.
-    for (SlangInt32 i = 1; i < module->getDependencyFileCount(); i++)
-    {
-        std::filesystem::path filepath = std::string(module->getDependencyFilePath(i)).substr((std::filesystem::current_path().string()).size() + 1);
-        println(">> Loading dependency `{}`", filepath.c_str());
-
-        std::string module_name = filepath.filename().replace_extension();
-        std::string source_code = Filesystem::read_file_to_string(filepath).value(); // TODO: Check errors
-
-        println("{} {}", module_name, filepath);
-
-        Slang::ComPtr<slang::IModule> module = Slang::ComPtr(session->loadModuleFromSourceString(module_name.c_str(), filepath.c_str(), source_code.c_str(), diagnostics_blob.writeRef()));
-        if (!module)
-        {
-            println("{}", (char *)diagnostics_blob->getBufferPointer());
-            return Error(ErrorKind::ShaderCompilationFailed);
-        }
-
-        dependencies.push_back(module);
-    }
-
     std::vector<EntryPoint> entry_points;
-    std::vector<slang::IComponentType *> component_types;
-    component_types.insert(component_types.end(), dependencies.begin(), dependencies.end());
-    component_types.push_back(module);
+    std::vector<slang::IComponentType *> component_types{module};
 
     for (SlangInt32 i = 0; i < module->getDefinedEntryPointCount(); i++)
     {
@@ -187,8 +246,6 @@ Result<Ref<Shader>> Shader::load(const std::filesystem::path& path)
 
     // Extract reflection informations.
     slang::ProgramLayout *program_layout = linked_program->getLayout();
-    slang::VariableLayoutReflection *gvar_layout = program_layout->getGlobalParamsVarLayout();
-    slang::TypeLayoutReflection *type_layout = gvar_layout->getTypeLayout();
 
     for (size_t i = 0; i < entry_points.size(); i++)
     {
@@ -201,10 +258,11 @@ Result<Ref<Shader>> Shader::load(const std::filesystem::path& path)
     }
 
     println("> shader `{}`", path);
+    // println(">>> {}", program_layout->getParameterByIndex(0)->getName());
 
-    for (size_t i = 0; i < type_layout->getFieldCount(); i++)
+    for (size_t i = 0; i < program_layout->getParameterCount(); i++)
     {
-        slang::VariableLayoutReflection *var = type_layout->getFieldByIndex(i);
+        slang::VariableLayoutReflection *var = program_layout->getParameterByIndex(i);
         std::string name = var->getName();
         uint32_t group = var->getBindingSpace();
         uint32_t binding = var->getBindingIndex();
