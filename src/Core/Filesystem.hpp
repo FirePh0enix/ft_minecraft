@@ -51,10 +51,40 @@ static inline std::string get_config_directory()
     return path;
 }
 
+enum class FileKind
+{
+    Packed,
+};
+
+struct File
+{
+    File();
+
+    ALWAYS_INLINE FileKind kind() const
+    {
+        return m_kind;
+    }
+
+    std::vector<char> read_to_buffer() const;
+    std::string read_to_string() const;
+
+private:
+    friend class Filesystem;
+
+    FileKind m_kind;
+    size_t m_size;
+
+    union
+    {
+        size_t m_offset;
+        int m_fd;
+    };
+};
+
 class Filesystem
 {
 public:
-    static Result<int> init();
+    static void open_data();
 
     /**
      * Returns the path of the executable (ex: `/usr/bin/ft_minecraft`).
@@ -66,8 +96,9 @@ public:
      */
     static std::filesystem::path current_executable_directory();
 
-    static Result<std::string> read_file_to_string(const std::filesystem::path& path);
-    static Result<std::vector<char>> read_file_to_buffer(const std::filesystem::path& path);
+    static Result<File> open_file(const StringView& path);
+
+    static void read_raw(const File& file, void *buffer, size_t size);
 
 private:
     static inline DataPack s_data_pack;

@@ -2,6 +2,7 @@
 
 #include "Core/Class.hpp"
 #include "Core/Result.hpp"
+#include "Core/StringView.hpp"
 
 #include <cstring>
 #include <filesystem>
@@ -26,6 +27,12 @@ struct DataPackFileHeader
     char path[508];
 };
 
+struct DataPackFileInfo
+{
+    size_t offset;
+    size_t size;
+};
+
 class DataPack : public Object
 {
     CLASS(DataPack, Object);
@@ -33,11 +40,17 @@ class DataPack : public Object
 public:
     DataPack();
 
+    /**
+     * Open a pack file for writing.
+     */
     void open(const std::filesystem::path& path);
+
     void load_from_file(const std::string& path);
 
     void add_file_to_data_pack(std::string_view path, const std::vector<char>& buffer);
-    Result<std::vector<char>> read_file(std::string_view path);
+
+    Result<DataPackFileInfo> find_file(const StringView& path);
+    Result<> read_file(size_t offset, void *buffer, size_t size);
 
     bool is_open() const { return m_stream.is_open(); }
 

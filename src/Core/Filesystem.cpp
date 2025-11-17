@@ -1,13 +1,18 @@
 #include "Core/Filesystem.hpp"
+#include "Core/Result.hpp"
 
 #ifdef __platform_macos
 #include <mach-o/dyld.h>
 #endif
 
-Result<int> Filesystem::init()
+File::File()
+    : m_kind(FileKind::Packed), m_offset(0)
+{
+}
+
+void Filesystem::open_data()
 {
     s_data_pack.load_from_file(current_executable_directory().string() + "/ft_minecraft.data");
-    return 0;
 }
 
 std::filesystem::path Filesystem::current_executable_path()
@@ -38,21 +43,49 @@ std::filesystem::path Filesystem::current_executable_directory()
     return current_executable_path().parent_path();
 }
 
-Result<std::string> Filesystem::read_file_to_string(const std::filesystem::path& path)
+Result<File> Filesystem::open_file(const StringView& path)
 {
-    ASSERT(s_data_pack.is_open(), "");
-    Result<std::vector<char>> data_result = s_data_pack.read_file(path.string());
-    YEET(data_result);
-    std::vector<char> data = data_result.value();
-    std::string text;
-    text.append(data.data(), data.size());
-    return text;
+    if (path.starts_with("assets://"))
+    {
+        if (!s_data_pack.is_open())
+            return Error(ErrorKind::FileNotFound);
+
+        File file;
+        file.m_kind = FileKind::Packed;
+
+        Result<DataPackFileInfo> result = s_data_pack.find_file(path);
+        YEET(result);
+
+        DataPackFileInfo info = result.value();
+        file.m_offset = info.offset;
+        file.m_size = info.size;
+
+        return file;
+    }
+    else
+    {
+        // TODO: Allow opening files.
+        return Error(ErrorKind::FileNotFound);
+    }
 }
 
-Result<std::vector<char>> Filesystem::read_file_to_buffer(const std::filesystem::path& path)
+std::vector<char> File::read_to_buffer() const
 {
-    ASSERT(s_data_pack.is_open(), "");
-    Result<std::vector<char>> data_result = s_data_pack.read_file(path.string());
-    YEET(data_result);
-    return data_result.value();
+    std::vector<char> buffer(m_size);
+    Filesystem::read_raw(*this, buffer.data(), m_size);
+    return buffer;
+}
+
+std::string File::read_to_string() const
+{
+    std::string str;
+    str.resize(m_size);
+
+    Filesystem::read_raw(*this, str.data(), m_size);
+    return str;
+}
+
+void Filesystem::read_raw(const File& file, void *buffer, size_t size)
+{
+    EXPECT(s_data_pack.read_file(file.m_offset, buffer, size));
 }

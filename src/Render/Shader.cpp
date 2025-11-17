@@ -60,7 +60,7 @@ struct UnimplementedFileSystem : public ISlangFileSystem
         (void)path;
         (void)out_blob;
 
-        Result<std::vector<char>> result = Filesystem::read_file_to_buffer(path);
+        Result<std::vector<char>> result = Filesystem::open_file(path).value().read_to_buffer();
         if (result.has_error())
             return SLANG_E_NOT_FOUND;
         *out_blob = new MemoryBlob(result.value());
@@ -143,7 +143,7 @@ Shader::~Shader()
 Result<Ref<Shader>> Shader::load(const std::filesystem::path& path)
 {
     Ref<Shader> shader = newobj(Shader);
-    Result<std::string> source_code_result = Filesystem::read_file_to_string(path);
+    Result<std::string> source_code_result = Filesystem::open_file(path).value().read_to_string();
     YEET(source_code_result);
 
     shader->m_source_code = source_code_result.value();

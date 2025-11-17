@@ -20,7 +20,7 @@ Result<Ref<Font>> Font::create(const std::string& font_name, uint32_t font_size)
 
     FT_Face face;
 
-    std::vector<char> file_bytes = Filesystem::read_file_to_buffer(font_name).value();
+    std::vector<char> file_bytes = Filesystem::open_file(font_name).value().read_to_buffer();
 
     if (FT_New_Memory_Face(g_lib, (FT_Byte *)file_bytes.data(), (int64_t)file_bytes.size(), 0, &face) != 0)
     {

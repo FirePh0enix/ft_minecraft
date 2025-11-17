@@ -34,7 +34,7 @@ Engine::Engine(Args args, const std::string& app_name)
     register_engine_classes();
 
     // After this point reading from the datapack become possible.
-    Filesystem::init();
+    Filesystem::open_data();
 
     tracy::SetThreadName("Main");
 

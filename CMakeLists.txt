@@ -33,6 +33,7 @@ list(APPEND SOURCES
     src/Core/Filesystem.cpp
     src/Core/Ref.cpp
     src/Core/Registry.cpp
+    src/Core/StringView.cpp
     src/MP/Manager.cpp
     src/MP/Peer.cpp
     src/MP/Synchronizer.cpp

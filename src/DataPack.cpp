@@ -56,7 +56,7 @@ void DataPack::add_file_to_data_pack(std::string_view path, const std::vector<ch
     }
 }
 
-Result<std::vector<char>> DataPack::read_file(std::string_view path)
+Result<DataPackFileInfo> DataPack::find_file(const StringView& path)
 {
     size_t cursor = sector_size;
     m_stream.seekg(sector_size);
@@ -66,11 +66,9 @@ Result<std::vector<char>> DataPack::read_file(std::string_view path)
         DataPackFileHeader file_header{};
         m_stream.read((char *)&file_header, sizeof(DataPackFileHeader));
 
-        if (std::string_view(file_header.path) == path)
+        if (StringView(file_header.path) == path)
         {
-            std::vector<char> buffer(file_header.size);
-            m_stream.read(buffer.data(), file_header.size);
-            return buffer;
+            return DataPackFileInfo(cursor, file_header.size);
         }
         else
         {
@@ -81,4 +79,15 @@ Result<std::vector<char>> DataPack::read_file(std::string_view path)
     }
 
     return Error(ErrorKind::FileNotFound);
+}
+
+Result<> DataPack::read_file(size_t offset, void *buffer, size_t size)
+{
+    m_stream.seekg((std::streamoff)offset);
+
+    DataPackFileHeader file_header{};
+    m_stream.read((char *)&file_header, sizeof(DataPackFileHeader));
+
+    m_stream.read((char *)buffer, (std::streamsize)std::min((size_t)file_header.size, size));
+    return 0;
 }
