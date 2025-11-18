@@ -664,8 +664,10 @@ Result<> RenderingDriverWebGPU::configure_surface(const Window& window, VSync vs
 
 void RenderingDriverWebGPU::poll()
 {
+#ifdef __has_debug_menu
     ImGui_ImplWGPU_NewFrame();
     ImGui_ImplSDL3_NewFrame();
+#endif
 }
 
 void RenderingDriverWebGPU::limit_frames(uint32_t limit)
@@ -876,8 +878,10 @@ void RenderingDriverWebGPU::draw_graph(const RenderGraph& graph)
         }
         else if (std::holds_alternative<ImGuiDrawInstruction>(instruction))
         {
+#ifdef __has_debug_menu
             ImGui::Render();
             ImGui_ImplWGPU_RenderDrawData(ImGui::GetDrawData(), render_pass_encoder);
+#endif
         }
     }
 

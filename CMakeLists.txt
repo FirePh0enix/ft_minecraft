@@ -204,7 +204,7 @@ set(Assets_OUTPUT ${CMAKE_BINARY_DIR}/${TARGET_NAME}.data)
 
 add_custom_command(
     OUTPUT ${Assets_OUTPUT}
-    COMMAND ${DATAPACKTOOL_COMMAND} ${Assets_OUTPUT} ${PROJECT_SOURCE_DIR}/ ${Assets_FILES}
+    COMMAND ${DATAPACKTOOL_COMMAND} ${Assets_OUTPUT} ${PROJECT_SOURCE_DIR}/assets/ ${Assets_FILES}
     DEPENDS ${Assets_FILES}
 )
 add_custom_target(datapacktool-generate ALL DEPENDS datapacktool ${Assets_OUTPUT})
@@ -219,13 +219,13 @@ set(BUILD_SHARED_LIBS 0)
 #
 
 # doctest for unit tests.
-# FetchContent_Declare(
-#     doctest
-#     GIT_REPOSITORY https://github.com/doctest/doctest
-#     GIT_TAG 1da23a3e8119ec5cce4f9388e91b065e20bf06f5 # v2.4.12
-# )
-# FetchContent_MakeAvailable(doctest)
-# target_link_libraries(${TARGET_NAME} PRIVATE doctest)
+FetchContent_Declare(
+    doctest
+    GIT_REPOSITORY https://github.com/doctest/doctest
+    GIT_TAG 1da23a3e8119ec5cce4f9388e91b065e20bf06f5 # v2.4.12
+)
+FetchContent_MakeAvailable(doctest)
+target_link_libraries(${TARGET_NAME} PRIVATE doctest)
 
 if(TARGET_IS_LINUX OR TARGET_IS_MACOS OR TARGET_IS_WINDOWS)
     if (TARGET_IS_LINUX)

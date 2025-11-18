@@ -42,12 +42,7 @@ public:
         return value == 0 ? std::strong_ordering::equal : (value < 0 ? std::strong_ordering::less : std::strong_ordering::greater);
     }
 
-    bool operator==(const StringView& other) const = default;
-    bool operator!=(const StringView& other) const = default;
-    bool operator<=(const StringView& other) const = default;
-    bool operator>=(const StringView& other) const = default;
-    bool operator<(const StringView& other) const = default;
-    bool operator>(const StringView& other) const = default;
+    bool operator==(const StringView& other) const { return *this <=> other == std::strong_ordering::equal; }
 
     ALWAYS_INLINE const char *c_str() const
     {

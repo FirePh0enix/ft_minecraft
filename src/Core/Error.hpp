@@ -241,6 +241,18 @@ private:
         }                                                               \
     } while (0)
 
+#define ERR_EXPECT_VR(EXPECTED, RET, MESSAGE, ...)         \
+    do                                                     \
+    {                                                      \
+        auto __result = EXPECTED;                          \
+        if (!__result.has_value())                         \
+        {                                                  \
+            ::print("error: {}:{}: ", __FILE__, __LINE__); \
+            ::println(MESSAGE, __VA_ARGS__);               \
+            return RET;                                    \
+        }                                                  \
+    } while (0)
+
 #define ERR_EXPECT_B(EXPECTED, MESSAGE)                             \
     auto __result = EXPECTED;                                       \
     if (!__result.has_value())                                      \

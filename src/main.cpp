@@ -59,7 +59,7 @@ ENGINE_MAIN(int argc, char *argv[])
     BlockRegistry::load_blocks();
     BlockRegistry::create_gpu_resources();
 
-    Result<Ref<Shader>> shader_result = Shader::load("assets/shaders/voxel.slang");
+    Result<Ref<Shader>> shader_result = Shader::load("assets://shaders/voxel.slang");
     if (!shader_result.has_value())
         EXPECT(Result<>(Error(ErrorKind::ShaderCompilationFailed)));
 
@@ -75,7 +75,7 @@ ENGINE_MAIN(int argc, char *argv[])
     // TODO: Add this back
     // Font::init_library();
 
-    // auto font_result = Font::create("assets/fonts/Anonymous.ttf", 20);
+    // auto font_result = Font::create("assets://fonts/Anonymous.ttf", 20);
     // EXPECT(font_result);
     // Ref<Font> font = font_result.value();
 
@@ -140,9 +140,9 @@ ENGINE_MAIN(int argc, char *argv[])
                                      BlockRegistry::destroy();
                                      Font::deinit_library();
 
-                                     // RenderingDriver::destroy_singleton();
-                                 },
-                                 nullptr);
+                                     RenderingDriver::destroy_singleton();
+                                     //
+                                 });
     engine.run();
 
     return 0;

@@ -66,6 +66,8 @@ Result<DataPackFileInfo> DataPack::find_file(const StringView& path)
         DataPackFileHeader file_header{};
         m_stream.read((char *)&file_header, sizeof(DataPackFileHeader));
 
+        println("{} / {}", path, file_header.path);
+
         if (StringView(file_header.path) == path)
         {
             return DataPackFileInfo(cursor, file_header.size);

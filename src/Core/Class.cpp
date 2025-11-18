@@ -23,7 +23,7 @@ TEST_CASE("Class")
 
     CHECK(!strcmp(Foo::get_static_class_name(), "Foo"));
 
-    const std::vector<uint32_t>& classes = Bar::get_static_classes();
+    const View<ClassHashCode>& classes = Bar::get_static_classes();
     CHECK(classes.size() == 3);
     CHECK(classes[0] == Object::get_static_hash_code());
     CHECK(classes[1] == Foo::get_static_hash_code());

@@ -50,10 +50,12 @@ Result<File> Filesystem::open_file(const StringView& path)
         if (!s_data_pack.is_open())
             return Error(ErrorKind::FileNotFound);
 
+        const StringView& path2 = path.slice(9);
+
         File file;
         file.m_kind = FileKind::Packed;
 
-        Result<DataPackFileInfo> result = s_data_pack.find_file(path);
+        Result<DataPackFileInfo> result = s_data_pack.find_file(path2);
         YEET(result);
 
         DataPackFileInfo info = result.value();

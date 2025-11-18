@@ -38,7 +38,7 @@ TEST_CASE("Ref sanity checks")
     CHECK(foo_null.ptr() == nullptr);
     CHECK(foo_null.references() == 0);
 
-    Ref<Foo> foo = make_ref<Foo>();
+    Ref<Foo> foo = newobj(Foo);
     CHECK(foo.references() == 1);
 
     {
@@ -51,8 +51,8 @@ TEST_CASE("Ref sanity checks")
     foo = nullptr;
     CHECK(foo.is_null());
 
-    Ref<Foo> foo3 = make_ref<Foo>();
-    Ref<Foo> foo4 = make_ref<Foo>();
+    Ref<Foo> foo3 = newobj(Foo);
+    Ref<Foo> foo4 = newobj(Foo);
     foo3 = foo4;
     foo4 = nullptr;
 
@@ -66,7 +66,7 @@ TEST_CASE("Ref sanity checks")
 
     foo3 = nullptr;
 
-    Ref<Foo> foo5 = make_ref<Foo>();
+    Ref<Foo> foo5 = newobj(Foo);
     {
         Ref<Foo> foo5_1 = foo5;
         Ref<Foo> foo5_2 = foo5;
@@ -90,7 +90,7 @@ TEST_CASE("Ref sanity checks")
     foo5 = nullptr;
 
     // Self assignment
-    Ref<Foo> foo6 = make_ref<Foo>();
+    Ref<Foo> foo6 = newobj(Foo);
     Ref<Foo> foo7 = foo6;
 
     foo6 = foo7;
@@ -100,7 +100,7 @@ TEST_CASE("Ref sanity checks")
 
 static Ref<Object> make_and_cast()
 {
-    return make_ref<Foo>().cast_to<Object>();
+    return newobj(Foo).cast_to<Object>();
 }
 
 TEST_CASE("Ref casting")
@@ -110,7 +110,7 @@ TEST_CASE("Ref casting")
     Bleep::register_class();
 
     // Downcasting
-    Ref<Bleep> bleep = make_ref<Bleep>();
+    Ref<Bleep> bleep = newobj(Bleep);
     Ref<Object> object = bleep.cast_to<Object>();
     CHECK(!object.is_null());
 

@@ -14,7 +14,7 @@ void Player::start()
     m_camera = m_entity->get_child(0)->get_component<Camera>();
 
     // Create a special cube mesh and material to highlight targeted blocks.
-    // auto shader_result = Shader::load("assets/shaders/standard_mesh.slang");
+    // auto shader_result = Shader::load("assets://shaders/standard_mesh.slang");
     // Ref<Shader> shader = shader_result.value();
 
     // Result<Ref<Material>> material_result = Material::create(shader, sizeof(glm::mat4), std::nullopt, MaterialFlagBits::DrawBeforeEverything, PolygonMode::Line, CullMode::None);

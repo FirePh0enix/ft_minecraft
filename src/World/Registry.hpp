@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Core/Filesystem.hpp"
 #include "Core/Ref.hpp"
 #include "Render/Driver.hpp"
 #include "World/Block.hpp"
@@ -124,10 +125,13 @@ private:
 
         if (id_pair == s_texture_by_name.end())
         {
-            std::string path = "assets/textures/" + name;
+            std::string path = "assets://textures/" + name;
 
-            SDL_IOStream *texture_stream = SDL_IOFromFile(path.c_str(), "r");
-            ERR_COND_V(texture_stream == nullptr, "Failed to open {}", path);
+            Result<File> file = Filesystem::open_file(path);
+            ERR_EXPECT_VR(file, 0, "Failed to open {}", path);
+
+            const std::vector<char>& buffer = file->read_to_buffer();
+            SDL_IOStream *texture_stream = SDL_IOFromConstMem(buffer.data(), buffer.size());
 
             SDL_Surface *texture_surface = IMG_LoadPNG_IO(texture_stream);
             ERR_COND_V(texture_surface == nullptr, "Failed to parse image {}", path);

@@ -21,7 +21,7 @@ public:
      */
     void run();
 
-    void set_shutdown_callback(void (*callback)(Engine *engine, void *user), void *user) { m_shutdown_callback = EngineCallback(callback, user); }
+    void set_shutdown_callback(void (*callback)(Engine *engine, void *user), void *user = nullptr) { m_shutdown_callback = EngineCallback(callback, user); }
 
     const Args& args() const { return m_args; }
     Args& args() { return m_args; }
