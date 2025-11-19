@@ -86,19 +86,12 @@ public:
     }
 
     /**
-     * Find an entity from a path.
+     *  @brief Find an entity from a path.
      */
     Ref<Entity> get_entity(const EntityPath& path) const;
 
-    inline Ref<Camera>& get_active_camera()
-    {
-        return m_active_camera;
-    }
-
-    ALWAYS_INLINE void set_active_camera(const Ref<Camera>& camera)
-    {
-        m_active_camera = camera;
-    }
+    ALWAYS_INLINE Ref<Camera>& get_active_camera() { return m_active_camera; }
+    ALWAYS_INLINE void set_active_camera(const Ref<Camera>& camera) { m_active_camera = camera; }
 
     void add_entity(Ref<Entity>& entity)
     {

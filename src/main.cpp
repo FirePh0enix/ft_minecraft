@@ -101,17 +101,12 @@ ENGINE_MAIN(int argc, char *argv[])
     scene->add_entity(world_entity);
 
     Ref<Camera> camera = newobj(Camera);
+    Ref<Entity> player_head = make_entity("Head", newobj(Transformed3D, glm::vec3(0.0, 0.85, 0.0)), camera.cast_to<Component>());
 
-    Ref<Entity> player_head = newobj(Entity);
-    player_head->set_name("Head");
-    player_head->add_component(newobj(Transformed3D, glm::vec3(0.0, 0.85, 0.0)));
-    player_head->add_component(camera);
-
-    player = newobj(Entity);
-    player->set_name("Player");
-    player->add_component(newobj(Transformed3D, Transform3D(glm::vec3(config2["player"]["x"].as<double>()->get(), config2["player"]["y"].as<double>()->get(), config2["player"]["z"].as<double>()->get()))));
-    player->add_component(newobj(RigidBody, new BoxCollider(glm::vec3(-0.4, -0.8, -0.4), glm::vec3(0.4, 0.8, 0.4))));
-    player->add_component(newobj(Player, world, cube));
+    player = make_entity("Player",
+                         newobj(Transformed3D, Transform3D(glm::vec3(config2["player"]["x"].as<double>()->get(), config2["player"]["y"].as<double>()->get(), config2["player"]["z"].as<double>()->get()))),
+                         newobj(RigidBody, new BoxCollider(glm::vec3(-0.4, -0.8, -0.4), glm::vec3(0.4, 0.8, 0.4))),
+                         newobj(Player, world, cube));
     player->add_child(player_head);
 
     scene->add_entity(player);
@@ -122,10 +117,6 @@ ENGINE_MAIN(int argc, char *argv[])
         // TODO
         info("World won't be saved, `--disable-save` is present.");
     }
-
-    // player->get_component<RigidBody>()->set_disabled(!config2["physics"]["collisions"].as<bool>()->get());
-    // player->get_component<Player>()->set_gravity_enabled(config2["physics"]["gravity"].as<bool>()->get());
-    // player->get_component<Player>()->set_gravity_value(static_cast<float>(config2["physics"]["gravity_value"].as<double>()->get()));
 
     console.register_command("tp", {CmdArgInfo(CmdArgKind::Int, "x"), CmdArgInfo(CmdArgKind::Int, "y"), CmdArgInfo(CmdArgKind::Int, "z")}, [](const Command& cmd)
                              { player->get_component<Transformed3D>()->get_transform().position() = glm::vec3(cmd.get_arg_int("x"), cmd.get_arg_int("y"), cmd.get_arg_int("z")); });
@@ -139,14 +130,10 @@ ENGINE_MAIN(int argc, char *argv[])
 
                                      // config.save_to("config.ini");
 
-                                     // (void)RenderingDriverVulkan::get()->get_device().waitIdle();
-
                                      BlockRegistry::destroy();
                                      Font::deinit_library();
 
-                                     RenderingDriver::destroy_singleton();
-                                     //
-                                 });
+                                     RenderingDriver::destroy_singleton(); });
     engine.run();
 
     return 0;

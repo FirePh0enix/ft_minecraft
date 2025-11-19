@@ -100,7 +100,7 @@ void MaterialBase::set_param(const StringView& name, const Ref<Texture>& texture
 {
     auto binding_result = get_shader()->get_binding(name);
     ERR_COND_VR(texture.is_null(), "Texture specified for {} is null", name);
-    ERR_COND_VR(!binding_result.has_value(), "Invalid parameter name `{}`", name.c_str());
+    ERR_COND_VR(!binding_result.has_value(), "Invalid parameter name `{}`", name.data());
 
     // TODO: Check dimensions.
 
@@ -112,8 +112,8 @@ void MaterialBase::set_param(const StringView& name, const Ref<Buffer>& buffer)
 {
     auto binding_result = get_shader()->get_binding(name);
     ERR_COND_VR(buffer.is_null(), "Buffer specified for {} is null", name);
-    ERR_COND_VR(!binding_result.has_value(), "Invalid parameter name `{}`", name.c_str());
-    ERR_COND_VR(binding_result->buffer.element_size != buffer->element().size, "Mismatch between what the shader expect (size = {}) and what is given (size = {}) for parameter `{}` for shader `{}`", binding_result->buffer.element_size, buffer->element().size, name, m_shader->path());
+    ERR_COND_VR(!binding_result.has_value(), "Invalid parameter name `{}`", name.data());
+    ERR_COND_VR(binding_result->buffer.element_size != buffer->element().size, "Mismatch between what the shader expect (size = {}) and what is given (size = {}) for parameter {} for shader {}", binding_result->buffer.element_size, buffer->element().size, name, m_shader->path());
 
     m_caches[name] = MaterialParamCache{.buffer = {.kind = BindingKind::UniformBuffer, .buffer = buffer.ptr()}};
     m_param_changed = true;

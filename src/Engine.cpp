@@ -59,14 +59,14 @@ void Engine::run()
                                  { ((Engine *)engine)->loop_callback(); }, this, 0, true);
 #else
     while (m_window->is_running())
-        loop_callback();
+        iterate();
 
     if (m_shutdown_callback.callback)
         m_shutdown_callback.callback(this, m_shutdown_callback.user);
 #endif
 }
 
-void Engine::loop_callback()
+void Engine::iterate()
 {
     if ((float)(clock() - m_last_tick_time) / CLOCKS_PER_SEC >= m_fixed_update_time)
     {
