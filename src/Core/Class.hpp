@@ -56,8 +56,7 @@ constexpr ClassHashCode fnv32_class_hash(const char *filename, const char *class
 
 #define CLASS(NAME, BASE)                                                                                                                                                                 \
 private:                                                                                                                                                                                  \
-    static inline const char *s_class_name = #NAME;                                                                                                                                       \
-    static inline ClassHashCode s_class_hash = fnv32_class_hash(__FILE__, #NAME);                                                                                                         \
+    static constexpr ClassHashCode s_class_hash = fnv32_class_hash(__FILE__, #NAME);                                                                                                      \
                                                                                                                                                                                           \
     static_assert(sizeof(NAME *) || true);                                                                                                                                                \
                                                                                                                                                                                           \
@@ -76,10 +75,10 @@ public:                                                                         
                                                                                                                                                                                           \
     static const char *get_static_class_name()                                                                                                                                            \
     {                                                                                                                                                                                     \
-        return s_class_name;                                                                                                                                                              \
+        return #NAME;                                                                                                                                                                     \
     }                                                                                                                                                                                     \
                                                                                                                                                                                           \
-    static ClassHashCode get_static_hash_code()                                                                                                                                           \
+    static constexpr ClassHashCode get_static_hash_code()                                                                                                                                 \
     {                                                                                                                                                                                     \
         return s_class_hash;                                                                                                                                                              \
     }                                                                                                                                                                                     \
@@ -102,6 +101,14 @@ public:                                                                         
 private:
 
 template <typename T>
+concept IsObject = requires() {
+    { T::register_class() } -> std::same_as<void>;
+    { T::get_static_classes() } -> std::same_as<View<ClassHashCode>>;
+    { T::get_static_class_name() } -> std::same_as<const char *>;
+    { T::get_static_hash_code() } -> std::same_as<ClassHashCode>;
+};
+
+template <typename T>
 struct TypeInfo;
 
 #define STRUCT(NAME)                                                                             \
@@ -120,7 +127,6 @@ struct TypeInfo;
 
 class Object
 {
-    static inline const char *s_class_name = "Object";
     static inline ClassHashCode s_class_hash = fnv32_class_hash(__FILE__, "Object");
 
 public:
@@ -130,7 +136,7 @@ public:
 
     static const char *get_static_class_name()
     {
-        return s_class_name;
+        return "Object";
     }
 
     static ClassHashCode get_static_hash_code()
@@ -145,7 +151,7 @@ public:
 
     virtual const char *get_class_name() const
     {
-        return s_class_name;
+        return get_static_class_name();
     }
 
     virtual ClassHashCode get_class_hash_code() const

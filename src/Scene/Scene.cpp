@@ -129,7 +129,7 @@ void Scene::imgui_debug_with_entity(const Ref<Entity>& entity, size_t index)
 
     if (ImGui::TreeNodeEx(buffer, ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_DrawLinesToNodes))
     {
-        for (const Ref<Component>& comp : entity->get_components())
+        for (const auto& [_, comp] : entity->get_components())
         {
             ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_DrawLinesToNodes;
 

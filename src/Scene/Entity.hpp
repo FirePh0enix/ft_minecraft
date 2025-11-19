@@ -75,77 +75,40 @@ public:
     Entity();
     virtual ~Entity() {}
 
-    inline EntityId get_id() const
-    {
-        return m_id;
-    }
+    ALWAYS_INLINE EntityId get_id() const { return m_id; }
+    ALWAYS_INLINE void set_id(EntityId id) { m_id = id; }
 
-    inline void set_id(EntityId id)
-    {
-        m_id = id;
-    }
-
-    const std::vector<Ref<Component>> get_components() const
-    {
-        return m_components;
-    }
+    const std::map<ClassHashCode, Ref<Component>>& get_components() const;
 
     template <typename T>
+        requires IsObject<T>
     Ref<T> get_component() const
     {
-        for (const auto& comp : m_components)
-        {
-            if (comp->is<T>())
-                return comp.cast_to<T>();
-        }
+        constexpr ClassHashCode class_hash = T::get_static_hash_code();
+        if (m_components.contains(class_hash))
+            return m_components.at(class_hash);
         return nullptr;
     }
 
-    Ref<Component> get_component(ClassHashCode class_hash) const
-    {
-        for (const auto& comp : m_components)
-        {
-            if (comp->is(class_hash))
-                return comp;
-        }
-        return nullptr;
-    }
+    Ref<Component> get_component(ClassHashCode class_hash) const;
 
     template <typename T>
-    inline Ref<T> get_component(size_t index) const
-    {
-        return m_components[index].cast_to<T>();
-    }
-
-    template <typename T>
+        requires IsObject<T>
     bool has_component() const
     {
-        for (const auto& comp : m_components)
-        {
-            if (comp->is<T>())
-                return true;
-        }
-        return false;
+        return has_component(T::get_static_hash_code());
     }
 
     bool has_component(ClassHashCode class_hash) const
     {
-        for (const auto& comp : m_components)
-        {
-            if (comp->is(class_hash))
-                return true;
-        }
-        return false;
+        return m_components.contains(class_hash);
     }
 
-    void add_component(Ref<Component> comp)
-    {
-        ERR_COND_VR(comp->get_entity() != nullptr, "Component of type {} was already added to entity {}", comp->get_class_name(), (uint32_t)comp->get_entity()->get_id());
+    void add_component(Ref<Component> comp);
 
-        comp->set_entity(this);
-        m_components.push_back(comp);
-    }
-
+    /**
+     *  @brief Shorthand for `get_component<Transformed3D>()`.
+     */
     Ref<Transformed3D> get_transform() const;
 
     void add_child(Ref<Entity> entity);
@@ -170,34 +133,16 @@ public:
         return m_children;
     }
 
-    inline Entity *get_parent() const
-    {
-        return m_parent;
-    }
+    ALWAYS_INLINE Entity *get_parent() const { return m_parent; }
+    ALWAYS_INLINE void set_parent(Entity *parent) { m_parent = parent; }
+    ALWAYS_INLINE bool has_parent() const { return m_parent != nullptr; }
 
-    inline void set_parent(Entity *parent)
-    {
-        m_parent = parent;
-    }
-
-    inline bool has_parent() const
-    {
-        return m_parent != nullptr;
-    }
-
-    Scene *get_scene() const
-    {
-        return m_scene;
-    }
-
-    void set_scene(Scene *scene)
-    {
-        m_scene = scene;
-    }
+    Scene *get_scene() const { return m_scene; }
+    void set_scene(Scene *scene) { m_scene = scene; }
 
     void start()
     {
-        for (auto& comp : m_components)
+        for (auto& [_, comp] : m_components)
             comp->start();
     }
 
@@ -230,8 +175,22 @@ public:
 private:
     EntityId m_id = EntityId(0);
     std::string m_name;
-    Entity *m_parent = nullptr;               // FIXME: This must be changed by either a Ref<Entity> or a EntityId.
-    Scene *m_scene = nullptr;                 // FIXME: Must be replaced by a Ref<Scene>
-    std::vector<Ref<Component>> m_components; // TODO: Could be replaced by a map to lower lookup time since components must be unique.
+    Entity *m_parent = nullptr; // FIXME: This must be changed by either a Ref<Entity> or a EntityId.
+    Scene *m_scene = nullptr;   // FIXME: Must be replaced by a Ref<Scene>
+    std::map<ClassHashCode, Ref<Component>> m_components;
     std::vector<Ref<Entity>> m_children;
 };
+
+/**
+ *  @brief Helper function to create an entity and attach components to it.
+ */
+template <typename... Ts>
+Ref<Entity> make_entity(const std::string& name, Ref<Ts>&&...components)
+{
+    Ref<Entity> entity = newobj(Entity);
+    entity->set_name(name);
+
+    (entity->add_component(components), ...);
+
+    return entity;
+}

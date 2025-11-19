@@ -21,6 +21,9 @@ public:
      */
     void run();
 
+    /**
+     * Register a callback called when the engine will exit.
+     */
     void set_shutdown_callback(void (*callback)(Engine *engine, void *user), void *user = nullptr) { m_shutdown_callback = EngineCallback(callback, user); }
 
     const Args& args() const { return m_args; }
@@ -36,7 +39,7 @@ private:
 
     double m_fixed_update_time = 1.0 / 60.0;
 
-    void loop_callback();
+    void iterate();
     void update_callback();
 };
 
