@@ -84,7 +84,7 @@ public:
             // Check if the new string fit in the small string.
             const size_t new_len = size + small.size;
 
-            if (new_len + 1 <= string_small_capacity())
+            if (new_len + 1 <= string_small_capacity)
             {
                 std::memcpy(small.data + small.size, str, size);
                 small.data[new_len] = '\0';
