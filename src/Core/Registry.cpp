@@ -10,6 +10,6 @@ void CoreRegistry::register_struct(const char *name, Struct s)
 
 Struct CoreRegistry::get_struct(const StringView& name)
 {
-    ASSERT_V(m_structs.contains(name.c_str()), "Invalid type {}", name.c_str());
-    return m_structs[name.c_str()];
+    ASSERT_V(m_structs.contains(name.data()), "Invalid type {}", name.data());
+    return m_structs[name.data()];
 }

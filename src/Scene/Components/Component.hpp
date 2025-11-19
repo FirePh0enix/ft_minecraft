@@ -25,4 +25,5 @@ public:
 
 protected:
     Entity *m_entity = nullptr; // FIXME: Should be an EntityId or Ref<Entity>
+                                // OR remove this completely.
 };

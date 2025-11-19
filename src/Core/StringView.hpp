@@ -6,6 +6,8 @@
 
 #include "Core/Definitions.hpp"
 
+class String;
+
 class StringView
 {
 public:
@@ -29,6 +31,8 @@ public:
     {
     }
 
+    StringView(const String& string);
+
     operator std::string() const
     {
         std::string s;
@@ -44,7 +48,7 @@ public:
 
     bool operator==(const StringView& other) const { return *this <=> other == std::strong_ordering::equal; }
 
-    ALWAYS_INLINE const char *c_str() const
+    ALWAYS_INLINE const char *data() const
     {
         return m_data;
     }
@@ -70,6 +74,6 @@ private:
 
 inline std::ostream& operator<<(std::ostream& os, const StringView& sv)
 {
-    os << sv.c_str();
+    os << sv.data();
     return os;
 }
