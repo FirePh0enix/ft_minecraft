@@ -70,6 +70,11 @@ elseif(WIN32)
     set(TARGET_IS_WINDOWS YES)
 endif()
 
+cmake_host_system_information(RESULT DISTRIB_INFO QUERY DISTRIB_NAME)
+if (TARGET_IS_LINUX AND DISTRIB_INFO MATCHES "Alpine")
+    set(TARGET_IS_ALPINE_LINUX YES)
+endif()
+
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Debug")
 endif()
@@ -97,7 +102,7 @@ target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/src)
 
 if(DETERMINISTIC)
     if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-        target_compile_options(${TARGET_NAME} PUBLIC -ffp-model=precise -ffp-contract=off)
+        target_compile_options(${TARGET_NAME} PUBLIC -ffp-model=precise) # -ffp-contract=off
     elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
         target_compile_options(${TARGET_NAME} PUBLIC -fexcess-precision=standard)
     elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
@@ -125,6 +130,11 @@ elseif(TARGET_IS_WINDOWS)
     target_compile_definitions(${TARGET_NAME} PRIVATE __platform_windows)
 elseif(TARGET_IS_WEB)
     target_compile_definitions(${TARGET_NAME} PRIVATE __platform_web)
+endif()
+
+# Create a static executable
+if(TARGET_IS_LINUX OR TARGET_IS_MACOS)
+    target_link_libraries(${TARGET_NAME} PRIVATE -static)
 endif()
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
@@ -234,7 +244,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(doctest)
 target_link_libraries(${TARGET_NAME} PRIVATE doctest)
 
-if(TARGET_IS_LINUX OR TARGET_IS_MACOS OR TARGET_IS_WINDOWS)
+if((TARGET_IS_LINUX OR TARGET_IS_MACOS OR TARGET_IS_WINDOWS) AND NOT TARGET_IS_ALPINE_LINUX)
     if (TARGET_IS_LINUX)
         set(WGPU_PLATFORM "linux")
         set(WGPU_ARCH "x86_64")
@@ -256,13 +266,38 @@ if(TARGET_IS_LINUX OR TARGET_IS_MACOS OR TARGET_IS_WINDOWS)
     target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_BINARY_DIR}/_deps/wgpu-native-src/include)
     target_link_directories(${TARGET_NAME} PRIVATE ${CMAKE_BINARY_DIR}/_deps/wgpu-native-src/lib)
     target_link_libraries(${TARGET_NAME} PRIVATE wgpu_native)
+elseif(TARGET_IS_ALPINE_LINUX)
+    FetchContent_Declare(
+        wgpu-native
+        GIT_REPOSITORY https://github.com/gfx-rs/wgpu-native
+        GIT_TAG 74f8c24c903b6352d09f1928c56962ce06f77a4d # v27.0.2.0
+    )
+    FetchContent_MakeAvailable(wgpu-native)
+
+    execute_process(
+        # OUTPUT_QUIET
+        COMMAND make package
+        WORKING_DIRECTORY ${wgpu-native_SOURCE_DIR}
+    )
+
+    execute_process(
+        # OUTPUT_QUIET
+        COMMAND unzip wgpu--debug.zip
+        WORKING_DIRECTORY ${wgpu-native_SOURCE_DIR}/dist
+    )
+
+    target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_BINARY_DIR}/_deps/wgpu-native-src/dist/include)
+    target_link_directories(${TARGET_NAME} PRIVATE ${CMAKE_BINARY_DIR}/_deps/wgpu-native-src/dist/lib)
+    target_link_libraries(${TARGET_NAME} PRIVATE wgpu_native)
 endif()
 
 # TODO: Must tell slang to use our Vulkan-Headers or doctest or this will not build
 FetchContent_Declare(
     slang
     GIT_REPOSITORY https://github.com/shader-slang/slang
-    GIT_TAG 01fdbb8a1a9b4a948731b580a6a5b618e8e116ff # v2025.22.1
+    GIT_TAG b7df3c7aa27301f88e31ed0a7bbf230688adab6a # v2025.14.3
+    PATCH_COMMAND git apply ${CMAKE_SOURCE_DIR}/patches/slang-fix-fgetpos64.diff ${CMAKE_SOURCE_DIR}/patches/slang-fix-platform.diff
+    UPDATE_DISCONNECTED 1
 )
 
 set(SLANG_LIB_TYPE STATIC)
@@ -274,7 +309,7 @@ set(SLANG_ENABLE_XLIB OFF)
 set(SLANG_ENABLE_SLANGD OFF)
 set(SLANG_ENABLE_SLANGC ON)
 set(SLANG_ENABLE_SLANGI OFF)
-# set(SLANG_ENABLE_SLANGRT OFF)
+set(SLANG_ENABLE_SLANGRT OFF)
 set(SLANG_ENABLE_REPLAYER OFF)
 set(SLANG_ENABLE_OPTIX OFF)
 set(SLANG_ENABLE_SLANG_RHI OFF)
@@ -303,7 +338,7 @@ target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_BINARY_DIR}/_deps/slan
 
 # SDL
 set(SDL_STATIC ON)
-set(SDL_DEPS_SHARED OFF)
+set(SDL_DEPS_SHARED ON)
 
 set(SDL_DUMMYAUDIO OFF)
 set(SDL_DUMMYVIDEO OFF)
@@ -434,7 +469,7 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(libbacktrace)
 
-if(TARGET_IS_LINUX OR TARGET_IS_MACOS) # TARGET_IS_MACOS FIXME: libbacktrace does not compile on macOS
+if(TARGET_IS_LINUX OR TARGET_IS_MACOS)
     set(ENV{CC} ${CMAKE_C_COMPILER})
     set(ENV{CXX} ${CMAKE_CXX_COMPILER})
 

@@ -1,0 +1,17 @@
+diff --git a/source/core/slang-stream.cpp b/source/core/slang-stream.cpp
+index a6ddfe1e9..0e3b55789 100644
+--- a/source/core/slang-stream.cpp
++++ b/source/core/slang-stream.cpp
+@@ -8,6 +8,12 @@
+ #include <stdio.h>
+ #include <thread>
+ 
++// Fix compilation on musl-based targets like Alpine
++#ifndef fgetpos64
++#define fgetpos64 fgetpos
++#define fpos64_t fpos_t
++#endif
++
+ namespace Slang
+ {
+ 
