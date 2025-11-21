@@ -1,0 +1,58 @@
+diff --git a/source/core/slang-platform.cpp b/source/core/slang-platform.cpp
+index f7e82fdf0..a6f4e88eb 100644
+--- a/source/core/slang-platform.cpp
++++ b/source/core/slang-platform.cpp
+@@ -16,9 +16,9 @@
+ #endif
+ 
+ 
+-#if SLANG_LINUX_FAMILY
+-#include <execinfo.h>
+-#endif
++// #if SLANG_LINUX_FAMILY
++// #include <execinfo.h>
++// #endif
+ 
+ namespace Slang
+ {
+@@ -353,23 +353,23 @@ static const PlatformFlags s_familyFlags[int(PlatformFamily::CountOf)] = {
+ 
+ /* static */ void PlatformUtil::backtrace()
+ {
+-#if SLANG_LINUX_FAMILY
+-    // Print stack trace for debugging assistance
+-    void* stackTrace[64];
+-    int stackDepth = ::backtrace(stackTrace, 64);
+-    char** symbols = ::backtrace_symbols(stackTrace, stackDepth);
+-    if (symbols)
+-    {
+-        for (int i = 0; i < stackDepth; ++i)
+-        {
+-            fprintf(stdout, "%s\n", symbols[i]);
+-        }
+-        free(symbols);
+-    }
+-    fprintf(stdout, "\n");
+-#else
+-    fprintf(stdout, "Stack trace not available on this platform.\n");
+-#endif
++// #if SLANG_LINUX_FAMILY
++//     // Print stack trace for debugging assistance
++//     void* stackTrace[64];
++//     int stackDepth = ::backtrace(stackTrace, 64);
++//     char** symbols = ::backtrace_symbols(stackTrace, stackDepth);
++//     if (symbols)
++//     {
++//         for (int i = 0; i < stackDepth; ++i)
++//         {
++//             fprintf(stdout, "%s\n", symbols[i]);
++//         }
++//         free(symbols);
++//     }
++//     fprintf(stdout, "\n");
++// #else
++//     fprintf(stdout, "Stack trace not available on this platform.\n");
++// #endif
+ }
+ 
+ } // namespace Slang
