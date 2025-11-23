@@ -23,7 +23,7 @@ void Chunk::generate()
 {
     ComputePassEncoder encoder = RenderGraph::get().compute_pass_begin();
     encoder.bind_material(m_surface_material);
-    encoder.dispatch(1, 256, 1);
+    encoder.dispatch(16, 256, 16);
     encoder.end();
     RenderGraph::get().copy_buffer(m_cpu_blocks, m_gpu_blocks);
 
