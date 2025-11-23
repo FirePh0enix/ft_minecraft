@@ -61,6 +61,9 @@ public:
         return *this;
     }
 
+    void operator+=(const char *str) { append(str, strlen(str)); }
+    void operator+=(const String& str) { append(str); }
+
     std::strong_ordering operator<=>(const String& other) const
     {
         return compare(data(), size(), other.data(), other.size());
@@ -124,6 +127,10 @@ public:
         }
     }
 
+    void append(const String& str) { append(str.data(), str.size()); }
+    void append(char c) { append(&c, 1); }
+
+    bool contains(char c) const { return StringView(*this).contains(c); }
     bool starts_with(const StringView& prefix) const { return StringView(*this).starts_with(prefix); }
     StringView slice(size_t offset, size_t length) const { return StringView(*this).slice(offset, length); }
     StringView slice(size_t offset) const { return StringView(*this).slice(offset); }

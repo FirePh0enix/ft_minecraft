@@ -255,6 +255,7 @@ public:
 
     const ClassInfo& get_class(ClassHashCode hash) const
     {
+        ASSERT_V(m_classes.contains(hash), "Cannot get class with hash = {x}", hash.value);
         return m_classes.at(hash);
     }
 

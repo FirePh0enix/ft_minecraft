@@ -58,14 +58,11 @@ public:
         return m_size;
     }
 
-    StringView slice(size_t offset, size_t length) const;
-
-    StringView slice(size_t offset) const
-    {
-        return slice(offset, m_size - offset);
-    }
-
+    bool contains(char c) const;
     bool starts_with(const StringView& prefix) const;
+
+    StringView slice(size_t offset, size_t length) const;
+    StringView slice(size_t offset) const { return slice(offset, m_size - offset); }
 
 private:
     const char *m_data;

@@ -6,6 +6,8 @@
 #include <sstream>
 #include <vector>
 
+#include "Core/String.hpp"
+
 template <typename... _Args>
 class BasicFormatString
 {
@@ -67,8 +69,14 @@ void format_to(_Buf buf, FormatString<_Args...> fmt, _Args&&...args);
 template <class _Buf>
 void format_to(_Buf buf, FormatString<> fmt);
 
+struct FormatterBase
+{
+    // Flags
+    bool hex : 1;
+};
+
 template <typename T>
-struct Formatter
+struct Formatter : FormatterBase
 {
     void format(const T& value, FormatContext& ctx) const
     {
@@ -81,7 +89,7 @@ struct Formatter
 };
 
 template <>
-struct Formatter<const char *>
+struct Formatter<const char *> : FormatterBase
 {
     void format(const char *& value, FormatContext& ctx) const
     {
@@ -90,7 +98,7 @@ struct Formatter<const char *>
 };
 
 template <const size_t length>
-struct Formatter<const char[length]>
+struct Formatter<const char[length]> : FormatterBase
 {
     void format(const char value[length], FormatContext& ctx) const
     {
@@ -99,7 +107,7 @@ struct Formatter<const char[length]>
 };
 
 template <>
-struct Formatter<std::string>
+struct Formatter<std::string> : FormatterBase
 {
     void format(const std::string& s, FormatContext& ctx) const
     {
@@ -108,7 +116,7 @@ struct Formatter<std::string>
 };
 
 template <>
-struct Formatter<bool>
+struct Formatter<bool> : FormatterBase
 {
     void format(const bool& s, FormatContext& ctx) const
     {
@@ -117,7 +125,7 @@ struct Formatter<bool>
 };
 
 template <typename T, const size_t size>
-struct Formatter<std::array<T, size>>
+struct Formatter<std::array<T, size>> : FormatterBase
 {
     void format(const std::array<T, size>& array, FormatContext& ctx) const
     {
@@ -136,7 +144,7 @@ struct Formatter<std::array<T, size>>
 };
 
 template <typename T>
-struct Formatter<std::vector<T>>
+struct Formatter<std::vector<T>> : FormatterBase
 {
     void format(const std::vector<T>& vec, FormatContext& ctx) const
     {
@@ -155,7 +163,7 @@ struct Formatter<std::vector<T>>
 };
 
 template <typename K, typename V>
-struct Formatter<std::map<K, V>>
+struct Formatter<std::map<K, V>> : FormatterBase
 {
     void format(const std::map<K, V>& map, FormatContext& ctx) const
     {
@@ -202,6 +210,7 @@ void __format_to(_Buf buf, FormatString<_Args...> fmt, size_t offset, _Args&&...
     bool inside_arg = false;
 
     FormatContext ctx(buf);
+    String format_str;
 
     for (; index < str.size(); index++)
     {
@@ -222,6 +231,8 @@ void __format_to(_Buf buf, FormatString<_Args...> fmt, size_t offset, _Args&&...
             inside_arg = false;
 
             Formatter<typeof(std::get<_ArgIndex>(std::forward_as_tuple(args...)))> f;
+            f.hex = format_str.contains('x') || format_str.contains('X');
+
             auto& value = std::get<_ArgIndex>(std::forward_as_tuple(args...));
             f.format(value, ctx);
 
@@ -231,6 +242,10 @@ void __format_to(_Buf buf, FormatString<_Args...> fmt, size_t offset, _Args&&...
         else if (!inside_arg)
         {
             ctx.write_char(str[index]);
+        }
+        else if (!inside_arg)
+        {
+            format_str.append(str[index]);
         }
     }
 
@@ -273,7 +288,7 @@ inline std::string format(BasicFormatString<> fmt)
 }
 
 template <typename T>
-struct Formatter<FormatBin<T>>
+struct Formatter<FormatBin<T>> : FormatterBase
 {
     void format(const FormatBin<T>& value, FormatContext& ctx) const
     {

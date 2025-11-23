@@ -3,6 +3,12 @@
 #include "Args.hpp"
 #include "Window.hpp"
 
+#ifdef __platform_web
+#define ENGINE_MAIN(...) __attribute__((used, visibility("default"))) extern "C" int emscripten_main(__VA_ARGS__)
+#else
+#define ENGINE_MAIN(...) int main(__VA_ARGS__)
+#endif
+
 class Engine;
 
 struct EngineCallback
@@ -44,9 +50,3 @@ private:
 };
 
 Args default_args();
-
-#ifdef __platform_web
-#define ENGINE_MAIN(...) __attribute__((used, visibility("default"))) extern "C" int emscripten_main(__VA_ARGS__)
-#else
-#define ENGINE_MAIN(...) int main(__VA_ARGS__)
-#endif
