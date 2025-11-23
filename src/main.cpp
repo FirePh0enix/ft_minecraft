@@ -141,7 +141,7 @@ ENGINE_MAIN(int argc, char *argv[])
 
 static void register_all_classes()
 {
-    REGISTER_CLASSES(World, Chunk, Block, Generator, GeneratorPass, SurfacePass);
+    REGISTER_CLASSES(World, Chunk, Block, Player, Generator, GeneratorPass, SurfacePass);
 
     REGISTER_STRUCTS(
         BlockState,

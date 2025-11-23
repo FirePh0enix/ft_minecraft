@@ -132,8 +132,7 @@ elseif(TARGET_IS_WEB)
     target_compile_definitions(${TARGET_NAME} PRIVATE __platform_web)
 endif()
 
-# Create a static executable
-if(TARGET_IS_LINUX OR TARGET_IS_MACOS)
+if(TARGET_IS_ALPINE_LINUX)
     target_link_libraries(${TARGET_NAME} PRIVATE -static)
 endif()
 
