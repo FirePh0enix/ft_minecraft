@@ -3,6 +3,8 @@
 #include "Render/Driver.hpp"
 #include "World/Block.hpp"
 
+#include <atomic>
+
 class World;
 
 struct ChunkPos
@@ -28,11 +30,11 @@ struct ChunkBounds
     glm::ivec3 max;
 };
 
-struct ChunkGPUInfo
+struct GPU_ATTRIBUTE ChunkGPUInfo
 {
     uint32_t chunk_x;
     uint32_t chunk_z;
-} GPU_ATTRIBUTE;
+};
 STRUCT(ChunkGPUInfo);
 
 class Chunk : public Object
@@ -94,6 +96,8 @@ public:
         Generate the chunk.
      */
     void generate();
+
+    std::atomic_bool ready = false;
 
 private:
     std::vector<BlockState> m_blocks;

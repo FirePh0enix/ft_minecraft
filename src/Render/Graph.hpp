@@ -116,14 +116,16 @@ private:
 class RenderGraph
 {
 public:
+    friend class RenderPassEncoder;
+    friend class ComputePassEncoder;
+
     RenderGraph();
 
     static RenderGraph& get();
 
     void reset();
     View<Instruction> get_instructions() const;
-
-    void add_instruction(const Instruction& inst);
+    View<Instruction> get_compute_instructions() const;
 
     RenderPassEncoder render_pass_begin(const RenderPassDescriptor& descriptor);
     ComputePassEncoder compute_pass_begin();
@@ -131,6 +133,7 @@ public:
 
 private:
     std::vector<Instruction> m_instructions;
+    std::vector<Instruction> m_compute_instructions;
     bool m_renderpass = false;
 };
 

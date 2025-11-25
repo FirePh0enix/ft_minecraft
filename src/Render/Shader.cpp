@@ -7,6 +7,8 @@
 #include <slang-com-ptr.h>
 #include <slang.h>
 
+#include <regex>
+
 // TODO: add shader variants back.
 
 static Slang::ComPtr<slang::IGlobalSession> s_global_session;
@@ -60,7 +62,11 @@ struct UnimplementedFileSystem : public ISlangFileSystem
         (void)path;
         (void)out_blob;
 
-        Result<std::vector<char>> result = Filesystem::open_file(path).value().read_to_buffer();
+        Result<File> file = Filesystem::open_file(path);
+        if (file.has_error())
+            return SLANG_E_NOT_FOUND;
+
+        Result<std::vector<char>> result = file->read_to_buffer();
         if (result.has_error())
             return SLANG_E_NOT_FOUND;
         *out_blob = new MemoryBlob(result.value());
@@ -140,7 +146,43 @@ Shader::~Shader()
         free(m_code);
 }
 
-Result<Ref<Shader>> Shader::load(const std::filesystem::path& path)
+Result<Ref<Shader>> Shader::load(const std::filesystem::path& path, bool compute_shader)
+{
+    if (path.extension() == ".glsl" || path.extension() == ".comp" || path.extension() == ".vert" || path.extension() == ".frag")
+        return load_glsl_shader(path);
+    return load_slang_shader(path, compute_shader);
+}
+
+Result<Ref<Shader>> Shader::load_glsl_shader(const std::filesystem::path& path)
+{
+    Ref<Shader> shader = newobj(Shader);
+    Result<std::string> source_code_result = Filesystem::open_file(path).value().read_to_string();
+    YEET(source_code_result);
+
+    shader->m_source_code = source_code_result.value();
+    shader->m_path = path.string();
+    shader->m_kind = ShaderKind::GLSL;
+
+    shader->m_bindings["info"] = Binding(BindingKind::UniformBuffer, ShaderStageFlagBits::Compute, 0, 0, BindingBuffer(16, false));
+    shader->m_bindings["simplexState"] = Binding(BindingKind::UniformBuffer, ShaderStageFlagBits::Compute, 0, 1, BindingBuffer(256, false));
+    shader->m_bindings["blocks"] = Binding(BindingKind::StorageBuffer, ShaderStageFlagBits::Compute, 0, 2, BindingBuffer(4, true));
+
+    shader->m_stage_mask = ShaderStageFlagBits::Compute;
+    shader->m_entry_point_names[ShaderStageFlagBits::Compute] = "main";
+
+    return shader;
+}
+
+static void remove_substrings(std::string& s, const std::string& p)
+{
+    std::string::size_type n = p.length();
+    for (std::string::size_type i = s.find(p);
+         i != std::string::npos;
+         i = s.find(p))
+        s.erase(i, n);
+}
+
+Result<Ref<Shader>> Shader::load_slang_shader(const std::filesystem::path& path, bool compute_shader)
 {
     Ref<Shader> shader = newobj(Shader);
     Result<std::string> source_code_result = Filesystem::open_file(path).value().read_to_string();
@@ -156,22 +198,39 @@ Result<Ref<Shader>> Shader::load(const std::filesystem::path& path)
     slang::SessionDesc session_desc{};
     slang::TargetDesc target_desc{};
 
-    // NOTE:
     Slang::ComPtr<ISlangFileSystem> filesystem = Slang::ComPtr<ISlangFileSystem>(new UnimplementedFileSystem());
     session_desc.fileSystem = filesystem.get();
 
     std::vector<slang::CompilerOptionEntry> options;
 
     // NOTE: If we use slang's default of row major matrices we will need to transpose matrices before passing them to shaders.
-    options.push_back(slang::CompilerOptionEntry(slang::CompilerOptionName::MatrixLayoutColumn, slang::CompilerOptionValue(slang::CompilerOptionValueKind::Int, 1, 0, nullptr, nullptr)));
+    options.push_back(slang::CompilerOptionEntry(slang::CompilerOptionName::MatrixLayoutColumn, slang::CompilerOptionValue(slang::CompilerOptionValueKind::Int, 1)));
+    // options.push_back(slang::CompilerOptionEntry(slang::CompilerOptionName::Optimization, slang::CompilerOptionValue(slang::CompilerOptionValueKind::Int, 1)));
 
 #ifndef __platform_web
-    target_desc.format = SLANG_SPIRV;
-    target_desc.profile = s_global_session->findProfile("spirv_1_5");
+    if (!compute_shader)
+    {
+        target_desc.format = SLANG_SPIRV;
+        target_desc.profile = s_global_session->findProfile("spirv_1_3");
+        options.push_back(slang::CompilerOptionEntry(slang::CompilerOptionName::EmitSpirvDirectly, slang::CompilerOptionValue(slang::CompilerOptionValueKind::Int, 1)));
 
-    options.push_back(slang::CompilerOptionEntry(slang::CompilerOptionName::EmitSpirvDirectly, slang::CompilerOptionValue(slang::CompilerOptionValueKind::Int, 1, 0, nullptr, nullptr)));
+        shader->m_kind = ShaderKind::SPIRV;
+    }
+    else
+    {
+        target_desc.format = SLANG_GLSL;
+        shader->m_kind = ShaderKind::GLSL;
+    }
+
+    // target_desc.format = SLANG_SPIRV;
+    // target_desc.profile = s_global_session->findProfile("spirv_1_3");
+    // options.push_back(slang::CompilerOptionEntry(slang::CompilerOptionName::EmitSpirvMethod, slang::CompilerOptionValue(slang::CompilerOptionValueKind::Int, SlangEmitSpirvMethod::SLANG_EMIT_SPIRV_VIA_GLSL)));
+
+    // shader->m_kind = ShaderKind::SPIRV;
 #else
     target_desc.format = SLANG_WGSL;
+
+    shader->m_kind = ShaderKind::WGSL;
 #endif
 
     session_desc.targets = &target_desc;
@@ -346,17 +405,34 @@ Result<Ref<Shader>> Shader::load(const std::filesystem::path& path)
 #if defined(__platform_linux) || defined(__platform_windows) || defined(__platform_macos)
     // FIXME: On MacOS `aligned_alloc(sizeof(uint32_t), output_code->getBufferSize())` returns nullptr
     // shader->m_code = (char *)aligned_alloc(sizeof(uint32_t), output_code->getBufferSize());
-    shader->m_code = (char *)malloc(output_code->getBufferSize());
-    shader->m_size = output_code->getBufferSize();
-    std::memcpy(shader->m_code, output_code->getBufferPointer(), output_code->getBufferSize());
+
+    if (!compute_shader)
+    {
+        shader->m_code = (char *)malloc(output_code->getBufferSize());
+        shader->m_size = output_code->getBufferSize();
+        std::memcpy(shader->m_code, output_code->getBufferPointer(), output_code->getBufferSize());
+    }
+    else
+    {
+        std::string s;
+        s.append((char *)output_code->getBufferPointer(), output_code->getBufferSize());
+
+        remove_substrings(s, "layout(row_major) uniform;");
+        remove_substrings(s, "layout(row_major) buffer;");
+
+        shader->m_code = strdup(s.c_str());
+        shader->m_size = s.size();
+    }
 
     // println("m_size = {}, code_u32_size = {}", output_code->getBufferSize(), shader->get_code_u32().size() * sizeof(uint32_t));
+
+    // println("{}", StringView(shader->m_code, shader->m_size));
 
     // std::filesystem::path path2 = path;
     // path2.replace_extension(".slang.spv");
 
-    // std::ofstream os(path2);
-    // os.write(shader->m_code, shader->m_size);
+    // std::ofstream os(Filesystem::resolve_absolute(path2));
+    // os.write(shader->m_code, (std::streamsize)shader->m_size);
 
     // shader->dump_glsl();
 
@@ -392,6 +468,9 @@ Result<> Shader::dump_glsl()
 
     std::vector<slang::CompilerOptionEntry> options;
 
+    Slang::ComPtr<ISlangFileSystem> filesystem = Slang::ComPtr<ISlangFileSystem>(new UnimplementedFileSystem());
+    session_desc.fileSystem = filesystem.get();
+
     // NOTE: If we use slang's default of row major matrices we will need to transpose matrices before passing them to shaders.
     options.push_back(slang::CompilerOptionEntry(slang::CompilerOptionName::MatrixLayoutColumn, slang::CompilerOptionValue(slang::CompilerOptionValueKind::Int, 1, 0, nullptr, nullptr)));
 
@@ -415,7 +494,7 @@ Result<> Shader::dump_glsl()
 
     Slang::ComPtr<slang::IBlob> diagnostics_blob;
 
-    Slang::ComPtr<slang::IModule> module = Slang::ComPtr<slang::IModule>(session->loadModuleFromSourceString("shader", "shader.slang", m_source_code.data(), diagnostics_blob.writeRef()));
+    Slang::ComPtr<slang::IModule> module = Slang::ComPtr(session->loadModuleFromSourceString("shader", m_path.c_str(), m_source_code.data(), diagnostics_blob.writeRef()));
     if (!module)
     {
         println("{}", (char *)diagnostics_blob->getBufferPointer());

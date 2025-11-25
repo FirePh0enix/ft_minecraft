@@ -230,6 +230,17 @@ private:
         }                                                  \
     } while (0)
 
+#define ERR_COND_VRV(COND, RETURN_VALUE, MESSAGE, ...)     \
+    do                                                     \
+    {                                                      \
+        if (COND)                                          \
+        {                                                  \
+            ::print("error: {}:{}: ", __FILE__, __LINE__); \
+            ::println(MESSAGE, __VA_ARGS__);               \
+            return RETURN_VALUE;                           \
+        }                                                  \
+    } while (0)
+
 #define ERR_EXPECT_R(EXPECTED, MESSAGE)                                 \
     do                                                                  \
     {                                                                   \

@@ -171,7 +171,7 @@ public struct SimplexNoiseState
         return 32.0f * (n0 + n1 + n2 + n3);
     }
 
-    public float fractal(int octaves, float3 coords, float frequency, float amplitude, float lacunarity, float persistence)
+    public float fractal<let octaves : int>(float3 coords, float frequency, float amplitude, float lacunarity, float persistence)
     {
         float sum = 0.0;
         float norm = 0.0;

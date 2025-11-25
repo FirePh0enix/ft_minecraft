@@ -221,7 +221,7 @@ enum class BindingKind : uint8_t
 struct BindingBuffer
 {
     size_t element_size;
-    bool is_array;
+    bool is_array = false;
 };
 
 struct Binding

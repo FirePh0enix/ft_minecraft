@@ -17,6 +17,13 @@ enum class ShaderFlagBits
 using ShaderFlags = Flags<ShaderFlagBits>;
 DEFINE_FLAG_TRAITS(ShaderFlagBits);
 
+enum class ShaderKind
+{
+    SPIRV,
+    WGSL,
+    GLSL,
+};
+
 struct PushConstantRange
 {
     ShaderStageFlags stages;
@@ -28,7 +35,7 @@ class Shader : public Object
     CLASS(Shader, Object);
 
 public:
-    static Result<Ref<Shader>> load(const std::filesystem::path& path);
+    static Result<Ref<Shader>> load(const std::filesystem::path& path, bool compute_shader = false);
 
     ~Shader();
 
@@ -73,6 +80,9 @@ public:
         m_samplers[name] = sampler;
     }
 
+    const std::string& get_source_string() const { return m_source_code; }
+    ShaderKind get_shader_kind() const { return m_kind; }
+
     std::string get_entry_point(ShaderStageFlagBits stage) const
     {
         return m_entry_point_names.at(stage);
@@ -104,10 +114,9 @@ public:
     }
 
 private:
+    ShaderKind m_kind;
     std::string m_path;
     std::string m_source_code;
-    // Slang::ComPtr<slang::ISession> m_session;
-    // Slang::ComPtr<slang::IModule> m_module;
 
     char *m_code = nullptr;
     size_t m_size;
@@ -119,4 +128,7 @@ private:
     std::vector<PushConstantRange> m_push_constants;
 
     std::map<ShaderStageFlagBits, std::string> m_entry_point_names;
+
+    static Result<Ref<Shader>> load_glsl_shader(const std::filesystem::path& path);
+    static Result<Ref<Shader>> load_slang_shader(const std::filesystem::path& path, bool compute_shader);
 };

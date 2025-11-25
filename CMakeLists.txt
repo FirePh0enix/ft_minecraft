@@ -198,6 +198,9 @@ file(GLOB_RECURSE Assets_FILES
     ${PROJECT_SOURCE_DIR}/assets/textures/*.png
     ${PROJECT_SOURCE_DIR}/assets/shaders/*.slang
     ${PROJECT_SOURCE_DIR}/assets/shaders/**/*.slang
+
+    ${PROJECT_SOURCE_DIR}/assets/shaders/*.comp
+    ${PROJECT_SOURCE_DIR}/assets/shaders/**/*.comp
 )
 string(REPLACE ";" " " "${Assets_FILES}" Assets_FILES)
 set(Assets_OUTPUT ${CMAKE_BINARY_DIR}/${TARGET_NAME}.data)
@@ -255,7 +258,7 @@ endif()
 FetchContent_Declare(
     slang
     GIT_REPOSITORY https://github.com/shader-slang/slang
-    GIT_TAG b7df3c7aa27301f88e31ed0a7bbf230688adab6a # v2025.14.3
+    GIT_TAG 01fdbb8a1a9b4a948731b580a6a5b618e8e116ff # v2025.22.1
 )
 
 set(SLANG_LIB_TYPE STATIC)
@@ -265,7 +268,7 @@ set(SLANG_ENABLE_CUDA OFF)
 set(SLANG_ENABLE_GFX OFF)
 set(SLANG_ENABLE_XLIB OFF)
 set(SLANG_ENABLE_SLANGD OFF)
-set(SLANG_ENABLE_SLANGC OFF)
+set(SLANG_ENABLE_SLANGC ON)
 set(SLANG_ENABLE_SLANGI OFF)
 # set(SLANG_ENABLE_SLANGRT OFF)
 set(SLANG_ENABLE_REPLAYER OFF)

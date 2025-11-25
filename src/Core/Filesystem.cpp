@@ -91,3 +91,10 @@ void Filesystem::read_raw(const File& file, void *buffer, size_t size)
 {
     EXPECT(s_data_pack.read_file(file.m_offset, buffer, size));
 }
+
+std::string Filesystem::resolve_absolute(const std::string& path)
+{
+    if (path.starts_with("assets://"))
+        return "assets/" + path.substr(9);
+    return path;
+}
