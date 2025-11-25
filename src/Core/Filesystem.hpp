@@ -96,6 +96,8 @@ public:
      */
     static std::filesystem::path current_executable_directory();
 
+    static std::string resolve_absolute(const std::string& path);
+
     static Result<File> open_file(const StringView& path);
 
     static void read_raw(const File& file, void *buffer, size_t size);

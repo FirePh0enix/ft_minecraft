@@ -207,6 +207,8 @@ public:
     //     return m_push_constant_layout;
     // }
 
+    WGPUShaderModule create_shader_module(const Ref<Shader>& shader);
+
     WGPUSurface create_surface(WGPUInstance instance, SDL_Window *window);
 
 private:

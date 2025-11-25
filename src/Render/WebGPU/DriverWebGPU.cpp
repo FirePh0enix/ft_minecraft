@@ -515,6 +515,10 @@ Result<> RenderingDriverWebGPU::initialize(const Window& window, bool enable_val
     WGPUInstanceExtras extras{};
     extras.chain = {.next = nullptr, .sType = (WGPUSType)WGPUSType_InstanceExtras};
     extras.backends = WGPUInstanceBackend_Primary;
+
+    if (enable_validation)
+        extras.flags |= WGPUInstanceFlag_Validation;
+
     instance_desc.nextInChain = &extras.chain;
 
     m_instance = wgpuCreateInstance(&instance_desc);
@@ -690,12 +694,11 @@ Result<Ref<Buffer>> RenderingDriverWebGPU::create_buffer(const char *name, size_
         desc.usage |= WGPUBufferUsage_MapRead;
 
     // WebGPU requires the size of an uniform buffer to a multiple of 16 bytes.
-    if (usage.has_any(BufferUsageFlagBits::Uniform) && size_bytes % 16 > 0)
+    if (usage.has_any(BufferUsageFlagBits::Uniform) && size_bytes % 16 != 0)
         desc.size = (((size_bytes - 1) / 16) + 1) * 16;
 
     WGPUBuffer buffer = wgpuDeviceCreateBuffer(m_device, &desc);
-    if (!buffer)
-        return Error(ErrorKind::OutOfDeviceMemory);
+    ERR_COND_VRV(buffer == nullptr, Error(ErrorKind::OutOfDeviceMemory), "Failed to create buffer of size {}", size_bytes);
 
     return newobj(BufferWebGPU, buffer, element, size, usage).cast_to<Buffer>();
 }
@@ -737,12 +740,14 @@ void RenderingDriverWebGPU::draw_graph(const RenderGraph& graph)
 {
     WGPUSurfaceTexture surface_texture{};
     wgpuSurfaceGetCurrentTexture(m_surface, &surface_texture);
-    ERR_COND_R(surface_texture.texture == nullptr, "Cannot acquire a swapchain image");
 
-    WGPUTextureView view = wgpuTextureCreateView(surface_texture.texture, nullptr); // TODO: destroy at the end
+    ERR_COND_VR(surface_texture.texture == nullptr, "Cannot acquire a swapchain image (status = {})", surface_texture.status);
+
+    WGPUTextureView view = wgpuTextureCreateView(surface_texture.texture, nullptr);
     ERR_COND_R(view == nullptr, "Cannot acquire a swapchain image view");
 
     WGPUCommandEncoder command_encoder = wgpuDeviceCreateCommandEncoder(m_device, nullptr);
+    WGPUCommandEncoder compute_command_encoder = wgpuDeviceCreateCommandEncoder(m_device, nullptr);
     WGPURenderPassEncoder render_pass_encoder = nullptr;
     RenderPassDescriptor render_pass_descriptor;
     WGPUComputePassEncoder compute_pass_encoder = nullptr;
@@ -858,7 +863,8 @@ void RenderingDriverWebGPU::draw_graph(const RenderGraph& graph)
             desc.label = WGPU_STRING_VIEW_INIT;
             desc.nextInChain = nullptr;
             desc.timestampWrites = nullptr;
-            compute_pass_encoder = wgpuCommandEncoderBeginComputePass(command_encoder, &desc);
+            compute_pass_encoder = wgpuCommandEncoderBeginComputePass(compute_command_encoder, &desc);
+            // compute_pass_encoder = wgpuCommandEncoderBeginComputePass(command_encoder, &desc);
         }
         else if (std::holds_alternative<EndComputePassInstruction>(instruction))
         {
@@ -885,11 +891,18 @@ void RenderingDriverWebGPU::draw_graph(const RenderGraph& graph)
         }
     }
 
-    WGPUCommandBufferDescriptor buffer_desc{};
-    buffer_desc.label = WGPU_STRING_VIEW("Main CommandBuffer");
+    WGPUCommandBufferDescriptor compute_buffer_desc{};
+    compute_buffer_desc.label = WGPU_STRING_VIEW("Compute CommandBuffer");
+    WGPUCommandBuffer compute_command_buffer = wgpuCommandEncoderFinish(compute_command_encoder, &compute_buffer_desc);
+    wgpuQueueSubmit(m_queue, 1, &compute_command_buffer);
 
+    WGPUCommandBufferDescriptor buffer_desc{};
+    buffer_desc.label = WGPU_STRING_VIEW("Render CommandBuffer");
     WGPUCommandBuffer command_buffer = wgpuCommandEncoderFinish(command_encoder, &buffer_desc);
     wgpuQueueSubmit(m_queue, 1, &command_buffer);
+
+    // WGPUCommandBuffer command_buffers[] = {compute_command_buffer, command_buffer};
+    // wgpuQueueSubmit(m_queue, 2, command_buffers);
 
 #ifdef __platform_web
     emscripten_request_animation_frame([](double, void *)
@@ -898,10 +911,58 @@ void RenderingDriverWebGPU::draw_graph(const RenderGraph& graph)
     wgpuSurfacePresent(m_surface);
 #endif
 
+    wgpuCommandBufferRelease(compute_command_buffer);
+    wgpuCommandEncoderRelease(compute_command_encoder);
+
     wgpuCommandBufferRelease(command_buffer);
     wgpuCommandEncoderRelease(command_encoder);
 
     wgpuTextureViewRelease(view);
+}
+
+WGPUShaderModule RenderingDriverWebGPU::create_shader_module(const Ref<Shader>& shader)
+{
+    WGPUShaderModuleDescriptor module_desc{};
+    module_desc.label = WGPU_STRING_VIEW_INIT;
+
+#ifndef __platform_web
+    if (shader->get_shader_kind() == ShaderKind::SPIRV)
+    {
+        const View<uint32_t> shader_code = shader->get_code_u32();
+
+        WGPUShaderSourceSPIRV spirv_source{};
+        spirv_source.chain = {.next = nullptr, .sType = WGPUSType_ShaderSourceSPIRV};
+        spirv_source.code = shader_code.data();
+        spirv_source.codeSize = shader_code.size();
+        module_desc.nextInChain = &spirv_source.chain;
+    }
+    else if (shader->get_shader_kind() == ShaderKind::GLSL)
+    {
+        const View<char> shader_code = shader->get_code();
+
+        std::string s;
+        s.append(shader_code.data(), shader_code.size());
+        println("{}", s);
+
+        WGPUShaderSourceGLSL glsl_source{};
+        glsl_source.chain = {.next = nullptr, .sType = (WGPUSType)WGPUSType_ShaderSourceGLSL};
+        glsl_source.stage = WGPUShaderStage_Compute;
+        glsl_source.code.data = shader_code.data();
+        glsl_source.code.length = shader_code.size();
+        glsl_source.defineCount = 0;
+        glsl_source.defines = nullptr;
+        module_desc.nextInChain = &glsl_source.chain;
+    }
+#else
+    const View<char> shader_code = shader->get_code();
+
+    WGPUShaderModuleWGSLDescriptor wgsl_source{};
+    wgsl_source.chain = {.next = nullptr, .sType = WGPUSType_ShaderModuleWGSLDescriptor};
+    wgsl_source.code = shader_code.data();
+    module_desc.nextInChain = &wgsl_source.chain;
+#endif
+
+    return wgpuDeviceCreateShaderModule(m_device, &module_desc);
 }
 
 Result<WGPURenderPipeline> RenderingDriverWebGPU::create_render_pipeline(Ref<Shader> shader, std::optional<InstanceLayout> instance_layout, WGPUCullMode cull_mode, MaterialFlags flags, WGPUPipelineLayout pipeline_layout, const std::vector<RenderPassColorAttachment>& color_attachs, bool previous_depth_pass)
@@ -944,27 +1005,7 @@ Result<WGPURenderPipeline> RenderingDriverWebGPU::create_render_pipeline(Ref<Sha
         buffers.push_back(WGPUVertexBufferLayout{.stepMode = WGPUVertexStepMode_Instance, .arrayStride = layout.stride, .attributeCount = instance_attribs.size(), .attributes = instance_attribs.data()});
     }
 
-    WGPUShaderModuleDescriptor module_desc{};
-    module_desc.label = WGPU_STRING_VIEW_INIT;
-
-#ifndef __platform_web
-    const View<uint32_t> shader_code = shader->get_code_u32();
-
-    WGPUShaderSourceSPIRV spirv_source{};
-    spirv_source.chain = {.next = nullptr, .sType = WGPUSType_ShaderSourceSPIRV};
-    spirv_source.code = shader_code.data();
-    spirv_source.codeSize = shader_code.size();
-    module_desc.nextInChain = &spirv_source.chain;
-#else
-    const View<char> shader_code = shader->get_code();
-
-    WGPUShaderModuleWGSLDescriptor wgsl_source{};
-    wgsl_source.chain = {.next = nullptr, .sType = WGPUSType_ShaderModuleWGSLDescriptor};
-    wgsl_source.code = shader_code.data();
-    module_desc.nextInChain = &wgsl_source.chain;
-#endif
-
-    WGPUShaderModule module = wgpuDeviceCreateShaderModule(m_device, &module_desc);
+    WGPUShaderModule module = create_shader_module(shader);
     ERR_COND_R(module == nullptr, "Unable to compile shader", Error(ErrorKind::BadDriver));
 
     const std::string& vertex_ep = shader->get_entry_point(ShaderStageFlagBits::Vertex);
@@ -1048,26 +1089,7 @@ Result<WGPURenderPipeline> RenderingDriverWebGPU::create_render_pipeline(Ref<Sha
 
 Result<WGPUComputePipeline> RenderingDriverWebGPU::create_compute_pipeline(const Ref<Shader>& shader, WGPUPipelineLayout pipeline_layout)
 {
-    WGPUShaderModuleDescriptor module_desc{};
-
-#ifndef __platform_web
-    const View<uint32_t> shader_code = shader->get_code_u32();
-
-    WGPUShaderSourceSPIRV spirv_source{};
-    spirv_source.chain = {.next = nullptr, .sType = WGPUSType_ShaderSourceSPIRV};
-    spirv_source.code = shader_code.data();
-    spirv_source.codeSize = shader_code.size();
-    module_desc.nextInChain = &spirv_source.chain;
-#else
-    const View<char> shader_code = shader->get_code();
-
-    WGPUShaderModuleWGSLDescriptor wgsl_source{};
-    wgsl_source.chain = {.next = nullptr, .sType = WGPUSType_ShaderModuleWGSLDescriptor};
-    wgsl_source.code = shader_code.data();
-    module_desc.nextInChain = &wgsl_source.chain;
-#endif
-
-    WGPUShaderModule module = wgpuDeviceCreateShaderModule(m_device, &module_desc);
+    WGPUShaderModule module = create_shader_module(shader);
     ERR_COND_R(module == nullptr, "Unable to compile shader", Error(ErrorKind::BadDriver));
 
     // const std::string& entry_point = shader->get_entry_point(ShaderStageFlagBits::Compute);

@@ -9,7 +9,7 @@
 World::World(Ref<Mesh> mesh, Ref<Material> material, uint64_t seed)
     : m_mesh(mesh), m_material(material)
 {
-    m_surface_shader = Shader::load("assets://shaders/terrain/surface.slang").value_or(nullptr);
+    m_surface_shader = Shader::load("assets://shaders/terrain/surface.slang", true).value_or(nullptr);
     m_position_buffer = RenderingDriver::get()->create_buffer(STRUCTNAME(glm::vec4), Chunk::block_count, BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Storage).value();
 
     std::vector<glm::vec4> positions(Chunk::block_count);
@@ -93,8 +93,6 @@ void World::set_render_distance(uint32_t distance)
 void World::encode_draw_calls(RenderPassEncoder& encoder, Camera& camera)
 {
     ZoneScoped;
-
-    std::lock_guard<std::mutex> lock(m_chunks_read_mutex);
 
     for (const auto& [pos, chunk] : m_dims[0])
     {
