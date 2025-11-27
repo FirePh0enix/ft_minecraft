@@ -926,11 +926,14 @@ WGPUShaderModule RenderingDriverWebGPU::create_shader_module(const Ref<Shader>& 
     module_desc.label = WGPU_STRING_VIEW_INIT;
 
 #ifndef __platform_web
+    std::string s;
+    WGPUShaderSourceSPIRV spirv_source{};
+    WGPUShaderSourceGLSL glsl_source{};
+
     if (shader->get_shader_kind() == ShaderKind::SPIRV)
     {
         const View<uint32_t> shader_code = shader->get_code_u32();
 
-        WGPUShaderSourceSPIRV spirv_source{};
         spirv_source.chain = {.next = nullptr, .sType = WGPUSType_ShaderSourceSPIRV};
         spirv_source.code = shader_code.data();
         spirv_source.codeSize = shader_code.size();
@@ -940,11 +943,6 @@ WGPUShaderModule RenderingDriverWebGPU::create_shader_module(const Ref<Shader>& 
     {
         const View<char> shader_code = shader->get_code();
 
-        std::string s;
-        s.append(shader_code.data(), shader_code.size());
-        println("{}", s);
-
-        WGPUShaderSourceGLSL glsl_source{};
         glsl_source.chain = {.next = nullptr, .sType = (WGPUSType)WGPUSType_ShaderSourceGLSL};
         glsl_source.stage = WGPUShaderStage_Compute;
         glsl_source.code.data = shader_code.data();
@@ -1219,7 +1217,6 @@ RenderGraphCache::RenderPass& RenderGraphCache::set_render_pass(uint32_t index, 
             if (!attach.depth_load_previous)
             {
                 // FIXME: Textures should be recreated when resizing the window.
-                // TODO: Should depth texture be hardcoded here ?
                 Extent2D extent = RenderingDriver::get()->get_surface_extent();
                 Result<Ref<Texture>> texture_result = RenderingDriver::get()->create_texture(extent.width, extent.height, TextureFormat::Depth32, TextureUsageFlagBits::DepthAttachment);
                 attach.texture = texture_result.value().cast_to<TextureWebGPU>();

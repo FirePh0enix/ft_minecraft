@@ -3,8 +3,6 @@
 #include "Render/Driver.hpp"
 #include "World/Block.hpp"
 
-#include <atomic>
-
 class World;
 
 struct ChunkPos
@@ -30,10 +28,10 @@ struct ChunkBounds
     glm::ivec3 max;
 };
 
-struct GPU_ATTRIBUTE ChunkGPUInfo
+struct ChunkGPUInfo
 {
-    uint32_t chunk_x;
-    uint32_t chunk_z;
+    int32_t chunk_x;
+    int32_t chunk_z;
 };
 STRUCT(ChunkGPUInfo);
 
@@ -46,7 +44,7 @@ public:
     static constexpr int64_t height = 256;
     static constexpr int64_t block_count = width * width * height;
 
-    Chunk(int64_t x, int64_t z, const Ref<Shader>& shader, World *world);
+    Chunk(int64_t x, int64_t z, const Ref<Shader>& surface_shader, const Ref<Shader>& visual_shader, World *world);
 
     inline BlockState get_block(size_t x, size_t y, size_t z) const
     {
@@ -87,17 +85,14 @@ public:
         return ChunkBounds{.min = glm::ivec3(m_min_x, m_min_y, m_min_z), .max = glm::ivec3(m_max_x, m_max_y, m_max_z)};
     }
 
-    Ref<Buffer> get_block_buffer() const
-    {
-        return m_gpu_blocks;
-    }
+    Ref<Buffer> get_block_buffer() const { return m_gpu_blocks; }
+
+    Ref<Material> get_visual_material() const { return m_visual_material; }
 
     /**
         Generate the chunk.
      */
     void generate();
-
-    std::atomic_bool ready = false;
 
 private:
     std::vector<BlockState> m_blocks;
@@ -105,10 +100,10 @@ private:
     int64_t m_z;
 
     Ref<ComputeMaterial> m_surface_material;
+    Ref<Material> m_visual_material;
 
     Ref<Buffer> m_gpu_blocks;
     Ref<Buffer> m_cpu_blocks;
-    Ref<Buffer> m_gpu_info;
 
     // TODO: transparent blocks
     uint32_t m_block_count = 0;

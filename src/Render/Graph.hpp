@@ -106,6 +106,7 @@ public:
     ComputePassEncoder operator==(const ComputePassEncoder& encoder) = delete;
 
     void bind_material(const Ref<ComputeMaterial>& material);
+    void push_constants(const DataBuffer& buffer);
     void dispatch(uint32_t group_x, uint32_t group_y, uint32_t group_z);
     void end();
 
@@ -125,7 +126,6 @@ public:
 
     void reset();
     View<Instruction> get_instructions() const;
-    View<Instruction> get_compute_instructions() const;
 
     RenderPassEncoder render_pass_begin(const RenderPassDescriptor& descriptor);
     ComputePassEncoder compute_pass_begin();
@@ -133,8 +133,6 @@ public:
 
 private:
     std::vector<Instruction> m_instructions;
-    std::vector<Instruction> m_compute_instructions;
-    bool m_renderpass = false;
 };
 
 static inline RenderGraph g_graph;
