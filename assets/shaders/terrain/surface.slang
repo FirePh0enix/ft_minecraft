@@ -4,14 +4,15 @@ import noise;
 // This structure need to be kept in sync with CPU code.
 struct GeneralInfo
 {
-    uint32_t chunk_x;
-    uint32_t chunk_z;
+    int32_t chunkX;
+    int32_t chunkZ;
 };
 
-ConstantBuffer<GeneralInfo> info;
 RWStructuredBuffer<BlockState> blocks;
 ConstantBuffer<SimplexNoiseState> simplexState;
 
+[push_constant]
+GeneralInfo info;
 
 static float evaluateSpline(const float keys[5], const float vals[5], int count, float x)
 {
@@ -72,11 +73,11 @@ static float getPV(int x, int z)
 void computeMain(uint3 id : SV_DispatchThreadID)
 {
     uint index = id.z * 16 * 256 + id.y * 16 + id.x;
-    int3 globalPosition = int3(id.x + info.chunk_x * 16, id.y, id.z + info.chunk_z * 16);
+    int3 globalPosition = int3(id.x + info.chunkX * 16, id.y, id.z + info.chunkZ * 16);
 
     float continentalness = getContinentalness(globalPosition.x, globalPosition.z);
-    float erosion = getErosion(int(globalPosition.x), int(globalPosition.z));
-    float pv = getPV(int(globalPosition.x), int(globalPosition.z));
+    float erosion = getErosion(globalPosition.x, globalPosition.z);
+    float pv = getPV(globalPosition.x, globalPosition.z);
 
     float baseHeight = evaluateSpline(CONT_KEYS, CONT_VALS, SPLINE_COUNT, continentalness);
     float erosionFactor = evaluateSpline(ERO_KEYS, ERO_VALS, SPLINE_COUNT, erosion);

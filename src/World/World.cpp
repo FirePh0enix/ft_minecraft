@@ -6,8 +6,8 @@
 
 #include <random>
 
-World::World(Ref<Mesh> mesh, Ref<Material> material, uint64_t seed)
-    : m_mesh(mesh), m_material(material)
+World::World(Ref<Mesh> mesh, Ref<Shader> visual_shader, uint64_t seed)
+    : m_mesh(mesh), m_visual_shader(visual_shader)
 {
     m_surface_shader = Shader::load("assets://shaders/terrain/surface.slang", true).value_or(nullptr);
     m_position_buffer = RenderingDriver::get()->create_buffer(STRUCTNAME(glm::vec4), Chunk::block_count, BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Storage).value();
@@ -20,9 +20,6 @@ World::World(Ref<Mesh> mesh, Ref<Material> material, uint64_t seed)
                 positions[x + y * 16 + z * 16 * 256] = glm::vec4(x, y, z, 0.0);
 
     m_position_buffer->update(View(positions).as_bytes());
-    m_material->set_param("positions", m_position_buffer);
-
-    m_material->set_param("textureRegistry", BlockRegistry::get_texture_buffer());
 
     // Create the permutation table used by the noise algorithms.
     m_permutation_buffer = RenderingDriver::get()->create_buffer(STRUCTNAME(SimplexState), 1, BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Uniform).value();
@@ -108,9 +105,9 @@ void World::encode_draw_calls(RenderPassEncoder& encoder, Camera& camera)
         push_constants.add(view_matrix);
         push_constants.add(model_matrix);
 
-        m_material->set_param("blocks", chunk->get_block_buffer());
+        // m_material->set_param("blocks", chunk->get_block_buffer());
 
-        encoder.bind_material(m_material);
+        encoder.bind_material(chunk->get_visual_material());
         encoder.push_constants(push_constants);
         encoder.bind_index_buffer(m_mesh->get_buffer(MeshBufferKind::Index));
         encoder.bind_vertex_buffer(m_mesh->get_buffer(MeshBufferKind::Position), 0);
@@ -122,8 +119,12 @@ void World::encode_draw_calls(RenderPassEncoder& encoder, Camera& camera)
 
 void World::load_chunk(int64_t x, int64_t z)
 {
-    Ref<Chunk> chunk = newobj(Chunk, x, z, m_surface_shader, this);
+    Ref<Chunk> chunk = newobj(Chunk, x, z, m_surface_shader, m_visual_shader, this);
     chunk->generate();
+
+    chunk->get_visual_material()->set_param("positions", m_position_buffer);
+    chunk->get_visual_material()->set_param("textureRegistry", BlockRegistry::get_texture_buffer());
+    chunk->get_visual_material()->set_param("images", BlockRegistry::get_texture_array());
 
     m_dims[0].add_chunk(x, z, chunk);
 }

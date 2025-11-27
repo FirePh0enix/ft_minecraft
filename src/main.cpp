@@ -66,8 +66,6 @@ ENGINE_MAIN(int argc, char *argv[])
     Ref<Shader> shader = shader_result.value();
     shader->set_sampler("images", {.min_filter = Filter::Nearest, .mag_filter = Filter::Nearest});
 
-    Ref<Material> material = Material::create(shader, std::nullopt, MaterialFlagBits::Transparency, PolygonMode::Fill, CullMode::Back);
-
     auto cube_result = create_cube_with_separate_faces(glm::vec3(1.0), glm::vec3(-0.5));
     EXPECT(cube_result);
     Ref<Mesh> cube = cube_result.value();
@@ -85,7 +83,7 @@ ENGINE_MAIN(int argc, char *argv[])
     scene->add_plugins<RenderingPlugin, PhysicsPlugin, MultiplayerPlugin>();
     scene->add_system(Update, Player::update);
 
-    world = newobj(World, cube, material, 1);
+    world = newobj(World, cube, shader, 1);
     world->set_render_distance(3);
 
     Ref<Entity> world_entity = newobj(Entity);
@@ -110,8 +108,6 @@ ENGINE_MAIN(int argc, char *argv[])
 
     scene->add_entity(player);
     scene->set_active_camera(camera);
-
-    material->set_param("images", BlockRegistry::get_texture_array());
 
     if (args.has("disable-save"))
     {

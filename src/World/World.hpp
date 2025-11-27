@@ -21,7 +21,7 @@ public:
     static constexpr size_t overworld = 0;
     static constexpr size_t underworld = 1;
 
-    World(Ref<Mesh> mesh, Ref<Material> material, uint64_t seed);
+    World(Ref<Mesh> mesh, Ref<Shader> visual_shader, uint64_t seed);
 
     BlockState get_block_state(int64_t x, int64_t y, int64_t z) const;
     void set_block_state(int64_t x, int64_t y, int64_t z, BlockState state);
@@ -91,7 +91,7 @@ private:
     uint32_t m_distance = 0;
 
     Ref<Mesh> m_mesh;
-    Ref<Material> m_material;
+    Ref<Shader> m_visual_shader;
     Ref<Shader> m_surface_shader;
 
     Ref<Buffer> m_position_buffer;
