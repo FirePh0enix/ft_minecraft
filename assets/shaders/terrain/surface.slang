@@ -41,7 +41,7 @@ static const int SPLINE_COUNT = 5;
 static const float SEA_LEVEL = 62.0f;
 
 static const float CONT_KEYS[5] = { -1.0f, -0.2f, -0.05f, 0.2f, 1.0f };
-static const float CONT_VALS[5] = { 0.0f, 4.0f, 8.0f, 12.0f, 24.0f };
+static const float CONT_VALS[5] = { 0.0f, 32.0f, 64.0f, 96.0f, 128.0f };
 
 static const float ERO_KEYS[5]  = { -1.0f, -0.2f, 0.0f, 0.5f, 1.0f };
 static const float ERO_VALS[5]  = { 1.8f, 1.2f, 1.0f, 0.75f, 0.5f };
@@ -52,13 +52,15 @@ static const float PV_VALS[5]   = { -50.0f, -25.0f, 0.0f, 25.0f, 50.0f };
 
 static float getContinentalness(int x, int z)
 {
-    return simplexState.fractal<2>(float3(x * 0.00052f, 0, z * 0.00052f), 1, 1, 2, 0.5); // simplexState.simplex2D(float2(x * 0.00052f, z * 0.00052f));
+    return simplexState.fractal<2>(float3(x * 0.00025f, 0, z * 0.00025f), 1, 1, 2, 0.5); // simplexState.simplex2D(float2(x * 0.00052f, z * 0.00052f));
 }
 
 static float getErosion(int x, int z)
 {
     return simplexState.fractal<2>(float3(x * 0.001f, 0, z * 0.001f), 1, 1, 2, 0.5); // simplexState.simplex2D(float2(x * 0.001f, z * 0.001f));
 }
+
+
 
 static float getPV(int x, int z)
 {
@@ -72,7 +74,6 @@ static float getPV(int x, int z)
 [numthreads(16, 1, 16)]
 void computeMain(uint3 id : SV_DispatchThreadID)
 {
-    uint index = id.z * 16 * 256 + id.y * 16 + id.x;
     int3 globalPosition = int3(id.x + info.chunkX * 16, id.y, id.z + info.chunkZ * 16);
 
     float continentalness = getContinentalness(globalPosition.x, globalPosition.z);
@@ -86,9 +87,19 @@ void computeMain(uint3 id : SV_DispatchThreadID)
     const float pv_scale = 0.9f;
     float height = baseHeight + pvOffset * erosionFactor * pv_scale;
 
-    for (uint y = 0; y <= height; y++)
+    for (uint y = 0; y < 256; y++)
     {
         uint index = id.z * 16 * 256 + y * 16 + id.x;
-        blocks[index].id_raw = 1;
+
+        if (y <= height)
+        {
+            // Stone
+            blocks[index].id_raw = 3;
+        }
+        else if (y <= SEA_LEVEL)
+        {
+            // Water
+            blocks[index].id_raw = 5;
+        }
     }
 }
