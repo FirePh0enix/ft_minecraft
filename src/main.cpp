@@ -28,7 +28,7 @@ static void register_all_classes();
 static std::string default_config = R"(
 [player]
 x=0.0
-y=50.0
+y=150.0
 z=0.0
 )";
 
