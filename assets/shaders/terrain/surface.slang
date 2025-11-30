@@ -61,7 +61,6 @@ static float getErosion(int x, int z)
 }
 
 
-
 static float getPV(int x, int z)
 {
     float w = simplexState.fractal<2>(float3(x * 0.0025f, 0, z * 0.0025f), 1, 1, 2, 0.5); // simplexState.simplex2D(float2(x * 0.0025f, z * 0.0025f));
@@ -69,6 +68,21 @@ static float getPV(int x, int z)
     float pv = 1.0 - abs(3.0 * a - 2.0);
     return clamp(pv, -1.0, 1.0);
 }
+
+static float getOverhang(int x, int y, int z)
+{
+    float n = simplexState.simplex3D(float3(x*0.03f, y*0.03f, z*0.03f));
+    n += simplexState.simplex3D(float3(x*0.06f, y*0.06f, z*0.06f)) * 0.5f;
+    return n;
+}
+
+static float getCaveNoise(int x, int y, int z)
+{
+    float n = simplexState.simplex3D(float3(x*0.003f, y*0.003f, z*0.003f));
+    n += simplexState.simplex3D(float3(x*0.006f, y*0.006f, z*0.006f)) * 0.5f;
+    return n;
+}
+
 
 [shader("compute")]
 [numthreads(16, 1, 16)]
@@ -84,21 +98,29 @@ void computeMain(uint3 id : SV_DispatchThreadID)
     float erosionFactor = evaluateSpline(ERO_KEYS, ERO_VALS, SPLINE_COUNT, erosion);
     float pvOffset = evaluateSpline(PV_KEYS, PV_VALS, SPLINE_COUNT, pv);
 
-    const float pv_scale = 0.9f;
+    float pv_scale = 0.9f;
     float height = baseHeight + pvOffset * erosionFactor * pv_scale;
 
     for (uint y = 0; y < 256; y++)
     {
         uint index = id.z * 16 * 256 + y * 16 + id.x;
 
-        if (y <= height)
+        float overhang = getOverhang(globalPosition.x, y, globalPosition.z) * 15.0f - 10.0f;
+        float density = height - y + overhang;
+        bool cave = getCaveNoise(globalPosition.x, y, globalPosition.z) > 0.9f;
+
+        if (cave)
         {
-            // Stone
+            continue;
+        }
+        else if (density > 0.0f)
+        {
+             // Stone
             blocks[index].id_raw = 3;
         }
         else if (y <= SEA_LEVEL)
         {
-            // Water
+             // Water
             blocks[index].id_raw = 5;
         }
     }
