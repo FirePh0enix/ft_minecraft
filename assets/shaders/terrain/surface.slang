@@ -71,18 +71,21 @@ static float getPV(int x, int z)
 
 static float getOverhang(int x, int y, int z)
 {
-    float n = simplexState.simplex3D(float3(x*0.03f, y*0.03f, z*0.03f));
-    n += simplexState.simplex3D(float3(x*0.06f, y*0.06f, z*0.06f)) * 0.5f;
+    float n = simplexState.simplex3D(float3(x * 0.03f, y * 0.03f, z * 0.03f));
+    n += simplexState.simplex3D(float3(x * 0.06f, y * 0.06f, z * 0.06f)) * 0.5f;
     return n;
 }
 
 static float getCaveNoise(int x, int y, int z)
 {
-    float n = simplexState.simplex3D(float3(x*0.003f, y*0.003f, z*0.003f));
-    n += simplexState.simplex3D(float3(x*0.006f, y*0.006f, z*0.006f)) * 0.5f;
+    float n = simplexState.simplex3D(float3(x * 0.003f, y * 0.003f, z * 0.003f));
+    n += simplexState.simplex3D(float3(x * 0.006f, y * 0.006f, z * 0.006f)) * 0.5f;
     return n;
 }
 
+
+static const uint STONE = 3;
+static const uint WATER = 5;
 
 [shader("compute")]
 [numthreads(16, 1, 16)]
@@ -115,13 +118,11 @@ void computeMain(uint3 id : SV_DispatchThreadID)
         }
         else if (density > 0.0f)
         {
-             // Stone
-            blocks[index].id_raw = 3;
+            blocks[index].id_raw = STONE;
         }
         else if (y <= SEA_LEVEL)
         {
-             // Water
-            blocks[index].id_raw = 5;
+            blocks[index].id_raw = WATER;
         }
     }
 }
