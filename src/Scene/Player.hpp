@@ -54,7 +54,8 @@ private:
     Ref<Mesh> m_cube_mesh;
     Ref<Entity> m_cube_highlight;
 
-    float m_speed = 10.0;
+    // float m_speed = 10.0;
+    float m_speed = 50.0;
     float m_gravity_value = 9.81;
     bool m_gravity_enabled = true;
 
