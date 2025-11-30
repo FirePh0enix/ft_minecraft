@@ -3,6 +3,8 @@
 #include "Render/Driver.hpp"
 #include "World/Block.hpp"
 
+#include <atomic>
+
 class World;
 
 struct ChunkPos
@@ -44,7 +46,7 @@ public:
     static constexpr int64_t height = 256;
     static constexpr int64_t block_count = width * width * height;
 
-    Chunk(int64_t x, int64_t z, const Ref<Shader>& surface_shader, const Ref<Shader>& visual_shader, World *world);
+    Chunk(int64_t x, int64_t z, const Ref<Shader>& surface_shader, const Ref<Shader>& visibility_shader, const Ref<Shader>& visual_shader, World *world);
 
     inline BlockState get_block(size_t x, size_t y, size_t z) const
     {
@@ -94,16 +96,20 @@ public:
      */
     void generate();
 
+    std::atomic_bool ready = false;
+
 private:
     std::vector<BlockState> m_blocks;
     int64_t m_x;
     int64_t m_z;
 
     Ref<ComputeMaterial> m_surface_material;
+    Ref<ComputeMaterial> m_visibility_material;
     Ref<Material> m_visual_material;
 
     Ref<Buffer> m_gpu_blocks;
     Ref<Buffer> m_cpu_blocks;
+    Ref<Buffer> m_visibility_buffer;
 
     // TODO: transparent blocks
     uint32_t m_block_count = 0;

@@ -163,9 +163,9 @@ Result<Ref<Shader>> Shader::load_glsl_shader(const std::filesystem::path& path)
     shader->m_path = path.string();
     shader->m_kind = ShaderKind::GLSL;
 
-    shader->m_bindings["info"] = Binding(BindingKind::UniformBuffer, ShaderStageFlagBits::Compute, 0, 0, BindingBuffer(16, false));
-    shader->m_bindings["simplexState"] = Binding(BindingKind::UniformBuffer, ShaderStageFlagBits::Compute, 0, 1, BindingBuffer(256, false));
-    shader->m_bindings["blocks"] = Binding(BindingKind::StorageBuffer, ShaderStageFlagBits::Compute, 0, 2, BindingBuffer(4, true));
+    shader->m_bindings["info"] = Binding(BindingKind::UniformBuffer, ShaderStageFlagBits::Compute, 0, 0, BindingAccess::Read, BindingBuffer(16, false));
+    shader->m_bindings["simplexState"] = Binding(BindingKind::UniformBuffer, ShaderStageFlagBits::Compute, 0, 1, BindingAccess::Read, BindingBuffer(256, false));
+    shader->m_bindings["blocks"] = Binding(BindingKind::StorageBuffer, ShaderStageFlagBits::Compute, 0, 2, BindingAccess::ReadWrite, BindingBuffer(4, true));
 
     shader->m_stage_mask = ShaderStageFlagBits::Compute;
     shader->m_entry_point_names[ShaderStageFlagBits::Compute] = "main";
@@ -180,6 +180,20 @@ static void remove_substrings(std::string& s, const std::string& p)
          i != std::string::npos;
          i = s.find(p))
         s.erase(i, n);
+}
+
+static BindingAccess convert_access(SlangResourceAccess access)
+{
+    switch (access)
+    {
+    case SLANG_RESOURCE_ACCESS_READ:
+        return BindingAccess::Read;
+    case SLANG_RESOURCE_ACCESS_READ_WRITE:
+        return BindingAccess::ReadWrite;
+    default:
+        break;
+    }
+    return BindingAccess::Read;
 }
 
 Result<Ref<Shader>> Shader::load_slang_shader(const std::filesystem::path& path, bool compute_shader)
@@ -348,25 +362,27 @@ Result<Ref<Shader>> Shader::load_slang_shader(const std::filesystem::path& path,
             continue;
         }
 
+        SlangResourceShape shape = var->getType()->getResourceShape();
+        SlangResourceAccess access = var->getType()->getResourceAccess();
+
+        BindingAccess access2 = convert_access(access);
+
         switch (var->getType()->getKind())
         {
         case slang::TypeReflection::Kind::ConstantBuffer:
         {
             println(">> constbuffer at {}:{}", group, binding);
             const size_t byte_size = var->getTypeLayout()->getElementTypeLayout()->getSize();
-            shader->m_bindings[name] = Binding(BindingKind::UniformBuffer, stages, group, binding, BindingBuffer(byte_size, false));
+            shader->m_bindings[name] = Binding(BindingKind::UniformBuffer, stages, group, binding, access2, BindingBuffer(byte_size, false));
         }
         break;
         case slang::TypeReflection::Kind::Resource:
         {
-            SlangResourceShape shape = var->getType()->getResourceShape();
-            // SlangResourceAccess access = var->getType()->getResourceAccess();
-
             if (shape == SLANG_STRUCTURED_BUFFER)
             {
                 println(">> buffer at {}:{}", group, binding);
                 const size_t byte_size = var->getTypeLayout()->getElementTypeLayout()->getSize();
-                shader->m_bindings[name] = Binding(BindingKind::StorageBuffer, stages, group, binding, BindingBuffer(byte_size, true));
+                shader->m_bindings[name] = Binding(BindingKind::StorageBuffer, stages, group, binding, access2, BindingBuffer(byte_size, true));
             }
             else if ((shape & SLANG_TEXTURE_COMBINED_FLAG) == SLANG_TEXTURE_COMBINED_FLAG || (shape & SLANG_TEXTURE_1D) == SLANG_TEXTURE_1D || (shape & SLANG_TEXTURE_2D) == SLANG_TEXTURE_2D || (shape & SLANG_TEXTURE_3D) == SLANG_TEXTURE_3D || (shape & SLANG_TEXTURE_CUBE) == SLANG_TEXTURE_CUBE)
             {
@@ -374,7 +390,7 @@ Result<Ref<Shader>> Shader::load_slang_shader(const std::filesystem::path& path,
                 //       it must be right after the texture (location + 1).
                 SlangResourceShape shape_without_flags = (SlangResourceShape)(shape & ~SLANG_TEXTURE_COMBINED_FLAG);
                 TextureDimension dimension = convert_dimension(shape_without_flags);
-                shader->m_bindings[name] = Binding(BindingKind::Texture, stages, group, binding, dimension);
+                shader->m_bindings[name] = Binding(BindingKind::Texture, stages, group, binding, access2, dimension);
 
                 println(">> texture at {}:{}", group, binding);
             }

@@ -6,11 +6,8 @@ struct BlockState
     inline uint id() {
         return id_raw & 0xFFFF;
     }
-};
 
-constexpr uint NORTH_MASK = 0b1;
-constexpr uint SOUTH_MASK = 0b01;
-constexpr uint WEST_MASK = 0b001;
-constexpr uint EAST_MASK = 0b0001;
-constexpr uint TOP_MASK = 0b00001;
-constexpr uint BOTTOM_MASK = 0b000001;
+    inline bool isAir() {
+        return id() == 0;
+    }
+};

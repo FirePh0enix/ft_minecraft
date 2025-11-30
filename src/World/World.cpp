@@ -10,6 +10,8 @@ World::World(Ref<Mesh> mesh, Ref<Shader> visual_shader, uint64_t seed)
     : m_mesh(mesh), m_visual_shader(visual_shader)
 {
     m_surface_shader = Shader::load("assets://shaders/terrain/surface.slang", true).value_or(nullptr);
+    m_visibility_shader = Shader::load("assets://shaders/terrain/visibility.slang", true).value_or(nullptr);
+
     m_position_buffer = RenderingDriver::get()->create_buffer(STRUCTNAME(glm::vec4), Chunk::block_count, BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Storage).value();
 
     std::vector<glm::vec4> positions(Chunk::block_count);
@@ -95,6 +97,7 @@ void World::encode_draw_calls(RenderPassEncoder& encoder, Camera& camera)
     {
         AABB aabb = AABB(glm::vec3((float)pos.x * 16.0 + 8.0, 128.0, (float)pos.z * 16.0 + 8.0), glm::vec3(8.0, 128.0, 8.0));
 
+        // if (!camera.frustum().contains(aabb) || !chunk->ready)
         if (!camera.frustum().contains(aabb))
             continue;
 
@@ -104,8 +107,6 @@ void World::encode_draw_calls(RenderPassEncoder& encoder, Camera& camera)
         DataBuffer push_constants(sizeof(glm::mat4));
         push_constants.add(view_matrix);
         push_constants.add(model_matrix);
-
-        // m_material->set_param("blocks", chunk->get_block_buffer());
 
         encoder.bind_material(chunk->get_visual_material());
         encoder.push_constants(push_constants);
@@ -119,7 +120,7 @@ void World::encode_draw_calls(RenderPassEncoder& encoder, Camera& camera)
 
 void World::load_chunk(int64_t x, int64_t z)
 {
-    Ref<Chunk> chunk = newobj(Chunk, x, z, m_surface_shader, m_visual_shader, this);
+    Ref<Chunk> chunk = newobj(Chunk, x, z, m_surface_shader, m_visibility_shader, m_visual_shader, this);
     chunk->generate();
 
     chunk->get_visual_material()->set_param("positions", m_position_buffer);

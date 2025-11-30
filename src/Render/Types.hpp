@@ -218,6 +218,12 @@ enum class BindingKind : uint8_t
     StorageBuffer,
 };
 
+enum class BindingAccess
+{
+    Read,
+    ReadWrite,
+};
+
 struct BindingBuffer
 {
     size_t element_size;
@@ -230,18 +236,19 @@ struct Binding
     ShaderStageFlags shader_stage = ShaderStageFlagBits::Vertex;
     uint32_t group = 0;
     uint32_t binding = 0;
+    BindingAccess access = BindingAccess::Read;
 
     Binding()
     {
     }
 
-    Binding(BindingKind kind, ShaderStageFlags shader_stage, uint32_t group, uint32_t binding, TextureDimension dimension)
-        : kind(kind), shader_stage(shader_stage), group(group), binding(binding), dimension(dimension)
+    Binding(BindingKind kind, ShaderStageFlags shader_stage, uint32_t group, uint32_t binding, BindingAccess access, TextureDimension dimension)
+        : kind(kind), shader_stage(shader_stage), group(group), binding(binding), access(access), dimension(dimension)
     {
     }
 
-    Binding(BindingKind kind, ShaderStageFlags shader_stage, uint32_t group, uint32_t binding, BindingBuffer buffer)
-        : kind(kind), shader_stage(shader_stage), group(group), binding(binding), buffer(buffer)
+    Binding(BindingKind kind, ShaderStageFlags shader_stage, uint32_t group, uint32_t binding, BindingAccess access, BindingBuffer buffer)
+        : kind(kind), shader_stage(shader_stage), group(group), binding(binding), access(access), buffer(buffer)
     {
     }
 
