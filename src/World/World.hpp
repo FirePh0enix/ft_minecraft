@@ -92,6 +92,7 @@ private:
 
     Ref<Mesh> m_mesh;
     Ref<Shader> m_visual_shader;
+    Ref<Shader> m_visibility_shader;
     Ref<Shader> m_surface_shader;
 
     Ref<Buffer> m_position_buffer;

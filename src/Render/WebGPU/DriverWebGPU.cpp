@@ -279,9 +279,7 @@ static std::vector<WGPUBindGroupLayoutEntry> convert_bindings(const Ref<Shader>&
             WGPUBindGroupLayoutEntry entry{};
             entry.binding = binding.binding;
             entry.visibility = convert_shader_stage(binding.shader_stage);
-            // Vertex shaders does not support Writable storage buffer, a feature can be enabled in wgpu-native but it
-            // only works on native.
-            entry.buffer.type = binding.shader_stage.has_any(ShaderStageFlagBits::Vertex) ? WGPUBufferBindingType_ReadOnlyStorage : WGPUBufferBindingType_Storage;
+            entry.buffer.type = binding.access == BindingAccess::Read ? WGPUBufferBindingType_ReadOnlyStorage : WGPUBufferBindingType_Storage;
 
             entries.push_back(entry);
         }
@@ -864,7 +862,6 @@ void RenderingDriverWebGPU::draw_graph(const RenderGraph& graph)
             desc.nextInChain = nullptr;
             desc.timestampWrites = nullptr;
             compute_pass_encoder = wgpuCommandEncoderBeginComputePass(compute_command_encoder, &desc);
-            // compute_pass_encoder = wgpuCommandEncoderBeginComputePass(command_encoder, &desc);
         }
         else if (std::holds_alternative<EndComputePassInstruction>(instruction))
         {

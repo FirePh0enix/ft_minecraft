@@ -33,10 +33,20 @@ SamplerState images_sampler;
 
 StructuredBuffer<float4> positions;
 StructuredBuffer<BlockState> blocks;
+StructuredBuffer<uint> visibilityBuffer;
+
 StructuredBuffer<uint4> textureRegistry;
 
 [push_constant]
 PushConstants constants;
+
+// uint getVisibility(uint idx)
+// {
+//     uint e = idx >> 4;
+//     uint w = (idx >> 2) & 3;
+//     uint b = idx & 3;
+//     return (visibilityBuffer[e][w] >> (b * 8)) & 0xFFu;
+// }
 
 [shader("vertex")]
 VertexOutput vertexMain(VertexInput vertex)
@@ -46,8 +56,16 @@ VertexOutput vertexMain(VertexInput vertex)
 
     BlockState block = blocks[vertex.instance_id];
     float3 position = positions[vertex.instance_id].xyz;
+    // uint visibility = getVisibility(vertex.instance_id);
+    uint visibility = visibilityBuffer[vertex.instance_id];
 
-    if (block.id_raw == 0)
+    if (block.id_raw == 0
+        || (((visibility & (1 << 1)) == 0 && vertex.index >= 0 && vertex.index < 4) ||
+            ((visibility & (1 << 0)) == 0 && vertex.index >= 4 && vertex.index < 8) ||
+            ((visibility & (1 << 2)) == 0 && vertex.index >= 8 && vertex.index < 12) ||
+            ((visibility & (1 << 3)) == 0 && vertex.index >= 12 && vertex.index < 16) ||
+            ((visibility & (1 << 4)) == 0 && vertex.index >= 16 && vertex.index < 20) ||
+            ((visibility & (1 << 5)) == 0 && vertex.index >= 20 && vertex.index < 24)))
         return out;
 
     float4x4 model_matrix = float4x4(
@@ -71,12 +89,12 @@ VertexOutput vertexMain(VertexInput vertex)
     return out;
 }
 
-inline bool is_grayscale(float4 color)
+inline bool isGrayscale(float4 color)
 {
     return color.r == color.g && color.g == color.b;
 }
 
-inline bool is_black(float3 color)
+inline bool isBlack(float3 color)
 {
     return color.r == 0.0 && color.g == 0.0 && color.b == 0.0;
 }
@@ -89,7 +107,7 @@ float4 fragmentMain(VertexOutput in)
 
     float4 color = images.Sample(images_sampler, float3(uv2, float(in.texture_index)));
 
-    if (is_grayscale(color) && !is_black(in.gradient_color))
+    if (isGrayscale(color) && !isBlack(in.gradient_color))
     {
         color *= float4(in.gradient_color, 1.0);
     }
