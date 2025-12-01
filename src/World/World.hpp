@@ -7,9 +7,16 @@
 
 #include <mutex>
 
+// TODO: This will waste memory, needed to make since shaders does not support 8 bits integers.
 struct SimplexState
 {
-    std::array<uint8_t, 256> perms;
+    struct PaddedField
+    {
+        uint32_t v;
+        uint32_t pad[3];
+    };
+
+    PaddedField perms[256];
 };
 STRUCT(SimplexState);
 
