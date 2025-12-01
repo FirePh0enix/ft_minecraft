@@ -330,7 +330,7 @@ Result<Ref<Shader>> Shader::load_slang_shader(const std::filesystem::path& path,
         }
     }
 
-    println("> shader `{}`", path);
+    // println("> shader `{}`", path);
     // println(">>> {}", program_layout->getParameterByIndex(0)->getName());
 
     for (size_t i = 0; i < program_layout->getParameterCount(); i++)
@@ -357,7 +357,7 @@ Result<Ref<Shader>> Shader::load_slang_shader(const std::filesystem::path& path,
         }
         else if (binding_type == slang::BindingType::PushConstant)
         {
-            println(">> push_constants, size = {}", var->getTypeLayout()->getElementTypeLayout()->getSize());
+            // println(">> push_constants, size = {}", var->getTypeLayout()->getElementTypeLayout()->getSize());
             shader->m_push_constants.push_back(PushConstantRange(stages, var->getTypeLayout()->getElementTypeLayout()->getSize()));
             continue;
         }
@@ -371,7 +371,7 @@ Result<Ref<Shader>> Shader::load_slang_shader(const std::filesystem::path& path,
         {
         case slang::TypeReflection::Kind::ConstantBuffer:
         {
-            println(">> constbuffer at {}:{}", group, binding);
+            // println(">> constbuffer at {}:{}", group, binding);
             const size_t byte_size = var->getTypeLayout()->getElementTypeLayout()->getSize();
             shader->m_bindings[name] = Binding(BindingKind::UniformBuffer, stages, group, binding, access2, BindingBuffer(byte_size, false));
         }
@@ -392,7 +392,7 @@ Result<Ref<Shader>> Shader::load_slang_shader(const std::filesystem::path& path,
                 TextureDimension dimension = convert_dimension(shape_without_flags);
                 shader->m_bindings[name] = Binding(BindingKind::Texture, stages, group, binding, access2, dimension);
 
-                println(">> texture at {}:{}", group, binding);
+                // println(">> texture at {}:{}", group, binding);
             }
             else
             {

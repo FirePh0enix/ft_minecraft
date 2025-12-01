@@ -27,12 +27,12 @@ World::World(Ref<Mesh> mesh, Ref<Shader> visual_shader, uint64_t seed)
     m_permutation_buffer = RenderingDriver::get()->create_buffer(STRUCTNAME(SimplexState), 1, BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Uniform).value();
     SimplexState state{};
     for (size_t i = 0; i < 256; i++)
-        state.perms[i] = i;
+        state.perms[i].v = i;
 
     std::mt19937 prng{std::random_device{}()};
     prng.seed(seed);
 
-    std::shuffle(state.perms.begin(), state.perms.end(), prng);
+    std::shuffle(std::begin(state.perms), std::end(state.perms), prng);
     m_permutation_buffer->update(View(state).as_bytes());
 }
 

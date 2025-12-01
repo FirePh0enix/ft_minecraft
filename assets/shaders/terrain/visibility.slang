@@ -34,20 +34,24 @@ void computeMain(uint3 id : SV_DispatchThreadID)
     if (blocks[index(id.x, id.y, id.z)].isAir())
         return;
 
-    if (id.y == 0 || blocks[index(id.x, id.y - 1, id.z)].isAir())
-        visibility |= BOTTOM_MASK;
-    if (id.y == 255 || blocks[index(id.x, id.y + 1, id.z)].isAir())
-        visibility |= TOP_MASK;
+    visibility |= (id.y == 0 || blocks[index(id.x, id.y - 1, id.z)].isAir()) << 5;
+    visibility |= (id.y == 255 || blocks[index(id.x, id.y + 1, id.z)].isAir()) << 4;
 
-    if (id.x == 0 || blocks[index(id.x - 1, id.y, id.z)].isAir())
-        visibility |= EAST_MASK;
-    if (id.x == 15 || blocks[index(id.x + 1, id.y, id.z)].isAir())
-        visibility |= WEST_MASK;
+    visibility |= (id.x == 0 || blocks[index(id.x - 1, id.y, id.z)].isAir()) << 2;
+    visibility |= (id.x == 15 || blocks[index(id.x + 1, id.y, id.z)].isAir()) << 3;
 
-    if (id.z == 0 || blocks[index(id.x, id.y, id.z - 1)].isAir())
-        visibility |= NORTH_MASK;
-    if (id.z == 15 || blocks[index(id.x, id.y, id.z + 1)].isAir())
-        visibility |= SOUTH_MASK;
+    visibility |= (id.z == 0 || blocks[index(id.x, id.y, id.z - 1)].isAir()) << 0;
+    visibility |= (id.z == 15 || blocks[index(id.x, id.y, id.z + 1)].isAir()) << 1;
+
+    // if (id.x == 0 || blocks[index(id.x - 1, id.y, id.z)].isAir())
+    //     visibility |= EAST_MASK;
+    // if (id.x == 15 || blocks[index(id.x + 1, id.y, id.z)].isAir())
+    //     visibility |= WEST_MASK;
+
+    // if (id.z == 0 || blocks[index(id.x, id.y, id.z - 1)].isAir())
+    //     visibility |= NORTH_MASK;
+    // if (id.z == 15 || blocks[index(id.x, id.y, id.z + 1)].isAir())
+    //     visibility |= SOUTH_MASK;
 
     visibilityBuffer[index(id.x, id.y, id.z)] = visibility;
     // setVisibility(index(id.x, id.y, id.z), visibility);
