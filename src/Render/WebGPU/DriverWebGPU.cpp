@@ -538,7 +538,9 @@ Result<> RenderingDriverWebGPU::initialize(const Window& window, bool enable_val
     // wgpuInstanceEnumerateAdapters(WGPUInstance instance, const WGPUInstanceEnumerateAdapterOptions *options, WGPUAdapter *adapters);
 
     const WGPUFeatureName required_features[] = {
+        WGPUFeatureName_TimestampQuery,
         (WGPUFeatureName)WGPUNativeFeature_PushConstants,
+        (WGPUFeatureName)WGPUNativeFeature_TimestampQueryInsideEncoders,
     };
 
     WGPUDeviceDescriptor device_desc{};
@@ -578,6 +580,11 @@ Result<> RenderingDriverWebGPU::initialize(const Window& window, bool enable_val
 
     m_device = request_device_sync(m_adapter, device_desc);
 #endif
+
+    WGPUQuerySetDescriptor query_set_desc{};
+    query_set_desc.count = 4; // 2 for render, 2 for compute
+    query_set_desc.type = WGPUQueryType_Timestamp;
+    m_timestamp_query_set = wgpuDeviceCreateQuerySet(m_device, &query_set_desc);
 
     m_queue = wgpuDeviceGetQueue(m_device);
     if (!m_queue)
@@ -760,6 +767,9 @@ void RenderingDriverWebGPU::draw_graph(const RenderGraph& graph)
     WGPUBuffer previous_index_buffer = nullptr;
     std::array<WGPUBuffer, 8> previous_vertex_buffers{};
 
+    wgpuCommandEncoderWriteTimestamp(command_encoder, m_timestamp_query_set, 0);         // write time before rendering
+    wgpuCommandEncoderWriteTimestamp(compute_command_encoder, m_timestamp_query_set, 2); // write time before computing
+
     for (const auto& instruction : graph.get_instructions())
     {
         if (std::holds_alternative<BeginRenderPassInstruction>(instruction))
@@ -916,6 +926,9 @@ void RenderingDriverWebGPU::draw_graph(const RenderGraph& graph)
 #endif
         }
     }
+
+    wgpuCommandEncoderWriteTimestamp(command_encoder, m_timestamp_query_set, 1);         // write time after rendering
+    wgpuCommandEncoderWriteTimestamp(compute_command_encoder, m_timestamp_query_set, 3); // write time before computing
 
     WGPUCommandBufferDescriptor compute_buffer_desc{};
     compute_buffer_desc.label = WGPU_STRING_VIEW("Compute CommandBuffer");
