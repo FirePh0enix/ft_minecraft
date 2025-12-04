@@ -41,7 +41,7 @@ static const int SPLINE_COUNT = 5;
 static const float SEA_LEVEL = 62.0f;
 
 static const float CONT_KEYS[5] = { -1.0f, -0.2f, -0.05f, 0.2f, 1.0f };
-static const float CONT_VALS[5] = { 0.0f, 32.0f, 64.0f, 96.0f, 128.0f };
+static const float CONT_VALS[5] = { 20.0f, 52.0f, 84.0f, 116.0f, 148.0f };
 
 static const float ERO_KEYS[5]  = { -1.0f, -0.2f, 0.0f, 0.5f, 1.0f };
 static const float ERO_VALS[5]  = { 1.8f, 1.2f, 1.0f, 0.75f, 0.5f };
@@ -78,11 +78,10 @@ static float getOverhang(int x, int y, int z)
 
 static float getCaveNoise(int x, int y, int z)
 {
-    float n = simplexState.simplex3D(float3(x * 0.003f, y * 0.003f, z * 0.003f));
-    n += simplexState.simplex3D(float3(x * 0.006f, y * 0.006f, z * 0.006f)) * 0.5f;
+    float n = simplexState.simplex3D(float3(x * 0.003f, y * 0.003f, z * 0.003f)) * 2.0f;
+    n += simplexState.simplex3D(float3(x * 0.006f, y * 0.006f, z * 0.006f)) * 1.0f;
     return n;
 }
-
 
 static const uint STONE = 3;
 static const uint WATER = 5;
@@ -101,7 +100,7 @@ void computeMain(uint3 id : SV_DispatchThreadID)
     float erosionFactor = evaluateSpline(ERO_KEYS, ERO_VALS, SPLINE_COUNT, erosion);
     float pvOffset = evaluateSpline(PV_KEYS, PV_VALS, SPLINE_COUNT, pv);
 
-    float pv_scale = 0.9f;
+    float pv_scale = 1.0f;
     float height = baseHeight + pvOffset * erosionFactor * pv_scale;
 
     for (uint y = 0; y < 256; y++)
@@ -110,10 +109,14 @@ void computeMain(uint3 id : SV_DispatchThreadID)
 
         float overhang = getOverhang(globalPosition.x, y, globalPosition.z) * 15.0f - 10.0f;
         float density = height - y + overhang;
-        bool cave = getCaveNoise(globalPosition.x, y, globalPosition.z) > 0.9f;
+
+        float depthBelowSurface = height - y;
+        float caveNoise = getCaveNoise(globalPosition.x, y, globalPosition.z);
+        bool cave = (caveNoise > 0.7f) && (depthBelowSurface > 10.0f);
 
         if (cave)
         {
+            // blocks[index].id_raw = 6;
             continue;
         }
         else if (density > 0.0f)
