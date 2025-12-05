@@ -1,13 +1,10 @@
 #include "World/World.hpp"
 #include "Core/DataBuffer.hpp"
-#include "World/Registry.hpp"
 
 #include <tracy/Tracy.hpp>
 
-#include <random>
-
 World::World(Ref<Mesh> mesh, Ref<Shader> visual_shader, uint64_t seed)
-    : m_mesh(mesh), m_visual_shader(visual_shader)
+    : m_seed(seed), m_mesh(mesh), m_visual_shader(visual_shader)
 {
     m_surface_shader = Shader::load("assets://shaders/terrain/surface.slang", true).value_or(nullptr);
     m_visibility_shader = Shader::load("assets://shaders/terrain/visibility.slang", true).value_or(nullptr);
@@ -22,18 +19,6 @@ World::World(Ref<Mesh> mesh, Ref<Shader> visual_shader, uint64_t seed)
                 positions[x + y * 16 + z * 16 * 256] = glm::vec4(x, y, z, 0.0);
 
     m_position_buffer->update(View(positions).as_bytes());
-
-    // Create the permutation table used by the noise algorithms.
-    m_permutation_buffer = RenderingDriver::get()->create_buffer(STRUCTNAME(SimplexState), 1, BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Uniform).value();
-    SimplexState state{};
-    for (size_t i = 0; i < 256; i++)
-        state.perms[i].v = i;
-
-    std::mt19937 prng{std::random_device{}()};
-    prng.seed(seed);
-
-    std::shuffle(std::begin(state.perms), std::end(state.perms), prng);
-    m_permutation_buffer->update(View(state).as_bytes());
 }
 
 BlockState World::get_block_state(int64_t x, int64_t y, int64_t z) const
@@ -84,11 +69,6 @@ std::optional<Ref<Chunk>> World::get_chunk(int64_t x, int64_t z)
     return m_dims[0].get_chunk(x, z);
 }
 
-void World::set_render_distance(uint32_t distance)
-{
-    m_distance = distance;
-}
-
 void World::encode_draw_calls(RenderPassEncoder& encoder, Camera& camera)
 {
     ZoneScoped;
@@ -117,36 +97,3 @@ void World::encode_draw_calls(RenderPassEncoder& encoder, Camera& camera)
         encoder.draw(m_mesh->vertex_count(), Chunk::block_count);
     }
 }
-
-// void World::load_chunk(int64_t x, int64_t z)
-// {
-//     Ref<Chunk> chunk = newobj(Chunk, x, z, m_surface_shader, m_visibility_shader, m_visual_shader, this);
-//     chunk->generate();
-
-//     chunk->get_visual_material()->set_param("positions", m_position_buffer);
-//     chunk->get_visual_material()->set_param("textureRegistry", BlockRegistry::get_texture_buffer());
-//     chunk->get_visual_material()->set_param("images", BlockRegistry::get_texture_array());
-
-//     m_dims[0].add_chunk(x, z, chunk);
-// }
-
-// void World::load_around(int64_t x, int64_t y, int64_t z)
-// {
-//     ZoneScoped;
-
-//     (void)y;
-
-//     const int64_t chunk_x = (int64_t)((float)x / 16.0f);
-//     const int64_t chunk_z = (int64_t)((float)z / 16.0f);
-//     const int64_t distance = get_distance();
-
-//     for (int64_t cx = -distance; cx <= distance; cx++)
-//     {
-//         for (int64_t cz = -distance; cz <= distance; cz++)
-//         {
-//             if (m_dims[0].has_chunk(cx + chunk_x, cz + chunk_z))
-//                 continue;
-//             load_chunk(cx + chunk_x, cz + chunk_z);
-//         }
-//     }
-// }

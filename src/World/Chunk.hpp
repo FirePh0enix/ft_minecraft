@@ -35,13 +35,6 @@ struct ChunkBounds
     glm::ivec3 max;
 };
 
-struct ChunkGPUInfo
-{
-    int32_t chunk_x;
-    int32_t chunk_z;
-};
-STRUCT(ChunkGPUInfo);
-
 class Chunk : public Object
 {
     CLASS(Chunk, Object);
@@ -85,18 +78,6 @@ public:
         return m_z;
     }
 
-    // inline uint32_t get_block_count() const
-    // {
-    //     return m_block_count;
-    // }
-
-    // inline ChunkBounds get_chunk_bounds() const
-    // {
-    //     return ChunkBounds{.min = glm::ivec3(m_min_x, m_min_y, m_min_z), .max = glm::ivec3(m_max_x, m_max_y, m_max_z)};
-    // }
-
-    // Ref<Buffer> get_block_buffer() const { return m_gpu_blocks; }
-
     Ref<Material> get_visual_material() const { return m_visual_material; }
 
     /**
@@ -115,25 +96,6 @@ private:
     Ref<Buffer> m_visibility_buffer;
 
     Ref<Material> m_visual_material;
-
-    // Ref<ComputeMaterial> m_surface_material;
-    // Ref<ComputeMaterial> m_visibility_material;
-    // Ref<Material> m_visual_material;
-
-    // Ref<Buffer> m_gpu_blocks;
-    // Ref<Buffer> m_cpu_blocks;
-    // Ref<Buffer> m_gpu_buffer;
-    // Ref<Buffer> m_visibility_buffer;
-
-    // TODO: transparent blocks
-    // uint32_t m_block_count = 0;
-
-    // uint8_t m_min_x = 15;
-    // uint8_t m_min_y = 255;
-    // uint8_t m_min_z = 15;
-    // uint8_t m_max_x = 0;
-    // uint8_t m_max_y = 0;
-    // uint8_t m_max_z = 0;
 
     BlockState& get_block_ref(size_t x, size_t y, size_t z)
     {

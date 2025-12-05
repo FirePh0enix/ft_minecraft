@@ -88,7 +88,6 @@ ENGINE_MAIN(int argc, char *argv[])
     scene->add_system(Update, Player::update);
 
     world = newobj(World, cube, shader, 1);
-    world->set_render_distance(3);
 
     Ref<Entity> world_entity = newobj(Entity);
     world_entity->set_name("World");
@@ -156,9 +155,8 @@ static void register_all_classes()
     REGISTER_CLASSES(World, Chunk, Block, Generator, GeneratorPass, SurfacePass);
 
     REGISTER_STRUCTS(
-        BlockState, ChunkGPUInfo,
-        StandardMeshMaterialInfo,
-        SimplexState);
+        BlockState,
+        StandardMeshMaterialInfo);
 }
 
 #else

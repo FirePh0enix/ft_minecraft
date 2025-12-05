@@ -7,7 +7,7 @@
 Generator::Generator(const Ref<World>& world, const Ref<Shader>& shader)
     : m_world(world)
 {
-    m_passes.push_back(newobj(SurfacePass));
+    m_passes.push_back(newobj(SurfacePass, world->seed()));
 
     m_load_thread = std::thread(load_thread, this);
 
@@ -73,17 +73,17 @@ Ref<Chunk> Generator::generate_chunk(int64_t cx, int64_t cz)
 
     for (size_t index = 0; index < m_passes.size(); index++)
     {
-        const Ref<GeneratorPass>& pass = m_passes[index];
+        Ref<GeneratorPass>& pass = m_passes[index];
         for (int64_t x = 0; x < 16; x++)
         {
             for (int64_t z = 0; z < 16; z++)
             {
-                for (int64_t y = 0; y < 16; y++)
+                for (int64_t y = 0; y < 256; y++)
                 {
                     int64_t gx = x + cx * 16;
                     int64_t gz = z + cz * 16;
 
-                    BlockState block = pass->process(index > 0 ? m_passes[index].ptr() : nullptr, gx, y, gz);
+                    BlockState block = pass->process(blocks, gx, y, gz);
                     blocks[z * 16 * 256 + y * 16 + x] = block;
                 }
             }
