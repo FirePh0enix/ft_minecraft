@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Core/Noise/Simplex.hpp"
 #include "World/Generator.hpp"
 
 class SurfacePass : public GeneratorPass
@@ -7,5 +8,13 @@ class SurfacePass : public GeneratorPass
     CLASS(SurfacePass, GeneratorPass);
 
 public:
-    virtual BlockState process(GeneratorPass *previous_pass, int64_t x, int64_t y, int64_t z) const override;
+    SurfacePass(uint64_t seed);
+
+    virtual BlockState process(const std::vector<BlockState>& previous_blocks, int64_t x, int64_t y, int64_t z) const override;
+
+private:
+    SimplexNoise m_simplex;
+
+    uint16_t m_stone;
+    uint16_t m_water;
 };

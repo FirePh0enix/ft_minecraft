@@ -12,12 +12,12 @@ class GeneratorPass : public Object
     CLASS(GeneratorPass, Object);
 
 public:
-    virtual BlockState process(GeneratorPass *previous_pass, int64_t x, int64_t y, int64_t z) const = 0;
+    GeneratorPass(uint64_t seed) : m_seed(seed) {}
 
-    const std::vector<BlockState>& get_blocks() const { return m_blocks; }
+    virtual BlockState process(const std::vector<BlockState>& previous_blocks, int64_t x, int64_t y, int64_t z) const = 0;
 
 protected:
-    std::vector<BlockState> m_blocks;
+    uint64_t m_seed;
 };
 
 struct ChunkBuffers

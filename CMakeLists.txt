@@ -28,6 +28,7 @@ list(APPEND SOURCES
     src/Input.cpp
     src/main.cpp
     src/Window.cpp
+    src/Core/Noise/Simplex.cpp
     src/Core/Class.cpp
     src/Core/Error.cpp
     src/Core/Filesystem.cpp
