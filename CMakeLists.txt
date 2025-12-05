@@ -50,7 +50,9 @@ list(APPEND SOURCES
     src/Scene/Entity.cpp
     src/Scene/Player.cpp
     src/Scene/Scene.cpp
+    src/World/Pass/Surface.cpp
     src/World/Chunk.cpp
+    src/World/Generator.cpp
     src/World/Registry.cpp
     src/World/Save.cpp
     src/World/World.cpp

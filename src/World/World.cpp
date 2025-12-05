@@ -118,35 +118,35 @@ void World::encode_draw_calls(RenderPassEncoder& encoder, Camera& camera)
     }
 }
 
-void World::load_chunk(int64_t x, int64_t z)
-{
-    Ref<Chunk> chunk = newobj(Chunk, x, z, m_surface_shader, m_visibility_shader, m_visual_shader, this);
-    chunk->generate();
+// void World::load_chunk(int64_t x, int64_t z)
+// {
+//     Ref<Chunk> chunk = newobj(Chunk, x, z, m_surface_shader, m_visibility_shader, m_visual_shader, this);
+//     chunk->generate();
 
-    chunk->get_visual_material()->set_param("positions", m_position_buffer);
-    chunk->get_visual_material()->set_param("textureRegistry", BlockRegistry::get_texture_buffer());
-    chunk->get_visual_material()->set_param("images", BlockRegistry::get_texture_array());
+//     chunk->get_visual_material()->set_param("positions", m_position_buffer);
+//     chunk->get_visual_material()->set_param("textureRegistry", BlockRegistry::get_texture_buffer());
+//     chunk->get_visual_material()->set_param("images", BlockRegistry::get_texture_array());
 
-    m_dims[0].add_chunk(x, z, chunk);
-}
+//     m_dims[0].add_chunk(x, z, chunk);
+// }
 
-void World::load_around(int64_t x, int64_t y, int64_t z)
-{
-    ZoneScoped;
+// void World::load_around(int64_t x, int64_t y, int64_t z)
+// {
+//     ZoneScoped;
 
-    (void)y;
+//     (void)y;
 
-    const int64_t chunk_x = (int64_t)((float)x / 16.0f);
-    const int64_t chunk_z = (int64_t)((float)z / 16.0f);
-    const int64_t distance = get_distance();
+//     const int64_t chunk_x = (int64_t)((float)x / 16.0f);
+//     const int64_t chunk_z = (int64_t)((float)z / 16.0f);
+//     const int64_t distance = get_distance();
 
-    for (int64_t cx = -distance; cx <= distance; cx++)
-    {
-        for (int64_t cz = -distance; cz <= distance; cz++)
-        {
-            if (m_dims[0].has_chunk(cx + chunk_x, cz + chunk_z))
-                continue;
-            load_chunk(cx + chunk_x, cz + chunk_z);
-        }
-    }
-}
+//     for (int64_t cx = -distance; cx <= distance; cx++)
+//     {
+//         for (int64_t cz = -distance; cz <= distance; cz++)
+//         {
+//             if (m_dims[0].has_chunk(cx + chunk_x, cz + chunk_z))
+//                 continue;
+//             load_chunk(cx + chunk_x, cz + chunk_z);
+//         }
+//     }
+// }

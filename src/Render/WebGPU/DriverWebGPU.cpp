@@ -858,9 +858,10 @@ void RenderingDriverWebGPU::draw_graph(const RenderGraph& graph)
                 previous_pipeline = pipeline;
 
                 WGPUBindGroup bind_group = m_bind_group_cache.get(bind.material);
-                if (bind_group != previous_bind_group)
-                    wgpuRenderPassEncoderSetBindGroup(render_pass_encoder, 0, bind_group, 0, nullptr);
-                previous_bind_group = bind_group;
+                // FIXME: this does not work for some reason
+                // if (bind_group != previous_bind_group)
+                wgpuRenderPassEncoderSetBindGroup(render_pass_encoder, 0, bind_group, 0, nullptr);
+                // previous_bind_group = bind_group;
             }
             else if (Ref<ComputeMaterial> material = bind.material.cast_to<ComputeMaterial>())
             {

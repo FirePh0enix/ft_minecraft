@@ -59,13 +59,16 @@ VertexOutput vertexMain(VertexInput vertex)
     // uint visibility = getVisibility(vertex.instance_id);
     uint visibility = visibilityBuffer[vertex.instance_id];
 
-    if (block.id_raw == 0
-        || (((visibility & (1 << 1)) == 0 && vertex.index >= 0 && vertex.index < 4) ||
-            ((visibility & (1 << 0)) == 0 && vertex.index >= 4 && vertex.index < 8) ||
-            ((visibility & (1 << 2)) == 0 && vertex.index >= 8 && vertex.index < 12) ||
-            ((visibility & (1 << 3)) == 0 && vertex.index >= 12 && vertex.index < 16) ||
-            ((visibility & (1 << 4)) == 0 && vertex.index >= 16 && vertex.index < 20) ||
-            ((visibility & (1 << 5)) == 0 && vertex.index >= 20 && vertex.index < 24)))
+    // if (block.id_raw == 0
+    //     || (((visibility & (1 << 1)) == 0 && vertex.index >= 0 && vertex.index < 4) ||
+    //         ((visibility & (1 << 0)) == 0 && vertex.index >= 4 && vertex.index < 8) ||
+    //         ((visibility & (1 << 2)) == 0 && vertex.index >= 8 && vertex.index < 12) ||
+    //         ((visibility & (1 << 3)) == 0 && vertex.index >= 12 && vertex.index < 16) ||
+    //         ((visibility & (1 << 4)) == 0 && vertex.index >= 16 && vertex.index < 20) ||
+    //         ((visibility & (1 << 5)) == 0 && vertex.index >= 20 && vertex.index < 24)))
+    //     return out;
+
+    if (block.isAir())
         return out;
 
     float4x4 model_matrix = float4x4(

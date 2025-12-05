@@ -85,13 +85,11 @@ public:
         return m_dims[index];
     }
 
-    const Ref<Buffer>& get_perm_buffer() const
-    {
-        return m_permutation_buffer;
-    }
+    const Ref<Buffer>& get_perm_buffer() const { return m_permutation_buffer; }
+    const Ref<Buffer>& get_position_buffer() const { return m_position_buffer; }
 
-    void load_chunk(int64_t x, int64_t z);
-    void load_around(int64_t x, int64_t y, int64_t z);
+    // void load_chunk(int64_t x, int64_t z);
+    // void load_around(int64_t x, int64_t y, int64_t z);
 
 private:
     std::array<Dimension, 2> m_dims;
