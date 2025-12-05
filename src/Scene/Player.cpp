@@ -42,8 +42,8 @@ void Player::update(const Query<Many<Transformed3D, RigidBody, Player, Child<Tra
 
         Ref<World> world = query.get<1>().single().get<World>();
 
-        const glm::vec3 player_pos = transform_comp->get_global_transform().position();
-        world->load_around(int64_t(player_pos.x), int64_t(player_pos.y), int64_t(player_pos.z));
+        // const glm::vec3 player_pos = transform_comp->get_global_transform().position();
+        // world->load_around(int64_t(player_pos.x), int64_t(player_pos.y), int64_t(player_pos.z));
 
         if (Input::is_action_pressed("attack") && !Input::is_mouse_grabbed())
         {

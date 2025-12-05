@@ -15,6 +15,8 @@
 #include "Scene/Scene.hpp"
 #include "Toml.hpp"
 #include "Window.hpp"
+#include "World/Generator.hpp"
+#include "World/Pass/Surface.hpp"
 #include "World/Registry.hpp"
 #include "World/World.hpp"
 
@@ -36,6 +38,8 @@ Ref<Window> window;
 Ref<Scene> scene;
 Ref<Entity> player;
 Ref<World> world;
+
+Ref<Generator> gen;
 
 toml::table config2;
 Console console;
@@ -115,6 +119,9 @@ ENGINE_MAIN(int argc, char *argv[])
         info("World won't be saved, `--disable-save` is present.");
     }
 
+    gen = newobj(Generator, world, shader);
+    gen->load_around(0, 0, 0);
+
     // player->get_component<RigidBody>()->set_disabled(!config2["physics"]["collisions"].as<bool>()->get());
     // player->get_component<Player>()->set_gravity_enabled(config2["physics"]["gravity"].as<bool>()->get());
     // player->get_component<Player>()->set_gravity_value(static_cast<float>(config2["physics"]["gravity_value"].as<double>()->get()));
@@ -146,7 +153,7 @@ ENGINE_MAIN(int argc, char *argv[])
 
 static void register_all_classes()
 {
-    REGISTER_CLASSES(World, Chunk, Block);
+    REGISTER_CLASSES(World, Chunk, Block, Generator, GeneratorPass, SurfacePass);
 
     REGISTER_STRUCTS(
         BlockState, ChunkGPUInfo,
