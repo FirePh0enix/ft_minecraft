@@ -87,6 +87,7 @@ public:
     void generate();
 
     std::atomic_bool ready = false;
+    float time_since_created = 0.0;
 
 private:
     std::vector<BlockState> m_blocks;
