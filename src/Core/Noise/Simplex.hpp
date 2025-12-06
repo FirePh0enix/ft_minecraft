@@ -20,7 +20,7 @@ public:
 
         glm::vec3 pos = coords;
 
-        for (int i = 0; i < octaves; i++)
+        for (size_t i = 0; i < octaves; i++)
         {
             sum += amplitude * sample(pos * frequency);
             norm += amplitude;

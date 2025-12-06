@@ -93,6 +93,10 @@ ENGINE_MAIN(int argc, char *argv[])
     world_entity->set_name("World");
     world_entity->add_component(world);
 
+    gen = newobj(Generator, world, shader);
+    gen->set_distance(4);
+    world_entity->add_component(gen);
+
     scene->add_entity(world_entity);
 
     Ref<Camera> camera = newobj(Camera);
@@ -117,9 +121,6 @@ ENGINE_MAIN(int argc, char *argv[])
         // TODO
         info("World won't be saved, `--disable-save` is present.");
     }
-
-    gen = newobj(Generator, world, shader);
-    gen->load_around(0, 0, 0);
 
     // player->get_component<RigidBody>()->set_disabled(!config2["physics"]["collisions"].as<bool>()->get());
     // player->get_component<Player>()->set_gravity_enabled(config2["physics"]["gravity"].as<bool>()->get());
