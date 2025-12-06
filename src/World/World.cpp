@@ -73,7 +73,7 @@ void World::encode_draw_calls(RenderPassEncoder& encoder, Camera& camera)
 {
     ZoneScoped;
 
-    for (const auto& [pos, chunk] : m_dims[0])
+    for (auto& [pos, chunk] : m_dims[0])
     {
         AABB aabb = AABB(glm::vec3((float)pos.x * 16.0 + 8.0, 128.0, (float)pos.z * 16.0 + 8.0), glm::vec3(8.0, 128.0, 8.0));
 
@@ -84,9 +84,13 @@ void World::encode_draw_calls(RenderPassEncoder& encoder, Camera& camera)
         const glm::mat4& view_matrix = camera.get_view_proj_matrix();
         const glm::mat4 model_matrix = glm::translate(glm::identity<glm::mat4>(), glm::vec3(pos.x * 16, 0.0, pos.z * 16));
 
+        if (chunk->time_since_created < 10.0)
+            chunk->time_since_created += 1.0 / 60.0;
+
         DataBuffer push_constants(sizeof(glm::mat4));
         push_constants.add(view_matrix);
         push_constants.add(model_matrix);
+        push_constants.add(chunk->time_since_created);
 
         encoder.bind_material(chunk->get_visual_material());
         encoder.push_constants(push_constants);

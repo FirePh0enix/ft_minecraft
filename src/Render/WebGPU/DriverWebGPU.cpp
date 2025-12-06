@@ -570,7 +570,7 @@ Result<> RenderingDriverWebGPU::initialize(const Window& window, bool enable_val
 
     WGPUNativeLimits native_limits{};
     native_limits.chain = {.next = nullptr, .sType = (WGPUSType)WGPUSType_NativeLimits};
-    native_limits.maxPushConstantSize = 128; // Vulkan by spec requires minimum of 128 bytes
+    native_limits.maxPushConstantSize = 144; // Vulkan by spec requires minimum of 128 bytes
 
     WGPULimits limits{};
     wgpuAdapterGetLimits(m_adapter, &limits);
