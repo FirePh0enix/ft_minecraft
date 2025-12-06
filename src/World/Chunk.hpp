@@ -47,7 +47,7 @@ public:
     Chunk(int64_t x, int64_t z);
 
     void set_blocks(const std::vector<BlockState>& blocks);
-    void set_buffers(const Ref<Buffer>& block, const Ref<Buffer>& visibility, const Ref<Material>& material);
+    void set_buffers(const Ref<Shader>& visual_shader, const Ref<Buffer>& position_buffer);
 
     inline BlockState get_block(size_t x, size_t y, size_t z) const
     {
@@ -79,6 +79,7 @@ public:
     }
 
     Ref<Material> get_visual_material() const { return m_visual_material; }
+    size_t get_buffers_index() const { return m_buffers_index; }
 
     /**
         Generate the chunk.
@@ -95,6 +96,7 @@ private:
     Ref<Buffer> m_block_buffer;
     Ref<Buffer> m_visibility_buffer;
 
+    size_t m_buffers_index;
     Ref<Material> m_visual_material;
 
     BlockState& get_block_ref(size_t x, size_t y, size_t z)

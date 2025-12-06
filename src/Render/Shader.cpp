@@ -7,8 +7,6 @@
 #include <slang-com-ptr.h>
 #include <slang.h>
 
-#include <regex>
-
 // TODO: add shader variants back.
 
 static Slang::ComPtr<slang::IGlobalSession> s_global_session;
@@ -380,7 +378,7 @@ Result<Ref<Shader>> Shader::load_slang_shader(const std::filesystem::path& path,
         {
             if (shape == SLANG_STRUCTURED_BUFFER)
             {
-                println(">> buffer at {}:{}", group, binding);
+                // println(">> buffer at {}:{}", group, binding);
                 const size_t byte_size = var->getTypeLayout()->getElementTypeLayout()->getSize();
                 shader->m_bindings[name] = Binding(BindingKind::StorageBuffer, stages, group, binding, access2, BindingBuffer(byte_size, true));
             }

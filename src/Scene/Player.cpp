@@ -30,7 +30,7 @@ void Player::start()
     // m_entity->get_scene()->add_entity(m_cube_highlight);
 }
 
-void Player::update(const Query<Many<Transformed3D, RigidBody, Player, Child<Transformed3D, Camera>>, One<World>>& query, Action&)
+void Player::update(const Query<Many<Transformed3D, RigidBody, Player, Child<Transformed3D, Camera>>, One<World, Generator>>& query, Action&)
 {
     const auto& collection = query.get<0>();
 
@@ -41,9 +41,11 @@ void Player::update(const Query<Many<Transformed3D, RigidBody, Player, Child<Tra
         Ref<Player> player = result.get<Player>();
 
         Ref<World> world = query.get<1>().single().get<World>();
+        Ref<Generator> generator = query.get<1>().single().get<Generator>();
 
-        // const glm::vec3 player_pos = transform_comp->get_global_transform().position();
-        // world->load_around(int64_t(player_pos.x), int64_t(player_pos.y), int64_t(player_pos.z));
+        const glm::vec3 player_pos = transform_comp->get_global_transform().position();
+        generator->set_reference_pos(player_pos);
+        generator->load_around(int64_t(player_pos.x), int64_t(player_pos.y), int64_t(player_pos.z));
 
         if (Input::is_action_pressed("attack") && !Input::is_mouse_grabbed())
         {

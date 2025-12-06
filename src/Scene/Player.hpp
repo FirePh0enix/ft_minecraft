@@ -6,6 +6,7 @@
 #include "Scene/Components/RigidBody.hpp"
 #include "Scene/Components/Transformed3D.hpp"
 #include "Scene/System.hpp"
+#include "World/Generator.hpp"
 #include "World/World.hpp"
 
 class Player : public Component
@@ -20,7 +21,7 @@ public:
 
     virtual void start() override;
 
-    static void update(const Query<Many<Transformed3D, RigidBody, Player, Child<Transformed3D, Camera>>, One<World>>& query, Action&);
+    static void update(const Query<Many<Transformed3D, RigidBody, Player, Child<Transformed3D, Camera>>, One<World, Generator>>& query, Action&);
 
     void set_gravity_enabled(bool v)
     {

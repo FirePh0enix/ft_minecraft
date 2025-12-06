@@ -51,6 +51,7 @@ public:
     }
 
     const Ref<Buffer>& get_position_buffer() const { return m_position_buffer; }
+    std::mutex& get_chunk_mutex() { return m_chunk_mutex; }
 
     // void load_chunk(int64_t x, int64_t z);
     // void load_around(int64_t x, int64_t y, int64_t z);
@@ -65,4 +66,7 @@ private:
     Ref<Shader> m_surface_shader;
 
     Ref<Buffer> m_position_buffer;
+
+    // Mutex to guard adding/removing/drawing chunks.
+    std::mutex m_chunk_mutex;
 };

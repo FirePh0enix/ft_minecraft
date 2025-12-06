@@ -42,17 +42,17 @@ static float evaluate_spline(const float keys[5], const float vals[5], int count
     return vals[count - 1];
 }
 
-static float get_continentalness(const SimplexNoise& simplex, int x, int z)
+static float get_continentalness(const SimplexNoise& simplex, int64_t x, int64_t z)
 {
     return simplex.fractal<2>(glm::vec3(x * 0.00025f, 0, z * 0.00025f), 1, 1, 2, 0.5); // simplexState.simplex2D(float2(x * 0.00052f, z * 0.00052f));
 }
 
-static float get_erosion(const SimplexNoise& simplex, int x, int z)
+static float get_erosion(const SimplexNoise& simplex, int64_t x, int64_t z)
 {
     return simplex.fractal<2>(glm::vec3(x * 0.001f, 0, z * 0.001f), 1, 1, 2, 0.5); // simplexState.simplex2D(float2(x * 0.001f, z * 0.001f));
 }
 
-static float get_pv(const SimplexNoise& simplex, int x, int z)
+static float get_pv(const SimplexNoise& simplex, int64_t x, int64_t z)
 {
     float w = simplex.fractal<2>(glm::vec3(x * 0.0025f, 0, z * 0.0025f), 1, 1, 2, 0.5); // simplexState.simplex2D(float2(x * 0.0025f, z * 0.0025f));
     float a = std::abs(w);
@@ -60,14 +60,14 @@ static float get_pv(const SimplexNoise& simplex, int x, int z)
     return glm::clamp(pv, -1.0f, 1.0f);
 }
 
-static float get_overhang(const SimplexNoise& simplex, int x, int y, int z)
+static float get_overhang(const SimplexNoise& simplex, int64_t x, int64_t y, int64_t z)
 {
     float n = simplex.sample(glm::vec3(x * 0.03f, y * 0.03f, z * 0.03f));
     n += simplex.sample(glm::vec3(x * 0.06f, y * 0.06f, z * 0.06f)) * 0.5f;
     return n;
 }
 
-static float get_cave_noise(const SimplexNoise& simplex, int x, int y, int z)
+static float get_cave_noise(const SimplexNoise& simplex, int64_t x, int64_t y, int64_t z)
 {
     float n = simplex.sample(glm::vec3(x * 0.003f, y * 0.003f, z * 0.003f)) * 2.0f;
     n += simplex.sample(glm::vec3(x * 0.006f, y * 0.006f, z * 0.006f)) * 1.0f;
