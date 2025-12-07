@@ -40,16 +40,17 @@ public:
         return m_chunks.size();
     }
 
-    std::map<ChunkPos, Ref<Chunk>>::iterator begin()
-    {
-        return m_chunks.begin();
-    }
+    std::map<ChunkPos, Ref<Chunk>>::iterator begin() { return m_chunks.begin(); }
+    std::map<ChunkPos, Ref<Chunk>>::iterator end() { return m_chunks.end(); }
 
-    std::map<ChunkPos, Ref<Chunk>>::iterator end()
-    {
-        return m_chunks.end();
-    }
+    std::vector<Ref<Entity>>& get_chunks_to_add() { return m_chunks_to_add; }
+    std::vector<EntityId>& get_chunks_to_remove() { return m_chunks_to_remove; }
 
 private:
-    std::map<ChunkPos, Ref<Chunk>> m_chunks;
+    std::map<ChunkPos, Ref<Chunk>>
+        m_chunks;
+    std::map<ChunkPos, EntityId> m_collision_chunks;
+
+    std::vector<Ref<Entity>> m_chunks_to_add;
+    std::vector<EntityId> m_chunks_to_remove;
 };

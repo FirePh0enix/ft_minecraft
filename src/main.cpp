@@ -86,6 +86,7 @@ ENGINE_MAIN(int argc, char *argv[])
 
     scene->add_plugins<RenderingPlugin, PhysicsPlugin, MultiplayerPlugin>();
     scene->add_system(Update, Player::update);
+    scene->add_system(FixedUpdate, World::sync_physics_world);
 
     world = newobj(World, cube, shader, 1);
 
@@ -109,7 +110,7 @@ ENGINE_MAIN(int argc, char *argv[])
     player = newobj(Entity);
     player->set_name("Player");
     player->add_component(newobj(Transformed3D, Transform3D(glm::vec3(config2["player"]["x"].as<double>()->get(), config2["player"]["y"].as<double>()->get(), config2["player"]["z"].as<double>()->get()))));
-    player->add_component(newobj(RigidBody));
+    player->add_component(newobj(RigidBody, new BoxCollider(glm::vec3(-0.4, -0.8, -0.4), glm::vec3(0.4, 0.8, 0.4))));
     player->add_component(newobj(Player, world, cube));
     player->add_child(player_head);
 

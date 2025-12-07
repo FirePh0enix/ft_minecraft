@@ -1,11 +1,11 @@
 #pragma once
 
 #include "Render/Driver.hpp"
+#include "Scene/Entity.hpp"
 #include "World/Block.hpp"
 
-#include <atomic>
-
 class World;
+class GridCollider;
 
 struct ChunkPos
 {
@@ -49,6 +49,8 @@ public:
     void set_blocks(const std::vector<BlockState>& blocks);
     void set_buffers(const Ref<Shader>& visual_shader, const Ref<Buffer>& position_buffer);
 
+    void update_grid_collider(GridCollider *grid) const;
+
     inline BlockState get_block(size_t x, size_t y, size_t z) const
     {
         if (x > 15 || y > 255 || z > 15 || (z * width * height + y * width + x) >= m_blocks.size())
@@ -79,14 +81,10 @@ public:
     }
 
     Ref<Material> get_visual_material() const { return m_visual_material; }
-    size_t get_buffers_index() const { return m_buffers_index; }
 
-    /**
-        Generate the chunk.
-     */
-    void generate();
+    EntityId get_collision_entity_id() const { return m_collision_entity_id; }
+    void set_collision_entity_id(EntityId id) { m_collision_entity_id = id; }
 
-    std::atomic_bool ready = false;
     float time_since_created = 0.0;
 
 private:
@@ -94,10 +92,10 @@ private:
     int64_t m_x;
     int64_t m_z;
 
+    EntityId m_collision_entity_id;
+
     Ref<Buffer> m_block_buffer;
     Ref<Buffer> m_visibility_buffer;
-
-    size_t m_buffers_index;
     Ref<Material> m_visual_material;
 
     BlockState& get_block_ref(size_t x, size_t y, size_t z)

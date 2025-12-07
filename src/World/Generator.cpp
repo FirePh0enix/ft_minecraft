@@ -1,7 +1,7 @@
 #include "World/Generator.hpp"
+#include "Scene/Components/RigidBody.hpp"
 #include "World/Chunk.hpp"
 #include "World/Pass/Surface.hpp"
-#include "World/Registry.hpp"
 
 #include <algorithm>
 
@@ -204,8 +204,15 @@ void Generator::load_thread(Generator *g, LoadThread *t)
         // TODO: Add some kind of memory budget to keep some chunks in memory to not have
         //       to save/read to disk everytime.
 
+        // GridCollider *collider = new GridCollider(glm::vec3(1.0, 1.0, 1.0), 16, 256, 16);
+        // Ref<RigidBody> rb = newobj(RigidBody, collider);
+
+        // Ref<Entity> collision_entity = newobj(Entity);
+        // collision_entity->add_component(rb);
+
         Ref<Chunk> chunk = g->generate_chunk(pos.x, pos.z);
         chunk->set_buffers(g->m_visual_shader, g->m_world->get_position_buffer());
+        // chunk->update_grid_collider(collider);
 
         {
             std::lock_guard<std::mutex> guard(g->m_world->get_chunk_mutex());
@@ -247,24 +254,6 @@ void Generator::unload_thread(Generator *g)
         }
     }
 }
-
-// size_t Generator::acquire_buffers()
-// {
-//     std::lock_guard<std::mutex> guard(m_chunk_buffers_mutex);
-//     for (size_t i = 0; i < m_max_chunk_count; i++)
-//         if (!m_chunk_buffers[i].used)
-//         {
-//             m_chunk_buffers[i].used = true;
-//             return i;
-//         }
-//     return std::numeric_limits<size_t>::max();
-// }
-
-// void Generator::release_buffers(size_t index)
-// {
-//     std::lock_guard<std::mutex> guard(m_chunk_buffers_mutex);
-//     m_chunk_buffers[index].used = false;
-// }
 
 ChunkPos Generator::LoadThread::pop_nearest_chunk(glm::vec3 position)
 {

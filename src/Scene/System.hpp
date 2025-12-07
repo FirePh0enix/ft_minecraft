@@ -3,6 +3,7 @@
 #include "Core/Ref.hpp"
 #include "Core/Traits.hpp"
 #include "Scene/Components/Component.hpp"
+#include "Scene/Entity.hpp"
 
 class Scene;
 
@@ -138,16 +139,19 @@ struct Query : QueryInternal
 };
 
 /**
- *
+ * Deferred way to modify the entity tree during a system.
  */
 struct Action
 {
-    void spawn(const Ref<Entity>& entity);
+    void spawn(const Ref<Entity>& entity) { m_entities_to_add.push_back(entity); }
+    void remove(EntityId id) { m_entities_to_remove.push_back(id); }
 
-    const std::vector<Ref<Entity>>& get_entities() const { return m_entities; };
+    const std::vector<Ref<Entity>>& get_entities_to_add() const { return m_entities_to_add; };
+    const std::vector<EntityId>& get_entities_to_remove() const { return m_entities_to_remove; };
 
 private:
-    std::vector<Ref<Entity>> m_entities;
+    std::vector<Ref<Entity>> m_entities_to_add;
+    std::vector<EntityId> m_entities_to_remove;
 };
 
 using SystemInternalFunc = void (*)(const QueryInternal& query, Action& action);

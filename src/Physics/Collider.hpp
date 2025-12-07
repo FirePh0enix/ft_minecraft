@@ -22,6 +22,7 @@ typedef CollisionResult (*TestCollisionFunc)(Collider *collider_a, glm::vec3 pos
 enum class ColliderType
 {
     Box,
+    Grid,
 };
 
 struct Collider
@@ -43,4 +44,37 @@ struct BoxCollider : public Collider
 
     glm::vec3 min;
     glm::vec3 max;
+};
+
+struct GridCollider : public Collider
+{
+    GridCollider(glm::vec3 voxel_size, size_t width, size_t height, size_t depth)
+        : Collider(ColliderType::Grid), voxel_size(voxel_size), width(width), height(height), depth(depth)
+    {
+        bits.resize(width * height * depth / 8);
+    }
+
+    void set(size_t x, size_t y, size_t z)
+    {
+        const size_t index = x * width * height + y * width + z;
+        bits[index / 8] |= (1 << (index % 8));
+    }
+
+    void clr(size_t x, size_t y, size_t z)
+    {
+        const size_t index = x * width * height + y * width + z;
+        bits[index / 8] &= ~(1 << (index % 8));
+    }
+
+    bool has(size_t x, size_t y, size_t z) const
+    {
+        const size_t index = x * width * height + y * width + z;
+        return bits[index / 8] & (1 << (index % 8));
+    }
+
+    glm::vec3 voxel_size;
+    size_t width;
+    size_t height;
+    size_t depth;
+    std::vector<uint8_t> bits;
 };

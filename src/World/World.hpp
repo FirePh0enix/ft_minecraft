@@ -5,6 +5,8 @@
 #include "Scene/Components/Visual.hpp"
 #include "World/Dimension.hpp"
 
+#include <mutex>
+
 class World : public VisualComponent
 {
     CLASS(World, VisualComponent);
@@ -53,8 +55,10 @@ public:
     const Ref<Buffer>& get_position_buffer() const { return m_position_buffer; }
     std::mutex& get_chunk_mutex() { return m_chunk_mutex; }
 
-    // void load_chunk(int64_t x, int64_t z);
-    // void load_around(int64_t x, int64_t y, int64_t z);
+    /**
+     * Synchronize chunk loading with collisions.
+     */
+    static void sync_physics_world(const Query<One<World>>& query, Action& action);
 
 private:
     uint64_t m_seed;

@@ -79,19 +79,14 @@ private:
     std::vector<ChunkPos> m_unload_orders;
     std::vector<ChunkPos> m_unload_orders_processing;
 
-    glm::vec3 m_reference_position;
+    glm::vec3 m_reference_position = glm::vec3();
 
     int64_t m_load_distance = 1;
     size_t m_max_chunk_count = 1;
-    // ChunkBuffers *m_chunk_buffers;
-    // std::mutex m_chunk_buffers_mutex;
 
     // Some resources
     Ref<Shader> m_visual_shader;
 
     static void load_thread(Generator *g, LoadThread *t);
     static void unload_thread(Generator *g);
-
-    // size_t acquire_buffers();
-    // void release_buffers(size_t index);
 };

@@ -77,7 +77,6 @@ void World::encode_draw_calls(RenderPassEncoder& encoder, Camera& camera)
     {
         AABB aabb = AABB(glm::vec3((float)pos.x * 16.0 + 8.0, 128.0, (float)pos.z * 16.0 + 8.0), glm::vec3(8.0, 128.0, 8.0));
 
-        // if (!camera.frustum().contains(aabb) || !chunk->ready)
         if (!camera.frustum().contains(aabb))
             continue;
 
@@ -100,4 +99,15 @@ void World::encode_draw_calls(RenderPassEncoder& encoder, Camera& camera)
         encoder.bind_vertex_buffer(m_mesh->get_buffer(MeshBufferKind::UV), 2);
         encoder.draw(m_mesh->vertex_count(), Chunk::block_count);
     }
+}
+
+void World::sync_physics_world(const Query<One<World>>& query, Action& action)
+{
+    Ref<World> world = query.get<0>().single().get<World>();
+
+    for (EntityId id : world->m_dims[0].get_chunks_to_remove())
+        action.remove(id);
+
+    for (const Ref<Entity>& entity : world->m_dims[0].get_chunks_to_add())
+        action.spawn(entity);
 }

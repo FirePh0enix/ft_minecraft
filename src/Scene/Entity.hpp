@@ -7,8 +7,36 @@
 class Scene;
 class Transformed3D;
 
-enum class EntityId : uint32_t
+struct EntityId
 {
+public:
+    EntityId()
+        : m_inner(0)
+    {
+    }
+
+    explicit EntityId(uint32_t id)
+        : m_inner(id)
+    {
+    }
+
+    ALWAYS_INLINE operator uint32_t() const
+    {
+        return m_inner;
+    }
+
+    ALWAYS_INLINE bool operator==(const EntityId& b) const
+    {
+        return m_inner == b.m_inner;
+    }
+
+    ALWAYS_INLINE std::strong_ordering operator<=>(const EntityId& b) const
+    {
+        return m_inner <=> b.m_inner;
+    }
+
+private:
+    uint32_t m_inner;
 };
 
 struct EntityPath
