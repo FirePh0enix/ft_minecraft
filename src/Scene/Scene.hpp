@@ -78,7 +78,10 @@ public:
 
     void flush_actions(const Action& action)
     {
-        for (Ref<Entity> entity : action.get_entities())
+        for (EntityId id : action.get_entities_to_remove())
+            remove_entity(id);
+
+        for (Ref<Entity> entity : action.get_entities_to_add())
             add_entity(entity);
     }
 
@@ -92,21 +95,28 @@ public:
         return m_active_camera;
     }
 
-    inline void set_active_camera(const Ref<Camera>& camera)
+    ALWAYS_INLINE void set_active_camera(const Ref<Camera>& camera)
     {
         m_active_camera = camera;
     }
 
-    inline void add_entity(Ref<Entity>& entity)
+    void add_entity(Ref<Entity>& entity)
     {
-        m_entities.push_back(entity);
+        EntityId id = allocate_next_id();
 
-        entity->set_id(allocate_next_id());
+        entity->set_id(id);
         entity->set_scene(this);
         entity->do_start();
 
         if (entity->get_name().empty())
-            entity->set_name(format("Entity #{}", (uint32_t)entity->get_id()));
+            entity->set_name(format("Entity #{}", (uint32_t)id));
+
+        m_entities.push_back(entity);
+    }
+
+    void remove_entity(EntityId id)
+    {
+        m_entities.erase(std::find(m_entities.begin(), m_entities.end(), id));
     }
 
     inline std::vector<Ref<Entity>>& get_entities()

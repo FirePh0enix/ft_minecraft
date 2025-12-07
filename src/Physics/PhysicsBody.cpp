@@ -1,7 +1,7 @@
 #include "Physics/PhysicsBody.hpp"
 
-PhysicsBody::PhysicsBody(const glm::vec3& position, Collider *collider)
-    : m_position(position), m_collider(collider)
+PhysicsBody::PhysicsBody(PhysicsBodyKind kind, Collider *collider)
+    : m_kind(kind), m_collider(collider)
 {
 }
 

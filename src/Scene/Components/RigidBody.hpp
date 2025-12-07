@@ -16,7 +16,7 @@ public:
                                                           { self->set_disabled(value); });
     }
 
-    RigidBody();
+    RigidBody(Collider *collider);
 
     virtual ~RigidBody();
 

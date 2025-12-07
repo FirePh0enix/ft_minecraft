@@ -39,6 +39,7 @@ list(APPEND SOURCES
     src/MP/Peer.cpp
     src/MP/Synchronizer.cpp
     src/Platform/Platform.cpp
+    src/Physics/Collider.cpp
     src/Physics/PhysicsBody.cpp
     src/Physics/PhysicsSpace.cpp
     src/Render/WebGPU/DriverWebGPU.cpp
