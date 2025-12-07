@@ -112,6 +112,9 @@ ENGINE_MAIN(int argc, char *argv[])
     scene->add_entity(player);
     scene->set_active_camera(camera);
 
+    String s = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    println("{}", s);
+
     if (args.has("disable-save"))
     {
         // TODO

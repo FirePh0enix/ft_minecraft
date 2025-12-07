@@ -1,7 +1,12 @@
 #pragma once
 
+#include <cstdint>
+#include <type_traits>
+
+#include "Core/Alloc.hpp"
 #include "Core/Definitions.hpp"
-#include "Core/Error.hpp"
+
+void ref_check_null_access(bool cond, const char *class_name);
 
 template <typename T>
 class Ref
@@ -96,25 +101,25 @@ public:
 
     inline T *operator->()
     {
-        ERR_COND_V(is_null(), "Trying to access a null ref of type {}", T::get_static_class_name());
+        ref_check_null_access(is_null(), T::get_static_class_name());
         return m_ptr;
     }
 
     inline const T *operator->() const
     {
-        ERR_COND_V(is_null(), "Trying to access a null ref of type {}", T::get_static_class_name());
+        ref_check_null_access(is_null(), T::get_static_class_name());
         return m_ptr;
     }
 
     inline T& operator*()
     {
-        ERR_COND_V(is_null(), "Trying to dereference a null ref of type {}", T::get_static_class_name());
+        ref_check_null_access(is_null(), T::get_static_class_name());
         return *m_ptr;
     }
 
     inline const T& operator*() const
     {
-        ERR_COND_V(is_null(), "Trying to dereference a null ref of type {}", T::get_static_class_name());
+        ref_check_null_access(is_null(), T::get_static_class_name());
         return *m_ptr;
     }
 
@@ -197,4 +202,4 @@ private:
     }
 };
 
-#define newobj(T, ...) Ref<T>(new T(__VA_ARGS__))
+#define newobj(T, ...) Ref<T>(alloc<T>(__VA_ARGS__))

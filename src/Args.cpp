@@ -1,7 +1,7 @@
 #include "Args.hpp"
 #include "Core/Logger.hpp"
 
-void Args::add_arg(const std::string& name, const ArgInfo& info)
+void Args::add_arg(const String& name, const ArgInfo& info)
 {
     m_infos[name] = info;
 }
@@ -10,11 +10,11 @@ void Args::parse(char **argv, int argc)
 {
     for (int i = 0; i < argc; i++)
     {
-        std::string arg = argv[i];
+        StringView arg = argv[i];
 
         if (arg.starts_with("--"))
         {
-            std::string name = arg.substr(2);
+            StringView name = arg.slice(2);
 
             if (!m_infos.contains(name))
             {

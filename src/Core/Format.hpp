@@ -76,7 +76,7 @@ struct FormatterBase
 };
 
 template <typename T>
-struct Formatter : FormatterBase
+struct Formatter : public FormatterBase
 {
     void format(const T& value, FormatContext& ctx) const
     {
@@ -89,7 +89,7 @@ struct Formatter : FormatterBase
 };
 
 template <>
-struct Formatter<const char *> : FormatterBase
+struct Formatter<const char *> : public FormatterBase
 {
     void format(const char *& value, FormatContext& ctx) const
     {
@@ -98,7 +98,7 @@ struct Formatter<const char *> : FormatterBase
 };
 
 template <const size_t length>
-struct Formatter<const char[length]> : FormatterBase
+struct Formatter<const char[length]> : public FormatterBase
 {
     void format(const char value[length], FormatContext& ctx) const
     {
@@ -107,7 +107,7 @@ struct Formatter<const char[length]> : FormatterBase
 };
 
 template <>
-struct Formatter<std::string> : FormatterBase
+struct Formatter<std::string> : public FormatterBase
 {
     void format(const std::string& s, FormatContext& ctx) const
     {
@@ -116,7 +116,16 @@ struct Formatter<std::string> : FormatterBase
 };
 
 template <>
-struct Formatter<bool> : FormatterBase
+struct Formatter<String> : public FormatterBase
+{
+    void format(const String& s, FormatContext& ctx) const
+    {
+        ctx.write_str(s.data(), (std::streamsize)s.size());
+    }
+};
+
+template <>
+struct Formatter<bool> : public FormatterBase
 {
     void format(const bool& s, FormatContext& ctx) const
     {
@@ -125,7 +134,7 @@ struct Formatter<bool> : FormatterBase
 };
 
 template <typename T, const size_t size>
-struct Formatter<std::array<T, size>> : FormatterBase
+struct Formatter<std::array<T, size>> : public FormatterBase
 {
     void format(const std::array<T, size>& array, FormatContext& ctx) const
     {
@@ -144,7 +153,7 @@ struct Formatter<std::array<T, size>> : FormatterBase
 };
 
 template <typename T>
-struct Formatter<std::vector<T>> : FormatterBase
+struct Formatter<std::vector<T>> : public FormatterBase
 {
     void format(const std::vector<T>& vec, FormatContext& ctx) const
     {
@@ -163,7 +172,7 @@ struct Formatter<std::vector<T>> : FormatterBase
 };
 
 template <typename K, typename V>
-struct Formatter<std::map<K, V>> : FormatterBase
+struct Formatter<std::map<K, V>> : public FormatterBase
 {
     void format(const std::map<K, V>& map, FormatContext& ctx) const
     {

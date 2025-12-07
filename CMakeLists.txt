@@ -34,6 +34,7 @@ list(APPEND SOURCES
     src/Core/Filesystem.cpp
     src/Core/Ref.cpp
     src/Core/Registry.cpp
+    src/Core/String.cpp
     src/Core/StringView.cpp
     src/MP/Manager.cpp
     src/MP/Peer.cpp
@@ -200,7 +201,7 @@ endif()
 # datapacktool
 # add_subdirectory(tools/datapack)
 
-add_executable(datapacktool tools/datapack/main.cpp ./src/DataPack.cpp)
+add_executable(datapacktool tools/datapack/main.cpp src/DataPack.cpp src/Core/String.cpp src/Core/StringView.cpp)
 target_include_directories(datapacktool PRIVATE ./src/)
 set_property(TARGET datapacktool PROPERTY CXX_STANDARD 20)
 set(DATAPACKTOOL_COMMAND "${CMAKE_BINARY_DIR}/datapacktool")

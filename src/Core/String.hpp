@@ -5,41 +5,33 @@
 #include <cstdint>
 #include <cstring>
 
+#include "Core/Alloc.hpp"
 #include "Core/StringView.hpp"
 
+/**
+ * Capacity of a `String` before heap allocation is needed.
+ */
 constexpr size_t string_small_capacity = sizeof(char *) + sizeof(size_t) + sizeof(size_t) - 1;
 
 class String
 {
 public:
-    String()
-    {
-    }
+    /**
+     * Create an empty string.
+     */
+    String();
 
-    String(const String& other)
-    {
-        replace_by(other);
-    }
+    String(const String& other);
 
-    String(const char *str)
-        : String(str, strlen(str))
-    {
-    }
+    /**
+     * Create a string from a NUL-terminated ascii sequence.
+     */
+    String(const char *str);
 
-    String(const char *str, size_t size)
-    {
-        if (size + 1 <= string_small_capacity)
-        {
-            small.small_flag = 1;
-            small.size = size;
-            memcpy(small.data, str, small.size);
-            small.data[small.size] = '\0';
-        }
-        else
-        {
-            append(str, size);
-        }
-    }
+    /**
+     * Create a string from an ascii sequence while specifying its size.
+     */
+    String(const char *str, size_t size);
 
     String(const StringView& sv)
         : String(sv.data(), sv.size())
@@ -48,14 +40,23 @@ public:
 
     String& operator=(const String& other)
     {
-        replace_by(other);
+        if (!is_small() && large.ptr)
+            destroy_n(large.ptr);
+
+        // FIXME: This is a hack that I despise.
+        large.capacity = 0;
+        large.size = 0;
+        large.ptr = nullptr;
+        small.small_flag = 1;
+
+        append(other.data(), other.size());
         return *this;
     }
 
     String& operator=(const char *str)
     {
         if (!is_small() && large.ptr)
-            delete[] large.ptr;
+            destroy_n(large.ptr);
 
         *this = String(str);
         return *this;
@@ -63,6 +64,7 @@ public:
 
     void operator+=(const char *str) { append(str, strlen(str)); }
     void operator+=(const String& str) { append(str); }
+    void operator+=(char c) { append(c); }
 
     std::strong_ordering operator<=>(const String& other) const
     {
@@ -74,59 +76,15 @@ public:
         return (*this <=> other) == std::strong_ordering::equal;
     }
 
+    constexpr bool is_small() const { return small.small_flag; }
+
     size_t size() const { return is_small() ? small.size : large.size; }
     size_t capacity() const { return is_small() ? string_small_capacity : large.capacity; }
 
     const char *data() const { return is_small() ? small.data : large.ptr; }
     char *data() { return is_small() ? small.data : large.ptr; }
 
-    void append(const char *str, size_t size)
-    {
-        if (is_small())
-        {
-            // Check if the new string fit in the small string.
-            const size_t new_len = size + small.size;
-
-            if (new_len + 1 <= string_small_capacity)
-            {
-                std::memcpy(small.data + small.size, str, size);
-                small.data[new_len] = '\0';
-            }
-            else
-            {
-                char *new_ptr = new char[new_len + 1];
-                std::memcpy(new_ptr, small.data, small.size);
-                std::memcpy(new_ptr + small.size, str, size);
-                new_ptr[new_len] = '\0';
-
-                small.small_flag = 0;
-                large.ptr = new_ptr;
-                large.capacity = new_len + 1;
-                large.size = new_len;
-            }
-        }
-        else
-        {
-            const size_t new_size = size + large.size;
-
-            if (new_size + 1 <= large.capacity)
-            {
-                large.capacity = new_size + 1;
-
-                char *new_ptr = new char[new_size + 1];
-                std::memcpy(new_ptr, large.ptr, large.size);
-                new_ptr[large.size] = '\0';
-
-                delete[] large.ptr;
-                large.ptr = new_ptr;
-            }
-
-            std::memcpy(large.ptr + large.size, str, size);
-            large.ptr[new_size] = '0';
-            large.size = new_size;
-        }
-    }
-
+    void append(const char *str, size_t size);
     void append(const String& str) { append(str.data(), str.size()); }
     void append(char c) { append(&c, 1); }
 
@@ -136,35 +94,33 @@ public:
     StringView slice(size_t offset) const { return StringView(*this).slice(offset); }
 
 protected:
-    constexpr bool is_small() const { return small.small_flag; }
+    // void replace_by(const String& str)
+    // {
+    //     if (!is_small() && large.ptr)
+    //     {
+    //         destroy_n(large.ptr);
+    //     }
 
-    void replace_by(const String& str)
-    {
-        if (!is_small())
-        {
-            delete[] str.large.ptr;
-        }
-
-        if (str.is_small())
-        {
-            small.small_flag = 1;
-            small.size = str.small.size;
-            std::memcpy(small.data, str.small.data, small.size + 1);
-        }
-        else
-        {
-            small.small_flag = 0;
-            large.ptr = new char[str.large.capacity];
-            std::memcpy(large.ptr, str.large.ptr, str.large.size + 1);
-            large.size = str.large.size;
-            large.capacity = str.large.capacity;
-        }
-    }
+    //     if (str.is_small())
+    //     {
+    //         small.small_flag = 1;
+    //         small.size = str.small.size;
+    //         memcpy(small.data, str.small.data, small.size + 1);
+    //     }
+    //     else
+    //     {
+    //         small.small_flag = 0;
+    //         large.ptr = alloc_n<char>(str.large.capacity);
+    //         memcpy(large.ptr, str.large.ptr, str.large.size + 1);
+    //         large.size = str.large.size;
+    //         large.capacity = str.large.capacity;
+    //     }
+    // }
 
     static std::strong_ordering compare(const char *str1, size_t size1, const char *str2, size_t size2)
     {
-        // for (size_t index = 0; index < size1 && index < size2 && str1[index] == str2[index]; index++)
-        //     ;
+        // TODO: Add our own constexpr implementation.
+
         (void)size1;
         (void)size2;
         int value = std::strcmp(str1, str2);
@@ -200,7 +156,7 @@ protected:
         } large;
         struct
         {
-            char data[string_small_capacity];
+            char data[string_small_capacity] = {};
             uint8_t size : 7 = 0;
             uint8_t small_flag : 1 = 1;
         } small;

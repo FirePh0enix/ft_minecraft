@@ -1,10 +1,11 @@
 #pragma once
 
-#include "Core/Logger.hpp"
-#include "Core/Print.hpp"
-
 #include <array>
+#include <cstdint>
+#include <cstdio>
 #include <cstring>
+
+#include "Core/Logger.hpp"
 
 #ifndef STACKTRACE_SIZE
 #define STACKTRACE_SIZE 128
@@ -76,7 +77,7 @@ enum class ErrorKind : uint16_t
 };
 
 template <>
-struct Formatter<ErrorKind>
+struct Formatter<ErrorKind> : public FormatterBase
 {
     void format(const ErrorKind& kind, FormatContext& ctx) const
     {
