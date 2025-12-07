@@ -12,7 +12,7 @@ void DataPack::open(const std::filesystem::path& path)
     assert(m_stream.is_open() && "Cannot open file for writing");
 }
 
-void DataPack::load_from_file(const std::string& path)
+void DataPack::load_from_file(const StringView& path)
 {
     m_stream.open(path, std::ifstream::in | std::ifstream::binary | std::ifstream::ate);
     assert(m_stream.is_open() && "Cannot open file for writing");
@@ -20,7 +20,7 @@ void DataPack::load_from_file(const std::string& path)
     m_stream.seekg(0);
 }
 
-void DataPack::add_file_to_data_pack(std::string_view path, const std::vector<char>& buffer)
+void DataPack::add_file_to_data_pack(StringView path, const std::vector<char>& buffer)
 {
     if (!m_file_initialized)
     {

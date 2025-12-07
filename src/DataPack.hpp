@@ -45,9 +45,9 @@ public:
      */
     void open(const std::filesystem::path& path);
 
-    void load_from_file(const std::string& path);
+    void load_from_file(const StringView& path);
 
-    void add_file_to_data_pack(std::string_view path, const std::vector<char>& buffer);
+    void add_file_to_data_pack(StringView path, const std::vector<char>& buffer);
 
     Result<DataPackFileInfo> find_file(const StringView& path);
     Result<> read_file(size_t offset, void *buffer, size_t size);

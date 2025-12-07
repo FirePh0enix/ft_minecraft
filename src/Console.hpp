@@ -6,6 +6,8 @@
 #include <string>
 #include <vector>
 
+#include "Core/String.hpp"
+
 enum class CmdArgKind
 {
     Int,
@@ -15,13 +17,13 @@ enum class CmdArgKind
 struct CmdArgInfo
 {
     CmdArgKind kind;
-    std::string name;
+    String name;
 };
 
 struct CmdArg
 {
     int64_t i = 0;
-    std::string s = "";
+    String s = "";
 };
 
 struct CommandInfo;
@@ -29,20 +31,20 @@ struct CommandInfo;
 class Command
 {
 public:
-    Command(const CommandInfo& info, const std::vector<std::string>& args);
+    Command(const CommandInfo& info, const std::vector<String>& args);
 
-    int64_t get_arg_int(const std::string& name) const
+    int64_t get_arg_int(const String& name) const
     {
         return m_args.at(name).i;
     }
 
-    std::string get_arg_string(const std::string& name) const
+    String get_arg_string(const String& name) const
     {
         return m_args.at(name).s;
     }
 
 private:
-    std::map<std::string, CmdArg> m_args;
+    std::map<String, CmdArg> m_args;
 };
 
 typedef void (*CommandCallback)(const Command& cmd);
@@ -58,7 +60,7 @@ class Console
 public:
     Console();
 
-    void register_command(const std::string& name, std::vector<CmdArgInfo> args, CommandCallback callback);
+    void register_command(const String& name, std::vector<CmdArgInfo> args, CommandCallback callback);
     void exec();
 
     char *get_buffer()
@@ -72,6 +74,6 @@ public:
     }
 
 private:
-    std::map<std::string, CommandInfo> m_commands;
+    std::map<String, CommandInfo> m_commands;
     std::array<char, 128> m_buffer;
 };

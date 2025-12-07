@@ -1,5 +1,5 @@
-#include "Error.hpp"
-
+#include "Core/Error.hpp"
+#include "Core/Logger.hpp"
 #include "Core/Print.hpp"
 
 #ifdef __has_libbacktrace
