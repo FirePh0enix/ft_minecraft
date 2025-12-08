@@ -3,11 +3,27 @@
 
 String::String()
 {
+    small.small_flag = 1;
+    small.size = 0;
+    memset(small.data, 0, string_small_capacity);
 }
 
 String::String(const String& other)
-    : String(other.data(), other.size())
 {
+    if (other.is_small())
+    {
+        small.small_flag = 1;
+        small.size = other.small.size;
+        memcpy(small.data, other.small.data, small.size + 1);
+    }
+    else
+    {
+        small.small_flag = 1;
+        large.capacity = other.large.capacity;
+        large.size = other.large.size;
+        large.ptr = alloc_n<char>(large.capacity);
+        memcpy(large.ptr, other.large.ptr, large.size + 1);
+    }
 }
 
 String::String(const char *str)
@@ -26,11 +42,8 @@ String::String(const char *str, size_t size)
     }
     else
     {
-        small.small_flag = 0;
-
-        large.ptr = nullptr;
-        large.size = 0;
-        large.capacity = 0;
+        small.small_flag = 1;
+        small.size = 0;
         append(str, size);
     }
 }
@@ -44,7 +57,7 @@ void String::append(const char *str, size_t size)
 
         if (new_len + 1 <= string_small_capacity)
         {
-            std::memcpy(small.data + small.size, str, size);
+            memcpy(small.data + small.size, str, size);
             small.data[new_len] = '\0';
         }
         else

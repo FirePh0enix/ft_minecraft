@@ -1,7 +1,6 @@
 #include "World/World.hpp"
 #include "Core/DataBuffer.hpp"
-
-#include <tracy/Tracy.hpp>
+#include "Profiler.hpp"
 
 World::World(Ref<Mesh> mesh, Ref<Shader> visual_shader, uint64_t seed)
     : m_seed(seed), m_mesh(mesh), m_visual_shader(visual_shader)

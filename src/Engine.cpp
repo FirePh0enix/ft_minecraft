@@ -10,12 +10,11 @@
 #include "Scene/Components/Visual.hpp"
 #include "Scene/Entity.hpp"
 #include "Scene/Scene.hpp"
+#include "Profiler.hpp"
 
 #ifdef __has_webgpu
 #include "Render/WebGPU/DriverWebGPU.hpp"
 #endif
-
-#include <tracy/Tracy.hpp>
 
 #ifdef __platform_web
 #include <emscripten/html5.h>
@@ -36,7 +35,7 @@ Engine::Engine(Args args, const std::string& app_name)
     // After this point reading from the datapack become possible.
     Filesystem::open_data();
 
-    tracy::SetThreadName("Main");
+    TracySetThreadName("Main");
 
     m_window = newobj(Window, "ft_minecraft", 1280, 720);
     Input::init(*m_window);

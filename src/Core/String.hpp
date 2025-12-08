@@ -146,6 +146,12 @@ protected:
             dest[i] = source[i];
     }
 
+    static constexpr void memset(char *dest, char c, size_t len)
+    {
+        for (size_t i = 0; i < len; i++)
+            dest[i] = c;
+    }
+
     union
     {
         struct

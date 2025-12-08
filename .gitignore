@@ -5,6 +5,7 @@ build-emscripten
 # clangd
 .cache
 .clangd
+compile_commands.json
 
 # macOS
 .DS_Store
