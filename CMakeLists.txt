@@ -274,17 +274,21 @@ elseif(TARGET_IS_ALPINE_LINUX)
     )
     FetchContent_MakeAvailable(wgpu-native)
 
-    execute_process(
-        # OUTPUT_QUIET
+    add_custom_command(
+        OUTPUT ${wgpu-native_SOURCE_DIR}/dist/wgpu--debug.zip
         COMMAND make package
         WORKING_DIRECTORY ${wgpu-native_SOURCE_DIR}
     )
 
-    execute_process(
-        # OUTPUT_QUIET
-        COMMAND unzip wgpu--debug.zip
+    add_custom_command(
+        OUTPUT ${wgpu-native_SOURCE_DIR}/dist/lib/libwgpu_native.so
+        COMMAND unzip -o wgpu--debug.zip
         WORKING_DIRECTORY ${wgpu-native_SOURCE_DIR}/dist
+        DEPENDS ${wgpu-native_SOURCE_DIR}/dist/wgpu--debug.zip
     )
+
+    add_custom_target(wgpu_native_compilations DEPENDS ${wgpu-native_SOURCE_DIR}/dist/lib/libwgpu_native.so)
+    add_dependencies(${TARGET_NAME} wgpu_native_compilations)
 
     target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_BINARY_DIR}/_deps/wgpu-native-src/dist/include)
     target_link_directories(${TARGET_NAME} PRIVATE ${CMAKE_BINARY_DIR}/_deps/wgpu-native-src/dist/lib)
@@ -449,15 +453,15 @@ FetchContent_MakeAvailable(tomlplusplus)
 target_link_libraries(${TARGET_NAME} PRIVATE tomlplusplus::tomlplusplus)
 
 # tracy
-FetchContent_Declare(
-    tracy
-    GIT_REPOSITORY https://github.com/wolfpld/tracy
-    GIT_TAG 5d542dc09f3d9378d005092a4ad446bd405f819a # v0.11.1
-)
-FetchContent_MakeAvailable(tracy)
-target_link_libraries(${TARGET_NAME} PRIVATE TracyClient)
-
 if (ENABLE_TRACING)
+    FetchContent_Declare(
+        tracy
+        GIT_REPOSITORY https://github.com/wolfpld/tracy
+        GIT_TAG 5d542dc09f3d9378d005092a4ad446bd405f819a # v0.11.1
+    )
+    FetchContent_MakeAvailable(tracy)
+
+    target_link_libraries(${TARGET_NAME} PRIVATE TracyClient)
     target_compile_definitions(${TARGET_NAME} PRIVATE TRACY_ENABLE)
 endif()
 

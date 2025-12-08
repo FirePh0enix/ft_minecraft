@@ -3,8 +3,7 @@
 #include "Ray.hpp"
 #include "Scene/Entity.hpp"
 #include "World/Registry.hpp"
-
-#include <tracy/Tracy.hpp>
+#include "Profiler.hpp"
 
 void Player::start()
 {

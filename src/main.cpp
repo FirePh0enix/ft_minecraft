@@ -19,9 +19,9 @@
 #include "World/Pass/Surface.hpp"
 #include "World/Registry.hpp"
 #include "World/World.hpp"
+#include "Profiler.hpp"
 
 #include <SDL3_image/SDL_image.h>
-#include <tracy/Tracy.hpp>
 
 #ifndef DOCTEST_CONFIG_ENABLE
 
@@ -105,7 +105,7 @@ ENGINE_MAIN(int argc, char *argv[])
 
     player = make_entity("Player",
                          newobj(Transformed3D, Transform3D(glm::vec3(config2["player"]["x"].as<double>()->get(), config2["player"]["y"].as<double>()->get(), config2["player"]["z"].as<double>()->get()))),
-                         newobj(RigidBody, new BoxCollider(glm::vec3(-0.4, -0.8, -0.4), glm::vec3(0.4, 0.8, 0.4))),
+                         newobj(RigidBody, alloc<BoxCollider>(glm::vec3(-0.4, -0.8, -0.4), glm::vec3(0.4, 0.8, 0.4))),
                          newobj(Player, world, cube));
     player->add_child(player_head);
 
