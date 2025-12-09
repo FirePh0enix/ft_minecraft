@@ -5,12 +5,12 @@
 #include "Input.hpp"
 #include "MP/Peer.hpp"
 #include "MP/Synchronizer.hpp"
+#include "Profiler.hpp"
 #include "Scene/Components/MeshInstance.hpp"
 #include "Scene/Components/RigidBody.hpp"
 #include "Scene/Components/Visual.hpp"
 #include "Scene/Entity.hpp"
 #include "Scene/Scene.hpp"
-#include "Profiler.hpp"
 
 #ifdef __has_webgpu
 #include "Render/WebGPU/DriverWebGPU.hpp"

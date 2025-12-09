@@ -35,6 +35,8 @@ public:
         return m_inner <=> b.m_inner;
     }
 
+    ALWAYS_INLINE bool is_valid() const { return m_inner != 0; }
+
 private:
     uint32_t m_inner;
 };
@@ -71,23 +73,21 @@ class Entity : public Object
 {
     CLASS(Entity, Object);
 
+    friend class Scene;
+
 public:
     Entity();
     virtual ~Entity() {}
 
-    ALWAYS_INLINE EntityId get_id() const { return m_id; }
-    ALWAYS_INLINE void set_id(EntityId id) { m_id = id; }
+    ALWAYS_INLINE EntityId id() const { return m_id; }
 
-    const std::map<ClassHashCode, Ref<Component>>& get_components() const;
+    const std::vector<Ref<Component>>& get_components() const { return m_components; }
 
     template <typename T>
         requires IsObject<T>
     Ref<T> get_component() const
     {
-        constexpr ClassHashCode class_hash = T::get_static_hash_code();
-        if (m_components.contains(class_hash))
-            return m_components.at(class_hash);
-        return nullptr;
+        return get_component(T::get_static_hash_code()).template cast_to<T>();
     }
 
     Ref<Component> get_component(ClassHashCode class_hash) const;
@@ -101,7 +101,10 @@ public:
 
     bool has_component(ClassHashCode class_hash) const
     {
-        return m_components.contains(class_hash);
+        for (const Ref<Component>& comp : m_components)
+            if (comp->is(class_hash))
+                return true;
+        return false;
     }
 
     void add_component(Ref<Component> comp);
@@ -123,15 +126,8 @@ public:
         return m_children[index];
     }
 
-    inline const std::vector<Ref<Entity>>& get_children() const
-    {
-        return m_children;
-    }
-
-    inline std::vector<Ref<Entity>>& get_children()
-    {
-        return m_children;
-    }
+    ALWAYS_INLINE const std::vector<Ref<Entity>>& get_children() const { return m_children; }
+    ALWAYS_INLINE std::vector<Ref<Entity>>& get_children() { return m_children; }
 
     ALWAYS_INLINE Entity *get_parent() const { return m_parent; }
     ALWAYS_INLINE void set_parent(Entity *parent) { m_parent = parent; }
@@ -142,7 +138,7 @@ public:
 
     void start()
     {
-        for (auto& [_, comp] : m_components)
+        for (auto& comp : m_components)
             comp->start();
     }
 
@@ -173,11 +169,11 @@ public:
     }
 
 private:
-    EntityId m_id = EntityId(0);
+    EntityId m_id;
     std::string m_name;
     Entity *m_parent = nullptr; // FIXME: This must be changed by either a Ref<Entity> or a EntityId.
     Scene *m_scene = nullptr;   // FIXME: Must be replaced by a Ref<Scene>
-    std::map<ClassHashCode, Ref<Component>> m_components;
+    std::vector<Ref<Component>> m_components;
     std::vector<Ref<Entity>> m_children;
 };
 

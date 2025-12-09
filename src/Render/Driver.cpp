@@ -138,21 +138,23 @@ void RenderingPlugin::setup(Scene *scene)
 
 void RenderingPlugin::render_system(const Query<Many<VisualComponent>>& query, Action&)
 {
+    const auto& collection = query.get<0>();
+
     // depth pass
     {
         RenderPassEncoder encoder = RenderGraph::get().render_pass_begin({.name = "depth pass", .depth_attachment = RenderPassDepthAttachment{.save = true}});
-        for (const auto& result : query.template get<0>().results())
+        for (const auto& result : collection.results())
         {
-            result.template get<VisualComponent>()->encode_draw_calls(encoder, *Scene::get_active_scene()->get_active_camera());
+            result.get<VisualComponent>()->encode_draw_calls(encoder, *Scene::get_active_scene()->get_active_camera());
         }
     }
 
     // color pass
     {
         RenderPassEncoder encoder = RenderGraph::get().render_pass_begin({.name = "main pass", .color_attachments = {RenderPassColorAttachment{.surface_texture = true}}, .depth_attachment = RenderPassDepthAttachment{.load = true}});
-        for (const auto& result : query.template get<0>().results())
+        for (const auto& result : collection.results())
         {
-            result.template get<VisualComponent>()->encode_draw_calls(encoder, *Scene::get_active_scene()->get_active_camera());
+            result.get<VisualComponent>()->encode_draw_calls(encoder, *Scene::get_active_scene()->get_active_camera());
         }
         encoder.imgui();
     }
