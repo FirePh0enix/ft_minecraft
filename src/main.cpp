@@ -6,6 +6,7 @@
 #include "Font.hpp"
 #include "MP/Manager.hpp"
 #include "MeshPrimitives.hpp"
+#include "Profiler.hpp"
 #include "Render/Driver.hpp"
 #include "Render/Shader.hpp"
 #include "Scene/Components/MeshInstance.hpp"
@@ -19,7 +20,6 @@
 #include "World/Pass/Surface.hpp"
 #include "World/Registry.hpp"
 #include "World/World.hpp"
-#include "Profiler.hpp"
 
 #include <SDL3_image/SDL_image.h>
 
@@ -101,7 +101,7 @@ ENGINE_MAIN(int argc, char *argv[])
     scene->add_entity(world_entity);
 
     Ref<Camera> camera = newobj(Camera);
-    Ref<Entity> player_head = make_entity("Head", newobj(Transformed3D, glm::vec3(0.0, 0.85, 0.0)), camera.cast_to<Component>());
+    Ref<Entity> player_head = make_entity("Head", newobj(Transformed3D, glm::vec3(0.0, 0.8, 0.0)), camera.cast_to<Component>());
 
     player = make_entity("Player",
                          newobj(Transformed3D, Transform3D(glm::vec3(config2["player"]["x"].as<double>()->get(), config2["player"]["y"].as<double>()->get(), config2["player"]["z"].as<double>()->get()))),
@@ -111,9 +111,6 @@ ENGINE_MAIN(int argc, char *argv[])
 
     scene->add_entity(player);
     scene->set_active_camera(camera);
-
-    String s = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-    println("{}", s);
 
     if (args.has("disable-save"))
     {

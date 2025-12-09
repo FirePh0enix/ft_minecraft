@@ -21,13 +21,11 @@ class Scene : public Object
 public:
     Scene();
 
-    void encode_draw_calls(RenderPassEncoder& encoder);
-
     void tick(float delta);
 
     /**
-     * Add a plugin to the scene.
-     * A plugin is a type which has a single `static void setup(Scene *scene)` function which add system and entities.
+     *  Add a plugin to the scene.
+     *  A plugin is a type which has a single `static void setup(Scene *scene)` function which add system and entities.
      */
     template <typename T>
         requires IsPlugin<T>
@@ -37,7 +35,7 @@ public:
     }
 
     /**
-     * Add multiple plugins at once, see `Scene::add_plugin` for more informations.
+     *  Add multiple plugins at once, see `Scene::add_plugin` for more informations.
      */
     template <typename... T>
         requires(IsPlugin<T>, ...)
@@ -53,7 +51,7 @@ public:
         using Traits = SystemTraits<PtrType>;
 
         static_assert(std::is_same_v<PtrType, typename Traits::Pointer>,
-                      "Callable must have signature void(const Query<...>&)");
+                      "Callable must have signature void(const Query<...>&, Action&)");
 
         PtrType sys = +std::forward<F>(f);
         m_system_map.add_system(lifecycle, sys);
@@ -69,7 +67,8 @@ public:
 
                                   for (auto& result : meta.results)
                                   {
-                                      internal.collections.push_back(QueryCollectionInternal(query_internal(m_entities, result)));
+                                      QueryCollectionInternal collection(query_internal(m_entities, result));
+                                      internal.collections.push_back(collection);
                                   }
 
                                   meta.func(internal, action); });
@@ -97,7 +96,7 @@ public:
     {
         EntityId id = allocate_next_id();
 
-        entity->set_id(id);
+        entity->m_id = id;
         entity->set_scene(this);
         entity->do_start();
 
@@ -163,53 +162,5 @@ private:
     static inline EntityId s_id = EntityId(1);
     static inline Ref<Scene> s_active_scene;
 
-    std::vector<QueryResultInternal> query_internal(const std::vector<Ref<Entity>>& entities, const QueryResultMeta& meta)
-    {
-        std::vector<QueryResultInternal> results;
-
-        std::vector<Ref<Component>> components;
-        components.reserve(meta.included_classes.size());
-
-        for (Ref<Entity> entity : entities)
-        {
-            bool has_excluded = false;
-            std::vector<QueryResultInternal> sub_results = query_internal(entity->get_children(), meta);
-
-            for (ClassHashCode class_hash : meta.excluded_classes)
-            {
-                if (entity->has_component(class_hash))
-                {
-                    has_excluded = true;
-                    break;
-                }
-            }
-
-            if (has_excluded)
-                continue;
-
-            for (ClassHashCode class_hash : meta.included_classes)
-            {
-                Ref<Component> comp = entity->get_component(class_hash);
-                if (comp.is_null())
-                    break;
-                components.push_back(comp);
-            }
-
-            if (components.size() == meta.included_classes.size())
-            {
-                std::vector<QueryResultInternal> child_results;
-                for (const QueryResultMeta& child : meta.children)
-                {
-                    std::vector<QueryResultInternal> child_res = query_internal(entity->get_children(), child);
-                    child_results.insert(results.end(), child_res.begin(), child_res.end());
-                }
-                results.push_back(QueryResultInternal(std::move(components), std::move(child_results)));
-            }
-
-            results.insert(results.end(), sub_results.begin(), sub_results.end());
-
-            components.resize(0);
-        }
-        return results;
-    }
+    std::vector<QueryResultInternal> query_internal(const std::vector<Ref<Entity>>& entities, const QueryResultMeta& meta);
 };

@@ -58,8 +58,6 @@ constexpr ClassHashCode fnv32_class_hash(const char *filename, const char *class
 private:                                                                                                                                                                                  \
     static constexpr ClassHashCode s_class_hash = fnv32_class_hash(__FILE__, #NAME);                                                                                                      \
                                                                                                                                                                                           \
-    static_assert(sizeof(NAME *) || true);                                                                                                                                                \
-                                                                                                                                                                                          \
 public:                                                                                                                                                                                   \
     static inline InplaceVector<ClassHashCode, BASE::classes.max_capacity() + 1> classes = InplaceVector<ClassHashCode, BASE::classes.max_capacity() + 1>(BASE::classes, {s_class_hash}); \
                                                                                                                                                                                           \

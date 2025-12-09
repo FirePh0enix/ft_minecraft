@@ -1,21 +1,9 @@
 #include "Scene/Scene.hpp"
-#include "Scene/Components/Visual.hpp"
 
 #include <ranges>
 
 Scene::Scene()
 {
-}
-
-void Scene::encode_draw_calls(RenderPassEncoder& encoder)
-{
-    for (const auto& entity : m_entities)
-    {
-        if (Ref<VisualComponent> visual_comp = entity->get_component<VisualComponent>())
-        {
-            visual_comp->encode_draw_calls(encoder, *m_active_camera);
-        }
-    }
 }
 
 void Scene::tick(float delta)
@@ -49,6 +37,58 @@ Ref<Entity> Scene::get_entity(const EntityPath& path) const
     } while (index < parts.size());
 
     return index == parts.size() ? curr_entity : nullptr;
+}
+
+std::vector<QueryResultInternal> Scene::query_internal(const std::vector<Ref<Entity>>& entities, const QueryResultMeta& meta)
+{
+    std::vector<QueryResultInternal> results;
+
+    std::vector<Ref<Component>> components;
+    components.reserve(meta.included_classes.size());
+
+    for (Ref<Entity> entity : entities)
+    {
+        std::vector<QueryResultInternal> sub_results = query_internal(entity->get_children(), meta);
+
+        // First check if any component excluded by a `Not<...>` is present.
+        bool has_excluded = false;
+        for (ClassHashCode class_hash : meta.excluded_classes)
+        {
+            if (entity->has_component(class_hash))
+            {
+                has_excluded = true;
+                break;
+            }
+        }
+
+        if (has_excluded)
+            continue;
+
+        for (ClassHashCode class_hash : meta.included_classes)
+        {
+            Ref<Component> comp = entity->get_component(class_hash);
+
+            if (comp.is_null())
+                break;
+            components.push_back(comp);
+        }
+
+        if (components.size() == meta.included_classes.size())
+        {
+            std::vector<QueryResultInternal> child_results;
+            for (const QueryResultMeta& child : meta.children)
+            {
+                std::vector<QueryResultInternal> child_res = query_internal(entity->get_children(), child);
+                child_results.insert(results.end(), child_res.begin(), child_res.end());
+            }
+            results.push_back(QueryResultInternal(std::move(components), std::move(child_results)));
+        }
+
+        results.insert(results.end(), sub_results.begin(), sub_results.end());
+
+        components.resize(0);
+    }
+    return results;
 }
 
 #ifdef __has_debug_menu
@@ -129,7 +169,7 @@ void Scene::imgui_debug_with_entity(const Ref<Entity>& entity, size_t index)
 
     if (ImGui::TreeNodeEx(buffer, ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_DrawLinesToNodes))
     {
-        for (const auto& [_, comp] : entity->get_components())
+        for (const auto& comp : entity->get_components())
         {
             ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_DrawLinesToNodes;
 
