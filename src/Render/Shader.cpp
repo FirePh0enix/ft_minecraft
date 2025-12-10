@@ -53,6 +53,9 @@ private:
 
 struct UnimplementedFileSystem : public ISlangFileSystem
 {
+    CLASS_EXTERN(UnimplementedFileSystem);
+
+public:
     SLANG_REF_OBJECT_IUNKNOWN_ALL;
 
     virtual SLANG_NO_THROW SlangResult SLANG_MCALL loadFile(char const *path, ISlangBlob **out_blob) override
@@ -67,7 +70,7 @@ struct UnimplementedFileSystem : public ISlangFileSystem
         Result<std::vector<char>> result = file->read_to_buffer();
         if (result.has_error())
             return SLANG_E_NOT_FOUND;
-        *out_blob = new MemoryBlob(result.value());
+        *out_blob = alloc<MemoryBlob>(result.value());
 
         return SLANG_OK;
     }
@@ -210,8 +213,8 @@ Result<Ref<Shader>> Shader::load_slang_shader(const std::filesystem::path& path,
     slang::SessionDesc session_desc{};
     slang::TargetDesc target_desc{};
 
-    Slang::ComPtr<ISlangFileSystem> filesystem = Slang::ComPtr<ISlangFileSystem>(new UnimplementedFileSystem());
-    session_desc.fileSystem = filesystem.get();
+    Ref<UnimplementedFileSystem> filesystem = Ref(alloc<UnimplementedFileSystem>());
+    session_desc.fileSystem = filesystem.ptr();
 
     std::vector<slang::CompilerOptionEntry> options;
 

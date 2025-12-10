@@ -19,13 +19,15 @@ T *alloc(Args&&...args)
 template <typename T>
 T *alloc_n(size_t n)
 {
-    return static_cast<T *>(malloc(sizeof(T) * n));
+    T *ptr = static_cast<T *>(malloc(sizeof(T) * n));
+    for (size_t i = 0; i < n; i++)
+        new (ptr + i) T();
 }
 
 template <typename T>
 void destroy(T *obj)
 {
-    T::~T(obj);
+    obj->~T();
     free(obj);
 }
 

@@ -1165,7 +1165,7 @@ void BufferWebGPU::read_async(size_t offset, size_t size, BufferReadCallback cal
 {
     WGPUQueueWorkDoneCallbackInfo callback_info{};
     callback_info.mode = WGPUCallbackMode_AllowSpontaneous;
-    callback_info.userdata1 = new BufferWebGPURead(buffer, callback, offset, size);
+    callback_info.userdata1 = alloc<BufferWebGPURead>(buffer, callback, offset, size);
     callback_info.userdata2 = user;
     callback_info.callback = [](WGPUQueueWorkDoneStatus status, void *user1, void *user2)
     {
@@ -1179,7 +1179,7 @@ void BufferWebGPU::read_async(size_t offset, size_t size, BufferReadCallback cal
             const void *ptr = wgpuBufferGetConstMappedRange(read->buffer, read->offset, read->size);
             read->callback(ptr, read->size, user2);
             wgpuBufferUnmap(read->buffer);
-            delete read;
+            destroy<BufferWebGPURead>(read);
         };
         map_callback_info.userdata1 = user1;
         map_callback_info.userdata2 = user2;

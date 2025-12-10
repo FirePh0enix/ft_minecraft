@@ -94,8 +94,11 @@ ENGINE_MAIN(int argc, char *argv[])
     world_entity->set_name("World");
     world_entity->add_component(world);
 
-    gen = newobj(Generator, world, shader);
+    gen = newobj(Generator, world, World::overworld, shader);
     gen->set_distance(4);
+
+    gen->add_pass(newobj(SurfacePass));
+
     world_entity->add_component(gen);
 
     scene->add_entity(world_entity);
@@ -105,7 +108,7 @@ ENGINE_MAIN(int argc, char *argv[])
 
     player = make_entity("Player",
                          newobj(Transformed3D, Transform3D(glm::vec3(config2["player"]["x"].as<double>()->get(), config2["player"]["y"].as<double>()->get(), config2["player"]["z"].as<double>()->get()))),
-                         newobj(RigidBody, alloc<BoxCollider>(glm::vec3(-0.4, -0.8, -0.4), glm::vec3(0.4, 0.8, 0.4))),
+                         newobj(RigidBody, PhysicsBodyKind::Kinematic, alloc<BoxCollider>(glm::vec3(), glm::vec3(0.8, 1.8, 0.8))),
                          newobj(Player, world, cube));
     player->add_child(player_head);
 

@@ -344,7 +344,7 @@ public:
     template <typename T>
     static void create_singleton()
     {
-        singleton = new T();
+        singleton = alloc<T>();
     };
 
     /**
@@ -357,7 +357,7 @@ public:
 
     static void destroy_singleton()
     {
-        delete singleton;
+        destroy<RenderingDriver>((RenderingDriver *)singleton);
     }
 
     /**

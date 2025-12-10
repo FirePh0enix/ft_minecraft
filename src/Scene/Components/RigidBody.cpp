@@ -3,16 +3,19 @@
 #include "Scene/Entity.hpp"
 #include "Scene/Scene.hpp"
 
-RigidBody::RigidBody(Collider *collider)
-    : m_body(new PhysicsBody(PhysicsBodyKind::Kinematic, collider))
+RigidBody::RigidBody(PhysicsBodyKind kind, Collider *collider)
+    : m_body(alloc<PhysicsBody>(kind, collider))
 {
 }
 
 RigidBody::~RigidBody()
 {
-    m_entity->get_scene()->get_physics_space().remove_body(m_body);
     if (m_body)
-        delete m_body;
+    {
+        m_entity->get_scene()->get_physics_space().remove_body(m_body);
+        if (m_body)
+            destroy<PhysicsBody>(m_body);
+    }
 }
 
 void RigidBody::start()

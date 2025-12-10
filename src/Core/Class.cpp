@@ -4,6 +4,7 @@
 
 #ifdef DOCTEST_CONFIG_ENABLE
 
+#include "Core/Alloc.hpp"
 #include <doctest/doctest.h>
 
 class Foo : public Object
@@ -29,11 +30,11 @@ TEST_CASE("Class")
     CHECK(classes[1] == Foo::get_static_hash_code());
     CHECK(classes[2] == Bar::get_static_hash_code());
 
-    Foo *obj = new Bar();
+    Foo *obj = alloc<Bar>();
     CHECK(obj->is<Bar>());
     CHECK(obj->is<Foo>());
 
-    delete obj;
+    destroy<Bar>(obj);
 }
 
 #endif

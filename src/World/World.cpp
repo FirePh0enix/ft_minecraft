@@ -103,10 +103,15 @@ void World::encode_draw_calls(RenderPassEncoder& encoder, Camera& camera)
 void World::sync_physics_world(const Query<One<World>>& query, Action& action)
 {
     Ref<World> world = query.get<0>().single().get<World>();
+    std::lock_guard<std::mutex> guard(world->m_chunk_mutex);
 
     for (EntityId id : world->m_dims[0].get_chunks_to_remove())
         action.remove(id);
 
+    world->m_dims[0].get_chunks_to_remove().clear();
+
     for (const Ref<Entity>& entity : world->m_dims[0].get_chunks_to_add())
         action.spawn(entity);
+
+    world->m_dims[0].get_chunks_to_add().clear();
 }

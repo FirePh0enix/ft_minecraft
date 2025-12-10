@@ -16,7 +16,7 @@ public:
                                                           { self->set_disabled(value); });
     }
 
-    RigidBody(Collider *collider);
+    RigidBody(PhysicsBodyKind kind, Collider *collider);
 
     virtual ~RigidBody();
 

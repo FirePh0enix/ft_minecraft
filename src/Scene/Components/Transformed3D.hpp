@@ -7,12 +7,7 @@
 class Transform3D
 {
 public:
-    Transform3D()
-        : m_position(0.0), m_rotation(glm::identity<glm::quat>()), m_scale(1.0)
-    {
-    }
-
-    Transform3D(glm::vec3 position, glm::quat rotation = glm::identity<glm::quat>(), glm::vec3 scale = glm::vec3(1.0))
+    Transform3D(glm::vec3 position = glm::vec3(), glm::quat rotation = glm::identity<glm::quat>(), glm::vec3 scale = glm::vec3(1.0))
         : m_position(position), m_rotation(rotation), m_scale(scale)
     {
     }

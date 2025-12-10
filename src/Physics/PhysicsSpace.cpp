@@ -28,12 +28,25 @@ static CollisionResult test_box_grid(Collider *collider_a, glm::vec3 position_a,
     BoxCollider *box = static_cast<BoxCollider *>(collider_a);
     GridCollider *grid = static_cast<GridCollider *>(collider_b);
 
+    AABB grid_aabb(position_b, glm::vec3(grid->width, grid->height, grid->depth) * grid->voxel_size);
+
+    if (grid_aabb.intersect(box->aabb))
+        return CollisionResult();
+
     for (size_t x = 0; x < grid->width; x++)
     {
         for (size_t y = 0; y < grid->height; y++)
         {
             for (size_t z = 0; z < grid->depth; z++)
             {
+                if (!grid->has(x, y, z))
+                    continue;
+
+                glm::vec3 voxel_min = position_b + glm::vec3(x, y, z) * grid->voxel_size;
+                AABB voxel_box = AABB(voxel_min + grid->voxel_size / 2.0f, grid->voxel_size);
+
+                // if (box->aabb.intersect(voxel_box))
+                //     println("INTERSECTION");
             }
         }
     }
@@ -47,8 +60,10 @@ PhysicsSpace::PhysicsSpace()
 
 void PhysicsSpace::step(float delta)
 {
-    for (PhysicsBody *body : m_bodies)
+    for (PhysicsBody *body : m_dynamic_bodies)
         body->step(delta);
+
+    resolve_collisions(delta);
 }
 
 CollisionResult PhysicsSpace::test_collision(Collider *collider_a, glm::vec3 position_a, Collider *collider_b, glm::vec3 position_b)
@@ -80,11 +95,23 @@ void PhysicsSpace::resolve_collisions(float delta)
     (void)delta;
     std::vector<CollisionResult> collisions;
 
-    // Perform collision for all physics bodies.
-    // TODO: This could be optimize.
-    for (PhysicsBody *body_a : m_bodies)
+    for (PhysicsBody *body_a : m_dynamic_bodies)
     {
-        for (PhysicsBody *body_b : m_bodies)
+        for (PhysicsBody *body_b : m_static_bodies)
+        {
+            if (!body_a->get_collider() || !body_b->get_collider())
+                continue;
+
+            CollisionResult result = test_collision(body_a->get_collider(), body_a->get_position(), body_b->get_collider(), body_b->get_position());
+
+            if (result.has_collision)
+                collisions.push_back(result);
+        }
+    }
+
+    for (PhysicsBody *body_a : m_dynamic_bodies)
+    {
+        for (PhysicsBody *body_b : m_dynamic_bodies)
         {
             if (body_a == body_b)
                 break;

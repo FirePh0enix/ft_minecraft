@@ -12,12 +12,19 @@ class GeneratorPass : public Object
     CLASS(GeneratorPass, Object);
 
 public:
-    GeneratorPass(uint64_t seed) : m_seed(seed) {}
+    GeneratorPass() {}
+
+    void set_seed(uint64_t seed)
+    {
+        m_seed = seed;
+        _seed_updated();
+    }
 
     virtual BlockState process(const std::vector<BlockState>& previous_blocks, int64_t x, int64_t y, int64_t z) const = 0;
+    virtual void _seed_updated() {};
 
 protected:
-    uint64_t m_seed;
+    uint64_t m_seed = 0;
 };
 
 struct ChunkBuffers
@@ -33,8 +40,10 @@ class Generator : public Component
     CLASS(Generator, Component);
 
 public:
-    Generator(const Ref<World>& world, const Ref<Shader>& shader);
+    Generator(const Ref<World>& world, size_t dimension, const Ref<Shader>& shader);
     ~Generator();
+
+    void add_pass(Ref<GeneratorPass> pass);
 
     void request_load(int64_t x, int64_t z);
     void request_unload(int64_t x, int64_t z);
@@ -48,6 +57,7 @@ public:
 
 private:
     Ref<World> m_world;
+    size_t m_dimension;
 
     std::vector<Ref<GeneratorPass>> m_passes;
 

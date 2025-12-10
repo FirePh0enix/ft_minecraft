@@ -13,11 +13,15 @@ static const float ERO_VALS[5] = {1.8f, 1.2f, 1.0f, 0.75f, 0.5f};
 static const float PV_KEYS[5] = {-1.0f, -0.2f, 0.0f, 0.2f, 1.0f};
 static const float PV_VALS[5] = {-50.0f, -25.0f, 0.0f, 25.0f, 50.0f};
 
-SurfacePass::SurfacePass(uint64_t seed)
-    : GeneratorPass(seed), m_simplex(seed)
+SurfacePass::SurfacePass()
 {
     m_stone = BlockRegistry::get_block_id("stone");
     m_water = BlockRegistry::get_block_id("water");
+}
+
+void SurfacePass::_seed_updated()
+{
+    m_simplex = SimplexNoise(m_seed);
 }
 
 static float evaluate_spline(const float keys[5], const float vals[5], int count, float x)

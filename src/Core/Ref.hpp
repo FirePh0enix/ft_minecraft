@@ -25,7 +25,7 @@ public:
     }
 
     ALWAYS_INLINE explicit Ref(T *ptr)
-        : m_ptr(ptr), m_references(new ReferenceType(1))
+        : m_ptr(ptr), m_references(alloc<ReferenceType>(ReferenceType(1)))
     {
     }
 
@@ -193,8 +193,8 @@ private:
     {
         if (--*m_references == 0)
         {
-            delete m_ptr;
-            delete m_references;
+            destroy<T>(m_ptr);
+            destroy<ReferenceType>(m_references);
 
             m_ptr = nullptr;
             m_references = nullptr;

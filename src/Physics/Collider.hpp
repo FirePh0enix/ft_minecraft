@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Core/Math.hpp"
+#include "AABB.hpp"
 
 struct Collider;
 class PhysicsBody;
@@ -37,13 +37,12 @@ struct Collider
 
 struct BoxCollider : public Collider
 {
-    BoxCollider(glm::vec3 min, glm::vec3 max)
-        : Collider(ColliderType::Box), min(min), max(max)
+    BoxCollider(glm::vec3 center, glm::vec3 half_extent)
+        : Collider(ColliderType::Box), aabb(center, half_extent)
     {
     }
 
-    glm::vec3 min;
-    glm::vec3 max;
+    AABB aabb;
 };
 
 struct GridCollider : public Collider
