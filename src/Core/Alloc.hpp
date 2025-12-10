@@ -22,6 +22,7 @@ T *alloc_n(size_t n)
     T *ptr = static_cast<T *>(malloc(sizeof(T) * n));
     for (size_t i = 0; i < n; i++)
         new (ptr + i) T();
+    return ptr;
 }
 
 template <typename T>
