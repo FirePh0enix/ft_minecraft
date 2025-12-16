@@ -1,9 +1,9 @@
 #include "Scene/Player.hpp"
 #include "Input.hpp"
+#include "Profiler.hpp"
 #include "Ray.hpp"
 #include "Scene/Entity.hpp"
 #include "World/Registry.hpp"
-#include "Profiler.hpp"
 
 void Player::start()
 {
@@ -27,6 +27,67 @@ void Player::start()
     // m_cube_highlight->add_component(make_ref<Transformed3D>());
     // m_cube_highlight->add_component(mesh);
     // m_entity->get_scene()->add_entity(m_cube_highlight);
+}
+
+static bool check_collision_with_world(Ref<Transformed3D>& transform, Ref<RigidBody>& body, const Ref<World>& world, glm::vec3 velocity)
+{
+    const glm::vec3 position = transform->get_global_transform().position() + velocity;
+    const AABB aabb = static_cast<BoxCollider *>(body->get_body()->get_collider())->aabb.translate(position);
+
+    for (int64_t x = -1; x <= 1; x++)
+        for (int64_t y = -1; y <= 1; y++)
+            for (int64_t z = -1; z <= 1; z++)
+            {
+                if (!world->get_block_state((int64_t)position.x + x, (int64_t)position.y + y, (int64_t)position.z + z).is_air() && aabb.intersect(AABB(position + glm::vec3(x, y, z), glm::vec3(0.5))))
+                    return true;
+            }
+
+    return false;
+}
+
+static void move_and_collide(Ref<Transformed3D>& transform, Ref<RigidBody>& body, Ref<Player>& player, const Ref<World>& world)
+{
+    const glm::vec3 up(0.0, 1.0, 0.0);
+    const glm::vec3 forward = transform->get_global_transform().forward();
+    const glm::vec3 right = transform->get_global_transform().right();
+    const glm::vec2 dir = Input::get_vector("left", "right", "backward", "forward");
+    const float updown_dir = Input::get_action_value("up") - Input::get_action_value("down");
+
+    glm::vec3 velocity = body->get_body()->get_velocity();
+    velocity = forward * dir.y * player->get_speed();
+    velocity += right * dir.x * player->get_speed();
+    velocity += up * updown_dir * player->get_speed();
+
+    const float velocity_damp = 0.5;
+
+    // X Axis
+    uint32_t iterations = 0;
+    for (; iterations < 100; iterations++)
+    {
+        const glm::vec3 velocity2(velocity.x, 0.0, 0.0);
+        if (check_collision_with_world(transform, body, world, velocity2))
+            velocity.x *= velocity_damp;
+    }
+
+    // Y Axis
+    iterations = 0;
+    for (; iterations < 100; iterations++)
+    {
+        const glm::vec3 velocity2(0.0, velocity.y, 0.0);
+        if (check_collision_with_world(transform, body, world, velocity2))
+            velocity.y *= velocity_damp;
+    }
+
+    // Z Axis
+    iterations = 0;
+    for (; iterations < 100; iterations++)
+    {
+        const glm::vec3 velocity2(0.0, 0.0, velocity.z);
+        if (check_collision_with_world(transform, body, world, velocity2))
+            velocity.z *= velocity_damp;
+    }
+
+    body->get_body()->set_velocity(velocity);
 }
 
 void Player::update(const Query<Many<Transformed3D, RigidBody, Player, Child<Transformed3D, Camera>>, One<World, Generator>>& query, Action&)
@@ -59,11 +120,7 @@ void Player::update(const Query<Many<Transformed3D, RigidBody, Player, Child<Tra
 
         Transform3D transform = transform_comp->get_transform();
 
-        const glm::vec3 forward = transform.forward();
-        const glm::vec3 right = transform.right();
         const glm::vec3 up(0.0, 1.0, 0.0);
-        const glm::vec2 dir = Input::get_vector("left", "right", "backward", "forward");
-        const float updown_dir = Input::get_action_value("up") - Input::get_action_value("down");
 
         if (Input::is_mouse_grabbed())
         {
@@ -117,11 +174,7 @@ void Player::update(const Query<Many<Transformed3D, RigidBody, Player, Child<Tra
         //     }
         // }
 
-        glm::vec3 velocity = body->get_body()->get_velocity();
-        velocity = forward * dir.y * player->get_speed();
-        velocity += right * dir.x * player->get_speed();
-        velocity += up * updown_dir * player->get_speed();
-        body->get_body()->set_velocity(velocity);
+        move_and_collide(transform_comp, body, player, world);
 
         // if (!m_gravity_enabled)
         // {

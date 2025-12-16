@@ -21,7 +21,6 @@ public:
     virtual ~RigidBody();
 
     virtual void start() override;
-    // virtual void tick(double delta) override;
 
     bool is_disabled() const { return m_disabled; }
     void set_disabled(bool disabled) { m_disabled = disabled; }

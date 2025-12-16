@@ -7,6 +7,8 @@
 
 #include <mutex>
 
+class RigidBody;
+
 class World : public VisualComponent
 {
     CLASS(World, VisualComponent);
@@ -55,10 +57,7 @@ public:
     const Ref<Buffer>& get_position_buffer() const { return m_position_buffer; }
     std::mutex& get_chunk_mutex() { return m_chunk_mutex; }
 
-    /**
-     * Synchronize chunk loading with collisions.
-     */
-    static void sync_physics_world(const Query<One<World>>& query, Action& action);
+    static void sync_physics_world(const Query<Many<Transformed3D, RigidBody>, One<World>>& query, Action& action);
 
 private:
     uint64_t m_seed;

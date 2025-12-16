@@ -4,11 +4,11 @@
 #include "Scene/Scene.hpp"
 
 static CollisionResult test_box_box(Collider *collider_a, glm::vec3 position_a, Collider *collider_b, glm::vec3 position_b);
-static CollisionResult test_box_grid(Collider *collider_a, glm::vec3 position_a, Collider *collider_b, glm::vec3 position_b);
+// static CollisionResult test_box_grid(Collider *collider_a, glm::vec3 position_a, Collider *collider_b, glm::vec3 position_b);
 
 static TestCollisionFunc test_collision_funcs[2][2]{
-    {test_box_box, test_box_grid}, // Box
-    {nullptr, test_box_grid},      // Grid
+    {test_box_box}, // Box
+    // {nullptr, test_box_grid},      // Grid
 };
 
 static CollisionResult test_box_box(Collider *collider_a, glm::vec3 position_a, Collider *collider_b, glm::vec3 position_b)
@@ -20,39 +20,39 @@ static CollisionResult test_box_box(Collider *collider_a, glm::vec3 position_a, 
     return CollisionResult();
 }
 
-static CollisionResult test_box_grid(Collider *collider_a, glm::vec3 position_a, Collider *collider_b, glm::vec3 position_b)
-{
-    (void)position_a;
-    (void)position_b;
+// static CollisionResult test_box_grid(Collider *collider_a, glm::vec3 position_a, Collider *collider_b, glm::vec3 position_b)
+// {
+//     (void)position_a;
+//     (void)position_b;
 
-    BoxCollider *box = static_cast<BoxCollider *>(collider_a);
-    GridCollider *grid = static_cast<GridCollider *>(collider_b);
+//     BoxCollider *box = static_cast<BoxCollider *>(collider_a);
+//     GridCollider *grid = static_cast<GridCollider *>(collider_b);
 
-    AABB grid_aabb(position_b, glm::vec3(grid->width, grid->height, grid->depth) * grid->voxel_size);
+//     AABB grid_aabb(position_b, glm::vec3(grid->width, grid->height, grid->depth) * grid->voxel_size);
 
-    if (grid_aabb.intersect(box->aabb))
-        return CollisionResult();
+//     if (!grid_aabb.intersect(box->aabb))
+//         return CollisionResult();
 
-    for (size_t x = 0; x < grid->width; x++)
-    {
-        for (size_t y = 0; y < grid->height; y++)
-        {
-            for (size_t z = 0; z < grid->depth; z++)
-            {
-                if (!grid->has(x, y, z))
-                    continue;
+//     for (size_t x = 0; x < grid->width; x++)
+//     {
+//         for (size_t y = 0; y < grid->height; y++)
+//         {
+//             for (size_t z = 0; z < grid->depth; z++)
+//             {
+//                 if (!grid->has(x, y, z))
+//                     continue;
 
-                glm::vec3 voxel_min = position_b + glm::vec3(x, y, z) * grid->voxel_size;
-                AABB voxel_box = AABB(voxel_min + grid->voxel_size / 2.0f, grid->voxel_size);
+//                 glm::vec3 voxel_min = position_b + glm::vec3(x, y, z) * grid->voxel_size;
+//                 AABB voxel_box = AABB(voxel_min + grid->voxel_size / 2.0f, grid->voxel_size);
 
-                // if (box->aabb.intersect(voxel_box))
-                //     println("INTERSECTION");
-            }
-        }
-    }
+//                 // if (box->aabb.intersect(voxel_box))
+//                 //     println("INTERSECTION");
+//             }
+//         }
+//     }
 
-    return CollisionResult();
-}
+//     return CollisionResult();
+// }
 
 PhysicsSpace::PhysicsSpace()
 {

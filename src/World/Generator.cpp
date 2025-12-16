@@ -215,24 +215,24 @@ void Generator::load_thread(Generator *g, LoadThread *t)
         // TODO: Add some kind of memory budget to keep some chunks in memory to not have
         //       to save/read to disk everytime.
 
-        GridCollider *collider = alloc<GridCollider>(glm::vec3(1.0, 1.0, 1.0), 16, 256, 16);
-        Ref<RigidBody> rb = newobj(RigidBody, PhysicsBodyKind::Static, collider);
+        // GridCollider *collider = alloc<GridCollider>(glm::vec3(1.0, 1.0, 1.0), 16, 256, 16);
+        // Ref<RigidBody> rb = newobj(RigidBody, PhysicsBodyKind::Static, collider);
 
-        Ref<Transformed3D> transform = newobj(Transformed3D);
-        transform->set_transform(Transform3D(glm::vec3(-Chunk::width / 2.0, -Chunk::height / 2.0, -Chunk::width / 2.0)));
+        // Ref<Transformed3D> transform = newobj(Transformed3D);
+        // transform->set_transform(Transform3D(glm::vec3(-Chunk::width / 2.0, -Chunk::height / 2.0, -Chunk::width / 2.0)));
 
-        Ref<Entity> collision_entity = newobj(Entity);
-        collision_entity->add_component(transform);
-        collision_entity->add_component(rb);
+        // Ref<Entity> collision_entity = newobj(Entity);
+        // collision_entity->add_component(transform);
+        // collision_entity->add_component(rb);
 
         Ref<Chunk> chunk = g->generate_chunk(pos.x, pos.z);
         chunk->set_buffers(g->m_visual_shader, g->m_world->get_position_buffer());
-        chunk->update_grid_collider(collider);
+        // chunk->update_grid_collider(collider);
 
         {
             std::lock_guard<std::mutex> guard(g->m_world->get_chunk_mutex());
             g->m_world->add_chunk(pos.x, pos.z, chunk);
-            g->m_world->get_dimension(g->m_dimension).get_chunks_to_add().push_back(collision_entity);
+            // g->m_world->get_dimension(g->m_dimension).get_chunks_to_add().push_back(collision_entity);
         }
     }
 }

@@ -73,11 +73,11 @@ VertexOutput vertexMain(VertexInput vertex)
         return out;
 
     // NOTE: Display Y by Y
-    // if (constants.time < position.y * 0.05)
-    //     return out;
+    if (constants.time < position.y * 0.05)
+        return out;
 
     // NOTE: Make the chunk rise from bellow the ground
-    position.y -= 128.0 - (min(constants.time, 1.0) / 1.0) * 128.0;
+    // position.y -= 128.0 - (min(constants.time, 1.0) / 1.0) * 128.0;
 
     float4x4 model_matrix = float4x4(
         1.0, 0.0, 0.0, position.x,

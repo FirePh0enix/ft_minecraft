@@ -34,7 +34,7 @@ TEST_CASE("Class")
     CHECK(obj->is<Bar>());
     CHECK(obj->is<Foo>());
 
-    destroy<Bar>(obj);
+    destroy(obj);
 }
 
 #endif

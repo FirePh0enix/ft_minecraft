@@ -25,6 +25,11 @@ public:
                center.z + half_extent.z >= other.center.z - other.half_extent.z;
     }
 
+    AABB translate(const glm::vec3& pos) const
+    {
+        return AABB(center + pos, half_extent);
+    }
+
     glm::vec3 center;
     glm::vec3 half_extent;
 };

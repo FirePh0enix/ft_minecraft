@@ -6,7 +6,6 @@
 #include "Font.hpp"
 #include "MP/Manager.hpp"
 #include "MeshPrimitives.hpp"
-#include "Profiler.hpp"
 #include "Render/Driver.hpp"
 #include "Render/Shader.hpp"
 #include "Scene/Components/MeshInstance.hpp"

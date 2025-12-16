@@ -1,6 +1,7 @@
 #include "World/World.hpp"
 #include "Core/DataBuffer.hpp"
 #include "Profiler.hpp"
+#include "Scene/Components/RigidBody.hpp"
 
 World::World(Ref<Mesh> mesh, Ref<Shader> visual_shader, uint64_t seed)
     : m_seed(seed), m_mesh(mesh), m_visual_shader(visual_shader)
@@ -100,18 +101,14 @@ void World::encode_draw_calls(RenderPassEncoder& encoder, Camera& camera)
     }
 }
 
-void World::sync_physics_world(const Query<One<World>>& query, Action& action)
+void World::sync_physics_world(const Query<Many<Transformed3D, RigidBody>, One<World>>& query, Action&)
 {
-    Ref<World> world = query.get<0>().single().get<World>();
-    std::lock_guard<std::mutex> guard(world->m_chunk_mutex);
+    Ref<World> world = query.get<1>().single().get<World>();
+    // std::lock_guard<std::mutex> guard(world->m_chunk_mutex);
 
-    for (EntityId id : world->m_dims[0].get_chunks_to_remove())
-        action.remove(id);
-
-    world->m_dims[0].get_chunks_to_remove().clear();
-
-    for (const Ref<Entity>& entity : world->m_dims[0].get_chunks_to_add())
-        action.spawn(entity);
-
-    world->m_dims[0].get_chunks_to_add().clear();
+    // for (const auto& body : query.get<0>().results())
+    // {
+    //     Ref<Transformed3D> transformed = body.get<Transformed3D>();
+    //     Ref<RigidBody> rb = body.get<RigidBody>();
+    // }
 }
