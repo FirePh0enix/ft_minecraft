@@ -3,16 +3,12 @@
 #include "Core/Logger.hpp"
 #include "Core/Registry.hpp"
 #include "Engine.hpp"
+#include "Entity/Camera.hpp"
+#include "Entity/Player.hpp"
 #include "Font.hpp"
-#include "MP/Manager.hpp"
 #include "MeshPrimitives.hpp"
 #include "Render/Driver.hpp"
 #include "Render/Shader.hpp"
-#include "Scene/Components/MeshInstance.hpp"
-#include "Scene/Components/RigidBody.hpp"
-#include "Scene/Components/Transformed3D.hpp"
-#include "Scene/Player.hpp"
-#include "Scene/Scene.hpp"
 #include "Toml.hpp"
 #include "Window.hpp"
 #include "World/Generator.hpp"
@@ -34,11 +30,8 @@ z=0.0
 )";
 
 Ref<Window> window;
-Ref<Scene> scene;
 Ref<Entity> player;
 Ref<World> world;
-
-Ref<Generator> gen;
 
 toml::table config2;
 Console console;
@@ -80,39 +73,18 @@ ENGINE_MAIN(int argc, char *argv[])
     // EXPECT(font_result);
     // Ref<Font> font = font_result.value();
 
-    scene = newobj(Scene);
-    Scene::set_active_scene(scene);
-
-    scene->add_plugins<RenderingPlugin, PhysicsPlugin, MultiplayerPlugin>();
-    scene->add_system(Update, Player::update);
-    scene->add_system(FixedUpdate, World::sync_physics_world);
-
     world = newobj(World, cube, shader, 1);
 
-    Ref<Entity> world_entity = newobj(Entity);
-    world_entity->set_name("World");
-    world_entity->add_component(world);
-
-    gen = newobj(Generator, world, World::overworld, shader);
-    gen->set_distance(4);
-
-    gen->add_pass(newobj(SurfacePass));
-
-    world_entity->add_component(gen);
-
-    scene->add_entity(world_entity);
-
     Ref<Camera> camera = newobj(Camera);
-    Ref<Entity> player_head = make_entity("Head", newobj(Transformed3D, glm::vec3(0.0, 0.8, 0.0)), camera.cast_to<Component>());
+    camera->get_transform().position() = glm::vec3(0, 0.9, 0);
 
-    player = make_entity("Player",
-                         newobj(Transformed3D, Transform3D(glm::vec3(config2["player"]["x"].as<double>()->get(), config2["player"]["y"].as<double>()->get(), config2["player"]["z"].as<double>()->get()))),
-                         newobj(RigidBody, PhysicsBodyKind::Kinematic, alloc<BoxCollider>(glm::vec3(), glm::vec3(0.8, 1.8, 0.8))),
-                         newobj(Player, world, cube));
-    player->add_child(player_head);
+    player = newobj(Player);
+    player->get_transform().position() = glm::vec3(0, 70.0, 0);
+    player->add_child(camera);
 
-    scene->add_entity(player);
-    scene->set_active_camera(camera);
+    world->get_dimension(World::overworld).add_entity(player);
+    world->set_active_camera(camera);
+    engine.set_world(world);
 
     if (args.has("disable-save"))
     {
@@ -120,15 +92,12 @@ ENGINE_MAIN(int argc, char *argv[])
         info("World won't be saved, `--disable-save` is present.");
     }
 
-    console.register_command("tp", {CmdArgInfo(CmdArgKind::Int, "x"), CmdArgInfo(CmdArgKind::Int, "y"), CmdArgInfo(CmdArgKind::Int, "z")}, [](const Command& cmd)
-                             { player->get_component<Transformed3D>()->get_transform().position() = glm::vec3(cmd.get_arg_int("x"), cmd.get_arg_int("y"), cmd.get_arg_int("z")); });
-
     engine.set_shutdown_callback([](Engine *, void *)
                                  {
-                                     glm::vec3 position = player->get_transform()->get_global_transform().position();
-                                     config2["player"]["x"].value<float>().emplace(position.x);
-                                     config2["player"]["y"].value<float>().emplace(position.y);
-                                     config2["player"]["z"].value<float>().emplace(position.z);
+                                    //  glm::vec3 position = player->get_transform()->get_global_transform().position();
+                                    //  config2["player"]["x"].value<float>().emplace(position.x);
+                                    //  config2["player"]["y"].value<float>().emplace(position.y);
+                                    //  config2["player"]["z"].value<float>().emplace(position.z);
 
                                      // config.save_to("config.ini");
 
@@ -145,9 +114,7 @@ static void register_all_classes()
 {
     REGISTER_CLASSES(World, Chunk, Block, Player, Generator, GeneratorPass, SurfacePass);
 
-    REGISTER_STRUCTS(
-        BlockState,
-        StandardMeshMaterialInfo);
+    REGISTER_STRUCTS(BlockState);
 }
 
 #else

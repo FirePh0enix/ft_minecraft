@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Render/Driver.hpp"
-#include "Scene/Entity.hpp"
 #include "World/Block.hpp"
 
 class World;
@@ -49,8 +48,6 @@ public:
     void set_blocks(const std::vector<BlockState>& blocks);
     void set_buffers(const Ref<Shader>& visual_shader, const Ref<Buffer>& position_buffer);
 
-    void update_grid_collider(GridCollider *grid) const;
-
     inline BlockState get_block(size_t x, size_t y, size_t z) const
     {
         if (x > 15 || y > 255 || z > 15 || (z * width * height + y * width + x) >= m_blocks.size())
@@ -82,17 +79,12 @@ public:
 
     Ref<Material> get_visual_material() const { return m_visual_material; }
 
-    EntityId get_collision_entity_id() const { return m_collision_entity_id; }
-    void set_collision_entity_id(EntityId id) { m_collision_entity_id = id; }
-
     float time_since_created = 0.0;
 
 private:
     std::vector<BlockState> m_blocks;
     int64_t m_x;
     int64_t m_z;
-
-    EntityId m_collision_entity_id;
 
     Ref<Buffer> m_block_buffer;
     Ref<Buffer> m_visibility_buffer;

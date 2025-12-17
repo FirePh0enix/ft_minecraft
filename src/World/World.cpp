@@ -1,14 +1,11 @@
 #include "World/World.hpp"
 #include "Core/DataBuffer.hpp"
-#include "Profiler.hpp"
-#include "Scene/Components/RigidBody.hpp"
+#include "World/Generator.hpp"
+#include "World/Pass/Surface.hpp"
 
 World::World(Ref<Mesh> mesh, Ref<Shader> visual_shader, uint64_t seed)
     : m_seed(seed), m_mesh(mesh), m_visual_shader(visual_shader)
 {
-    m_surface_shader = Shader::load("assets://shaders/terrain/surface.slang", true).value_or(nullptr);
-    m_visibility_shader = Shader::load("assets://shaders/terrain/visibility.slang", true).value_or(nullptr);
-
     m_position_buffer = RenderingDriver::get()->create_buffer(STRUCTNAME(glm::vec4), Chunk::block_count, BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Storage).value();
 
     std::vector<glm::vec4> positions(Chunk::block_count);
@@ -19,6 +16,50 @@ World::World(Ref<Mesh> mesh, Ref<Shader> visual_shader, uint64_t seed)
                 positions[x + y * 16 + z * 16 * 256] = glm::vec4(x, y, z, 0.0);
 
     m_position_buffer->update(View(positions).as_bytes());
+
+    // Setup world generation
+    m_generators[overworld] = newobj(Generator, this, overworld);
+    m_generators[overworld]->add_pass(newobj(SurfacePass));
+}
+
+void World::tick(float delta)
+{
+    for (Ref<Entity> entity : m_dims[overworld].get_entities())
+        entity->recurse_tick(delta);
+
+    const glm::vec3 player_pos = m_camera->get_global_transform().position();
+    m_generators[overworld]->set_reference_pos(player_pos);
+    m_generators[overworld]->load_around(int64_t(player_pos.x), int64_t(player_pos.y), int64_t(player_pos.z));
+}
+
+void World::draw(RenderPassEncoder& encoder)
+{
+    for (auto& [pos, chunk] : m_dims[0])
+    {
+        AABB aabb = AABB(glm::vec3((float)pos.x * 16.0 + 8.0, 128.0, (float)pos.z * 16.0 + 8.0), glm::vec3(8.0, 128.0, 8.0));
+
+        if (!m_camera->frustum().contains(aabb))
+            continue;
+
+        const glm::mat4& view_matrix = m_camera->get_view_proj_matrix();
+        const glm::mat4 model_matrix = glm::translate(glm::identity<glm::mat4>(), glm::vec3(pos.x * 16, 0.0, pos.z * 16));
+
+        if (chunk->time_since_created < 10.0)
+            chunk->time_since_created += 1.0 / 60.0;
+
+        DataBuffer push_constants(sizeof(glm::mat4));
+        push_constants.add(view_matrix);
+        push_constants.add(model_matrix);
+        push_constants.add(chunk->time_since_created);
+
+        encoder.bind_material(chunk->get_visual_material());
+        encoder.push_constants(push_constants);
+        encoder.bind_index_buffer(m_mesh->get_buffer(MeshBufferKind::Index));
+        encoder.bind_vertex_buffer(m_mesh->get_buffer(MeshBufferKind::Position), 0);
+        encoder.bind_vertex_buffer(m_mesh->get_buffer(MeshBufferKind::Normal), 1);
+        encoder.bind_vertex_buffer(m_mesh->get_buffer(MeshBufferKind::UV), 2);
+        encoder.draw(m_mesh->vertex_count(), Chunk::block_count);
+    }
 }
 
 BlockState World::get_block_state(int64_t x, int64_t y, int64_t z) const
@@ -67,48 +108,4 @@ std::optional<Ref<Chunk>> World::get_chunk(int64_t x, int64_t z) const
 std::optional<Ref<Chunk>> World::get_chunk(int64_t x, int64_t z)
 {
     return m_dims[0].get_chunk(x, z);
-}
-
-void World::encode_draw_calls(RenderPassEncoder& encoder, Camera& camera)
-{
-    ZoneScoped;
-
-    for (auto& [pos, chunk] : m_dims[0])
-    {
-        AABB aabb = AABB(glm::vec3((float)pos.x * 16.0 + 8.0, 128.0, (float)pos.z * 16.0 + 8.0), glm::vec3(8.0, 128.0, 8.0));
-
-        if (!camera.frustum().contains(aabb))
-            continue;
-
-        const glm::mat4& view_matrix = camera.get_view_proj_matrix();
-        const glm::mat4 model_matrix = glm::translate(glm::identity<glm::mat4>(), glm::vec3(pos.x * 16, 0.0, pos.z * 16));
-
-        if (chunk->time_since_created < 10.0)
-            chunk->time_since_created += 1.0 / 60.0;
-
-        DataBuffer push_constants(sizeof(glm::mat4));
-        push_constants.add(view_matrix);
-        push_constants.add(model_matrix);
-        push_constants.add(chunk->time_since_created);
-
-        encoder.bind_material(chunk->get_visual_material());
-        encoder.push_constants(push_constants);
-        encoder.bind_index_buffer(m_mesh->get_buffer(MeshBufferKind::Index));
-        encoder.bind_vertex_buffer(m_mesh->get_buffer(MeshBufferKind::Position), 0);
-        encoder.bind_vertex_buffer(m_mesh->get_buffer(MeshBufferKind::Normal), 1);
-        encoder.bind_vertex_buffer(m_mesh->get_buffer(MeshBufferKind::UV), 2);
-        encoder.draw(m_mesh->vertex_count(), Chunk::block_count);
-    }
-}
-
-void World::sync_physics_world(const Query<Many<Transformed3D, RigidBody>, One<World>>& query, Action&)
-{
-    Ref<World> world = query.get<1>().single().get<World>();
-    // std::lock_guard<std::mutex> guard(world->m_chunk_mutex);
-
-    // for (const auto& body : query.get<0>().results())
-    // {
-    //     Ref<Transformed3D> transformed = body.get<Transformed3D>();
-    //     Ref<RigidBody> rb = body.get<RigidBody>();
-    // }
 }

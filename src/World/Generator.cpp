@@ -1,12 +1,12 @@
 #include "World/Generator.hpp"
-#include "Scene/Components/RigidBody.hpp"
 #include "World/Chunk.hpp"
 #include "World/Pass/Surface.hpp"
+#include "World/World.hpp"
 
 #include <algorithm>
 
-Generator::Generator(const Ref<World>& world, size_t dimension, const Ref<Shader>& shader)
-    : m_world(world), m_dimension(dimension), m_visual_shader(shader)
+Generator::Generator(World *world, size_t dimension)
+    : m_world(world), m_dimension(dimension)
 {
     m_passes.push_back(newobj(SurfacePass));
 
@@ -42,7 +42,7 @@ void Generator::add_pass(Ref<GeneratorPass> pass)
 void Generator::request_load(int64_t x, int64_t z)
 {
     {
-        std::lock_guard<std::mutex> guard(m_world->get_chunk_mutex());
+        std::lock_guard<std::mutex> guard(m_world->get_dimension(m_dimension).mutex());
         if (m_world->is_chunk_loaded(x, z))
             return;
     }
@@ -87,7 +87,7 @@ void Generator::request_load(int64_t x, int64_t z)
 void Generator::request_unload(int64_t x, int64_t z)
 {
     {
-        std::lock_guard<std::mutex> guard(m_world->get_chunk_mutex());
+        std::lock_guard<std::mutex> guard(m_world->get_dimension(m_dimension).mutex());
         if (!m_world->is_chunk_loaded(x, z))
             return;
     }
@@ -226,11 +226,11 @@ void Generator::load_thread(Generator *g, LoadThread *t)
         // collision_entity->add_component(rb);
 
         Ref<Chunk> chunk = g->generate_chunk(pos.x, pos.z);
-        chunk->set_buffers(g->m_visual_shader, g->m_world->get_position_buffer());
+        chunk->set_buffers(g->m_world->m_visual_shader, g->m_world->get_position_buffer());
         // chunk->update_grid_collider(collider);
 
         {
-            std::lock_guard<std::mutex> guard(g->m_world->get_chunk_mutex());
+            std::lock_guard<std::mutex> guard(g->m_world->get_dimension(g->m_dimension).mutex());
             g->m_world->add_chunk(pos.x, pos.z, chunk);
             // g->m_world->get_dimension(g->m_dimension).get_chunks_to_add().push_back(collision_entity);
         }
@@ -264,7 +264,7 @@ void Generator::unload_thread(Generator *g)
         }
 
         {
-            std::lock_guard<std::mutex> guard(g->m_world->get_chunk_mutex());
+            std::lock_guard<std::mutex> guard(g->m_world->get_dimension(g->m_dimension).mutex());
             // g->release_buffers(g->m_world->get_chunk(pos.x, pos.z)->ptr()->get_buffers_index());
             g->m_world->remove_chunk(pos.x, pos.z);
         }

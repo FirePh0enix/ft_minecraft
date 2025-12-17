@@ -1,5 +1,4 @@
-#include "Scene/Components/Camera.hpp"
-#include "Scene/Entity.hpp"
+#include "Entity/Camera.hpp"
 
 Frustum::Frustum()
     : Frustum(glm::mat4(1.0))
@@ -7,32 +6,31 @@ Frustum::Frustum()
 }
 
 Frustum::Frustum(glm::mat4 mat)
+    : m_planes({glm::vec4(mat[0][3] - mat[0][0],
+                          mat[1][3] - mat[1][0],
+                          mat[2][3] - mat[2][0],
+                          mat[3][3] - mat[3][0]),
+                glm::vec4(mat[0][3] + mat[0][0],
+                          mat[1][3] + mat[1][0],
+                          mat[2][3] + mat[2][0],
+                          mat[3][3] + mat[3][0]),
+                glm::vec4(mat[0][3] + mat[0][1],
+                          mat[1][3] + mat[1][1],
+                          mat[2][3] + mat[2][1],
+                          mat[3][3] + mat[3][1]),
+                glm::vec4(mat[0][3] - mat[0][1],
+                          mat[1][3] - mat[1][1],
+                          mat[2][3] - mat[2][1],
+                          mat[3][3] - mat[3][1]),
+                glm::vec4(mat[0][3] - mat[0][2],
+                          mat[1][3] - mat[1][2],
+                          mat[2][3] - mat[2][2],
+                          mat[3][3] - mat[3][2]),
+                glm::vec4(mat[0][3] + mat[0][2],
+                          mat[1][3] + mat[1][2],
+                          mat[2][3] + mat[2][2],
+                          mat[3][3] + mat[3][2])})
 {
-    m_planes[0] = glm::vec4(mat[0][3] - mat[0][0],
-                            mat[1][3] - mat[1][0],
-                            mat[2][3] - mat[2][0],
-                            mat[3][3] - mat[3][0]);
-    m_planes[1] = glm::vec4(mat[0][3] + mat[0][0],
-                            mat[1][3] + mat[1][0],
-                            mat[2][3] + mat[2][0],
-                            mat[3][3] + mat[3][0]);
-    m_planes[2] = glm::vec4(mat[0][3] + mat[0][1],
-                            mat[1][3] + mat[1][1],
-                            mat[2][3] + mat[2][1],
-                            mat[3][3] + mat[3][1]);
-    m_planes[3] = glm::vec4(mat[0][3] - mat[0][1],
-                            mat[1][3] - mat[1][1],
-                            mat[2][3] - mat[2][1],
-                            mat[3][3] - mat[3][1]);
-    m_planes[4] = glm::vec4(mat[0][3] - mat[0][2],
-                            mat[1][3] - mat[1][2],
-                            mat[2][3] - mat[2][2],
-                            mat[3][3] - mat[3][2]);
-    m_planes[5] = glm::vec4(mat[0][3] + mat[0][2],
-                            mat[1][3] + mat[1][2],
-                            mat[2][3] + mat[2][2],
-                            mat[3][3] + mat[3][2]);
-
     normalize_plane(0);
     normalize_plane(1);
     normalize_plane(2);
@@ -77,16 +75,11 @@ bool Frustum::contains(const AABB& aabb) const
     return true;
 }
 
-// void Camera::start()
-// {
-//     m_transform = m_entity->get_transform();
-// }
-
-// void Camera::tick(double delta)
-// {
-//     (void)delta;
-//     update_frustum();
-// }
+void Camera::tick(float delta)
+{
+    (void)delta;
+    update_frustum();
+}
 
 void Camera::update_frustum()
 {

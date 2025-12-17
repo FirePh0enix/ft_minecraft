@@ -1,16 +1,11 @@
 #include "Engine.hpp"
 #include "Core/Error.hpp"
 #include "Core/Filesystem.hpp"
+#include "Entity/Camera.hpp"
+#include "Entity/Entity.hpp"
 #include "Font.hpp"
 #include "Input.hpp"
-#include "MP/Peer.hpp"
-#include "MP/Synchronizer.hpp"
 #include "Profiler.hpp"
-#include "Scene/Components/MeshInstance.hpp"
-#include "Scene/Components/RigidBody.hpp"
-#include "Scene/Components/Visual.hpp"
-#include "Scene/Entity.hpp"
-#include "Scene/Scene.hpp"
 
 #ifdef __has_webgpu
 #include "Render/WebGPU/DriverWebGPU.hpp"
@@ -78,7 +73,6 @@ void Engine::update_callback()
 {
     FrameMark;
 
-    Ref<Scene>& scene = Scene::get_active_scene();
     std::optional<SDL_Event> event;
 
     while ((event = m_window->poll_event()))
@@ -123,9 +117,9 @@ void Engine::update_callback()
 
 #ifdef __has_debug_menu
     {
-        ZoneScopedN("tick.debug_menu");
+        // ZoneScopedN("tick.debug_menu");
 
-        ImGui::NewFrame();
+        // ImGui::NewFrame();
 
         // if (ImGui::Begin("Commands"))
         // {
@@ -138,22 +132,33 @@ void Engine::update_callback()
         // }
         // ImGui::End();
 
-        scene->imgui_debug_window();
+        // m_world->imgui_debug_window();
     }
 #endif
 
     // TODO: Differentiate between rendering ticks and physics ticks.
-    scene->tick(float(m_fixed_update_time));
+    m_world->tick(float(m_fixed_update_time));
 
-    scene->run_systems(EarlyUpdate);
-    scene->run_systems(Update);
-    scene->run_systems(LateUpdate);
-
-    scene->run_systems(EarlyFixedUpdate);
-    scene->run_systems(FixedUpdate);
-    scene->run_systems(LateFixedUpdate);
+    draw();
 
     Input::post_events();
+}
+
+void Engine::draw()
+{
+    // The first pass: Depth only
+    {
+        RenderPassEncoder encoder = RenderGraph::get().render_pass_begin({.name = "depth pass", .depth_attachment = RenderPassDepthAttachment{.save = true}});
+        m_world->draw(encoder);
+    }
+
+    // The main color pass.
+    {
+        RenderPassEncoder encoder = RenderGraph::get().render_pass_begin({.name = "main pass", .color_attachments = {RenderPassColorAttachment{.surface_texture = true}}, .depth_attachment = RenderPassDepthAttachment{.load = true}});
+        m_world->draw(encoder);
+    }
+
+    RenderingDriver::get()->draw_graph(RenderGraph::get());
 }
 
 Args default_args()
@@ -168,8 +173,7 @@ static void register_engine_classes()
 {
     REGISTER_CLASSES(
         Font,
-        Entity,
-        Component, VisualComponent, MeshInstance, RigidBody, Camera, Transformed3D, MPPeer, MPSynchronizer,
+        Entity, Camera,
         RenderingDriver, Buffer, Texture, Mesh, MaterialBase, Material, ComputeMaterial, Shader);
 
 #ifdef __has_webgpu

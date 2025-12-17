@@ -1,11 +1,16 @@
 #pragma once
 
-#include "World/World.hpp"
+#include "Core/Class.hpp"
+#include "Render/Driver.hpp"
+#include "World/Block.hpp"
+#include "World/Chunk.hpp"
 
 #include <mutex>
 #include <semaphore>
 #include <thread>
 #include <vector>
+
+class World;
 
 class GeneratorPass : public Object
 {
@@ -17,11 +22,11 @@ public:
     void set_seed(uint64_t seed)
     {
         m_seed = seed;
-        _seed_updated();
+        seed_updated();
     }
 
     virtual BlockState process(const std::vector<BlockState>& previous_blocks, int64_t x, int64_t y, int64_t z) const = 0;
-    virtual void _seed_updated() {};
+    virtual void seed_updated() {};
 
 protected:
     uint64_t m_seed = 0;
@@ -35,12 +40,12 @@ struct ChunkBuffers
     Ref<Material> material;
 };
 
-class Generator : public Component
+class Generator : public Object
 {
-    CLASS(Generator, Component);
+    CLASS(Generator, Object);
 
 public:
-    Generator(const Ref<World>& world, size_t dimension, const Ref<Shader>& shader);
+    Generator(World *world, size_t dimension);
     ~Generator();
 
     void add_pass(Ref<GeneratorPass> pass);
@@ -56,7 +61,7 @@ public:
     void set_reference_pos(const glm::vec3& pos) { m_reference_position = pos; }
 
 private:
-    Ref<World> m_world;
+    World *m_world;
     size_t m_dimension;
 
     std::vector<Ref<GeneratorPass>> m_passes;
@@ -93,9 +98,6 @@ private:
 
     int64_t m_load_distance = 1;
     size_t m_max_chunk_count = 1;
-
-    // Some resources
-    Ref<Shader> m_visual_shader;
 
     static void load_thread(Generator *g, LoadThread *t);
     static void unload_thread(Generator *g);
