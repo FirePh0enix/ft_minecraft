@@ -20,6 +20,7 @@ World::World(Ref<Mesh> mesh, Ref<Shader> visual_shader, uint64_t seed)
 
     // Setup world generation
     m_generators[overworld] = newobj(Generator, this, overworld);
+    m_generators[overworld]->set_distance(8);
     m_generators[overworld]->add_pass(newobj(SurfacePass));
 }
 

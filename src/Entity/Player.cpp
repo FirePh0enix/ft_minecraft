@@ -75,6 +75,18 @@ void Player::tick(float delta)
     //     }
     // }
 
+    const glm::vec3 forward = get_global_transform().forward();
+    const glm::vec3 right = get_global_transform().right();
+
+    const glm::vec2 dir = Input::get_vector("left", "right", "backward", "forward");
+    const float updown_dir = Input::get_action_value("up") - Input::get_action_value("down");
+
+    if (glm::length2(dir) != 0.0 || updown_dir != 0.0)
+    {
+        glm::vec3 move = glm::normalize(forward * dir.y + right * dir.x + up * updown_dir) * m_speed;
+        m_transform.position() += move * delta;
+    }
+
     // move_and_collide(transform_comp, body, player, world);
 
     // if (!m_gravity_enabled)

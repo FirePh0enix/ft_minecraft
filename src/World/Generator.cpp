@@ -11,7 +11,7 @@ Generator::Generator(World *world, size_t dimension)
 {
     m_passes.push_back(newobj(SurfacePass));
 
-    m_load_thread_pool_size = 1;
+    m_load_thread_pool_size = 3;
     m_load_thread_pool = alloc_n<LoadThread>(m_load_thread_pool_size);
     for (size_t i = 0; i < m_load_thread_pool_size; i++)
         m_load_thread_pool[i].thread = std::thread(load_thread, this, &m_load_thread_pool[i]);
