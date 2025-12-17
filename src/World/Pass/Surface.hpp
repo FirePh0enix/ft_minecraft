@@ -10,7 +10,7 @@ class SurfacePass : public GeneratorPass
 public:
     SurfacePass();
 
-    virtual BlockState process(const std::vector<BlockState>& previous_blocks, int64_t x, int64_t y, int64_t z) const override;
+    virtual void process(int64_t x, int64_t z, int64_t cx, int64_t cz, std::vector<BlockState>& blocks) const override;
     virtual void seed_updated() override;
 
 private:

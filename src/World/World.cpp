@@ -1,5 +1,6 @@
 #include "World/World.hpp"
 #include "Core/DataBuffer.hpp"
+#include "Profiler.hpp"
 #include "World/Generator.hpp"
 #include "World/Pass/Surface.hpp"
 
@@ -24,6 +25,8 @@ World::World(Ref<Mesh> mesh, Ref<Shader> visual_shader, uint64_t seed)
 
 void World::tick(float delta)
 {
+    ZoneScoped;
+
     for (Ref<Entity> entity : m_dims[overworld].get_entities())
         entity->recurse_tick(delta);
 
@@ -34,6 +37,10 @@ void World::tick(float delta)
 
 void World::draw(RenderPassEncoder& encoder)
 {
+    ZoneScoped;
+
+    std::lock_guard<std::mutex> guard(m_dims[0].mutex());
+
     for (auto& [pos, chunk] : m_dims[0])
     {
         AABB aabb = AABB(glm::vec3((float)pos.x * 16.0 + 8.0, 128.0, (float)pos.z * 16.0 + 8.0), glm::vec3(8.0, 128.0, 8.0));

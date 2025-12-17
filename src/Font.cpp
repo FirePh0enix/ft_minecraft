@@ -1,7 +1,7 @@
 #include "Font.hpp"
 #include "Core/Filesystem.hpp"
-#include "Render/Graph.hpp"
 #include "Profiler.hpp"
+#include "Render/Graph.hpp"
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
@@ -194,8 +194,6 @@ Text::Text(size_t capacity, Ref<Font> font)
 
 void Text::set(const std::string& text)
 {
-    ZoneScoped;
-
     float offset_x = 0;
 
     const size_t width = m_font->get_width();
