@@ -50,7 +50,7 @@ void Engine::run()
 {
 #ifdef __platform_web
     emscripten_set_main_loop_arg([](void *engine)
-                                 { ((Engine *)engine)->loop_callback(); }, this, 0, true);
+                                 { ((Engine *)engine)->update_callback(); }, this, 0, true);
 #else
     while (m_window->is_running())
         iterate();
@@ -62,7 +62,9 @@ void Engine::run()
 
 void Engine::iterate()
 {
-    if ((float)(clock() - m_last_tick_time) / CLOCKS_PER_SEC >= m_fixed_update_time)
+    const float elapsed_time = (float)(clock() - m_last_tick_time) / CLOCKS_PER_SEC;
+
+    if (elapsed_time >= m_fixed_update_time)
     {
         m_last_tick_time = clock();
         update_callback();
@@ -72,45 +74,50 @@ void Engine::iterate()
 void Engine::update_callback()
 {
     FrameMark;
+    ZoneScoped;
 
     std::optional<SDL_Event> event;
 
-    while ((event = m_window->poll_event()))
     {
-        switch (event->type)
-        {
-        case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
-        {
-            m_window->close();
-        }
-        break;
-        case SDL_EVENT_WINDOW_RESIZED:
-        {
-            Result<> result = RenderingDriver::get()->configure_surface(*m_window, VSync::Off);
-            ERR_EXPECT_B(result, "Failed to configure the surface");
+        ZoneScopedN("handle events");
 
-            // TODO
-            // config.get_category("window").set("width", (int64_t)window->size().width);
-            // config.get_category("window").set("height", (int64_t)window->size().height);
-            // config.save_to("config.ini");
-        }
-        break;
-        default:
+        while ((event = m_window->poll_event()))
+        {
+            switch (event->type)
+            {
+            case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
+            {
+                m_window->close();
+            }
             break;
-        }
+            case SDL_EVENT_WINDOW_RESIZED:
+            {
+                Result<> result = RenderingDriver::get()->configure_surface(*m_window, VSync::Off);
+                ERR_EXPECT_B(result, "Failed to configure the surface");
+
+                // TODO
+                // config.get_category("window").set("width", (int64_t)window->size().width);
+                // config.get_category("window").set("height", (int64_t)window->size().height);
+                // config.save_to("config.ini");
+            }
+            break;
+            default:
+                break;
+            }
 
 #ifdef __has_debug_menu
-        ImGui_ImplSDL3_ProcessEvent(&*event);
+            ImGui_ImplSDL3_ProcessEvent(&*event);
 
-        ImGuiIO& imgui_io = ImGui::GetIO();
+            ImGuiIO& imgui_io = ImGui::GetIO();
 
-        if (imgui_io.WantCaptureMouse || imgui_io.WantCaptureKeyboard)
-        {
-            continue;
-        }
+            if (imgui_io.WantCaptureMouse || imgui_io.WantCaptureKeyboard)
+            {
+                continue;
+            }
 #endif
 
-        Input::process_event(event.value());
+            Input::process_event(event.value());
+        }
     }
 
     RenderingDriver::get()->poll();
@@ -159,6 +166,7 @@ void Engine::draw()
     }
 
     RenderingDriver::get()->draw_graph(RenderGraph::get());
+    RenderGraph::get().reset();
 }
 
 Args default_args()

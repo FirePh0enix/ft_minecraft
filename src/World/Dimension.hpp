@@ -55,7 +55,4 @@ private:
     std::mutex m_chunk_mutex;
     std::map<ChunkPos, Ref<Chunk>> m_chunks;
     std::vector<Ref<Entity>> m_entities;
-
-    // std::vector<Ref<Entity>> m_chunks_to_add;
-    // std::vector<EntityId> m_chunks_to_remove;
 };

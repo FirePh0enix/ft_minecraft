@@ -1,4 +1,5 @@
 #include "World/Pass/Surface.hpp"
+#include "Profiler.hpp"
 #include "World/Registry.hpp"
 
 static const int SPLINE_COUNT = 5;
@@ -78,8 +79,10 @@ static float get_cave_noise(const SimplexNoise& simplex, int64_t x, int64_t y, i
     return n;
 }
 
-BlockState SurfacePass::process(const std::vector<BlockState>& previous_blocks, int64_t x, int64_t y, int64_t z) const
+void SurfacePass::process(int64_t x, int64_t z, int64_t cx, int64_t cz, std::vector<BlockState>& blocks) const
 {
+    ZoneScoped;
+
     float continentalness = get_continentalness(m_simplex, x, z);
     float erosion = get_erosion(m_simplex, x, z);
     float pv = get_pv(m_simplex, x, z);
@@ -91,19 +94,25 @@ BlockState SurfacePass::process(const std::vector<BlockState>& previous_blocks, 
     float pv_scale = 1.0f;
     float height = base_height + pv_offset * erosion_factor * pv_scale;
 
-    float overhang = get_overhang(m_simplex, x, y, z) * 15.0f - 10.0f;
-    float density = height - y + overhang;
+    for (int64_t y = 0; y < (int64_t)height; y++)
+    {
+        BlockState block;
+        float fy = (float)y;
 
-    float depth_below_surface = height - y;
-    float cave_noise = get_cave_noise(m_simplex, x, y, z);
-    bool cave = (cave_noise > 0.7f) && (depth_below_surface > 10.0f);
+        float overhang = get_overhang(m_simplex, x, y, z) * 15.0f - 10.0f;
+        float density = height - fy + overhang;
 
-    if (cave)
-        return BlockState();
-    else if (density > 0.0f)
-        return BlockState(m_stone);
-    else if (y <= sea_level)
-        return BlockState(m_water);
+        float depth_below_surface = height - fy;
+        float cave_noise = get_cave_noise(m_simplex, x, y, z);
+        bool cave = (cave_noise > 0.7f) && (depth_below_surface > 10.0f);
 
-    return BlockState();
+        if (cave)
+            block = BlockState();
+        else if (density > 0.0f)
+            block = BlockState(m_stone);
+        else if (y <= sea_level)
+            block = BlockState(m_water);
+
+        blocks[cz * 16 * 256 + y * 16 + cx] = block;
+    }
 }
