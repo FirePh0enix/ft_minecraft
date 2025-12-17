@@ -19,7 +19,7 @@ SurfacePass::SurfacePass()
     m_water = BlockRegistry::get_block_id("water");
 }
 
-void SurfacePass::_seed_updated()
+void SurfacePass::seed_updated()
 {
     m_simplex = SimplexNoise(m_seed);
 }

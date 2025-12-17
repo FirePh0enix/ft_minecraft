@@ -1,5 +1,4 @@
 #include "World/Chunk.hpp"
-#include "Physics/Collider.hpp"
 #include "World/Registry.hpp"
 
 Chunk::Chunk(int64_t x, int64_t z)
@@ -26,12 +25,4 @@ void Chunk::set_buffers(const Ref<Shader>& visual_shader, const Ref<Buffer>& pos
 
     // TODO: visibility buffer
     m_block_buffer->update(View(m_blocks).as_bytes());
-}
-
-void Chunk::update_grid_collider(GridCollider *grid) const
-{
-    for (size_t x = 0; x < 16; x++)
-        for (size_t y = 0; y < 256; y++)
-            for (size_t z = 0; z < 16; z++)
-                grid->set(x, y, z);
 }

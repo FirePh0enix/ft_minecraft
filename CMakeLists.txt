@@ -36,23 +36,14 @@ list(APPEND SOURCES
     src/Core/Registry.cpp
     src/Core/String.cpp
     src/Core/StringView.cpp
-    src/MP/Manager.cpp
-    src/MP/Peer.cpp
-    src/MP/Synchronizer.cpp
+    src/Entity/Camera.cpp
+    src/Entity/Entity.cpp
+    src/Entity/Player.cpp
     src/Platform/Platform.cpp
-    src/Physics/Collider.cpp
-    src/Physics/PhysicsBody.cpp
-    src/Physics/PhysicsSpace.cpp
     src/Render/WebGPU/DriverWebGPU.cpp
     src/Render/Driver.cpp
     src/Render/Graph.cpp
     src/Render/Shader.cpp
-    src/Scene/Components/Camera.cpp
-    src/Scene/Components/RigidBody.cpp
-    src/Scene/Components/Transformed3D.cpp
-    src/Scene/Entity.cpp
-    src/Scene/Player.cpp
-    src/Scene/Scene.cpp
     src/World/Pass/Surface.cpp
     src/World/Chunk.cpp
     src/World/Generator.cpp

@@ -2,6 +2,7 @@
 
 #include "Args.hpp"
 #include "Window.hpp"
+#include "World/World.hpp"
 
 #ifdef __platform_web
 #define ENGINE_MAIN(...) __attribute__((used, visibility("default"))) extern "C" int emscripten_main(__VA_ARGS__)
@@ -35,11 +36,15 @@ public:
     const Args& args() const { return m_args; }
     Args& args() { return m_args; }
 
+    void set_world(const Ref<World>& world) { m_world = world; }
+
 private:
     Args m_args;
     std::string m_app_name;
     Ref<Window> m_window;
     clock_t m_last_tick_time = 0;
+
+    Ref<World> m_world;
 
     EngineCallback m_shutdown_callback;
 
@@ -47,6 +52,8 @@ private:
 
     void iterate();
     void update_callback();
+
+    void draw();
 };
 
 Args default_args();

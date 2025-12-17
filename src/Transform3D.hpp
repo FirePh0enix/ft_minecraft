@@ -1,8 +1,4 @@
-#pragma once
-
-#include "Core/Class.hpp"
-#include "Scene/Components/Component.hpp"
-#include "Scene/Entity.hpp"
+#include "Core/Math.hpp"
 
 class Transform3D
 {
@@ -109,71 +105,4 @@ private:
 
         return Transform3D(position, rotation, scale);
     }
-};
-
-class Transformed3D : public Component
-{
-    CLASS(Transformed3D, Component);
-
-public:
-    static void bind_methods()
-    {
-        ClassRegistry::get().register_property<Transformed3D>("position", PrimitiveType::Vec3, [](Transformed3D *self)
-                                                              { return Variant(self->get_transform().position()); }, [](Transformed3D *self, Variant value)
-                                                              { self->set_position(value); });
-        ClassRegistry::get().register_property<Transformed3D>("rotation", PrimitiveType::Quat, [](Transformed3D *self)
-                                                              { return Variant(self->get_transform().rotation()); }, [](Transformed3D *self, Variant value)
-                                                              { self->get_transform().rotation() = value; });
-        ClassRegistry::get().register_property<Transformed3D>("scale", PrimitiveType::Vec3, [](Transformed3D *self)
-                                                              { return Variant(self->get_transform().scale()); }, [](Transformed3D *self, Variant value)
-                                                              { self->get_transform().scale() = value; });
-    }
-
-    Transformed3D()
-    {
-    }
-
-    Transformed3D(const Transform3D& transform)
-        : m_transform(transform)
-    {
-    }
-
-    virtual void start() override
-    {
-        if (m_entity->has_parent())
-        {
-            m_parent_transform = m_entity->get_parent()->get_component<Transformed3D>();
-        }
-    }
-
-    inline const Transform3D& get_transform() const
-    {
-        return m_transform;
-    }
-
-    inline Transform3D& get_transform()
-    {
-        return m_transform;
-    }
-
-    void set_transform(const Transform3D& transform)
-    {
-        m_transform = transform;
-    }
-
-    Transform3D get_global_transform() const
-    {
-        if (m_parent_transform.is_null())
-        {
-            return get_transform();
-        }
-
-        return get_transform().with_parent(m_entity->get_parent()->get_component<Transformed3D>()->get_global_transform());
-    }
-
-private:
-    Transform3D m_transform;
-    Ref<Transformed3D> m_parent_transform;
-
-    void set_position(Variant position);
 };

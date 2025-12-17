@@ -1,27 +1,20 @@
 #pragma once
 
 #include "Core/Ref.hpp"
-#include "Scene/Components/Camera.hpp"
-#include "Scene/Components/Component.hpp"
-#include "Scene/Components/RigidBody.hpp"
-#include "Scene/Components/Transformed3D.hpp"
-#include "Scene/System.hpp"
-#include "World/Generator.hpp"
 #include "World/World.hpp"
 
-class Player : public Component
+class Player : public Entity
 {
-    CLASS(Player, Component);
+    CLASS(Player, Entity);
 
 public:
-    Player(const Ref<World>& world, const Ref<Mesh>& cube_mesh)
-        : m_world(world), m_cube_mesh(cube_mesh)
+    Player()
     {
     }
 
-    virtual void start() override;
+    virtual ~Player() {}
 
-    static void update(const Query<Many<Transformed3D, RigidBody, Player, Child<Transformed3D, Camera>>, One<World, Generator>>& query, Action&);
+    virtual void tick(float delta) override;
 
     void set_gravity_enabled(bool v)
     {
@@ -47,15 +40,12 @@ public:
     void set_speed(float speed) { m_speed = speed; }
 
 private:
-    Ref<Transformed3D> m_transform;
     Ref<Camera> m_camera;
-    Ref<RigidBody> m_body;
     Ref<World> m_world;
 
     Ref<Mesh> m_cube_mesh;
     Ref<Entity> m_cube_highlight;
 
-    // float m_speed = 10.0;
     float m_speed = 50.0;
     float m_gravity_value = 9.81;
     bool m_gravity_enabled = true;

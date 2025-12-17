@@ -2,8 +2,7 @@
 
 #include "AABB.hpp"
 #include "Core/Class.hpp"
-#include "Scene/Components/Component.hpp"
-#include "Scene/Components/Transformed3D.hpp"
+#include "Entity/Entity.hpp"
 
 class Frustum
 {
@@ -19,25 +18,27 @@ private:
     void normalize_plane(size_t side);
 };
 
-class Camera : public Component
+class Camera : public Entity
 {
-    CLASS(Camera, Component);
+    CLASS(Camera, Entity);
 
 public:
     Camera()
         : m_projection_matrix(1.0)
     {
-        // NOTE: default values for field members are set after the initializer list so this need to be here.
+        // Default values for field members are set after the initializer list so this need to be here.
         m_projection_matrix = calculate_projection_matrix();
     }
 
-    // void tick(double delta) override;
+    virtual ~Camera() {}
+
+    virtual void tick(float delta) override;
 
     glm::mat4 get_view_matrix() const
     {
-        const Ref<Transformed3D> transform = m_entity->get_transform();
-        const glm::mat4 rotation = glm::toMat4(transform->get_global_transform().rotation());
-        const glm::mat4 translation = glm::translate(glm::mat4(1.0), -transform->get_global_transform().position());
+        const Transform3D global_transform = get_global_transform();
+        const glm::mat4 rotation = glm::toMat4(global_transform.rotation());
+        const glm::mat4 translation = glm::translate(glm::mat4(1.0), -global_transform.position());
         return rotation * translation;
     }
 
@@ -64,8 +65,6 @@ public:
     void update_frustum();
 
 private:
-    Ref<Transformed3D> m_transform;
-
     glm::mat4 m_projection_matrix;
     float m_aspect_ratio = 1280.0 / 720.0;
     float m_fov = 70.0;

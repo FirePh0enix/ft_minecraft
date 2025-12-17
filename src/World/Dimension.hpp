@@ -1,6 +1,9 @@
 #pragma once
 
+#include "Entity/Entity.hpp"
 #include "World/Chunk.hpp"
+
+#include <mutex>
 
 class Dimension
 {
@@ -43,12 +46,15 @@ public:
     std::map<ChunkPos, Ref<Chunk>>::iterator begin() { return m_chunks.begin(); }
     std::map<ChunkPos, Ref<Chunk>>::iterator end() { return m_chunks.end(); }
 
-    // std::vector<Ref<Entity>>& get_chunks_to_add() { return m_chunks_to_add; }
-    // std::vector<EntityId>& get_chunks_to_remove() { return m_chunks_to_remove; }
+    ALWAYS_INLINE void add_entity(const Ref<Entity>& entity) { m_entities.push_back(entity); }
+    const std::vector<Ref<Entity>>& get_entities() const { return m_entities; }
+
+    std::mutex& mutex() { return m_chunk_mutex; }
 
 private:
+    std::mutex m_chunk_mutex;
     std::map<ChunkPos, Ref<Chunk>> m_chunks;
-    std::map<ChunkPos, EntityId> m_collision_chunks;
+    std::vector<Ref<Entity>> m_entities;
 
     // std::vector<Ref<Entity>> m_chunks_to_add;
     // std::vector<EntityId> m_chunks_to_remove;

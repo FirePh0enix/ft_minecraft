@@ -1,17 +1,16 @@
 #pragma once
 
+#include "Entity/Camera.hpp"
 #include "Render/Driver.hpp"
-#include "Scene/Components/Camera.hpp"
-#include "Scene/Components/Visual.hpp"
+#include "Render/Graph.hpp"
 #include "World/Dimension.hpp"
+#include "World/Generator.hpp"
 
-#include <mutex>
-
-class RigidBody;
-
-class World : public VisualComponent
+class World : public Object
 {
-    CLASS(World, VisualComponent);
+    CLASS(World, Object);
+
+    friend class Generator;
 
 public:
     static constexpr size_t overworld = 0;
@@ -19,13 +18,18 @@ public:
 
     World(Ref<Mesh> mesh, Ref<Shader> visual_shader, uint64_t seed);
 
+    void tick(float delta);
+
+    /**
+     *  Draw all the blocks and entities.
+     */
+    void draw(RenderPassEncoder& encoder);
+
     BlockState get_block_state(int64_t x, int64_t y, int64_t z) const;
     void set_block_state(int64_t x, int64_t y, int64_t z, BlockState state);
 
     std::optional<Ref<Chunk>> get_chunk(int64_t x, int64_t z) const;
     std::optional<Ref<Chunk>> get_chunk(int64_t x, int64_t z);
-
-    virtual void encode_draw_calls(RenderPassEncoder& encoder, Camera& camera) override;
 
     void remove_chunk(int64_t x, int64_t z)
     {
@@ -55,21 +59,27 @@ public:
     }
 
     const Ref<Buffer>& get_position_buffer() const { return m_position_buffer; }
-    std::mutex& get_chunk_mutex() { return m_chunk_mutex; }
 
-    static void sync_physics_world(const Query<Many<Transformed3D, RigidBody>, One<World>>& query, Action& action);
+    void set_active_camera(Ref<Camera> camera) { m_camera = camera; }
+
+    static EntityId next_id()
+    {
+        static uint32_t id = 0;
+        id++;
+        return EntityId(id);
+    }
 
 private:
     uint64_t m_seed;
+
     std::array<Dimension, 2> m_dims;
+    std::array<Ref<Generator>, 2> m_generators;
+
+    Ref<Camera> m_camera;
 
     Ref<Mesh> m_mesh;
     Ref<Shader> m_visual_shader;
     Ref<Shader> m_visibility_shader;
-    Ref<Shader> m_surface_shader;
 
     Ref<Buffer> m_position_buffer;
-
-    // Mutex to guard adding/removing/drawing chunks.
-    std::mutex m_chunk_mutex;
 };

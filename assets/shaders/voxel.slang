@@ -1,4 +1,4 @@
-import terrain.defs;
+import defs;
 
 struct PushConstants
 {

@@ -11,7 +11,7 @@ public:
     SurfacePass();
 
     virtual BlockState process(const std::vector<BlockState>& previous_blocks, int64_t x, int64_t y, int64_t z) const override;
-    virtual void _seed_updated() override;
+    virtual void seed_updated() override;
 
 private:
     SimplexNoise m_simplex = SimplexNoise(0);

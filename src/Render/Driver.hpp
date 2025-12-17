@@ -6,7 +6,6 @@
 #include "Core/Result.hpp"
 #include "Render/Shader.hpp"
 #include "Render/Types.hpp"
-#include "Scene/System.hpp"
 #include "Window.hpp"
 
 #include <glm/vec2.hpp>
@@ -477,15 +476,4 @@ protected:
 
 private:
     std::map<Key, Value> m_objects;
-};
-
-class Scene;
-class VisualComponent;
-class Camera;
-
-struct RenderingPlugin
-{
-    static void setup(Scene *scene);
-    static void render_system(const Query<Many<VisualComponent>>& query, Action&);
-    static void update_camera_frustum_system(const Query<Many<Camera>>& query, Action&);
 };
