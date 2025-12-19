@@ -35,11 +35,9 @@ class Shader : public Object
     CLASS(Shader, Object);
 
 public:
-    static Result<Ref<Shader>> load(const std::filesystem::path& path, bool compute_shader = false);
+    static Result<Ref<Shader>> load(const std::filesystem::path& path);
 
     ~Shader();
-
-    Result<> dump_glsl();
 
     SamplerDescriptor get_sampler(const std::string& name) const
     {
@@ -64,6 +62,11 @@ public:
         m_bindings[name] = binding;
     }
 
+    void add_push_constant_range(PushConstantRange range)
+    {
+        m_push_constants.push_back(range);
+    }
+
     bool has_binding(const std::string& name) const
     {
         return m_bindings.find(name) != m_bindings.end();
@@ -80,7 +83,7 @@ public:
         m_samplers[name] = sampler;
     }
 
-    const std::string& get_source_string() const { return m_source_code; }
+    StringView get_source_string() const { return m_source_code; }
     ShaderKind get_shader_kind() const { return m_kind; }
 
     std::string get_entry_point(ShaderStageFlagBits stage) const
@@ -116,7 +119,7 @@ public:
 private:
     ShaderKind m_kind;
     std::string m_path;
-    std::string m_source_code;
+    String m_source_code;
 
     char *m_code = nullptr;
     size_t m_size;

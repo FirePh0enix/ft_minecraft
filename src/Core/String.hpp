@@ -84,6 +84,8 @@ public:
     const char *data() const { return is_small() ? small.data : large.ptr; }
     char *data() { return is_small() ? small.data : large.ptr; }
 
+    void resize(size_t new_size);
+
     void append(const char *str, size_t size);
     void append(const String& str) { append(str.data(), str.size()); }
     void append(char c) { append(&c, 1); }
@@ -94,29 +96,6 @@ public:
     StringView slice(size_t offset) const { return StringView(*this).slice(offset); }
 
 protected:
-    // void replace_by(const String& str)
-    // {
-    //     if (!is_small() && large.ptr)
-    //     {
-    //         destroy_n(large.ptr);
-    //     }
-
-    //     if (str.is_small())
-    //     {
-    //         small.small_flag = 1;
-    //         small.size = str.small.size;
-    //         memcpy(small.data, str.small.data, small.size + 1);
-    //     }
-    //     else
-    //     {
-    //         small.small_flag = 0;
-    //         large.ptr = alloc_n<char>(str.large.capacity);
-    //         memcpy(large.ptr, str.large.ptr, str.large.size + 1);
-    //         large.size = str.large.size;
-    //         large.capacity = str.large.capacity;
-    //     }
-    // }
-
     static std::strong_ordering compare(const char *str1, size_t size1, const char *str2, size_t size2)
     {
         // TODO: Add our own constexpr implementation.

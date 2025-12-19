@@ -66,7 +66,7 @@ struct File
     }
 
     std::vector<char> read_to_buffer() const;
-    std::string read_to_string() const;
+    String read_to_string() const;
 
 private:
     friend class Filesystem;

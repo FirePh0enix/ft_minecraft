@@ -48,6 +48,27 @@ String::String(const char *str, size_t size)
     }
 }
 
+void String::resize(size_t new_size)
+{
+    char *new_ptr = alloc_n<char>(new_size + 1);
+    std::memcpy(new_ptr, data(), size() + 1);
+
+    if (is_small())
+    {
+        small.small_flag = 0;
+        large.ptr = new_ptr;
+        large.capacity = new_size + 1;
+        large.size = new_size;
+    }
+    else
+    {
+        destroy_n(large.ptr);
+        large.ptr = new_ptr;
+        large.capacity = new_size + 1;
+        large.size = new_size;
+    }
+}
+
 void String::append(const char *str, size_t size)
 {
     if (is_small())

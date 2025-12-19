@@ -201,11 +201,7 @@ file(GLOB_RECURSE Assets_FILES
     ${PROJECT_SOURCE_DIR}/assets/blocks/*.json
     ${PROJECT_SOURCE_DIR}/assets/fonts/*
     ${PROJECT_SOURCE_DIR}/assets/textures/*.png
-    ${PROJECT_SOURCE_DIR}/assets/shaders/*.slang
-    ${PROJECT_SOURCE_DIR}/assets/shaders/**/*.slang
-
-    ${PROJECT_SOURCE_DIR}/assets/shaders/*.comp
-    ${PROJECT_SOURCE_DIR}/assets/shaders/**/*.comp
+    ${PROJECT_SOURCE_DIR}/assets/shaders/*.wgsl
 )
 string(REPLACE ";" " " "${Assets_FILES}" Assets_FILES)
 set(Assets_OUTPUT ${CMAKE_BINARY_DIR}/${TARGET_NAME}.data)
@@ -285,51 +281,6 @@ elseif(TARGET_IS_ALPINE_LINUX)
     target_link_directories(${TARGET_NAME} PRIVATE ${CMAKE_BINARY_DIR}/_deps/wgpu-native-src/dist/lib)
     target_link_libraries(${TARGET_NAME} PRIVATE wgpu_native)
 endif()
-
-# TODO: Must tell slang to use our Vulkan-Headers or doctest or this will not build
-FetchContent_Declare(
-    slang
-    GIT_REPOSITORY https://github.com/shader-slang/slang
-    GIT_TAG b7df3c7aa27301f88e31ed0a7bbf230688adab6a # v2025.14.3
-    PATCH_COMMAND git apply ${CMAKE_SOURCE_DIR}/patches/slang-fix-fgetpos64.diff ${CMAKE_SOURCE_DIR}/patches/slang-fix-platform.diff
-    UPDATE_DISCONNECTED 1
-)
-
-set(SLANG_LIB_TYPE STATIC)
-set(SLANG_ENABLE_TESTS OFF)
-set(SLANG_ENABLE_EXAMPLES OFF)
-set(SLANG_ENABLE_CUDA OFF)
-set(SLANG_ENABLE_GFX OFF)
-set(SLANG_ENABLE_XLIB OFF)
-set(SLANG_ENABLE_SLANGD OFF)
-set(SLANG_ENABLE_SLANGC ON)
-set(SLANG_ENABLE_SLANGI OFF)
-set(SLANG_ENABLE_SLANGRT OFF)
-set(SLANG_ENABLE_REPLAYER OFF)
-set(SLANG_ENABLE_OPTIX OFF)
-set(SLANG_ENABLE_SLANG_RHI OFF)
-# set(SLANG_ENABLE_SPLIT_DEBUG_INFO OFF)
-set(SLANG_LLVM_FLAVOUR DISABLE)
-set(SLANG_HAS_EXCEPTIONS OFF)
-set(SLANG_SERIALIZE_FOSSIL_ENABLE_VALIDATION_CHECKS OFF)
-
-# set(SLANG_GENERATORS_PATH ${CMAKE_SOURCE_DIR}/build-emscripten/slang/build/generators/Release/bin)
-
-# if (NOT TARGET_IS_WINDOWS)
-#     set(SLANG_ENABLE_DXIL OFF)
-# endif()
-
-# if (TARGET_IS_WEB)
-#     set(SLANG_ENABLE_SLANG_GLSLANG OFF)
-# endif()
-
-# set(SLANG_OVERRIDE_DOCTEST ${doctest_SOURCE_DIR})
-
-FetchContent_MakeAvailable(slang)
-target_link_directories(${TARGET_NAME} PRIVATE ${CMAKE_BINARY_DIR}/_deps/slang-src/lib)
-target_link_libraries(${TARGET_NAME} PRIVATE slang)
-target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_BINARY_DIR}/_deps/slang-src/include)
-target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_BINARY_DIR}/_deps/slang-src/source/core)
 
 # SDL
 set(SDL_STATIC ON)

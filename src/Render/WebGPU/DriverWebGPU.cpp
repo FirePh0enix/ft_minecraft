@@ -966,31 +966,10 @@ WGPUShaderModule RenderingDriverWebGPU::create_shader_module(const Ref<Shader>& 
     module_desc.label = WGPU_STRING_VIEW_INIT;
 
 #ifndef __platform_web
-    std::string s;
-    WGPUShaderSourceSPIRV spirv_source{};
-    WGPUShaderSourceGLSL glsl_source{};
-
-    if (shader->get_shader_kind() == ShaderKind::SPIRV)
-    {
-        const View<uint32_t> shader_code = shader->get_code_u32();
-
-        spirv_source.chain = {.next = nullptr, .sType = WGPUSType_ShaderSourceSPIRV};
-        spirv_source.code = shader_code.data();
-        spirv_source.codeSize = shader_code.size();
-        module_desc.nextInChain = &spirv_source.chain;
-    }
-    else if (shader->get_shader_kind() == ShaderKind::GLSL)
-    {
-        const View<char> shader_code = shader->get_code();
-
-        glsl_source.chain = {.next = nullptr, .sType = (WGPUSType)WGPUSType_ShaderSourceGLSL};
-        glsl_source.stage = WGPUShaderStage_Compute;
-        glsl_source.code.data = shader_code.data();
-        glsl_source.code.length = shader_code.size();
-        glsl_source.defineCount = 0;
-        glsl_source.defines = nullptr;
-        module_desc.nextInChain = &glsl_source.chain;
-    }
+    WGPUShaderSourceWGSL wgsl_source{};
+    wgsl_source.chain = {.next = nullptr, .sType = WGPUSType_ShaderSourceWGSL};
+    wgsl_source.code = {.data = shader->get_source_string().data(), .length = shader->get_source_string().size()};
+    module_desc.nextInChain = &wgsl_source.chain;
 #else
     const View<char> shader_code = shader->get_code();
 

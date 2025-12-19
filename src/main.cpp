@@ -55,12 +55,19 @@ ENGINE_MAIN(int argc, char *argv[])
     BlockRegistry::load_blocks();
     BlockRegistry::create_gpu_resources();
 
-    Result<Ref<Shader>> shader_result = Shader::load("assets://shaders/voxel.slang");
+    Result<Ref<Shader>> shader_result = Shader::load("assets://shaders/voxel.wgsl");
     if (!shader_result.has_value())
         EXPECT(Result<>(Error(ErrorKind::ShaderCompilationFailed)));
 
     Ref<Shader> shader = shader_result.value();
+    shader->set_binding("images", Binding(BindingKind::Texture, ShaderStageFlagBits::Fragment, 0, 0, BindingAccess::Read, TextureDimension::D2DArray)); // index = 1 is the sampler
+    shader->set_binding("positions", Binding(BindingKind::StorageBuffer, ShaderStageFlagBits::Vertex, 0, 2, BindingAccess::Read, BindingBuffer(sizeof(glm::vec4), true)));
+    shader->set_binding("blocks", Binding(BindingKind::StorageBuffer, ShaderStageFlagBits::Vertex, 0, 3, BindingAccess::Read, BindingBuffer(sizeof(BlockState), true)));
+    shader->set_binding("visibilityBuffer", Binding(BindingKind::StorageBuffer, ShaderStageFlagBits::Vertex, 0, 4, BindingAccess::Read, BindingBuffer(sizeof(uint32_t), true)));
+    shader->set_binding("textureRegistry", Binding(BindingKind::StorageBuffer, ShaderStageFlagBits::Vertex, 0, 5, BindingAccess::Read, BindingBuffer(sizeof(glm::uvec4), true)));
+
     shader->set_sampler("images", {.min_filter = Filter::Nearest, .mag_filter = Filter::Nearest});
+    shader->add_push_constant_range(PushConstantRange(ShaderStageFlagBits::Vertex, sizeof(glm::mat4) * 2 + sizeof(float)));
 
     auto cube_result = create_cube_with_separate_faces(glm::vec3(1.0), glm::vec3(-0.5));
     EXPECT(cube_result);

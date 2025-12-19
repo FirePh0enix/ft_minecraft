@@ -78,9 +78,9 @@ std::vector<char> File::read_to_buffer() const
     return buffer;
 }
 
-std::string File::read_to_string() const
+String File::read_to_string() const
 {
-    std::string str;
+    String str;
     str.resize(m_size);
 
     Filesystem::read_raw(*this, str.data(), m_size);
