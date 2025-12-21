@@ -152,7 +152,7 @@ Result<> Font::init_library()
                                                  InstanceLayoutInput(ShaderType::Float32x2, sizeof(float) * 7)};
     InstanceLayout instance_layout(inputs, sizeof(Instance));
 
-    auto shader_result = Shader::load("assets://shaders/font.slang");
+    auto shader_result = Shader::load("assets/shaders/font.slang");
     if (!shader_result.has_value())
     {
         return Error(ErrorKind::ShaderCompilationFailed);

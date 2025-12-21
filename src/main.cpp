@@ -56,7 +56,7 @@ ENGINE_MAIN(int argc, char *argv[])
     // TODO: Add this back
     // Font::init_library();
 
-    // auto font_result = Font::create("assets://fonts/Anonymous.ttf", 20);
+    // auto font_result = Font::create("assets/fonts/Anonymous.ttf", 20);
     // EXPECT(font_result);
     // Ref<Font> font = font_result.value();
 

@@ -125,7 +125,7 @@ private:
 
         if (id_pair == s_texture_by_name.end())
         {
-            std::string path = "assets://textures/" + name;
+            std::string path = "assets/textures/" + name;
 
             Result<File> file = Filesystem::open_file(path);
             ERR_EXPECT_VR(file, 0, "Failed to open {}", path);

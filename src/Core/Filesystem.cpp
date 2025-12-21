@@ -1,18 +1,17 @@
 #include "Core/Filesystem.hpp"
 #include "Core/Result.hpp"
 
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
 #ifdef __platform_macos
 #include <mach-o/dyld.h>
 #endif
 
 File::File()
-    : m_kind(FileKind::Packed), m_offset(0)
+    : m_fd(-1)
 {
-}
-
-void Filesystem::open_data()
-{
-    s_data_pack.load_from_file(current_executable_directory().string() + "/ft_minecraft.data");
 }
 
 std::filesystem::path Filesystem::current_executable_path()
@@ -45,30 +44,19 @@ std::filesystem::path Filesystem::current_executable_directory()
 
 Result<File> Filesystem::open_file(const StringView& path)
 {
-    if (path.starts_with("assets://"))
-    {
-        if (!s_data_pack.is_open())
-            return Error(ErrorKind::FileNotFound);
+    int fd = open(path.data(), O_RDONLY);
 
-        const StringView& path2 = path.slice(9);
-
-        File file;
-        file.m_kind = FileKind::Packed;
-
-        Result<DataPackFileInfo> result = s_data_pack.find_file(path2);
-        YEET(result);
-
-        DataPackFileInfo info = result.value();
-        file.m_offset = info.offset;
-        file.m_size = info.size;
-
-        return file;
-    }
-    else
-    {
-        // TODO: Allow opening files.
+    if (fd == -1)
         return Error(ErrorKind::FileNotFound);
-    }
+
+    struct stat st{};
+    stat(path.data(), &st);
+
+    File file;
+    file.m_fd = fd;
+    file.m_size = st.st_size;
+
+    return file;
 }
 
 std::vector<char> File::read_to_buffer() const
@@ -89,12 +77,5 @@ String File::read_to_string() const
 
 void Filesystem::read_raw(const File& file, void *buffer, size_t size)
 {
-    EXPECT(s_data_pack.read_file(file.m_offset, buffer, size));
-}
-
-std::string Filesystem::resolve_absolute(const std::string& path)
-{
-    if (path.starts_with("assets://"))
-        return "assets/" + path.substr(9);
-    return path;
+    read(file.m_fd, buffer, size);
 }

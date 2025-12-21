@@ -22,7 +22,6 @@ option(DETERMINISTIC "Try to guaranty deterministic maths" OFF)
 list(APPEND SOURCES
     src/Args.cpp
     src/Console.cpp
-    src/DataPack.cpp
     src/Engine.cpp
     src/Font.cpp
     src/Input.cpp
@@ -185,36 +184,6 @@ if (TARGET_IS_LINUX OR TARGET_IS_MACOS)
 endif()
 
 
-#
-# Tools
-#
-
-# datapacktool
-# add_subdirectory(tools/datapack)
-
-add_executable(datapacktool tools/datapack/main.cpp src/DataPack.cpp src/Core/String.cpp src/Core/StringView.cpp)
-target_include_directories(datapacktool PRIVATE ./src/)
-set_property(TARGET datapacktool PROPERTY CXX_STANDARD 20)
-set(DATAPACKTOOL_COMMAND "${CMAKE_BINARY_DIR}/datapacktool")
-
-file(GLOB_RECURSE Assets_FILES
-    ${PROJECT_SOURCE_DIR}/assets/blocks/*.json
-    ${PROJECT_SOURCE_DIR}/assets/fonts/*
-    ${PROJECT_SOURCE_DIR}/assets/textures/*.png
-    ${PROJECT_SOURCE_DIR}/assets/shaders/*.wgsl
-)
-string(REPLACE ";" " " "${Assets_FILES}" Assets_FILES)
-set(Assets_OUTPUT ${CMAKE_BINARY_DIR}/${TARGET_NAME}.data)
-
-add_custom_command(
-    OUTPUT ${Assets_OUTPUT}
-    COMMAND ${DATAPACKTOOL_COMMAND} ${Assets_OUTPUT} ${PROJECT_SOURCE_DIR}/assets/ ${Assets_FILES}
-    DEPENDS ${Assets_FILES}
-)
-add_custom_target(datapacktool-generate ALL DEPENDS datapacktool ${Assets_OUTPUT})
-add_dependencies(${TARGET_NAME} datapacktool-generate)
-
-
 # Dont build shared libraries
 set(BUILD_SHARED_LIBS 0)
 
@@ -363,7 +332,6 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(glm)
 target_link_libraries(${TARGET_NAME} PRIVATE glm::glm-header-only)
-target_link_libraries(datapacktool PRIVATE glm::glm-header-only)
 
 # FreeType
 FetchContent_Declare(

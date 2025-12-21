@@ -8,7 +8,7 @@
 World::World(uint64_t seed)
     : m_seed(seed)
 {
-    Ref<Shader> shader = Shader::load("assets://shaders/voxel.wgsl").value_or(nullptr);
+    Ref<Shader> shader = Shader::load("assets/shaders/voxel.wgsl").value_or(nullptr);
     shader->set_binding("images", Binding(BindingKind::Texture, ShaderStageFlagBits::Fragment, 0, 0, BindingAccess::Read, TextureDimension::D2DArray)); // binding = 1 is the sampler
 
     shader->set_sampler("images", {.min_filter = Filter::Nearest, .mag_filter = Filter::Nearest});

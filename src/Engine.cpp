@@ -27,9 +27,6 @@ Engine::Engine(Args args, const std::string& app_name)
 
     register_engine_classes();
 
-    // After this point reading from the datapack become possible.
-    Filesystem::open_data();
-
     TracySetThreadName("Main");
 
     m_window = newobj(Window, "ft_minecraft", 1280, 720);
