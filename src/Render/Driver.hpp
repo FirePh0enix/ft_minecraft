@@ -104,10 +104,10 @@ class Mesh : public Object
     CLASS(Mesh, Object);
 
 public:
-    static Ref<Mesh> create_from_data(const View<uint8_t>& index, const View<glm::vec3>& positions, const View<glm::vec3>& normals, const View<glm::vec2>& uvs, IndexType index_type = IndexType::Uint32);
+    static Ref<Mesh> create_from_data(const View<uint8_t>& index, const View<glm::vec3>& positions, const View<glm::vec3>& normals, const View<uint8_t>& uvs, IndexType index_type = IndexType::Uint32, UVType uv_type = UVType::UV);
 
-    Mesh(uint32_t vertex_count, IndexType index_type, const Ref<Buffer>& index_buffer, const Ref<Buffer>& position_buffer, const Ref<Buffer>& normal_buffer, const Ref<Buffer>& uv_buffer)
-        : m_vertex_count(vertex_count), m_index_type(index_type)
+    Mesh(uint32_t vertex_count, IndexType index_type, UVType uv_type, const Ref<Buffer>& index_buffer, const Ref<Buffer>& position_buffer, const Ref<Buffer>& normal_buffer, const Ref<Buffer>& uv_buffer)
+        : m_vertex_count(vertex_count), m_index_type(index_type), m_uv_type(uv_type)
     {
         set_buffer(MeshBufferKind::Index, index_buffer);
         set_buffer(MeshBufferKind::Position, position_buffer);
@@ -117,15 +117,10 @@ public:
 
     virtual ~Mesh() {}
 
-    inline uint32_t vertex_count()
-    {
-        return m_vertex_count;
-    }
+    ALWAYS_INLINE uint32_t vertex_count() const { return m_vertex_count; }
 
-    inline IndexType index_type()
-    {
-        return m_index_type;
-    }
+    ALWAYS_INLINE IndexType index_type() { return m_index_type; }
+    ALWAYS_INLINE UVType uv_type() const { return m_uv_type; }
 
     ALWAYS_INLINE Ref<Buffer> get_buffer(MeshBufferKind kind) const
     {
@@ -140,6 +135,7 @@ public:
 protected:
     uint32_t m_vertex_count;
     IndexType m_index_type;
+    UVType m_uv_type;
     Ref<Buffer> m_buffers[(size_t)MeshBufferKind::Max];
 };
 
@@ -235,10 +231,10 @@ class Material : public MaterialBase
     CLASS(Material, MaterialBase);
 
 public:
-    static Ref<Material> create(const Ref<Shader>& shader, std::optional<InstanceLayout> instance_layout = std::nullopt, MaterialFlags flags = MaterialFlagBits::None, PolygonMode polygon_mode = PolygonMode::Fill, CullMode cull_mode = CullMode::Back);
+    static Ref<Material> create(const Ref<Shader>& shader, std::optional<InstanceLayout> instance_layout = std::nullopt, MaterialFlags flags = MaterialFlagBits::None, PolygonMode polygon_mode = PolygonMode::Fill, CullMode cull_mode = CullMode::Back, UVType uv_type = UVType::UV);
 
-    Material(const Ref<Shader>& shader, std::optional<InstanceLayout> instance_layout, MaterialFlags flags, PolygonMode polygon_mode, CullMode cull_mode)
-        : MaterialBase(shader), m_instance_layout(instance_layout), m_flags(flags), m_polygon_mode(polygon_mode), m_cull_mode(cull_mode)
+    Material(const Ref<Shader>& shader, std::optional<InstanceLayout> instance_layout, MaterialFlags flags, PolygonMode polygon_mode, CullMode cull_mode, UVType uv_type)
+        : MaterialBase(shader), m_instance_layout(instance_layout), m_flags(flags), m_polygon_mode(polygon_mode), m_cull_mode(cull_mode), m_uv_type(uv_type)
     {
     }
 
@@ -264,11 +260,15 @@ public:
         return m_flags;
     }
 
+    ALWAYS_INLINE UVType get_uv_type() const { return m_uv_type; }
+
 private:
-    std::optional<InstanceLayout> m_instance_layout;
+    std::optional<InstanceLayout>
+        m_instance_layout;
     MaterialFlags m_flags;
     PolygonMode m_polygon_mode;
     CullMode m_cull_mode;
+    UVType m_uv_type;
 };
 
 /**

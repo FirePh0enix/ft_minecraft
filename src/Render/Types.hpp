@@ -143,6 +143,19 @@ enum class IndexType : uint8_t
     Uint32,
 };
 
+enum class UVType : uint8_t
+{
+    /**
+     *  Standard texture coordinates.
+     */
+    UV,
+
+    /**
+     *  Texture coordinates also store an index into a texture array as `Z`.
+     */
+    UVT,
+};
+
 size_t size_of(const IndexType& format);
 
 enum class PolygonMode : uint8_t

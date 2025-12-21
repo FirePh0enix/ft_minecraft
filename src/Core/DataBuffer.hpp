@@ -23,6 +23,11 @@ public:
         return m_data.data();
     }
 
+    void clear_keep_capacity()
+    {
+        m_data.resize(0);
+    }
+
     template <typename T>
     void add(const T& value)
     {

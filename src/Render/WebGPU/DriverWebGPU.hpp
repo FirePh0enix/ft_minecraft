@@ -174,7 +174,7 @@ public:
 
     virtual void draw_graph(const RenderGraph& graph) override;
 
-    Result<WGPURenderPipeline> create_render_pipeline(Ref<Shader> shader, std::optional<InstanceLayout> instance_layout, WGPUCullMode cull_mode, MaterialFlags flags, WGPUPipelineLayout pipeline_layout, const std::vector<RenderPassColorAttachment>& color_attachs, bool previous_depth_pass);
+    Result<WGPURenderPipeline> create_render_pipeline(Ref<Shader> shader, UVType uv_type, std::optional<InstanceLayout> instance_layout, WGPUCullMode cull_mode, MaterialFlags flags, WGPUPipelineLayout pipeline_layout, const std::vector<RenderPassColorAttachment>& color_attachs, bool previous_depth_pass);
     Result<WGPUComputePipeline> create_compute_pipeline(const Ref<Shader>& shader, WGPUPipelineLayout pipeline_layout);
 
     inline WGPUDevice get_device()

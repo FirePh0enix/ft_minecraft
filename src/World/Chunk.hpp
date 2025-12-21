@@ -9,29 +9,18 @@ class GridCollider;
 struct ChunkPos
 {
     int64_t x;
+    int64_t y;
     int64_t z;
 
     bool operator<(const ChunkPos& other) const
     {
-        return std::tie(x, z) < std::tie(other.x, other.z);
+        return std::tie(x, y, z) < std::tie(other.x, other.y, other.z);
     }
 
     bool operator==(const ChunkPos& other) const
     {
-        return std::tie(x, z) == std::tie(other.x, other.z);
+        return std::tie(x, y, z) == std::tie(other.x, other.y, other.z);
     }
-};
-
-#define CHUNK_LOCAL_X(POS) (POS & 0xF)
-#define CHUNK_LOCAL_Y(POS) ((POS >> 4) & 0xFF)
-#define CHUNK_LOCAL_Z(POS) ((POS >> 12) & 0xF)
-
-#define CHUNK_POS(X, Y, Z) ((X & 0xF) | ((Y & 0xFF) << 4) | ((Z & 0xFF) << 12))
-
-struct ChunkBounds
-{
-    glm::ivec3 min;
-    glm::ivec3 max;
 };
 
 class Chunk : public Object
@@ -40,65 +29,40 @@ class Chunk : public Object
 
 public:
     static constexpr int64_t width = 16;
-    static constexpr int64_t height = 256;
-    static constexpr int64_t block_count = width * width * height;
+    static constexpr int64_t block_count = width * width * width;
 
-    Chunk(int64_t x, int64_t z);
+    Chunk(int64_t x, int64_t y, int64_t z);
 
-    void set_blocks(const std::vector<BlockState>& blocks);
-    void set_buffers(const Ref<Shader>& visual_shader, const Ref<Buffer>& position_buffer);
+    ALWAYS_INLINE bool is_empty() const { return m_empty; }
 
-    inline BlockState get_block(size_t x, size_t y, size_t z) const
-    {
-        if (x > 15 || y > 255 || z > 15 || (z * width * height + y * width + x) >= m_blocks.size())
-            return BlockState();
-        return m_blocks[z * width * height + y * width + x];
-    }
+    ALWAYS_INLINE BlockState get_block(int64_t x, int64_t y, int64_t z) const { return m_blocks[linearize(x, y, z)]; }
+    ALWAYS_INLINE void set_block(int64_t x, int64_t y, int64_t z, BlockState state) { m_blocks[linearize(x, y, z)] = state; }
 
-    inline void set_block(size_t x, size_t y, size_t z, BlockState state)
-    {
-        if (z * width * height + y * width + x > block_count)
-            return;
-        m_blocks[z * width * height + y * width + x] = state;
-    }
+    ALWAYS_INLINE const BlockState *get_blocks() const { return m_blocks; }
+    ALWAYS_INLINE BlockState *get_blocks() { return m_blocks; }
 
-    inline const std::vector<BlockState>& get_blocks() const
-    {
-        return m_blocks;
-    }
+    ALWAYS_INLINE int64_t x() const { return m_x; }
+    ALWAYS_INLINE int64_t y() const { return m_y; }
+    ALWAYS_INLINE int64_t z() const { return m_z; }
 
-    inline int64_t x() const
-    {
-        return m_x;
-    }
+    ALWAYS_INLINE ChunkPos pos() const { return ChunkPos(m_x, m_y, m_z); }
 
-    inline int64_t z() const
-    {
-        return m_z;
-    }
+    void build_simple_mesh();
 
-    Ref<Material> get_visual_material() const { return m_visual_material; }
+    ALWAYS_INLINE Ref<Mesh> get_mesh() const { return m_mesh; }
 
-    float time_since_created = 0.0;
+    static ALWAYS_INLINE size_t linearize(int64_t x, int64_t y, int64_t z) { return (z + 1) * (width + 2) * (width + 2) + (y + 1) * (width + 2) + (x + 1); }
+    static ALWAYS_INLINE size_t linearize_with_overlap(int64_t x, int64_t y, int64_t z) { return z * (width + 2) * (width + 2) + y * (width + 2) + x; }
 
 private:
-    std::vector<BlockState> m_blocks;
+    BlockState m_blocks[(Chunk::width + 2) * (Chunk::width + 2) * (Chunk::width + 2)];
+
     int64_t m_x;
+    int64_t m_y;
     int64_t m_z;
 
-    Ref<Buffer> m_block_buffer;
-    Ref<Buffer> m_visibility_buffer;
-    Ref<Material> m_visual_material;
+    bool m_empty = true;
 
-    BlockState& get_block_ref(size_t x, size_t y, size_t z)
-    {
-        return m_blocks[z * width * height + y * width + x];
-    }
-
-    inline bool has_block(size_t x, size_t y, size_t z) const
-    {
-        if (x > 15 || y > 255 || z > 15)
-            return false;
-        return !m_blocks[z * width * height + y * width + x].is_air();
-    }
+    // New Mesher
+    Ref<Mesh> m_mesh;
 };

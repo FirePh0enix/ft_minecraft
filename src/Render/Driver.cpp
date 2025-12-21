@@ -49,6 +49,18 @@ static const char *index_type_to_name(IndexType type)
     return nullptr;
 }
 
+static const char *uv_type_to_name(UVType type)
+{
+    switch (type)
+    {
+    case UVType::UV:
+        return STRUCTNAME(glm::vec2);
+    case UVType::UVT:
+        return STRUCTNAME(glm::vec3);
+    }
+    return nullptr;
+}
+
 Result<Ref<Buffer>> RenderingDriver::create_buffer_from_data(const char *name, size_t size, View<uint8_t> data, BufferUsageFlags flags, BufferVisibility visibility)
 {
     auto buffer_result = create_buffer(name, size, flags, visibility);
@@ -60,7 +72,7 @@ Result<Ref<Buffer>> RenderingDriver::create_buffer_from_data(const char *name, s
     return buffer;
 }
 
-Ref<Mesh> Mesh::create_from_data(const View<uint8_t>& indices, const View<glm::vec3>& positions, const View<glm::vec3>& normals, const View<glm::vec2>& uvs, IndexType index_type)
+Ref<Mesh> Mesh::create_from_data(const View<uint8_t>& indices, const View<glm::vec3>& positions, const View<glm::vec3>& normals, const View<uint8_t>& uvs, IndexType index_type, UVType uv_type)
 {
     const size_t vertex_count = indices.size() / size_of(index_type);
 
@@ -73,7 +85,7 @@ Ref<Mesh> Mesh::create_from_data(const View<uint8_t>& indices, const View<glm::v
     auto normal_buffer_result = RenderingDriver::get()->create_buffer(STRUCTNAME(glm::vec3), normals.size() * sizeof(glm::vec3), BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Vertex);
     Ref<Buffer> normal_buffer = normal_buffer_result.value();
 
-    auto uv_buffer_result = RenderingDriver::get()->create_buffer(STRUCTNAME(glm::vec2), uvs.size() * sizeof(glm::vec2), BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Vertex);
+    auto uv_buffer_result = RenderingDriver::get()->create_buffer(uv_type_to_name(uv_type), uvs.size(), BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Vertex);
     Ref<Buffer> uv_buffer = uv_buffer_result.value();
 
     index_buffer->update(indices.as_bytes());
@@ -81,12 +93,12 @@ Ref<Mesh> Mesh::create_from_data(const View<uint8_t>& indices, const View<glm::v
     normal_buffer->update(normals.as_bytes());
     uv_buffer->update(uvs.as_bytes());
 
-    return newobj(Mesh, vertex_count, index_type, index_buffer, vertex_buffer, normal_buffer, uv_buffer);
+    return newobj(Mesh, vertex_count, index_type, uv_type, index_buffer, vertex_buffer, normal_buffer, uv_buffer);
 }
 
-Ref<Material> Material::create(const Ref<Shader>& shader, std::optional<InstanceLayout> instance_layout, MaterialFlags flags, PolygonMode polygon_mode, CullMode cull_mode)
+Ref<Material> Material::create(const Ref<Shader>& shader, std::optional<InstanceLayout> instance_layout, MaterialFlags flags, PolygonMode polygon_mode, CullMode cull_mode, UVType uv_type)
 {
-    return newobj(Material, shader, instance_layout, flags, polygon_mode, cull_mode);
+    return newobj(Material, shader, instance_layout, flags, polygon_mode, cull_mode, uv_type);
 }
 
 Ref<ComputeMaterial> ComputeMaterial::create(const Ref<Shader>& shader)

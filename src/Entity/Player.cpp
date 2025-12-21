@@ -6,6 +6,8 @@
 
 void Player::tick(float delta)
 {
+    ZoneScopedN("Player::tick");
+
     (void)delta;
 
     if (Input::is_action_pressed("attack") && !Input::is_mouse_grabbed())

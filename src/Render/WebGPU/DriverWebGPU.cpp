@@ -341,7 +341,7 @@ WGPURenderPipeline RenderPipelineCache::create_object(const RenderPipelineCacheK
     const Ref<Material>& material = key.material;
     const MaterialLayoutCacheValue& cached_layout = RenderingDriverWebGPU::get()->get_material_layout_cache().get({.material = material});
 
-    auto pipeline_result = RenderingDriverWebGPU::get()->create_render_pipeline(material->get_shader(), material->get_instance_layout(), convert_cull_mode(material->get_cull_mode()), material->get_flags(), cached_layout.pipeline_layout, key.color_attachs, key.previous_depth_pass);
+    auto pipeline_result = RenderingDriverWebGPU::get()->create_render_pipeline(material->get_shader(), material->get_uv_type(), material->get_instance_layout(), convert_cull_mode(material->get_cull_mode()), material->get_flags(), cached_layout.pipeline_layout, key.color_attachs, key.previous_depth_pass);
     return pipeline_result.value();
 }
 
@@ -982,7 +982,7 @@ WGPUShaderModule RenderingDriverWebGPU::create_shader_module(const Ref<Shader>& 
     return wgpuDeviceCreateShaderModule(m_device, &module_desc);
 }
 
-Result<WGPURenderPipeline> RenderingDriverWebGPU::create_render_pipeline(Ref<Shader> shader, std::optional<InstanceLayout> instance_layout, WGPUCullMode cull_mode, MaterialFlags flags, WGPUPipelineLayout pipeline_layout, const std::vector<RenderPassColorAttachment>& color_attachs, bool previous_depth_pass)
+Result<WGPURenderPipeline> RenderingDriverWebGPU::create_render_pipeline(Ref<Shader> shader, UVType uv_type, std::optional<InstanceLayout> instance_layout, WGPUCullMode cull_mode, MaterialFlags flags, WGPUPipelineLayout pipeline_layout, const std::vector<RenderPassColorAttachment>& color_attachs, bool previous_depth_pass)
 {
     std::vector<WGPUVertexBufferLayout> buffers;
     buffers.reserve(instance_layout.has_value() ? 4 : 3);
@@ -1000,10 +1000,20 @@ Result<WGPURenderPipeline> RenderingDriverWebGPU::create_render_pipeline(Ref<Sha
     buffers.push_back(WGPUVertexBufferLayout{.stepMode = WGPUVertexStepMode_Vertex, .arrayStride = sizeof(glm::vec3), .attributeCount = 1, .attributes = &normal_attrib});
 
     WGPUVertexAttribute uv_attrib{};
-    uv_attrib.format = WGPUVertexFormat_Float32x2;
-    uv_attrib.offset = 0;
-    uv_attrib.shaderLocation = 2;
-    buffers.push_back(WGPUVertexBufferLayout{.stepMode = WGPUVertexStepMode_Vertex, .arrayStride = sizeof(glm::vec2), .attributeCount = 1, .attributes = &uv_attrib});
+    if (uv_type == UVType::UV)
+    {
+        uv_attrib.format = WGPUVertexFormat_Float32x2;
+        uv_attrib.offset = 0;
+        uv_attrib.shaderLocation = 2;
+        buffers.push_back(WGPUVertexBufferLayout{.stepMode = WGPUVertexStepMode_Vertex, .arrayStride = sizeof(glm::vec2), .attributeCount = 1, .attributes = &uv_attrib});
+    }
+    else if (uv_type == UVType::UVT)
+    {
+        uv_attrib.format = WGPUVertexFormat_Float32x3;
+        uv_attrib.offset = 0;
+        uv_attrib.shaderLocation = 2;
+        buffers.push_back(WGPUVertexBufferLayout{.stepMode = WGPUVertexStepMode_Vertex, .arrayStride = sizeof(glm::vec3), .attributeCount = 1, .attributes = &uv_attrib});
+    }
 
     std::vector<WGPUVertexAttribute> instance_attribs;
 

@@ -71,11 +71,11 @@ void Save::save_chunk(const Ref<Chunk>& chunk)
 
     for (size_t x = 0; x < Chunk::width; x++)
     {
-        for (size_t y = 0; y < Chunk::height; y++)
+        for (size_t y = 0; y < Chunk::width; y++)
         {
             for (size_t z = 0; z < Chunk::width; z++)
             {
-                uint16_t pos = CHUNK_POS(x, y, z);
+                uint16_t pos = x | (y << 4) | (z << 8);
                 BlockState state = chunk->get_block(x, y, z);
 
                 if (state.is_air())

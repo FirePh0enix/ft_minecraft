@@ -79,7 +79,7 @@ static float get_cave_noise(const SimplexNoise& simplex, int64_t x, int64_t y, i
     return n;
 }
 
-void SurfacePass::process(int64_t x, int64_t z, int64_t cx, int64_t cz, std::vector<BlockState>& blocks) const
+void SurfacePass::process(int64_t x, int64_t chunk_start_y, int64_t z, int64_t local_x, int64_t local_z, BlockState *blocks) const
 {
     ZoneScoped;
 
@@ -94,25 +94,26 @@ void SurfacePass::process(int64_t x, int64_t z, int64_t cx, int64_t cz, std::vec
     float pv_scale = 1.0f;
     float height = base_height + pv_offset * erosion_factor * pv_scale;
 
-    for (int64_t y = 0; y < (int64_t)height; y++)
+    for (int64_t y = 0; y < Chunk::width + 2; y++)
     {
         BlockState block;
-        float fy = (float)y;
+        int64_t global_y = chunk_start_y + y - 1;
+        float fy = (float)global_y;
 
-        float overhang = get_overhang(m_simplex, x, y, z) * 15.0f - 10.0f;
+        float overhang = get_overhang(m_simplex, x, global_y, z) * 15.0f - 10.0f;
         float density = height - fy + overhang;
 
         float depth_below_surface = height - fy;
-        float cave_noise = get_cave_noise(m_simplex, x, y, z);
+        float cave_noise = get_cave_noise(m_simplex, x, global_y, z);
         bool cave = (cave_noise > 0.7f) && (depth_below_surface > 10.0f);
 
         if (cave)
             block = BlockState();
         else if (density > 0.0f)
             block = BlockState(m_stone);
-        else if (y <= sea_level)
+        else if (global_y <= sea_level)
             block = BlockState(m_water);
 
-        blocks[cz * 16 * 256 + y * 16 + cx] = block;
+        blocks[Chunk::linearize_with_overlap(local_x, y, local_z)] = block;
     }
 }

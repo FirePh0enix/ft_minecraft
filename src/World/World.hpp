@@ -16,7 +16,7 @@ public:
     static constexpr size_t overworld = 0;
     static constexpr size_t underworld = 1;
 
-    World(Ref<Mesh> mesh, Ref<Shader> visual_shader, uint64_t seed);
+    World(uint64_t seed);
 
     void tick(float delta);
 
@@ -28,22 +28,22 @@ public:
     BlockState get_block_state(int64_t x, int64_t y, int64_t z) const;
     void set_block_state(int64_t x, int64_t y, int64_t z, BlockState state);
 
-    std::optional<Ref<Chunk>> get_chunk(int64_t x, int64_t z) const;
-    std::optional<Ref<Chunk>> get_chunk(int64_t x, int64_t z);
+    std::optional<Ref<Chunk>> get_chunk(int64_t x, int64_t y, int64_t z) const;
+    std::optional<Ref<Chunk>> get_chunk(int64_t x, int64_t y, int64_t z);
 
-    void remove_chunk(int64_t x, int64_t z)
+    void remove_chunk(int64_t x, int64_t y, int64_t z)
     {
-        m_dims[0].remove_chunk(x, z);
+        m_dims[0].remove_chunk(x, y, z);
     }
 
-    void add_chunk(int64_t x, int64_t z, const Ref<Chunk>& chunk)
+    void add_chunk(int64_t x, int64_t y, int64_t z, const Ref<Chunk>& chunk)
     {
-        m_dims[0].add_chunk(x, z, chunk);
+        m_dims[0].add_chunk(x, y, z, chunk);
     }
 
-    bool is_chunk_loaded(int64_t x, int64_t z) const
+    bool is_chunk_loaded(int64_t x, int64_t y, int64_t z) const
     {
-        return m_dims[0].has_chunk(x, z);
+        return m_dims[0].has_chunk(x, y, z);
     }
 
     uint64_t seed() const { return m_seed; }
@@ -57,8 +57,6 @@ public:
     {
         return m_dims[index];
     }
-
-    const Ref<Buffer>& get_position_buffer() const { return m_position_buffer; }
 
     void set_active_camera(Ref<Camera> camera) { m_camera = camera; }
 
@@ -76,10 +74,5 @@ private:
     std::array<Ref<Generator>, 2> m_generators;
 
     Ref<Camera> m_camera;
-
-    Ref<Mesh> m_mesh;
-    Ref<Shader> m_visual_shader;
-    Ref<Shader> m_visibility_shader;
-
-    Ref<Buffer> m_position_buffer;
+    Ref<Material> m_material;
 };

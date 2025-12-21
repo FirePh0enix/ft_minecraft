@@ -6,14 +6,27 @@ inline Result<Ref<Mesh>> create_cube_with_separate_faces(glm::vec3 size = glm::v
 {
     const glm::vec3 hs = size / glm::vec3(2.0);
 
+    // clang-format off
     std::array<uint16_t, 36> indices{
-        0, 1, 2, 2, 3, 0,       // front
-        20, 21, 22, 22, 23, 20, // back
-        4, 5, 6, 6, 7, 4,       // right
-        12, 13, 14, 14, 15, 12, // left
-        8, 9, 10, 10, 11, 8,    // top
-        16, 17, 18, 18, 19, 16, // bottom
+        0, 1, 2,
+        2, 3, 0, // front
+        
+        20, 21, 22,
+        22, 23, 20, // back
+
+        4, 5, 6,
+        6, 7, 4, // right
+        
+        12, 13, 14,
+        14, 15, 12, // left
+        
+        8, 9, 10,
+        10, 11, 8, // top
+        
+        16, 17, 18,
+        18, 19, 16, // bottom
     };
+    // clang-format on
 
     std::array<glm::vec3, 24> vertices{
         glm::vec3(-hs.x + offset.x, -hs.y + offset.y, hs.z + offset.z), // front

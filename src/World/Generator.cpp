@@ -11,23 +11,15 @@ Generator::Generator(World *world, size_t dimension)
 {
     m_passes.push_back(newobj(SurfacePass));
 
-    m_load_thread_pool_size = 3;
-    m_load_thread_pool = alloc_n<LoadThread>(m_load_thread_pool_size);
-    for (size_t i = 0; i < m_load_thread_pool_size; i++)
-        m_load_thread_pool[i].thread = std::thread(load_thread, this, &m_load_thread_pool[i]);
-
+    m_load_thread = std::thread(load_thread, this);
     m_unload_thread = std::thread(unload_thread, this);
 }
 
 Generator::~Generator()
 {
     m_load_state = false;
-    for (size_t i = 0; i < m_load_thread_pool_size; i++)
-    {
-        // TODO: Cleanly join the threads
-        // m_load_thread_pool[i].sleep_sempahore.release();
-        // m_load_thread_pool[i].thread.join();
-    }
+    m_load_orders_semaphore.release();
+    m_load_thread.join();
 
     m_unload_orders_state = false;
     m_unload_orders_semaphore.release();
@@ -40,135 +32,119 @@ void Generator::add_pass(Ref<GeneratorPass> pass)
     m_passes.push_back(pass);
 }
 
-void Generator::request_load(int64_t x, int64_t z)
+void Generator::request_load(int64_t x, int64_t y, int64_t z)
 {
     {
         std::lock_guard<std::mutex> guard(m_world->get_dimension(m_dimension).mutex());
-        if (m_world->is_chunk_loaded(x, z))
+        if (m_world->is_chunk_loaded(x, y, z))
             return;
     }
 
-    ChunkPos pos{.x = x, .z = z};
+    ChunkPos pos(x, y, z);
 
-    {
-        std::lock_guard<std::mutex> guard(m_load_processing_mutex);
-        if (std::count(m_load_orders_processing.begin(), m_load_orders_processing.end(), pos) > 0)
-            return;
-    }
+    std::lock_guard<std::mutex> guard(m_load_orders_lock);
+    m_load_orders.insert(pos);
 
-    size_t lowest_workload = 0;
-    size_t lowest_workload_index = 0;
-
-    for (size_t thread_index = 0; thread_index < m_load_thread_pool_size; thread_index++)
-    {
-        if (m_load_thread_pool[thread_index].orders_count < lowest_workload)
-        {
-            lowest_workload = m_load_thread_pool[thread_index].orders_count;
-            lowest_workload_index = thread_index;
-        }
-    }
-
-    {
-        std::lock_guard<std::mutex> guard(m_load_thread_pool[lowest_workload_index].mutex);
-        if (std::count(m_load_thread_pool[lowest_workload_index].orders.begin(), m_load_thread_pool[lowest_workload_index].orders.end(), pos) == 0)
-        {
-            m_load_thread_pool[lowest_workload_index].orders.push_back(pos);
-            m_load_thread_pool[lowest_workload_index].orders_count = m_load_thread_pool[lowest_workload_index].orders.size();
-
-            {
-                std::lock_guard<std::mutex> guard(m_load_processing_mutex);
-                m_load_orders_processing.push_back(pos);
-            }
-
-            m_load_thread_pool[lowest_workload_index].sleep_sempahore.release();
-        }
-    }
+    m_load_orders_semaphore.release();
 }
 
-void Generator::request_unload(int64_t x, int64_t z)
+void Generator::request_multiple_load(View<ChunkPos> chunks)
+{
+    ZoneScoped;
+
+    std::lock_guard<std::mutex> guard(m_world->get_dimension(m_dimension).mutex());
+    std::lock_guard<std::mutex> guard2(m_load_orders_lock);
+    for (const ChunkPos& pos : chunks)
+    {
+        if (m_world->is_chunk_loaded(pos.x, pos.y, pos.z))
+            return;
+
+        m_load_orders.insert(pos);
+    }
+
+    m_load_orders_semaphore.release();
+}
+
+void Generator::request_unload(int64_t x, int64_t y, int64_t z)
 {
     {
         std::lock_guard<std::mutex> guard(m_world->get_dimension(m_dimension).mutex());
-        if (!m_world->is_chunk_loaded(x, z))
+        if (!m_world->is_chunk_loaded(x, y, z))
             return;
     }
 
-    ChunkPos pos{.x = x, .z = z};
+    ChunkPos pos(x, y, z);
 
     std::lock_guard<std::mutex> guard(m_unload_orders_lock);
-    if (std::count(m_unload_orders.begin(), m_unload_orders.end(), pos) == 0)
-        m_unload_orders.push_back(ChunkPos{.x = x, .z = z});
+    m_unload_orders.push_back(pos);
+
+    m_unload_orders_semaphore.release();
 }
 
 void Generator::set_distance(uint32_t distance)
 {
     m_load_distance = distance;
     m_max_chunk_count = ((m_load_distance * 2) + 1) * ((m_load_distance * 2) + 1);
-
-    // m_chunk_buffers = new ChunkBuffers[m_max_chunk_count];
-    // for (size_t index = 0; index < m_max_chunk_count; index++)
-    // {
-    //     ChunkBuffers& buffers = m_chunk_buffers[index];
-    //     buffers.block_buffer = RenderingDriver::get()->create_buffer(STRUCTNAME(BlockState), Chunk::block_count, BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Storage).value_or(nullptr);
-    //     buffers.visibility_buffer = RenderingDriver::get()->create_buffer(STRUCTNAME(uint32_t), Chunk::block_count, BufferUsageFlagBits::CopySource | BufferUsageFlagBits::Storage).value_or(nullptr);
-
-    //     buffers.material = Material::create(m_visual_shader, std::nullopt, MaterialFlagBits::Transparency, PolygonMode::Fill, CullMode::Back);
-    //     buffers.material->set_param("blocks", buffers.block_buffer);
-    //     buffers.material->set_param("visibilityBuffer", buffers.visibility_buffer);
-    //     buffers.material->set_param("positions", m_world->get_position_buffer());
-    //     buffers.material->set_param("textureRegistry", BlockRegistry::get_texture_buffer());
-    //     buffers.material->set_param("images", BlockRegistry::get_texture_array());
-    // }
 }
 
 void Generator::load_around(int64_t x, int64_t y, int64_t z)
 {
-    (void)y;
+    ZoneScopedN("Generator::load_around");
+
     int64_t middle_x = (int64_t)glm::round((double)x / 16.0);
+    int64_t middle_y = (int64_t)glm::round((double)y / 16.0);
     int64_t middle_z = (int64_t)glm::round((double)z / 16.0);
 
+    std::vector<ChunkPos> load_positions;
+
     for (int64_t cx = -m_load_distance; cx <= m_load_distance; cx++)
-        for (int64_t cz = -m_load_distance; cz <= m_load_distance; cz++)
-            request_load(cx + middle_x, cz + middle_z);
+        for (int64_t cy = -m_load_distance; cy <= m_load_distance; cy++)
+            for (int64_t cz = -m_load_distance; cz <= m_load_distance; cz++)
+            {
+                load_positions.push_back(ChunkPos(cx + middle_x, cy + middle_y, cz + middle_z));
+            }
 
-    for (const auto& [pos, chunk] : m_world->get_dimension(0))
+    request_multiple_load(load_positions);
+
+    std::lock_guard<std::mutex> guard(m_load_orders_lock);
+    for (const auto& [pos, chunk] : m_world->get_dimension(0).get_chunks())
     {
-        if (pos.x < middle_x - m_load_distance || pos.x > middle_x + m_load_distance || pos.z < middle_z - m_load_distance || pos.z > middle_z + m_load_distance)
-            request_unload(pos.x, pos.z);
+        if (pos.x < middle_x - m_load_distance || pos.x > middle_x + m_load_distance || pos.y < middle_y - m_load_distance || pos.y > middle_y + m_load_distance || pos.z < middle_z - m_load_distance || pos.z > middle_z + m_load_distance)
+        {
+            request_unload(pos.x, pos.y, pos.z);
+            m_load_orders.erase(pos);
+        }
     }
-
-    m_unload_orders_semaphore.release();
 }
 
-Ref<Chunk> Generator::generate_chunk(int64_t cx, int64_t cz)
+Ref<Chunk> Generator::generate_chunk(int64_t cx, int64_t cy, int64_t cz)
 {
     ZoneScoped;
 
-    Ref<Chunk> chunk = newobj(Chunk, cx, cz);
-
-    std::vector<BlockState> blocks(Chunk::block_count);
+    Ref<Chunk> chunk = newobj(Chunk, cx, cy, cz);
+    if (!chunk)
+        return chunk;
 
     for (size_t index = 0; index < m_passes.size(); index++)
     {
         Ref<GeneratorPass>& pass = m_passes[index];
-        for (int64_t x = 0; x < 16; x++)
+        for (int64_t x = 0; x < 18; x++)
         {
-            for (int64_t z = 0; z < 16; z++)
+            for (int64_t z = 0; z < 18; z++)
             {
-                int64_t gx = x + cx * 16;
-                int64_t gz = z + cz * 16;
+                int64_t gx = cx * 16 + (x - 1);
+                int64_t gy = cy * 16;
+                int64_t gz = cz * 16 + (z - 1);
 
-                pass->process(gx, gz, x, z, blocks);
+                pass->process(gx, gy, gz, x, z, chunk->get_blocks());
             }
         }
     }
 
-    chunk->set_blocks(blocks);
-
     return chunk;
 }
 
-void Generator::load_thread(Generator *g, LoadThread *t)
+void Generator::load_thread(Generator *g)
 {
     size_t remaining = 0;
 
@@ -177,7 +153,7 @@ void Generator::load_thread(Generator *g, LoadThread *t)
     while (g->m_load_state.load())
     {
         if (remaining == 0)
-            t->sleep_sempahore.acquire();
+            g->m_load_orders_semaphore.acquire();
 
         // size_t buffers_index = g->acquire_buffers();
         // if (buffers_index == std::numeric_limits<size_t>::max())
@@ -188,27 +164,23 @@ void Generator::load_thread(Generator *g, LoadThread *t)
         //     continue;
         // }
 
-        // TODO: Add back pop_nearest_order
         ChunkPos pos{};
         {
-            std::lock_guard<std::mutex> guard(t->mutex);
+            std::lock_guard<std::mutex> guard(g->m_load_orders_lock);
 
-            if (t->orders.size() == 0)
+            if (g->m_load_orders.size() == 0)
             {
                 // g->release_buffers(buffers_index);
                 continue;
             }
 
-            // pos = t->orders[t->orders.size() - 1];
-
-            // t->orders.pop_back();
-            // remaining = t->orders.size();
-            // t->orders_count = t->orders.size();
-            pos = t->pop_nearest_chunk(g->m_reference_position);
+            pos = g->pop_nearest_chunk(g->m_reference_position);
+            remaining = g->m_load_orders.size();
 
             int64_t middle_x = (int64_t)glm::round((double)g->m_reference_position.x / 16.0);
+            int64_t middle_y = (int64_t)glm::round((double)g->m_reference_position.y / 16.0);
             int64_t middle_z = (int64_t)glm::round((double)g->m_reference_position.z / 16.0);
-            if (pos.x < middle_x - g->m_load_distance || pos.x > middle_x + g->m_load_distance || pos.z < middle_z - g->m_load_distance || pos.z > middle_z + g->m_load_distance)
+            if (pos.x < middle_x - g->m_load_distance || pos.x > middle_x + g->m_load_distance || pos.z < middle_z - g->m_load_distance || pos.y > middle_y + g->m_load_distance || pos.z < middle_z - g->m_load_distance || pos.z > middle_z + g->m_load_distance)
                 continue;
         }
 
@@ -216,12 +188,14 @@ void Generator::load_thread(Generator *g, LoadThread *t)
         // TODO: Add some kind of memory budget to keep some chunks in memory to not have
         //       to save/read to disk everytime.
 
-        Ref<Chunk> chunk = g->generate_chunk(pos.x, pos.z);
-        chunk->set_buffers(g->m_world->m_visual_shader, g->m_world->get_position_buffer());
+        Ref<Chunk> chunk = g->generate_chunk(pos.x, pos.y, pos.z);
+        chunk->build_simple_mesh();
+
+        println("new chunk generated: ({}, {}, {}), {} remaining", pos.x, pos.y, pos.z, g->m_load_orders.size());
 
         {
             std::lock_guard<std::mutex> guard(g->m_world->get_dimension(g->m_dimension).mutex());
-            g->m_world->add_chunk(pos.x, pos.z, chunk);
+            g->m_world->add_chunk(pos.x, pos.y, pos.z, chunk);
         }
     }
 }
@@ -257,31 +231,28 @@ void Generator::unload_thread(Generator *g)
         {
             std::lock_guard<std::mutex> guard(g->m_world->get_dimension(g->m_dimension).mutex());
             // g->release_buffers(g->m_world->get_chunk(pos.x, pos.z)->ptr()->get_buffers_index());
-            g->m_world->remove_chunk(pos.x, pos.z);
+            g->m_world->remove_chunk(pos.x, pos.y, pos.z);
         }
     }
 }
 
-ChunkPos Generator::LoadThread::pop_nearest_chunk(glm::vec3 position)
+ChunkPos Generator::pop_nearest_chunk(glm::vec3 position)
 {
-    ChunkPos chunk_pos = orders[0];
-    size_t index = 0;
+    ChunkPos chunk_pos = *m_load_orders.begin();
     float lowest_distance_sq = INFINITY;
 
-    for (size_t i = 0; i < orders.size(); i++)
+    for (auto& pos : m_load_orders)
     {
-        const ChunkPos& pos = orders[i];
-        float distance_sq = glm::distance2(position, glm::vec3(pos.x * 16.0 + 8.0, 128.0, pos.z * 16.0 + 8.0));
+        float distance_sq = glm::distance2(position, glm::vec3((double)pos.x * 16.0 + 8.0, (double)pos.y * 16.0 + 8.0, (double)pos.z * 16.0 + 8.0));
 
         if (distance_sq < lowest_distance_sq)
         {
             lowest_distance_sq = distance_sq;
             chunk_pos = pos;
-            index = i;
         }
     }
 
-    orders.erase(orders.begin() + index);
+    m_load_orders.erase(chunk_pos);
 
     return chunk_pos;
 }

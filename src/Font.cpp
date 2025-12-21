@@ -136,7 +136,7 @@ Result<> Font::init_library()
 
     View<uint16_t> indices_span = indices;
 
-    g_mesh = Mesh::create_from_data(indices_span.as_bytes(), vertices, normals, uvs, IndexType::Uint16);
+    g_mesh = Mesh::create_from_data(indices_span.as_bytes(), vertices, normals, View(uvs).as_bytes(), IndexType::Uint16);
 
     const Extent2D size = RenderingDriver::get()->get_surface_extent();
     const float aspect_radio = (float)size.width / (float)size.height;

@@ -52,6 +52,13 @@ struct BlockState
 };
 STRUCT(BlockState);
 
+enum class Axis
+{
+    X,
+    Y,
+    Z
+};
+
 class Block : public Object
 {
     CLASS(Block, Object);
@@ -87,6 +94,19 @@ public:
         return m_texture_ids;
     }
 
+    uint32_t get_texture_index(Axis axis, bool positive) const
+    {
+        uint32_t index = 0;
+        if (axis == Axis::X)
+            index = 2 + positive;
+        else if (axis == Axis::Y)
+            index = 4 + positive;
+        else if (axis == Axis::Z)
+            index = 0 + positive;
+
+        return m_texture_ids[index];
+    }
+
     GradientType get_gradient_type() const
     {
         return m_gradient_type;
@@ -95,6 +115,6 @@ public:
 private:
     std::string m_name;
     std::array<std::string, 6> m_textures;
-    std::array<uint32_t, 6> m_texture_ids;
+    std::array<uint32_t, 6> m_texture_ids; // [+Z, -Z, +X, -X, +Y, -Y]
     GradientType m_gradient_type;
 };
