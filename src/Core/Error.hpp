@@ -81,7 +81,7 @@ struct Formatter<ErrorKind> : public FormatterBase
 {
     void format(const ErrorKind& kind, FormatContext& ctx) const
     {
-        const char *msg;
+        const char *msg = "";
 
         switch (kind)
         {

@@ -218,7 +218,7 @@ private:
     WGPUSurface m_surface = nullptr;
     WGPUQueue m_queue = nullptr;
 
-    WGPUQuerySet m_timestamp_query_set;
+    WGPUQuerySet m_timestamp_query_set = nullptr;
 
     // WGPUBindGroupLayout m_push_constant_layout; // TODO: Re-implement a push constant buffer to emulate them on web
 

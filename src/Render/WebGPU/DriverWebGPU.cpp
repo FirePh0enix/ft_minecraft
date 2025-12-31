@@ -1,5 +1,6 @@
 #include "Render/WebGPU/DriverWebGPU.hpp"
 #include "Core/Containers/StackVector.hpp"
+#include "Core/Logger.hpp"
 #include "Render/Graph.hpp"
 
 #include <SDL3/SDL.h>
@@ -505,8 +506,6 @@ WGPUDevice request_device_sync(WGPUAdapter adapter, const WGPUDeviceDescriptor& 
 
 Result<> RenderingDriverWebGPU::initialize(const Window& window, bool enable_validation)
 {
-    (void)enable_validation;
-
 #ifndef __platform_web
     WGPUInstanceDescriptor instance_desc{};
 
@@ -525,6 +524,11 @@ Result<> RenderingDriverWebGPU::initialize(const Window& window, bool enable_val
 #endif
 
     m_surface = create_surface(m_instance, window.get_window_ptr());
+    if (m_surface == nullptr)
+    {
+        error("Unable to create the WGPUSurface");
+        return Error(ErrorKind::BadDriver);
+    }
 
 #ifdef __platform_web
     // On the web we use glue code to acquire a WGPUDevice.
@@ -1303,7 +1307,12 @@ WGPUSurface RenderingDriverWebGPU::create_surface(WGPUInstance instance, SDL_Win
         surface = wgpuInstanceCreateSurface(instance, &surface_descriptor);
     }
 #elif defined(__platform_linux)
-    if (SDL_strcmp(SDL_GetCurrentVideoDriver(), "wayland") == 0)
+    const char *video_driver = SDL_GetCurrentVideoDriver();
+
+    if (!video_driver)
+        video_driver = "wayland";
+
+    if (SDL_strcmp(video_driver, "wayland") == 0)
     {
         void *w_display = SDL_GetPointerProperty(id, SDL_PROP_WINDOW_WAYLAND_DISPLAY_POINTER, nullptr);
         void *w_surface = SDL_GetPointerProperty(id, SDL_PROP_WINDOW_WAYLAND_SURFACE_POINTER, nullptr);
@@ -1316,7 +1325,7 @@ WGPUSurface RenderingDriverWebGPU::create_surface(WGPUInstance instance, SDL_Win
         surface_descriptor.nextInChain = &surface_src_wayland.chain;
         surface = wgpuInstanceCreateSurface(instance, &surface_descriptor);
     }
-    else if (!SDL_strcmp(SDL_GetCurrentVideoDriver(), "x11"))
+    else if (!SDL_strcmp(video_driver, "x11"))
     {
         void *x_display = SDL_GetPointerProperty(id, SDL_PROP_WINDOW_X11_DISPLAY_POINTER, nullptr);
         uint64_t x_window = SDL_GetNumberProperty(id, SDL_PROP_WINDOW_X11_WINDOW_NUMBER, 0);

@@ -9,6 +9,7 @@ set(TARGET_NAME ft_minecraft)
 
 project(${TARGET_NAME})
 
+include(CheckLibraryExists)
 include(FetchContent)
 
 option(BUILD_DOC "Build documentation" OFF)
@@ -64,6 +65,9 @@ endif()
 cmake_host_system_information(RESULT DISTRIB_INFO QUERY DISTRIB_NAME)
 if (TARGET_IS_LINUX AND DISTRIB_INFO MATCHES "Alpine")
     set(TARGET_IS_ALPINE_LINUX YES)
+endif()
+if (TARGET_IS_LINUX AND DISTRIB_INFO MATCHES "NixOS")
+    set(TARGET_IS_NIXOS_LINUX YES)
 endif()
 
 if(NOT CMAKE_BUILD_TYPE)
@@ -252,41 +256,52 @@ elseif(TARGET_IS_ALPINE_LINUX)
 endif()
 
 # SDL
-set(SDL_STATIC ON)
-set(SDL_DEPS_SHARED ON)
+find_package(SDL3)
 
-set(SDL_DUMMYAUDIO OFF)
-set(SDL_DUMMYVIDEO OFF)
-set(SDL_OPENGL OFF)
-set(SDL_OPENGLES OFF)
-set(SDL_OPENVR OFF)
-set(SDL_KMSDRM OFF)
-set(SDL_OFFSCREEN OFF)
-set(SDL_RENDER OFF)
-set(SDL_CAMERA OFF)
-set(SDL_WAYLAND OFF) # Disable wayland for now
+if (SDL3_FOUND)
+    target_link_libraries(${TARGET_NAME} PUBLIC SDL3::SDL3)
+else()
+    set(SDL_STATIC ON)
+    set(SDL_DEPS_SHARED ON)
 
-if (TARGET_IS_MACOS)
-    set(SDL_METAL ON)
+    set(SDL_DUMMYAUDIO OFF)
+    set(SDL_DUMMYVIDEO OFF)
+    set(SDL_OPENGL OFF)
+    set(SDL_OPENGLES OFF)
+    set(SDL_OPENVR OFF)
+    set(SDL_KMSDRM OFF)
+    set(SDL_OFFSCREEN OFF)
+    set(SDL_RENDER OFF)
+    set(SDL_CAMERA OFF)
+
+    if (TARGET_IS_MACOS)
+        set(SDL_METAL ON)
+    endif()
+
+
+    FetchContent_Declare(
+        SDL
+        GIT_REPOSITORY https://github.com/libsdl-org/SDL
+        GIT_TAG 96292a5b464258a2b926e0a3d72f8b98c2a81aa6 # 3.2.20
+    )
+    FetchContent_MakeAvailable(SDL)
+    target_link_libraries(${TARGET_NAME} PUBLIC SDL3::SDL3)
 endif()
 
-
-FetchContent_Declare(
-    SDL
-    GIT_REPOSITORY https://github.com/libsdl-org/SDL
-    GIT_TAG 96292a5b464258a2b926e0a3d72f8b98c2a81aa6 # 3.2.20
-)
-FetchContent_MakeAvailable(SDL)
-target_link_libraries(${TARGET_NAME} PUBLIC SDL3::SDL3)
-
 # SDL_image
-FetchContent_Declare(
-    SDL_image
-    GIT_REPOSITORY https://github.com/libsdl-org/SDL_image
-    GIT_TAG 1c23b06a13161314f6f33e7ab35a2e5c601f1bc3
-)
-FetchContent_MakeAvailable(SDL_image)
-target_link_libraries(${TARGET_NAME} PUBLIC SDL3_image::SDL3_image)
+find_package(SDL3_image)
+
+if (SDL3_image_FOUND)
+    target_link_libraries(${TARGET_NAME} PUBLIC SDL3_image::SDL3_image)
+else()
+    FetchContent_Declare(
+        SDL_image
+        GIT_REPOSITORY https://github.com/libsdl-org/SDL_image
+        GIT_TAG 1c23b06a13161314f6f33e7ab35a2e5c601f1bc3
+    )
+    FetchContent_MakeAvailable(SDL_image)
+    target_link_libraries(${TARGET_NAME} PUBLIC SDL3_image::SDL3_image)
+endif()
 
 # ImGui
 FetchContent_Declare(
@@ -376,36 +391,45 @@ if (ENABLE_TRACING)
 endif()
 
 # libbacktrace
-FetchContent_Declare(
-    libbacktrace
-    GIT_REPOSITORY https://github.com/ianlancetaylor/libbacktrace
-    GIT_TAG 793921876c981ce49759114d7bb89bb89b2d3a2d
-)
-FetchContent_MakeAvailable(libbacktrace)
+check_library_exists(backtrace backtrace_create_state "" HAVE_SYSTEM_LIBBACKTRACE)
 
-if(TARGET_IS_LINUX OR TARGET_IS_MACOS)
-    set(ENV{CC} ${CMAKE_C_COMPILER})
-    set(ENV{CXX} ${CMAKE_CXX_COMPILER})
 
-    # Configure
-    execute_process(
-        OUTPUT_QUIET
-        COMMAND ${libbacktrace_SOURCE_DIR}/configure
-        WORKING_DIRECTORY ${libbacktrace_BINARY_DIR}
-    )
-
-    # Build
-    execute_process(
-        OUTPUT_QUIET
-        COMMAND make
-        WORKING_DIRECTORY ${libbacktrace_BINARY_DIR}
-    )
-
-    target_link_directories(${TARGET_NAME} PRIVATE ${libbacktrace_BINARY_DIR}/.libs)
+if (HAVE_SYSTEM_LIBBACKTRACE)
     target_link_libraries(${TARGET_NAME} PRIVATE backtrace)
-    target_include_directories(${TARGET_NAME} PRIVATE ${libbacktrace_SOURCE_DIR})
-
+    # target_include_directories(${TARGET_NAME} PRIVATE ${libbacktrace_SOURCE_DIR})
     target_compile_definitions(${TARGET_NAME} PRIVATE __has_libbacktrace)
+else()
+    FetchContent_Declare(
+        libbacktrace
+        GIT_REPOSITORY https://github.com/ianlancetaylor/libbacktrace
+        GIT_TAG 793921876c981ce49759114d7bb89bb89b2d3a2d
+    )
+    FetchContent_MakeAvailable(libbacktrace)
+
+    if(TARGET_IS_LINUX OR TARGET_IS_MACOS)
+        set(ENV{CC} ${CMAKE_C_COMPILER})
+        set(ENV{CXX} ${CMAKE_CXX_COMPILER})
+
+        # Configure
+        execute_process(
+            OUTPUT_QUIET
+            COMMAND ${libbacktrace_SOURCE_DIR}/configure
+            WORKING_DIRECTORY ${libbacktrace_BINARY_DIR}
+        )
+
+        # Build
+        execute_process(
+            OUTPUT_QUIET
+            COMMAND make
+            WORKING_DIRECTORY ${libbacktrace_BINARY_DIR}
+        )
+
+        target_link_directories(${TARGET_NAME} PRIVATE ${libbacktrace_BINARY_DIR}/.libs)
+        target_link_libraries(${TARGET_NAME} PRIVATE backtrace)
+        target_include_directories(${TARGET_NAME} PRIVATE ${libbacktrace_SOURCE_DIR})
+
+        target_compile_definitions(${TARGET_NAME} PRIVATE __has_libbacktrace)
+    endif()
 endif()
 
 if(RUN_TESTS)

@@ -1,4 +1,5 @@
 #include "Window.hpp"
+#include "Core/Logger.hpp"
 
 #ifdef __platform_web
 #include <emscripten/html5.h>
@@ -7,7 +8,11 @@
 Window::Window(const std::string& title, uint32_t width, uint32_t height, bool resizable)
 {
 #ifndef __platform_web
-    SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
+    if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS))
+    {
+        error("SDL_Init() failed: {}", SDL_GetError());
+        return;
+    }
 
     SDL_WindowFlags flags = 0;
 
@@ -23,8 +28,18 @@ Window::Window(const std::string& title, uint32_t width, uint32_t height, bool r
         flags |= SDL_WINDOW_RESIZABLE;
 
     m_window = SDL_CreateWindow(title.c_str(), (int)width, (int)height, flags);
+
+    if (m_window == nullptr)
+    {
+        error("SDL_CreateWindow() failed: {}", SDL_GetError());
+        return;
+    }
 #else
-    SDL_Init(SDL_INIT_EVENTS);
+    if (!SDL_Init(SDL_INIT_EVENTS))
+    {
+        error("SDL_Init() failed: {}", SDL_GetError());
+        return;
+    }
 #endif
 }
 
