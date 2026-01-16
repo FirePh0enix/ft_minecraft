@@ -134,6 +134,11 @@ public:
     RenderPass& set_render_pass(uint32_t index, RenderPassDescriptor desc);
     RenderPass& get_render_pass(int32_t index);
 
+    /**
+        Destroy all resources. Should be called after the window is resized.
+     */
+    void clear();
+
 private:
     std::vector<RenderPass> m_render_passes;
 };
@@ -160,7 +165,7 @@ public:
     virtual Result<> initialize_imgui(const Window& window) override;
 
     [[nodiscard]]
-    virtual Result<> configure_surface(const Window& window, VSync vsync) override;
+    virtual Result<> configure_surface(size_t width, size_t height, VSync vsync) override;
 
     virtual void poll() override;
 
@@ -223,7 +228,6 @@ private:
     // WGPUBindGroupLayout m_push_constant_layout; // TODO: Re-implement a push constant buffer to emulate them on web
 
     WGPUTextureFormat m_surface_format = WGPUTextureFormat_Undefined;
-    Ref<TextureWebGPU> m_depth_texture = nullptr;
 
     RenderPipelineCache m_pipeline_cache;
     ComputePipelineCache m_compute_pipeline_cache;

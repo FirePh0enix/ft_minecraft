@@ -114,7 +114,7 @@ void Chunk::build_simple_mesh()
         }
     }
 
-    // No faces are visibile, let's skip mesh generation.
+    // No faces are visible, let's skip mesh generation.
     if (faces.empty())
     {
         m_empty = true;

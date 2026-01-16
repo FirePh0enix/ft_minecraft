@@ -2,6 +2,7 @@
 #include "Core/Containers/StackVector.hpp"
 #include "Core/Logger.hpp"
 #include "Render/Graph.hpp"
+#include "webgpu/webgpu.h"
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_video.h>
@@ -609,7 +610,7 @@ Result<> RenderingDriverWebGPU::initialize(const Window& window, bool enable_val
     // if (!m_push_constant_layout)
     //     return Error(ErrorKind::BadDriver);
 
-    YEET(configure_surface(window, VSync::On));
+    YEET(configure_surface(window.size().width, window.size().height, VSync::On));
 
     return 0;
 }
@@ -635,9 +636,9 @@ Result<> RenderingDriverWebGPU::initialize_imgui(const Window& window)
     return 0;
 }
 
-Result<> RenderingDriverWebGPU::configure_surface(const Window& window, VSync vsync)
+Result<> RenderingDriverWebGPU::configure_surface(size_t width, size_t height, VSync vsync)
 {
-    Extent2D surface_extent = window.size();
+    Extent2D surface_extent(width, height);
 
 #ifndef __platform_web
     WGPUSurfaceCapabilities capabilities;
@@ -662,15 +663,11 @@ Result<> RenderingDriverWebGPU::configure_surface(const Window& window, VSync vs
     config.alphaMode = WGPUCompositeAlphaMode_Auto;
 #endif
 
-    auto depth_texture_result = create_texture(surface_extent.width, surface_extent.height, TextureFormat::Depth32, TextureUsageFlagBits::DepthAttachment, TextureDimension::D2D, 1);
-    YEET(depth_texture_result);
-
-    Ref<TextureWebGPU> depth_texture = depth_texture_result.value().cast_to<TextureWebGPU>();
-
     wgpuSurfaceConfigure(m_surface, &config);
     m_surface_extent = surface_extent;
-    m_depth_texture = depth_texture;
     m_surface_format = config.format;
+
+    m_render_graph_cache.clear();
 
     return 0;
 }
@@ -751,6 +748,7 @@ void RenderingDriverWebGPU::draw_graph(const RenderGraph& graph)
     wgpuSurfaceGetCurrentTexture(m_surface, &surface_texture);
 
     ERR_COND_VR(surface_texture.texture == nullptr, "Cannot acquire a swapchain image (status = {})", surface_texture.status);
+    // println("status = {}", surface_texture.status);
 
     WGPUTextureView view = wgpuTextureCreateView(surface_texture.texture, nullptr);
     ERR_COND_R(view == nullptr, "Cannot acquire a swapchain image view");
@@ -781,7 +779,7 @@ void RenderingDriverWebGPU::draw_graph(const RenderGraph& graph)
             const BeginRenderPassInstruction& render_pass = std::get<BeginRenderPassInstruction>(instruction);
             const RenderGraphCache::RenderPass& render_pass_cache = m_render_graph_cache.set_render_pass(render_pass_index, render_pass.descriptor);
 
-            ASSERT(render_pass.descriptor.color_attachments.size() <= 4, "Only supports 4 color attachment");
+            ASSERT(render_pass.descriptor.color_attachments.size() <= 4, "Only supports 4 color attachments");
 
             WGPURenderPassDescriptor desc{};
 
@@ -886,9 +884,9 @@ void RenderingDriverWebGPU::draw_graph(const RenderGraph& graph)
         }
         else if (std::holds_alternative<PushConstantsInstruction>(instruction))
         {
+#ifndef __platform_web
             const PushConstantsInstruction& push_constants = std::get<PushConstantsInstruction>(instruction);
 
-#ifndef __platform_web
             if (render_pass_encoder)
                 wgpuRenderPassEncoderSetPushConstants(render_pass_encoder, WGPUShaderStage_Vertex, 0, push_constants.buffer.size(), push_constants.buffer.data());
             else if (compute_pass_encoder)
@@ -1279,6 +1277,18 @@ RenderGraphCache::RenderPass& RenderGraphCache::get_render_pass(int32_t index)
         return m_render_passes[m_render_passes.size() + index];
     }
     return m_render_passes[index];
+}
+
+void RenderGraphCache::clear()
+{
+    // TODO: Destroy resources.
+    // for (size_t i = 0; i < m_render_passes.size(); i++)
+    // {
+    //     const RenderGraphCache::RenderPass& pass = m_render_passes[i];
+    //     (void) pass;
+    // }
+
+    m_render_passes.clear();
 }
 
 #ifdef __platform_macos

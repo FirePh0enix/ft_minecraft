@@ -6,6 +6,7 @@
 #include "Font.hpp"
 #include "Input.hpp"
 #include "Profiler.hpp"
+#include <SDL3/SDL_events.h>
 
 #ifdef __has_webgpu
 #include "Render/WebGPU/DriverWebGPU.hpp"
@@ -87,9 +88,9 @@ void Engine::update_callback()
                 m_window->close();
             }
             break;
-            case SDL_EVENT_WINDOW_RESIZED:
+            case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
             {
-                Result<> result = RenderingDriver::get()->configure_surface(*m_window, VSync::Off);
+                Result<> result = RenderingDriver::get()->configure_surface(event->window.data1, event->window.data2, VSync::On);
                 ERR_EXPECT_B(result, "Failed to configure the surface");
 
                 // TODO

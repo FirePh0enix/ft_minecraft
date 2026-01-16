@@ -191,7 +191,7 @@ void Generator::load_thread(Generator *g)
         Ref<Chunk> chunk = g->generate_chunk(pos.x, pos.y, pos.z);
         chunk->build_simple_mesh();
 
-        println("new chunk generated: ({}, {}, {}), {} remaining", pos.x, pos.y, pos.z, g->m_load_orders.size());
+        // println("new chunk generated: ({}, {}, {}), {} remaining", pos.x, pos.y, pos.z, g->m_load_orders.size());
 
         {
             std::lock_guard<std::mutex> guard(g->m_world->get_dimension(g->m_dimension).mutex());

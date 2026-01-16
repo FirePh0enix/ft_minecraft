@@ -374,11 +374,12 @@ public:
 
     /**
      * @brief Configure the surface and swapchain.
-     * @param window
+     * @param width New width of the window
+     * @param height New height of the window
      * @param vsync Enable or disable vsync for the surface.
      */
     [[nodiscard]]
-    virtual Result<> configure_surface(const Window& window, VSync vsync) = 0;
+    virtual Result<> configure_surface(size_t width, size_t height, VSync vsync) = 0;
 
     virtual void poll() = 0;
 
