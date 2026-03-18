@@ -9,8 +9,6 @@
 Generator::Generator(World *world, size_t dimension)
     : m_world(world), m_dimension(dimension)
 {
-    m_passes.push_back(newobj(SurfacePass));
-
     m_load_thread = std::thread(load_thread, this);
     m_unload_thread = std::thread(unload_thread, this);
 }
@@ -121,7 +119,7 @@ Ref<Chunk> Generator::generate_chunk(int64_t cx, int64_t cy, int64_t cz)
 {
     ZoneScoped;
 
-    Ref<Chunk> chunk = newobj(Chunk, cx, cy, cz);
+    Ref<Chunk> chunk = newobj(Chunk, cx, cy, cz, m_world);
     if (!chunk)
         return chunk;
 

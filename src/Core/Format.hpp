@@ -6,6 +6,7 @@
 #include <sstream>
 #include <vector>
 
+#include "Core/Math.hpp"
 #include "Core/String.hpp"
 
 template <typename... _Args>
@@ -130,25 +131,6 @@ struct Formatter<bool> : public FormatterBase
     void format(const bool& s, FormatContext& ctx) const
     {
         ctx.write_str(s ? "true" : "false");
-    }
-};
-
-template <typename T, const size_t size>
-struct Formatter<std::array<T, size>> : public FormatterBase
-{
-    void format(const std::array<T, size>& array, FormatContext& ctx) const
-    {
-        ctx.write_str("{ ");
-
-        for (size_t i = 0; i < array.size(); i++)
-        {
-            format_to(ctx.out(), "{}", array[i]);
-
-            if (i + 1 < array.size())
-                ctx.write_str(", ");
-        }
-
-        ctx.write_str(" }");
     }
 };
 
@@ -317,5 +299,23 @@ struct Formatter<FormatBin<T>> : FormatterBase
         {
             return format_to(ctx.out(), "{} B", (float)value.value);
         }
+    }
+};
+
+template <>
+struct Formatter<glm::vec2> : public FormatterBase
+{
+    void format(const glm::vec2& value, FormatContext& ctx) const
+    {
+        format_to(ctx.out(), "vec2({}, {})", value.x, value.y);
+    }
+};
+
+template <>
+struct Formatter<glm::vec3> : public FormatterBase
+{
+    void format(const glm::vec3& value, FormatContext& ctx) const
+    {
+        format_to(ctx.out(), "vec3({}, {}, {})", value.x, value.y, value.z);
     }
 };

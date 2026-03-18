@@ -13,7 +13,7 @@ public:
     bool contains(const AABB& aabb) const;
 
 private:
-    std::array<glm::vec4, 6> m_planes;
+    glm::vec4 m_planes[6];
 
     void normalize_plane(size_t side);
 };
@@ -33,6 +33,12 @@ public:
     virtual ~Camera() {}
 
     virtual void tick(float delta) override;
+
+    void update_projection(float aspect_ratio)
+    {
+        m_aspect_ratio = aspect_ratio;
+        m_projection_matrix = calculate_projection_matrix();
+    }
 
     glm::mat4 get_view_matrix() const
     {

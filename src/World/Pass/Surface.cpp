@@ -94,7 +94,7 @@ void SurfacePass::process(int64_t x, int64_t chunk_start_y, int64_t z, int64_t l
     float pv_scale = 1.0f;
     float height = base_height + pv_offset * erosion_factor * pv_scale;
 
-    for (int64_t y = 0; y < Chunk::width + 2; y++)
+    for (int64_t y = 0; y < Chunk::width_with_overlap; y++)
     {
         BlockState block;
         int64_t global_y = chunk_start_y + y - 1;

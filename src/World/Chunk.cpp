@@ -1,10 +1,22 @@
 #include "World/Chunk.hpp"
 #include "Profiler.hpp"
+#include "Render/Types.hpp"
 #include "World/Registry.hpp"
+#include "World/World.hpp"
 
-Chunk::Chunk(int64_t x, int64_t y, int64_t z)
+Chunk::Chunk(int64_t x, int64_t y, int64_t z, World *world)
     : m_x(x), m_y(y), m_z(z)
 {
+    const glm::mat4 model_matrix = glm::translate(glm::identity<glm::mat4>(), glm::vec3(x * Chunk::width, y * Chunk::width, z * Chunk::width));
+
+    m_model.model_matrix = model_matrix;
+    m_model_buffer = RenderingDriver::get()->create_buffer(STRUCTNAME(Model), sizeof(Model), BufferUsageFlagBits::Uniform | BufferUsageFlagBits::CopyDest).value_or(nullptr);
+    m_model_buffer->update(View(m_model).as_bytes());
+
+    m_material = Material::create(world->m_shader, std::nullopt, MaterialFlagBits::Transparency, PolygonMode::Fill, CullMode::Back, UVType::UVT);
+    m_material->set_param("images", BlockRegistry::get_texture_array());
+    m_material->set_param("env", world->m_env_buffer);
+    m_material->set_param("model", m_model_buffer);
 }
 
 struct Face

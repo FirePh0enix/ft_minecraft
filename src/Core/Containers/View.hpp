@@ -1,7 +1,7 @@
 #pragma once
 
+#include "Core/Containers/InplaceVector.hpp"
 #include "Core/Containers/Iterator.hpp"
-#include "Core/Containers/StackVector.hpp"
 
 template <typename T>
 class View

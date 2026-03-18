@@ -1,6 +1,5 @@
 #pragma once
 
-#include <array>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -22,7 +21,7 @@ struct StackTrace
 
     bool stop_at_main = true;
 
-    std::array<Frame, STACKTRACE_SIZE> frames;
+    Frame frames[STACKTRACE_SIZE];
     size_t length = 0;
     size_t total_length = 0;
     bool non_exhaustive = false;

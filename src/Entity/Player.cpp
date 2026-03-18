@@ -1,8 +1,50 @@
 #include "Entity/Player.hpp"
+#include "AABB.hpp"
 #include "Entity/Entity.hpp"
 #include "Input.hpp"
 #include "Profiler.hpp"
+#include "World/Dimension.hpp"
 #include "World/Registry.hpp"
+
+void Player::move_and_collide()
+{
+    const glm::vec3 original_velocity = m_velocity;
+    AABB box(m_transform.position(), glm::vec3(0.35, 0.9, 0.35));
+    const Dimension& dimension = m_world->get_dimension(m_dimension);
+
+    const std::vector<AABB> colliders = dimension.get_overlapping_boxes(box);
+
+    // println("{}", collider.x);
+
+    for (const AABB& collider : colliders)
+    {
+        m_velocity.y = box.clip_y(collider, m_velocity.y);
+    }
+    // println("{}", m_velocity.y);
+    box.center.y += m_velocity.y;
+
+    // for (const AABB& collider : colliders)
+    // {
+    //     m_velocity.x = box.clip_x(collider, m_velocity.x);
+    // }
+    // box.center.x += m_velocity.x;
+
+    // for (const AABB& collider : colliders)
+    // {
+    //     m_velocity.z = box.clip_z(collider, m_velocity.z);
+    // }
+    // box.center.z += m_velocity.z;
+
+    // if (m_velocity.x != original_velocity.x)
+    //     m_velocity.x = 0;
+    // if (m_velocity.y != original_velocity.y)
+    //     m_velocity.y = 0;
+    // if (m_velocity.z != original_velocity.z)
+    //     m_velocity.z = 0;
+
+    m_transform.position() = box.center;
+    // println("[ {} {} {} ]", m_transform.position().x, m_transform.position().y, m_transform.position().z);
+}
 
 void Player::tick(float delta)
 {
@@ -83,11 +125,17 @@ void Player::tick(float delta)
     const glm::vec2 dir = Input::get_vector("left", "right", "backward", "forward");
     const float updown_dir = Input::get_action_value("up") - Input::get_action_value("down");
 
+    // println("[ {} {} ]", dir.x, dir.y);
+
     if (glm::length2(dir) != 0.0 || updown_dir != 0.0)
     {
         glm::vec3 move = glm::normalize(forward * dir.y + right * dir.x + up * updown_dir) * m_speed;
-        m_transform.position() += move * delta;
+        m_velocity += move * delta;
+        move_and_collide();
     }
+
+    // Reset velocity after movements.
+    m_velocity = glm::vec3(0);
 
     // move_and_collide(transform_comp, body, player, world);
 

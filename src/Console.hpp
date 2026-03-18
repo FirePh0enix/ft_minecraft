@@ -1,9 +1,7 @@
 #pragma once
 
-#include <array>
 #include <cstdint>
 #include <map>
-#include <string>
 #include <vector>
 
 #include "Core/String.hpp"
@@ -55,6 +53,8 @@ struct CommandInfo
     std::vector<CmdArgInfo> args;
 };
 
+#define CONSOLE_BUFFER_SIZE 128
+
 class Console
 {
 public:
@@ -65,15 +65,15 @@ public:
 
     char *get_buffer()
     {
-        return m_buffer.data();
+        return m_buffer;
     }
 
     size_t get_buffer_size() const
     {
-        return m_buffer.size();
+        return CONSOLE_BUFFER_SIZE;
     }
 
 private:
     std::map<String, CommandInfo> m_commands;
-    std::array<char, 128> m_buffer;
+    char m_buffer[CONSOLE_BUFFER_SIZE];
 };

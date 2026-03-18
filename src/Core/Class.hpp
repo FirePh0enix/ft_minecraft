@@ -5,10 +5,8 @@
 #include <cstdint>
 #include <variant>
 
-#include "Core/Containers/StackVector.hpp"
+#include "Core/Containers/InplaceVector.hpp"
 #include "Core/Containers/View.hpp"
-#include "Core/Math.hpp"
-#include "Core/Ref.hpp"
 #include "Core/Registry.hpp"
 
 struct ClassHashCode

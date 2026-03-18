@@ -4,11 +4,15 @@ struct BlockState
     id_raw: u32,
 };
 
-struct PushConstants
+struct Enviromnent
 {
     view_matrix: mat4x4<f32>,
-    model_matrix: mat4x4<f32>,
     time: f32,
+};
+
+struct Model
+{
+    model_matrix: mat4x4<f32>,
 }
 
 struct VertexInput
@@ -32,16 +36,16 @@ struct VertexOutput
 
 @group(0) @binding(0) var images: texture_2d_array<f32>;
 @group(0) @binding(1) var images_sampler: sampler;
-
-var<push_constant> constants: PushConstants;
+@group(0) @binding(2) var<uniform> env : Enviromnent;
+@group(0) @binding(3) var<uniform> model : Model;
 
 @vertex
 fn vertex_main(vertex: VertexInput) -> VertexOutput {
     var out: VertexOutput = VertexOutput();
     out.gradient_color = vec3<f32>(0.0, 0.0, 0.0);
 
-    out.world_position = constants.model_matrix * vec4<f32>(vertex.position, 1.0);
-    out.position = constants.view_matrix * out.world_position;
+    out.world_position = model.model_matrix * vec4<f32>(vertex.position, 1.0);
+    out.position = env.view_matrix * out.world_position;
 
     out.uv = vertex.uvt.xy;
     out.normal = vertex.normal;

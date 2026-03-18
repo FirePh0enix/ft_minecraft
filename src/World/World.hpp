@@ -1,16 +1,26 @@
 #pragma once
 
+#include "Core/Definitions.hpp"
 #include "Entity/Camera.hpp"
 #include "Render/Driver.hpp"
 #include "Render/Graph.hpp"
+#include "World/Chunk.hpp"
 #include "World/Dimension.hpp"
 #include "World/Generator.hpp"
+
+struct Environment
+{
+    glm::mat4 view_matrix = glm::identity<glm::mat4>();
+    glm::f32 time = 0.0;
+};
+STRUCT(Environment);
 
 class World : public Object
 {
     CLASS(World, Object);
 
     friend class Generator;
+    friend class Chunk;
 
 public:
     static constexpr size_t overworld = 0;
@@ -58,7 +68,15 @@ public:
         return m_dims[index];
     }
 
-    void set_active_camera(Ref<Camera> camera) { m_camera = camera; }
+    void set_active_camera(Ref<Camera> camera);
+    ALWAYS_INLINE Ref<Camera> get_active_camera() { return m_camera; }
+
+    void add_entity(size_t dimension, Ref<Entity> entity)
+    {
+        entity->m_world = this;
+        entity->m_dimension = dimension;
+        m_dims[dimension].add_entity(entity);
+    }
 
     static EntityId next_id()
     {
@@ -74,5 +92,10 @@ private:
     std::array<Ref<Generator>, 2> m_generators;
 
     Ref<Camera> m_camera;
-    Ref<Material> m_material;
+    Ref<Shader> m_shader;
+
+    Ref<Buffer> m_env_buffer;
+    Environment m_env;
+
+    void update_environment_buffer();
 };

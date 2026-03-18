@@ -1,9 +1,8 @@
 #pragma once
 
-#include <array>
-
 #include "Core/Assert.hpp"
 #include "Core/Containers/Iterator.hpp"
+#include "Core/Definitions.hpp"
 #include "Core/Format.hpp"
 
 /**
@@ -73,14 +72,14 @@ public:
         return capacity;
     }
 
-    inline const T *data() const
+    ALWAYS_INLINE const T *data() const
     {
-        return m_data.data();
+        return m_data;
     }
 
-    inline T *data()
+    ALWAYS_INLINE T *data()
     {
-        return m_data.data();
+        return m_data;
     }
 
     void push_back(T&& value)
@@ -110,7 +109,7 @@ public:
     }
 
 private:
-    std::array<T, capacity> m_data;
+    T m_data[capacity];
     size_t m_size;
 };
 

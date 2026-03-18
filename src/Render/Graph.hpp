@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Core/Containers/View.hpp"
-#include "Core/DataBuffer.hpp"
 #include "Render/Driver.hpp"
 
 #include <variant>
@@ -68,12 +67,7 @@ struct DispatchInstruction
     uint32_t group_z = 0;
 };
 
-struct PushConstantsInstruction
-{
-    DataBuffer buffer;
-};
-
-using Instruction = std::variant<BeginRenderPassInstruction, EndRenderPassInstruction, BeginComputePassInstruction, EndComputePassInstruction, DrawInstruction, CopyInstruction, ImGuiDrawInstruction, BindIndexBufferInstruction, BindVertexBufferInstruction, BindMaterialInstruction, PushConstantsInstruction, DispatchInstruction>;
+using Instruction = std::variant<BeginRenderPassInstruction, EndRenderPassInstruction, BeginComputePassInstruction, EndComputePassInstruction, DrawInstruction, CopyInstruction, ImGuiDrawInstruction, BindIndexBufferInstruction, BindVertexBufferInstruction, BindMaterialInstruction, DispatchInstruction>;
 
 class RenderPassEncoder
 {
@@ -87,7 +81,6 @@ public:
     void bind_material(const Ref<Material>& material);
     void bind_index_buffer(const Ref<Buffer>& buffer);
     void bind_vertex_buffer(const Ref<Buffer>& buffer, uint32_t location);
-    void push_constants(const DataBuffer& buffer);
     void draw(uint32_t vertex_count, uint32_t instance_count);
     void imgui();
     void end();
@@ -106,7 +99,6 @@ public:
     ComputePassEncoder operator==(const ComputePassEncoder& encoder) = delete;
 
     void bind_material(const Ref<ComputeMaterial>& material);
-    void push_constants(const DataBuffer& buffer);
     void dispatch(uint32_t group_x, uint32_t group_y, uint32_t group_z);
     void end();
 

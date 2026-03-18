@@ -1,5 +1,6 @@
 #include "Core/Noise/Simplex.hpp"
 
+#include <algorithm>
 #include <cstddef>
 #include <random>
 
@@ -11,6 +12,8 @@ SimplexNoise::SimplexNoise(uint64_t seed)
 
     std::mt19937 prng{std::random_device{}()};
     prng.seed(seed);
+
+    std::shuffle(std::begin(m_perms), std::end(m_perms), prng);
 }
 
 float SimplexNoise::sample(glm::vec2 coords) const

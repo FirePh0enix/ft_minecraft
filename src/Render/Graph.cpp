@@ -25,11 +25,6 @@ void RenderPassEncoder::bind_vertex_buffer(const Ref<Buffer>& buffer, uint32_t l
     g_graph.m_instructions.push_back(BindVertexBufferInstruction{.buffer = buffer, .location = location});
 }
 
-void RenderPassEncoder::push_constants(const DataBuffer& buffer)
-{
-    g_graph.m_instructions.push_back(PushConstantsInstruction{.buffer = buffer});
-}
-
 void RenderPassEncoder::draw(uint32_t vertex_count, uint32_t instance_count)
 {
     g_graph.m_instructions.push_back(DrawInstruction{.vertex_count = vertex_count, .instance_count = instance_count});
@@ -62,11 +57,6 @@ ComputePassEncoder::~ComputePassEncoder()
 void ComputePassEncoder::bind_material(const Ref<ComputeMaterial>& material)
 {
     g_graph.m_instructions.push_back(BindMaterialInstruction{.material = material});
-}
-
-void ComputePassEncoder::push_constants(const DataBuffer& buffer)
-{
-    g_graph.m_instructions.push_back(PushConstantsInstruction{.buffer = buffer});
 }
 
 void ComputePassEncoder::dispatch(uint32_t group_x, uint32_t group_y, uint32_t group_z)

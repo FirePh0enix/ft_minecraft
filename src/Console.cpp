@@ -1,5 +1,4 @@
 #include "Console.hpp"
-#include "Core/Print.hpp"
 #include "Core/StringView.hpp"
 
 Command::Command(const CommandInfo& info, const std::vector<String>& tokens)
@@ -31,7 +30,7 @@ void Console::register_command(const String& name, std::vector<CmdArgInfo> args,
 
 void Console::exec()
 {
-    std::string s = StringView(m_buffer.data(), std::strlen(m_buffer.data()));
+    std::string s = StringView(m_buffer, std::strlen(m_buffer));
 
     // TODO: Fully replace with `String`.
     const std::string& delimiter = " ";

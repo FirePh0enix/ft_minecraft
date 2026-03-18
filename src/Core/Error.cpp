@@ -21,7 +21,7 @@ static backtrace_state *bt_state;
 
 int bt_callback(StackTrace *st, uintptr_t, const char *filename, int lineno, const char *function)
 {
-    if (st->length >= st->frames.size())
+    if (st->length >= STACKTRACE_SIZE)
     {
         st->non_exhaustive = true;
         st->total_length += 1;

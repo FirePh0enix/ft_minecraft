@@ -1,5 +1,5 @@
 #include "Render/WebGPU/DriverWebGPU.hpp"
-#include "Core/Containers/StackVector.hpp"
+#include "Core/Containers/InplaceVector.hpp"
 #include "Core/Logger.hpp"
 #include "Render/Graph.hpp"
 #include "webgpu/webgpu.h"
@@ -544,7 +544,6 @@ Result<> RenderingDriverWebGPU::initialize(const Window& window, bool enable_val
 
     const WGPUFeatureName required_features[] = {
         WGPUFeatureName_TimestampQuery,
-        (WGPUFeatureName)WGPUNativeFeature_PushConstants,
         (WGPUFeatureName)WGPUNativeFeature_TimestampQueryInsideEncoders,
     };
 
@@ -584,6 +583,10 @@ Result<> RenderingDriverWebGPU::initialize(const Window& window, bool enable_val
     device_desc.requiredLimits = &limits;
 
     m_device = request_device_sync(m_adapter, device_desc);
+    if (!m_device)
+    {
+        return Error(ErrorKind::NoSuitableDevice);
+    }
 #endif
 
     WGPUQuerySetDescriptor query_set_desc{};
@@ -748,7 +751,6 @@ void RenderingDriverWebGPU::draw_graph(const RenderGraph& graph)
     wgpuSurfaceGetCurrentTexture(m_surface, &surface_texture);
 
     ERR_COND_VR(surface_texture.texture == nullptr, "Cannot acquire a swapchain image (status = {})", surface_texture.status);
-    // println("status = {}", surface_texture.status);
 
     WGPUTextureView view = wgpuTextureCreateView(surface_texture.texture, nullptr);
     ERR_COND_R(view == nullptr, "Cannot acquire a swapchain image view");
@@ -881,19 +883,6 @@ void RenderingDriverWebGPU::draw_graph(const RenderGraph& graph)
                     wgpuComputePassEncoderSetBindGroup(compute_pass_encoder, 0, bind_group, 0, nullptr);
                 previous_compute_bind_group = bind_group;
             }
-        }
-        else if (std::holds_alternative<PushConstantsInstruction>(instruction))
-        {
-#ifndef __platform_web
-            const PushConstantsInstruction& push_constants = std::get<PushConstantsInstruction>(instruction);
-
-            if (render_pass_encoder)
-                wgpuRenderPassEncoderSetPushConstants(render_pass_encoder, WGPUShaderStage_Vertex, 0, push_constants.buffer.size(), push_constants.buffer.data());
-            else if (compute_pass_encoder)
-                wgpuComputePassEncoderSetPushConstants(compute_pass_encoder, 0, push_constants.buffer.size(), push_constants.buffer.data());
-#else
-            ASSERT(false, "unimplemented");
-#endif
         }
         else if (std::holds_alternative<BeginComputePassInstruction>(instruction))
         {

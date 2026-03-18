@@ -1,4 +1,5 @@
 #include "Input.hpp"
+#include "SDL3/SDL_mouse.h"
 #include "Toml.hpp"
 
 void Input::init(const Window& window)

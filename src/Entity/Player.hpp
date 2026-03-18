@@ -16,6 +16,8 @@ public:
 
     virtual void tick(float delta) override;
 
+    void move_and_collide();
+
     void set_gravity_enabled(bool v)
     {
         m_gravity_enabled = v;
@@ -41,16 +43,18 @@ public:
 
 private:
     Ref<Camera> m_camera;
-    Ref<World> m_world;
 
     Ref<Mesh> m_cube_mesh;
     Ref<Entity> m_cube_highlight;
+
+    glm::vec3 m_velocity = glm::vec3(0.0);
 
     float m_speed = 50.0;
     float m_gravity_value = 9.81;
     bool m_gravity_enabled = true;
 
     bool m_has_jumped = false;
+    bool m_on_ground = false;
 
     void on_block_aimed(BlockState state, int64_t x, int64_t y, int64_t z, glm::vec3 dir);
 };

@@ -1,5 +1,6 @@
 #include "Window.hpp"
 #include "Core/Logger.hpp"
+#include "SDL3/SDL_video.h"
 
 #ifdef __platform_web
 #include <emscripten/html5.h>

@@ -23,7 +23,6 @@ option(DETERMINISTIC "Try to guaranty deterministic maths" OFF)
 list(APPEND SOURCES
     src/Args.cpp
     src/Console.cpp
-    src/Engine.cpp
     src/Font.cpp
     src/Input.cpp
     src/main.cpp
@@ -45,7 +44,9 @@ list(APPEND SOURCES
     src/Render/Graph.cpp
     src/Render/Shader.cpp
     src/World/Pass/Surface.cpp
+    src/World/Pass/FlatSurface.cpp
     src/World/Chunk.cpp
+    src/World/Dimension.cpp
     src/World/Generator.cpp
     src/World/Registry.cpp
     src/World/Save.cpp
@@ -65,9 +66,6 @@ endif()
 cmake_host_system_information(RESULT DISTRIB_INFO QUERY DISTRIB_NAME)
 if (TARGET_IS_LINUX AND DISTRIB_INFO MATCHES "Alpine")
     set(TARGET_IS_ALPINE_LINUX YES)
-endif()
-if (TARGET_IS_LINUX AND DISTRIB_INFO MATCHES "NixOS")
-    set(TARGET_IS_NIXOS_LINUX YES)
 endif()
 
 if(NOT CMAKE_BUILD_TYPE)

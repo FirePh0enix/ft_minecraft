@@ -5,6 +5,7 @@
 #include "Transform3D.hpp"
 
 class World;
+class Dimension;
 
 struct EntityId
 {
@@ -39,37 +40,11 @@ private:
     uint32_t m_inner;
 };
 
-struct EntityPath
-{
-    EntityPath()
-    {
-    }
-
-    EntityPath(const std::string& path)
-    {
-        if (!path.starts_with('/'))
-            m_path = "/" + path;
-        else
-            m_path = path;
-    }
-
-    EntityPath(EntityPath parent, const std::string& path)
-    {
-        m_path = parent.m_path + "/" + path;
-    }
-
-    const std::string& path() const
-    {
-        return m_path;
-    }
-
-private:
-    std::string m_path;
-};
-
 class Entity : public Object
 {
     CLASS(Entity, Object);
+
+    friend class World;
 
 public:
     Entity();
@@ -116,26 +91,15 @@ public:
     const std::string& get_name() const { return m_name; }
     void set_name(const std::string& name) { m_name = name; }
 
-    EntityPath get_path()
-    {
-        if (m_parent)
-        {
-            EntityPath parent_path = m_parent->get_path();
-            return EntityPath(parent_path, m_name);
-        }
-        else
-        {
-            return EntityPath(m_name);
-        }
-    }
-
     void recurse_tick(float delta);
 
 protected:
     EntityId m_id;
     std::string m_name;
     Entity *m_parent = nullptr; // FIXME: This must be changed by either a Ref<Entity> or a EntityId.
-    World *m_world = nullptr;
     std::vector<Ref<Entity>> m_children;
     Transform3D m_transform;
+
+    World *m_world = nullptr;
+    size_t m_dimension = 0;
 };
