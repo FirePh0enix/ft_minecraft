@@ -41,7 +41,7 @@ public:
     String& operator=(const String& other)
     {
         if (!is_small() && large.ptr)
-            destroy_n(large.ptr);
+            destroy_array_nodestruct(large.ptr, large.size);
 
         // FIXME: This is a hack that I despise.
         large.capacity = 0;
@@ -56,7 +56,7 @@ public:
     String& operator=(const char *str)
     {
         if (!is_small() && large.ptr)
-            destroy_n(large.ptr);
+            destroy_array_nodestruct(large.ptr, large.size);
 
         *this = String(str);
         return *this;

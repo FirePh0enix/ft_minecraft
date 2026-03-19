@@ -2,6 +2,7 @@
 
 #include "Core/Definitions.hpp"
 #include "Core/Math.hpp"
+#include "Core/Print.hpp"
 
 struct CollisionResult
 {
@@ -28,6 +29,9 @@ public:
     ALWAYS_INLINE float max_x() const { return center.x + half_extent.x; }
     ALWAYS_INLINE float max_y() const { return center.y + half_extent.y; }
     ALWAYS_INLINE float max_z() const { return center.z + half_extent.z; }
+
+    ALWAYS_INLINE glm::vec3 min() const { return glm::vec3(min_x(), min_y(), min_z()); }
+    ALWAYS_INLINE glm::vec3 max() const { return glm::vec3(max_x(), max_y(), max_z()); }
 
     bool intersect_x(const AABB& o) const
     {
@@ -89,39 +93,6 @@ public:
     AABB translate(const glm::vec3& pos) const
     {
         return AABB(center + pos, half_extent);
-    }
-
-    float clip_y(const AABB& other, float delta) const
-    {
-        // if (intersect_x(other) && intersect_z(other))
-        // {
-        //     if (delta > 0 && max_y() <= other.min_y())
-        //     {
-        //         float clip = other.min_y() - max_y();
-        //         if (delta > clip)
-        //             delta = clip;
-        //     }
-        //     if (delta < 0 && min_y() >= other.max_y())
-        //     {
-        //         float clip = other.max_y() - min_y();
-        //         if (delta < clip)
-        //             delta = clip;
-        //     }
-        // }
-        // return delta;
-
-        if (intersect_y(other))
-        {
-            if (delta < 0)
-            {
-                float clip = other.max_y() - min_y();
-                printf("clip = %f\n", clip);
-                // if (clip < delta)
-                //     delta = clip;
-            }
-        }
-
-        return delta;
     }
 
     glm::vec3 center;

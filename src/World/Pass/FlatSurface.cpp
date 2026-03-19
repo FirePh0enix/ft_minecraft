@@ -14,7 +14,7 @@ void FlatSurfacePass::process(int64_t x, int64_t chunk_start_y, int64_t z, int64
     for (int64_t y = 0; y < Chunk::width + 2; y++)
     {
         int64_t global_y = chunk_start_y + y - 1;
-        if (global_y < 10)
+        if (global_y < 10 || global_y > 40)
             blocks[Chunk::linearize_with_overlap(local_x, y, local_z)] = BlockState(m_block_id);
     }
 }

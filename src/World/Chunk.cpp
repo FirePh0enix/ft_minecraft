@@ -19,6 +19,10 @@ Chunk::Chunk(int64_t x, int64_t y, int64_t z, World *world)
     m_material->set_param("model", m_model_buffer);
 }
 
+Chunk::~Chunk()
+{
+}
+
 struct Face
 {
     uint32_t x;

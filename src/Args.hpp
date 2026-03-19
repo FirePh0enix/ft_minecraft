@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Core/Containers/Vector.hpp"
 #include "Core/Containers/View.hpp"
 #include "Core/String.hpp"
 

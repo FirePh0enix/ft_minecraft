@@ -25,8 +25,10 @@ class World : public Object
 public:
     static constexpr size_t overworld = 0;
     static constexpr size_t underworld = 1;
+    static constexpr size_t max_dimensions = 2;
 
     World(uint64_t seed);
+    ~World();
 
     void tick(float delta);
 
@@ -88,8 +90,8 @@ public:
 private:
     uint64_t m_seed;
 
-    std::array<Dimension, 2> m_dims;
-    std::array<Ref<Generator>, 2> m_generators;
+    std::array<Dimension, max_dimensions> m_dims;
+    std::array<Ref<Generator>, max_dimensions> m_generators;
 
     Ref<Camera> m_camera;
     Ref<Shader> m_shader;

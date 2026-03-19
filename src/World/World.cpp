@@ -30,6 +30,10 @@ World::World(uint64_t seed)
     m_generators[overworld]->add_pass(newobj(FlatSurfacePass, "stone"));
 }
 
+World::~World()
+{
+}
+
 void World::tick(float delta)
 {
     ZoneScoped;

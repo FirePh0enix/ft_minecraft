@@ -21,7 +21,7 @@ String::String(const String& other)
         small.small_flag = 1;
         large.capacity = other.large.capacity;
         large.size = other.large.size;
-        large.ptr = alloc_n<char>(large.capacity);
+        large.ptr = alloc_array<char>(large.capacity);
         memcpy(large.ptr, other.large.ptr, large.size + 1);
     }
 }
@@ -50,7 +50,7 @@ String::String(const char *str, size_t size)
 
 void String::resize(size_t new_size)
 {
-    char *new_ptr = alloc_n<char>(new_size + 1);
+    char *new_ptr = alloc_array<char>(new_size + 1);
     std::memcpy(new_ptr, data(), size() + 1);
 
     if (is_small())
@@ -62,7 +62,7 @@ void String::resize(size_t new_size)
     }
     else
     {
-        destroy_n(large.ptr);
+        destroy_array(large.ptr, large.size);
         large.ptr = new_ptr;
         large.capacity = new_size + 1;
         large.size = new_size;
@@ -83,7 +83,7 @@ void String::append(const char *str, size_t size)
         }
         else
         {
-            char *new_ptr = alloc_n<char>(new_len + 1);
+            char *new_ptr = alloc_array<char>(new_len + 1);
             memcpy(new_ptr, small.data, small.size);
             memcpy(new_ptr + small.size, str, size);
             new_ptr[new_len] = '\0';
@@ -102,11 +102,11 @@ void String::append(const char *str, size_t size)
         {
             large.capacity = new_size + 1;
 
-            char *new_ptr = alloc_n<char>(new_size + 1);
+            char *new_ptr = alloc_array<char>(new_size + 1);
             memcpy(new_ptr, large.ptr, large.size);
             new_ptr[large.size] = '\0';
 
-            destroy_n(large.ptr);
+            destroy_array(large.ptr, 0);
             large.ptr = new_ptr;
         }
 

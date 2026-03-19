@@ -50,10 +50,7 @@ public:
 
     std::mutex& mutex() { return m_chunk_mutex; }
 
-    /**
-     *  Returns all boxes overlaping the specified one.
-     */
-    std::vector<AABB> get_overlapping_boxes(const AABB& box) const;
+    std::vector<AABB> get_boxes_that_may_collide(const AABB& box) const;
 
 private:
     std::mutex m_chunk_mutex;

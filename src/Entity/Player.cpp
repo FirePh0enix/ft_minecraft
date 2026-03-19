@@ -1,49 +1,124 @@
 #include "Entity/Player.hpp"
 #include "AABB.hpp"
+#include "Core/Definitions.hpp"
 #include "Entity/Entity.hpp"
 #include "Input.hpp"
 #include "Profiler.hpp"
 #include "World/Dimension.hpp"
 #include "World/Registry.hpp"
+#include "glm/gtc/epsilon.hpp"
+
+#include <cmath>
+
+static float line_to_plane(glm::vec3 p, glm::vec3 u, glm::vec3 v, glm::vec3 n)
+{
+    const float n_dot_u = n.x * u.x + n.y * u.y + n.z * u.z;
+    if (n_dot_u == 0)
+        return INFINITY;
+    return (n.x * (v.x - p.x) + n.y * (v.y - p.y) + n.z * (v.z - p.z)) / n_dot_u;
+}
+
+static ALWAYS_INLINE bool between(float x, float a, float b)
+{
+    return x >= a && x <= b;
+}
+
+struct CollisionResult sweep_aabb(const AABB& a, const AABB& b, glm::vec3 d)
+{
+    const float mx = b.center.x - (a.center.x + a.half_extent.x);
+    const float my = b.center.y - (a.center.y + a.half_extent.y);
+    const float mz = b.center.z - (a.center.z + a.half_extent.z);
+    const float mhx = a.half_extent.x + b.half_extent.x;
+    const float mhy = a.half_extent.y + b.half_extent.y;
+    const float mhz = a.half_extent.z + b.half_extent.z;
+    CollisionResult r(glm::vec3(), 1.0);
+    float s;
+
+    // x min
+    s = line_to_plane(glm::vec3(), d, glm::vec3(mx, my, mz), glm::vec3(-1, 0, 0));
+    if (s >= 0 && d.x > 0 && s < r.penetration && between(s * d.y, my, my + mhy) && between(s * d.z, mz, mz + mhz))
+    {
+        r.penetration = s;
+        r.normal = glm::vec3(-1, 0, 0);
+    }
+    // x max
+    s = line_to_plane(glm::vec3(), d, glm::vec3(mx + mhx, my, mz), glm::vec3(1, 0, 0));
+    if (s >= 0 && d.x < 0 && s < r.penetration && between(s * d.y, my, my + mhy) && between(s * d.z, mz, mz + mhz))
+    {
+        r.penetration = s;
+        r.normal = glm::vec3(1, 0, 0);
+    }
+
+    // y min
+    s = line_to_plane(glm::vec3(), d, glm::vec3(mx, my, mz), glm::vec3(0, -1, 0));
+    if (s >= 0 && d.y > 0 && s < r.penetration && between(s * d.x, mx, mx + mhx) && between(s * d.z, mz, mz + mhz))
+    {
+        r.penetration = s;
+        r.normal = glm::vec3(0, -1, 0);
+    }
+    // y max
+    s = line_to_plane(glm::vec3(), d, glm::vec3(mx, my + mhy, mz), glm::vec3(0, 1, 0));
+    if (s >= 0 && d.y < 0 && s < r.penetration && between(s * d.x, mx, mx + mhx) && between(s * d.z, mz, mz + mhz))
+    {
+        r.penetration = s;
+        r.normal = glm::vec3(0, 1, 0);
+    }
+
+    // z min
+    s = line_to_plane(glm::vec3(), d, glm::vec3(mx, my, mz), glm::vec3(0, 0, -1));
+    if (s >= 0 && d.z > 0 && s < r.penetration && between(s * d.x, mx, mx + mhx) && between(s * d.y, my, my + mhy))
+    {
+        r.penetration = s;
+        r.normal = glm::vec3(0, 0, -1);
+    }
+    // z max
+    s = line_to_plane(glm::vec3(), d, glm::vec3(mx, my, mz + mhz), glm::vec3(0, 0, 1));
+    if (s >= 0 && d.z < 0 && s < r.penetration && between(s * d.x, mx, mx + mhx) && between(s * d.y, my, my + mhy))
+    {
+        r.penetration = s;
+        r.normal = glm::vec3(0, 0, 1);
+    }
+
+    return r;
+}
 
 void Player::move_and_collide()
 {
-    const glm::vec3 original_velocity = m_velocity;
-    AABB box(m_transform.position(), glm::vec3(0.35, 0.9, 0.35));
+    // TODO: high velocity might miss some collisions. Probably should decompose collisions in multiple steps if that the case
+    const AABB pbox(m_transform.position(), glm::vec3(0.35, 0.9, 0.35));
     const Dimension& dimension = m_world->get_dimension(m_dimension);
+    const std::vector<AABB> colliders = dimension.get_boxes_that_may_collide(pbox);
 
-    const std::vector<AABB> colliders = dimension.get_overlapping_boxes(box);
-
-    // println("{}", collider.x);
-
-    for (const AABB& collider : colliders)
+    constexpr size_t max_iteration = 1;
+    size_t iteration = 0;
+    while (iteration < max_iteration)
     {
-        m_velocity.y = box.clip_y(collider, m_velocity.y);
+        CollisionResult closest_collision(glm::vec3(), 1.0);
+
+        for (const auto& block : colliders)
+        {
+            const CollisionResult collision = sweep_aabb(pbox, block, m_velocity);
+            if (collision.penetration < closest_collision.penetration)
+                closest_collision = collision;
+        }
+
+        const float margin = 0.001;
+        m_transform.position() += closest_collision.penetration * m_velocity + margin * closest_collision.normal;
+
+        // TODO: what if its not possible to resolve a collision ? it should not infinite loop
+        if (closest_collision.penetration == 1.0)
+            break;
+
+        // const float b_dot_b = glm::dot(closest_collision.normal, closest_collision.normal);
+        // if (glm::epsilonEqual(b_dot_b, 0.0f, 0.0001f))
+        // {
+        //     const float one_minus_p = 1.0f - closest_collision.penetration;
+        //     const float a_dot_b = one_minus_p * glm::dot(m_velocity, closest_collision.normal);
+        //     m_transform.position() += one_minus_p * m_velocity - (a_dot_b / b_dot_b) * closest_collision.normal;
+        // }
+
+        iteration++;
     }
-    // println("{}", m_velocity.y);
-    box.center.y += m_velocity.y;
-
-    // for (const AABB& collider : colliders)
-    // {
-    //     m_velocity.x = box.clip_x(collider, m_velocity.x);
-    // }
-    // box.center.x += m_velocity.x;
-
-    // for (const AABB& collider : colliders)
-    // {
-    //     m_velocity.z = box.clip_z(collider, m_velocity.z);
-    // }
-    // box.center.z += m_velocity.z;
-
-    // if (m_velocity.x != original_velocity.x)
-    //     m_velocity.x = 0;
-    // if (m_velocity.y != original_velocity.y)
-    //     m_velocity.y = 0;
-    // if (m_velocity.z != original_velocity.z)
-    //     m_velocity.z = 0;
-
-    m_transform.position() = box.center;
-    // println("[ {} {} {} ]", m_transform.position().x, m_transform.position().y, m_transform.position().z);
 }
 
 void Player::tick(float delta)

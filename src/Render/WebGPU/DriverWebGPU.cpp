@@ -338,6 +338,16 @@ MaterialLayoutCacheValue MaterialLayoutCache::create_object(const MaterialLayout
     return MaterialLayoutCacheValue{.bind_group_layout = bind_group_layout, .pipeline_layout = pipeline_layout};
 }
 
+void RenderPipelineCache::clear()
+{
+    for (auto& [key, pipeline] : m_objects)
+    {
+        wgpuRenderPipelineRelease(pipeline);
+    }
+
+    m_objects.clear();
+}
+
 WGPURenderPipeline RenderPipelineCache::create_object(const RenderPipelineCacheKey& key)
 {
     const Ref<Material>& material = key.material;
@@ -356,10 +366,30 @@ WGPUComputePipeline ComputePipelineCache::create_object(const ComputePipelineCac
     return pipeline_result.value();
 }
 
+void SamplerCache::clear()
+{
+    for (auto& [key, sampler] : m_objects)
+    {
+        wgpuSamplerRelease(sampler);
+    }
+
+    m_objects.clear();
+}
+
 WGPUSampler SamplerCache::create_object(const SamplerDescriptor& sampler)
 {
     WGPUSamplerDescriptor desc = convert_sampler(sampler);
     return wgpuDeviceCreateSampler(RenderingDriverWebGPU::get()->get_device(), &desc);
+}
+
+void BindGroupCache::clear()
+{
+    for (auto& [key, bind_group] : m_bind_groups)
+    {
+        wgpuBindGroupRelease(bind_group);
+    }
+
+    m_bind_groups.clear();
 }
 
 WGPUBindGroup BindGroupCache::get(Ref<MaterialBase> material)
@@ -457,6 +487,13 @@ RenderingDriverWebGPU::RenderingDriverWebGPU()
 
 RenderingDriverWebGPU::~RenderingDriverWebGPU()
 {
+    m_bind_group_cache.clear();
+    m_render_graph_cache.clear();
+    m_sampler_cache.clear();
+    m_pipeline_cache.clear();
+
+    wgpuSurfaceRelease(m_surface);
+    wgpuDeviceRelease(m_device);
 }
 
 #ifndef __platform_web
@@ -564,7 +601,7 @@ Result<> RenderingDriverWebGPU::initialize(const Window& window, bool enable_val
         .nextInChain = nullptr,
         .callback = [](const WGPUDevice *, WGPUErrorType, WGPUStringView message, void *, void *)
         {
-            std::string s;
+            String s;
             s.append(message.data, message.length);
             println("{}", s);
         },

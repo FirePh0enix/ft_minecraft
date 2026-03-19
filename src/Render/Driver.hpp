@@ -475,6 +475,5 @@ public:
 protected:
     virtual Value create_object(const Key& key) = 0;
 
-private:
     std::map<Key, Value> m_objects;
 };

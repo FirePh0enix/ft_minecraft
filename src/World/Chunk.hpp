@@ -42,6 +42,7 @@ public:
     static constexpr int64_t block_count_with_overlap = (Chunk::width + 2) * (Chunk::width + 2) * (Chunk::width + 2);
 
     Chunk(int64_t x, int64_t y, int64_t z, World *world);
+    ~Chunk();
 
     ALWAYS_INLINE bool is_empty() const { return m_empty; }
 

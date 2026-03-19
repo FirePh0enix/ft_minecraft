@@ -1,47 +1,37 @@
 #include "World/Dimension.hpp"
 
-std::vector<AABB> Dimension::get_overlapping_boxes(const AABB& box) const
+std::vector<AABB> Dimension::get_boxes_that_may_collide(const AABB& box) const
 {
     std::vector<AABB> boxes;
 
-    int64_t chunk_x = box.center.x >= 0 ? ((int64_t)box.center.x / 16) : ((int64_t)box.center.x / 16 - 1);
-    int64_t chunk_y = box.center.y >= 0 ? ((int64_t)box.center.y / 16) : ((int64_t)box.center.y / 16 - 1);
-    int64_t chunk_z = box.center.z >= 0 ? ((int64_t)box.center.z / 16) : ((int64_t)box.center.z / 16 - 1);
-
     const glm::i64vec3 centeri = box.center;
 
-    for (int64_t cx = chunk_x - 1; cx <= chunk_x + 1; cx++)
-        for (int64_t cy = chunk_y - 1; cy <= chunk_y + 1; cy++)
-            for (int64_t cz = chunk_z - 1; cz <= chunk_z + 1; cz++)
+    int64_t min_x = (int64_t)box.center.x - 2, max_x = (int64_t)box.center.x + 2;
+    int64_t min_y = (int64_t)box.center.y - 2, max_y = (int64_t)box.center.y + 2;
+    int64_t min_z = (int64_t)box.center.z - 2, max_z = (int64_t)box.center.z + 2;
+    for (int64_t x = min_x; x <= max_x; x++)
+    {
+        for (int64_t y = min_y; y <= max_y; y++)
+        {
+            for (int64_t z = min_z; z <= max_z; z++)
             {
-                const auto chunk_maybe = get_chunk(cx, cy, cz);
+                int64_t chunk_x = x >= 0 ? ((int64_t)x / 16) : ((int64_t)x / 16 - 1);
+                int64_t chunk_y = y >= 0 ? ((int64_t)y / 16) : ((int64_t)y / 16 - 1);
+                int64_t chunk_z = z >= 0 ? ((int64_t)z / 16) : ((int64_t)z / 16 - 1);
 
-                // Chunk is not loaded
+                const auto chunk_maybe = get_chunk(chunk_x, chunk_y, chunk_z);
                 if (!chunk_maybe)
                     continue;
 
                 Ref<Chunk> chunk = chunk_maybe.value();
-                const ChunkPos& chunk_pos = chunk->pos();
+                if (chunk->get_block(x, y, z).is_air())
+                    continue;
 
-                for (int64_t x = 0; x < Chunk::width; x++)
-                    for (int64_t y = 0; y < Chunk::width; y++)
-                        for (int64_t z = 0; z < Chunk::width; z++)
-                        {
-                            const glm::i64vec3 pos = glm::i64vec3(x, y, z) + glm::i64vec3(
-                                                                                 chunk_pos.x * Chunk::width,
-                                                                                 chunk_pos.y * Chunk::width,
-                                                                                 chunk_pos.z * Chunk::width);
-
-                            if (chunk->get_block(x, y, z).is_air())
-                                continue;
-
-                            AABB block_box(pos, glm::vec3(0.5, 0.5, 0.5));
-                            if (box.intersect(block_box))
-                            {
-                                // println("[ {} {} {} ] vs [ {} {} {} ]", pos.x, pos.y, pos.z, box.center.x, box.center.y, box.center.z);
-                                boxes.push_back(box);
-                            }
-                        }
+                AABB block_box(glm::vec3(x, y, z) + glm::vec3(0.5), glm::vec3(0.5, 0.5, 0.5));
+                boxes.push_back(block_box);
             }
+        }
+    }
+
     return boxes;
 }

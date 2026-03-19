@@ -2,6 +2,7 @@
 
 #include "Core/Class.hpp"
 #include "Render/Driver.hpp"
+#include "webgpu/webgpu.h"
 
 #include <map>
 
@@ -36,6 +37,7 @@ class RenderPipelineCache : public Cache<WGPURenderPipeline, RenderPipelineCache
 {
 public:
     RenderPipelineCache() {}
+    void clear();
 
     WGPURenderPipeline create_object(const RenderPipelineCacheKey& key) override;
 };
@@ -62,6 +64,7 @@ class SamplerCache : public Cache<WGPUSampler, SamplerDescriptor>
 {
 public:
     SamplerCache() {}
+    void clear();
 
     WGPUSampler create_object(const SamplerDescriptor& key) override;
 
@@ -108,6 +111,7 @@ struct BindGroupCacheKey
 class BindGroupCache
 {
 public:
+    void clear();
     WGPUBindGroup get(Ref<MaterialBase> material);
 
 private:
@@ -254,6 +258,11 @@ public:
         m_usage = usage;
     }
 
+    ~BufferWebGPU()
+    {
+        wgpuBufferRelease(buffer);
+    }
+
     virtual void update(View<uint8_t> view, size_t offset) override;
     virtual void read_async(size_t offset, size_t size, BufferReadCallback callback, void *user) override;
 
@@ -272,7 +281,11 @@ public:
         m_height = height;
     }
 
-    virtual ~TextureWebGPU() {}
+    virtual ~TextureWebGPU()
+    {
+        wgpuTextureViewRelease(view);
+        wgpuTextureRelease(texture);
+    }
 
     virtual void update(View<uint8_t> view, uint32_t layer = 0) override;
 

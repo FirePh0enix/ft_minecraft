@@ -2,6 +2,7 @@
 
 #include "Core/Containers/InplaceVector.hpp"
 #include "Core/Containers/Iterator.hpp"
+#include "Core/Containers/Vector.hpp"
 
 template <typename T>
 class View
@@ -21,6 +22,11 @@ public:
         : m_data(data), m_size(size)
     {
     }
+
+    // View(const Vector<T>& vector)
+    //     : m_data(vector.data()), m_size(vector.size())
+    // {
+    // }
 
     View(const std::vector<T>& vector)
         : m_data(vector.data()), m_size(vector.size())

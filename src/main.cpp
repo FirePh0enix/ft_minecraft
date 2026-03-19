@@ -247,6 +247,11 @@ static void draw()
 
 static void shutdown_callback()
 {
+    // this stop the generator threads, needs to be done before destroying the RenderingDriver or it causes segmentation faults.
+    world = nullptr;
+
+    window = nullptr;
+
     BlockRegistry::destroy();
     Font::deinit_library();
 
