@@ -90,6 +90,9 @@ struct MaterialLayoutCacheValue
 
 class MaterialLayoutCache : public Cache<MaterialLayoutCacheValue, MaterialLayoutCacheKey>
 {
+public:
+    void clear();
+
 protected:
     virtual MaterialLayoutCacheValue create_object(const MaterialLayoutCacheKey& key) override;
 };

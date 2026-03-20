@@ -59,7 +59,7 @@ void BlockRegistry::load_blocks()
         ifs.read(s.data(), (std::streamsize)s.size());
 
         BlockManifest block = nlohmann::json::parse(std::string(s.data(), s.size()));
-        std::array<String, 6> faces;
+        std::array<std::string, 6> faces;
 
         for (size_t i = 0; i < faces.size(); i++)
             faces[i] = block.faces[i];
@@ -143,7 +143,6 @@ uint32_t BlockRegistry::get_or_create(const String& name)
     if (id_pair == s_texture_by_name.end())
     {
         std::string path = "assets/textures/";
-        println("{} {}", name.data(), name.size());
         path.append(name.data());
 
         Result<File> file = Filesystem::open_file(path);

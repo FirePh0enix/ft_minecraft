@@ -1,4 +1,5 @@
 #include "Render/WebGPU/DriverWebGPU.hpp"
+#include "Core/Alloc.hpp"
 #include "Core/Containers/InplaceVector.hpp"
 #include "Core/Logger.hpp"
 #include "Render/Graph.hpp"
@@ -14,6 +15,55 @@
 #else
 #define WGPU_STRING_VIEW(NAME) {NAME, WGPU_STRLEN}
 #endif
+
+#define DESTRUCTOR(NAME, FUNC)    \
+    struct NAME##Destructor       \
+    {                             \
+        void destroy(NAME handle) \
+        {                         \
+            FUNC(handle);         \
+        }                         \
+    };
+
+template <typename T, typename Destructor>
+class WGPURef
+{
+public:
+    WGPURef()
+        : m_handle(nullptr), m_references(nullptr)
+    {
+    }
+
+    WGPURef(T handle)
+        : m_handle(handle), m_references(alloc<size_t>(1))
+    {
+    }
+
+    WGPURef(const WGPURef& other)
+        : m_handle(other.m_handle), m_references(other.m_references)
+    {
+        *other.m_references += 1;
+    }
+
+    ~WGPURef()
+    {
+        unref();
+    }
+
+private:
+    T m_handle;
+    size_t *m_references;
+
+    void unref()
+    {
+        *m_references -= 1;
+        if (*m_references == 0)
+        {
+            destroy(m_references);
+            Destructor::destroy(m_handle);
+        }
+    }
+};
 
 template <typename T>
 static bool find_chain_entry(WGPUSType type, WGPUChainedStructOut *chain, T& out)
@@ -295,6 +345,17 @@ static std::vector<WGPUBindGroupLayoutEntry> convert_bindings(const Ref<Shader>&
     return entries;
 }
 
+void MaterialLayoutCache::clear()
+{
+    for (auto& [key, pipeline] : m_objects)
+    {
+        (void)key;
+        wgpuPipelineLayoutRelease(pipeline.pipeline_layout);
+        wgpuBindGroupLayoutRelease(pipeline.bind_group_layout);
+    }
+    m_objects.clear();
+}
+
 MaterialLayoutCacheValue MaterialLayoutCache::create_object(const MaterialLayoutCacheKey& key)
 {
     const Ref<Shader>& shader = key.material->get_shader();
@@ -313,24 +374,6 @@ MaterialLayoutCacheValue MaterialLayoutCache::create_object(const MaterialLayout
     WGPUPipelineLayoutDescriptor pipeline_layout_desc{};
     pipeline_layout_desc.bindGroupLayoutCount = layouts.size();
     pipeline_layout_desc.bindGroupLayouts = layouts.data();
-
-#ifndef __platform_web
-    std::vector<WGPUPushConstantRange> ranges;
-    ranges.reserve(shader->get_push_constants().size());
-
-    // TODO: I didn't manage to detect which shader stages uses a push constant so for now let's hardcode it for now.
-    //       WebGPU want an exact match (for perfomance reason ?).
-    WGPUShaderStage stages = key.material->is<Material>() ? WGPUShaderStage_Vertex : WGPUShaderStage_Compute;
-
-    for (const PushConstantRange& range : shader->get_push_constants())
-        ranges.push_back(WGPUPushConstantRange(stages, 0, range.size));
-
-    WGPUPipelineLayoutExtras extras{};
-    extras.chain = {.next = nullptr, .sType = (WGPUSType)WGPUSType_PipelineLayoutExtras};
-    extras.pushConstantRangeCount = ranges.size();
-    extras.pushConstantRanges = ranges.data();
-    pipeline_layout_desc.nextInChain = &extras.chain;
-#endif
 
     WGPUPipelineLayout pipeline_layout = wgpuDeviceCreatePipelineLayout(RenderingDriverWebGPU::get()->get_device(), &pipeline_layout_desc);
     ERR_COND_R(pipeline_layout == nullptr, "PipelineLayout is invalid", {});
@@ -487,13 +530,17 @@ RenderingDriverWebGPU::RenderingDriverWebGPU()
 
 RenderingDriverWebGPU::~RenderingDriverWebGPU()
 {
+    m_material_layout_cache.clear();
     m_bind_group_cache.clear();
     m_render_graph_cache.clear();
     m_sampler_cache.clear();
     m_pipeline_cache.clear();
 
+    wgpuSurfaceUnconfigure(m_surface);
     wgpuSurfaceRelease(m_surface);
+
     wgpuDeviceRelease(m_device);
+    wgpuInstanceRelease(m_instance);
 }
 
 #ifndef __platform_web

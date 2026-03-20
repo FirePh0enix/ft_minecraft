@@ -38,7 +38,7 @@ public:
     static constexpr int64_t width = 16;
     static constexpr int64_t width_with_overlap = width + 2;
     static constexpr int64_t block_count = width * width * width;
-    static constexpr int64_t block_count_with_overlap = (Chunk::width + 2) * (Chunk::width + 2) * (Chunk::width + 2);
+    static constexpr int64_t block_count_with_overlap = width_with_overlap * width_with_overlap * width_with_overlap;
 
     Chunk(int64_t x, int64_t y, int64_t z, World *world);
     ~Chunk();

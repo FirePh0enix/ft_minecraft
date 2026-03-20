@@ -91,11 +91,6 @@ public:
         return m_entry_point_names.at(stage);
     }
 
-    inline const std::vector<PushConstantRange>& get_push_constants() const
-    {
-        return m_push_constants;
-    }
-
     ShaderStageFlags get_stage_mask() const
     {
         return m_stage_mask;
