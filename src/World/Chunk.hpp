@@ -2,11 +2,10 @@
 
 #include "Core/Definitions.hpp"
 #include "Render/Driver.hpp"
+#include "World/Biome.hpp"
 #include "World/Block.hpp"
-#include "glm/ext/matrix_transform.hpp"
 
 class World;
-class GridCollider;
 
 struct ChunkPos
 {
@@ -52,6 +51,9 @@ public:
     ALWAYS_INLINE const BlockState *get_blocks() const { return m_blocks; }
     ALWAYS_INLINE BlockState *get_blocks() { return m_blocks; }
 
+    ALWAYS_INLINE const Biome *get_biomes() const { return m_biomes; }
+    ALWAYS_INLINE Biome *get_biomes() { return m_biomes; }
+
     ALWAYS_INLINE int64_t x() const { return m_x; }
     ALWAYS_INLINE int64_t y() const { return m_y; }
     ALWAYS_INLINE int64_t z() const { return m_z; }
@@ -68,6 +70,7 @@ public:
 
 private:
     BlockState m_blocks[block_count_with_overlap];
+    Biome m_biomes[block_count_with_overlap];
 
     int64_t m_x;
     int64_t m_y;

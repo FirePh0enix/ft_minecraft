@@ -11,7 +11,6 @@
 #include "Toml.hpp"
 #include "Window.hpp"
 #include "World/Generator.hpp"
-#include "World/Pass/Surface.hpp"
 #include "World/Registry.hpp"
 #include "World/World.hpp"
 #include <SDL3_image/SDL_image.h>
@@ -260,7 +259,7 @@ static void shutdown_callback()
 
 static void register_all_classes()
 {
-    REGISTER_CLASSES(World, Chunk, Block, Player, Generator, GeneratorPass, SurfacePass);
+    REGISTER_CLASSES(World, Chunk, Block, Player, Generator, GenerationPass, BiomeGenerationPass, SurfaceGenerationPass, FeaturesGenerationPass);
 
     REGISTER_STRUCTS(BlockState, Environment, Model);
 }

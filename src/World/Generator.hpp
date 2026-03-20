@@ -13,32 +13,71 @@
 
 class World;
 
-class GeneratorPass : public Object
+class GenerationPass : public Object
 {
-    CLASS(GeneratorPass, Object);
+    CLASS(GenerationPass, Object);
 
 public:
-    GeneratorPass() {}
+    /**
+     * @param x Global X position of the block
+     * @param y Global Y position of the block
+     * @param z Global Z position of the block
+     * @param block_index Index of the block
+     * @param chunk Chunk currently being generated
+     */
+    virtual void generate(int64_t x, int64_t y, int64_t z, size_t block_index, Ref<Chunk>& chunk) = 0;
 
-    void set_seed(uint64_t seed)
+    /**
+     * Optional callback to initialize things which need a seed.
+     */
+    virtual void update_seed(uint64_t seed)
     {
-        m_seed = seed;
-        seed_updated();
-    }
-
-    virtual void process(int64_t x, int64_t y, int64_t z, int64_t cx, int64_t cz, BlockState *blocks) const = 0;
-    virtual void seed_updated() {};
-
-protected:
-    uint64_t m_seed = 0;
+        (void)seed;
+    };
 };
 
-struct ChunkBuffers
+class BiomeGenerationPass : public GenerationPass
 {
-    std::atomic_bool used = false;
-    Ref<Buffer> block_buffer;
-    Ref<Buffer> visibility_buffer;
-    Ref<Material> material;
+    CLASS(BiomeGenerationPass, GenerationPass);
+
+public:
+    virtual Biome generate_biome(int64_t x, int64_t y, int64_t z) = 0;
+
+    virtual void generate(int64_t x, int64_t y, int64_t z, size_t block_index, Ref<Chunk>& chunk) override
+    {
+        chunk->get_biomes()[block_index] = generate_biome(x, y, z);
+    }
+};
+
+class SurfaceGenerationPass : public GenerationPass
+{
+    CLASS(SurfaceGenerationPass, GenerationPass);
+
+public:
+    virtual BlockState generate_block(int64_t x, int64_t y, int64_t z, Biome biome) = 0;
+
+    virtual void generate(int64_t x, int64_t y, int64_t z, size_t block_index, Ref<Chunk>& chunk) override
+    {
+        chunk->get_blocks()[block_index] = generate_block(x, y, z, chunk->get_biomes()[block_index]);
+    }
+};
+
+/**
+ *  Generate features
+ */
+class FeaturesGenerationPass : public GenerationPass
+{
+    CLASS(FeaturesGenerationPass, GenerationPass);
+
+public:
+    virtual BlockState generate_features(int64_t x, int64_t y, int64_t z, BlockState state, Biome biome) = 0;
+
+    virtual void generate(int64_t x, int64_t y, int64_t z, size_t block_index, Ref<Chunk>& chunk) override
+    {
+        const BlockState state = chunk->get_blocks()[block_index];
+        const Biome biome = chunk->get_biomes()[block_index];
+        chunk->get_blocks()[block_index] = generate_features(x, y, z, state, biome);
+    }
 };
 
 class Generator : public Object
@@ -49,7 +88,7 @@ public:
     Generator(World *world, size_t dimension);
     ~Generator();
 
-    void add_pass(Ref<GeneratorPass> pass);
+    void add_pass(Ref<GenerationPass> pass);
 
     void request_load(int64_t x, int64_t y, int64_t z);
     void request_multiple_load(View<ChunkPos> chunks);
@@ -66,7 +105,7 @@ private:
     World *m_world;
     size_t m_dimension;
 
-    std::vector<Ref<GeneratorPass>> m_passes;
+    std::vector<Ref<GenerationPass>> m_passes;
 
     std::thread m_load_thread;
     std::mutex m_load_orders_lock;

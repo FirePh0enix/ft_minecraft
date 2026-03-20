@@ -5,20 +5,20 @@
 #include <filesystem>
 #include <fstream>
 
-Save::Save(std::string name)
+Save::Save(String name)
     : m_name(name)
 {
 }
 
 void Save::save_info(const Ref<World>& world)
 {
-    const std::string path = get_path();
-    std::filesystem::create_directories(path);
+    const String path = get_path();
+    std::filesystem::create_directories(path.data());
 
-    const std::string chunks_path = get_path() + "/chunks";
-    std::filesystem::create_directories(chunks_path);
+    const String chunks_path = get_path() + "/chunks";
+    std::filesystem::create_directories(chunks_path.data());
 
-    std::ofstream os(path + "/world.dat", std::ios::binary);
+    std::ofstream os((path + "/world.dat").data(), std::ios::binary);
     ERR_COND_VR(!os.is_open(), "Failed to open {}/world.dat", m_name);
 
     std::vector<uint32_t> encoded_string_table;
@@ -46,7 +46,7 @@ void Save::save_info(const Ref<World>& world)
     // write the string table
     for (const auto& block : BlockRegistry::get_blocks())
     {
-        os.write(block->name().c_str(), (ssize_t)block->name().size() + 1); // copy also the null byte
+        os.write(block->name().data(), (ssize_t)block->name().size() + 1); // copy also the null byte
     }
 }
 
@@ -58,9 +58,9 @@ struct __attribute__((packed)) PosStatePair
 
 void Save::save_chunk(const Ref<Chunk>& chunk)
 {
-    const std::string path = get_path() + "/chunks/" + std::to_string(chunk->x()) + "$" + std::to_string(chunk->z()) + ".chunkdat";
+    const String path = get_path() + "/chunks/" + std::to_string(chunk->x()) + "$" + std::to_string(chunk->z()) + ".chunkdat";
 
-    std::ofstream os(path, std::ios::binary);
+    std::ofstream os(path.data(), std::ios::binary);
     ERR_COND_VR(!os.is_open(), "Failed to open {}/chunks/{}${}.chunkdat", m_name, chunk->x(), chunk->z());
 
     SavedChunkHeader header{};
@@ -93,8 +93,8 @@ void Save::save_chunk(const Ref<Chunk>& chunk)
 
 bool Save::chunk_exists(int64_t x, int64_t z)
 {
-    const std::string path = get_path() + "/chunks/" + std::to_string(x) + "$" + std::to_string(z) + ".chunkdat";
-    return std::filesystem::exists(path);
+    const String path = get_path() + "/chunks/" + std::to_string(x) + "$" + std::to_string(z) + ".chunkdat";
+    return std::filesystem::exists(path.data());
 }
 
 Ref<Chunk> Save::load_chunk(int64_t x, int64_t z)
@@ -130,7 +130,7 @@ Ref<Chunk> Save::load_chunk(int64_t x, int64_t z)
     return nullptr;
 }
 
-std::string Save::get_path()
+String Save::get_path()
 {
-    return get_data_directory() + "/" + std::string(saves_path) + "/" + m_name;
+    return get_data_directory() + "/" + saves_path + "/" + m_name;
 }

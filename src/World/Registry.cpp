@@ -1,5 +1,6 @@
 #include "World/Registry.hpp"
 #include "SDL3/SDL_surface.h"
+#include "nlohmann/json_fwd.hpp"
 
 #include <filesystem>
 #include <fstream>
@@ -18,6 +19,12 @@ struct BlockManifest
     std::vector<std::string> faces;
     std::optional<GradientType> gradient;
 };
+
+void from_json(const nlohmann::json& j, String& m)
+{
+    const auto s = j.get_ptr<const nlohmann::json::string_t *>();
+    m = String(s->data(), s->size());
+}
 
 void from_json(const nlohmann::json& j, BlockManifest& m)
 {
@@ -46,13 +53,13 @@ void BlockRegistry::load_blocks()
     for (auto& iter : std::filesystem::directory_iterator("assets/blocks"))
     {
         std::ifstream ifs(iter.path(), std::ifstream::ate);
-        std::string s;
+        String s;
         s.resize(ifs.tellg());
         ifs.seekg(0);
         ifs.read(s.data(), (std::streamsize)s.size());
 
-        BlockManifest block = nlohmann::json::parse(s.data());
-        std::array<std::string, 6> faces;
+        BlockManifest block = nlohmann::json::parse(std::string(s.data(), s.size()));
+        std::array<String, 6> faces;
 
         for (size_t i = 0; i < faces.size(); i++)
             faces[i] = block.faces[i];
@@ -129,13 +136,15 @@ void BlockRegistry::destroy()
     s_textures.clear();
 }
 
-uint32_t BlockRegistry::get_or_create(const std::string& name)
+uint32_t BlockRegistry::get_or_create(const String& name)
 {
     const auto id_pair = s_texture_by_name.find(name);
 
     if (id_pair == s_texture_by_name.end())
     {
-        std::string path = "assets/textures/" + name;
+        std::string path = "assets/textures/";
+        println("{} {}", name.data(), name.size());
+        path.append(name.data());
 
         Result<File> file = Filesystem::open_file(path);
         ERR_EXPECT_VR(file, 0, "Failed to open {}", path);

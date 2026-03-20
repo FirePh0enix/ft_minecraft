@@ -43,8 +43,7 @@ list(APPEND SOURCES
     src/Render/Driver.cpp
     src/Render/Graph.cpp
     src/Render/Shader.cpp
-    src/World/Pass/Surface.cpp
-    src/World/Pass/FlatSurface.cpp
+    src/World/Pass/Overworld.cpp
     src/World/Chunk.cpp
     src/World/Dimension.cpp
     src/World/Generator.cpp

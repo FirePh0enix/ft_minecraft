@@ -25,9 +25,9 @@ Chunk::~Chunk()
 
 struct Face
 {
-    uint32_t x;
-    uint32_t y;
-    uint32_t z;
+    uint8_t x;
+    uint8_t y;
+    uint8_t z;
     Axis axis;
     bool positive;
     uint32_t texture_index;
@@ -111,6 +111,7 @@ void Chunk::build_simple_mesh()
                     continue;
 
                 const Ref<Block>& block = BlockRegistry::get_block_by_id(m_blocks[index].id);
+                // println("{}", faces.size());
 
                 if (m_blocks[linearize(x - 1, y, z)].is_air())
                     faces.push_back(Face(x, y, z, Axis::X, false, block->get_texture_index(Axis::X, false)));

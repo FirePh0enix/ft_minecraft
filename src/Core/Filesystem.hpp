@@ -4,9 +4,9 @@
 
 #include "Core/Result.hpp"
 
-static inline std::string get_data_directory()
+static inline String get_data_directory()
 {
-    std::string path;
+    String path;
 
 #ifdef __platform_linux
     if (char *data_home = std::getenv("XDG_DATA_HOME"))
@@ -27,9 +27,9 @@ static inline std::string get_data_directory()
     return path;
 }
 
-static inline std::string get_config_directory()
+static inline String get_config_directory()
 {
-    std::string path;
+    String path;
 
 #ifdef __platform_linux
     if (char *data_home = std::getenv("XDG_CONFIG_HOME"))

@@ -40,10 +40,10 @@ void Console::exec()
     while ((pos = s.find(delimiter)) != std::string::npos)
     {
         token = s.substr(0, pos);
-        tokens.push_back(String(token));
+        tokens.push_back(String(token.data(), token.size()));
         s.erase(0, pos + delimiter.length());
     }
-    tokens.push_back(String(s));
+    tokens.push_back(String(s.data(), s.size()));
 
     const CommandInfo& info = m_commands[tokens[0]];
     Command command(m_commands[tokens[0]], tokens);

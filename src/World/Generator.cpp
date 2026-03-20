@@ -1,7 +1,6 @@
 #include "World/Generator.hpp"
 #include "Profiler.hpp"
 #include "World/Chunk.hpp"
-#include "World/Pass/Surface.hpp"
 #include "World/World.hpp"
 
 #include <algorithm>
@@ -24,9 +23,9 @@ Generator::~Generator()
     m_unload_thread.join();
 }
 
-void Generator::add_pass(Ref<GeneratorPass> pass)
+void Generator::add_pass(Ref<GenerationPass> pass)
 {
-    pass->set_seed(m_world->seed());
+    pass->update_seed(m_world->seed());
     m_passes.push_back(pass);
 }
 
@@ -125,16 +124,19 @@ Ref<Chunk> Generator::generate_chunk(int64_t cx, int64_t cy, int64_t cz)
 
     for (size_t index = 0; index < m_passes.size(); index++)
     {
-        Ref<GeneratorPass>& pass = m_passes[index];
+        Ref<GenerationPass>& pass = m_passes[index];
         for (int64_t x = 0; x < 18; x++)
         {
-            for (int64_t z = 0; z < 18; z++)
+            for (int64_t y = 0; y < 18; y++)
             {
-                int64_t gx = cx * 16 + (x - 1);
-                int64_t gy = cy * 16;
-                int64_t gz = cz * 16 + (z - 1);
+                for (int64_t z = 0; z < 18; z++)
+                {
+                    int64_t gx = cx * 16 + (x - 1);
+                    int64_t gy = cy * 16 + (y - 1);
+                    int64_t gz = cz * 16 + (z - 1);
 
-                pass->process(gx, gy, gz, x, z, chunk->get_blocks());
+                    pass->generate(gx, gy, gz, Chunk::linearize_with_overlap(x, y, z), chunk);
+                }
             }
         }
     }

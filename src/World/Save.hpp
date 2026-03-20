@@ -37,7 +37,7 @@ class Save
 public:
     static constexpr const char *saves_path = "saves/";
 
-    Save(std::string name);
+    Save(String name);
 
     /**
      * @brief Save world info and block table to the disk.
@@ -61,7 +61,7 @@ public:
     Ref<Chunk> load_chunk(int64_t x, int64_t z);
 
 private:
-    std::string m_name;
+    String m_name;
 
-    std::string get_path();
+    String get_path();
 };

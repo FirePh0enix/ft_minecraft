@@ -33,6 +33,13 @@ public:
      */
     String(const char *str, size_t size);
 
+    String(const std::string& s)
+        : String(s.data(), s.size())
+    {
+    }
+
+    // String(const std::string& s) = delete;
+
     String(const StringView& sv)
         : String(sv.data(), sv.size())
     {
@@ -98,7 +105,7 @@ public:
 protected:
     static std::strong_ordering compare(const char *str1, size_t size1, const char *str2, size_t size2)
     {
-        // TODO: Add our own constexpr implementation.
+        // TODO: Add our own constexpr implementation for strcmp.
 
         (void)size1;
         (void)size2;
@@ -148,8 +155,40 @@ protected:
     };
 };
 
-inline std::ostream& operator<<(std::ostream& os, const String& s)
+// inline std::ostream& operator<<(std::ostream& os, const String& s)
+// {
+//     os << s.data();
+//     return os;
+// }
+
+inline String operator+(const char *cstr, const String& s)
 {
-    os << s.data();
-    return os;
+    String r;
+    r.append(cstr, std::strlen(cstr));
+    r.append(s);
+    return r;
+}
+
+inline String operator+(const String& s, const char *cstr)
+{
+    String r;
+    r.append(s);
+    r.append(cstr, std::strlen(cstr));
+    return r;
+}
+
+inline String operator+(const String& s1, const String& s2)
+{
+    String r;
+    r.append(s1);
+    r.append(s2);
+    return r;
+}
+
+inline String operator+(const String& s1, const std::string& s2)
+{
+    String r;
+    r.append(s1);
+    r.append(s2.data(), s2.size());
+    return r;
 }

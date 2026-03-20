@@ -4,7 +4,7 @@
 #include "Render/Driver.hpp"
 #include "Render/Types.hpp"
 #include "World/Generator.hpp"
-#include "World/Pass/FlatSurface.hpp"
+#include "World/Pass/Overworld.hpp"
 
 World::World(uint64_t seed)
     : m_seed(seed)
@@ -17,17 +17,13 @@ World::World(uint64_t seed)
     m_shader->set_binding("model", Binding(BindingKind::UniformBuffer, ShaderStageFlagBits::Vertex, 0, 3, BindingAccess::Read, BindingBuffer(sizeof(Model))));
 
     m_shader->set_sampler("images", {.min_filter = Filter::Nearest, .mag_filter = Filter::Nearest});
-    // m_shader->add_push_constant_range(PushConstantRange(ShaderStageFlagBits::Vertex, sizeof(glm::mat4) * 2 + sizeof(float)));
-
-    // m_material = Material::create(shader, std::nullopt, MaterialFlagBits::Transparency, PolygonMode::Fill, CullMode::Back, UVType::UVT);
-    // m_material->set_param("images", BlockRegistry::get_texture_array());
-    // m_material->set_param("env", m_env_buffer);
 
     // Setup world generation
     m_generators[overworld] = newobj(Generator, this, overworld);
     m_generators[overworld]->set_distance(8);
-    // m_generators[overworld]->add_pass(newobj(SurfacePass));
-    m_generators[overworld]->add_pass(newobj(FlatSurfacePass, "stone"));
+
+    m_generators[overworld]->add_pass(newobj(OverworldBiomePass));
+    m_generators[overworld]->add_pass(newobj(OverworldSurfacePass));
 }
 
 World::~World()
