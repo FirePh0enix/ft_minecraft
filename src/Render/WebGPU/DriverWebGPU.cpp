@@ -834,8 +834,10 @@ void RenderingDriverWebGPU::draw_graph(const RenderGraph& graph)
     WGPUBuffer previous_index_buffer = nullptr;
     std::array<WGPUBuffer, 8> previous_vertex_buffers{};
 
+#ifndef __platform_web
     wgpuCommandEncoderWriteTimestamp(command_encoder, m_timestamp_query_set, 0);         // write time before rendering
     wgpuCommandEncoderWriteTimestamp(compute_command_encoder, m_timestamp_query_set, 2); // write time before computing
+#endif
 
     for (const auto& instruction : graph.get_instructions())
     {
@@ -916,13 +918,16 @@ void RenderingDriverWebGPU::draw_graph(const RenderGraph& graph)
             if (Ref<Material> material = bind.material.cast_to<Material>())
             {
                 WGPURenderPipeline pipeline = m_pipeline_cache.get(RenderPipelineCacheKey(bind.material, render_pass_descriptor.color_attachments, use_previous_depth_pass));
-                if (pipeline != previous_pipeline)
-                {
-                    wgpuRenderPassEncoderSetPipeline(render_pass_encoder, pipeline);
-                    previous_index_buffer = nullptr;
-                    previous_vertex_buffers.fill(nullptr);
-                }
-                previous_pipeline = pipeline;
+
+                auto pair = m_pipeline_cache.get_pair(RenderPipelineCacheKey(bind.material, render_pass_descriptor.color_attachments, use_previous_depth_pass));
+
+                // if (pipeline != previous_pipeline)
+                // {
+                wgpuRenderPassEncoderSetPipeline(render_pass_encoder, pipeline);
+                previous_index_buffer = nullptr;
+                previous_vertex_buffers.fill(nullptr);
+                // }
+                // previous_pipeline = pipeline;
 
                 WGPUBindGroup bind_group = m_bind_group_cache.get(bind.material);
                 // FIXME: this does not work for some reason
@@ -932,6 +937,7 @@ void RenderingDriverWebGPU::draw_graph(const RenderGraph& graph)
             }
             else if (Ref<ComputeMaterial> material = bind.material.cast_to<ComputeMaterial>())
             {
+                ASSERT(false, "not implemented");
                 WGPUComputePipeline pipeline = m_compute_pipeline_cache.get(ComputePipelineCacheKey(bind.material));
                 if (pipeline != previous_compute_pipeline)
                 {
@@ -982,8 +988,10 @@ void RenderingDriverWebGPU::draw_graph(const RenderGraph& graph)
         }
     }
 
+#ifndef __platform_web
     wgpuCommandEncoderWriteTimestamp(command_encoder, m_timestamp_query_set, 1);         // write time after rendering
     wgpuCommandEncoderWriteTimestamp(compute_command_encoder, m_timestamp_query_set, 3); // write time before computing
+#endif
 
     WGPUCommandBufferDescriptor compute_buffer_desc{};
     compute_buffer_desc.label = WGPU_STRING_VIEW("Compute CommandBuffer");
@@ -1318,6 +1326,13 @@ RenderGraphCache::RenderPass& RenderGraphCache::set_render_pass(uint32_t index, 
     }
     else
     {
+        // TODO: its an extremely UGLY hack, this part of the code should be rewritten from scratch as it does not supports.
+        //       switching to another rendering pipeline withing resiting the cache.
+        if (m_render_passes[index].attachments.size() != desc.color_attachments.size())
+        {
+            m_render_passes.clear();
+            return set_render_pass(index, desc);
+        }
         return m_render_passes[index];
     }
 }

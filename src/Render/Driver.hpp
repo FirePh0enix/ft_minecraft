@@ -472,6 +472,11 @@ public:
         }
     }
 
+    std::pair<Key, Value> get_pair(const Key& key)
+    {
+        return *m_objects.find(key);
+    }
+
 protected:
     virtual Value create_object(const Key& key) = 0;
 

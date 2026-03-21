@@ -100,8 +100,8 @@ void Player::move_and_collide()
             if (collision.penetration < closest_collision.penetration)
             {
                 closest_collision = collision;
-                println("> {} <> [ {} {} {} ]", collision.penetration, collision.normal.x, collision.normal.y, collision.normal.z);
-                println("  [ {} {} {} ]", block.center.x, block.center.y, block.center.z);
+                // println("> {} <> [ {} {} {} ]", collision.penetration, collision.normal.x, collision.normal.y, collision.normal.z);
+                // println("  [ {} {} {} ]", block.center.x, block.center.y, block.center.z);
             }
         }
 

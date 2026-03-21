@@ -2,6 +2,7 @@
 #include "Console.hpp"
 #include "Core/Logger.hpp"
 #include "Core/Registry.hpp"
+#include "Engine.hpp"
 #include "Entity/Camera.hpp"
 #include "Entity/Player.hpp"
 #include "Font.hpp"
@@ -40,7 +41,6 @@ static void register_all_classes();
 static void shutdown_callback();
 static void loop_update();
 static void update_callback();
-static void draw();
 
 static std::string default_config = R"(
 [player]
@@ -49,7 +49,8 @@ y=150.0
 z=0.0
 )";
 
-Ref<Window> window;
+Ref<Engine> engine;
+
 Ref<Entity> player;
 Ref<World> world;
 
@@ -69,25 +70,12 @@ MAIN(int argc, char *argv[])
     args.add_arg("connect-to", {.type = ArgType::String});
     args.parse(argv, argc);
 
-    window = newobj(Window, "ft_minecraft", 1280, 720);
-    // window->set_fullscreen(true);
-
-    Input::init(*window);
-    Input::load_config();
-
-    TracySetThreadName("Main");
-
     register_engine_classes();
     register_all_classes();
 
-#ifdef __has_webgpu
-    RenderingDriver::create_singleton<RenderingDriverWebGPU>();
-#else
-#error "WebGPU is the only API supported"
-#endif
+    engine = newobj(Engine, args);
 
-    (void)RenderingDriver::get()->initialize(*window, args.has("enable-gpu-validation"));
-    (void)RenderingDriver::get()->initialize_imgui(*window);
+    TracySetThreadName("Main");
 
     toml::table default_config2 = toml::operator""_toml(default_config.data(), default_config.size()).table();
     config2 = default_config2;
@@ -127,7 +115,7 @@ MAIN(int argc, char *argv[])
     emscripten_set_main_loop_arg([](void *engine)
                                  { ((Engine *)engine)->update_callback(); }, nullptr, 0, true);
 #else
-    while (window->is_running())
+    while (engine->is_running())
         loop_update();
 
     shutdown_callback();
@@ -151,99 +139,13 @@ static void update_callback()
     FrameMark;
     ZoneScoped;
 
-    std::optional<SDL_Event> event;
-
-    {
-        ZoneScopedN("handle events");
-
-        while ((event = window->poll_event()))
-        {
-            switch (event->type)
-            {
-            case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
-            {
-                window->close();
-            }
-            break;
-            case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
-            {
-                Result<> result = RenderingDriver::get()->configure_surface(event->window.data1, event->window.data2, VSync::On);
-                ERR_EXPECT_B(result, "Failed to configure the surface");
-
-                world->get_active_camera()->update_projection((float)event->window.data1 / (float)event->window.data2);
-
-                // TODO
-                // config.get_category("window").set("width", (int64_t)window->size().width);
-                // config.get_category("window").set("height", (int64_t)window->size().height);
-                // config.save_to("config.ini");
-            }
-            break;
-            default:
-                break;
-            }
-
-#ifdef __has_debug_menu
-            ImGui_ImplSDL3_ProcessEvent(&*event);
-
-            ImGuiIO& imgui_io = ImGui::GetIO();
-
-            if (imgui_io.WantCaptureMouse || imgui_io.WantCaptureKeyboard)
-            {
-                continue;
-            }
-#endif
-
-            Input::process_event(event.value());
-        }
-    }
-
-    RenderingDriver::get()->poll();
-
-#ifdef __has_debug_menu
-    {
-        // ZoneScopedN("tick.debug_menu");
-
-        // ImGui::NewFrame();
-
-        // if (ImGui::Begin("Commands"))
-        // {
-        //     ImGui::InputText("##", console.get_buffer(), console.get_buffer_size(), ImGuiInputTextFlags_None);
-        //     ImGui::SameLine();
-        //     if (ImGui::Button(">"))
-        //     {
-        //         console.exec();
-        //     }
-        // }
-        // ImGui::End();
-
-        // m_world->imgui_debug_window();
-    }
-#endif
-
     // TODO: Differentiate between rendering ticks and physics ticks.
-    world->tick(float(fixed_update_time));
+    engine->tick(float(fixed_update_time));
 
-    draw();
+    ImGui::NewFrame();
+    engine->draw();
 
     Input::post_events();
-}
-
-static void draw()
-{
-    // The first pass: Depth only
-    {
-        RenderPassEncoder encoder = RenderGraph::get().render_pass_begin({.name = "depth pass", .depth_attachment = RenderPassDepthAttachment{.save = true}});
-        world->draw(encoder);
-    }
-
-    // The main color pass.
-    {
-        RenderPassEncoder encoder = RenderGraph::get().render_pass_begin({.name = "main pass", .color_attachments = {RenderPassColorAttachment{.surface_texture = true}}, .depth_attachment = RenderPassDepthAttachment{.load = true}});
-        world->draw(encoder);
-    }
-
-    RenderingDriver::get()->draw_graph(RenderGraph::get());
-    RenderGraph::get().reset();
 }
 
 static void shutdown_callback()
@@ -253,7 +155,7 @@ static void shutdown_callback()
     // this stop the generator threads, needs to be done before destroying the RenderingDriver or it causes segmentation faults.
     world = nullptr;
 
-    window = nullptr;
+    engine = nullptr;
 
     BlockRegistry::destroy();
     // Font::deinit_library();

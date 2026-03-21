@@ -23,6 +23,7 @@ option(DETERMINISTIC "Try to guaranty deterministic maths" OFF)
 list(APPEND SOURCES
     src/Args.cpp
     src/Console.cpp
+    src/Engine.cpp
     src/Font.cpp
     src/Input.cpp
     src/main.cpp

@@ -29,6 +29,8 @@ struct RenderPipelineCacheKey
 
     bool operator<(const RenderPipelineCacheKey& other) const
     {
+        if (color_attachs.size() < other.color_attachs.size())
+            return true;
         return std::tie(material, color_attachs, previous_depth_pass) < std::tie(other.material, other.color_attachs, other.previous_depth_pass);
     }
 };
@@ -74,7 +76,7 @@ private:
 
 struct MaterialLayoutCacheKey
 {
-    Ref<MaterialBase> material = nullptr;
+    Ref<MaterialBase> material = nullptr; // TODO: replace with weak ref
 
     bool operator<(const MaterialLayoutCacheKey& other) const
     {
