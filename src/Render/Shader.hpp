@@ -24,12 +24,6 @@ enum class ShaderKind
     GLSL,
 };
 
-struct PushConstantRange
-{
-    ShaderStageFlags stages;
-    size_t size = 0;
-};
-
 class Shader : public Object
 {
     CLASS(Shader, Object);
@@ -60,11 +54,6 @@ public:
     void set_binding(const std::string& name, Binding binding)
     {
         m_bindings[name] = binding;
-    }
-
-    void add_push_constant_range(PushConstantRange range)
-    {
-        m_push_constants.push_back(range);
     }
 
     bool has_binding(const std::string& name) const
@@ -123,7 +112,6 @@ private:
 
     std::map<std::string, Binding> m_bindings;
     std::map<std::string, SamplerDescriptor> m_samplers;
-    std::vector<PushConstantRange> m_push_constants;
 
     std::map<ShaderStageFlagBits, std::string> m_entry_point_names;
 

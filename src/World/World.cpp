@@ -51,10 +51,6 @@ void World::draw(RenderPassEncoder& encoder)
     m_env.view_matrix = m_camera->get_view_proj_matrix();
     update_environment_buffer();
 
-    // DataBuffer push_constants(sizeof(glm::mat4) * 2 + sizeof(float));
-
-    // encoder.bind_material(m_material);
-
     for (const Ref<Chunk>& chunk : m_dims[0].get_visible_chunks())
     {
         ZoneScopedN("draw.iterate");
@@ -65,12 +61,7 @@ void World::draw(RenderPassEncoder& encoder)
         (void)aabb;
 
         // if (!m_camera->frustum().contains(aabb))
-        //    continue;
-
-        // push_constants.clear_keep_capacity();
-        // push_constants.add(view_matrix);
-        // push_constants.add(model_matrix);
-        // push_constants.add(0.0f);
+        //    continue;;
 
         encoder.bind_material(chunk->get_material());
 
@@ -81,7 +72,6 @@ void World::draw(RenderPassEncoder& encoder)
         encoder.bind_vertex_buffer(mesh->get_buffer(MeshBufferKind::Normal), 1);
         encoder.bind_vertex_buffer(mesh->get_buffer(MeshBufferKind::UV), 2);
 
-        // encoder.push_constants(push_constants);
         encoder.draw(mesh->vertex_count(), 1);
     }
 }

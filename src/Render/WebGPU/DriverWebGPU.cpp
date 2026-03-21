@@ -368,7 +368,6 @@ MaterialLayoutCacheValue MaterialLayoutCache::create_object(const MaterialLayout
     WGPUBindGroupLayout bind_group_layout = wgpuDeviceCreateBindGroupLayout(RenderingDriverWebGPU::get()->get_device(), &bind_group_desc);
     ERR_COND_R(bind_group_layout == nullptr, "BindGroupLayout is invalid", {});
 
-    // std::array<WGPUBindGroupLayout, 2> layouts{bind_group_layout, m_push_constant_layout};
     std::array<WGPUBindGroupLayout, 1> layouts{bind_group_layout};
 
     WGPUPipelineLayoutDescriptor pipeline_layout_desc{};
@@ -656,13 +655,8 @@ Result<> RenderingDriverWebGPU::initialize(const Window& window, bool enable_val
         .userdata2 = nullptr,
     };
 
-    WGPUNativeLimits native_limits{};
-    native_limits.chain = {.next = nullptr, .sType = (WGPUSType)WGPUSType_NativeLimits};
-    native_limits.maxPushConstantSize = 144; // Vulkan by spec requires minimum of 128 bytes
-
     WGPULimits limits{};
     wgpuAdapterGetLimits(m_adapter, &limits);
-    limits.nextInChain = &native_limits.chain;
 
     device_desc.requiredLimits = &limits;
 
@@ -681,21 +675,6 @@ Result<> RenderingDriverWebGPU::initialize(const Window& window, bool enable_val
     m_queue = wgpuDeviceGetQueue(m_device);
     if (!m_queue)
         return Error(ErrorKind::BadDriver);
-
-    // Create a bind group for push constants since WebGPU does not support them.
-    // WGPUBindGroupLayoutEntry bind_group_entry{};
-    // bind_group_entry.binding = 0;
-    // bind_group_entry.buffer.type = WGPUBufferBindingType_Uniform;
-    // bind_group_entry.visibility = WGPUShaderStage_Vertex;
-
-    // WGPUBindGroupLayoutDescriptor push_constant_desc{};
-    // push_constant_desc.entryCount = 1;
-    // push_constant_desc.entries = &bind_group_entry;
-
-    // m_push_constant_layout = m_device.CreateBindGroupLayout(&push_constant_desc);
-    // m_push_constant_layout = wgpuDeviceCreateBindGroupLayout(m_device, &push_constant_desc);
-    // if (!m_push_constant_layout)
-    //     return Error(ErrorKind::BadDriver);
 
     YEET(configure_surface(window.size().width, window.size().height, VSync::On));
 

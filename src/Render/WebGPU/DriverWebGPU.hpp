@@ -214,11 +214,6 @@ public:
         return m_material_layout_cache;
     }
 
-    // inline WGPUBindGroupLayout get_push_constant_layout()
-    // {
-    //     return m_push_constant_layout;
-    // }
-
     WGPUShaderModule create_shader_module(const Ref<Shader>& shader);
 
     WGPUSurface create_surface(WGPUInstance instance, SDL_Window *window);
@@ -231,8 +226,6 @@ private:
     WGPUQueue m_queue = nullptr;
 
     WGPUQuerySet m_timestamp_query_set = nullptr;
-
-    // WGPUBindGroupLayout m_push_constant_layout; // TODO: Re-implement a push constant buffer to emulate them on web
 
     WGPUTextureFormat m_surface_format = WGPUTextureFormat_Undefined;
 

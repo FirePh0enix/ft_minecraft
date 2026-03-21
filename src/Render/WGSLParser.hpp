@@ -56,7 +56,6 @@ enum class WGSLAddressSpace
 {
     Uniform,
     Storage,
-    PushConstants,
 };
 
 struct WGSLVar
