@@ -98,7 +98,11 @@ void Player::move_and_collide()
         {
             const CollisionResult collision = sweep_aabb(pbox, block, m_velocity);
             if (collision.penetration < closest_collision.penetration)
+            {
                 closest_collision = collision;
+                println("> {} <> [ {} {} {} ]", collision.penetration, collision.normal.x, collision.normal.y, collision.normal.z);
+                println("  [ {} {} {} ]", block.center.x, block.center.y, block.center.z);
+            }
         }
 
         if (closest_collision.penetration != 1.0)
