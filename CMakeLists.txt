@@ -253,11 +253,11 @@ elseif(TARGET_IS_ALPINE_LINUX)
 endif()
 
 # SDL
-find_package(SDL3)
+# find_package(SDL3)
 
-if (SDL3_FOUND)
-    target_link_libraries(${TARGET_NAME} PUBLIC SDL3::SDL3)
-else()
+# if (SDL3_FOUND)
+#     target_link_libraries(${TARGET_NAME} PUBLIC SDL3::SDL3)
+# else()
     set(SDL_STATIC ON)
     set(SDL_DEPS_SHARED ON)
 
@@ -275,7 +275,6 @@ else()
         set(SDL_METAL ON)
     endif()
 
-
     FetchContent_Declare(
         SDL
         GIT_REPOSITORY https://github.com/libsdl-org/SDL
@@ -283,14 +282,14 @@ else()
     )
     FetchContent_MakeAvailable(SDL)
     target_link_libraries(${TARGET_NAME} PUBLIC SDL3::SDL3)
-endif()
+# endif()
 
 # SDL_image
-find_package(SDL3_image)
+# find_package(SDL3_image)
 
-if (SDL3_image_FOUND)
-    target_link_libraries(${TARGET_NAME} PUBLIC SDL3_image::SDL3_image)
-else()
+# if (SDL3_image_FOUND)
+#     target_link_libraries(${TARGET_NAME} PUBLIC SDL3_image::SDL3_image)
+# else()
     FetchContent_Declare(
         SDL_image
         GIT_REPOSITORY https://github.com/libsdl-org/SDL_image
@@ -298,7 +297,7 @@ else()
     )
     FetchContent_MakeAvailable(SDL_image)
     target_link_libraries(${TARGET_NAME} PUBLIC SDL3_image::SDL3_image)
-endif()
+# endif()
 
 # ImGui
 FetchContent_Declare(

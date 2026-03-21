@@ -72,6 +72,7 @@ glm::vec2 Input::get_vector(const std::string& x_negative, const std::string& x_
 void Input::set_mouse_grabbed(bool value)
 {
     s_mouse_grabbed = value;
+
 #ifndef __platform_web
     SDL_SetWindowRelativeMouseMode(s_window, value);
 #endif

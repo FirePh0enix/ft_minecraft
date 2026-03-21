@@ -70,6 +70,8 @@ MAIN(int argc, char *argv[])
     args.parse(argv, argc);
 
     window = newobj(Window, "ft_minecraft", 1280, 720);
+    // window->set_fullscreen(true);
+
     Input::init(*window);
     Input::load_config();
 

@@ -536,8 +536,8 @@ RenderingDriverWebGPU::~RenderingDriverWebGPU()
     m_sampler_cache.clear();
     m_pipeline_cache.clear();
 
-    wgpuSurfaceUnconfigure(m_surface);
-    wgpuSurfaceRelease(m_surface);
+    // wgpuSurfaceUnconfigure(m_surface);
+    // wgpuSurfaceRelease(m_surface);
 
     wgpuDeviceRelease(m_device);
     wgpuInstanceRelease(m_instance);

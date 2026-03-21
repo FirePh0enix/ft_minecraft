@@ -6,13 +6,12 @@
 #include "Profiler.hpp"
 #include "World/Dimension.hpp"
 #include "World/Registry.hpp"
-#include "glm/gtc/epsilon.hpp"
 
 #include <cmath>
 
 static float line_to_plane(glm::vec3 p, glm::vec3 u, glm::vec3 v, glm::vec3 n)
 {
-    const float n_dot_u = n.x * u.x + n.y * u.y + n.z * u.z;
+    const float n_dot_u = glm::dot(n, u);
     if (n_dot_u == 0)
         return INFINITY;
     return (n.x * (v.x - p.x) + n.y * (v.y - p.y) + n.z * (v.z - p.z)) / n_dot_u;
@@ -102,8 +101,15 @@ void Player::move_and_collide()
                 closest_collision = collision;
         }
 
-        const float margin = 0.001;
-        m_transform.position() += closest_collision.penetration * m_velocity + margin * closest_collision.normal;
+        if (closest_collision.penetration != 1.0)
+        {
+            const float margin = 0.001;
+            m_transform.position() += closest_collision.penetration * m_velocity + margin * closest_collision.normal;
+        }
+        else
+        {
+            m_transform.position() += m_velocity;
+        }
 
         // TODO: what if its not possible to resolve a collision ? it should not infinite loop
         if (closest_collision.penetration == 1.0)

@@ -65,8 +65,8 @@ public:
     ALWAYS_INLINE Ref<Material> get_material() const { return m_material; }
     ALWAYS_INLINE Ref<Mesh> get_mesh() const { return m_mesh; }
 
-    static ALWAYS_INLINE size_t linearize(int64_t x, int64_t y, int64_t z) { return (z + 1) * (width + 2) * (width + 2) + (y + 1) * (width + 2) + (x + 1); }
-    static ALWAYS_INLINE size_t linearize_with_overlap(int64_t x, int64_t y, int64_t z) { return z * (width + 2) * (width + 2) + y * (width + 2) + x; }
+    static ALWAYS_INLINE size_t linearize(int64_t x, int64_t y, int64_t z) { return (z + 1) * width_with_overlap * width_with_overlap + (y + 1) * width_with_overlap + (x + 1); }
+    static ALWAYS_INLINE size_t linearize_with_overlap(int64_t x, int64_t y, int64_t z) { return z * width_with_overlap * width_with_overlap + y * width_with_overlap + x; }
 
 private:
     BlockState m_blocks[block_count_with_overlap];
