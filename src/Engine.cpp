@@ -7,6 +7,7 @@
 #include "Render/Graph.hpp"
 #include "Render/WebGPU/DriverWebGPU.hpp"
 #include "imgui.h"
+#include <string>
 
 Engine::Engine(const Args& args)
 {
@@ -118,6 +119,8 @@ void Engine::draw_main_menu()
             {
             }
 
+            ImGui::InputText("Seed", m_world_seed_buf, sizeof(m_world_seed_buf));
+
             if (ImGui::Button("Play"))
             {
                 create_world_and_start();
@@ -157,7 +160,7 @@ void Engine::draw_world_scene()
 
 void Engine::create_world_and_start()
 {
-    uint64_t seed = 1;
+    uint64_t seed = std::stoull(m_world_seed_buf);
     m_world = newobj(World, seed);
 
     Ref<Camera> camera = newobj(Camera);
