@@ -32,7 +32,7 @@ private:
 
     // main menu stuff
     int m_main_menu_world_type = 0;
-    char m_world_seed_buf[16] = "0";
+    char m_world_seed_buf[32] = "0";
 
     void draw_main_menu();
     void draw_world_scene();

@@ -2,7 +2,6 @@
 
 #include "Core/Class.hpp"
 #include "Render/Driver.hpp"
-#include "webgpu/webgpu.h"
 
 #include <map>
 
@@ -11,6 +10,7 @@
 #include <emscripten/html5_webgpu.h>
 #include <webgpu/webgpu.h>
 #else
+#include <webgpu/webgpu.h>
 #include <webgpu/wgpu.h>
 #endif
 
@@ -29,8 +29,14 @@ struct RenderPipelineCacheKey
 
     bool operator<(const RenderPipelineCacheKey& other) const
     {
-        if (color_attachs.size() < other.color_attachs.size())
-            return true;
+        // FIXME : :D{":WAKDp/owoaksj fv;lnw GFukw ieush fvamilergthliBAOWFEVHI/WEuhj"}
+        // if (previous_depth_pass >= other.previous_depth_pass)
+        //     return false;
+        // if (color_attachs.size() >= other.color_attachs.size())
+        //     return false;
+        // if (material >= other.material)
+        //     return false;
+        // return true;
         return std::tie(material, color_attachs, previous_depth_pass) < std::tie(other.material, other.color_attachs, other.previous_depth_pass);
     }
 };

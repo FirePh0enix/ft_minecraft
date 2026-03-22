@@ -96,9 +96,9 @@ Ref<Mesh> Mesh::create_from_data(const View<uint8_t>& indices, const View<glm::v
     return newobj(Mesh, vertex_count, index_type, uv_type, index_buffer, vertex_buffer, normal_buffer, uv_buffer);
 }
 
-Ref<Material> Material::create(const Ref<Shader>& shader, std::optional<InstanceLayout> instance_layout, MaterialFlags flags, PolygonMode polygon_mode, CullMode cull_mode, UVType uv_type)
+Ref<Material> Material::create(const Ref<Shader>& shader, std::optional<InstanceLayout> instance_layout, MaterialFlags flags, PolygonMode polygon_mode, CullMode cull_mode, UVType uv_type, std::string name)
 {
-    return newobj(Material, shader, instance_layout, flags, polygon_mode, cull_mode, uv_type);
+    return newobj(Material, shader, instance_layout, flags, polygon_mode, cull_mode, uv_type, name);
 }
 
 Ref<ComputeMaterial> ComputeMaterial::create(const Ref<Shader>& shader)

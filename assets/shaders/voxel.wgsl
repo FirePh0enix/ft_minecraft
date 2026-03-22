@@ -36,8 +36,8 @@ struct VertexOutput
 
 @group(0) @binding(0) var images: texture_2d_array<f32>;
 @group(0) @binding(1) var images_sampler: sampler;
-@group(0) @binding(2) var<uniform> env : Enviromnent;
-@group(0) @binding(3) var<uniform> model : Model;
+@group(0) @binding(2) var<uniform> env: Enviromnent;
+@group(0) @binding(3) var<uniform> model: Model;
 
 @vertex
 fn vertex_main(vertex: VertexInput) -> VertexOutput {

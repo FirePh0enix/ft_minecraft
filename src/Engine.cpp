@@ -5,8 +5,10 @@
 #include "Input.hpp"
 #include "Profiler.hpp"
 #include "Render/Graph.hpp"
+#include "Render/ImGUIToolKit.hpp"
 #include "Render/WebGPU/DriverWebGPU.hpp"
 #include "imgui.h"
+
 #include <string>
 
 Engine::Engine(const Args& args)
@@ -24,8 +26,6 @@ Engine::Engine(const Args& args)
 
     (void)RenderingDriver::get()->initialize(*m_window, args.has("enable-gpu-validation"));
     (void)RenderingDriver::get()->initialize_imgui(*m_window);
-
-    // create_world_and_start();
 }
 
 void Engine::tick(float delta)
@@ -110,10 +110,17 @@ void Engine::draw_main_menu()
     {
         RenderPassEncoder encoder = RenderGraph::get().render_pass_begin({.name = "main pass", .color_attachments = {RenderPassColorAttachment{.surface_texture = true}}, .depth_attachment = RenderPassDepthAttachment{}});
 
-        ImGui::SetNextWindowPos(ImVec2());
-        ImGui::SetNextWindowSize(ImVec2(window_size.width, window_size.height));
+        const float size_x = (float)window_size.width * 0.4f;
+        const float size_y = (float)window_size.height * 0.6f;
+
+        ImGui::SetNextWindowPos(ImVec2(window_size.width / 2 - size_x / 2, window_size.height / 2 - size_y / 2));
+        ImGui::SetNextWindowSize(ImVec2(size_x, size_y));
         if (ImGui::Begin("Main Menu", nullptr, ImGuiWindowFlags_NoDecoration))
         {
+            imguitk_centered_next_widget("Main Menu");
+            ImGui::Text("Main Menu");
+            ImGui::NewLine();
+
             const char *types[] = {"flat", "normal"};
             if (ImGui::Combo("World Type", &m_main_menu_world_type, types, 2))
             {
@@ -121,6 +128,7 @@ void Engine::draw_main_menu()
 
             ImGui::InputText("Seed", m_world_seed_buf, sizeof(m_world_seed_buf));
 
+            imguitk_centered_next_widget("Play");
             if (ImGui::Button("Play"))
             {
                 create_world_and_start();
@@ -147,7 +155,7 @@ void Engine::draw_world_scene()
     // The main color pass.
     {
         RenderPassEncoder encoder = RenderGraph::get().render_pass_begin({.name = "main pass", .color_attachments = {RenderPassColorAttachment{.surface_texture = true}}, .depth_attachment = RenderPassDepthAttachment{.load = true}});
-        m_world->draw(encoder);
+        m_world->draw(encoder, true);
 
 #if defined(__has_debug_menu)
         encoder.imgui();
@@ -163,15 +171,9 @@ void Engine::create_world_and_start()
     uint64_t seed = std::stoull(m_world_seed_buf);
     m_world = newobj(World, seed);
 
-    Ref<Camera> camera = newobj(Camera);
-    camera->get_transform().position() = glm::vec3(0, 0.85, 0);
-
     m_player = newobj(Player);
     m_player->get_transform().position() = glm::vec3(0, 15.0, 0);
-    m_player->add_child(camera);
-
     m_world->add_entity(World::overworld, m_player);
-    m_world->set_active_camera(camera);
 
     m_scene = EngineScene::World;
 }

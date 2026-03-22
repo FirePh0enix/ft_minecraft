@@ -2,6 +2,7 @@
 
 #include "Core/Class.hpp"
 #include "Core/Containers/View.hpp"
+#include "Core/Definitions.hpp"
 #include "Core/Ref.hpp"
 #include "Core/Result.hpp"
 #include "Render/Shader.hpp"
@@ -231,10 +232,10 @@ class Material : public MaterialBase
     CLASS(Material, MaterialBase);
 
 public:
-    static Ref<Material> create(const Ref<Shader>& shader, std::optional<InstanceLayout> instance_layout = std::nullopt, MaterialFlags flags = MaterialFlagBits::None, PolygonMode polygon_mode = PolygonMode::Fill, CullMode cull_mode = CullMode::Back, UVType uv_type = UVType::UV);
+    static Ref<Material> create(const Ref<Shader>& shader, std::optional<InstanceLayout> instance_layout = std::nullopt, MaterialFlags flags = MaterialFlagBits::None, PolygonMode polygon_mode = PolygonMode::Fill, CullMode cull_mode = CullMode::Back, UVType uv_type = UVType::UV, std::string name = "");
 
-    Material(const Ref<Shader>& shader, std::optional<InstanceLayout> instance_layout, MaterialFlags flags, PolygonMode polygon_mode, CullMode cull_mode, UVType uv_type)
-        : MaterialBase(shader), m_instance_layout(instance_layout), m_flags(flags), m_polygon_mode(polygon_mode), m_cull_mode(cull_mode), m_uv_type(uv_type)
+    Material(const Ref<Shader>& shader, std::optional<InstanceLayout> instance_layout, MaterialFlags flags, PolygonMode polygon_mode, CullMode cull_mode, UVType uv_type, std::string name)
+        : MaterialBase(shader), m_instance_layout(instance_layout), m_flags(flags), m_polygon_mode(polygon_mode), m_cull_mode(cull_mode), m_uv_type(uv_type), m_name(name)
     {
     }
 
@@ -261,14 +262,15 @@ public:
     }
 
     ALWAYS_INLINE UVType get_uv_type() const { return m_uv_type; }
+    ALWAYS_INLINE std::string get_name() const { return m_name; }
 
 private:
-    std::optional<InstanceLayout>
-        m_instance_layout;
+    std::optional<InstanceLayout> m_instance_layout;
     MaterialFlags m_flags;
     PolygonMode m_polygon_mode;
     CullMode m_cull_mode;
     UVType m_uv_type;
+    std::string m_name;
 };
 
 /**

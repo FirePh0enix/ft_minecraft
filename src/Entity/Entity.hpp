@@ -2,6 +2,7 @@
 
 #include "Core/Class.hpp"
 #include "Core/Ref.hpp"
+#include "Render/Graph.hpp"
 #include "Transform3D.hpp"
 
 class World;
@@ -57,6 +58,15 @@ public:
     virtual void tick(float delta)
     {
         (void)delta;
+    }
+
+    virtual void draw(RenderPassEncoder& encoder)
+    {
+        (void)encoder;
+    }
+
+    virtual void on_ready()
+    {
     }
 
     ALWAYS_INLINE EntityId id() const { return m_id; }

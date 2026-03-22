@@ -1,6 +1,10 @@
 #pragma once
 
 #include "Core/Ref.hpp"
+#include "Entity/Camera.hpp"
+#include "Entity/Entity.hpp"
+#include "Render/Graph.hpp"
+#include "World/Block.hpp"
 #include "World/World.hpp"
 
 class Player : public Entity
@@ -8,13 +12,14 @@ class Player : public Entity
     CLASS(Player, Entity);
 
 public:
-    Player()
-    {
-    }
+    Player();
 
     virtual ~Player() {}
 
     virtual void tick(float delta) override;
+    virtual void draw(RenderPassEncoder& encoder) override;
+
+    void on_ready() override;
 
     void move_and_collide();
 
@@ -44,17 +49,19 @@ public:
 private:
     Ref<Camera> m_camera;
 
-    Ref<Mesh> m_cube_mesh;
-    Ref<Entity> m_cube_highlight;
-
     glm::vec3 m_velocity = glm::vec3(0.0);
 
     float m_speed = 50.0;
     float m_gravity_value = 9.81;
-    bool m_gravity_enabled = true;
+    bool m_gravity_enabled = false;
 
     bool m_has_jumped = false;
     bool m_on_ground = false;
 
-    void on_block_aimed(BlockState state, int64_t x, int64_t y, int64_t z, glm::vec3 dir);
+    std::optional<glm::vec3> m_aimed_block = std::nullopt;
+    Ref<Mesh> m_highlight_mesh;
+    Ref<Shader> m_highlight_shader;
+    Ref<Material> m_highlight_material;
+    Model m_highlight_model;
+    Ref<Buffer> m_highlight_model_buffer;
 };

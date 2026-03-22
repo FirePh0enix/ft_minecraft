@@ -42,9 +42,15 @@ void World::tick(float delta)
     m_generators[overworld]->load_around(int64_t(player_pos.x), int64_t(player_pos.y), int64_t(player_pos.z));
 }
 
-void World::draw(RenderPassEncoder& encoder)
+void World::draw(RenderPassEncoder& encoder, bool include_entities)
 {
     ZoneScoped;
+
+    if (include_entities)
+    {
+        for (Ref<Entity> entity : m_dims[0].get_entities())
+            entity->draw(encoder);
+    }
 
     std::lock_guard<std::mutex> guard(m_dims[0].mutex());
 
@@ -132,6 +138,30 @@ void World::set_active_camera(Ref<Camera> camera)
 {
     m_camera = camera;
     update_environment_buffer();
+}
+
+std::optional<RaycastResult> World::raycast(const Ray& ray, float range)
+{
+    float t = 0.0;
+    while (t < range)
+    {
+        glm::vec3 pos = ray.at(t);
+
+        int64_t x = (int64_t)(pos.x + 0.5);
+        int64_t y = (int64_t)(pos.y + 0.5);
+        int64_t z = (int64_t)(pos.z + 0.5);
+
+        BlockState state = get_block_state(x, y, z);
+
+        if (!state.is_air())
+        {
+            return RaycastResult{.x = x, .y = y, .z = z};
+        }
+
+        t += 0.1;
+    }
+
+    return std::nullopt;
 }
 
 void World::update_environment_buffer()

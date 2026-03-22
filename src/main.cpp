@@ -92,19 +92,6 @@ MAIN(int argc, char *argv[])
     // EXPECT(font_result);
     // Ref<Font> font = font_result.value();
 
-    uint64_t seed = 1;
-    world = newobj(World, seed);
-
-    Ref<Camera> camera = newobj(Camera);
-    camera->get_transform().position() = glm::vec3(0, 0.85, 0);
-
-    player = newobj(Player);
-    player->get_transform().position() = glm::vec3(0, 15.0, 0);
-    player->add_child(camera);
-
-    world->add_entity(World::overworld, player);
-    world->set_active_camera(camera);
-
     if (args.has("disable-save"))
     {
         // TODO

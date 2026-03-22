@@ -123,20 +123,13 @@ public:
         return *m_ptr;
     }
 
-    ALWAYS_INLINE bool operator==(const Ref& other) const
-    {
-        return m_ptr == other.m_ptr;
-    }
+    ALWAYS_INLINE bool operator==(const Ref& other) const { return m_ptr == other.m_ptr; }
+    ALWAYS_INLINE bool operator!=(const Ref& other) const { return m_ptr != other.m_ptr; }
 
-    ALWAYS_INLINE bool operator!=(const Ref& other) const
-    {
-        return m_ptr != other.m_ptr;
-    }
-
-    ALWAYS_INLINE bool operator<(const Ref& other) const
-    {
-        return m_ptr < other.m_ptr;
-    }
+    ALWAYS_INLINE bool operator<(const Ref& other) const { return m_ptr < other.m_ptr; }
+    ALWAYS_INLINE bool operator<=(const Ref& other) const { return m_ptr <= other.m_ptr; }
+    ALWAYS_INLINE bool operator>(const Ref& other) const { return m_ptr > other.m_ptr; }
+    ALWAYS_INLINE bool operator>=(const Ref& other) const { return m_ptr >= other.m_ptr; }
 
     ALWAYS_INLINE operator bool() const
     {

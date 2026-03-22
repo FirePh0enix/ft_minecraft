@@ -826,14 +826,6 @@ void RenderingDriverWebGPU::draw_graph(const RenderGraph& graph)
     uint32_t render_pass_index = 0;
     bool use_previous_depth_pass = false;
 
-    WGPURenderPipeline previous_pipeline = nullptr;
-    WGPUBindGroup previous_bind_group = nullptr;
-    WGPUComputePipeline previous_compute_pipeline = nullptr;
-    WGPUBindGroup previous_compute_bind_group = nullptr;
-
-    WGPUBuffer previous_index_buffer = nullptr;
-    std::array<WGPUBuffer, 8> previous_vertex_buffers{};
-
 #ifndef __platform_web
     wgpuCommandEncoderWriteTimestamp(command_encoder, m_timestamp_query_set, 0);         // write time before rendering
     wgpuCommandEncoderWriteTimestamp(compute_command_encoder, m_timestamp_query_set, 2); // write time before computing
@@ -898,18 +890,14 @@ void RenderingDriverWebGPU::draw_graph(const RenderGraph& graph)
         {
             const BindIndexBufferInstruction& bind = std::get<BindIndexBufferInstruction>(instruction);
             const Ref<BufferWebGPU>& buffer = bind.buffer.cast_to<BufferWebGPU>();
-            if (buffer->buffer != previous_index_buffer)
-                wgpuRenderPassEncoderSetIndexBuffer(render_pass_encoder, buffer->buffer, convert_index_type(bind.index_type), 0, buffer->size_bytes());
-            previous_index_buffer = buffer->buffer;
+            wgpuRenderPassEncoderSetIndexBuffer(render_pass_encoder, buffer->buffer, convert_index_type(bind.index_type), 0, buffer->size_bytes());
         }
         else if (std::holds_alternative<BindVertexBufferInstruction>(instruction))
         {
             const BindVertexBufferInstruction& bind = std::get<BindVertexBufferInstruction>(instruction);
             const Ref<BufferWebGPU>& buffer = bind.buffer.cast_to<BufferWebGPU>();
 
-            if (buffer->buffer != previous_vertex_buffers[bind.location])
-                wgpuRenderPassEncoderSetVertexBuffer(render_pass_encoder, bind.location, buffer->buffer, 0, buffer->size_bytes());
-            previous_vertex_buffers[bind.location] = buffer->buffer;
+            wgpuRenderPassEncoderSetVertexBuffer(render_pass_encoder, bind.location, buffer->buffer, 0, buffer->size_bytes());
         }
         else if (std::holds_alternative<BindMaterialInstruction>(instruction))
         {
@@ -920,37 +908,22 @@ void RenderingDriverWebGPU::draw_graph(const RenderGraph& graph)
                 WGPURenderPipeline pipeline = m_pipeline_cache.get(RenderPipelineCacheKey(bind.material, render_pass_descriptor.color_attachments, use_previous_depth_pass));
 
                 auto pair = m_pipeline_cache.get_pair(RenderPipelineCacheKey(bind.material, render_pass_descriptor.color_attachments, use_previous_depth_pass));
-
-                // if (pipeline != previous_pipeline)
-                // {
                 wgpuRenderPassEncoderSetPipeline(render_pass_encoder, pipeline);
-                previous_index_buffer = nullptr;
-                previous_vertex_buffers.fill(nullptr);
-                // }
-                // previous_pipeline = pipeline;
 
                 WGPUBindGroup bind_group = m_bind_group_cache.get(bind.material);
-                // FIXME: this does not work for some reason
-                // if (bind_group != previous_bind_group)
                 wgpuRenderPassEncoderSetBindGroup(render_pass_encoder, 0, bind_group, 0, nullptr);
-                // previous_bind_group = bind_group;
+
+                println("Material `{}`, pipeline = {}, bind_group = {}", material->get_name(), pipeline, bind_group);
             }
             else if (Ref<ComputeMaterial> material = bind.material.cast_to<ComputeMaterial>())
             {
                 ASSERT(false, "not implemented");
+
                 WGPUComputePipeline pipeline = m_compute_pipeline_cache.get(ComputePipelineCacheKey(bind.material));
-                if (pipeline != previous_compute_pipeline)
-                {
-                    wgpuComputePassEncoderSetPipeline(compute_pass_encoder, pipeline);
-                    previous_index_buffer = nullptr;
-                    previous_vertex_buffers.fill(nullptr);
-                }
-                previous_compute_pipeline = pipeline;
+                wgpuComputePassEncoderSetPipeline(compute_pass_encoder, pipeline);
 
                 WGPUBindGroup bind_group = m_bind_group_cache.get(bind.material);
-                if (bind_group != previous_compute_bind_group)
-                    wgpuComputePassEncoderSetBindGroup(compute_pass_encoder, 0, bind_group, 0, nullptr);
-                previous_compute_bind_group = bind_group;
+                wgpuComputePassEncoderSetBindGroup(compute_pass_encoder, 0, bind_group, 0, nullptr);
             }
         }
         else if (std::holds_alternative<BeginComputePassInstruction>(instruction))
@@ -1149,8 +1122,6 @@ Result<WGPURenderPipeline> RenderingDriverWebGPU::create_render_pipeline(Ref<Sha
     depth_state.depthWriteEnabled = WGPUOptionalBool_True;
 
     if (previous_depth_pass)
-        depth_state.depthCompare = WGPUCompareFunction_Equal;
-    else if (flags.has_any(MaterialFlagBits::DrawBeforeEverything))
         depth_state.depthCompare = WGPUCompareFunction_LessEqual;
     else
         depth_state.depthCompare = WGPUCompareFunction_Less;

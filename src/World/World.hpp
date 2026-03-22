@@ -2,6 +2,7 @@
 
 #include "Core/Definitions.hpp"
 #include "Entity/Camera.hpp"
+#include "Ray.hpp"
 #include "Render/Driver.hpp"
 #include "Render/Graph.hpp"
 #include "World/Chunk.hpp"
@@ -14,6 +15,13 @@ struct Environment
     glm::f32 time = 0.0;
 };
 STRUCT(Environment);
+
+struct RaycastResult
+{
+    int64_t x;
+    int64_t y;
+    int64_t z;
+};
 
 class World : public Object
 {
@@ -35,7 +43,7 @@ public:
     /**
      *  Draw all the blocks and entities.
      */
-    void draw(RenderPassEncoder& encoder);
+    void draw(RenderPassEncoder& encoder, bool include_entities = false);
 
     BlockState get_block_state(int64_t x, int64_t y, int64_t z) const;
     void set_block_state(int64_t x, int64_t y, int64_t z, BlockState state);
@@ -77,8 +85,13 @@ public:
     {
         entity->m_world = this;
         entity->m_dimension = dimension;
+        entity->on_ready();
         m_dims[dimension].add_entity(entity);
     }
+
+    ALWAYS_INLINE const Ref<Buffer>& get_env_buffer() const { return m_env_buffer; };
+
+    std::optional<RaycastResult> raycast(const Ray& ray, float range);
 
     static EntityId next_id()
     {
