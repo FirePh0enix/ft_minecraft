@@ -913,7 +913,7 @@ void RenderingDriverWebGPU::draw_graph(const RenderGraph& graph)
                 WGPUBindGroup bind_group = m_bind_group_cache.get(bind.material);
                 wgpuRenderPassEncoderSetBindGroup(render_pass_encoder, 0, bind_group, 0, nullptr);
 
-                println("Material `{}`, pipeline = {}, bind_group = {}", material->get_name(), pipeline, bind_group);
+                // println("Material `{}`, pipeline = {}, bind_group = {}", material->get_name(), pipeline, bind_group);
             }
             else if (Ref<ComputeMaterial> material = bind.material.cast_to<ComputeMaterial>())
             {

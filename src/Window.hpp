@@ -16,7 +16,7 @@ public:
     {
     }
 
-    Window(const std::string& title, uint32_t width, uint32_t height, bool resizable = false);
+    Window(const String& title, uint32_t width, uint32_t height, bool resizable = false);
     ~Window();
 
     Extent2D size() const;

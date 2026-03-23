@@ -59,14 +59,16 @@ void BlockRegistry::load_blocks()
         ifs.read(s.data(), (std::streamsize)s.size());
 
         BlockManifest block = nlohmann::json::parse(std::string(s.data(), s.size()));
-        std::array<std::string, 6> faces;
+        std::array<String, 6> faces;
 
         for (size_t i = 0; i < faces.size(); i++)
-            faces[i] = block.faces[i];
+        {
+            faces[i] = StringView(block.faces[i]);
+        }
 
         info("Registering block `{}`", block.name);
 
-        register_block(newobj(Block, block.name, faces, block.gradient.value_or(GradientType::None)));
+        register_block(newobj(Block, StringView(block.name), faces, block.gradient.value_or(GradientType::None)));
     }
 }
 
@@ -136,23 +138,23 @@ void BlockRegistry::destroy()
     s_textures.clear();
 }
 
-uint32_t BlockRegistry::get_or_create(const String& name)
+uint32_t BlockRegistry::get_or_create(const StringView& name)
 {
     const auto id_pair = s_texture_by_name.find(name);
 
     if (id_pair == s_texture_by_name.end())
     {
-        std::string path = "assets/textures/";
-        path.append(name.data());
+        String path = "assets/textures/";
+        path.append(name);
 
         Result<File> file = Filesystem::open_file(path);
-        ERR_EXPECT_VR(file, 0, "Failed to open {}", path);
+        ERR_EXPECT_VR(file, 0, "Failed to open `{}`", path);
 
         const std::vector<char>& buffer = file->read_to_buffer();
         SDL_IOStream *texture_stream = SDL_IOFromConstMem(buffer.data(), buffer.size());
 
         SDL_Surface *texture_surface = IMG_LoadPNG_IO(texture_stream);
-        ERR_COND_V(texture_surface == nullptr, "Failed to parse image {}", path);
+        ERR_COND_V(texture_surface == nullptr, "Failed to parse image `{}`", path);
 
         // TODO: Check the format of the image and resize it if necessary.
 

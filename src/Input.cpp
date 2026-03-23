@@ -9,7 +9,7 @@ void Input::init(const Window& window)
 #endif
 }
 
-static uint32_t convert_key(const std::string_view& key)
+static uint32_t convert_key(const StringView& key)
 {
     if (key == "lctrl")
         return SDLK_LCTRL;
@@ -29,16 +29,16 @@ void Input::load_config()
 
     actions->for_each([](const auto& key, const auto& value)
                       {
-                          const std::string action_name = std::string(key.str());
+                          const String action_name = StringView(key.str());
                           Input::add_action(action_name);
                           const toml::array *array = value.as_array();
                         array->for_each([action_name](const auto& value) {
 
                             const toml::table *action = value.as_table();
-                            const std::string_view action_type = action->get("type")->as_string()->get();
+                            const String action_type = StringView(action->get("type")->as_string()->get());
                             if (action_type == "key")
                             {
-                                const std::string_view key = action->get("key")->as_string()->get();
+                                const StringView key = action->get("key")->as_string()->get();
                                 Input::add_action_mapping(action_name, ActionMapping(ActionMappingKind::Key, convert_key(key)));
                             }
                             else if (action_type == "mouse_button")
@@ -49,22 +49,22 @@ void Input::load_config()
                         }); });
 }
 
-bool Input::is_action_pressed(const std::string& action)
+bool Input::is_action_pressed(const String& action)
 {
     return s_actions[action].value > 0.0;
 }
 
-float Input::get_action_value(const std::string& action)
+float Input::get_action_value(const String& action)
 {
     return s_actions[action].value;
 }
 
-void Input::set_action_value(const std::string& action, float value)
+void Input::set_action_value(const String& action, float value)
 {
     s_actions[action].value = value;
 }
 
-glm::vec2 Input::get_vector(const std::string& x_negative, const std::string& x_positive, const std::string& y_negative, const std::string& y_positive)
+glm::vec2 Input::get_vector(const String& x_negative, const String& x_positive, const String& y_negative, const String& y_positive)
 {
     return glm::vec2(get_action_value(x_positive) - get_action_value(x_negative), get_action_value(y_positive) - get_action_value(y_negative));
 }
@@ -125,12 +125,12 @@ void Input::process_event(SDL_Event event)
     }
 }
 
-void Input::add_action(const std::string& name)
+void Input::add_action(const String& name)
 {
     s_mappings[name] = {};
 }
 
-void Input::add_action_mapping(const std::string& name, ActionMapping mapping)
+void Input::add_action_mapping(const String& name, ActionMapping mapping)
 {
     std::vector<ActionMapping>& mappings = s_mappings[name];
     mappings.push_back(mapping);

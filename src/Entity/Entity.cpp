@@ -13,7 +13,7 @@ void Entity::add_child(Ref<Entity> entity)
     entity->m_world = m_world;
     entity->m_id = World::next_id();
 
-    if (entity->get_name().empty())
+    if (entity->get_name().size() == 0)
         entity->set_name(format("Entity #{}", (uint32_t)entity->id()));
 }
 

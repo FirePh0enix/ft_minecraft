@@ -11,12 +11,12 @@ class String;
 class StringView
 {
 public:
-    ALWAYS_INLINE StringView(const char *str)
-        : m_data(str), m_size(std::strlen(str))
+    ALWAYS_INLINE constexpr StringView(const char *str)
+        : m_data(str), m_size(strlen(str))
     {
     }
 
-    ALWAYS_INLINE StringView(const char *str, size_t size)
+    ALWAYS_INLINE constexpr StringView(const char *str, size_t size)
         : m_data(str), m_size(size)
     {
     }
@@ -33,11 +33,17 @@ public:
 
     StringView(const String& string);
 
+    // TODO: remove
     operator std::string() const
     {
         std::string s;
         s.append(m_data, m_size);
         return s;
+    }
+
+    const char& operator[](size_t index) const
+    {
+        return data()[index];
     }
 
     std::strong_ordering operator<=>(const StringView& other) const
@@ -67,6 +73,26 @@ public:
 private:
     const char *m_data;
     size_t m_size;
+
+    static constexpr size_t strlen(const char *str)
+    {
+        size_t len = 0;
+        while (str[len])
+            len++;
+        return len;
+    }
+
+    static constexpr void memcpy(char *dest, const char *source, size_t len)
+    {
+        for (size_t i = 0; i < len; i++)
+            dest[i] = source[i];
+    }
+
+    static constexpr void memset(char *dest, char c, size_t len)
+    {
+        for (size_t i = 0; i < len; i++)
+            dest[i] = c;
+    }
 };
 
 inline std::ostream& operator<<(std::ostream& os, const StringView& sv)

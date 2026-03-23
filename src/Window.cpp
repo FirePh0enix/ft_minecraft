@@ -6,7 +6,7 @@
 #include <emscripten/html5.h>
 #endif
 
-Window::Window(const std::string& title, uint32_t width, uint32_t height, bool resizable)
+Window::Window(const String& title, uint32_t width, uint32_t height, bool resizable)
 {
 #ifndef __platform_web
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS))
@@ -30,7 +30,7 @@ Window::Window(const std::string& title, uint32_t width, uint32_t height, bool r
         flags |= SDL_WINDOW_RESIZABLE;
     }
 
-    m_window = SDL_CreateWindow(title.c_str(), (int)width, (int)height, flags);
+    m_window = SDL_CreateWindow(title.data(), (int)width, (int)height, flags);
 
     if (m_window == nullptr)
     {

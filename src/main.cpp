@@ -42,17 +42,14 @@ static void shutdown_callback();
 static void loop_update();
 static void update_callback();
 
-static std::string default_config = R"(
-[player]
-x=0.0
-y=150.0
-z=0.0
-)";
+// static String default_config = R"(
+// [player]
+// x=0.0
+// y=150.0
+// z=0.0
+// )";
 
 Ref<Engine> engine;
-
-Ref<Entity> player;
-Ref<World> world;
 
 toml::table config2;
 Console console;
@@ -63,6 +60,10 @@ MAIN(int argc, char *argv[])
     // NOTE: Address sanitizer mess with our custom error handling.
     initialize_error_handling(Filesystem::current_executable_path().c_str());
 #endif
+
+    // String s = "hello world";
+    // String s_copy(s);
+    // println("{}", s_copy);
 
     Args args;
     args.add_arg("enable-gpu-validation", {.type = ArgType::Bool});
@@ -77,10 +78,10 @@ MAIN(int argc, char *argv[])
 
     TracySetThreadName("Main");
 
-    toml::table default_config2 = toml::operator""_toml(default_config.data(), default_config.size()).table();
-    config2 = default_config2;
-    if (std::filesystem::exists("config.toml"))
-        toml_merge_left(config2, toml::parse_file("config.toml").table());
+    // toml::table default_config2 = toml::operator""_toml(default_config.data(), default_config.size()).table();
+    // config2 = default_config2;
+    // if (std::filesystem::exists("config.toml"))
+    //     toml_merge_left(config2, toml::parse_file("config.toml").table());
 
     BlockRegistry::load_blocks();
     BlockRegistry::create_gpu_resources();
@@ -138,9 +139,6 @@ static void update_callback()
 static void shutdown_callback()
 {
     println("Shutting down");
-
-    // this stop the generator threads, needs to be done before destroying the RenderingDriver or it causes segmentation faults.
-    world = nullptr;
 
     engine = nullptr;
 

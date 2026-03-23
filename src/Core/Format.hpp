@@ -18,13 +18,13 @@ public:
     {
     }
 
-    std::string_view get() const
+    StringView get() const
     {
         return m_str;
     }
 
 private:
-    std::string_view m_str;
+    StringView m_str;
 };
 
 template <typename... Args>
@@ -84,7 +84,7 @@ struct Formatter : public FormatterBase
         std::stringstream ss;
         ss << value;
 
-        std::string s = ss.str();
+        String s = StringView(ss.str());
         ctx.write_str(s.data(), (std::streamsize)s.size());
     }
 };
@@ -196,7 +196,7 @@ void __format_to(_Buf buf, FormatString<> fmt)
 template <class _Buf, size_t _ArgIndex, class... _Args>
 void __format_to(_Buf buf, FormatString<_Args...> fmt, size_t offset, _Args&&...args)
 {
-    std::string_view str = fmt.get();
+    StringView str = fmt.get();
     size_t index = offset;
     bool inside_arg = false;
 
@@ -263,19 +263,20 @@ void format_to(_Buf buf, BasicFormatString<> fmt)
 }
 
 template <class... _Args>
-std::string format(FormatString<_Args...> fmt, _Args&&...args)
+String format(FormatString<_Args...> fmt, _Args&&...args)
 {
+    // TODO: this still use the STL and std::string internally.
     std::stringstream ss;
     __format_to<std::stringbuf *, 0, _Args...>(ss.rdbuf(), fmt, 0, std::forward<_Args>(args)...);
-    return ss.str();
+    return StringView(ss.str());
 }
 
 template <>
-inline std::string format(BasicFormatString<> fmt)
+inline String format(BasicFormatString<> fmt)
 {
     std::stringstream ss;
     __format_to<std::stringbuf *>(ss.rdbuf(), fmt);
-    return ss.str();
+    return StringView(ss.str());
 }
 
 template <typename T>

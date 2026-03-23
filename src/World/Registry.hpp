@@ -64,7 +64,7 @@ public:
     }
 
 private:
-    static uint32_t get_or_create(const String& name);
+    static uint32_t get_or_create(const StringView& name);
 
     static inline std::vector<Ref<Block>> s_blocks;
     static inline std::map<String, uint16_t> s_blocks_by_name;

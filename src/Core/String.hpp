@@ -19,7 +19,12 @@ public:
     /**
      * Create an empty string.
      */
-    String();
+    constexpr String()
+    {
+        small.small_flag = 1;
+        small.size = 0;
+        small.data[0] = '\0';
+    }
 
     String(const String& other);
 
@@ -32,13 +37,6 @@ public:
      * Create a string from an ascii sequence while specifying its size.
      */
     String(const char *str, size_t size);
-
-    String(const std::string& s)
-        : String(s.data(), s.size())
-    {
-    }
-
-    // String(const std::string& s) = delete;
 
     String(const StringView& sv)
         : String(sv.data(), sv.size())
@@ -67,6 +65,16 @@ public:
 
         *this = String(str);
         return *this;
+    }
+
+    char& operator[](size_t index)
+    {
+        return data()[index];
+    }
+
+    const char& operator[](size_t index) const
+    {
+        return data()[index];
     }
 
     void operator+=(const char *str) { append(str, strlen(str)); }

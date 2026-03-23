@@ -98,14 +98,14 @@ public:
     ALWAYS_INLINE void set_parent(Entity *parent) { m_parent = parent; }
     ALWAYS_INLINE bool has_parent() const { return m_parent != nullptr; }
 
-    const std::string& get_name() const { return m_name; }
-    void set_name(const std::string& name) { m_name = name; }
+    const String& get_name() const { return m_name; }
+    void set_name(const String& name) { m_name = name; }
 
     void recurse_tick(float delta);
 
 protected:
     EntityId m_id;
-    std::string m_name;
+    String m_name;
     Entity *m_parent = nullptr; // FIXME: This must be changed by either a Ref<Entity> or a EntityId.
     std::vector<Ref<Entity>> m_children;
     Transform3D m_transform;

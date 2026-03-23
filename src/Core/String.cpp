@@ -1,13 +1,6 @@
 #include "Core/String.hpp"
 #include "Core/Alloc.hpp"
 
-String::String()
-{
-    small.small_flag = 1;
-    small.size = 0;
-    memset(small.data, 0, string_small_capacity);
-}
-
 String::String(const String& other)
 {
     if (other.is_small())
@@ -32,20 +25,9 @@ String::String(const char *str)
 }
 
 String::String(const char *str, size_t size)
+    : String()
 {
-    if (size + 1 <= string_small_capacity)
-    {
-        small.small_flag = 1;
-        small.size = size;
-        memcpy(small.data, str, size);
-        small.data[size] = '\0';
-    }
-    else
-    {
-        small.small_flag = 0;
-        small.size = 0;
-        append(str, size);
-    }
+    append(str, size);
 }
 
 void String::resize(size_t new_size)
@@ -82,6 +64,7 @@ void String::append(const char *str, size_t size)
         {
             memcpy(small.data + small.size, str, size);
             small.data[new_len] = '\0';
+            small.size = new_len;
         }
         else
         {

@@ -213,7 +213,7 @@ public:
 
 private:
     Ref<Shader> m_shader;
-    std::map<std::string, MaterialParamCache> m_caches;
+    std::map<String, MaterialParamCache> m_caches;
 
     bool m_param_changed : 1;
 };
@@ -232,9 +232,9 @@ class Material : public MaterialBase
     CLASS(Material, MaterialBase);
 
 public:
-    static Ref<Material> create(const Ref<Shader>& shader, std::optional<InstanceLayout> instance_layout = std::nullopt, MaterialFlags flags = MaterialFlagBits::None, PolygonMode polygon_mode = PolygonMode::Fill, CullMode cull_mode = CullMode::Back, UVType uv_type = UVType::UV, std::string name = "");
+    static Ref<Material> create(const Ref<Shader>& shader, std::optional<InstanceLayout> instance_layout = std::nullopt, MaterialFlags flags = MaterialFlagBits::None, PolygonMode polygon_mode = PolygonMode::Fill, CullMode cull_mode = CullMode::Back, UVType uv_type = UVType::UV, String name = "");
 
-    Material(const Ref<Shader>& shader, std::optional<InstanceLayout> instance_layout, MaterialFlags flags, PolygonMode polygon_mode, CullMode cull_mode, UVType uv_type, std::string name)
+    Material(const Ref<Shader>& shader, std::optional<InstanceLayout> instance_layout, MaterialFlags flags, PolygonMode polygon_mode, CullMode cull_mode, UVType uv_type, String name)
         : MaterialBase(shader), m_instance_layout(instance_layout), m_flags(flags), m_polygon_mode(polygon_mode), m_cull_mode(cull_mode), m_uv_type(uv_type), m_name(name)
     {
     }
@@ -262,7 +262,7 @@ public:
     }
 
     ALWAYS_INLINE UVType get_uv_type() const { return m_uv_type; }
-    ALWAYS_INLINE std::string get_name() const { return m_name; }
+    ALWAYS_INLINE StringView get_name() const { return m_name; }
 
 private:
     std::optional<InstanceLayout> m_instance_layout;
@@ -270,7 +270,7 @@ private:
     PolygonMode m_polygon_mode;
     CullMode m_cull_mode;
     UVType m_uv_type;
-    std::string m_name;
+    String m_name;
 };
 
 /**
