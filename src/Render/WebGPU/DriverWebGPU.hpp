@@ -27,6 +27,11 @@ struct RenderPipelineCacheKey
     std::vector<RenderPassColorAttachment> color_attachs;
     bool previous_depth_pass;
 
+    RenderPipelineCacheKey(Ref<Material> material, std::vector<RenderPassColorAttachment> color_attachs, bool previous_depth_pass)
+        : material(material), color_attachs(color_attachs), previous_depth_pass(previous_depth_pass)
+    {
+    }
+
     bool operator<(const RenderPipelineCacheKey& other) const
     {
         // FIXME : :D{":WAKDp/owoaksj fv;lnw GFukw ieush fvamilergthliBAOWFEVHI/WEuhj"}
@@ -53,6 +58,11 @@ public:
 struct ComputePipelineCacheKey
 {
     Ref<ComputeMaterial> material = nullptr;
+
+    ComputePipelineCacheKey(Ref<ComputeMaterial> material)
+        : material(material)
+    {
+    }
 
     bool operator<(const ComputePipelineCacheKey& other) const
     {
@@ -187,7 +197,7 @@ public:
     virtual void limit_frames(uint32_t limit) override;
 
     [[nodiscard]]
-    virtual Result<Ref<Buffer>> create_buffer(const char *name, size_t size, BufferUsageFlags usage = {}, BufferVisibility visibility = BufferVisibility::GPUOnly) override;
+    virtual Result<Ref<Buffer>> create_buffer(size_t size, BufferUsageFlags usage = {}, BufferVisibility visibility = BufferVisibility::GPUOnly) override;
 
     [[nodiscard]]
     virtual Result<Ref<Texture>> create_texture(uint32_t width, uint32_t height, TextureFormat format, TextureUsageFlags usage, TextureDimension dimension = TextureDimension::D2D, uint32_t layers = 1) override;
@@ -254,10 +264,9 @@ class BufferWebGPU : public Buffer
     CLASS(BufferWebGPU, Buffer);
 
 public:
-    BufferWebGPU(WGPUBuffer buffer, Struct element, size_t size, BufferUsageFlags usage)
+    BufferWebGPU(WGPUBuffer buffer, size_t size, BufferUsageFlags usage)
         : buffer(buffer)
     {
-        m_element = element;
         m_size = size;
         m_usage = usage;
     }

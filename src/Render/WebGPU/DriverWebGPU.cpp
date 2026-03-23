@@ -2,6 +2,7 @@
 #include "Core/Alloc.hpp"
 #include "Core/Containers/InplaceVector.hpp"
 #include "Core/Logger.hpp"
+#include "Render/Driver.hpp"
 #include "Render/Graph.hpp"
 #include "webgpu/webgpu.h"
 
@@ -752,13 +753,10 @@ void RenderingDriverWebGPU::limit_frames(uint32_t limit)
     // TODO
 }
 
-Result<Ref<Buffer>> RenderingDriverWebGPU::create_buffer(const char *name, size_t size, BufferUsageFlags usage, BufferVisibility visibility)
+Result<Ref<Buffer>> RenderingDriverWebGPU::create_buffer(size_t size, BufferUsageFlags usage, BufferVisibility visibility)
 {
-    const Struct& element = CoreRegistry::get().get_struct(name);
-    const size_t size_bytes = size * element.size;
-
     WGPUBufferDescriptor desc{};
-    desc.size = size_bytes;
+    desc.size = size;
     desc.mappedAtCreation = false;
     desc.usage = convert_buffer_usage(usage);
 
@@ -766,13 +764,17 @@ Result<Ref<Buffer>> RenderingDriverWebGPU::create_buffer(const char *name, size_
         desc.usage |= WGPUBufferUsage_MapRead;
 
     // WebGPU requires the size of an uniform buffer to a multiple of 16 bytes.
-    if (usage.has_any(BufferUsageFlagBits::Uniform) && size_bytes % 16 != 0)
-        desc.size = (((size_bytes - 1) / 16) + 1) * 16;
+    if (usage.has_any(BufferUsageFlagBits::Uniform) && size % 16 != 0)
+    {
+        desc.size = (((size - 1) / 16) + 1) * 16;
+        size = desc.size;
+        println("{} vs {}", size, desc.size);
+    }
 
     WGPUBuffer buffer = wgpuDeviceCreateBuffer(m_device, &desc);
-    ERR_COND_VRV(buffer == nullptr, Error(ErrorKind::OutOfDeviceMemory), "Failed to create buffer of size {}", size_bytes);
+    ERR_COND_VRV(buffer == nullptr, Error(ErrorKind::OutOfDeviceMemory), "Failed to create buffer of size {}", size);
 
-    return newobj(BufferWebGPU, buffer, element, size, usage).cast_to<Buffer>();
+    return newobj(BufferWebGPU, buffer, size, usage).cast_to<Buffer>();
 }
 
 Result<Ref<Texture>> RenderingDriverWebGPU::create_texture(uint32_t width, uint32_t height, TextureFormat format, TextureUsageFlags usage, TextureDimension dimension, uint32_t layers)
@@ -782,7 +784,7 @@ Result<Ref<Texture>> RenderingDriverWebGPU::create_texture(uint32_t width, uint3
     WGPUTextureDescriptor desc{};
     desc.usage = convert_texture_usage(usage);
     desc.dimension = convert_texture_dimension(dimension);
-    desc.size = WGPUExtent3D(width, height, layers == 0 ? 1 : layers);
+    desc.size = WGPUExtent3D{width, height, layers == 0 ? 1 : layers};
     desc.format = format_wgpu;
     desc.viewFormatCount = 1;
     desc.viewFormats = &format_wgpu;
@@ -848,7 +850,7 @@ void RenderingDriverWebGPU::draw_graph(const RenderGraph& graph)
             for (const auto& color_attach : render_pass_cache.attachments)
             {
                 WGPURenderPassColorAttachment attach{};
-                attach.clearValue = WGPUColor(0.0, 0.0, 0.0, 1.0);
+                attach.clearValue = WGPUColor{0.0, 0.0, 0.0, 1.0};
                 attach.depthSlice = WGPU_DEPTH_SLICE_UNDEFINED;
                 attach.loadOp = WGPULoadOp_Clear;
                 attach.storeOp = WGPUStoreOp_Store;
@@ -1138,7 +1140,7 @@ Result<WGPURenderPipeline> RenderingDriverWebGPU::create_render_pipeline(Ref<Sha
     desc.vertex = vertex_state;
     desc.fragment = color_attachs.size() == 0 ? nullptr : &fragment_state;
     desc.depthStencil = &depth_state;
-    desc.multisample = WGPUMultisampleState(nullptr, 1, 0xFFFFFFFF, false);
+    desc.multisample = WGPUMultisampleState{.nextInChain = nullptr, .count = 1, .mask = 0xFFFFFFFF, .alphaToCoverageEnabled = false};
 
     WGPURenderPipeline pipeline = wgpuDeviceCreateRenderPipeline(m_device, &desc);
     if (!pipeline)
@@ -1181,6 +1183,11 @@ struct BufferWebGPURead
     BufferReadCallback callback;
     size_t offset;
     size_t size;
+
+    BufferWebGPURead(WGPUBuffer buffer, BufferReadCallback callback, size_t offset, size_t size)
+        : buffer(buffer), callback(callback), offset(offset), size(size)
+    {
+    }
 };
 
 void BufferWebGPU::read_async(size_t offset, size_t size, BufferReadCallback callback, void *user)
@@ -1228,7 +1235,7 @@ void TextureWebGPU::update(View<uint8_t> view, uint32_t layer)
     layout.rowsPerImage = m_height;
     layout.offset = 0;
 
-    WGPUExtent3D write_size(m_width, m_height, 1);
+    WGPUExtent3D write_size {.width = m_width, .height = m_height, .depthOrArrayLayers = 1 };
 
     wgpuQueueWriteTexture(RenderingDriverWebGPU::get()->get_queue(), &copy_info, view.data(), view.size(), &layout, &write_size);
 #else

@@ -391,11 +391,13 @@ endif()
 check_library_exists(backtrace backtrace_create_state "" HAVE_SYSTEM_LIBBACKTRACE)
 
 
-if (HAVE_SYSTEM_LIBBACKTRACE)
-    target_link_libraries(${TARGET_NAME} PRIVATE backtrace)
-    # target_include_directories(${TARGET_NAME} PRIVATE ${libbacktrace_SOURCE_DIR})
-    target_compile_definitions(${TARGET_NAME} PRIVATE __has_libbacktrace)
-else()
+# if (HAVE_SYSTEM_LIBBACKTRACE)
+#     target_link_libraries(${TARGET_NAME} PRIVATE backtrace)
+#     # target_include_directories(${TARGET_NAME} PRIVATE ${libbacktrace_SOURCE_DIR})
+#     target_compile_definitions(${TARGET_NAME} PRIVATE __has_libbacktrace)
+# else()
+
+if(TARGET_IS_LINUX)
     FetchContent_Declare(
         libbacktrace
         GIT_REPOSITORY https://github.com/ianlancetaylor/libbacktrace

@@ -4,6 +4,7 @@
 #include "Render/Driver.hpp"
 #include "World/Biome.hpp"
 #include "World/Block.hpp"
+#include <cstdint>
 
 class World;
 
@@ -12,6 +13,9 @@ struct ChunkPos
     int64_t x;
     int64_t y;
     int64_t z;
+
+    constexpr ChunkPos() : x(0), y(0), z(0) {}
+    constexpr ChunkPos(int64_t x, int64_t y, int64_t z) : x(x), y(y), z(z) {}
 
     bool operator<(const ChunkPos& other) const
     {

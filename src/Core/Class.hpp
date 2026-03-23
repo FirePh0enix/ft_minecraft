@@ -12,6 +12,9 @@
 struct ClassHashCode
 {
     uint32_t value;
+
+    constexpr ClassHashCode() : value(0) {}
+    constexpr ClassHashCode(uint32_t v) : value(v) {}
 };
 
 inline std::strong_ordering operator<=>(ClassHashCode lhs, ClassHashCode rhs)

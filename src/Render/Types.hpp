@@ -237,12 +237,6 @@ enum class BindingAccess
     ReadWrite,
 };
 
-struct BindingBuffer
-{
-    size_t element_size;
-    bool is_array = false;
-};
-
 struct Binding
 {
     BindingKind kind = BindingKind::Texture;
@@ -260,8 +254,8 @@ struct Binding
     {
     }
 
-    Binding(BindingKind kind, ShaderStageFlags shader_stage, uint32_t group, uint32_t binding, BindingAccess access, BindingBuffer buffer)
-        : kind(kind), shader_stage(shader_stage), group(group), binding(binding), access(access), buffer(buffer)
+    Binding(BindingKind kind, ShaderStageFlags shader_stage, uint32_t group, uint32_t binding, BindingAccess access)
+        : kind(kind), shader_stage(shader_stage), group(group), binding(binding), access(access)
     {
     }
 
@@ -271,10 +265,6 @@ struct Binding
          * Available only when binding is a `Texture`.
          */
         TextureDimension dimension = {};
-        /**
-         * Available only when binding is `UniformBuffer` or `StorageBuffer`.
-         */
-        BindingBuffer buffer;
     };
 };
 

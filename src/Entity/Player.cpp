@@ -28,19 +28,19 @@ static Ref<Mesh> create_cube_mesh(glm::vec3 size = glm::vec3(1.0), glm::vec3 off
     std::array<uint16_t, 36> indices{
         0, 1, 2,
         2, 3, 0, // front
-        
+
         20, 21, 22,
         22, 23, 20, // back
 
         4, 5, 6,
         6, 7, 4, // right
-        
+
         12, 13, 14,
         14, 15, 12, // left
-        
+
         8, 9, 10,
         10, 11, 8, // top
-        
+
         16, 17, 18,
         18, 19, 16, // bottom
     };
@@ -155,11 +155,11 @@ void Player::on_ready()
     m_world->set_active_camera(m_camera);
 
     m_highlight_mesh = create_cube_mesh();
-    m_highlight_model_buffer = RenderingDriver::get()->create_buffer(STRUCTNAME(Model), sizeof(Model), BufferUsageFlagBits::Uniform | BufferUsageFlagBits::CopyDest).value_or(nullptr);
+    m_highlight_model_buffer = RenderingDriver::get()->create_buffer(sizeof(Model), BufferUsageFlagBits::Uniform | BufferUsageFlagBits::CopyDest).value_or(nullptr);
 
     m_highlight_shader = Shader::load("assets/shaders/cube_highlight.wgsl").value_or(nullptr);
-    m_highlight_shader->set_binding("env", Binding(BindingKind::UniformBuffer, ShaderStageFlagBits::Vertex, 0, 0, BindingAccess::Read, BindingBuffer(sizeof(Environment))));
-    m_highlight_shader->set_binding("model", Binding(BindingKind::UniformBuffer, ShaderStageFlagBits::Vertex, 0, 1, BindingAccess::Read, BindingBuffer(sizeof(Model))));
+    m_highlight_shader->set_binding("env", Binding(BindingKind::UniformBuffer, ShaderStageFlagBits::Vertex, 0, 0, BindingAccess::Read));
+    m_highlight_shader->set_binding("model", Binding(BindingKind::UniformBuffer, ShaderStageFlagBits::Vertex, 0, 1, BindingAccess::Read));
 
     m_highlight_material = Material::create(m_highlight_shader, std::nullopt, MaterialFlagBits::Transparency, PolygonMode::Fill, CullMode::Back, UVType::UVT, "HIGHLIGHT_CUBE");
     m_highlight_material->set_param("env", m_world->get_env_buffer());
@@ -187,7 +187,7 @@ struct CollisionResult sweep_aabb(const AABB& a, const AABB& b, glm::vec3 d)
     const float mhx = a.half_extent.x + b.half_extent.x;
     const float mhy = a.half_extent.y + b.half_extent.y;
     const float mhz = a.half_extent.z + b.half_extent.z;
-    CollisionResult r(glm::vec3(), 1.0);
+    CollisionResult r{glm::vec3(), 1.0};
     float s;
 
     // x min
@@ -249,7 +249,7 @@ void Player::move_and_collide()
     size_t iteration = 0;
     while (iteration < max_iteration)
     {
-        CollisionResult closest_collision(glm::vec3(), 1.0);
+        CollisionResult closest_collision{glm::vec3(), 1.0};
 
         m_on_ground = false;
         for (const auto& block : colliders)

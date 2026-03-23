@@ -42,7 +42,7 @@ public:
 
     inline size_t size_bytes() const
     {
-        return m_size * m_element.size;
+        return m_size;
     }
 
     inline BufferUsageFlags flags() const
@@ -50,16 +50,10 @@ public:
         return m_usage;
     }
 
-    const Struct& element() const
-    {
-        return m_element;
-    }
-
     virtual ~Buffer() {}
 
 protected:
     size_t m_size;
-    Struct m_element;
     BufferUsageFlags m_usage;
 };
 
@@ -337,10 +331,10 @@ public:
     RenderingDriver() {}
     virtual ~RenderingDriver() {}
 
-    RenderingDriver(const RenderingDriver&) = delete;
-    RenderingDriver(const RenderingDriver&&) = delete;
-    RenderingDriver operator=(const RenderingDriver&) = delete;
-    RenderingDriver operator=(const RenderingDriver&&) = delete;
+    // RenderingDriver(const RenderingDriver&) = delete;
+    // RenderingDriver(const RenderingDriver&&) = delete;
+    // RenderingDriver operator=(const RenderingDriver&) = delete;
+    // RenderingDriver operator=(const RenderingDriver&&) = delete;
 
     template <typename T>
     static void create_singleton()
@@ -398,7 +392,7 @@ public:
      * @param visibility
      */
     [[nodiscard]]
-    virtual Result<Ref<Buffer>> create_buffer(const char *name, size_t size, BufferUsageFlags flags = BufferUsageFlagBits::None, BufferVisibility visibility = BufferVisibility::GPUOnly) = 0;
+    virtual Result<Ref<Buffer>> create_buffer(size_t size, BufferUsageFlags flags = BufferUsageFlagBits::None, BufferVisibility visibility = BufferVisibility::GPUOnly) = 0;
 
     /**
      * @brief Allocate a buffer in the GPU memory and fill it with `data`.
@@ -408,7 +402,7 @@ public:
      * @param visibility
      */
     [[nodiscard]]
-    virtual Result<Ref<Buffer>> create_buffer_from_data(const char *name, size_t size, View<uint8_t> data, BufferUsageFlags flags = BufferUsageFlagBits::None, BufferVisibility visibility = BufferVisibility::GPUOnly);
+    virtual Result<Ref<Buffer>> create_buffer_from_data(size_t size, View<uint8_t> data, BufferUsageFlags flags = BufferUsageFlagBits::None, BufferVisibility visibility = BufferVisibility::GPUOnly);
 
     /**
      * @brief Create texture stored on the GPU.

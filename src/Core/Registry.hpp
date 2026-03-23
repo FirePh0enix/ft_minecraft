@@ -13,6 +13,9 @@ struct Struct
 {
     const char *name;
     uint32_t size;
+
+    constexpr Struct() :name(nullptr), size(0) {}
+    constexpr Struct(const char *name, uint32_t size) : name(name), size(size) {}
 };
 
 class CoreRegistry

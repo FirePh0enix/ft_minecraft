@@ -111,7 +111,7 @@ void BlockRegistry::create_gpu_resources()
         index++;
     }
 
-    s_texture_registry_buffer = RenderingDriver::get()->create_buffer(STRUCTNAME(glm::uvec4), s_blocks.size(), BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Storage).value();
+    s_texture_registry_buffer = RenderingDriver::get()->create_buffer(s_blocks.size() * sizeof(glm::uvec4), BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Storage).value();
     std::vector<glm::uvec4> textures;
 
     for (const Ref<Block>& block : s_blocks)

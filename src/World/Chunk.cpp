@@ -10,7 +10,7 @@ Chunk::Chunk(int64_t x, int64_t y, int64_t z, World *world)
     const glm::mat4 model_matrix = glm::translate(glm::identity<glm::mat4>(), glm::vec3(x * Chunk::width, y * Chunk::width, z * Chunk::width));
 
     m_model.model_matrix = model_matrix;
-    m_model_buffer = RenderingDriver::get()->create_buffer(STRUCTNAME(Model), sizeof(Model), BufferUsageFlagBits::Uniform | BufferUsageFlagBits::CopyDest).value_or(nullptr);
+    m_model_buffer = RenderingDriver::get()->create_buffer(sizeof(Model), BufferUsageFlagBits::Uniform | BufferUsageFlagBits::CopyDest).value_or(nullptr);
     m_model_buffer->update(View(m_model).as_bytes());
 
     m_material = Material::create(world->m_shader, std::nullopt, MaterialFlagBits::Transparency, PolygonMode::Fill, CullMode::Back, UVType::UVT);
@@ -31,6 +31,13 @@ struct Face
     Axis axis;
     bool positive;
     uint32_t texture_index;
+
+    Face(    uint8_t x,
+    uint8_t y,
+    uint8_t z,
+    Axis axis,
+    bool positive,
+    uint32_t texture_index) : x(x), y(y), z(z), axis(axis), positive(positive), texture_index(texture_index) {}
 };
 
 static std::array<glm::vec3, 4> vertex_from_axis(Axis axis, bool positive, glm::vec3 offset)

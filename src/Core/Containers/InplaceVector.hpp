@@ -26,7 +26,7 @@ public:
 
     template <const size_t other_capacity>
     constexpr InplaceVector(const InplaceVector<T, other_capacity>& vec, const std::initializer_list<T>& list)
-        : m_size(vec.size() + list.size())
+        : m_data{0}, m_size(vec.size() + list.size())
     {
         size_t i = 0;
         for (; i < vec.size(); i++)
