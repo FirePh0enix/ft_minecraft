@@ -202,33 +202,33 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(doctest)
 target_link_libraries(${TARGET_NAME} PRIVATE doctest)
 
-if((TARGET_IS_LINUX OR TARGET_IS_MACOS OR TARGET_IS_WINDOWS) AND NOT TARGET_IS_ALPINE_LINUX)
-    if (TARGET_IS_LINUX)
-        set(WGPU_PLATFORM "linux")
-        set(WGPU_ARCH "x86_64")
-    elseif (TARGET_IS_MACOS)
-        set(WGPU_PLATFORM "macos")
-        set(WGPU_ARCH "aarch64")
-    elseif(TARGET_IS_WINDOWS)
-        set(WGPU_PLATFORM "windows")
-        set(WGPU_ARCH "x86_64")
-    endif()
+if(TARGET_IS_LINUX OR TARGET_IS_MACOS OR TARGET_IS_WINDOWS)
+    # if (TARGET_IS_LINUX)
+    #     set(WGPU_PLATFORM "linux")
+    #     set(WGPU_ARCH "x86_64")
+    # elseif (TARGET_IS_MACOS)
+    #     set(WGPU_PLATFORM "macos")
+    #     set(WGPU_ARCH "aarch64")
+    # elseif(TARGET_IS_WINDOWS)
+    #     set(WGPU_PLATFORM "windows")
+    #     set(WGPU_ARCH "x86_64")
+    # endif()
 
-    # wgpu-native
-    FetchContent_Declare(
-        wgpu-native
-        URL https://github.com/gfx-rs/wgpu-native/releases/download/v27.0.2.0/wgpu-${WGPU_PLATFORM}-${WGPU_ARCH}-debug.zip
-    )
-    FetchContent_MakeAvailable(wgpu-native)
+    # # wgpu-native
+    # FetchContent_Declare(
+    #     wgpu-native
+    #     URL https://github.com/gfx-rs/wgpu-native/releases/download/v27.0.2.0/wgpu-${WGPU_PLATFORM}-${WGPU_ARCH}-debug.zip
+    # )
+    # FetchContent_MakeAvailable(wgpu-native)
 
-    target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_BINARY_DIR}/_deps/wgpu-native-src/include)
-    target_link_directories(${TARGET_NAME} PRIVATE ${CMAKE_BINARY_DIR}/_deps/wgpu-native-src/lib)
-    target_link_libraries(${TARGET_NAME} PRIVATE wgpu_native)
-elseif(TARGET_IS_ALPINE_LINUX)
+    # target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_BINARY_DIR}/_deps/wgpu-native-src/include)
+    # target_link_directories(${TARGET_NAME} PRIVATE ${CMAKE_BINARY_DIR}/_deps/wgpu-native-src/lib)
+    # target_link_libraries(${TARGET_NAME} PRIVATE wgpu_native)
+# elseif(TARGET_IS_ALPINE_LINUX)
     FetchContent_Declare(
         wgpu-native
         GIT_REPOSITORY https://github.com/gfx-rs/wgpu-native
-        GIT_TAG 74f8c24c903b6352d09f1928c56962ce06f77a4d # v27.0.2.0
+        GIT_TAG 74f8c24c903b6352d09f1928c56962ce06f77a4d # master
     )
     FetchContent_MakeAvailable(wgpu-native)
 

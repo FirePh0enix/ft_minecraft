@@ -17,55 +17,6 @@
 #define WGPU_STRING_VIEW(NAME) {NAME, WGPU_STRLEN}
 #endif
 
-#define DESTRUCTOR(NAME, FUNC)    \
-    struct NAME##Destructor       \
-    {                             \
-        void destroy(NAME handle) \
-        {                         \
-            FUNC(handle);         \
-        }                         \
-    };
-
-template <typename T, typename Destructor>
-class WGPURef
-{
-public:
-    WGPURef()
-        : m_handle(nullptr), m_references(nullptr)
-    {
-    }
-
-    WGPURef(T handle)
-        : m_handle(handle), m_references(alloc<size_t>(1))
-    {
-    }
-
-    WGPURef(const WGPURef& other)
-        : m_handle(other.m_handle), m_references(other.m_references)
-    {
-        *other.m_references += 1;
-    }
-
-    ~WGPURef()
-    {
-        unref();
-    }
-
-private:
-    T m_handle;
-    size_t *m_references;
-
-    void unref()
-    {
-        *m_references -= 1;
-        if (*m_references == 0)
-        {
-            destroy(m_references);
-            Destructor::destroy(m_handle);
-        }
-    }
-};
-
 template <typename T>
 static bool find_chain_entry(WGPUSType type, WGPUChainedStructOut *chain, T& out)
 {
