@@ -579,7 +579,7 @@ Result<> RenderingDriverWebGPU::initialize(const Window& window, bool enable_val
 
     const WGPUFeatureName required_features[] = {
         WGPUFeatureName_TimestampQuery,
-        (WGPUFeatureName)WGPUNativeFeature_TimestampQueryInsideEncoders,
+        // (WGPUFeatureName)WGPUNativeFeature_TimestampQueryInsideEncoders,
     };
 
     WGPUDeviceDescriptor device_desc{};
@@ -630,11 +630,6 @@ Result<> RenderingDriverWebGPU::initialize(const Window& window, bool enable_val
 
     YEET(configure_surface(window.size().width, window.size().height, VSync::On));
 
-    return 0;
-}
-
-Result<> RenderingDriverWebGPU::initialize_imgui(const Window& window)
-{
 #ifdef __has_debug_menu
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -651,6 +646,7 @@ Result<> RenderingDriverWebGPU::initialize_imgui(const Window& window)
     init_info.DepthStencilFormat = WGPUTextureFormat_Depth32Float;
     ImGui_ImplWGPU_Init(&init_info);
 #endif
+
     return 0;
 }
 
@@ -719,7 +715,6 @@ Result<Ref<Buffer>> RenderingDriverWebGPU::create_buffer(size_t size, BufferUsag
     {
         desc.size = (((size - 1) / 16) + 1) * 16;
         size = desc.size;
-        println("{} vs {}", size, desc.size);
     }
 
     WGPUBuffer buffer = wgpuDeviceCreateBuffer(m_device, &desc);
@@ -779,10 +774,10 @@ void RenderingDriverWebGPU::draw_graph(const RenderGraph& graph)
     uint32_t render_pass_index = 0;
     bool use_previous_depth_pass = false;
 
-#ifndef __platform_web
-    wgpuCommandEncoderWriteTimestamp(command_encoder, m_timestamp_query_set, 0);         // write time before rendering
-    wgpuCommandEncoderWriteTimestamp(compute_command_encoder, m_timestamp_query_set, 2); // write time before computing
-#endif
+    // #ifndef __platform_web
+    //     wgpuCommandEncoderWriteTimestamp(command_encoder, m_timestamp_query_set, 0);         // write time before rendering
+    //     wgpuCommandEncoderWriteTimestamp(compute_command_encoder, m_timestamp_query_set, 2); // write time before computing
+    // #endif
 
     for (const auto& instruction : graph.get_instructions())
     {
@@ -914,10 +909,10 @@ void RenderingDriverWebGPU::draw_graph(const RenderGraph& graph)
         }
     }
 
-#ifndef __platform_web
-    wgpuCommandEncoderWriteTimestamp(command_encoder, m_timestamp_query_set, 1);         // write time after rendering
-    wgpuCommandEncoderWriteTimestamp(compute_command_encoder, m_timestamp_query_set, 3); // write time before computing
-#endif
+    // #ifndef __platform_web
+    //     wgpuCommandEncoderWriteTimestamp(command_encoder, m_timestamp_query_set, 1);         // write time after rendering
+    //     wgpuCommandEncoderWriteTimestamp(compute_command_encoder, m_timestamp_query_set, 3); // write time before computing
+    // #endif
 
     WGPUCommandBufferDescriptor compute_buffer_desc{};
     compute_buffer_desc.label = WGPU_STRING_VIEW("Compute CommandBuffer");

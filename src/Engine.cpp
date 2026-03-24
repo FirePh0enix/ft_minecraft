@@ -25,7 +25,6 @@ Engine::Engine(const Args& args)
 #endif
 
     (void)RenderingDriver::get()->initialize(*m_window, args.has("enable-gpu-validation"));
-    (void)RenderingDriver::get()->initialize_imgui(*m_window);
 }
 
 void Engine::tick(float delta)
@@ -146,13 +145,11 @@ void Engine::draw_main_menu()
 
 void Engine::draw_world_scene()
 {
-#ifndef __platform_macos
     // The first pass: Depth only
     {
         RenderPassEncoder encoder = RenderGraph::get().render_pass_begin({.name = "depth pass", .depth_attachment = RenderPassDepthAttachment{.save = true}});
         m_world->draw(encoder);
     }
-#endif
 
     // The main color pass.
     {

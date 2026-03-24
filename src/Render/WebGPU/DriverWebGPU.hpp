@@ -187,9 +187,6 @@ public:
     virtual Result<> initialize(const Window& window, bool enable_validation) override;
 
     [[nodiscard]]
-    virtual Result<> initialize_imgui(const Window& window) override;
-
-    [[nodiscard]]
     virtual Result<> configure_surface(size_t width, size_t height, VSync vsync) override;
 
     virtual void poll() override;
