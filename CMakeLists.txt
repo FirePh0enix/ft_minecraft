@@ -203,54 +203,54 @@ FetchContent_MakeAvailable(doctest)
 target_link_libraries(${TARGET_NAME} PRIVATE doctest)
 
 if(TARGET_IS_LINUX OR TARGET_IS_MACOS OR TARGET_IS_WINDOWS)
-    # if (TARGET_IS_LINUX)
-    #     set(WGPU_PLATFORM "linux")
-    #     set(WGPU_ARCH "x86_64")
-    # elseif (TARGET_IS_MACOS)
-    #     set(WGPU_PLATFORM "macos")
-    #     set(WGPU_ARCH "aarch64")
-    # elseif(TARGET_IS_WINDOWS)
-    #     set(WGPU_PLATFORM "windows")
-    #     set(WGPU_ARCH "x86_64")
-    # endif()
+    if (TARGET_IS_LINUX)
+        set(WGPU_PLATFORM "linux")
+        set(WGPU_ARCH "x86_64")
+    elseif (TARGET_IS_MACOS)
+        set(WGPU_PLATFORM "macos")
+        set(WGPU_ARCH "aarch64")
+    elseif(TARGET_IS_WINDOWS)
+        set(WGPU_PLATFORM "windows")
+        set(WGPU_ARCH "x86_64")
+    endif()
 
-    # # wgpu-native
-    # FetchContent_Declare(
-    #     wgpu-native
-    #     URL https://github.com/gfx-rs/wgpu-native/releases/download/v27.0.2.0/wgpu-${WGPU_PLATFORM}-${WGPU_ARCH}-debug.zip
-    # )
-    # FetchContent_MakeAvailable(wgpu-native)
-
-    # target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_BINARY_DIR}/_deps/wgpu-native-src/include)
-    # target_link_directories(${TARGET_NAME} PRIVATE ${CMAKE_BINARY_DIR}/_deps/wgpu-native-src/lib)
-    # target_link_libraries(${TARGET_NAME} PRIVATE wgpu_native)
-# elseif(TARGET_IS_ALPINE_LINUX)
+    # wgpu-native
     FetchContent_Declare(
         wgpu-native
-        GIT_REPOSITORY https://github.com/gfx-rs/wgpu-native
-        GIT_TAG 74f8c24c903b6352d09f1928c56962ce06f77a4d # master
+        URL https://github.com/gfx-rs/wgpu-native/releases/download/v27.0.2.0/wgpu-${WGPU_PLATFORM}-${WGPU_ARCH}-debug.zip
     )
     FetchContent_MakeAvailable(wgpu-native)
 
-    add_custom_command(
-        OUTPUT ${wgpu-native_SOURCE_DIR}/dist/wgpu--debug.zip
-        COMMAND make package
-        WORKING_DIRECTORY ${wgpu-native_SOURCE_DIR}
-    )
-
-    add_custom_command(
-        OUTPUT ${wgpu-native_SOURCE_DIR}/dist/lib/libwgpu_native.so
-        COMMAND unzip -o wgpu--debug.zip
-        WORKING_DIRECTORY ${wgpu-native_SOURCE_DIR}/dist
-        DEPENDS ${wgpu-native_SOURCE_DIR}/dist/wgpu--debug.zip
-    )
-
-    add_custom_target(wgpu_native_compilations DEPENDS ${wgpu-native_SOURCE_DIR}/dist/lib/libwgpu_native.so)
-    add_dependencies(${TARGET_NAME} wgpu_native_compilations)
-
-    target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_BINARY_DIR}/_deps/wgpu-native-src/dist/include)
-    target_link_directories(${TARGET_NAME} PRIVATE ${CMAKE_BINARY_DIR}/_deps/wgpu-native-src/dist/lib)
+    target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_BINARY_DIR}/_deps/wgpu-native-src/include)
+    target_link_directories(${TARGET_NAME} PRIVATE ${CMAKE_BINARY_DIR}/_deps/wgpu-native-src/lib)
     target_link_libraries(${TARGET_NAME} PRIVATE wgpu_native)
+# elseif(TARGET_IS_ALPINE_LINUX)
+    # FetchContent_Declare(
+    #     wgpu-native
+    #     GIT_REPOSITORY https://github.com/gfx-rs/wgpu-native
+    #     GIT_TAG 74f8c24c903b6352d09f1928c56962ce06f77a4d # master
+    # )
+    # FetchContent_MakeAvailable(wgpu-native)
+
+    # add_custom_command(
+    #     OUTPUT ${wgpu-native_SOURCE_DIR}/dist/wgpu--debug.zip
+    #     COMMAND make package
+    #     WORKING_DIRECTORY ${wgpu-native_SOURCE_DIR}
+    # )
+
+    # add_custom_command(
+    #     OUTPUT ${wgpu-native_SOURCE_DIR}/dist/lib/libwgpu_native.so
+    #     COMMAND unzip -o wgpu--debug.zip
+    #     WORKING_DIRECTORY ${wgpu-native_SOURCE_DIR}/dist
+    #     DEPENDS ${wgpu-native_SOURCE_DIR}/dist/wgpu--debug.zip
+    # )
+
+    # add_custom_target(wgpu_native_compilations DEPENDS ${wgpu-native_SOURCE_DIR}/dist/lib/libwgpu_native.so)
+    # add_dependencies(${TARGET_NAME} wgpu_native_compilations)
+
+    # target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_BINARY_DIR}/_deps/wgpu-native-src/dist/include)
+    # target_link_directories(${TARGET_NAME} PRIVATE ${CMAKE_BINARY_DIR}/_deps/wgpu-native-src/dist/lib)
+    # target_link_libraries(${TARGET_NAME} PRIVATE wgpu_native)
 endif()
 
 # SDL

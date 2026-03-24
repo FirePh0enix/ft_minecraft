@@ -19,7 +19,8 @@ static inline String get_data_directory()
         path += "/.local/share";
     }
 #else
-    path += std::filesystem::current_path().string() + "/.local/share";
+    path += std::getenv("HOME");
+    path += "/.local/share";
 #endif
 
     path += "/ft_minecraft";
@@ -42,7 +43,8 @@ static inline String get_config_directory()
         path += "/.config";
     }
 #else
-    path += std::filesystem::current_path().string() + "/.config";
+    path += std::getenv("HOME");
+    path += "/.config";
 #endif
 
     path += "/ft_minecraft";

@@ -1186,7 +1186,7 @@ void TextureWebGPU::update(View<uint8_t> view, uint32_t layer)
     layout.rowsPerImage = m_height;
     layout.offset = 0;
 
-    WGPUExtent3D write_size {.width = m_width, .height = m_height, .depthOrArrayLayers = 1 };
+    WGPUExtent3D write_size{.width = m_width, .height = m_height, .depthOrArrayLayers = 1};
 
     wgpuQueueWriteTexture(RenderingDriverWebGPU::get()->get_queue(), &copy_info, view.data(), view.size(), &layout, &write_size);
 #else
