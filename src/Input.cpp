@@ -1,6 +1,5 @@
 #include "Input.hpp"
 #include "SDL3/SDL_mouse.h"
-#include "Toml.hpp"
 
 void Input::init(const Window& window)
 {
@@ -9,44 +8,34 @@ void Input::init(const Window& window)
 #endif
 }
 
-static uint32_t convert_key(const StringView& key)
-{
-    if (key == "lctrl")
-        return SDLK_LCTRL;
-    else if (key == "rctrl")
-        return SDLK_RCTRL;
-    else if (key == "escape")
-        return SDLK_ESCAPE;
-    else if (key == "space")
-        return SDLK_SPACE;
-    return key[0];
-}
-
 void Input::load_config()
 {
-    toml::table table = toml::parse_file("inputs.toml").table();
-    toml::table *actions = table["actions"].as_table();
+    Input::add_action("forward");
+    Input::add_action_mapping("forward", ActionMapping(ActionMappingKind::Key, SDLK_W));
 
-    actions->for_each([](const auto& key, const auto& value)
-                      {
-                          const String action_name = StringView(key.str());
-                          Input::add_action(action_name);
-                          const toml::array *array = value.as_array();
-                        array->for_each([action_name](const auto& value) {
+    Input::add_action("backward");
+    Input::add_action_mapping("backward", ActionMapping(ActionMappingKind::Key, SDLK_S));
 
-                            const toml::table *action = value.as_table();
-                            const String action_type = StringView(action->get("type")->as_string()->get());
-                            if (action_type == "key")
-                            {
-                                const StringView key = action->get("key")->as_string()->get();
-                                Input::add_action_mapping(action_name, ActionMapping(ActionMappingKind::Key, convert_key(key)));
-                            }
-                            else if (action_type == "mouse_button")
-                            {
-                                const int64_t button = action->get("button")->as_integer()->get();
-                                Input::add_action_mapping(action_name, ActionMapping(ActionMappingKind::MouseButton, button));
-                            }
-                        }); });
+    Input::add_action("left");
+    Input::add_action_mapping("left", ActionMapping(ActionMappingKind::Key, SDLK_A));
+
+    Input::add_action("right");
+    Input::add_action_mapping("right", ActionMapping(ActionMappingKind::Key, SDLK_D));
+
+    Input::add_action("up");
+    Input::add_action_mapping("up", ActionMapping(ActionMappingKind::Key, SDLK_SPACE));
+
+    Input::add_action("down");
+    Input::add_action_mapping("down", ActionMapping(ActionMappingKind::Key, SDLK_LCTRL));
+
+    Input::add_action("attack");
+    Input::add_action_mapping("attack", ActionMapping(ActionMappingKind::MouseButton, 1));
+
+    Input::add_action("interact");
+    Input::add_action_mapping("interact", ActionMapping(ActionMappingKind::MouseButton, 3));
+
+    Input::add_action("escape");
+    Input::add_action_mapping("escape", ActionMapping(ActionMappingKind::Key, SDLK_ESCAPE));
 }
 
 bool Input::is_action_pressed(const String& action)

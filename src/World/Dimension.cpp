@@ -4,8 +4,6 @@ std::vector<AABB> Dimension::get_boxes_that_may_collide(const AABB& box) const
 {
     std::vector<AABB> boxes;
 
-    // const glm::i64vec3 centeri = box.center;
-
     int64_t min_x = (int64_t)box.center.x - 1, max_x = (int64_t)box.center.x + 1;
     int64_t min_y = (int64_t)box.center.y - 1, max_y = (int64_t)box.center.y + 1;
     int64_t min_z = (int64_t)box.center.z - 1, max_z = (int64_t)box.center.z + 1;

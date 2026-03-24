@@ -13,6 +13,7 @@
 #include "World/Registry.hpp"
 #include "World/World.hpp"
 #include "glm/ext/matrix_transform.hpp"
+#include "imgui.h"
 
 #include <cmath>
 
@@ -161,7 +162,7 @@ void Player::on_ready()
     m_highlight_shader->set_binding("env", Binding(BindingKind::UniformBuffer, ShaderStageFlagBits::Vertex, 0, 0, BindingAccess::Read));
     m_highlight_shader->set_binding("model", Binding(BindingKind::UniformBuffer, ShaderStageFlagBits::Vertex, 0, 1, BindingAccess::Read));
 
-    m_highlight_material = Material::create(m_highlight_shader, std::nullopt, MaterialFlagBits::Transparency, PolygonMode::Fill, CullMode::Back, UVType::UVT, "HIGHLIGHT_CUBE");
+    m_highlight_material = RenderingDriver::get()->create_material(m_highlight_shader, std::nullopt, MaterialFlagBits::Transparency, PolygonMode::Fill, CullMode::Back, UVType::UVT, "HIGHLIGHT_CUBE");
     m_highlight_material->set_param("env", m_world->get_env_buffer());
     m_highlight_material->set_param("model", m_highlight_model_buffer);
 }
@@ -179,7 +180,7 @@ static ALWAYS_INLINE bool between(float x, float a, float b)
     return x >= a && x <= b;
 }
 
-struct CollisionResult sweep_aabb(const AABB& a, const AABB& b, glm::vec3 d)
+static bool sweep_aabb(const AABB& a, const AABB& b, glm::vec3 d, CollisionResult& r)
 {
     const float mx = b.center.x - (a.center.x + a.half_extent.x);
     const float my = b.center.y - (a.center.y + a.half_extent.y);
@@ -187,8 +188,8 @@ struct CollisionResult sweep_aabb(const AABB& a, const AABB& b, glm::vec3 d)
     const float mhx = a.half_extent.x + b.half_extent.x;
     const float mhy = a.half_extent.y + b.half_extent.y;
     const float mhz = a.half_extent.z + b.half_extent.z;
-    CollisionResult r{glm::vec3(), 1.0};
     float s;
+    r.penetration = 100.0;
 
     // x min
     s = line_to_plane(glm::vec3(), d, glm::vec3(mx, my, mz), glm::vec3(-1, 0, 0));
@@ -235,60 +236,41 @@ struct CollisionResult sweep_aabb(const AABB& a, const AABB& b, glm::vec3 d)
         r.normal = glm::vec3(0, 0, 1);
     }
 
-    return r;
+    return r.penetration < 100.0;
 }
 
 void Player::move_and_collide()
 {
-    // TODO: high velocity might miss some collisions. Probably should decompose collisions in multiple steps if that the case
     const AABB pbox(m_transform.position(), glm::vec3(0.35, 0.9, 0.35));
     const Dimension& dimension = m_world->get_dimension(m_dimension);
     const std::vector<AABB> colliders = dimension.get_boxes_that_may_collide(pbox);
 
-    constexpr size_t max_iteration = 1;
-    size_t iteration = 0;
-    while (iteration < max_iteration)
+    glm::vec3 combined_collision_vector = glm::vec3();
+
+    m_on_ground = false;
+    for (const auto& collider : colliders)
     {
-        CollisionResult closest_collision{glm::vec3(), 1.0};
-
-        m_on_ground = false;
-        for (const auto& block : colliders)
+        CollisionResult collision;
+        if (sweep_aabb(pbox, collider, m_velocity, collision))
         {
-            const CollisionResult collision = sweep_aabb(pbox.translate(m_velocity), block, m_velocity);
-            if (collision.penetration < closest_collision.penetration)
-            {
-                closest_collision = collision;
-                if (collision.normal.y == 1)
-                    m_on_ground = true;
-                // println("> {} <> [ {} {} {} ]", collision.penetration, collision.normal.x, collision.normal.y, collision.normal.z);
-                // println("  [ {} {} {} ]", block.center.x, block.center.y, block.center.z);
-            }
+            combined_collision_vector += collision.normal * collision.penetration;
         }
-
-        if (closest_collision.penetration != 1.0)
-        {
-            const float margin = 0.01;
-            m_transform.position() += closest_collision.penetration * m_velocity + margin * closest_collision.normal;
-        }
-        else
-        {
-            m_transform.position() += m_velocity;
-        }
-
-        // TODO: what if its not possible to resolve a collision ? it should not infinite loop
-        if (closest_collision.penetration == 1.0)
-            break;
-
-        // const float b_dot_b = glm::dot(closest_collision.normal, closest_collision.normal);
-        // if (glm::epsilonEqual(b_dot_b, 0.0f, 0.0001f))
-        // {
-        //     const float one_minus_p = 1.0f - closest_collision.penetration;
-        //     const float a_dot_b = one_minus_p * glm::dot(m_velocity, closest_collision.normal);
-        //     m_transform.position() += one_minus_p * m_velocity - (a_dot_b / b_dot_b) * closest_collision.normal;
-        // }
-
-        iteration++;
     }
+
+    // println("[ {} {} {} ]", combined_collision_vector.x, combined_collision_vector.y, combined_collision_vector.z);
+    m_transform.position() += m_velocity;
+
+    // m_transform.position() += m_velocity;
+
+    // if (has_collision)
+    // {
+    //     const float margin = 0.01;
+    //     m_transform.position() += closest_collision.penetration * m_velocity + margin * closest_collision.normal;
+    // }
+    // else
+    // {
+    //     m_transform.position() += m_velocity;
+    // }
 }
 
 void Player::tick(float delta)
@@ -373,19 +355,22 @@ void Player::draw(RenderPassEncoder& encoder)
 {
     if (m_aimed_block.has_value())
     {
-        (void)encoder;
-        // m_highlight_model.model_matrix = glm::translate(glm::identity<glm::mat4>(), glm::vec3(m_aimed_block.value()));
-        // m_highlight_model_buffer->update(View(m_highlight_model).as_bytes());
+        // (void)encoder;
+        m_highlight_model.model_matrix = glm::translate(glm::identity<glm::mat4>(), glm::vec3(m_aimed_block.value()));
+        m_highlight_model_buffer->update(View(m_highlight_model).as_bytes());
 
-        // encoder.bind_material(m_highlight_material);
-        // encoder.bind_index_buffer(m_highlight_mesh->get_buffer(MeshBufferKind::Index));
-        // encoder.bind_vertex_buffer(m_highlight_mesh->get_buffer(MeshBufferKind::Position), 0);
-        // encoder.draw(m_highlight_mesh->vertex_count(), 1);
+        encoder.bind_material(m_highlight_material);
+        encoder.bind_index_buffer(m_highlight_mesh->get_buffer(MeshBufferKind::Index));
+        encoder.bind_vertex_buffer(m_highlight_mesh->get_buffer(MeshBufferKind::Position), 0);
+        encoder.bind_vertex_buffer(m_highlight_mesh->get_buffer(MeshBufferKind::UV), 1);
+        encoder.bind_vertex_buffer(m_highlight_mesh->get_buffer(MeshBufferKind::Normal), 2);
+        encoder.draw(m_highlight_mesh->vertex_count(), 1);
     }
 
     if (ImGui::Begin("Player"))
     {
         ImGui::Checkbox("Gravity", &m_gravity_enabled);
+        ImGui::Text("Position: %f %f %f", m_transform.position().x, m_transform.position().y, m_transform.position().z);
     }
     ImGui::End();
 }

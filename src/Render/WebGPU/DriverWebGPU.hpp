@@ -20,6 +20,7 @@
 #endif
 
 class TextureWebGPU;
+class MaterialWebGPU;
 
 struct RenderPipelineCacheKey
 {
@@ -42,40 +43,37 @@ struct RenderPipelineCacheKey
         // if (material >= other.material)
         //     return false;
         // return true;
-        return std::tie(material, color_attachs, previous_depth_pass) < std::tie(other.material, other.color_attachs, other.previous_depth_pass);
+        const void *m = other.material.ptr();
+        const void *om = other.material.ptr();
+        const bool color_pass = color_attachs.size() > 0;
+        const bool other_color_pass = color_attachs.size() > 0;
+        return std::tie(m, color_pass, previous_depth_pass) < std::tie(om, other_color_pass, other.previous_depth_pass);
     }
 };
 
-class RenderPipelineCache : public Cache<WGPURenderPipeline, RenderPipelineCacheKey>
+struct RenderPipelineCacheValue
+{
+    WGPUPipelineLayout pipeline_layout;
+    WGPUBindGroupLayout bind_group_layout;
+    WGPURenderPipeline pipeline;
+};
+
+class RenderPipelineCache2
 {
 public:
-    RenderPipelineCache() {}
-    void clear();
+    RenderPipelineCacheValue get_or_create(Ref<MaterialWebGPU> material, std::vector<RenderPassColorAttachment> color_attachments, bool load_depth);
 
-    WGPURenderPipeline create_object(const RenderPipelineCacheKey& key) override;
-};
-
-struct ComputePipelineCacheKey
-{
-    Ref<ComputeMaterial> material = nullptr;
-
-    ComputePipelineCacheKey(Ref<ComputeMaterial> material)
-        : material(material)
+    struct Key
     {
-    }
+        size_t material_ptr;
+        bool store_color;
+        bool load_depth;
+    };
 
-    bool operator<(const ComputePipelineCacheKey& other) const
-    {
-        return material.ptr() < other.material.ptr();
-    }
-};
+private:
+    std::vector<std::pair<Key, RenderPipelineCacheValue>> m_pipelines;
 
-class ComputePipelineCache : public Cache<WGPUComputePipeline, ComputePipelineCacheKey>
-{
-public:
-    ComputePipelineCache() {}
-
-    WGPUComputePipeline create_object(const ComputePipelineCacheKey& key) override;
+    std::optional<RenderPipelineCacheValue> get(Key key);
 };
 
 class SamplerCache : public Cache<WGPUSampler, SamplerDescriptor>
@@ -90,34 +88,9 @@ private:
     std::map<SamplerDescriptor, WGPUSampler> m_samplers;
 };
 
-struct MaterialLayoutCacheKey
-{
-    Ref<MaterialBase> material = nullptr; // TODO: replace with weak ref
-
-    bool operator<(const MaterialLayoutCacheKey& other) const
-    {
-        return material.ptr() < other.material.ptr();
-    }
-};
-
-struct MaterialLayoutCacheValue
-{
-    WGPUBindGroupLayout bind_group_layout;
-    WGPUPipelineLayout pipeline_layout;
-};
-
-class MaterialLayoutCache : public Cache<MaterialLayoutCacheValue, MaterialLayoutCacheKey>
-{
-public:
-    void clear();
-
-protected:
-    virtual MaterialLayoutCacheValue create_object(const MaterialLayoutCacheKey& key) override;
-};
-
 struct BindGroupCacheKey
 {
-    Ref<MaterialBase> material = nullptr;
+    Ref<Material> material = nullptr;
 
     bool operator<(const BindGroupCacheKey& other) const
     {
@@ -133,7 +106,7 @@ class BindGroupCache
 {
 public:
     void clear();
-    WGPUBindGroup get(Ref<MaterialBase> material);
+    WGPUBindGroup get(Ref<Material> material);
 
 private:
     std::map<BindGroupCacheKey, WGPUBindGroup> m_bind_groups;
@@ -184,7 +157,7 @@ public:
     }
 
     [[nodiscard]]
-    virtual Result<> initialize(const Window& window, bool enable_validation) override;
+    virtual Result<> initialize(const Window& window, InitFlags flags) override;
 
     [[nodiscard]]
     virtual Result<> configure_surface(size_t width, size_t height, VSync vsync) override;
@@ -198,6 +171,9 @@ public:
 
     [[nodiscard]]
     virtual Result<Ref<Texture>> create_texture(uint32_t width, uint32_t height, TextureFormat format, TextureUsageFlags usage, TextureDimension dimension = TextureDimension::D2D, uint32_t layers = 1) override;
+
+    [[nodiscard]]
+    virtual Ref<Material> create_material(const Ref<Shader>& shader, std::optional<InstanceLayout> instance_layout, MaterialFlags flags, PolygonMode polygon_mode, CullMode cull_mode, UVType uv_type, String name) override;
 
     virtual void draw_graph(const RenderGraph& graph) override;
 
@@ -214,7 +190,7 @@ public:
         return m_queue;
     }
 
-    inline RenderPipelineCache& get_pipeline_cache()
+    inline RenderPipelineCache2& get_pipeline_cache()
     {
         return m_pipeline_cache;
     }
@@ -222,11 +198,6 @@ public:
     inline SamplerCache& get_sampler_cache()
     {
         return m_sampler_cache;
-    }
-
-    inline MaterialLayoutCache& get_material_layout_cache()
-    {
-        return m_material_layout_cache;
     }
 
     WGPUShaderModule create_shader_module(const Ref<Shader>& shader);
@@ -240,14 +211,10 @@ private:
     WGPUSurface m_surface = nullptr;
     WGPUQueue m_queue = nullptr;
 
-    WGPUQuerySet m_timestamp_query_set = nullptr;
-
     WGPUTextureFormat m_surface_format = WGPUTextureFormat_Undefined;
 
-    RenderPipelineCache m_pipeline_cache;
-    ComputePipelineCache m_compute_pipeline_cache;
+    RenderPipelineCache2 m_pipeline_cache;
     SamplerCache m_sampler_cache;
-    MaterialLayoutCache m_material_layout_cache;
     BindGroupCache m_bind_group_cache;
     RenderGraphCache m_render_graph_cache;
 
@@ -302,4 +269,20 @@ public:
     WGPUTexture texture;
     WGPUTextureView view;
     TextureFormat format;
+};
+
+class MaterialWebGPU : public Material
+{
+public:
+    MaterialWebGPU(const Ref<Shader>& shader, std::optional<InstanceLayout> instance_layout, MaterialFlags flags, PolygonMode polygon_mode, CullMode cull_mode, UVType uv_type, String name, WGPUPipelineLayout pipeline_layout, WGPUBindGroupLayout bind_group_layout)
+        : Material(shader, instance_layout, flags, polygon_mode, cull_mode, uv_type, name), m_pipeline_layout(pipeline_layout), m_bind_group_layout(bind_group_layout)
+    {
+    }
+
+    WGPUPipelineLayout pipeline_layout() const { return m_pipeline_layout; }
+    WGPUBindGroupLayout bind_group_layout() const { return m_bind_group_layout; }
+
+private:
+    WGPUPipelineLayout m_pipeline_layout;
+    WGPUBindGroupLayout m_bind_group_layout;
 };

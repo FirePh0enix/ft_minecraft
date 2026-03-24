@@ -39,7 +39,7 @@ struct ImGuiDrawInstruction
 
 struct BindMaterialInstruction
 {
-    Ref<MaterialBase> material = nullptr;
+    Ref<Material> material = nullptr;
 };
 
 struct BindIndexBufferInstruction
@@ -89,23 +89,6 @@ private:
     bool m_end = false;
 };
 
-class ComputePassEncoder
-{
-public:
-    ComputePassEncoder();
-    ~ComputePassEncoder();
-
-    ComputePassEncoder(const ComputePassEncoder& encoder) = delete;
-    ComputePassEncoder operator==(const ComputePassEncoder& encoder) = delete;
-
-    void bind_material(const Ref<ComputeMaterial>& material);
-    void dispatch(uint32_t group_x, uint32_t group_y, uint32_t group_z);
-    void end();
-
-private:
-    bool m_end = false;
-};
-
 class RenderGraph
 {
 public:
@@ -120,7 +103,6 @@ public:
     View<Instruction> get_instructions() const;
 
     RenderPassEncoder render_pass_begin(const RenderPassDescriptor& descriptor);
-    ComputePassEncoder compute_pass_begin();
     void copy_buffer(const Ref<Buffer>& dest, const Ref<Buffer>& source);
 
 private:

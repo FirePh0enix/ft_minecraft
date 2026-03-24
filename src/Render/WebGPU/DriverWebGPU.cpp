@@ -297,67 +297,32 @@ static std::vector<WGPUBindGroupLayoutEntry> convert_bindings(const Ref<Shader>&
     return entries;
 }
 
-void MaterialLayoutCache::clear()
+RenderPipelineCacheValue RenderPipelineCache2::get_or_create(Ref<MaterialWebGPU> material, std::vector<RenderPassColorAttachment> color_attachments, bool load_depth)
 {
-    for (auto& [key, pipeline] : m_objects)
+    Key key{(size_t)material.ptr(), color_attachments.size() > 0, load_depth};
+    const auto op = get(key);
+    if (op.has_value())
     {
-        (void)key;
-        wgpuPipelineLayoutRelease(pipeline.pipeline_layout);
-        wgpuBindGroupLayoutRelease(pipeline.bind_group_layout);
-    }
-    m_objects.clear();
-}
-
-MaterialLayoutCacheValue MaterialLayoutCache::create_object(const MaterialLayoutCacheKey& key)
-{
-    const Ref<Shader>& shader = key.material->get_shader();
-    std::vector<WGPUBindGroupLayoutEntry> entries = convert_bindings(shader);
-
-    WGPUBindGroupLayoutDescriptor bind_group_desc{};
-    bind_group_desc.entryCount = entries.size();
-    bind_group_desc.entries = entries.data();
-
-    WGPUBindGroupLayout bind_group_layout = wgpuDeviceCreateBindGroupLayout(RenderingDriverWebGPU::get()->get_device(), &bind_group_desc);
-    ERR_COND_R(bind_group_layout == nullptr, "BindGroupLayout is invalid", {});
-
-    std::array<WGPUBindGroupLayout, 1> layouts{bind_group_layout};
-
-    WGPUPipelineLayoutDescriptor pipeline_layout_desc{};
-    pipeline_layout_desc.bindGroupLayoutCount = layouts.size();
-    pipeline_layout_desc.bindGroupLayouts = layouts.data();
-
-    WGPUPipelineLayout pipeline_layout = wgpuDeviceCreatePipelineLayout(RenderingDriverWebGPU::get()->get_device(), &pipeline_layout_desc);
-    ERR_COND_R(pipeline_layout == nullptr, "PipelineLayout is invalid", {});
-
-    return MaterialLayoutCacheValue{.bind_group_layout = bind_group_layout, .pipeline_layout = pipeline_layout};
-}
-
-void RenderPipelineCache::clear()
-{
-    for (auto& [key, pipeline] : m_objects)
-    {
-        wgpuRenderPipelineRelease(pipeline);
+        return op.value();
     }
 
-    m_objects.clear();
+    Result<WGPURenderPipeline> pipeline_result = RenderingDriverWebGPU::get()->create_render_pipeline(material->get_shader(), material->get_uv_type(), material->get_instance_layout(), convert_cull_mode(material->get_cull_mode()), material->get_flags(), material->pipeline_layout(), color_attachments, load_depth);
+    const auto pipeline = pipeline_result.value();
+
+    RenderPipelineCacheValue value{.pipeline_layout = material->pipeline_layout(), .bind_group_layout = material->bind_group_layout(), .pipeline = pipeline};
+
+    m_pipelines.push_back({key, value});
+    return value;
 }
 
-WGPURenderPipeline RenderPipelineCache::create_object(const RenderPipelineCacheKey& key)
+std::optional<RenderPipelineCacheValue> RenderPipelineCache2::get(Key key)
 {
-    const Ref<Material>& material = key.material;
-    const MaterialLayoutCacheValue& cached_layout = RenderingDriverWebGPU::get()->get_material_layout_cache().get({.material = material});
-
-    auto pipeline_result = RenderingDriverWebGPU::get()->create_render_pipeline(material->get_shader(), material->get_uv_type(), material->get_instance_layout(), convert_cull_mode(material->get_cull_mode()), material->get_flags(), cached_layout.pipeline_layout, key.color_attachs, key.previous_depth_pass);
-    return pipeline_result.value();
-}
-
-// TODO: Compute pipeline should be reused between materials.
-WGPUComputePipeline ComputePipelineCache::create_object(const ComputePipelineCacheKey& key)
-{
-    const MaterialLayoutCacheValue& cached_layout = RenderingDriverWebGPU::get()->get_material_layout_cache().get({.material = key.material});
-
-    auto pipeline_result = RenderingDriverWebGPU::get()->create_compute_pipeline(key.material->get_shader(), cached_layout.pipeline_layout);
-    return pipeline_result.value();
+    for (const auto& pair : m_pipelines)
+    {
+        if (pair.first.material_ptr == key.material_ptr && pair.first.store_color == key.store_color && pair.first.load_depth == key.load_depth)
+            return pair.second;
+    }
+    return std::nullopt;
 }
 
 void SamplerCache::clear()
@@ -386,7 +351,7 @@ void BindGroupCache::clear()
     m_bind_groups.clear();
 }
 
-WGPUBindGroup BindGroupCache::get(Ref<MaterialBase> material)
+WGPUBindGroup BindGroupCache::get(Ref<Material> material)
 {
     auto iter = m_bind_groups.find(BindGroupCacheKey{material});
 
@@ -456,7 +421,7 @@ WGPUBindGroup BindGroupCache::get(Ref<MaterialBase> material)
             }
         }
 
-        const MaterialLayoutCacheValue& value = RenderingDriverWebGPU::get()->get_material_layout_cache().get(MaterialLayoutCacheKey{.material = material});
+        const RenderPipelineCacheValue& value = RenderingDriverWebGPU::get()->get_pipeline_cache().get_or_create(material, {}, false);
 
         WGPUBindGroupDescriptor desc{};
         desc.nextInChain = nullptr;
@@ -481,11 +446,10 @@ RenderingDriverWebGPU::RenderingDriverWebGPU()
 
 RenderingDriverWebGPU::~RenderingDriverWebGPU()
 {
-    m_material_layout_cache.clear();
     m_bind_group_cache.clear();
     m_render_graph_cache.clear();
     m_sampler_cache.clear();
-    m_pipeline_cache.clear();
+    // m_pipeline_cache2.clear();
 
     // wgpuSurfaceUnconfigure(m_surface);
     // wgpuSurfaceRelease(m_surface);
@@ -540,7 +504,7 @@ WGPUDevice request_device_sync(WGPUAdapter adapter, const WGPUDeviceDescriptor& 
 
 #endif
 
-Result<> RenderingDriverWebGPU::initialize(const Window& window, bool enable_validation)
+Result<> RenderingDriverWebGPU::initialize(const Window& window, InitFlags flags)
 {
 #ifndef __platform_web
     WGPUInstanceDescriptor instance_desc{};
@@ -549,7 +513,7 @@ Result<> RenderingDriverWebGPU::initialize(const Window& window, bool enable_val
     extras.chain = {.next = nullptr, .sType = (WGPUSType)WGPUSType_InstanceExtras};
     extras.backends = WGPUInstanceBackend_Primary;
 
-    if (enable_validation)
+    if (flags.has_any(InitFlagBits::Validation))
         extras.flags |= WGPUInstanceFlag_Validation;
 
     instance_desc.nextInChain = &extras.chain;
@@ -577,10 +541,7 @@ Result<> RenderingDriverWebGPU::initialize(const Window& window, bool enable_val
     // TODO: Use this maybe ?
     // wgpuInstanceEnumerateAdapters(WGPUInstance instance, const WGPUInstanceEnumerateAdapterOptions *options, WGPUAdapter *adapters);
 
-    const WGPUFeatureName required_features[] = {
-        WGPUFeatureName_TimestampQuery,
-        // (WGPUFeatureName)WGPUNativeFeature_TimestampQueryInsideEncoders,
-    };
+    const WGPUFeatureName required_features[] = {};
 
     WGPUDeviceDescriptor device_desc{};
     device_desc.nextInChain = nullptr;
@@ -618,11 +579,6 @@ Result<> RenderingDriverWebGPU::initialize(const Window& window, bool enable_val
         return Error(ErrorKind::NoSuitableDevice);
     }
 #endif
-
-    WGPUQuerySetDescriptor query_set_desc{};
-    query_set_desc.count = 4; // 2 for render, 2 for compute
-    query_set_desc.type = WGPUQueryType_Timestamp;
-    m_timestamp_query_set = wgpuDeviceCreateQuerySet(m_device, &query_set_desc);
 
     m_queue = wgpuDeviceGetQueue(m_device);
     if (!m_queue)
@@ -756,6 +712,29 @@ Result<Ref<Texture>> RenderingDriverWebGPU::create_texture(uint32_t width, uint3
     return newobj(TextureWebGPU, texture, view, width, height, format).cast_to<Texture>();
 }
 
+Ref<Material> RenderingDriverWebGPU::create_material(const Ref<Shader>& shader, std::optional<InstanceLayout> instance_layout, MaterialFlags flags, PolygonMode polygon_mode, CullMode cull_mode, UVType uv_type, String name)
+{
+    std::vector<WGPUBindGroupLayoutEntry> entries = convert_bindings(shader);
+
+    WGPUBindGroupLayoutDescriptor bind_group_desc{};
+    bind_group_desc.entryCount = entries.size();
+    bind_group_desc.entries = entries.data();
+
+    WGPUBindGroupLayout bind_group_layout = wgpuDeviceCreateBindGroupLayout(RenderingDriverWebGPU::get()->get_device(), &bind_group_desc);
+    ERR_COND_R(bind_group_layout == nullptr, "BindGroupLayout is invalid", {});
+
+    std::array<WGPUBindGroupLayout, 1> layouts{bind_group_layout};
+
+    WGPUPipelineLayoutDescriptor pipeline_layout_desc{};
+    pipeline_layout_desc.bindGroupLayoutCount = layouts.size();
+    pipeline_layout_desc.bindGroupLayouts = layouts.data();
+
+    WGPUPipelineLayout pipeline_layout = wgpuDeviceCreatePipelineLayout(RenderingDriverWebGPU::get()->get_device(), &pipeline_layout_desc);
+    ERR_COND_R(pipeline_layout == nullptr, "PipelineLayout is invalid", {});
+
+    return newobj(MaterialWebGPU, shader, instance_layout, flags, polygon_mode, cull_mode, uv_type, name, pipeline_layout, bind_group_layout);
+}
+
 void RenderingDriverWebGPU::draw_graph(const RenderGraph& graph)
 {
     WGPUSurfaceTexture surface_texture{};
@@ -850,29 +829,15 @@ void RenderingDriverWebGPU::draw_graph(const RenderGraph& graph)
         else if (std::holds_alternative<BindMaterialInstruction>(instruction))
         {
             const BindMaterialInstruction& bind = std::get<BindMaterialInstruction>(instruction);
+            const Ref<Material>& material = bind.material;
 
-            if (Ref<Material> material = bind.material.cast_to<Material>())
-            {
-                WGPURenderPipeline pipeline = m_pipeline_cache.get(RenderPipelineCacheKey(bind.material, render_pass_descriptor.color_attachments, use_previous_depth_pass));
+            RenderPipelineCacheValue value = m_pipeline_cache.get_or_create(material, render_pass_descriptor.color_attachments, use_previous_depth_pass);
+            wgpuRenderPassEncoderSetPipeline(render_pass_encoder, value.pipeline);
 
-                auto pair = m_pipeline_cache.get_pair(RenderPipelineCacheKey(bind.material, render_pass_descriptor.color_attachments, use_previous_depth_pass));
-                wgpuRenderPassEncoderSetPipeline(render_pass_encoder, pipeline);
+            WGPUBindGroup bind_group = m_bind_group_cache.get(bind.material);
+            wgpuRenderPassEncoderSetBindGroup(render_pass_encoder, 0, bind_group, 0, nullptr);
 
-                WGPUBindGroup bind_group = m_bind_group_cache.get(bind.material);
-                wgpuRenderPassEncoderSetBindGroup(render_pass_encoder, 0, bind_group, 0, nullptr);
-
-                // println("Material `{}`, pipeline = {}, bind_group = {}", material->get_name(), pipeline, bind_group);
-            }
-            else if (Ref<ComputeMaterial> material = bind.material.cast_to<ComputeMaterial>())
-            {
-                ASSERT(false, "not implemented");
-
-                WGPUComputePipeline pipeline = m_compute_pipeline_cache.get(ComputePipelineCacheKey(bind.material));
-                wgpuComputePassEncoderSetPipeline(compute_pass_encoder, pipeline);
-
-                WGPUBindGroup bind_group = m_bind_group_cache.get(bind.material);
-                wgpuComputePassEncoderSetBindGroup(compute_pass_encoder, 0, bind_group, 0, nullptr);
-            }
+            // println("Material `{}`, pipeline = {}, bind_group = {}", material->get_name(), pipeline, bind_group);
         }
         else if (std::holds_alternative<BeginComputePassInstruction>(instruction))
         {

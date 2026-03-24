@@ -3,6 +3,7 @@
 #include "Core/Class.hpp"
 #include "Core/Containers/View.hpp"
 #include "Core/Definitions.hpp"
+#include "Core/Flags.hpp"
 #include "Core/Ref.hpp"
 #include "Core/Result.hpp"
 #include "Render/Shader.hpp"
@@ -171,47 +172,6 @@ union MaterialParamCache
     } buffer;
 };
 
-class MaterialBase : public Object
-{
-    CLASS(MaterialBase, Object);
-
-public:
-    MaterialBase(const Ref<Shader>& shader)
-        : m_shader(shader), m_param_changed(true)
-    {
-    }
-
-    virtual ~MaterialBase() {}
-
-    const Ref<Shader>& get_shader() const
-    {
-        return m_shader;
-    }
-
-    Ref<Shader>& get_shader()
-    {
-        return m_shader;
-    }
-
-    bool has_param_changed() const
-    {
-        return m_param_changed;
-    }
-
-    void set_param(const StringView& name, const Ref<Buffer>& buffer);
-    void set_param(const StringView& name, const Ref<Texture>& texture);
-
-    const MaterialParamCache& get_param(const StringView& name) const;
-
-    void clear_param_changed();
-
-private:
-    Ref<Shader> m_shader;
-    std::map<String, MaterialParamCache> m_caches;
-
-    bool m_param_changed : 1;
-};
-
 enum class MaterialFlagBits
 {
     None,
@@ -221,18 +181,11 @@ enum class MaterialFlagBits
 using MaterialFlags = Flags<MaterialFlagBits>;
 DEFINE_FLAG_TRAITS(MaterialFlagBits);
 
-class Material : public MaterialBase
+class Material : public Object
 {
-    CLASS(Material, MaterialBase);
+    CLASS(Material, Object);
 
 public:
-    static Ref<Material> create(const Ref<Shader>& shader, std::optional<InstanceLayout> instance_layout = std::nullopt, MaterialFlags flags = MaterialFlagBits::None, PolygonMode polygon_mode = PolygonMode::Fill, CullMode cull_mode = CullMode::Back, UVType uv_type = UVType::UV, String name = "");
-
-    Material(const Ref<Shader>& shader, std::optional<InstanceLayout> instance_layout, MaterialFlags flags, PolygonMode polygon_mode, CullMode cull_mode, UVType uv_type, String name)
-        : MaterialBase(shader), m_instance_layout(instance_layout), m_flags(flags), m_polygon_mode(polygon_mode), m_cull_mode(cull_mode), m_uv_type(uv_type), m_name(name)
-    {
-    }
-
     virtual ~Material() {}
 
     std::optional<InstanceLayout> get_instance_layout() const
@@ -258,31 +211,45 @@ public:
     ALWAYS_INLINE UVType get_uv_type() const { return m_uv_type; }
     ALWAYS_INLINE StringView get_name() const { return m_name; }
 
+    const Ref<Shader>& get_shader() const
+    {
+        return m_shader;
+    }
+
+    Ref<Shader>& get_shader()
+    {
+        return m_shader;
+    }
+
+    bool has_param_changed() const
+    {
+        return m_param_changed;
+    }
+
+    void set_param(const StringView& name, const Ref<Buffer>& buffer);
+    void set_param(const StringView& name, const Ref<Texture>& texture);
+
+    const MaterialParamCache& get_param(const StringView& name) const;
+
+    void clear_param_changed();
+
+protected:
+    Material(const Ref<Shader>& shader, std::optional<InstanceLayout> instance_layout, MaterialFlags flags, PolygonMode polygon_mode, CullMode cull_mode, UVType uv_type, String name)
+        : m_shader(shader), m_instance_layout(instance_layout), m_flags(flags), m_polygon_mode(polygon_mode), m_cull_mode(cull_mode), m_uv_type(uv_type), m_name(name)
+    {
+    }
+
 private:
+    Ref<Shader> m_shader;
     std::optional<InstanceLayout> m_instance_layout;
     MaterialFlags m_flags;
     PolygonMode m_polygon_mode;
     CullMode m_cull_mode;
     UVType m_uv_type;
     String m_name;
-};
+    std::map<String, MaterialParamCache> m_caches;
 
-/**
- * @brief Type of material used for compute operations.
- */
-class ComputeMaterial : public MaterialBase
-{
-    CLASS(ComputeMaterial, MaterialBase);
-
-public:
-    static Ref<ComputeMaterial> create(const Ref<Shader>& shader);
-
-    ComputeMaterial(Ref<Shader> shader)
-        : MaterialBase(shader)
-    {
-    }
-
-    virtual ~ComputeMaterial() {}
+    bool m_param_changed : 1 = false;
 };
 
 struct RenderPassColorAttachment
@@ -323,6 +290,14 @@ struct RenderPassDescriptor
     }
 };
 
+enum class InitFlagBits
+{
+    None = 0,
+    Validation = 1 << 0,
+};
+typedef Flags<InitFlagBits> InitFlags;
+DEFINE_FLAG_TRAITS(InitFlagBits);
+
 class RenderingDriver : public Object
 {
     CLASS(RenderingDriver, Object);
@@ -330,11 +305,6 @@ class RenderingDriver : public Object
 public:
     RenderingDriver() {}
     virtual ~RenderingDriver() {}
-
-    // RenderingDriver(const RenderingDriver&) = delete;
-    // RenderingDriver(const RenderingDriver&&) = delete;
-    // RenderingDriver operator=(const RenderingDriver&) = delete;
-    // RenderingDriver operator=(const RenderingDriver&&) = delete;
 
     template <typename T>
     static void create_singleton()
@@ -360,7 +330,7 @@ public:
      * @param window
      */
     [[nodiscard]]
-    virtual Result<> initialize(const Window& window, bool enable_validation) = 0;
+    virtual Result<> initialize(const Window& window, InitFlags flags) = 0;
 
     /**
      * @brief Configure the surface and swapchain.
@@ -407,6 +377,9 @@ public:
      */
     [[nodiscard]]
     virtual Result<Ref<Texture>> create_texture(uint32_t width, uint32_t height, TextureFormat format, TextureUsageFlags usage, TextureDimension dimension = TextureDimension::D2D, uint32_t layers = 1) = 0;
+
+    [[nodiscard]]
+    virtual Ref<Material> create_material(const Ref<Shader>& shader, std::optional<InstanceLayout> instance_layout, MaterialFlags flags, PolygonMode polygon_mode, CullMode cull_mode, UVType uv_type, String name) = 0;
 
     /**
      * @brief Draw a frame using a `RenderGraph`.

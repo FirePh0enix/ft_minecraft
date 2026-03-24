@@ -4,6 +4,7 @@
 #include "Entity/Player.hpp"
 #include "Input.hpp"
 #include "Profiler.hpp"
+#include "Render/Driver.hpp"
 #include "Render/Graph.hpp"
 #include "Render/ImGUIToolKit.hpp"
 #include "Render/WebGPU/DriverWebGPU.hpp"
@@ -24,7 +25,13 @@ Engine::Engine(const Args& args)
 #error "WebGPU is the only API supported"
 #endif
 
-    (void)RenderingDriver::get()->initialize(*m_window, args.has("enable-gpu-validation"));
+    InitFlags flags;
+    if (args.has("enable-gpu-validation"))
+    {
+        flags |= InitFlagBits::Validation;
+    }
+
+    (void)RenderingDriver::get()->initialize(*m_window, flags);
 }
 
 void Engine::tick(float delta)

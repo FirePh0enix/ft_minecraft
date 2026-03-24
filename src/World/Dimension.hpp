@@ -3,6 +3,7 @@
 #include "AABB.hpp"
 #include "Entity/Entity.hpp"
 #include "World/Chunk.hpp"
+#include "World/PhysicsSystem.hpp"
 
 #include <mutex>
 
@@ -52,10 +53,15 @@ public:
 
     std::vector<AABB> get_boxes_that_may_collide(const AABB& box) const;
 
+    const PhysicsSystem& get_physics_system() const { return m_physics_system; }
+    PhysicsSystem& get_physics_system() { return m_physics_system; }
+
 private:
     std::mutex m_chunk_mutex;
     std::vector<Ref<Entity>> m_entities;
 
     std::map<ChunkPos, Ref<Chunk>> m_chunks;
     std::vector<Ref<Chunk>> m_visible_chunks;
+
+    PhysicsSystem m_physics_system;
 };

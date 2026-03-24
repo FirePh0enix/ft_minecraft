@@ -32,7 +32,6 @@ struct Model
 {
     glm::mat4 model_matrix = glm::identity<glm::mat4>();
 };
-STRUCT(Model);
 
 class Chunk : public Object
 {

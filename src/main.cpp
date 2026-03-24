@@ -1,5 +1,4 @@
 #include "Args.hpp"
-#include "Console.hpp"
 #include "Core/Logger.hpp"
 #include "Core/Registry.hpp"
 #include "Engine.hpp"
@@ -9,8 +8,6 @@
 #include "Input.hpp"
 #include "Profiler.hpp"
 #include "Render/Driver.hpp"
-#include "Toml.hpp"
-#include "Window.hpp"
 #include "World/Generator.hpp"
 #include "World/Registry.hpp"
 #include "World/World.hpp"
@@ -42,17 +39,7 @@ static void shutdown_callback();
 static void loop_update();
 static void update_callback();
 
-// static String default_config = R"(
-// [player]
-// x=0.0
-// y=150.0
-// z=0.0
-// )";
-
 Ref<Engine> engine;
-
-toml::table config2;
-Console console;
 
 MAIN(int argc, char *argv[])
 {
@@ -77,11 +64,6 @@ MAIN(int argc, char *argv[])
     engine = newobj(Engine, args);
 
     TracySetThreadName("Main");
-
-    // toml::table default_config2 = toml::operator""_toml(default_config.data(), default_config.size()).table();
-    // config2 = default_config2;
-    // if (std::filesystem::exists("config.toml"))
-    //     toml_merge_left(config2, toml::parse_file("config.toml").table());
 
     BlockRegistry::load_blocks();
     BlockRegistry::create_gpu_resources();
@@ -151,8 +133,6 @@ static void shutdown_callback()
 static void register_all_classes()
 {
     REGISTER_CLASSES(World, Chunk, Block, Player, Generator, GenerationPass, BiomeGenerationPass, SurfaceGenerationPass, FeaturesGenerationPass);
-
-    REGISTER_STRUCTS(BlockState, Environment, Model);
 }
 
 static void register_engine_classes()
@@ -160,14 +140,11 @@ static void register_engine_classes()
     REGISTER_CLASSES(
         Font,
         Entity, Camera,
-        RenderingDriver, Buffer, Texture, Mesh, MaterialBase, Material, ComputeMaterial, Shader);
+        RenderingDriver, Buffer, Texture, Mesh, Material, Shader);
 
 #ifdef __has_webgpu
     REGISTER_CLASSES(RenderingDriverWebGPU, BufferWebGPU, TextureWebGPU);
 #endif
-
-    REGISTER_STRUCTS(
-        uint16_t, uint32_t, float, glm::vec2, glm::vec3, glm::vec4, glm::uvec2, glm::uvec3, glm::uvec4);
 }
 
 #else

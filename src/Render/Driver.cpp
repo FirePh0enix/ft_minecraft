@@ -72,17 +72,7 @@ Ref<Mesh> Mesh::create_from_data(const View<uint8_t>& indices, const View<glm::v
     return newobj(Mesh, vertex_count, index_type, uv_type, index_buffer, vertex_buffer, normal_buffer, uv_buffer);
 }
 
-Ref<Material> Material::create(const Ref<Shader>& shader, std::optional<InstanceLayout> instance_layout, MaterialFlags flags, PolygonMode polygon_mode, CullMode cull_mode, UVType uv_type, String name)
-{
-    return newobj(Material, shader, instance_layout, flags, polygon_mode, cull_mode, uv_type, name);
-}
-
-Ref<ComputeMaterial> ComputeMaterial::create(const Ref<Shader>& shader)
-{
-    return newobj(ComputeMaterial, shader);
-}
-
-void MaterialBase::set_param(const StringView& name, const Ref<Texture>& texture)
+void Material::set_param(const StringView& name, const Ref<Texture>& texture)
 {
     auto binding_result = get_shader()->get_binding(name);
     ERR_COND_VR(texture.is_null(), "Texture specified for {} is null", name);
@@ -94,7 +84,7 @@ void MaterialBase::set_param(const StringView& name, const Ref<Texture>& texture
     m_param_changed = true;
 }
 
-void MaterialBase::set_param(const StringView& name, const Ref<Buffer>& buffer)
+void Material::set_param(const StringView& name, const Ref<Buffer>& buffer)
 {
     auto binding_result = get_shader()->get_binding(name);
     ERR_COND_VR(buffer.is_null(), "Buffer specified for {} is null", name);
@@ -104,13 +94,13 @@ void MaterialBase::set_param(const StringView& name, const Ref<Buffer>& buffer)
     m_param_changed = true;
 }
 
-const MaterialParamCache& MaterialBase::get_param(const StringView& name) const
+const MaterialParamCache& Material::get_param(const StringView& name) const
 {
     ASSERT_V(m_caches.contains(name), "Cache missing {}", name);
     return m_caches.at(name);
 }
 
-void MaterialBase::clear_param_changed()
+void Material::clear_param_changed()
 {
     m_param_changed = false;
 }

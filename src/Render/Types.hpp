@@ -267,22 +267,3 @@ struct Binding
         TextureDimension dimension = {};
     };
 };
-
-STRUCT(uint8_t);
-STRUCT(uint16_t);
-STRUCT(uint32_t);
-STRUCT(uint64_t);
-
-STRUCT(float);
-STRUCT(glm::vec2);
-STRUCT(glm::vec3);
-STRUCT(glm::vec4);
-
-STRUCT(double);
-STRUCT(glm::dvec2);
-STRUCT(glm::dvec3);
-STRUCT(glm::dvec4);
-
-STRUCT(glm::uvec2);
-STRUCT(glm::uvec3);
-STRUCT(glm::uvec4);

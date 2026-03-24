@@ -43,33 +43,6 @@ void RenderPassEncoder::end()
     g_graph.m_instructions.push_back(EndRenderPassInstruction{});
 }
 
-ComputePassEncoder::ComputePassEncoder()
-{
-    g_graph.m_instructions.push_back(BeginComputePassInstruction{});
-}
-
-ComputePassEncoder::~ComputePassEncoder()
-{
-    if (!m_end)
-        end();
-}
-
-void ComputePassEncoder::bind_material(const Ref<ComputeMaterial>& material)
-{
-    g_graph.m_instructions.push_back(BindMaterialInstruction{.material = material});
-}
-
-void ComputePassEncoder::dispatch(uint32_t group_x, uint32_t group_y, uint32_t group_z)
-{
-    g_graph.m_instructions.push_back(DispatchInstruction{.group_x = group_x, .group_y = group_y, .group_z = group_z});
-}
-
-void ComputePassEncoder::end()
-{
-    m_end = true;
-    g_graph.m_instructions.push_back(EndComputePassInstruction{});
-}
-
 RenderGraph& RenderGraph::get()
 {
     return g_graph;
@@ -94,11 +67,6 @@ View<Instruction> RenderGraph::get_instructions() const
 RenderPassEncoder RenderGraph::render_pass_begin(const RenderPassDescriptor& descriptor)
 {
     return RenderPassEncoder(descriptor);
-}
-
-ComputePassEncoder RenderGraph::compute_pass_begin()
-{
-    return ComputePassEncoder();
 }
 
 void RenderGraph::copy_buffer(const Ref<Buffer>& dest, const Ref<Buffer>& source)

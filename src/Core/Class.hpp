@@ -160,20 +160,6 @@ concept IsObject = requires() {
 template <typename T>
 struct TypeInfo;
 
-#define STRUCT(NAME)                                                                             \
-    template <>                                                                                  \
-    struct TypeInfo<NAME>                                                                        \
-    {                                                                                            \
-        static inline const char *struct_name = #NAME;                                           \
-                                                                                                 \
-        static void register_type()                                                              \
-        {                                                                                        \
-            CoreRegistry::get().register_struct(struct_name, Struct(struct_name, sizeof(NAME))); \
-        }                                                                                        \
-    }
-
-#define STRUCTNAME(TYPE) TypeInfo<TYPE>::struct_name
-
 class Object
 {
     static inline ClassHashCode s_class_hash = fnv32_class_hash(__FILE__, "Object");

@@ -50,7 +50,6 @@ struct BlockState
         return id == 0;
     }
 };
-STRUCT(BlockState);
 
 enum class Axis : uint8_t
 {

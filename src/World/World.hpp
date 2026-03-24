@@ -14,7 +14,6 @@ struct Environment
     glm::mat4 view_matrix = glm::identity<glm::mat4>();
     glm::f32 time = 0.0;
 };
-STRUCT(Environment);
 
 struct RaycastResult
 {

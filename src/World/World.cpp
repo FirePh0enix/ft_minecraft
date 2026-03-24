@@ -34,6 +34,8 @@ void World::tick(float delta)
 {
     ZoneScoped;
 
+    m_dims[0].get_physics_system().step();
+
     for (Ref<Entity> entity : m_dims[overworld].get_entities())
         entity->recurse_tick(delta);
 

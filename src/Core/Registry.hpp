@@ -14,7 +14,7 @@ struct Struct
     const char *name;
     uint32_t size;
 
-    constexpr Struct() :name(nullptr), size(0) {}
+    constexpr Struct() : name(nullptr), size(0) {}
     constexpr Struct(const char *name, uint32_t size) : name(name), size(size) {}
 };
 
@@ -42,11 +42,3 @@ inline void register_classes_internal()
 }
 
 #define REGISTER_CLASSES(...) register_classes_internal<__VA_ARGS__>()
-
-template <typename... T>
-inline void register_structs_internal()
-{
-    (TypeInfo<T>::register_type(), ...);
-}
-
-#define REGISTER_STRUCTS(...) register_structs_internal<__VA_ARGS__>()

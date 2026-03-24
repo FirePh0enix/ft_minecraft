@@ -13,7 +13,7 @@ Chunk::Chunk(int64_t x, int64_t y, int64_t z, World *world)
     m_model_buffer = RenderingDriver::get()->create_buffer(sizeof(Model), BufferUsageFlagBits::Uniform | BufferUsageFlagBits::CopyDest).value_or(nullptr);
     m_model_buffer->update(View(m_model).as_bytes());
 
-    m_material = Material::create(world->m_shader, std::nullopt, MaterialFlagBits::Transparency, PolygonMode::Fill, CullMode::Back, UVType::UVT);
+    m_material = RenderingDriver::get()->create_material(world->m_shader, std::nullopt, MaterialFlagBits::Transparency, PolygonMode::Fill, CullMode::Back, UVType::UVT, "chunk");
     m_material->set_param("images", BlockRegistry::get_texture_array());
     m_material->set_param("env", world->m_env_buffer);
     m_material->set_param("model", m_model_buffer);
@@ -32,12 +32,12 @@ struct Face
     bool positive;
     uint32_t texture_index;
 
-    Face(    uint8_t x,
-    uint8_t y,
-    uint8_t z,
-    Axis axis,
-    bool positive,
-    uint32_t texture_index) : x(x), y(y), z(z), axis(axis), positive(positive), texture_index(texture_index) {}
+    Face(uint8_t x,
+         uint8_t y,
+         uint8_t z,
+         Axis axis,
+         bool positive,
+         uint32_t texture_index) : x(x), y(y), z(z), axis(axis), positive(positive), texture_index(texture_index) {}
 };
 
 static std::array<glm::vec3, 4> vertex_from_axis(Axis axis, bool positive, glm::vec3 offset)

@@ -5,6 +5,7 @@
 #include "Entity/Entity.hpp"
 #include "Render/Graph.hpp"
 #include "World/Block.hpp"
+#include "World/PhysicsSystem.hpp"
 #include "World/World.hpp"
 
 class Player : public Entity
@@ -57,6 +58,8 @@ private:
 
     bool m_has_jumped = false;
     bool m_on_ground = false;
+
+    Ref<PhysicsBody> m_body;
 
     std::optional<glm::vec3> m_aimed_block = std::nullopt;
     Ref<Mesh> m_highlight_mesh;

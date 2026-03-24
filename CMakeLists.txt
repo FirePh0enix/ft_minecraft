@@ -48,6 +48,7 @@ list(APPEND SOURCES
     src/World/Chunk.cpp
     src/World/Dimension.cpp
     src/World/Generator.cpp
+    src/World/PhysicsSystem.cpp
     src/World/Registry.cpp
     src/World/Save.cpp
     src/World/World.cpp
@@ -362,17 +363,6 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(json)
 target_link_libraries(${TARGET_NAME} PRIVATE nlohmann_json::nlohmann_json)
-
-# toml++
-set(TOML_EXCEPTIONS OFF)
-
-FetchContent_Declare(
-    tomlplusplus
-    GIT_REPOSITORY https://github.com/marzer/tomlplusplus
-    GIT_TAG e7aaccca3fa3dbde9818ab8313250f3da4976e37
-)
-FetchContent_MakeAvailable(tomlplusplus)
-target_link_libraries(${TARGET_NAME} PRIVATE tomlplusplus::tomlplusplus)
 
 # tracy
 if (ENABLE_TRACING)
