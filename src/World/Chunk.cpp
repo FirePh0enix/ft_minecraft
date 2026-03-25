@@ -6,7 +6,7 @@
 #include "Render/Types.hpp"
 #include "World/Block.hpp"
 #include "World/Registry.hpp"
-#include "webgpu/webgpu.h"
+#include <cstdint>
 
 #include <cstdint>
 
