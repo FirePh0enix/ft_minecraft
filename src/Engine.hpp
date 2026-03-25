@@ -2,6 +2,7 @@
 
 #include "Args.hpp"
 #include "Core/Class.hpp"
+#include "Entity/Entity.hpp"
 #include "World/World.hpp"
 
 enum class EngineScene

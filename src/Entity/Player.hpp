@@ -45,12 +45,19 @@ public:
     float get_speed() const { return m_speed; }
     void set_speed(float speed) { m_speed = speed; }
 
+    void on_hit_by(Entity *entity) override;
+
+protected:
+    void die() override;
+
 private:
     Ref<Camera> m_camera;
 
     float m_speed = 50.0;
     float m_gravity_value = 9.81;
     bool m_gravity_enabled = false;
+
+    bool m_was_attack_pressed = false;
 
     bool m_has_jumped = false;
 

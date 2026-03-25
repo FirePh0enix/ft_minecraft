@@ -39,6 +39,7 @@ list(APPEND SOURCES
     src/Entity/Camera.cpp
     src/Entity/Entity.cpp
     src/Entity/Mob.cpp
+    src/Entity/Cow.cpp
     src/Entity/Player.cpp
     src/Platform/Platform.cpp
     src/Render/WebGPU/DriverWebGPU.cpp

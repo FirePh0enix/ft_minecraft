@@ -1,10 +1,33 @@
 #include "World/World.hpp"
 #include "Core/Class.hpp"
+#include "Core/Print.hpp"
+#include "Core/Ref.hpp"
+#include "Entity/Entity.hpp"
 #include "Profiler.hpp"
 #include "Render/Driver.hpp"
 #include "Render/Types.hpp"
 #include "World/Generator.hpp"
 #include "World/Pass/Overworld.hpp"
+
+// https://gamedev.stackexchange.com/questions/18436/most-efficient-aabb-vs-ray-collision-algorithms
+bool ray_intersect_aabb(const Ray& ray, const AABB& aabb, float& t_min)
+{
+
+    glm::vec3 inv_dir = 1.0f / ray.dir();
+    glm::vec3 t0s = (aabb.min() - ray.origin()) * inv_dir;
+    glm::vec3 t1s = (aabb.max() - ray.origin()) * inv_dir;
+
+    glm::vec3 tsmaller = glm::min(t0s, t1s);
+    glm::vec3 tbigger = glm::max(t0s, t1s);
+
+    t_min = std::max({tsmaller.x, tsmaller.y, tsmaller.z});
+    float t_max = std::min({tbigger.x, tbigger.y, tbigger.z});
+
+    if (t_max < 0.0f)
+        return false;
+
+    return t_min <= t_max;
+}
 
 World::World(uint64_t seed)
     : m_seed(seed)
@@ -162,6 +185,42 @@ std::optional<RaycastResult> World::raycast(const Ray& ray, float range)
 
         t += 0.1;
     }
+
+    return std::nullopt;
+}
+
+std::optional<EntityRaycastResult> World::raycast_entities(
+    const Ray& ray, float range, Entity *self)
+{
+    EntityRaycastResult closest_hit{};
+    float closest_distance = range;
+    bool found = false;
+
+    for (auto& entity_ref : m_dims[self->m_dimension].get_entities())
+    {
+
+        // TODO: Comparing entity id can be more efficient ? For now it seems like every entity has id 0.
+        if (self == entity_ref.ptr())
+            continue;
+
+        float t;
+        AABB world_aabb = entity_ref->get_aabb().translate(entity_ref->get_global_transform().position());
+
+        if (ray_intersect_aabb(ray, world_aabb, t))
+        {
+            if (t >= 0.0f && t < closest_distance)
+            {
+                closest_distance = t;
+                closest_hit.entity = entity_ref;
+                closest_hit.hit_position = ray.at(t);
+                closest_hit.distance = t;
+                found = true;
+            }
+        }
+    }
+
+    if (found)
+        return closest_hit;
 
     return std::nullopt;
 }

@@ -1,10 +1,6 @@
 #include "Entity/Mob.hpp"
 #include "World/World.hpp"
 
-Mob::Mob()
-{
-}
-
 // static AABB get_broadphase_box(const AABB& object, const glm::vec3& v)
 // {
 //     glm::vec3 min(object.min_x(), object.min_y(), object.min_z());

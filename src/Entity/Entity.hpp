@@ -6,9 +6,17 @@
 #include "Core/Ref.hpp"
 #include "Render/Graph.hpp"
 #include "Transform3D.hpp"
+#include <functional>
 
 class World;
 class Dimension;
+
+enum class RpcTarget
+{
+    CLIENT,
+    SERVER,
+    BOTH
+};
 
 struct EntityId
 {
@@ -48,6 +56,12 @@ class Entity : public Object
     CLASS(Entity, Object);
 
     friend class World;
+
+    struct RpcEntry
+    {
+        std::function<void(Entity&)> func;
+        RpcTarget target;
+    };
 
 public:
     Entity();
@@ -107,6 +121,10 @@ public:
 
     void recurse_tick(float delta);
 
+    virtual void on_hit_by(Entity *entity) { (void)entity; }
+
+    void call_rpc(const std::string& name, Entity& caller);
+
 protected:
     EntityId m_id;
     String m_name;
@@ -117,4 +135,7 @@ protected:
 
     World *m_world = nullptr;
     size_t m_dimension = 0;
+
+    void register_rpc(const std::string& name, std::function<void(Entity&)> func, RpcTarget target);
+    std::map<std::string, RpcEntry> m_rpc;
 };

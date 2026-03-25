@@ -1,7 +1,9 @@
 #pragma once
 
 #include "Core/Definitions.hpp"
+#include "Core/Ref.hpp"
 #include "Entity/Camera.hpp"
+#include "Entity/Entity.hpp"
 #include "Ray.hpp"
 #include "Render/Driver.hpp"
 #include "Render/Graph.hpp"
@@ -20,6 +22,13 @@ struct RaycastResult
     int64_t x;
     int64_t y;
     int64_t z;
+};
+
+struct EntityRaycastResult
+{
+    Ref<Entity> entity;
+    glm::vec3 hit_position;
+    float distance;
 };
 
 class World : public Object
@@ -91,6 +100,7 @@ public:
     ALWAYS_INLINE const Ref<Buffer>& get_env_buffer() const { return m_env_buffer; };
 
     std::optional<RaycastResult> raycast(const Ray& ray, float range);
+    std::optional<EntityRaycastResult> raycast_entities(const Ray& ray, float range, Entity *self);
 
     static EntityId next_id()
     {
