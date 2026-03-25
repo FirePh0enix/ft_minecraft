@@ -179,7 +179,7 @@ void Engine::create_world_and_start()
     m_world = newobj(World, seed);
 
     m_player = newobj(Player);
-    m_player->get_transform().position() = glm::vec3(0, 15.0, 0);
+    m_player->get_transform().position() = glm::vec3(0, 3.0, 0);
     m_world->add_entity(World::overworld, m_player);
 
     Ref<Entity> cow;

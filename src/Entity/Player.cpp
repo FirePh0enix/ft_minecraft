@@ -175,17 +175,6 @@ void Player::tick(float delta)
 {
     ZoneScopedN("Player::tick");
 
-    if (Input::is_action_pressed("attack") && !Input::is_mouse_grabbed())
-    {
-        Input::set_mouse_grabbed(true);
-        return;
-    }
-    else if (Input::is_action_pressed("escape") && Input::is_mouse_grabbed())
-    {
-        Input::set_mouse_grabbed(false);
-        return;
-    }
-
     Transform3D transform = m_transform;
 
     const glm::vec3 up(0.0, 1.0, 0.0);
@@ -249,12 +238,12 @@ void Player::tick(float delta)
     const glm::vec2 dir = Input::get_vector("left", "right", "backward", "forward");
 
     float updown_dir = 0.0;
-    if (!m_gravity_enabled)
+    if (Input::is_mouse_grabbed() && !m_gravity_enabled)
     {
         updown_dir = Input::get_action_value("up") - Input::get_action_value("down");
     }
 
-    if (glm::length2(dir) != 0.0 || updown_dir != 0.0)
+    if (Input::is_mouse_grabbed() && (glm::length2(dir) != 0.0 || updown_dir != 0.0))
     {
         glm::vec3 move = glm::normalize(forward * dir.y + right * dir.x + up * updown_dir) * m_speed;
         m_velocity += move * delta;
@@ -268,7 +257,18 @@ void Player::tick(float delta)
     move_and_collide(m_collision_enabled);
 
     // Reset velocity after movements.
-    m_velocity = glm::vec3(0);
+    m_velocity.x = 0.0;
+    m_velocity.y = std::min(m_velocity.x, 40.0f);
+    m_velocity.z = 0.0;
+
+    if (Input::is_action_pressed("attack") && !Input::is_mouse_grabbed())
+    {
+        Input::set_mouse_grabbed(true);
+    }
+    else if (Input::is_action_pressed("escape") && Input::is_mouse_grabbed())
+    {
+        Input::set_mouse_grabbed(false);
+    }
 }
 
 void Player::draw(RenderPassEncoder& encoder)
