@@ -185,17 +185,6 @@ void Player::tick(float delta)
 {
     ZoneScopedN("Player::tick");
 
-    if (Input::is_action_pressed("attack") && !Input::is_mouse_grabbed())
-    {
-        Input::set_mouse_grabbed(true);
-        return;
-    }
-    else if (Input::is_action_pressed("escape") && Input::is_mouse_grabbed())
-    {
-        Input::set_mouse_grabbed(false);
-        return;
-    }
-
     Transform3D transform = m_transform;
 
     const glm::vec3 up(0.0, 1.0, 0.0);
