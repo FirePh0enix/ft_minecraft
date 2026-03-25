@@ -280,9 +280,15 @@ std::optional<RaycastResult> World::raycast(const Ray& ray, float range)
     // If starting inside a solid voxel, report immediate hit at t=0
     if (!get_block_state(vx, vy, vz).is_air())
     {
-        // Determine closest face? common choice: return entry face as opposite of ray direction
-        Face face;
-        if (std::abs(rd.x) >= std::abs(rd.y) && std::abs(rd.x) >= std::abs(rd.z))
+        glm::vec3 pos = ray.at(t);
+
+        int64_t x = (int64_t)std::round(pos.x);
+        int64_t y = (int64_t)std::round(pos.y);
+        int64_t z = (int64_t)std::round(pos.z);
+
+        BlockState state = get_block_state(x, y, z);
+
+        if (!state.is_air())
         {
             face = (rd.x > 0.0) ? Face::NegX : Face::PosX;
         }
