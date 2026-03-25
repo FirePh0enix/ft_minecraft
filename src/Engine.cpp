@@ -3,6 +3,7 @@
 #include "Core/Ref.hpp"
 #include "Core/Result.hpp"
 #include "Core/Types.hpp"
+#include "Entity/Cow.hpp"
 #include "Entity/Player.hpp"
 #include "Input.hpp"
 #include "Profiler.hpp"
@@ -177,6 +178,12 @@ void Engine::create_world_and_start()
     m_player = EXPECT(newref<Player>());
     m_player->get_transform().position() = glm::vec3(0, 100.0, 3);
     m_world->add_entity(World::overworld, m_player);
+
+    Ref<Entity> cow;
+
+    cow = newobj(Cow);
+    cow->get_transform().position() = glm::vec3(0.0f, 1.0f, 5.0f);
+    m_world->add_entity(World::overworld, cow);
 
     m_scene = EngineScene::World;
 }

@@ -3,6 +3,7 @@
 #include "AABB.hpp"
 #include "Core/Class.hpp"
 #include "Core/Definitions.hpp"
+#include "Core/Print.hpp"
 #include "Core/Result.hpp"
 #include "Entity/Entity.hpp"
 #include "Input.hpp"
@@ -21,6 +22,7 @@
 
 Player::Player()
 {
+    m_name = "Player";
 }
 
 static Ref<Mesh> create_cube_mesh(glm::vec3 size = glm::vec3(1.0), glm::vec3 offset = glm::vec3())
@@ -181,6 +183,37 @@ void Player::tick(float delta)
 {
     ZoneScopedN("Player::tick");
 
+    if (Input::is_action_pressed("attack") && !Input::is_mouse_grabbed())
+    {
+        Input::set_mouse_grabbed(true);
+        return;
+    }
+    else if (Input::is_action_pressed("escape") && Input::is_mouse_grabbed())
+    {
+        Input::set_mouse_grabbed(false);
+        return;
+    }
+
+    bool is_attack_pressed = Input::is_action_pressed("attack");
+
+    if (is_attack_pressed && !m_was_attack_pressed)
+    {
+        Ray ray(
+            m_camera->get_global_transform().position(),
+            m_camera->get_global_transform().forward());
+
+        float attack_range = 5.0f;
+
+        auto hit = m_world->raycast_entities(ray, attack_range, this);
+
+        if (hit)
+        {
+            hit->entity->call_rpc("on_hit", *this);
+        }
+    }
+
+    m_was_attack_pressed = is_attack_pressed;
+
     Transform3D transform = m_transform;
 
     const glm::vec3 up(0.0, 1.0, 0.0);
@@ -339,3 +372,7 @@ void Player::draw(const RenderPassNode& node)
 //         m_world->set_block_state(x2, y2, z2, BlockState(BlockRegistry::get_block_id("stone")));
 //     }
 // }
+
+void Player::die() {}
+
+void Player::on_hit_by(Entity *entity) {}

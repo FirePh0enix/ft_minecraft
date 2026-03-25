@@ -23,3 +23,22 @@ void Entity::recurse_tick(float delta)
         entity->recurse_tick(delta);
     tick(delta);
 }
+
+void Entity::register_rpc(const std::string& name, std::function<void(Entity&)> func, RpcTarget target)
+{
+    m_rpc[name] = {.func = func, .target = target};
+}
+
+void Entity::call_rpc(const std::string& name, Entity& caller)
+{
+    auto iter = m_rpc.find(name);
+    if (iter != m_rpc.end())
+    {
+        RpcEntry& entry = iter->second;
+
+        if (entry.target == RpcTarget::SERVER || entry.target == RpcTarget::BOTH)
+        {
+            entry.func(caller);
+        }
+    }
+}

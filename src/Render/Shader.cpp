@@ -12,7 +12,8 @@ Result<Ref<Shader>> Shader::load(const std::filesystem::path& path)
 {
     String source_code = Filesystem::open_file(path).value().read_to_string();
 
-    Ref<Shader> shader = newobj(Shader);
+    Ref<Shader>
+        shader = newobj(Shader);
     shader->m_source_code = source_code;
     shader->m_hash = hash_fnv32(source_code);
     shader->m_entry_point_names[WGPUShaderStage_Vertex] = "vertex_main";
