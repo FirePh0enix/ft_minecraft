@@ -61,6 +61,8 @@ private:
     bool m_was_attack_pressed = false;
 
     bool m_has_jumped = false;
+    bool m_block_broken = false;
+    bool m_block_placed = false;
 
     std::optional<glm::vec3> m_aimed_block = std::nullopt;
     Ref<Mesh> m_highlight_mesh;

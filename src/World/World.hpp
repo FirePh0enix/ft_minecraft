@@ -18,11 +18,36 @@ struct Environment
     glm::f32 time = 0.0;
 };
 
+enum class Face
+{
+    PosX,
+    NegX,
+    PosY,
+    NegY,
+    PosZ,
+    NegZ
+};
+
+inline glm::vec3 face_normal(Face face)
+{
+    const glm::vec3 normals[6]{
+        glm::vec3(1, 0, 0),
+        glm::vec3(-1, 0, 0),
+        glm::vec3(0, 1, 0),
+        glm::vec3(0, -1, 0),
+        glm::vec3(0, 0, 1),
+        glm::vec3(0, 0, -1),
+    };
+    return normals[(size_t)face];
+}
+
 struct RaycastResult
 {
     int64_t x;
     int64_t y;
     int64_t z;
+    Face face;
+    glm::vec3 pos;
     float distance;
 };
 

@@ -1,4 +1,5 @@
 #include "World/World.hpp"
+#include "AABB.hpp"
 #include "Core/Ref.hpp"
 #include "Entity/Entity.hpp"
 #include "Profiler.hpp"
@@ -170,25 +171,178 @@ void World::set_active_camera(Ref<Camera> camera)
     update_environment_buffer();
 }
 
+inline void adjust_on_boundary(double rcomp, int64_t& vcomp, double dcomp, double eps = 1e-12)
+{
+    if (std::abs(rcomp - static_cast<double>(vcomp)) <= eps && dcomp < 0.0)
+    {
+        --vcomp;
+    }
+}
+
 std::optional<RaycastResult> World::raycast(const Ray& ray, float range)
 {
-    float t = 0.0;
-    while (t < range)
+    const glm::vec3 ro = ray.origin();
+    const glm::vec3 rd = ray.dir();
+
+    // avoid zero direction
+    if (ro == glm::vec3())
+        return std::nullopt;
+
+    // current voxel coordinates
+    int64_t vx = (int)std::floor(ro.x);
+    int64_t vy = (int)std::floor(ro.y);
+    int64_t vz = (int)std::floor(ro.z);
+
+    // if starting exactly on integer boundary and ray goes negative, move to neighbor voxel
+    adjust_on_boundary(ro.x, vx, rd.x);
+    adjust_on_boundary(ro.y, vy, rd.y);
+    adjust_on_boundary(ro.z, vz, rd.z);
+
+    // If starting inside a solid voxel, report immediate hit at t=0
+    if (!get_block_state(vx, vy, vz).is_air())
     {
-        glm::vec3 pos = ray.at(t);
-
-        int64_t x = (int64_t)std::round(pos.x);
-        int64_t y = (int64_t)std::round(pos.y);
-        int64_t z = (int64_t)std::round(pos.z);
-
-        BlockState state = get_block_state(x, y, z);
-
-        if (!state.is_air())
+        // Determine closest face? common choice: return entry face as opposite of ray direction
+        Face face;
+        if (std::abs(rd.x) >= std::abs(rd.y) && std::abs(rd.x) >= std::abs(rd.z))
         {
-            return RaycastResult{.x = x, .y = y, .z = z, .distance = t};
+            face = (rd.x > 0.0) ? Face::NegX : Face::PosX;
         }
+        else if (std::abs(rd.y) >= std::abs(rd.x) && std::abs(rd.y) >= std::abs(rd.z))
+        {
+            face = (rd.y > 0.0) ? Face::NegY : Face::PosY;
+        }
+        else
+        {
+            face = (rd.z > 0.0) ? Face::NegZ : Face::PosZ;
+        }
+        return RaycastResult{vx, vy, vz, face, ro, 0.0};
+    }
 
-        t += 0.1;
+    // step direction: +1 or -1 per axis
+    int64_t step_x = (rd.x > 0.0) ? 1 : (rd.x < 0.0) ? -1
+                                                     : 0;
+    int64_t step_y = (rd.y > 0.0) ? 1 : (rd.y < 0.0) ? -1
+                                                     : 0;
+    int64_t step_z = (rd.z > 0.0) ? 1 : (rd.z < 0.0) ? -1
+                                                     : 0;
+
+    // tMax: distance along ray to the first voxel boundary on each axis
+    float tmax_x, tmax_y, tmax_z;
+    // tDelta: distance along ray between subsequent crossings of voxel boundaries
+    float tdelta_x, tdelta_y, tdelta_z;
+
+    auto safe_div = [](float a, float b) -> float
+    { return (b == 0.0) ? INFINITY : a / b; };
+
+    // compute initial tMax for X
+    if (step_x != 0)
+    {
+        float nextBoundaryX = float(vx + (step_x > 0 ? 1 : 0));
+        tmax_x = safe_div(nextBoundaryX - ro.x, rd.x);
+        tdelta_x = std::abs(safe_div(1.0, rd.x));
+    }
+    else
+    {
+        tmax_x = INFINITY;
+        tdelta_x = INFINITY;
+    }
+
+    if (step_y != 0)
+    {
+        float nextBoundaryY = float(vy + (step_y > 0 ? 1 : 0));
+        tmax_y = safe_div(nextBoundaryY - ro.y, rd.y);
+        tdelta_y = std::abs(safe_div(1.0, rd.y));
+    }
+    else
+    {
+        tmax_y = INFINITY;
+        tdelta_y = INFINITY;
+    }
+
+    if (step_z != 0)
+    {
+        float nextBoundaryZ = float(vz + (step_z > 0 ? 1 : 0));
+        tmax_z = safe_div(nextBoundaryZ - ro.z, rd.z);
+        tdelta_z = std::abs(safe_div(1.0, rd.z));
+    }
+    else
+    {
+        tmax_z = INFINITY;
+        tdelta_z = INFINITY;
+    }
+
+    float t = 0.0;
+    const int max_steps = 100000; // safety cap
+    for (int i = 0; i < max_steps && t <= range; ++i)
+    {
+        // advance to next voxel boundary
+        if (tmax_x < tmax_y)
+        {
+            if (tmax_x < tmax_z)
+            {
+                // step X
+                vx += step_x;
+                t = tmax_x;
+                tmax_x += tdelta_x;
+                // entering through ±X face
+                Face face = (step_x > 0) ? Face::NegX : Face::PosX;
+                if (t > range)
+                    break;
+                if (!get_block_state(vx, vy, vz).is_air())
+                {
+                    glm::dvec3 pos = ro + rd * t;
+                    return RaycastResult{vx, vy, vz, face, pos, t};
+                }
+            }
+            else
+            {
+                // step Z
+                vz += step_z;
+                t = tmax_z;
+                tmax_z += tdelta_z;
+                Face face = (step_z > 0) ? Face::NegZ : Face::PosZ;
+                if (t > range)
+                    break;
+                if (!get_block_state(vx, vy, vz).is_air())
+                {
+                    glm::dvec3 pos = ro + rd * t;
+                    return RaycastResult{vx, vy, vz, face, pos, t};
+                }
+            }
+        }
+        else
+        {
+            if (tmax_y < tmax_z)
+            {
+                // step Y
+                vy += step_y;
+                t = tmax_y;
+                tmax_y += tdelta_y;
+                Face face = (step_y > 0) ? Face::NegY : Face::PosY;
+                if (t > range)
+                    break;
+                if (!get_block_state(vx, vy, vz).is_air())
+                {
+                    glm::vec3 pos = ro + rd * t;
+                    return RaycastResult{vx, vy, vz, face, pos, t};
+                }
+            }
+            else
+            {
+                // step Z
+                vz += step_z;
+                t = tmax_z;
+                tmax_z += tdelta_z;
+                Face face = (step_z > 0) ? Face::NegZ : Face::PosZ;
+                if (t > range)
+                    break;
+                if (!get_block_state(vx, vy, vz).is_air())
+                {
+                    glm::vec3 pos = ro + rd * t;
+                    return RaycastResult{vx, vy, vz, face, pos, t};
+                }
+            }
+        }
     }
 
     return std::nullopt;
