@@ -14,7 +14,7 @@ public:
 
     ALWAYS_INLINE bool is_on_ground() const { return m_on_ground; }
 
-    void move_and_collide();
+    void move_and_collide(bool enable_collision = true);
 
 protected:
     bool m_on_ground = false;

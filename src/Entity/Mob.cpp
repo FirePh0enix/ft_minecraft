@@ -124,8 +124,14 @@ static float sweep_aabb(const AABB& object, const AABB& other, const glm::vec3& 
     return entry_time;
 }
 
-void Mob::move_and_collide()
+void Mob::move_and_collide(bool enable_collision)
 {
+    if (enable_collision)
+    {
+        m_transform.position() += m_velocity;
+        return;
+    }
+
     const AABB pbox = m_aabb.translate(m_transform.position());
     const Dimension& dimension = m_world->get_dimension(m_dimension);
     const std::vector<AABB> colliders = dimension.get_boxes_that_may_collide(pbox); // TODO: broad phase.
@@ -139,7 +145,6 @@ void Mob::move_and_collide()
 
         if (collision_time < lowest_collision_time)
         {
-            // m_on_ground = dir.y == -1.0;
             lowest_collision_time = collision_time;
         }
     }

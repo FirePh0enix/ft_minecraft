@@ -149,9 +149,9 @@ std::optional<RaycastResult> World::raycast(const Ray& ray, float range)
     {
         glm::vec3 pos = ray.at(t);
 
-        int64_t x = (int64_t)(pos.x + 0.5);
-        int64_t y = (int64_t)(pos.y + 0.5);
-        int64_t z = (int64_t)(pos.z + 0.5);
+        int64_t x = (int64_t)std::round(pos.x);
+        int64_t y = (int64_t)std::round(pos.y);
+        int64_t z = (int64_t)std::round(pos.z);
 
         BlockState state = get_block_state(x, y, z);
 

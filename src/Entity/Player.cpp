@@ -207,7 +207,7 @@ void Player::tick(float delta)
         camera->get_transform() = camera_transform;
     }
 
-    const std::optional<RaycastResult> raycast_result = m_world->raycast(Ray(m_camera->get_global_transform().position(), m_camera->get_global_transform().forward()), 5.0);
+    const std::optional<RaycastResult> raycast_result = m_world->raycast(Ray(m_camera->get_global_transform().position(), m_camera->get_global_transform().forward()), 4.0);
     if (raycast_result.has_value())
     {
         m_aimed_block = glm::vec3(raycast_result->x, raycast_result->y, raycast_result->z);
@@ -239,7 +239,7 @@ void Player::tick(float delta)
         m_velocity += glm::vec3(0, -1, 0) * m_gravity_value * delta;
     }
 
-    move_and_collide();
+    move_and_collide(m_collision_enabled);
 
     // Reset velocity after movements.
     m_velocity = glm::vec3(0);
@@ -264,6 +264,7 @@ void Player::draw(RenderPassEncoder& encoder)
     if (ImGui::Begin("Player"))
     {
         ImGui::Checkbox("Gravity", &m_gravity_enabled);
+        ImGui::Checkbox("Collision", &m_collision_enabled);
         ImGui::Text("Position: %f %f %f", m_transform.position().x, m_transform.position().y, m_transform.position().z);
     }
     ImGui::End();
