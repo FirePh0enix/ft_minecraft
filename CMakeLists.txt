@@ -38,6 +38,7 @@ list(APPEND SOURCES
     src/Core/StringView.cpp
     src/Entity/Camera.cpp
     src/Entity/Entity.cpp
+    src/Entity/Mob.cpp
     src/Entity/Player.cpp
     src/Platform/Platform.cpp
     src/Render/WebGPU/DriverWebGPU.cpp

@@ -15,8 +15,6 @@
 #include "glm/ext/matrix_transform.hpp"
 #include "imgui.h"
 
-#include <cmath>
-
 Player::Player()
 {
 }
@@ -150,6 +148,8 @@ static Ref<Mesh> create_cube_mesh(glm::vec3 size = glm::vec3(1.0), glm::vec3 off
 
 void Player::on_ready()
 {
+    m_aabb = AABB(glm::vec3(), glm::vec3(0.35, 0.9, 0.35));
+
     m_camera = newobj(Camera);
     m_camera->get_transform().position() = glm::vec3(0, 0.85, 0);
     add_child(m_camera);
@@ -165,112 +165,6 @@ void Player::on_ready()
     m_highlight_material = RenderingDriver::get()->create_material(m_highlight_shader, std::nullopt, MaterialFlagBits::Transparency, PolygonMode::Fill, CullMode::Back, UVType::UVT, "HIGHLIGHT_CUBE");
     m_highlight_material->set_param("env", m_world->get_env_buffer());
     m_highlight_material->set_param("model", m_highlight_model_buffer);
-}
-
-static float line_to_plane(glm::vec3 p, glm::vec3 u, glm::vec3 v, glm::vec3 n)
-{
-    const float n_dot_u = glm::dot(n, u);
-    if (n_dot_u == 0)
-        return INFINITY;
-    return (n.x * (v.x - p.x) + n.y * (v.y - p.y) + n.z * (v.z - p.z)) / n_dot_u;
-}
-
-static ALWAYS_INLINE bool between(float x, float a, float b)
-{
-    return x >= a && x <= b;
-}
-
-static bool sweep_aabb(const AABB& a, const AABB& b, glm::vec3 d, CollisionResult& r)
-{
-    const float mx = b.center.x - (a.center.x + a.half_extent.x);
-    const float my = b.center.y - (a.center.y + a.half_extent.y);
-    const float mz = b.center.z - (a.center.z + a.half_extent.z);
-    const float mhx = a.half_extent.x + b.half_extent.x;
-    const float mhy = a.half_extent.y + b.half_extent.y;
-    const float mhz = a.half_extent.z + b.half_extent.z;
-    float s;
-    r.penetration = 100.0;
-
-    // x min
-    s = line_to_plane(glm::vec3(), d, glm::vec3(mx, my, mz), glm::vec3(-1, 0, 0));
-    if (s >= 0 && d.x > 0 && s < r.penetration && between(s * d.y, my, my + mhy) && between(s * d.z, mz, mz + mhz))
-    {
-        r.penetration = s;
-        r.normal = glm::vec3(-1, 0, 0);
-    }
-    // x max
-    s = line_to_plane(glm::vec3(), d, glm::vec3(mx + mhx, my, mz), glm::vec3(1, 0, 0));
-    if (s >= 0 && d.x < 0 && s < r.penetration && between(s * d.y, my, my + mhy) && between(s * d.z, mz, mz + mhz))
-    {
-        r.penetration = s;
-        r.normal = glm::vec3(1, 0, 0);
-    }
-
-    // y min
-    s = line_to_plane(glm::vec3(), d, glm::vec3(mx, my, mz), glm::vec3(0, -1, 0));
-    if (s >= 0 && d.y > 0 && s < r.penetration && between(s * d.x, mx, mx + mhx) && between(s * d.z, mz, mz + mhz))
-    {
-        r.penetration = s;
-        r.normal = glm::vec3(0, -1, 0);
-    }
-    // y max
-    s = line_to_plane(glm::vec3(), d, glm::vec3(mx, my + mhy, mz), glm::vec3(0, 1, 0));
-    if (s >= 0 && d.y < 0 && s < r.penetration && between(s * d.x, mx, mx + mhx) && between(s * d.z, mz, mz + mhz))
-    {
-        r.penetration = s;
-        r.normal = glm::vec3(0, 1, 0);
-    }
-
-    // z min
-    s = line_to_plane(glm::vec3(), d, glm::vec3(mx, my, mz), glm::vec3(0, 0, -1));
-    if (s >= 0 && d.z > 0 && s < r.penetration && between(s * d.x, mx, mx + mhx) && between(s * d.y, my, my + mhy))
-    {
-        r.penetration = s;
-        r.normal = glm::vec3(0, 0, -1);
-    }
-    // z max
-    s = line_to_plane(glm::vec3(), d, glm::vec3(mx, my, mz + mhz), glm::vec3(0, 0, 1));
-    if (s >= 0 && d.z < 0 && s < r.penetration && between(s * d.x, mx, mx + mhx) && between(s * d.y, my, my + mhy))
-    {
-        r.penetration = s;
-        r.normal = glm::vec3(0, 0, 1);
-    }
-
-    return r.penetration < 100.0;
-}
-
-void Player::move_and_collide()
-{
-    const AABB pbox(m_transform.position(), glm::vec3(0.35, 0.9, 0.35));
-    const Dimension& dimension = m_world->get_dimension(m_dimension);
-    const std::vector<AABB> colliders = dimension.get_boxes_that_may_collide(pbox);
-
-    glm::vec3 combined_collision_vector = glm::vec3();
-
-    m_on_ground = false;
-    for (const auto& collider : colliders)
-    {
-        CollisionResult collision;
-        if (sweep_aabb(pbox, collider, m_velocity, collision))
-        {
-            combined_collision_vector += collision.normal * collision.penetration;
-        }
-    }
-
-    // println("[ {} {} {} ]", combined_collision_vector.x, combined_collision_vector.y, combined_collision_vector.z);
-    m_transform.position() += m_velocity;
-
-    // m_transform.position() += m_velocity;
-
-    // if (has_collision)
-    // {
-    //     const float margin = 0.01;
-    //     m_transform.position() += closest_collision.penetration * m_velocity + margin * closest_collision.normal;
-    // }
-    // else
-    // {
-    //     m_transform.position() += m_velocity;
-    // }
 }
 
 void Player::tick(float delta)

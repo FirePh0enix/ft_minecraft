@@ -52,6 +52,7 @@ public:
     std::mutex& mutex() { return m_chunk_mutex; }
 
     std::vector<AABB> get_boxes_that_may_collide(const AABB& box) const;
+    bool has_solid_block(int64_t x, int64_t y, int64_t z) const;
 
     const PhysicsSystem& get_physics_system() const { return m_physics_system; }
     PhysicsSystem& get_physics_system() { return m_physics_system; }

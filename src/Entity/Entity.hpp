@@ -1,6 +1,8 @@
 #pragma once
 
+#include "AABB.hpp"
 #include "Core/Class.hpp"
+#include "Core/Definitions.hpp"
 #include "Core/Ref.hpp"
 #include "Render/Graph.hpp"
 #include "Transform3D.hpp"
@@ -101,6 +103,8 @@ public:
     const String& get_name() const { return m_name; }
     void set_name(const String& name) { m_name = name; }
 
+    const AABB& get_aabb() const { return m_aabb; }
+
     void recurse_tick(float delta);
 
 protected:
@@ -109,6 +113,7 @@ protected:
     Entity *m_parent = nullptr; // FIXME: This must be changed by either a Ref<Entity> or a EntityId.
     std::vector<Ref<Entity>> m_children;
     Transform3D m_transform;
+    AABB m_aabb;
 
     World *m_world = nullptr;
     size_t m_dimension = 0;
