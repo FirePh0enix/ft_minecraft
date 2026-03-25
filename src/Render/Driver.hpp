@@ -176,7 +176,7 @@ enum class MaterialFlagBits
 {
     None,
     Transparency = 1 << 0,
-    DrawBeforeEverything = 1 << 1,
+    Priority = 1 << 1,
 };
 using MaterialFlags = Flags<MaterialFlagBits>;
 DEFINE_FLAG_TRAITS(MaterialFlagBits);

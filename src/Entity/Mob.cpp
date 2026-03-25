@@ -18,6 +18,8 @@ Mob::Mob()
 
 static float sweep_aabb(const AABB& object, const AABB& other, const glm::vec3& v, float margin, glm::vec3& dir)
 {
+    (void)dir;
+
     // AABB broadphase_box = get_broadphase_box(object, v);
     // if (!broadphase_box.intersect(other))
     // {

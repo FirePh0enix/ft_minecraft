@@ -3,6 +3,7 @@
 #include "Render/Types.hpp"
 #include "World/Registry.hpp"
 #include "World/World.hpp"
+#include <cstdint>
 
 Chunk::Chunk(int64_t x, int64_t y, int64_t z, World *world)
     : m_x(x), m_y(y), m_z(z)
@@ -23,7 +24,13 @@ Chunk::~Chunk()
 {
 }
 
-struct Face
+void Chunk::set_block(int64_t x, int64_t y, int64_t z, BlockState state)
+{
+    m_blocks[linearize(x, y, z)] = state;
+    build_simple_mesh();
+}
+
+struct ChunkBlockFace
 {
     uint8_t x;
     uint8_t y;
@@ -32,12 +39,12 @@ struct Face
     bool positive;
     uint32_t texture_index;
 
-    Face(uint8_t x,
-         uint8_t y,
-         uint8_t z,
-         Axis axis,
-         bool positive,
-         uint32_t texture_index) : x(x), y(y), z(z), axis(axis), positive(positive), texture_index(texture_index) {}
+    ChunkBlockFace(uint8_t x,
+                   uint8_t y,
+                   uint8_t z,
+                   Axis axis,
+                   bool positive,
+                   uint32_t texture_index) : x(x), y(y), z(z), axis(axis), positive(positive), texture_index(texture_index) {}
 };
 
 static std::array<glm::vec3, 4> vertex_from_axis(Axis axis, bool positive, glm::vec3 offset)
@@ -104,7 +111,7 @@ void Chunk::build_simple_mesh()
     ZoneScoped;
 
     // Let's detect which faces are not hidden.
-    std::vector<Face> faces;
+    std::vector<ChunkBlockFace> faces;
 
     for (ssize_t x = 0; x < Chunk::width; x++)
     {
@@ -121,19 +128,19 @@ void Chunk::build_simple_mesh()
                 // println("{}", faces.size());
 
                 if (m_blocks[linearize(x - 1, y, z)].is_air())
-                    faces.push_back(Face(x, y, z, Axis::X, false, block->get_texture_index(Axis::X, false)));
+                    faces.push_back(ChunkBlockFace(x, y, z, Axis::X, false, block->get_texture_index(Axis::X, false)));
                 if (m_blocks[linearize(x + 1, y, z)].is_air())
-                    faces.push_back(Face(x, y, z, Axis::X, true, block->get_texture_index(Axis::X, true)));
+                    faces.push_back(ChunkBlockFace(x, y, z, Axis::X, true, block->get_texture_index(Axis::X, true)));
 
                 if (m_blocks[linearize(x, y - 1, z)].is_air())
-                    faces.push_back(Face(x, y, z, Axis::Y, false, block->get_texture_index(Axis::Y, false)));
+                    faces.push_back(ChunkBlockFace(x, y, z, Axis::Y, false, block->get_texture_index(Axis::Y, false)));
                 if (m_blocks[linearize(x, y + 1, z)].is_air())
-                    faces.push_back(Face(x, y, z, Axis::Y, true, block->get_texture_index(Axis::Y, true)));
+                    faces.push_back(ChunkBlockFace(x, y, z, Axis::Y, true, block->get_texture_index(Axis::Y, true)));
 
                 if (m_blocks[linearize(x, y, z - 1)].is_air())
-                    faces.push_back(Face(x, y, z, Axis::Z, false, block->get_texture_index(Axis::Z, false)));
+                    faces.push_back(ChunkBlockFace(x, y, z, Axis::Z, false, block->get_texture_index(Axis::Z, false)));
                 if (m_blocks[linearize(x, y, z + 1)].is_air())
-                    faces.push_back(Face(x, y, z, Axis::Z, true, block->get_texture_index(Axis::Z, true)));
+                    faces.push_back(ChunkBlockFace(x, y, z, Axis::Z, true, block->get_texture_index(Axis::Z, true)));
             }
         }
     }
@@ -154,7 +161,7 @@ void Chunk::build_simple_mesh()
     std::vector<glm::vec3> uvs;
     std::vector<glm::vec3> normals;
 
-    for (const Face& face : faces)
+    for (const ChunkBlockFace& face : faces)
     {
         uint16_t i0 = vertices.size() + 0;
         uint16_t i1 = vertices.size() + 1;

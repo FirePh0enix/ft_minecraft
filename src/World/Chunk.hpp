@@ -49,7 +49,7 @@ public:
     ALWAYS_INLINE bool is_empty() const { return m_empty; }
 
     ALWAYS_INLINE BlockState get_block(int64_t x, int64_t y, int64_t z) const { return m_blocks[linearize(x, y, z)]; }
-    ALWAYS_INLINE void set_block(int64_t x, int64_t y, int64_t z, BlockState state) { m_blocks[linearize(x, y, z)] = state; }
+    void set_block(int64_t x, int64_t y, int64_t z, BlockState state);
 
     ALWAYS_INLINE const BlockState *get_blocks() const { return m_blocks; }
     ALWAYS_INLINE BlockState *get_blocks() { return m_blocks; }

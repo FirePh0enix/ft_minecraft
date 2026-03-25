@@ -155,14 +155,14 @@ void Player::on_ready()
     add_child(m_camera);
     m_world->set_active_camera(m_camera);
 
-    m_highlight_mesh = create_cube_mesh();
+    m_highlight_mesh = create_cube_mesh(glm::vec3(1.01f));
     m_highlight_model_buffer = RenderingDriver::get()->create_buffer(sizeof(Model), BufferUsageFlagBits::Uniform | BufferUsageFlagBits::CopyDest).value_or(nullptr);
 
     m_highlight_shader = Shader::load("assets/shaders/cube_highlight.wgsl").value_or(nullptr);
     m_highlight_shader->set_binding("env", Binding(BindingKind::UniformBuffer, ShaderStageFlagBits::Vertex, 0, 0, BindingAccess::Read));
     m_highlight_shader->set_binding("model", Binding(BindingKind::UniformBuffer, ShaderStageFlagBits::Vertex, 0, 1, BindingAccess::Read));
 
-    m_highlight_material = RenderingDriver::get()->create_material(m_highlight_shader, std::nullopt, MaterialFlagBits::Transparency, PolygonMode::Fill, CullMode::Back, UVType::UVT, "HIGHLIGHT_CUBE");
+    m_highlight_material = RenderingDriver::get()->create_material(m_highlight_shader, std::nullopt, MaterialFlagBits::Transparency | MaterialFlagBits::Priority, PolygonMode::Fill, CullMode::Back, UVType::UVT, "HIGHLIGHT_CUBE");
     m_highlight_material->set_param("env", m_world->get_env_buffer());
     m_highlight_material->set_param("model", m_highlight_model_buffer);
 }
@@ -197,9 +197,34 @@ void Player::tick(float delta)
     }
 
     const std::optional<RaycastResult> raycast_result = m_world->raycast(Ray(m_camera->get_global_transform().position(), m_camera->get_global_transform().forward()), 4.0);
-    if (raycast_result.has_value())
+    if (Input::is_mouse_grabbed() && raycast_result.has_value())
     {
-        m_aimed_block = glm::vec3(raycast_result->x, raycast_result->y, raycast_result->z);
+        int64_t x = raycast_result->x;
+        int64_t y = raycast_result->y;
+        int64_t z = raycast_result->z;
+        m_aimed_block = glm::vec3(x, y, z);
+
+        if (Input::is_action_pressed("attack") && !m_block_broken)
+        {
+            m_world->set_block_state(x, y, z, BlockState());
+            m_block_broken = true;
+        }
+        else if (!Input::is_action_pressed("attack"))
+        {
+            m_block_broken = false;
+        }
+
+        if (Input::is_action_pressed("interact") && !m_block_placed)
+        {
+            glm::vec3 normal = face_normal(raycast_result->face);
+
+            m_world->set_block_state(x + normal.x, y + normal.y, z + normal.z, BlockRegistry::get_block_id("stone"));
+            m_block_placed = true;
+        }
+        else if (!Input::is_action_pressed("interact"))
+        {
+            m_block_placed = false;
+        }
     }
     else
     {
@@ -269,48 +294,6 @@ void Player::draw(RenderPassEncoder& encoder)
     }
     ImGui::End();
 }
-
-// enum class Face
-// {
-//     North,
-//     South,
-//     West,
-//     East,
-//     Top,
-//     Bottom,
-// };
-
-// static Face get_face(glm::vec3 dir)
-// {
-//     std::array<glm::vec3, 6> normals{
-//         glm::vec3(0.0, 0.0, -1.0),
-//         glm::vec3(0.0, 0.0, 1.0),
-//         glm::vec3(1.0, 0.0, 0.0),
-//         glm::vec3(-1.0, 0.0, 0.0),
-//         glm::vec3(0.0, 1.0, 0.0),
-//         glm::vec3(0.0, -1.0, 0.0),
-//     };
-//     std::array<Face, 6> faces{Face::North, Face::South, Face::West, Face::East, Face::Top, Face::Bottom};
-
-//     float max_dot = 0.0;
-//     Face max_face = Face::North;
-
-//     for (size_t i = 0; i < 6; i++)
-//     {
-//         glm::vec3 normal = -normals[i];
-//         Face face = faces[i];
-
-//         float dot = glm::dot(dir, normal);
-
-//         if (dot >= 0.0 && dot > max_dot)
-//         {
-//             max_dot = dot;
-//             max_face = face;
-//         }
-//     }
-
-//     return max_face;
-// }
 
 // void Player::on_block_aimed(BlockState state, int64_t x, int64_t y, int64_t z, glm::vec3 dir)
 // {
