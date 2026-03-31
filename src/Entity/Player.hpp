@@ -4,7 +4,6 @@
 #include "Entity/Camera.hpp"
 #include "Entity/Entity.hpp"
 #include "Entity/Mob.hpp"
-#include "Render/Graph.hpp"
 #include "World/Block.hpp"
 #include "World/World.hpp"
 
@@ -18,7 +17,7 @@ public:
     virtual ~Player() {}
 
     virtual void tick(float delta) override;
-    virtual void draw(RenderPassEncoder& encoder) override;
+    virtual void draw() override;
 
     void on_ready() override;
 
@@ -50,17 +49,17 @@ private:
 
     float m_speed = 50.0;
     float m_gravity_value = 9.81;
-    bool m_gravity_enabled = true;
-    bool m_collision_enabled = true;
+    bool m_gravity_enabled = false;
+    bool m_collision_enabled = false;
 
     bool m_has_jumped = false;
     bool m_block_broken = false;
     bool m_block_placed = false;
 
     std::optional<glm::vec3> m_aimed_block = std::nullopt;
-    Ref<Mesh> m_highlight_mesh;
-    Ref<Shader> m_highlight_shader;
-    Ref<Material> m_highlight_material;
-    Model m_highlight_model;
-    Ref<Buffer> m_highlight_model_buffer;
+    // Ref<Mesh> m_highlight_mesh;
+    // Ref<Shader> m_highlight_shader;
+    // Ref<Material> m_highlight_material;
+    // Model m_highlight_model;
+    // Ref<Buffer> m_highlight_model_buffer;
 };

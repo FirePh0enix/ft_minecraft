@@ -1,23 +1,25 @@
 #include "World/World.hpp"
 #include "AABB.hpp"
 #include "Core/Class.hpp"
+#include "Engine.hpp"
 #include "Profiler.hpp"
-#include "Render/Driver.hpp"
 #include "Render/Types.hpp"
+#include "World/Chunk.hpp"
 #include "World/Generator.hpp"
 #include "World/Pass/Overworld.hpp"
+#include "webgpu/webgpu.h"
 
 World::World(uint64_t seed)
     : m_seed(seed)
 {
-    m_env_buffer = RenderingDriver::get()->create_buffer(sizeof(Environment), BufferUsageFlagBits::Uniform | BufferUsageFlagBits::CopyDest).value_or(nullptr);
+    // m_env_buffer = RenderingDriver::get()->create_buffer(sizeof(Environment), BufferUsageFlagBits::Uniform | BufferUsageFlagBits::CopyDest).value_or(nullptr);
 
-    m_shader = Shader::load("assets/shaders/voxel.wgsl").value_or(nullptr);
-    m_shader->set_binding("images", Binding(BindingKind::Texture, ShaderStageFlagBits::Fragment, 0, 0, BindingAccess::Read, TextureDimension::D2DArray)); // binding = 1 is the sampler
-    m_shader->set_binding("env", Binding(BindingKind::UniformBuffer, ShaderStageFlagBits::Vertex, 0, 2, BindingAccess::Read));
-    m_shader->set_binding("model", Binding(BindingKind::UniformBuffer, ShaderStageFlagBits::Vertex, 0, 3, BindingAccess::Read));
+    // m_shader = Shader::load("assets/shaders/voxel.wgsl").value_or(nullptr);
+    // m_shader->set_binding("images", Binding(BindingKind::Texture, ShaderStageFlagBits::Fragment, 0, 0, BindingAccess::Read, TextureDimension::D2DArray)); // binding = 1 is the sampler
+    // m_shader->set_binding("env", Binding(BindingKind::UniformBuffer, ShaderStageFlagBits::Vertex, 0, 2, BindingAccess::Read));
+    // m_shader->set_binding("model", Binding(BindingKind::UniformBuffer, ShaderStageFlagBits::Vertex, 0, 3, BindingAccess::Read));
 
-    m_shader->set_sampler("images", {.min_filter = Filter::Nearest, .mag_filter = Filter::Nearest});
+    // m_shader->set_sampler("images", {.min_filter = Filter::Nearest, .mag_filter = Filter::Nearest});
 
     // Setup world generation
     m_generators[overworld] = newobj(Generator, this, overworld);
@@ -35,7 +37,7 @@ void World::tick(float delta)
 {
     ZoneScoped;
 
-    m_dims[0].get_physics_system().step();
+    // m_dims[0].get_physics_system().step();
 
     for (Ref<Entity> entity : m_dims[overworld].get_entities())
         entity->recurse_tick(delta);
@@ -45,44 +47,44 @@ void World::tick(float delta)
     m_generators[overworld]->load_around(int64_t(player_pos.x), int64_t(player_pos.y), int64_t(player_pos.z));
 }
 
-void World::draw(RenderPassEncoder& encoder, bool include_entities)
+void World::draw(bool include_entities)
 {
     ZoneScoped;
 
     if (include_entities)
     {
         for (Ref<Entity> entity : m_dims[0].get_entities())
-            entity->draw(encoder);
+            entity->draw();
     }
 
-    std::lock_guard<std::mutex> guard(m_dims[0].mutex());
+    // std::lock_guard<std::mutex> guard(m_dims[0].mutex());
 
-    m_env.view_matrix = m_camera->get_view_proj_matrix();
-    update_environment_buffer();
+    // m_env.view_matrix = m_camera->get_view_proj_matrix();
+    // update_environment_buffer();
 
-    for (const Ref<Chunk>& chunk : m_dims[0].get_visible_chunks())
-    {
-        ZoneScopedN("draw.iterate");
+    // for (const Ref<Chunk>& chunk : m_dims[0].get_visible_chunks())
+    // {
+    //     ZoneScopedN("draw.iterate");
 
-        ChunkPos pos = chunk->pos();
-        AABB aabb = AABB(glm::vec3((float)pos.x * Chunk::width + Chunk::width / 2.0, (float)pos.y * Chunk::width + Chunk::width / 2.0, (float)pos.z * Chunk::width + Chunk::width / 2.0),
-                         glm::vec3(Chunk::width / 2.0, Chunk::width / 2, Chunk::width / 2));
-        (void)aabb;
+    //     ChunkPos pos = chunk->pos();
+    //     AABB aabb = AABB(glm::vec3((float)pos.x * Chunk::width + Chunk::width / 2.0, (float)pos.y * Chunk::width + Chunk::width / 2.0, (float)pos.z * Chunk::width + Chunk::width / 2.0),
+    //                      glm::vec3(Chunk::width / 2.0, Chunk::width / 2, Chunk::width / 2));
+    //     (void)aabb;
 
-        // if (!m_camera->frustum().contains(aabb))
-        //    continue;;
+    //     // if (!m_camera->frustum().contains(aabb))
+    //     //    continue;;
 
-        encoder.bind_material(chunk->get_material());
+    //     encoder.bind_material(chunk->get_material());
 
-        const Ref<Mesh>& mesh = chunk->get_mesh();
+    //     const Ref<Mesh>& mesh = chunk->get_mesh();
 
-        encoder.bind_index_buffer(mesh->get_buffer(MeshBufferKind::Index));
-        encoder.bind_vertex_buffer(mesh->get_buffer(MeshBufferKind::Position), 0);
-        encoder.bind_vertex_buffer(mesh->get_buffer(MeshBufferKind::Normal), 1);
-        encoder.bind_vertex_buffer(mesh->get_buffer(MeshBufferKind::UV), 2);
+    //     encoder.bind_index_buffer(mesh->get_buffer(MeshBufferKind::Index));
+    //     encoder.bind_vertex_buffer(mesh->get_buffer(MeshBufferKind::Position), 0);
+    //     encoder.bind_vertex_buffer(mesh->get_buffer(MeshBufferKind::Normal), 1);
+    //     encoder.bind_vertex_buffer(mesh->get_buffer(MeshBufferKind::UV), 2);
 
-        encoder.draw(mesh->vertex_count(), 1);
-    }
+    //     encoder.draw(mesh->vertex_count(), 1);
+    // }
 }
 
 BlockState World::get_block_state(int64_t x, int64_t y, int64_t z) const
@@ -140,7 +142,7 @@ std::optional<Ref<Chunk>> World::get_chunk(int64_t x, int64_t y, int64_t z)
 void World::set_active_camera(Ref<Camera> camera)
 {
     m_camera = camera;
-    update_environment_buffer();
+    // update_environment_buffer();
 }
 
 inline void adjust_on_boundary(double rcomp, int64_t& vcomp, double dcomp, double eps = 1e-12)
@@ -320,31 +322,70 @@ std::optional<RaycastResult> World::raycast(const Ray& ray, float range)
     return std::nullopt;
 }
 
-// std::optional<RaycastResult> World::raycast(const Ray& ray, float range)
-// {
-//     float t = 0.0;
-//     while (t < range)
-//     {
-//         glm::vec3 pos = ray.at(t);
-
-//         int64_t x = (int64_t)std::round(pos.x);
-//         int64_t y = (int64_t)std::round(pos.y);
-//         int64_t z = (int64_t)std::round(pos.z);
-
-//         BlockState state = get_block_state(x, y, z);
-
-//         if (!state.is_air())
-//         {
-//             return RaycastResult{.x = x, .y = y, .z = z};
-//         }
-
-//         t += 0.1;
-//     }
-
-//     return std::nullopt;
-// }
-
-void World::update_environment_buffer()
+void World::update_internal_buffers()
 {
-    m_env_buffer->update(View(m_env).as_bytes());
+    if (m_node_buffer != nullptr || m_dims[0].get_visible_chunks().size() == 0)
+    {
+        return;
+    }
+
+    // const Ref<Chunk>& chunk = m_dims[0].get_visible_chunks()[0];
+
+    // Lets create a tree from scratch !z
+    std::vector<SvtNode64> nodes;    // = chunk->m_nodes;
+    std::vector<uint32_t> leaf_data; // = chunk->m_leafs;
+
+    leaf_data.push_back(0); // red
+
+    // master => child_l0 => child_l1
+
+    SvtNode64 node{};
+    node.leaf = 0; // master
+    node.child_ptr = 1;
+    node.child_mask = 0b1;
+    nodes.push_back(node);
+
+    node.leaf = 0; // l0
+    node.child_ptr = 2;
+    node.child_mask = 0b1;
+    nodes.push_back(node);
+
+    node.leaf = 1;
+    node.child_ptr = 0;
+    node.child_mask = 0;
+    nodes.push_back(node);
+
+    WGPUBufferDescriptor desc{
+        .nextInChain = nullptr,
+        .label = WGPU_STRING_VIEW_INIT,
+        .usage = WGPUBufferUsage_CopyDst | WGPUBufferUsage_Storage,
+        .size = 0,
+        .mappedAtCreation = false,
+    };
+
+    desc.size = sizeof(SvtNode64) * nodes.size();
+    m_node_buffer = wgpuDeviceCreateBuffer(Engine::get().get_renderer().m_device, &desc);
+    wgpuQueueWriteBuffer(Engine::get().get_renderer().m_queue, m_node_buffer, 0, nodes.data(), sizeof(SvtNode64) * nodes.size());
+
+    desc.size = sizeof(uint32_t) * leaf_data.size();
+    m_leaf_buffer = wgpuDeviceCreateBuffer(Engine::get().get_renderer().m_device, &desc);
+    wgpuQueueWriteBuffer(Engine::get().get_renderer().m_queue, m_leaf_buffer, 0, leaf_data.data(), sizeof(uint32_t) * leaf_data.size());
+
+    const WGPUBindGroupEntry entries[]{
+        WGPUBindGroupEntry{.binding = 0, .buffer = m_node_buffer, .offset = 0, .size = sizeof(SvtNode64) * nodes.size()},
+        WGPUBindGroupEntry{.binding = 1, .buffer = m_leaf_buffer, .offset = 0, .size = sizeof(uint32_t) * leaf_data.size()},
+    };
+    WGPUBindGroupDescriptor bg_desc{
+        .nextInChain = nullptr,
+        .label = WGPU_STRING_VIEW_INIT,
+        .layout = Engine::get().get_renderer().m_rv_raytracing_node_bind_group_layout,
+        .entryCount = sizeof(entries) / sizeof(WGPUBindGroupEntry),
+        .entries = entries,
+    };
+    m_bind_group = wgpuDeviceCreateBindGroup(Engine::get().get_renderer().m_device, &bg_desc);
 }
+
+// void World::update_environment_buffer()
+// {
+//     m_env_buffer->update(View(m_env).as_bytes());
+// }

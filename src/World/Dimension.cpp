@@ -1,4 +1,13 @@
 #include "World/Dimension.hpp"
+#include <cstdlib>
+
+void Dimension::add_chunk(int64_t x, int64_t y, int64_t z, const Ref<Chunk>& chunk)
+{
+    m_chunks[ChunkPos(x, y, z)] = chunk;
+
+    if (!chunk->is_empty())
+        m_visible_chunks.push_back(chunk);
+}
 
 std::vector<AABB> Dimension::get_boxes_that_may_collide(const AABB& box) const
 {

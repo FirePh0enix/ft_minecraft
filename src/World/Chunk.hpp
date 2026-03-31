@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Core/Definitions.hpp"
-#include "Render/Driver.hpp"
 #include "World/Biome.hpp"
 #include "World/Block.hpp"
 #include <cstdint>
@@ -28,14 +27,25 @@ struct ChunkPos
     }
 };
 
-struct Model
+// struct Model
+// {
+//     glm::mat4 model_matrix = glm::identity<glm::mat4>();
+// };
+
+struct _packed SvtNode64
 {
-    glm::mat4 model_matrix = glm::identity<glm::mat4>();
+    uint32_t leaf : 1;
+    /// Pointer to first child node or to leaf data if this node is a leaf.
+    uint32_t child_ptr : 31;
+    /// Each bit indicate if a child is present.
+    uint64_t child_mask;
 };
 
 class Chunk : public Object
 {
     CLASS(Chunk, Object);
+
+    friend class World;
 
 public:
     static constexpr int64_t width = 16;
@@ -64,9 +74,10 @@ public:
     ALWAYS_INLINE ChunkPos pos() const { return ChunkPos(m_x, m_y, m_z); }
 
     void build_simple_mesh();
+    void build_tree();
 
-    ALWAYS_INLINE Ref<Material> get_material() const { return m_material; }
-    ALWAYS_INLINE Ref<Mesh> get_mesh() const { return m_mesh; }
+    // ALWAYS_INLINE Ref<Material> get_material() const { return m_material; }
+    // ALWAYS_INLINE Ref<Mesh> get_mesh() const { return m_mesh; }
 
     static ALWAYS_INLINE size_t linearize(int64_t x, int64_t y, int64_t z) { return (z + 1) * width_with_overlap * width_with_overlap + (y + 1) * width_with_overlap + (x + 1); }
     static ALWAYS_INLINE size_t linearize_with_overlap(int64_t x, int64_t y, int64_t z) { return z * width_with_overlap * width_with_overlap + y * width_with_overlap + x; }
@@ -81,9 +92,13 @@ private:
 
     bool m_empty = true;
 
-    Ref<Mesh> m_mesh;
-    Ref<Material> m_material;
+    SvtNode64 m_node;
+    std::vector<SvtNode64> m_nodes;
+    std::vector<uint32_t> m_leafs;
 
-    Ref<Buffer> m_model_buffer;
-    Model m_model;
+    // Ref<Mesh> m_mesh;
+    // Ref<Material> m_material;
+
+    // Ref<Buffer> m_model_buffer;
+    // Model m_model;
 };

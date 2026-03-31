@@ -3,8 +3,7 @@
 #include "Core/Definitions.hpp"
 #include "Entity/Camera.hpp"
 #include "Ray.hpp"
-#include "Render/Driver.hpp"
-#include "Render/Graph.hpp"
+#include "Render/Renderer.hpp"
 #include "World/Chunk.hpp"
 #include "World/Dimension.hpp"
 #include "World/Generator.hpp"
@@ -68,7 +67,7 @@ public:
     /**
      *  Draw all the blocks and entities.
      */
-    void draw(RenderPassEncoder& encoder, bool include_entities = false);
+    void draw(bool include_entities = false);
 
     BlockState get_block_state(int64_t x, int64_t y, int64_t z) const;
     void set_block_state(int64_t x, int64_t y, int64_t z, BlockState state);
@@ -84,6 +83,7 @@ public:
     void add_chunk(int64_t x, int64_t y, int64_t z, const Ref<Chunk>& chunk)
     {
         m_dims[0].add_chunk(x, y, z, chunk);
+        update_internal_buffers();
     }
 
     bool is_chunk_loaded(int64_t x, int64_t y, int64_t z) const
@@ -114,7 +114,7 @@ public:
         m_dims[dimension].add_entity(entity);
     }
 
-    ALWAYS_INLINE const Ref<Buffer>& get_env_buffer() const { return m_env_buffer; };
+    // ALWAYS_INLINE const Ref<Buffer>& get_env_buffer() const { return m_env_buffer; };
 
     std::optional<RaycastResult> raycast(const Ray& ray, float range);
 
@@ -125,17 +125,24 @@ public:
         return EntityId(id);
     }
 
-private:
+public:
     uint64_t m_seed;
 
     std::array<Dimension, max_dimensions> m_dims;
     std::array<Ref<Generator>, max_dimensions> m_generators;
 
     Ref<Camera> m_camera;
-    Ref<Shader> m_shader;
 
-    Ref<Buffer> m_env_buffer;
-    Environment m_env;
+    WGPUBuffer m_node_buffer = nullptr;
+    WGPUBuffer m_leaf_buffer = nullptr;
+    WGPUBindGroup m_bind_group = nullptr;
 
-    void update_environment_buffer();
+    void update_internal_buffers();
+
+    // Ref<Shader> m_shader;
+
+    // Ref<Buffer> m_env_buffer;
+    // Environment m_env;
+
+    // void update_environment_buffer();
 };

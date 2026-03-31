@@ -15,7 +15,6 @@ include(FetchContent)
 option(BUILD_DOC "Build documentation" OFF)
 option(RUN_TESTS "Run tests" OFF)
 option(ENABLE_SHADER_HOTRELOAD "Shader hot reloading" OFF)
-option(ENABLE_DEBUG_MENU "Enable an advanced debug menu" ON)
 option(SANITIZE_ADDRESS "Enable AddressSanitizer" OFF)
 option(SANITIZE_THREAD "Enable ThreadSanitizer" OFF)
 option(DETERMINISTIC "Try to guaranty deterministic maths" OFF)
@@ -24,7 +23,7 @@ list(APPEND SOURCES
     src/Args.cpp
     src/Console.cpp
     src/Engine.cpp
-    src/Font.cpp
+    # src/Font.cpp
     src/Input.cpp
     src/main.cpp
     src/Window.cpp
@@ -44,6 +43,7 @@ list(APPEND SOURCES
     src/Render/WebGPU/DriverWebGPU.cpp
     src/Render/Driver.cpp
     src/Render/Graph.cpp
+    src/Render/Renderer.cpp
     src/Render/Shader.cpp
     src/World/Pass/Overworld.cpp
     src/World/Chunk.cpp
@@ -137,10 +137,6 @@ endif()
 
 if (ENABLE_SHADER_HOTRELOAD)
     target_compile_definitions(${TARGET_NAME} PRIVATE __has_shader_hot_reload)
-endif()
-
-if (ENABLE_DEBUG_MENU)
-    target_compile_definitions(${TARGET_NAME} PRIVATE __has_debug_menu)
 endif()
 
 if (SANITIZE_ADDRESS)

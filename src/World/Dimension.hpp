@@ -2,6 +2,7 @@
 
 #include "AABB.hpp"
 #include "Entity/Entity.hpp"
+#include "Render/Renderer.hpp"
 #include "World/Chunk.hpp"
 #include "World/PhysicsSystem.hpp"
 
@@ -35,15 +36,12 @@ public:
             m_chunks.erase(iter);
     }
 
-    void add_chunk(int64_t x, int64_t y, int64_t z, const Ref<Chunk>& chunk)
+    void add_chunk(int64_t x, int64_t y, int64_t z, const Ref<Chunk>& chunk);
+
+    ALWAYS_INLINE const std::map<ChunkPos, Ref<Chunk>>& get_chunks() const
     {
-        m_chunks[ChunkPos(x, y, z)] = chunk;
-
-        if (!chunk->is_empty())
-            m_visible_chunks.push_back(chunk);
+        return m_chunks;
     }
-
-    ALWAYS_INLINE const std::map<ChunkPos, Ref<Chunk>>& get_chunks() const { return m_chunks; }
     ALWAYS_INLINE View<Ref<Chunk>> get_visible_chunks() const { return m_visible_chunks; }
 
     ALWAYS_INLINE void add_entity(Ref<Entity> entity) { m_entities.push_back(entity); }
@@ -54,8 +52,8 @@ public:
     std::vector<AABB> get_boxes_that_may_collide(const AABB& box) const;
     bool has_solid_block(int64_t x, int64_t y, int64_t z) const;
 
-    const PhysicsSystem& get_physics_system() const { return m_physics_system; }
-    PhysicsSystem& get_physics_system() { return m_physics_system; }
+    // const PhysicsSystem& get_physics_system() const { return m_physics_system; }
+    // PhysicsSystem& get_physics_system() { return m_physics_system; }
 
 private:
     std::mutex m_chunk_mutex;
@@ -64,5 +62,5 @@ private:
     std::map<ChunkPos, Ref<Chunk>> m_chunks;
     std::vector<Ref<Chunk>> m_visible_chunks;
 
-    PhysicsSystem m_physics_system;
+    // PhysicsSystem m_physics_system;
 };

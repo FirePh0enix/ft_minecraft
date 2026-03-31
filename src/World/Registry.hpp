@@ -2,7 +2,6 @@
 
 #include "Core/Filesystem.hpp"
 #include "Core/Ref.hpp"
-#include "Render/Driver.hpp"
 #include "World/Block.hpp"
 
 #include <SDL3_image/SDL_image.h>
@@ -43,15 +42,15 @@ public:
         return s_blocks[id - 1];
     }
 
-    static inline const Ref<Texture>& get_texture_array()
-    {
-        return s_texture_array;
-    }
+    // static inline const Ref<Texture>& get_texture_array()
+    // {
+    //     return s_texture_array;
+    // }
 
-    static inline const Ref<Buffer>& get_texture_buffer()
-    {
-        return s_texture_registry_buffer;
-    }
+    // static inline const Ref<Buffer>& get_texture_buffer()
+    // {
+    //     return s_texture_registry_buffer;
+    // }
 
     static inline const std::vector<Ref<Block>>& get_blocks()
     {
@@ -74,6 +73,6 @@ private:
 
     static inline std::map<String, uint32_t> s_texture_by_name;
     static inline std::vector<SDL_Surface *> s_textures;
-    static inline Ref<Texture> s_texture_array;
-    static inline Ref<Buffer> s_texture_registry_buffer;
+    // static inline Ref<Texture> s_texture_array;
+    // static inline Ref<Buffer> s_texture_registry_buffer;
 };

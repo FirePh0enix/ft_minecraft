@@ -297,7 +297,7 @@ static std::vector<WGPUBindGroupLayoutEntry> convert_bindings(const Ref<Shader>&
     return entries;
 }
 
-RenderPipelineCacheValue RenderPipelineCache2::get_or_create(Ref<MaterialWebGPU> material, std::vector<RenderPassColorAttachment> color_attachments, bool load_depth)
+RenderPipelineCacheValue RenderPipelineCache::get_or_create(Ref<MaterialWebGPU> material, std::vector<RenderPassColorAttachment> color_attachments, bool load_depth)
 {
     Key key{(size_t)material.ptr(), color_attachments.size() > 0, load_depth};
     const auto op = get(key);
@@ -315,7 +315,7 @@ RenderPipelineCacheValue RenderPipelineCache2::get_or_create(Ref<MaterialWebGPU>
     return value;
 }
 
-std::optional<RenderPipelineCacheValue> RenderPipelineCache2::get(Key key)
+std::optional<RenderPipelineCacheValue> RenderPipelineCache::get(Key key)
 {
     for (const auto& pair : m_pipelines)
     {
@@ -867,10 +867,8 @@ void RenderingDriverWebGPU::draw_graph(const RenderGraph& graph)
         }
         else if (std::holds_alternative<ImGuiDrawInstruction>(instruction))
         {
-#ifdef __has_debug_menu
             ImGui::Render();
             ImGui_ImplWGPU_RenderDrawData(ImGui::GetDrawData(), render_pass_encoder);
-#endif
         }
     }
 

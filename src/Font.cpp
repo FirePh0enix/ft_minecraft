@@ -1,15 +1,15 @@
 #include "Font.hpp"
 #include "Core/Filesystem.hpp"
 #include "Profiler.hpp"
-#include "Render/Graph.hpp"
+// #include "Render/Graph.hpp"
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
 
 static FT_Library g_lib;
 static glm::mat4 g_ortho_matrix;
-static Ref<Mesh> g_mesh = nullptr;
-static Ref<Shader> g_shader = nullptr;
+// static Ref<Mesh> g_mesh = nullptr;
+// static Ref<Shader> g_shader = nullptr;
 
 Result<Ref<Font>> Font::create(const std::string& font_name, uint32_t font_size)
 {
@@ -92,11 +92,11 @@ Result<Ref<Font>> Font::create(const std::string& font_name, uint32_t font_size)
     font->m_width = bmp_width;
     font->m_height = bmp_height;
 
-    auto texture_result = RenderingDriver::get()->create_texture(bmp_width, bmp_height, TextureFormat::R8Unorm, TextureUsageFlagBits::CopyDest | TextureUsageFlagBits::Sampled);
-    YEET(texture_result);
-    font->m_bitmap = texture_result.value();
+    // auto texture_result = RenderingDriver::get()->create_texture(bmp_width, bmp_height, TextureFormat::R8Unorm, TextureUsageFlagBits::CopyDest | TextureUsageFlagBits::Sampled);
+    // YEET(texture_result);
+    // font->m_bitmap = texture_result.value();
 
-    font->m_bitmap->update(buffer);
+    // font->m_bitmap->update(buffer);
 
     return font;
 }
@@ -136,60 +136,60 @@ Result<> Font::init_library()
 
     View<uint16_t> indices_span = indices;
 
-    g_mesh = Mesh::create_from_data(indices_span.as_bytes(), vertices, normals, View(uvs).as_bytes(), IndexType::Uint16);
+    // g_mesh = Mesh::create_from_data(indices_span.as_bytes(), vertices, normals, View(uvs).as_bytes(), IndexType::Uint16);
 
-    const Extent2D size = RenderingDriver::get()->get_surface_extent();
-    const float aspect_radio = (float)size.width / (float)size.height;
+    // const Extent2D size = RenderingDriver::get()->get_surface_extent();
+    // const float aspect_radio = (float)size.width / (float)size.height;
 
-    g_ortho_matrix = glm::ortho(-1.0 * aspect_radio, 1.0 * aspect_radio, -1.0, 1.0, 0.01, 10.0);
+    // g_ortho_matrix = glm::ortho(-1.0 * aspect_radio, 1.0 * aspect_radio, -1.0, 1.0, 0.01, 10.0);
 #ifdef __platform_web
     // FIXME: For some reason this is needed on web and not desktop.
     g_ortho_matrix[1][1] *= -1;
 #endif
 
-    std::array<InstanceLayoutInput, 3> inputs = {InstanceLayoutInput(ShaderType::Float32x4, 0),
-                                                 InstanceLayoutInput(ShaderType::Float32x3, sizeof(float) * 4),
-                                                 InstanceLayoutInput(ShaderType::Float32x2, sizeof(float) * 7)};
-    InstanceLayout instance_layout(inputs, sizeof(Instance));
+    // std::array<InstanceLayoutInput, 3> inputs = {InstanceLayoutInput(ShaderType::Float32x4, 0),
+    //                                              InstanceLayoutInput(ShaderType::Float32x3, sizeof(float) * 4),
+    //                                              InstanceLayoutInput(ShaderType::Float32x2, sizeof(float) * 7)};
+    // InstanceLayout instance_layout(inputs, sizeof(Instance));
 
-    auto shader_result = Shader::load("assets/shaders/font.slang");
-    if (!shader_result.has_value())
-    {
-        return Error(ErrorKind::ShaderCompilationFailed);
-    }
+    // auto shader_result = Shader::load("assets/shaders/font.slang");
+    // if (!shader_result.has_value())
+    // {
+    //     return Error(ErrorKind::ShaderCompilationFailed);
+    // }
 
-    g_shader = shader_result.value();
+    // g_shader = shader_result.value();
 
     return 0;
 }
 
 void Font::deinit_library()
 {
-    g_shader = nullptr;
-    g_mesh = nullptr;
+    // g_shader = nullptr;
+    // g_mesh = nullptr;
 
     FT_Done_FreeType(g_lib);
 }
 
 Text::Text(size_t capacity, Ref<Font> font)
-    : m_font(font), m_instance_buffer(nullptr), m_capacity(capacity), m_size(0)
+    : m_font(font), /* m_instance_buffer(nullptr), */ m_capacity(capacity), m_size(0)
 {
-    auto buffer_result = RenderingDriver::get()->create_buffer(m_capacity, BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Vertex);
-    ERR_EXPECT_R(buffer_result, "Cannot create the instance buffer");
-    m_instance_buffer = buffer_result.value();
+    // auto buffer_result = RenderingDriver::get()->create_buffer(m_capacity, BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Vertex);
+    // ERR_EXPECT_R(buffer_result, "Cannot create the instance buffer");
+    // m_instance_buffer = buffer_result.value();
 
-    auto font_uniform = RenderingDriver::get()->create_buffer(1, BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Uniform);
-    ERR_EXPECT_R(buffer_result, "Cannot create the uniform buffer");
-    m_uniform_buffer = font_uniform.value();
+    // auto font_uniform = RenderingDriver::get()->create_buffer(1, BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Uniform);
+    // ERR_EXPECT_R(buffer_result, "Cannot create the uniform buffer");
+    // m_uniform_buffer = font_uniform.value();
 
-    std::array<InstanceLayoutInput, 3> inputs = {InstanceLayoutInput(ShaderType::Float32x4, 0),
-                                                 InstanceLayoutInput(ShaderType::Float32x3, sizeof(float) * 4),
-                                                 InstanceLayoutInput(ShaderType::Float32x2, sizeof(float) * 7)};
-    InstanceLayout instance_layout(inputs, sizeof(Font::Instance));
+    // std::array<InstanceLayoutInput, 3> inputs = {InstanceLayoutInput(ShaderType::Float32x4, 0),
+    //                                              InstanceLayoutInput(ShaderType::Float32x3, sizeof(float) * 4),
+    //                                              InstanceLayoutInput(ShaderType::Float32x2, sizeof(float) * 7)};
+    // InstanceLayout instance_layout(inputs, sizeof(Font::Instance));
 
-    // m_material = RenderingDriver::get()->create_material(g_shader, instance_layout, MaterialFlagBits::Transparency);
-    m_material->set_param("bitmap", font->get_bitmap());
-    m_material->set_param("data", m_uniform_buffer);
+    // // m_material = RenderingDriver::get()->create_material(g_shader, instance_layout, MaterialFlagBits::Transparency);
+    // m_material->set_param("bitmap", font->get_bitmap());
+    // m_material->set_param("data", m_uniform_buffer);
 }
 
 void Text::set(const std::string& text)
@@ -202,9 +202,9 @@ void Text::set(const std::string& text)
     if (text.length() > m_capacity)
     {
         m_capacity = text.length();
-        auto instance_buffer_result = RenderingDriver::get()->create_buffer(m_capacity, BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Vertex);
-        ERR_EXPECT_R(instance_buffer_result, "Cannot create the instance buffer");
-        m_instance_buffer = instance_buffer_result.value();
+        // auto instance_buffer_result = RenderingDriver::get()->create_buffer(m_capacity, BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Vertex);
+        // ERR_EXPECT_R(instance_buffer_result, "Cannot create the instance buffer");
+        // m_instance_buffer = instance_buffer_result.value();
     }
 
     constexpr size_t batch_size = 32;
@@ -213,32 +213,32 @@ void Text::set(const std::string& text)
     for (size_t i = 0; i < text.length(); i++)
     {
         const uint8_t c = text[i];
-        const Font::Character ch = m_font->get_character(c).value_or(Font::Character{});
+        // const Font::Character ch = m_font->get_character(c).value_or(Font::Character{});
 
-        const float offset = (float)ch.offset / (float)width;
-        const float char_width = (float)ch.size.x / (float)width;
-        const float char_height = (float)ch.size.y / (float)height;
+        // const float offset = (float)ch.offset / (float)width;
+        // const float char_width = (float)ch.size.x / (float)width;
+        // const float char_height = (float)ch.size.y / (float)height;
 
-        const float bx = (float)ch.bearing.x / (float)width;
-        const float by = (float)(ch.size.y - ch.bearing.y) / (float)height;
+        // const float bx = (float)ch.bearing.x / (float)width;
+        // const float by = (float)(ch.size.y - ch.bearing.y) / (float)height;
 
-        const float scale_x = (float)ch.size.x / (float)height;
-        const float scale_y = (float)ch.size.y / (float)height;
+        // const float scale_x = (float)ch.size.x / (float)height;
+        // const float scale_y = (float)ch.size.y / (float)height;
 
-        instances[i % 32] = {
-            .bounds = glm::vec4(offset, offset + char_width, char_height, 0.0f),
-            .char_pos = glm::vec3(bx + offset_x, by, 0.0),
-            .scale = glm::vec2(scale_x, scale_y),
-        };
+        // instances[i % 32] = {
+        //     .bounds = glm::vec4(offset, offset + char_width, char_height, 0.0f),
+        //     .char_pos = glm::vec3(bx + offset_x, by, 0.0),
+        //     .scale = glm::vec2(scale_x, scale_y),
+        // };
 
-        if (i % batch_size == batch_size - 1 || i == text.size() - 1)
-        {
-            const size_t size = i + batch_size < text.size() ? batch_size : i - (i / batch_size) * batch_size + 1;
-            View<Font::Instance> span(instances.data(), size);
-            m_instance_buffer->update(span.as_bytes(), batch_size * (i / batch_size));
-        }
+        // if (i % batch_size == batch_size - 1 || i == text.size() - 1)
+        // {
+        //     const size_t size = i + batch_size < text.size() ? batch_size : i - (i / batch_size) * batch_size + 1;
+        //     View<Font::Instance> span(instances.data(), size);
+        //     m_instance_buffer->update(span.as_bytes(), batch_size * (i / batch_size));
+        // }
 
-        offset_x += float(ch.advance >> 6) / float(height);
+        // offset_x += float(ch.advance >> 6) / float(height);
     }
 
     m_size = text.size();
@@ -262,13 +262,13 @@ void Text::set_color(glm::vec4 color)
     update_uniform_buffer();
 }
 
-void Text::encode_draw_calls(RenderGraph& graph)
-{
-    // graph.add_draw(g_mesh, m_material, g_ortho_matrix, m_size, m_instance_buffer);
-    (void)graph;
-}
+// void Text::encode_draw_calls(RenderGraph& graph)
+// {
+//     // graph.add_draw(g_mesh, m_material, g_ortho_matrix, m_size, m_instance_buffer);
+//     (void)graph;
+// }
 
-void Text::update_uniform_buffer()
-{
-    m_uniform_buffer->update(View<Font::Uniform>(m_uniform).as_bytes());
-}
+// void Text::update_uniform_buffer()
+// {
+//     m_uniform_buffer->update(View<Font::Uniform>(m_uniform).as_bytes());
+// }

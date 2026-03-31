@@ -1,23 +1,21 @@
 #include "World/Chunk.hpp"
 #include "Profiler.hpp"
-#include "Render/Types.hpp"
 #include "World/Registry.hpp"
 #include "World/World.hpp"
-#include <cstdint>
 
 Chunk::Chunk(int64_t x, int64_t y, int64_t z, World *world)
     : m_x(x), m_y(y), m_z(z)
 {
-    const glm::mat4 model_matrix = glm::translate(glm::identity<glm::mat4>(), glm::vec3(x * Chunk::width, y * Chunk::width, z * Chunk::width));
+    // const glm::mat4 model_matrix = glm::translate(glm::identity<glm::mat4>(), glm::vec3(x * Chunk::width, y * Chunk::width, z * Chunk::width));
 
-    m_model.model_matrix = model_matrix;
-    m_model_buffer = RenderingDriver::get()->create_buffer(sizeof(Model), BufferUsageFlagBits::Uniform | BufferUsageFlagBits::CopyDest).value_or(nullptr);
-    m_model_buffer->update(View(m_model).as_bytes());
+    // m_model.model_matrix = model_matrix;
+    // m_model_buffer = RenderingDriver::get()->create_buffer(sizeof(Model), BufferUsageFlagBits::Uniform | BufferUsageFlagBits::CopyDest).value_or(nullptr);
+    // m_model_buffer->update(View(m_model).as_bytes());
 
-    m_material = RenderingDriver::get()->create_material(world->m_shader, std::nullopt, MaterialFlagBits::Transparency, PolygonMode::Fill, CullMode::Back, UVType::UVT, "chunk");
-    m_material->set_param("images", BlockRegistry::get_texture_array());
-    m_material->set_param("env", world->m_env_buffer);
-    m_material->set_param("model", m_model_buffer);
+    // m_material = RenderingDriver::get()->create_material(world->m_shader, std::nullopt, MaterialFlagBits::Transparency, PolygonMode::Fill, CullMode::Back, UVType::UVT, "chunk");
+    // m_material->set_param("images", BlockRegistry::get_texture_array());
+    // m_material->set_param("env", world->m_env_buffer);
+    // m_material->set_param("model", m_model_buffer);
 }
 
 Chunk::~Chunk()
@@ -27,7 +25,7 @@ Chunk::~Chunk()
 void Chunk::set_block(int64_t x, int64_t y, int64_t z, BlockState state)
 {
     m_blocks[linearize(x, y, z)] = state;
-    build_simple_mesh();
+    // build_simple_mesh();
 }
 
 struct ChunkBlockFace
@@ -149,7 +147,7 @@ void Chunk::build_simple_mesh()
     if (faces.empty())
     {
         m_empty = true;
-        m_mesh = nullptr;
+        // m_mesh = nullptr;
         return;
     }
 
@@ -194,5 +192,69 @@ void Chunk::build_simple_mesh()
         normals.push_back(normal);
     }
 
-    m_mesh = Mesh::create_from_data(View(indices).as_bytes(), vertices, normals, View(uvs).as_bytes(), IndexType::Uint16, UVType::UVT);
+    // m_mesh = Mesh::create_from_data(View(indices).as_bytes(), vertices, normals, View(uvs).as_bytes(), IndexType::Uint16, UVType::UVT);
+}
+
+void Chunk::build_tree()
+{
+    // Since chunks are 16x16x16, we need two levels of child nodes.
+    //
+    // Nodes are stored like this in memory:
+    // | child0 | ... | childn | child0_child0 | ... | child0_childn | child1_child0 | ... | child1_childn
+    //
+    // Only `child_mask` is important here, other fields will be filled when building the top level buffer in the dimension.
+    m_node.leaf = 0;
+    m_node.child_ptr = 0;
+    m_node.child_mask = 0;
+
+    std::vector<SvtNode64> nodes2;
+    m_nodes.push_back(SvtNode64{});
+
+    for (uint32_t x = 0; x < 4; x++)
+        for (uint32_t y = 0; y < 4; y++)
+            for (uint32_t z = 0; z < 4; z++)
+            {
+                uint32_t index = z * 16 + y * 4 + x;
+
+                SvtNode64 node{};
+                node.leaf = 0;
+                // Needs to be offset later by the number of "top-level" nodes.
+                node.child_ptr = nodes2.size();
+                node.child_mask = 0;
+
+                for (uint32_t x2 = 0; x2 < 4; x2++)
+                    for (uint32_t y2 = 0; y2 < 4; y2++)
+                        for (uint32_t z2 = 0; z2 < 4; z2++)
+                        {
+                            uint32_t index2 = z2 * 16 + y2 * 4 + x2;
+                            uint32_t index3 = (z * 4 * 4 * 4 * 4 * 4 + y * 4 * 4 * 4 * 4 + x * 4 * 4 * 4) + (z2 * 4 * 4 + y2 * 4 + x2);
+                            BlockState state = m_blocks[index3];
+
+                            if (state.is_air())
+                                continue;
+
+                            SvtNode64 node2{};
+                            node2.leaf = 1;
+                            node2.child_mask = 0;
+
+                            // TODO: Since multiple blocks can have the same material, here we should have unique leaf data and reuse the index.
+                            node2.child_ptr = m_leafs.size();
+                            m_leafs.push_back(rand() % 5);
+
+                            node.child_mask |= 1 << index2;
+
+                            nodes2.push_back(node2);
+                            m_empty = false;
+                        }
+
+                if (node.child_mask != 0)
+                    m_node.child_mask |= 1 << index;
+            }
+
+    // now we offset the pointer by the number of "top-level" nodes.
+    for (uint32_t i = 0; i < m_nodes.size(); i++)
+        m_nodes[i].child_ptr += m_nodes.size() + 1;
+
+    m_nodes[0] = m_node;
+    m_nodes.insert(m_nodes.end(), nodes2.begin(), nodes2.end());
 }

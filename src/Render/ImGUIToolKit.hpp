@@ -1,5 +1,4 @@
 #pragma once
-#ifdef __has_debug_menu
 
 #include <imgui.h>
 
@@ -14,5 +13,3 @@ static inline void imguitk_centered_next_widget(const char *label, float alignme
     if (off > 0.0f)
         ImGui::SetCursorPosX(ImGui::GetCursorPosX() + off);
 }
-
-#endif

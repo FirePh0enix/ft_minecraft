@@ -4,34 +4,41 @@
 #include "Entity/Player.hpp"
 #include "Input.hpp"
 #include "Profiler.hpp"
-#include "Render/Driver.hpp"
-#include "Render/Graph.hpp"
 #include "Render/ImGUIToolKit.hpp"
-#include "Render/WebGPU/DriverWebGPU.hpp"
-#include "imgui.h"
+#include "Render/Renderer.hpp"
 
 #include <string>
 
-Engine::Engine(const Args& args)
+Engine::Engine()
+{
+}
+
+void Engine::init(const Args& args)
 {
     m_window = newobj(Window, "ft_minecraft", 1280, 720);
 
     Input::init(*m_window);
     Input::load_config();
 
-#ifdef __has_webgpu
-    RenderingDriver::create_singleton<RenderingDriverWebGPU>();
-#else
-#error "WebGPU is the only API supported"
-#endif
+    // BlockRegistry::load_blocks();
+    // BlockRegistry::create_gpu_resources();
 
-    InitFlags flags;
-    if (args.has("enable-gpu-validation"))
-    {
-        flags |= InitFlagBits::Validation;
-    }
+    // #ifdef __has_webgpu
+    //     RenderingDriver::create_singleton<RenderingDriverWebGPU>();
+    // #else
+    // #error "WebGPU is the only API supported"
+    // #endif
 
-    (void)RenderingDriver::get()->initialize(*m_window, flags);
+    // InitFlags flags;
+    // if (args.has("enable-gpu-validation"))
+    // {
+    //     flags |= InitFlagBits::Validation;
+    // }
+
+    // (void)RenderingDriver::get()->initialize(*m_window, flags);
+
+    m_renderer.init(RVInitFlagBits::Validation, *m_window);
+    create_world_and_start();
 }
 
 void Engine::tick(float delta)
@@ -52,11 +59,11 @@ void Engine::tick(float delta)
             break;
             case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
             {
-                Result<> result = RenderingDriver::get()->configure_surface(event->window.data1, event->window.data2, VSync::On);
+                Result<> result = m_renderer.configure(*m_window, RVVSync::On); // RenderingDriver::get()->configure_surface(event->window.data1, event->window.data2, VSync::On);
                 ERR_EXPECT_B(result, "Failed to configure the surface");
 
-                if (m_scene == EngineScene::World)
-                    m_world->get_active_camera()->update_projection((float)event->window.data1 / (float)event->window.data2);
+                // if (m_scene == EngineScene::World)
+                //     m_world->get_active_camera()->update_projection((float)event->window.data1 / (float)event->window.data2);
 
                 // TODO
                 // config.get_category("window").set("width", (int64_t)window->size().width);
@@ -68,7 +75,6 @@ void Engine::tick(float delta)
                 break;
             }
 
-#ifdef __has_debug_menu
             ImGui_ImplSDL3_ProcessEvent(&*event);
 
             ImGuiIO& imgui_io = ImGui::GetIO();
@@ -77,13 +83,12 @@ void Engine::tick(float delta)
             {
                 continue;
             }
-#endif
 
             Input::process_event(event.value());
         }
     }
 
-    RenderingDriver::get()->poll();
+    // RenderingDriver::get()->poll();
 
     switch (m_scene)
     {
@@ -104,6 +109,7 @@ void Engine::draw()
         break;
     case EngineScene::World:
         draw_world_scene();
+        // draw_world_cpu();
         break;
     }
 }
@@ -112,64 +118,38 @@ void Engine::draw_main_menu()
 {
     const Extent2D window_size = m_window->size();
 
-#ifdef __has_debug_menu
+    m_renderer.prepare_render();
+
+    const float size_x = (float)window_size.width * 0.4f;
+    const float size_y = (float)window_size.height * 0.6f;
+
+    ImGui::SetNextWindowPos(ImVec2((float)window_size.width / 2 - size_x / 2, (float)window_size.height / 2 - size_y / 2));
+    ImGui::SetNextWindowSize(ImVec2(size_x, size_y));
+    if (ImGui::Begin("Main Menu", nullptr, ImGuiWindowFlags_NoDecoration))
     {
-        RenderPassEncoder encoder = RenderGraph::get().render_pass_begin({.name = "main pass", .color_attachments = {RenderPassColorAttachment{.surface_texture = true}}, .depth_attachment = RenderPassDepthAttachment{}});
+        imguitk_centered_next_widget("Main Menu");
+        ImGui::Text("Main Menu");
+        ImGui::NewLine();
 
-        const float size_x = (float)window_size.width * 0.4f;
-        const float size_y = (float)window_size.height * 0.6f;
-
-        ImGui::SetNextWindowPos(ImVec2(window_size.width / 2 - size_x / 2, window_size.height / 2 - size_y / 2));
-        ImGui::SetNextWindowSize(ImVec2(size_x, size_y));
-        if (ImGui::Begin("Main Menu", nullptr, ImGuiWindowFlags_NoDecoration))
+        const char *types[] = {"flat", "normal"};
+        if (ImGui::Combo("World Type", &m_main_menu_world_type, types, 2))
         {
-            imguitk_centered_next_widget("Main Menu");
-            ImGui::Text("Main Menu");
-            ImGui::NewLine();
-
-            const char *types[] = {"flat", "normal"};
-            if (ImGui::Combo("World Type", &m_main_menu_world_type, types, 2))
-            {
-            }
-
-            ImGui::InputText("Seed", m_world_seed_buf, sizeof(m_world_seed_buf));
-
-            imguitk_centered_next_widget("Play");
-            if (ImGui::Button("Play"))
-            {
-                create_world_and_start();
-            }
         }
-        ImGui::End();
 
-        encoder.imgui();
+        ImGui::InputText("Seed", m_world_seed_buf, sizeof(m_world_seed_buf));
+
+        imguitk_centered_next_widget("Play");
+        if (ImGui::Button("Play"))
+        {
+            create_world_and_start();
+        }
     }
-#endif
-
-    RenderingDriver::get()->draw_graph(RenderGraph::get());
-    RenderGraph::get().reset();
+    ImGui::End();
 }
 
 void Engine::draw_world_scene()
 {
-    // The first pass: Depth only
-    {
-        RenderPassEncoder encoder = RenderGraph::get().render_pass_begin({.name = "depth pass", .depth_attachment = RenderPassDepthAttachment{.save = true}});
-        m_world->draw(encoder);
-    }
-
-    // The main color pass.
-    {
-        RenderPassEncoder encoder = RenderGraph::get().render_pass_begin({.name = "main pass", .color_attachments = {RenderPassColorAttachment{.surface_texture = true}}, .depth_attachment = RenderPassDepthAttachment{.load = true}});
-        m_world->draw(encoder, true);
-
-#if defined(__has_debug_menu)
-        encoder.imgui();
-#endif
-    }
-
-    RenderingDriver::get()->draw_graph(RenderGraph::get());
-    RenderGraph::get().reset();
+    m_renderer.render_world(m_world);
 }
 
 void Engine::create_world_and_start()
@@ -178,7 +158,7 @@ void Engine::create_world_and_start()
     m_world = newobj(World, seed);
 
     m_player = newobj(Player);
-    m_player->get_transform().position() = glm::vec3(0, 3.0, 0);
+    m_player->get_transform().position() = glm::vec3(0, 0.0, 1);
     m_world->add_entity(World::overworld, m_player);
 
     m_scene = EngineScene::World;

@@ -48,6 +48,11 @@ public:
         return rotation * translation;
     }
 
+    glm::mat4 get_rotation_matrix() const
+    {
+        return glm::toMat4(get_global_transform().rotation());
+    }
+
     glm::mat4 get_view_proj_matrix() const
     {
         return get_projection_matrix() * get_view_matrix();
@@ -56,6 +61,11 @@ public:
     inline glm::mat4 get_projection_matrix() const
     {
         return m_projection_matrix;
+    }
+
+    glm::mat4 get_proj_rot_matrix() const
+    {
+        return m_projection_matrix * get_rotation_matrix();
     }
 
     inline const Frustum& frustum() const

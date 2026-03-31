@@ -4,7 +4,6 @@
 #include "Core/Class.hpp"
 #include "Core/Definitions.hpp"
 #include "Core/Ref.hpp"
-#include "Render/Graph.hpp"
 #include "Transform3D.hpp"
 
 class World;
@@ -62,9 +61,8 @@ public:
         (void)delta;
     }
 
-    virtual void draw(RenderPassEncoder& encoder)
+    virtual void draw()
     {
-        (void)encoder;
     }
 
     virtual void on_ready()

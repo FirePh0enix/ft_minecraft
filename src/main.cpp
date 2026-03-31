@@ -1,21 +1,16 @@
 #include "Args.hpp"
+#include "Core/Filesystem.hpp"
 #include "Core/Logger.hpp"
 #include "Core/Registry.hpp"
 #include "Engine.hpp"
 #include "Entity/Camera.hpp"
 #include "Entity/Player.hpp"
-#include "Font.hpp"
 #include "Input.hpp"
 #include "Profiler.hpp"
-#include "Render/Driver.hpp"
 #include "World/Generator.hpp"
-#include "World/Registry.hpp"
 #include "World/World.hpp"
-#include <SDL3_image/SDL_image.h>
 
-#ifdef __has_webgpu
-#include "Render/WebGPU/DriverWebGPU.hpp"
-#endif
+#include <SDL3_image/SDL_image.h>
 
 #ifdef __platform_web
 #include <emscripten/html5.h>
@@ -32,14 +27,7 @@
 static constexpr double fixed_update_time = 1.0 / 60.0;
 static clock_t last_update_time;
 
-static void register_engine_classes();
-static void register_all_classes();
-
 static void shutdown_callback();
-static void loop_update();
-static void update_callback();
-
-Ref<Engine> engine;
 
 MAIN(int argc, char *argv[])
 {
@@ -48,32 +36,18 @@ MAIN(int argc, char *argv[])
     initialize_error_handling(Filesystem::current_executable_path().c_str());
 #endif
 
-    // String s = "hello world";
-    // String s_copy(s);
-    // println("{}", s_copy);
-
     Args args;
     args.add_arg("enable-gpu-validation", {.type = ArgType::Bool});
     args.add_arg("disable-save", {.type = ArgType::Bool});
     args.add_arg("connect-to", {.type = ArgType::String});
     args.parse(argv, argc);
 
-    register_engine_classes();
-    register_all_classes();
-
-    engine = newobj(Engine, args);
+    REGISTER_CLASSES(World, Chunk, Block, Player, Generator, GenerationPass, BiomeGenerationPass, SurfaceGenerationPass, FeaturesGenerationPass);
+    REGISTER_CLASSES(Entity, Camera);
 
     TracySetThreadName("Main");
 
-    BlockRegistry::load_blocks();
-    BlockRegistry::create_gpu_resources();
-
-    // TODO: Add this back
-    // Font::init_library();
-
-    // auto font_result = Font::create("assets/fonts/Anonymous.ttf", 20);
-    // EXPECT(font_result);
-    // Ref<Font> font = font_result.value();
+    Engine::get().init(args);
 
     if (args.has("disable-save"))
     {
@@ -83,10 +57,21 @@ MAIN(int argc, char *argv[])
 
 #ifdef __platform_web
     emscripten_set_main_loop_arg([](void *engine)
-                                 { ((Engine *)engine)->update_callback(); }, nullptr, 0, true);
+                                 { Engine::get().tick(float(fixed_update_time)); Engine::get().draw(); }, nullptr, 0, true);
 #else
-    while (engine->is_running())
-        loop_update();
+    while (Engine::get().is_running())
+    {
+        const float elapsed_time = (float)(clock() - last_update_time) / CLOCKS_PER_SEC;
+        if (elapsed_time >= fixed_update_time)
+        {
+            last_update_time = clock();
+
+            Engine::get().tick(float(fixed_update_time));
+            Input::post_events();
+        }
+
+        Engine::get().draw();
+    }
 
     shutdown_callback();
 #endif
@@ -94,57 +79,14 @@ MAIN(int argc, char *argv[])
     return 0;
 }
 
-static void loop_update()
-{
-    const float elapsed_time = (float)(clock() - last_update_time) / CLOCKS_PER_SEC;
-    if (elapsed_time >= fixed_update_time)
-    {
-        last_update_time = clock();
-        update_callback();
-    }
-}
-
-static void update_callback()
-{
-    FrameMark;
-    ZoneScoped;
-
-    // TODO: Differentiate between rendering ticks and physics ticks.
-    engine->tick(float(fixed_update_time));
-
-    ImGui::NewFrame();
-    engine->draw();
-
-    Input::post_events();
-}
-
 static void shutdown_callback()
 {
     println("Shutting down");
 
-    engine = nullptr;
-
-    BlockRegistry::destroy();
+    // BlockRegistry::destroy();
     // Font::deinit_library();
 
-    RenderingDriver::destroy_singleton();
-}
-
-static void register_all_classes()
-{
-    REGISTER_CLASSES(World, Chunk, Block, Player, Generator, GenerationPass, BiomeGenerationPass, SurfaceGenerationPass, FeaturesGenerationPass);
-}
-
-static void register_engine_classes()
-{
-    REGISTER_CLASSES(
-        Font,
-        Entity, Camera,
-        RenderingDriver, Buffer, Texture, Mesh, Material, Shader);
-
-#ifdef __has_webgpu
-    REGISTER_CLASSES(RenderingDriverWebGPU, BufferWebGPU, TextureWebGPU);
-#endif
+    // RenderingDriver::destroy_singleton();
 }
 
 #else

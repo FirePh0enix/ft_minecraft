@@ -5,9 +5,7 @@
 #include "Entity/Entity.hpp"
 #include "Input.hpp"
 #include "Profiler.hpp"
-#include "Render/Driver.hpp"
 #include "Render/ImGUIToolKit.hpp"
-#include "Render/Shader.hpp"
 #include "Render/Types.hpp"
 #include "World/Dimension.hpp"
 #include "World/Registry.hpp"
@@ -19,152 +17,152 @@ Player::Player()
 {
 }
 
-static Ref<Mesh> create_cube_mesh(glm::vec3 size = glm::vec3(1.0), glm::vec3 offset = glm::vec3())
-{
-    const glm::vec3 hs = size / glm::vec3(2.0);
+// static Ref<Mesh> create_cube_mesh(glm::vec3 size = glm::vec3(1.0), glm::vec3 offset = glm::vec3())
+// {
+//     const glm::vec3 hs = size / glm::vec3(2.0);
 
-    // clang-format off
-    std::array<uint16_t, 36> indices{
-        0, 1, 2,
-        2, 3, 0, // front
+//     // clang-format off
+//     std::array<uint16_t, 36> indices{
+//         0, 1, 2,
+//         2, 3, 0, // front
 
-        20, 21, 22,
-        22, 23, 20, // back
+//         20, 21, 22,
+//         22, 23, 20, // back
 
-        4, 5, 6,
-        6, 7, 4, // right
+//         4, 5, 6,
+//         6, 7, 4, // right
 
-        12, 13, 14,
-        14, 15, 12, // left
+//         12, 13, 14,
+//         14, 15, 12, // left
 
-        8, 9, 10,
-        10, 11, 8, // top
+//         8, 9, 10,
+//         10, 11, 8, // top
 
-        16, 17, 18,
-        18, 19, 16, // bottom
-    };
-    // clang-format on
+//         16, 17, 18,
+//         18, 19, 16, // bottom
+//     };
+//     // clang-format on
 
-    std::array<glm::vec3, 24> vertices{
-        glm::vec3(-hs.x + offset.x, -hs.y + offset.y, hs.z + offset.z), // front
-        glm::vec3(hs.x + offset.x, -hs.y + offset.y, hs.z + offset.z),
-        glm::vec3(hs.x + offset.x, hs.y + offset.y, hs.z + offset.z),
-        glm::vec3(-hs.x + offset.x, hs.y + offset.y, hs.z + offset.z),
+//     std::array<glm::vec3, 24> vertices{
+//         glm::vec3(-hs.x + offset.x, -hs.y + offset.y, hs.z + offset.z), // front
+//         glm::vec3(hs.x + offset.x, -hs.y + offset.y, hs.z + offset.z),
+//         glm::vec3(hs.x + offset.x, hs.y + offset.y, hs.z + offset.z),
+//         glm::vec3(-hs.x + offset.x, hs.y + offset.y, hs.z + offset.z),
 
-        glm::vec3(hs.x + offset.x, -hs.y + offset.y, -hs.z + offset.z), // back
-        glm::vec3(-hs.x + offset.x, -hs.y + offset.y, -hs.z + offset.z),
-        glm::vec3(-hs.x + offset.x, hs.y + offset.y, -hs.z + offset.z),
-        glm::vec3(hs.x + offset.x, hs.y + offset.y, -hs.z + offset.z),
+//         glm::vec3(hs.x + offset.x, -hs.y + offset.y, -hs.z + offset.z), // back
+//         glm::vec3(-hs.x + offset.x, -hs.y + offset.y, -hs.z + offset.z),
+//         glm::vec3(-hs.x + offset.x, hs.y + offset.y, -hs.z + offset.z),
+//         glm::vec3(hs.x + offset.x, hs.y + offset.y, -hs.z + offset.z),
 
-        glm::vec3(-hs.x + offset.x, -hs.y + offset.y, -hs.z + offset.z), // left
-        glm::vec3(-hs.x + offset.x, -hs.y + offset.y, hs.z + offset.z),
-        glm::vec3(-hs.x + offset.x, hs.y + offset.y, hs.z + offset.z),
-        glm::vec3(-hs.x + offset.x, hs.y + offset.y, -hs.z + offset.z),
+//         glm::vec3(-hs.x + offset.x, -hs.y + offset.y, -hs.z + offset.z), // left
+//         glm::vec3(-hs.x + offset.x, -hs.y + offset.y, hs.z + offset.z),
+//         glm::vec3(-hs.x + offset.x, hs.y + offset.y, hs.z + offset.z),
+//         glm::vec3(-hs.x + offset.x, hs.y + offset.y, -hs.z + offset.z),
 
-        glm::vec3(hs.x + offset.x, -hs.y + offset.y, hs.z + offset.z), // right
-        glm::vec3(hs.x + offset.x, -hs.y + offset.y, -hs.z + offset.z),
-        glm::vec3(hs.x + offset.x, hs.y + offset.y, -hs.z + offset.z),
-        glm::vec3(hs.x + offset.x, hs.y + offset.y, hs.z + offset.z),
+//         glm::vec3(hs.x + offset.x, -hs.y + offset.y, hs.z + offset.z), // right
+//         glm::vec3(hs.x + offset.x, -hs.y + offset.y, -hs.z + offset.z),
+//         glm::vec3(hs.x + offset.x, hs.y + offset.y, -hs.z + offset.z),
+//         glm::vec3(hs.x + offset.x, hs.y + offset.y, hs.z + offset.z),
 
-        glm::vec3(-hs.x + offset.x, hs.y + offset.y, hs.z + offset.z), // top
-        glm::vec3(hs.x + offset.x, hs.y + offset.y, hs.z + offset.z),
-        glm::vec3(hs.x + offset.x, hs.y + offset.y, -hs.z + offset.z),
-        glm::vec3(-hs.x + offset.x, hs.y + offset.y, -hs.z + offset.z),
+//         glm::vec3(-hs.x + offset.x, hs.y + offset.y, hs.z + offset.z), // top
+//         glm::vec3(hs.x + offset.x, hs.y + offset.y, hs.z + offset.z),
+//         glm::vec3(hs.x + offset.x, hs.y + offset.y, -hs.z + offset.z),
+//         glm::vec3(-hs.x + offset.x, hs.y + offset.y, -hs.z + offset.z),
 
-        glm::vec3(-hs.x + offset.x, -hs.y + offset.y, -hs.z + offset.z), // bottom
-        glm::vec3(hs.x + offset.x, -hs.y + offset.y, -hs.z + offset.z),
-        glm::vec3(hs.x + offset.x, -hs.y + offset.y, hs.z + offset.z),
-        glm::vec3(-hs.x + offset.x, -hs.y + offset.y, hs.z + offset.z),
-    };
+//         glm::vec3(-hs.x + offset.x, -hs.y + offset.y, -hs.z + offset.z), // bottom
+//         glm::vec3(hs.x + offset.x, -hs.y + offset.y, -hs.z + offset.z),
+//         glm::vec3(hs.x + offset.x, -hs.y + offset.y, hs.z + offset.z),
+//         glm::vec3(-hs.x + offset.x, -hs.y + offset.y, hs.z + offset.z),
+//     };
 
-    std::array<glm::vec2, 24> uvs{
-        glm::vec2(0.0, 0.0),
-        glm::vec2(1.0, 0.0),
-        glm::vec2(1.0, 1.0),
-        glm::vec2(0.0, 1.0),
+//     std::array<glm::vec2, 24> uvs{
+//         glm::vec2(0.0, 0.0),
+//         glm::vec2(1.0, 0.0),
+//         glm::vec2(1.0, 1.0),
+//         glm::vec2(0.0, 1.0),
 
-        glm::vec2(0.0, 0.0),
-        glm::vec2(1.0, 0.0),
-        glm::vec2(1.0, 1.0),
-        glm::vec2(0.0, 1.0),
+//         glm::vec2(0.0, 0.0),
+//         glm::vec2(1.0, 0.0),
+//         glm::vec2(1.0, 1.0),
+//         glm::vec2(0.0, 1.0),
 
-        glm::vec2(0.0, 0.0),
-        glm::vec2(1.0, 0.0),
-        glm::vec2(1.0, 1.0),
-        glm::vec2(0.0, 1.0),
+//         glm::vec2(0.0, 0.0),
+//         glm::vec2(1.0, 0.0),
+//         glm::vec2(1.0, 1.0),
+//         glm::vec2(0.0, 1.0),
 
-        glm::vec2(0.0, 0.0),
-        glm::vec2(1.0, 0.0),
-        glm::vec2(1.0, 1.0),
-        glm::vec2(0.0, 1.0),
+//         glm::vec2(0.0, 0.0),
+//         glm::vec2(1.0, 0.0),
+//         glm::vec2(1.0, 1.0),
+//         glm::vec2(0.0, 1.0),
 
-        glm::vec2(0.0, 0.0),
-        glm::vec2(1.0, 0.0),
-        glm::vec2(1.0, 1.0),
-        glm::vec2(0.0, 1.0),
+//         glm::vec2(0.0, 0.0),
+//         glm::vec2(1.0, 0.0),
+//         glm::vec2(1.0, 1.0),
+//         glm::vec2(0.0, 1.0),
 
-        glm::vec2(0.0, 0.0),
-        glm::vec2(1.0, 0.0),
-        glm::vec2(1.0, 1.0),
-        glm::vec2(0.0, 1.0),
-    };
+//         glm::vec2(0.0, 0.0),
+//         glm::vec2(1.0, 0.0),
+//         glm::vec2(1.0, 1.0),
+//         glm::vec2(0.0, 1.0),
+//     };
 
-    std::array<glm::vec3, 24> normals{
-        glm::vec3(0.0, 0.0, 1.0), // front
-        glm::vec3(0.0, 0.0, 1.0),
-        glm::vec3(0.0, 0.0, 1.0),
-        glm::vec3(0.0, 0.0, 1.0),
+//     std::array<glm::vec3, 24> normals{
+//         glm::vec3(0.0, 0.0, 1.0), // front
+//         glm::vec3(0.0, 0.0, 1.0),
+//         glm::vec3(0.0, 0.0, 1.0),
+//         glm::vec3(0.0, 0.0, 1.0),
 
-        glm::vec3(0.0, 0.0, -1.0), // back
-        glm::vec3(0.0, 0.0, -1.0),
-        glm::vec3(0.0, 0.0, -1.0),
-        glm::vec3(0.0, 0.0, -1.0),
+//         glm::vec3(0.0, 0.0, -1.0), // back
+//         glm::vec3(0.0, 0.0, -1.0),
+//         glm::vec3(0.0, 0.0, -1.0),
+//         glm::vec3(0.0, 0.0, -1.0),
 
-        glm::vec3(1.0, 0.0, 0.0), // left
-        glm::vec3(1.0, 0.0, 0.0),
-        glm::vec3(1.0, 0.0, 0.0),
-        glm::vec3(1.0, 0.0, 0.0),
+//         glm::vec3(1.0, 0.0, 0.0), // left
+//         glm::vec3(1.0, 0.0, 0.0),
+//         glm::vec3(1.0, 0.0, 0.0),
+//         glm::vec3(1.0, 0.0, 0.0),
 
-        glm::vec3(-1.0, 0.0, 0.0), // right
-        glm::vec3(-1.0, 0.0, 0.0),
-        glm::vec3(-1.0, 0.0, 0.0),
-        glm::vec3(-1.0, 0.0, 0.0),
+//         glm::vec3(-1.0, 0.0, 0.0), // right
+//         glm::vec3(-1.0, 0.0, 0.0),
+//         glm::vec3(-1.0, 0.0, 0.0),
+//         glm::vec3(-1.0, 0.0, 0.0),
 
-        glm::vec3(0.0, 1.0, 0.0), // top
-        glm::vec3(0.0, 1.0, 0.0),
-        glm::vec3(0.0, 1.0, 0.0),
-        glm::vec3(0.0, 1.0, 0.0),
+//         glm::vec3(0.0, 1.0, 0.0), // top
+//         glm::vec3(0.0, 1.0, 0.0),
+//         glm::vec3(0.0, 1.0, 0.0),
+//         glm::vec3(0.0, 1.0, 0.0),
 
-        glm::vec3(0.0, -1.0, 0.0), // bottom
-        glm::vec3(0.0, -1.0, 0.0),
-        glm::vec3(0.0, -1.0, 0.0),
-        glm::vec3(0.0, -1.0, 0.0),
-    };
+//         glm::vec3(0.0, -1.0, 0.0), // bottom
+//         glm::vec3(0.0, -1.0, 0.0),
+//         glm::vec3(0.0, -1.0, 0.0),
+//         glm::vec3(0.0, -1.0, 0.0),
+//     };
 
-    View<uint16_t> indices_span = indices;
+//     View<uint16_t> indices_span = indices;
 
-    return Mesh::create_from_data(indices_span.as_bytes(), vertices, normals, View(uvs).as_bytes(), IndexType::Uint16);
-}
+//     return Mesh::create_from_data(indices_span.as_bytes(), vertices, normals, View(uvs).as_bytes(), IndexType::Uint16);
+// }
 
 void Player::on_ready()
 {
     m_aabb = AABB(glm::vec3(), glm::vec3(0.35, 0.9, 0.35));
 
     m_camera = newobj(Camera);
-    m_camera->get_transform().position() = glm::vec3(0, 0.85, 0);
+    m_camera->get_transform().position() = glm::vec3(); // glm::vec3(0, 0.85, 0);
     add_child(m_camera);
     m_world->set_active_camera(m_camera);
 
-    m_highlight_mesh = create_cube_mesh(glm::vec3(1.01f));
-    m_highlight_model_buffer = RenderingDriver::get()->create_buffer(sizeof(Model), BufferUsageFlagBits::Uniform | BufferUsageFlagBits::CopyDest).value_or(nullptr);
+    // m_highlight_mesh = create_cube_mesh(glm::vec3(1.01f));
+    // m_highlight_model_buffer = RenderingDriver::get()->create_buffer(sizeof(Model), BufferUsageFlagBits::Uniform | BufferUsageFlagBits::CopyDest).value_or(nullptr);
 
-    m_highlight_shader = Shader::load("assets/shaders/cube_highlight.wgsl").value_or(nullptr);
-    m_highlight_shader->set_binding("env", Binding(BindingKind::UniformBuffer, ShaderStageFlagBits::Vertex, 0, 0, BindingAccess::Read));
-    m_highlight_shader->set_binding("model", Binding(BindingKind::UniformBuffer, ShaderStageFlagBits::Vertex, 0, 1, BindingAccess::Read));
+    // m_highlight_shader = Shader::load("assets/shaders/cube_highlight.wgsl").value_or(nullptr);
+    // m_highlight_shader->set_binding("env", Binding(BindingKind::UniformBuffer, ShaderStageFlagBits::Vertex, 0, 0, BindingAccess::Read));
+    // m_highlight_shader->set_binding("model", Binding(BindingKind::UniformBuffer, ShaderStageFlagBits::Vertex, 0, 1, BindingAccess::Read));
 
-    m_highlight_material = RenderingDriver::get()->create_material(m_highlight_shader, std::nullopt, MaterialFlagBits::Transparency | MaterialFlagBits::Priority, PolygonMode::Fill, CullMode::Back, UVType::UVT, "HIGHLIGHT_CUBE");
-    m_highlight_material->set_param("env", m_world->get_env_buffer());
-    m_highlight_material->set_param("model", m_highlight_model_buffer);
+    // m_highlight_material = RenderingDriver::get()->create_material(m_highlight_shader, std::nullopt, MaterialFlagBits::Transparency | MaterialFlagBits::Priority, PolygonMode::Fill, CullMode::Back, UVType::UVT, "HIGHLIGHT_CUBE");
+    // m_highlight_material->set_param("env", m_world->get_env_buffer());
+    // m_highlight_material->set_param("model", m_highlight_model_buffer);
 }
 
 void Player::tick(float delta)
@@ -270,21 +268,21 @@ void Player::tick(float delta)
     }
 }
 
-void Player::draw(RenderPassEncoder& encoder)
+void Player::draw()
 {
-    if (m_aimed_block.has_value())
-    {
-        // (void)encoder;
-        m_highlight_model.model_matrix = glm::translate(glm::identity<glm::mat4>(), glm::vec3(m_aimed_block.value()));
-        m_highlight_model_buffer->update(View(m_highlight_model).as_bytes());
+    // if (m_aimed_block.has_value())
+    // {
+    //     // (void)encoder;
+    //     m_highlight_model.model_matrix = glm::translate(glm::identity<glm::mat4>(), glm::vec3(m_aimed_block.value()));
+    //     m_highlight_model_buffer->update(View(m_highlight_model).as_bytes());
 
-        encoder.bind_material(m_highlight_material);
-        encoder.bind_index_buffer(m_highlight_mesh->get_buffer(MeshBufferKind::Index));
-        encoder.bind_vertex_buffer(m_highlight_mesh->get_buffer(MeshBufferKind::Position), 0);
-        encoder.bind_vertex_buffer(m_highlight_mesh->get_buffer(MeshBufferKind::UV), 1);
-        encoder.bind_vertex_buffer(m_highlight_mesh->get_buffer(MeshBufferKind::Normal), 2);
-        encoder.draw(m_highlight_mesh->vertex_count(), 1);
-    }
+    //     encoder.bind_material(m_highlight_material);
+    //     encoder.bind_index_buffer(m_highlight_mesh->get_buffer(MeshBufferKind::Index));
+    //     encoder.bind_vertex_buffer(m_highlight_mesh->get_buffer(MeshBufferKind::Position), 0);
+    //     encoder.bind_vertex_buffer(m_highlight_mesh->get_buffer(MeshBufferKind::UV), 1);
+    //     encoder.bind_vertex_buffer(m_highlight_mesh->get_buffer(MeshBufferKind::Normal), 2);
+    //     encoder.draw(m_highlight_mesh->vertex_count(), 1);
+    // }
 
     if (ImGui::Begin("Player"))
     {

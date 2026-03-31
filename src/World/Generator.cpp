@@ -189,7 +189,8 @@ void Generator::load_thread(Generator *g)
         //       to save/read to disk everytime.
 
         Ref<Chunk> chunk = g->generate_chunk(pos.x, pos.y, pos.z);
-        chunk->build_simple_mesh();
+        chunk->build_tree();
+        // chunk->build_simple_mesh();
 
         // println("new chunk generated: ({}, {}, {}), {} remaining", pos.x, pos.y, pos.z, g->m_load_orders.size());
 

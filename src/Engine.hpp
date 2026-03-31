@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Args.hpp"
-#include "Core/Class.hpp"
+#include "Render/Renderer.hpp"
 #include "World/World.hpp"
 
 enum class EngineScene
@@ -10,22 +10,29 @@ enum class EngineScene
     World,
 };
 
-class Engine : public Object
+class Engine
 {
-    CLASS(Engine, Object);
-
 public:
-    Engine(const Args& args);
+    Engine();
 
     bool is_running() const { return m_window->is_running(); }
 
+    void init(const Args& args);
     void tick(float delta);
-
     void draw();
+
+    static Engine& get()
+    {
+        static Engine engine;
+        return engine;
+    }
+
+    RVRenderer& get_renderer() { return m_renderer; };
 
 private:
     EngineScene m_scene = EngineScene::MainMenu;
     Ref<Window> m_window;
+    RVRenderer m_renderer;
 
     Ref<World> m_world;
     Ref<Entity> m_player;
@@ -36,6 +43,8 @@ private:
 
     void draw_main_menu();
     void draw_world_scene();
+
+    void draw_world_cpu();
 
     void create_world_and_start();
 };

@@ -14,10 +14,8 @@
 #include <webgpu/wgpu.h>
 #endif
 
-#ifdef __has_debug_menu
 #include <backends/imgui_impl_sdl3.h>
 #include <backends/imgui_impl_wgpu.h>
-#endif
 
 class TextureWebGPU;
 class MaterialWebGPU;
@@ -58,10 +56,35 @@ struct RenderPipelineCacheValue
     WGPURenderPipeline pipeline;
 };
 
-class RenderPipelineCache2
+class RenderPipelineCache
 {
 public:
     RenderPipelineCacheValue get_or_create(Ref<MaterialWebGPU> material, std::vector<RenderPassColorAttachment> color_attachments, bool load_depth);
+
+    struct Key
+    {
+        size_t material_ptr;
+        bool store_color;
+        bool load_depth;
+    };
+
+private:
+    std::vector<std::pair<Key, RenderPipelineCacheValue>> m_pipelines;
+
+    std::optional<RenderPipelineCacheValue> get(Key key);
+};
+
+struct ComputePipelineCacheValue
+{
+    WGPUPipelineLayout pipeline_layout;
+    WGPUBindGroupLayout bind_group_layout;
+    WGPUComputePipeline pipeline;
+};
+
+class ComputePipelineCache
+{
+public:
+    ComputePipelineCache get_or_create(Ref<MaterialWebGPU> material);
 
     struct Key
     {
@@ -190,7 +213,7 @@ public:
         return m_queue;
     }
 
-    inline RenderPipelineCache2& get_pipeline_cache()
+    inline RenderPipelineCache& get_pipeline_cache()
     {
         return m_pipeline_cache;
     }
@@ -213,7 +236,7 @@ private:
 
     WGPUTextureFormat m_surface_format = WGPUTextureFormat_Undefined;
 
-    RenderPipelineCache2 m_pipeline_cache;
+    RenderPipelineCache m_pipeline_cache;
     SamplerCache m_sampler_cache;
     BindGroupCache m_bind_group_cache;
     RenderGraphCache m_render_graph_cache;

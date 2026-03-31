@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Core/Class.hpp"
-#include "Render/Driver.hpp"
 #include "World/Block.hpp"
 #include "World/Chunk.hpp"
 
