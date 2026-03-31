@@ -167,6 +167,8 @@ void Player::on_ready()
     m_highlight_material = RenderingDriver::get()->create_material(m_highlight_shader, std::nullopt, MaterialFlagBits::Transparency, PolygonMode::Fill, CullMode::Back, UVType::UVT, "HIGHLIGHT_CUBE");
     m_highlight_material->set_param("env", m_world->get_env_buffer());
     m_highlight_material->set_param("model", m_highlight_model_buffer);
+
+    m_attack_damage = 1;
 }
 
 void Player::tick(float delta)
@@ -183,26 +185,6 @@ void Player::tick(float delta)
         Input::set_mouse_grabbed(false);
         return;
     }
-
-    bool is_attack_pressed = Input::is_action_pressed("attack");
-
-    if (is_attack_pressed && !m_was_attack_pressed)
-    {
-        Ray ray(
-            m_camera->get_global_transform().position(),
-            m_camera->get_global_transform().forward());
-
-        float attack_range = 5.0f;
-
-        auto hit = m_world->raycast_entities(ray, attack_range, this);
-
-        if (hit)
-        {
-            hit->entity->call_rpc("on_hit", *this);
-        }
-    }
-
-    m_was_attack_pressed = is_attack_pressed;
 
     Transform3D transform = m_transform;
 
@@ -239,6 +221,28 @@ void Player::tick(float delta)
         m_aimed_block = std::nullopt;
     }
 
+    bool is_attack_pressed = Input::is_action_pressed("attack");
+
+    if (is_attack_pressed && !m_was_attack_pressed)
+    {
+        Ray ray(
+            m_camera->get_global_transform().position(),
+            m_camera->get_global_transform().forward());
+
+        float attack_range = 5.0f;
+        // Max range for entity raycast is either attack range, or either distance of first block detected.
+        float max_dist = raycast_result.has_value() ? raycast_result->distance : attack_range;
+
+        auto hit = m_world->raycast_entities(ray, max_dist, this);
+
+        if (hit)
+        {
+            hit->entity->call_rpc("on_hit", *this);
+        }
+    }
+
+    m_was_attack_pressed = is_attack_pressed;
+
     const glm::vec3 forward = get_global_transform().forward();
     const glm::vec3 right = get_global_transform().right();
 
@@ -261,7 +265,7 @@ void Player::tick(float delta)
         m_velocity += glm::vec3(0, -1, 0) * m_gravity_value * delta;
     }
 
-    move_and_collide();
+    move_and_collide(true);
 
     // Reset velocity after movements.
     m_velocity = glm::vec3(0);
@@ -363,4 +367,4 @@ void Player::draw(RenderPassEncoder& encoder)
 
 void Player::die() {}
 
-void Player::on_hit_by(Entity *entity) {}
+void Player::on_hit_by(Entity& entity) {}

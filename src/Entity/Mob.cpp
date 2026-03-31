@@ -12,8 +12,10 @@
 //     return AABB(center, half_extent);
 // }
 
-static float sweep_aabb(const AABB& object, const AABB& other, const glm::vec3& v, glm::vec3& dir)
+static float sweep_aabb(const AABB& object, const AABB& other, const glm::vec3& v, float margin, glm::vec3& dir)
 {
+    (void)dir;
+
     // AABB broadphase_box = get_broadphase_box(object, v);
     // if (!broadphase_box.intersect(other))
     // {
@@ -54,6 +56,10 @@ static float sweep_aabb(const AABB& object, const AABB& other, const glm::vec3& 
         dz_entry = other.max_z() - object.min_z();
         dz_exit = other.min_z() - object.max_z();
     }
+
+    dx_entry = std::max(dx_entry, margin);
+    dy_entry = std::max(dy_entry, margin);
+    dz_entry = std::max(dz_entry, margin);
 
     // Calculate time from distance/velocity
     if (v.x == 0.0)
@@ -120,28 +126,34 @@ static float sweep_aabb(const AABB& object, const AABB& other, const glm::vec3& 
     return entry_time;
 }
 
-void Mob::move_and_collide()
+void Mob::move_and_collide(bool enable_collision)
 {
+    if (!enable_collision)
+    {
+        m_transform.position() += m_velocity;
+        return;
+    }
+
     const AABB pbox = m_aabb.translate(m_transform.position());
     const Dimension& dimension = m_world->get_dimension(m_dimension);
     const std::vector<AABB> colliders = dimension.get_boxes_that_may_collide(pbox); // TODO: broad phase.
 
     float lowest_collision_time = 1.0f;
+    const float margin = 0.1f;
 
     for (const auto& collider : colliders)
     {
         glm::vec3 dir;
-        float collision_time = sweep_aabb(pbox, collider, m_velocity, dir);
+        float collision_time = sweep_aabb(pbox, collider, m_velocity, margin, dir);
 
         if (collision_time < lowest_collision_time)
         {
-            // m_on_ground = dir.y == -1.0;
             lowest_collision_time = collision_time;
         }
     }
 
-    const glm::vec3& pos = m_transform.position();
-    m_on_ground = dimension.has_solid_block((int64_t)std::round(pos.x), (int64_t)std::round(pos.y - 0.9), (int64_t)std::round(pos.z));
-
     m_transform.position() += m_velocity * lowest_collision_time;
+
+    const glm::vec3& pos = m_transform.position();
+    m_on_ground = dimension.has_solid_block((int64_t)std::round(pos.x), (int64_t)std::round(pos.y - m_aabb.half_extent.y), (int64_t)std::round(pos.z));
 }

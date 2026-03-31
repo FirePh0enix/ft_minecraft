@@ -1,10 +1,12 @@
 #pragma once
 
 #include "AABB.hpp"
+#include "Core/Print.hpp"
 #include "Entity/Entity.hpp"
 #include "World/Chunk.hpp"
 #include "World/PhysicsSystem.hpp"
 
+#include <cstddef>
 #include <mutex>
 
 class Dimension
@@ -35,6 +37,23 @@ public:
             m_chunks.erase(iter);
     }
 
+    void remove_entity(EntityId id)
+    {
+        if (id.is_valid())
+        {
+            auto iter = std::find_if(m_entities.begin(), m_entities.end(),
+                                     [&](const Ref<Entity>& entity)
+                                     {
+                                         return entity->id() == id;
+                                     });
+
+            if (iter != m_entities.end())
+            {
+                m_entities.erase(iter);
+            }
+        }
+    }
+
     void add_chunk(int64_t x, int64_t y, int64_t z, const Ref<Chunk>& chunk)
     {
         m_chunks[ChunkPos(x, y, z)] = chunk;
@@ -46,7 +65,10 @@ public:
     ALWAYS_INLINE const std::map<ChunkPos, Ref<Chunk>>& get_chunks() const { return m_chunks; }
     ALWAYS_INLINE View<Ref<Chunk>> get_visible_chunks() const { return m_visible_chunks; }
 
-    ALWAYS_INLINE void add_entity(Ref<Entity> entity) { m_entities.push_back(entity); }
+    ALWAYS_INLINE void add_entity(Ref<Entity>& entity)
+    {
+        m_entities.push_back(entity);
+    }
     const std::vector<Ref<Entity>>& get_entities() const { return m_entities; }
 
     std::mutex& mutex() { return m_chunk_mutex; }

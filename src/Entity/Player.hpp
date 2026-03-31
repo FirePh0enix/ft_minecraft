@@ -45,7 +45,7 @@ public:
     float get_speed() const { return m_speed; }
     void set_speed(float speed) { m_speed = speed; }
 
-    void on_hit_by(Entity *entity) override;
+    void on_hit_by(Entity& entity) override;
 
 protected:
     void die() override;

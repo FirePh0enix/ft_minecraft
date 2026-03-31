@@ -10,6 +10,7 @@
 #include "World/Chunk.hpp"
 #include "World/Dimension.hpp"
 #include "World/Generator.hpp"
+#include <cstddef>
 
 struct Environment
 {
@@ -22,6 +23,7 @@ struct RaycastResult
     int64_t x;
     int64_t y;
     int64_t z;
+    float distance;
 };
 
 struct EntityRaycastResult
@@ -64,6 +66,11 @@ public:
         m_dims[0].remove_chunk(x, y, z);
     }
 
+    void remove_entity(size_t dim, EntityId id)
+    {
+        m_dims[dim].remove_entity(id);
+    }
+
     void add_chunk(int64_t x, int64_t y, int64_t z, const Ref<Chunk>& chunk)
     {
         m_dims[0].add_chunk(x, y, z, chunk);
@@ -89,7 +96,7 @@ public:
     void set_active_camera(Ref<Camera> camera);
     ALWAYS_INLINE Ref<Camera> get_active_camera() { return m_camera; }
 
-    void add_entity(size_t dimension, Ref<Entity> entity)
+    void add_entity(size_t dimension, Ref<Entity>& entity)
     {
         entity->m_world = this;
         entity->m_dimension = dimension;

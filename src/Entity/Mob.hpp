@@ -6,6 +6,7 @@
 /**
  * @brief An entity controlled by inputs or AI.
  */
+
 class Mob : public Entity
 {
     CLASS(Mob, Entity);
@@ -16,8 +17,9 @@ public:
 
     ALWAYS_INLINE bool is_on_ground() const { return m_on_ground; }
 
-    void move_and_collide();
-    virtual void on_hit_by(Entity *entity) override { (void)entity; };
+    ALWAYS_INLINE int get_attack_damage() const { return m_attack_damage; }
+
+    void move_and_collide(bool enable_collision);
 
 protected:
     bool m_on_ground = false;

@@ -1,6 +1,4 @@
 #include "World/World.hpp"
-#include "Core/Class.hpp"
-#include "Core/Print.hpp"
 #include "Core/Ref.hpp"
 #include "Entity/Entity.hpp"
 #include "Profiler.hpp"
@@ -47,6 +45,8 @@ World::World(uint64_t seed)
 
     m_generators[overworld]->add_pass(newobj(OverworldBiomePass));
     m_generators[overworld]->add_pass(newobj(OverworldSurfacePass));
+
+    
 }
 
 World::~World()
@@ -60,7 +60,12 @@ void World::tick(float delta)
     m_dims[0].get_physics_system().step();
 
     for (Ref<Entity> entity : m_dims[overworld].get_entities())
-        entity->recurse_tick(delta);
+    {
+        if (entity->is_active())
+            entity->recurse_tick(delta);
+        else
+            remove_entity(entity->m_dimension, entity->id());
+    }
 
     const glm::vec3 player_pos = m_camera->get_global_transform().position();
     m_generators[overworld]->set_reference_pos(player_pos);
@@ -180,7 +185,7 @@ std::optional<RaycastResult> World::raycast(const Ray& ray, float range)
 
         if (!state.is_air())
         {
-            return RaycastResult{.x = x, .y = y, .z = z};
+            return RaycastResult{.x = x, .y = y, .z = z, .distance = t};
         }
 
         t += 0.1;
