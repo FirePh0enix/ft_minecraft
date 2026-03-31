@@ -121,9 +121,11 @@ public:
 
     void recurse_tick(float delta);
 
-    virtual void on_hit_by(Entity *entity) { (void)entity; }
+    virtual void on_hit_by(Entity& entity) { (void)entity; }
 
     void call_rpc(const std::string& name, Entity& caller);
+
+    ALWAYS_INLINE bool is_active() const { return m_active; }
 
 protected:
     EntityId m_id;
@@ -134,6 +136,8 @@ protected:
     AABB m_aabb;
 
     World *m_world = nullptr;
+
+    bool m_active = true;
     size_t m_dimension = 0;
 
     void register_rpc(const std::string& name, std::function<void(Entity&)> func, RpcTarget target);

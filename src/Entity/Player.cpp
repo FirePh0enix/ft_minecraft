@@ -177,6 +177,8 @@ void Player::on_ready()
 
     Model::Info info{.model_matrix = glm::translate(glm::identity<glm::mat4>(), glm::vec3(0.0, 100.0, 0.0))};
     m_model->get_global_buffer()->update(View(info).as_bytes());
+
+    m_attack_damage = 1;
 }
 
 void Player::tick(float delta)
@@ -193,26 +195,6 @@ void Player::tick(float delta)
         Input::set_mouse_grabbed(false);
         return;
     }
-
-    bool is_attack_pressed = Input::is_action_pressed("attack");
-
-    if (is_attack_pressed && !m_was_attack_pressed)
-    {
-        Ray ray(
-            m_camera->get_global_transform().position(),
-            m_camera->get_global_transform().forward());
-
-        float attack_range = 5.0f;
-
-        auto hit = m_world->raycast_entities(ray, attack_range, this);
-
-        if (hit)
-        {
-            hit->entity->call_rpc("on_hit", *this);
-        }
-    }
-
-    m_was_attack_pressed = is_attack_pressed;
 
     Transform3D transform = m_transform;
 
@@ -271,6 +253,28 @@ void Player::tick(float delta)
     {
         m_aimed_block = std::nullopt;
     }
+
+    bool is_attack_pressed = Input::is_action_pressed("attack");
+
+    if (is_attack_pressed && !m_was_attack_pressed)
+    {
+        Ray ray(
+            m_camera->get_global_transform().position(),
+            m_camera->get_global_transform().forward());
+
+        float attack_range = 5.0f;
+        // Max range for entity raycast is either attack range, or either distance of first block detected.
+        float max_dist = raycast_result.has_value() ? raycast_result->distance : attack_range;
+
+        auto hit = m_world->raycast_entities(ray, max_dist, this);
+
+        if (hit)
+        {
+            hit->entity->call_rpc("on_hit", *this);
+        }
+    }
+
+    m_was_attack_pressed = is_attack_pressed;
 
     const glm::vec3 forward = get_global_transform().forward();
     const glm::vec3 right = get_global_transform().right();
@@ -375,4 +379,4 @@ void Player::draw(const RenderPassNode& node)
 
 void Player::die() {}
 
-void Player::on_hit_by(Entity *entity) {}
+void Player::on_hit_by(Entity& entity) {}

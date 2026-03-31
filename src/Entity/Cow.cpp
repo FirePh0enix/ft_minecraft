@@ -3,6 +3,7 @@
 #include "Entity/Entity.hpp"
 #include "Render/Driver.hpp"
 #include "World/World.hpp"
+#include "glm/ext/vector_float3.hpp"
 
 static Ref<Mesh> create_cube_mesh(glm::vec3 size = glm::vec3(1.0), glm::vec3 offset = glm::vec3())
 {
@@ -132,7 +133,35 @@ static Ref<Mesh> create_cube_mesh(glm::vec3 size = glm::vec3(1.0), glm::vec3 off
 }
 
 void Cow::start() {};
-void Cow::tick(float delta) {};
+
+void Cow::tick(float delta)
+{
+
+    if (m_pathfinding->m_path_index < m_pathfinding->m_path.size())
+    {
+
+        Node *next_node = m_pathfinding->m_path[m_pathfinding->m_path_index];
+        glm::vec3 cow_pos = get_global_transform().position();
+        glm::vec3 dir = next_node->m_position - cow_pos;
+        float dist = glm::length(dir);
+
+        if (dist <= 0.1f)
+        {
+            m_pathfinding->m_path_index++;
+            println("Cow::tick() path index: {}, total index: {}", m_pathfinding->m_path_index, m_pathfinding->m_path.size());
+        }
+        else
+        {
+            dir = glm::normalize(dir);
+            float speed = 2.0f;
+            m_velocity = dir * speed * delta;
+        }
+    }
+    else
+        m_velocity = glm::vec3(0);
+
+    move_and_collide(true);
+}
 
 void Cow::draw(RenderPassEncoder& encoder)
 {
@@ -166,15 +195,39 @@ void Cow::on_ready()
     m_material->set_param("env", m_world->get_env_buffer());
     m_material->set_param("model", m_model_buffer);
 
-    get_transform().position() = glm::vec3(0.0f, 5.0f, 0.0f);
-
     register_rpc("on_hit", [this](Entity& attacker)
-                 { this->on_hit_by(&attacker); }, RpcTarget::SERVER);
+                 { this->on_hit_by(attacker); }, RpcTarget::SERVER);
+
+    m_id = World::next_id();
+
+    m_pathfinding = new Pathfinding(m_world);
 }
 
-void Cow::die() {}
-
-void Cow::on_hit_by(Entity *entity)
+void Cow::die()
 {
-    println("hit by: {}", entity->get_name());
+    m_active = false;
+}
+
+void Cow::on_hit_by(Entity& entity)
+{
+    Mob *mob_caller = dynamic_cast<Mob *>(&entity);
+    if (!mob_caller)
+        return;
+
+    int damage = mob_caller->get_attack_damage();
+    take_damage(damage);
+    println("Hit by {} Damage: {}", entity.get_name(), damage);
+
+    if (m_health <= 0)
+    {
+        die();
+        return;
+    }
+
+    const glm::vec3 cow_pos = get_global_transform().position();
+
+    const glm::vec3 target_pos = cow_pos + glm::vec3(0, 0, -10);
+
+    m_pathfinding->m_path_index = 0;
+    m_pathfinding->find_path(cow_pos, target_pos);
 }

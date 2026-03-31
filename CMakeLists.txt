@@ -43,6 +43,8 @@ list(APPEND SOURCES
     src/Entity/Mob.cpp
     src/Entity/Cow.cpp
     src/Entity/Player.cpp
+    src/Entity/Pathfinding/Node.cpp
+    src/Entity/Pathfinding/Pathfinding.cpp
     # src/Render/WebGPU/DriverWebGPU.cpp
     # src/Render/Driver.cpp
     src/Render/Graph.cpp

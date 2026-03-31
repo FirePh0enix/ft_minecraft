@@ -9,6 +9,8 @@
 #include "Render/Graph.hpp"
 #include "World/Chunk.hpp"
 #include "World/Dimension.hpp"
+#include "World/Generator.hpp"
+#include <cstddef>
 
 enum WorldPresetType
 {
@@ -81,8 +83,28 @@ public:
     BlockState get_block_state(int64_t x, int64_t y, int64_t z) const;
     void set_block_state(int64_t x, int64_t y, int64_t z, BlockState state);
 
-    std::optional<Ref<Chunk>> get_chunk(int64_t x, int64_t z) const;
-    std::optional<Ref<Chunk>> get_chunk(int64_t x, int64_t z);
+    std::optional<Ref<Chunk>> get_chunk(int64_t x, int64_t y, int64_t z) const;
+    std::optional<Ref<Chunk>> get_chunk(int64_t x, int64_t y, int64_t z);
+
+    void remove_chunk(int64_t x, int64_t y, int64_t z)
+    {
+        m_dims[0].remove_chunk(x, y, z);
+    }
+
+    void remove_entity(size_t dim, EntityId id)
+    {
+        m_dims[dim].remove_entity(id);
+    }
+
+    void add_chunk(int64_t x, int64_t z, const Ref<Chunk>& chunk)
+    {
+        EXPECT(m_dims[0].add_chunk(x, z, chunk));
+    }
+
+    bool is_chunk_loaded(int64_t x, int64_t z) const
+    {
+        return m_dims[0].has_chunk(x, z);
+    }
 
     uint64_t seed() const { return m_seed; }
 
@@ -99,7 +121,7 @@ public:
     void set_active_camera(Ref<Camera> camera);
     ALWAYS_INLINE Ref<Camera> get_active_camera() { return m_camera; }
 
-    void add_entity(size_t dimension, Ref<Entity> entity)
+    void add_entity(size_t dimension, Ref<Entity>& entity)
     {
         entity->m_world = this;
         entity->m_dimension = dimension;

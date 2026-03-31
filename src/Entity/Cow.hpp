@@ -2,6 +2,7 @@
 
 #include "AABB.hpp"
 #include "Entity/Entity.hpp"
+#include "Entity/Pathfinding/Pathfinding.hpp"
 #include "Mob.hpp"
 
 class Cow : public Mob
@@ -18,8 +19,10 @@ public:
     void tick(float delta) override;
     void draw(RenderPassEncoder& encoder) override;
     void on_ready() override;
-    void on_hit_by(Entity *entity) override;
+    void on_hit_by(Entity& entity) override;
 
 protected:
     void die() override;
+
+    Pathfinding *m_pathfinding = nullptr;
 };

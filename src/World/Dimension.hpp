@@ -1,10 +1,13 @@
 #pragma once
 
 #include "AABB.hpp"
+#include "Core/Print.hpp"
 #include "Entity/Entity.hpp"
 #include "World/Chunk.hpp"
 #include "World/Generator.hpp"
 
+#include <algorithm>
+#include <cstddef>
 #include <mutex>
 #include <set>
 
@@ -25,7 +28,7 @@ public:
         return iter->second;
     }
 
-    bool has_chunk(int64_t x, int64_t z)
+    bool has_chunk(int64_t x, int64_t z) const
     {
         return m_chunks.contains(ChunkPos(x, z));
     }
@@ -35,6 +38,23 @@ public:
         auto iter = m_chunks.find(ChunkPos(x, z));
         if (iter != m_chunks.end())
             m_chunks.erase(iter);
+    }
+
+    void remove_entity(EntityId id)
+    {
+        if (id.is_valid())
+        {
+            auto iter = std::find_if(m_entities.begin(), m_entities.end(),
+                                     [&](const Ref<Entity>& entity)
+                                     {
+                                         return entity->id() == id;
+                                     });
+
+            if (iter != m_entities.end())
+            {
+                m_entities.erase(iter);
+            }
+        }
     }
 
     Result<void> add_chunk(int64_t x, int64_t z, const Ref<Chunk>& chunk)

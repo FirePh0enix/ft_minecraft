@@ -1,5 +1,4 @@
 #include "World/World.hpp"
-
 #include "Core/Class.hpp"
 #include "Core/Print.hpp"
 #include "Core/Ref.hpp"
@@ -59,7 +58,12 @@ void World::tick(float delta)
     ZoneScoped;
 
     for (Ref<Entity> entity : m_dims[overworld].get_entities())
-        entity->recurse_tick(delta);
+    {
+        if (entity->is_active())
+            entity->recurse_tick(delta);
+        else
+            remove_entity(entity->m_dimension, entity->id());
+    }
 
     load_around_player();
 
