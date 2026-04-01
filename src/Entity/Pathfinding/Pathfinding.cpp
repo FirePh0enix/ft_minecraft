@@ -18,6 +18,21 @@ Node *Pathfinding::node_from_world_point(const glm::vec3& pos)
     return node;
 }
 
+bool Pathfinding::is_walkable(const glm::ivec3& from, const glm::ivec3& to, int max_jump_height)
+{
+
+    bool block_at_to = !m_world->get_block_state(to.x, to.y, to.z).is_air();
+    bool block_below_to = !m_world->get_block_state(to.x, to.y - 1, to.z).is_air();
+
+    if (!block_at_to && block_below_to)
+        return true;
+
+    if (!block_at_to && !block_below_to && max_jump_height > 0)
+        return true;
+
+    return false;
+}
+
 std::vector<Node *> Pathfinding::get_neighbors(const Node& node)
 {
     std::vector<Node *> neighbors;
@@ -29,7 +44,14 @@ std::vector<Node *> Pathfinding::get_neighbors(const Node& node)
     {
         glm::ivec3 neighbor_pos = node.m_gridPos + dir;
 
-        if (!m_world->get_block_state(neighbor_pos.x, neighbor_pos.y, neighbor_pos.z).is_air())
+        int air_time = node.m_air_time;
+        bool on_ground = !m_world->get_block_state(node.m_gridPos.x, node.m_gridPos.y - 1, node.m_gridPos.z).is_air();
+        if (on_ground)
+            air_time = 0;
+
+        int remaining_jump = 1 - air_time;
+
+        if (!is_walkable(node.m_gridPos, neighbor_pos, remaining_jump))
             continue;
 
         Node *neighbor_node = nullptr;
@@ -39,6 +61,10 @@ std::vector<Node *> Pathfinding::get_neighbors(const Node& node)
         else
         {
             neighbor_node = new Node(true, glm::vec3(neighbor_pos), neighbor_pos);
+
+            bool neighbor_on_ground = !m_world->get_block_state(neighbor_pos.x, neighbor_pos.y - 1, neighbor_pos.z).is_air();
+            neighbor_node->m_air_time = neighbor_on_ground ? 0 : air_time + 1;
+
             m_nodes[neighbor_pos] = neighbor_node;
         }
 
@@ -46,7 +72,7 @@ std::vector<Node *> Pathfinding::get_neighbors(const Node& node)
     }
 
     return neighbors;
-};
+}
 
 int Pathfinding::get_distance(const Node& node_a, const Node& node_b)
 {
@@ -61,21 +87,20 @@ int Pathfinding::get_distance(const Node& node_a, const Node& node_b)
 
 void Pathfinding::retrace_path(Node *start_node, Node *end_node)
 {
-    std::vector<Node *> path;
+    m_path.clear();
+
     Node *current_node = end_node;
 
     while (current_node != nullptr && current_node != start_node)
     {
-        path.push_back(current_node);
+        m_path.push_back(current_node);
         current_node = current_node->m_parent;
     }
 
     if (current_node == start_node)
-        path.push_back(start_node);
+        m_path.push_back(start_node);
 
-    std::reverse(path.begin(), path.end());
-
-    m_path = path;
+    std::reverse(m_path.begin(), m_path.end());
 }
 
 void Pathfinding::find_path(const glm::vec3& start_pos, const glm::vec3& target_pos)
@@ -83,18 +108,14 @@ void Pathfinding::find_path(const glm::vec3& start_pos, const glm::vec3& target_
     m_open_set.clear();
     m_close_set.clear();
     m_nodes.clear();
+    m_path_index = 0;
 
     Node *start_node = node_from_world_point(start_pos);
     Node *target_node = node_from_world_point(target_pos);
 
-    println("start_pos: {} {} {}", start_pos.x, start_pos.y, start_pos.z);
-    println("target_pos: {} {} {}", target_pos.x, target_pos.y, target_pos.z);
-
     m_open_set.push_back(start_node);
 
-    int created_node = 0;
-
-    while (!m_open_set.empty() && created_node < 100)
+    while (!m_open_set.empty())
     {
         Node *current_node = m_open_set[0];
         for (size_t i = 1; i < m_open_set.size(); ++i)
@@ -107,7 +128,6 @@ void Pathfinding::find_path(const glm::vec3& start_pos, const glm::vec3& target_
 
         m_open_set.erase(std::remove(m_open_set.begin(), m_open_set.end(), current_node), m_open_set.end());
         m_close_set.insert(current_node->m_gridPos);
-        created_node += 1;
 
         if (current_node->m_gridPos == target_node->m_gridPos)
         {

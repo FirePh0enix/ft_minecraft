@@ -146,10 +146,7 @@ void Cow::tick(float delta)
         float dist = glm::length(dir);
 
         if (dist <= 0.1f)
-        {
             m_pathfinding->m_path_index++;
-            println("Cow::tick() path index: {}, total index: {}", m_pathfinding->m_path_index, m_pathfinding->m_path.size());
-        }
         else
         {
             dir = glm::normalize(dir);
@@ -215,8 +212,7 @@ void Cow::on_hit_by(Entity& entity)
         return;
 
     int damage = mob_caller->get_attack_damage();
-    take_damage(damage);
-    println("Hit by {} Damage: {}", entity.get_name(), damage);
+    // take_damage(damage);
 
     if (m_health <= 0)
     {
@@ -228,6 +224,5 @@ void Cow::on_hit_by(Entity& entity)
 
     const glm::vec3 target_pos = cow_pos + glm::vec3(0, 0, -10);
 
-    m_pathfinding->m_path_index = 0;
     m_pathfinding->find_path(cow_pos, target_pos);
 }
