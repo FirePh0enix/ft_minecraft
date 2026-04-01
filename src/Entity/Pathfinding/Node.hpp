@@ -7,6 +7,8 @@ class Node
 {
 public:
     bool m_walkable;
+    int m_air_time = 0;
+
     glm::vec3 m_position;
     glm::ivec3 m_gridPos;
 
