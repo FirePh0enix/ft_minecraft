@@ -15,10 +15,9 @@ std::vector<AABB> Dimension::get_boxes_that_may_collide(const AABB& box) const
             for (int64_t z = min_z; z <= max_z; z++)
             {
                 int64_t chunk_x = x >= 0 ? (x / 16) : (x / 16 - 1);
-                int64_t chunk_y = y >= 0 ? (y / 16) : (y / 16 - 1);
                 int64_t chunk_z = z >= 0 ? (z / 16) : (z / 16 - 1);
 
-                const auto chunk_maybe = get_chunk(chunk_x, chunk_y, chunk_z);
+                const auto chunk_maybe = get_chunk(chunk_x, chunk_z);
                 if (!chunk_maybe)
                     continue;
 
@@ -42,17 +41,15 @@ std::vector<AABB> Dimension::get_boxes_that_may_collide(const AABB& box) const
 bool Dimension::has_solid_block(int64_t x, int64_t y, int64_t z) const
 {
     int64_t chunk_x = x >= 0 ? (x / 16) : (x / 16 - 1);
-    int64_t chunk_y = y >= 0 ? (y / 16) : (y / 16 - 1);
     int64_t chunk_z = z >= 0 ? (z / 16) : (z / 16 - 1);
 
-    const auto chunk_maybe = get_chunk(chunk_x, chunk_y, chunk_z);
+    const auto chunk_maybe = get_chunk(chunk_x, chunk_z);
     if (!chunk_maybe)
         return false;
 
     Ref<Chunk> chunk = chunk_maybe.value();
     int64_t local_x = x >= 0 ? (x % 16) : (16 + x % 16);
-    int64_t local_y = y >= 0 ? (y % 16) : (16 + y % 16);
     int64_t local_z = z >= 0 ? (z % 16) : (16 + z % 16);
 
-    return !chunk->get_block(local_x, local_y, local_z).is_air();
+    return !chunk->get_block(local_x, y, local_z).is_air();
 }

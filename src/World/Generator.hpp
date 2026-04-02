@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Core/Class.hpp"
-#include "Render/Driver.hpp"
 #include "World/Block.hpp"
 #include "World/Chunk.hpp"
 
@@ -62,9 +61,6 @@ public:
     }
 };
 
-/**
- *  Generate features
- */
 class FeaturesGenerationPass : public GenerationPass
 {
     CLASS(FeaturesGenerationPass, GenerationPass);
@@ -90,14 +86,10 @@ public:
 
     void add_pass(Ref<GenerationPass> pass);
 
-    void request_load(int64_t x, int64_t y, int64_t z);
-    void request_multiple_load(View<ChunkPos> chunks);
-    void request_unload(int64_t x, int64_t y, int64_t z);
-
     void set_distance(uint32_t distance);
-    void load_around(int64_t x, int64_t y, int64_t z);
+    void load_around(int64_t x, int64_t z);
 
-    Ref<Chunk> generate_chunk(int64_t x, int64_t y, int64_t z);
+    Ref<Chunk> generate_chunk(int64_t x, int64_t z);
 
     void set_reference_pos(const glm::vec3& pos) { m_reference_position = pos; }
 
@@ -108,24 +100,28 @@ private:
     std::vector<Ref<GenerationPass>> m_passes;
 
     std::thread m_load_thread;
-    std::mutex m_load_orders_lock;
+    std::mutex m_load_orders_mutex;
     std::atomic_bool m_load_state = true;
     std::binary_semaphore m_load_orders_semaphore{0};
     std::set<ChunkPos> m_load_orders;
 
     ChunkPos pop_nearest_chunk(glm::vec3 position);
+    ChunkPos pop_farsest_chunk(glm::vec3 position);
 
     std::thread m_unload_thread;
-    std::mutex m_unload_orders_lock;
+    std::mutex m_unload_orders_mutex;
     std::atomic_bool m_unload_orders_state = true;
     std::binary_semaphore m_unload_orders_semaphore{0};
-    std::vector<ChunkPos> m_unload_orders;
+    std::set<ChunkPos> m_unload_orders;
 
     glm::vec3 m_reference_position = glm::vec3();
 
     int64_t m_load_distance = 1;
     size_t m_max_chunk_count = 1;
 
-    static void load_thread(Generator *g);
-    static void unload_thread(Generator *g);
+    void request_multiple_load(View<ChunkPos> chunks);
+    void request_unload(int64_t x, int64_t z);
+
+    void load_thread();
+    void unload_thread();
 };

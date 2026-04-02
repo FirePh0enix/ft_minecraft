@@ -73,23 +73,8 @@ public:
     BlockState get_block_state(int64_t x, int64_t y, int64_t z) const;
     void set_block_state(int64_t x, int64_t y, int64_t z, BlockState state);
 
-    std::optional<Ref<Chunk>> get_chunk(int64_t x, int64_t y, int64_t z) const;
-    std::optional<Ref<Chunk>> get_chunk(int64_t x, int64_t y, int64_t z);
-
-    void remove_chunk(int64_t x, int64_t y, int64_t z)
-    {
-        m_dims[0].remove_chunk(x, y, z);
-    }
-
-    void add_chunk(int64_t x, int64_t y, int64_t z, const Ref<Chunk>& chunk)
-    {
-        m_dims[0].add_chunk(x, y, z, chunk);
-    }
-
-    bool is_chunk_loaded(int64_t x, int64_t y, int64_t z) const
-    {
-        return m_dims[0].has_chunk(x, y, z);
-    }
+    std::optional<Ref<Chunk>> get_chunk(int64_t x, int64_t z) const;
+    std::optional<Ref<Chunk>> get_chunk(int64_t x, int64_t z);
 
     uint64_t seed() const { return m_seed; }
 

@@ -741,6 +741,7 @@ void RenderingDriverWebGPU::draw_graph(const RenderGraph& graph)
     wgpuSurfaceGetCurrentTexture(m_surface, &surface_texture);
 
     ERR_COND_VR(surface_texture.texture == nullptr, "Cannot acquire a swapchain image (status = {})", surface_texture.status);
+    // TODO: if status is WGPUSurfaceGetCurrentTextureStatus_Outdated or WGPUSurfaceGetCurrentTextureStatus_Timeout
 
     WGPUTextureView view = wgpuTextureCreateView(surface_texture.texture, nullptr);
     ERR_COND_R(view == nullptr, "Cannot acquire a swapchain image view");

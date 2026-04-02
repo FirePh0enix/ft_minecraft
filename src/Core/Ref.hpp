@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <cstdint>
 #include <type_traits>
 
@@ -25,7 +26,7 @@ public:
     }
 
     ALWAYS_INLINE explicit Ref(T *ptr)
-        : m_ptr(ptr), m_references(alloc<ReferenceType>(ReferenceType(1)))
+        : m_ptr(ptr), m_references(alloc<std::atomic<ReferenceType>>(ReferenceType(1)))
     {
     }
 
@@ -45,7 +46,7 @@ public:
         }
     }
 
-    Ref(T *ptr, ReferenceType *references)
+    Ref(T *ptr, std::atomic<ReferenceType> *references)
         : m_ptr(ptr), m_references(references)
     {
         if (!is_null())
@@ -144,7 +145,7 @@ public:
 
     ALWAYS_INLINE ReferenceType references()
     {
-        return m_references ? *m_references : 0;
+        return m_references ? m_references->load() : 0;
     }
 
     ALWAYS_INLINE bool is_null() const
@@ -175,7 +176,7 @@ public:
 
 private:
     T *m_ptr;
-    ReferenceType *m_references;
+    std::atomic<ReferenceType> *m_references;
 
     ALWAYS_INLINE void ref()
     {
@@ -186,8 +187,8 @@ private:
     {
         if (--*m_references == 0)
         {
-            destroy<T>(m_ptr);
-            destroy<ReferenceType>(m_references);
+            destroy(m_ptr);
+            destroy(m_references);
 
             m_ptr = nullptr;
             m_references = nullptr;

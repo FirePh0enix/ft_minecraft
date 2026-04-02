@@ -218,7 +218,7 @@ void Player::tick(float delta)
         {
             glm::vec3 normal = face_normal(raycast_result->face);
 
-            m_world->set_block_state(x + normal.x, y + normal.y, z + normal.z, BlockRegistry::get_block_id("stone"));
+            m_world->set_block_state((int64_t)((float)x + normal.x), (int64_t)((float)y + normal.y), (int64_t)((float)z + normal.z), BlockState(BlockRegistry::get_block_id("stone")));
             m_block_placed = true;
         }
         else if (!Input::is_action_pressed("interact"))

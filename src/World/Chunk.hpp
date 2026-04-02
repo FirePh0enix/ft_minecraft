@@ -11,20 +11,19 @@ class World;
 struct ChunkPos
 {
     int64_t x;
-    int64_t y;
     int64_t z;
 
-    constexpr ChunkPos() : x(0), y(0), z(0) {}
-    constexpr ChunkPos(int64_t x, int64_t y, int64_t z) : x(x), y(y), z(z) {}
+    constexpr ChunkPos() : x(0), z(0) {}
+    constexpr ChunkPos(int64_t x, int64_t z) : x(x), z(z) {}
 
     bool operator<(const ChunkPos& other) const
     {
-        return std::tie(x, y, z) < std::tie(other.x, other.y, other.z);
+        return std::tie(x, z) < std::tie(other.x, other.z);
     }
 
     bool operator==(const ChunkPos& other) const
     {
-        return std::tie(x, y, z) == std::tie(other.x, other.y, other.z);
+        return std::tie(x, z) == std::tie(other.x, other.z);
     }
 };
 
@@ -38,15 +37,23 @@ class Chunk : public Object
     CLASS(Chunk, Object);
 
 public:
+    struct Slice
+    {
+        Ref<Mesh> mesh = nullptr;
+        Ref<Material> material = nullptr;
+        Ref<Buffer> model_buffer = nullptr;
+        Model model;
+        bool empty = true;
+    };
+
     static constexpr int64_t width = 16;
     static constexpr int64_t width_with_overlap = width + 2;
-    static constexpr int64_t block_count = width * width * width;
-    static constexpr int64_t block_count_with_overlap = width_with_overlap * width_with_overlap * width_with_overlap;
+    static constexpr int64_t height = 256;
+    static constexpr int64_t block_count_with_overlap = width_with_overlap * height * width_with_overlap;
+    static constexpr int64_t slice_count = 16;
 
-    Chunk(int64_t x, int64_t y, int64_t z, World *world);
+    Chunk(int64_t x, int64_t z, World *world);
     ~Chunk();
-
-    ALWAYS_INLINE bool is_empty() const { return m_empty; }
 
     ALWAYS_INLINE BlockState get_block(int64_t x, int64_t y, int64_t z) const { return m_blocks[linearize(x, y, z)]; }
     void set_block(int64_t x, int64_t y, int64_t z, BlockState state);
@@ -58,32 +65,22 @@ public:
     ALWAYS_INLINE Biome *get_biomes() { return m_biomes; }
 
     ALWAYS_INLINE int64_t x() const { return m_x; }
-    ALWAYS_INLINE int64_t y() const { return m_y; }
     ALWAYS_INLINE int64_t z() const { return m_z; }
 
-    ALWAYS_INLINE ChunkPos pos() const { return ChunkPos(m_x, m_y, m_z); }
+    ALWAYS_INLINE ChunkPos pos() const { return ChunkPos(m_x, m_z); }
 
-    void build_simple_mesh();
+    const Slice *get_slices() const { return m_slices; }
+    Slice *get_slices() { return m_slices; }
+    void build_simple_mesh(size_t slice);
 
-    ALWAYS_INLINE Ref<Material> get_material() const { return m_material; }
-    ALWAYS_INLINE Ref<Mesh> get_mesh() const { return m_mesh; }
-
-    static ALWAYS_INLINE size_t linearize(int64_t x, int64_t y, int64_t z) { return (z + 1) * width_with_overlap * width_with_overlap + (y + 1) * width_with_overlap + (x + 1); }
-    static ALWAYS_INLINE size_t linearize_with_overlap(int64_t x, int64_t y, int64_t z) { return z * width_with_overlap * width_with_overlap + y * width_with_overlap + x; }
+    static ALWAYS_INLINE size_t linearize(int64_t x, int64_t y, int64_t z) { return (z + 1) * width_with_overlap * height + y * width_with_overlap + (x + 1); }
+    static ALWAYS_INLINE size_t linearize_with_overlap(int64_t x, int64_t y, int64_t z) { return z * width_with_overlap * height + y * width_with_overlap + x; }
 
 private:
-    BlockState m_blocks[block_count_with_overlap];
-    Biome m_biomes[block_count_with_overlap];
+    BlockState *m_blocks;
+    Biome *m_biomes;
+    Slice *m_slices;
 
     int64_t m_x;
-    int64_t m_y;
     int64_t m_z;
-
-    bool m_empty = true;
-
-    Ref<Mesh> m_mesh;
-    Ref<Material> m_material;
-
-    Ref<Buffer> m_model_buffer;
-    Model m_model;
 };

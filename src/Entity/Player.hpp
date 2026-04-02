@@ -50,8 +50,8 @@ private:
 
     float m_speed = 50.0;
     float m_gravity_value = 9.81;
-    bool m_gravity_enabled = true;
-    bool m_collision_enabled = true;
+    bool m_gravity_enabled = false;
+    bool m_collision_enabled = false;
 
     bool m_has_jumped = false;
     bool m_block_broken = false;

@@ -3,7 +3,6 @@
 #include "AABB.hpp"
 #include "Entity/Entity.hpp"
 #include "World/Chunk.hpp"
-#include "World/PhysicsSystem.hpp"
 
 #include <mutex>
 
@@ -14,37 +13,34 @@ public:
     {
     }
 
-    std::optional<Ref<Chunk>> get_chunk(int64_t x, int64_t y, int64_t z) const
+    std::optional<Ref<Chunk>> get_chunk(int64_t x, int64_t z) const
     {
-        auto iter = m_chunks.find(ChunkPos(x, y, z));
+        auto iter = m_chunks.find(ChunkPos(x, z));
         if (iter == m_chunks.end())
             return std::nullopt;
         return iter->second;
     }
 
-    bool has_chunk(int64_t x, int64_t y, int64_t z) const
+    bool has_chunk(int64_t x, int64_t z)
     {
-        auto iter = m_chunks.find(ChunkPos(x, y, z));
-        return iter != m_chunks.end();
+        return m_chunks.contains(ChunkPos(x, z));
     }
 
-    void remove_chunk(int64_t x, int64_t y, int64_t z)
+    void remove_chunk(int64_t x, int64_t z)
     {
-        auto iter = m_chunks.find(ChunkPos(x, y, z));
-        if (iter == m_chunks.end())
+        auto iter = m_chunks.find(ChunkPos(x, z));
+        if (iter != m_chunks.end())
             m_chunks.erase(iter);
     }
 
-    void add_chunk(int64_t x, int64_t y, int64_t z, const Ref<Chunk>& chunk)
+    void add_chunk(int64_t x, int64_t z, const Ref<Chunk>& chunk)
     {
-        m_chunks[ChunkPos(x, y, z)] = chunk;
-
-        if (!chunk->is_empty())
-            m_visible_chunks.push_back(chunk);
+        m_chunks[ChunkPos(x, z)] = chunk;
+        m_visible_chunks.push_back(chunk);
     }
 
     ALWAYS_INLINE const std::map<ChunkPos, Ref<Chunk>>& get_chunks() const { return m_chunks; }
-    ALWAYS_INLINE View<Ref<Chunk>> get_visible_chunks() const { return m_visible_chunks; }
+    ALWAYS_INLINE const std::vector<Ref<Chunk>>& get_visible_chunks() const { return m_visible_chunks; }
 
     ALWAYS_INLINE void add_entity(Ref<Entity> entity) { m_entities.push_back(entity); }
     const std::vector<Ref<Entity>>& get_entities() const { return m_entities; }
@@ -54,15 +50,11 @@ public:
     std::vector<AABB> get_boxes_that_may_collide(const AABB& box) const;
     bool has_solid_block(int64_t x, int64_t y, int64_t z) const;
 
-    const PhysicsSystem& get_physics_system() const { return m_physics_system; }
-    PhysicsSystem& get_physics_system() { return m_physics_system; }
-
 private:
     std::mutex m_chunk_mutex;
     std::vector<Ref<Entity>> m_entities;
 
     std::map<ChunkPos, Ref<Chunk>> m_chunks;
     std::vector<Ref<Chunk>> m_visible_chunks;
-
-    PhysicsSystem m_physics_system;
+    // TODO: add a `std::set` for checking if chunks exists.
 };

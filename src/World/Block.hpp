@@ -35,7 +35,7 @@ struct BlockState
     {
     }
 
-    BlockState(uint16_t id)
+    explicit BlockState(uint16_t id)
         : id(id), raw(0)
     {
     }

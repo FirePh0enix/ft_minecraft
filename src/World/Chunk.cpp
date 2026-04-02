@@ -1,33 +1,48 @@
 #include "World/Chunk.hpp"
+#include "Core/Alloc.hpp"
 #include "Profiler.hpp"
 #include "Render/Types.hpp"
+#include "World/Block.hpp"
 #include "World/Registry.hpp"
 #include "World/World.hpp"
 #include <cstdint>
 
-Chunk::Chunk(int64_t x, int64_t y, int64_t z, World *world)
-    : m_x(x), m_y(y), m_z(z)
+Chunk::Chunk(int64_t x, int64_t z, World *world)
+    : m_x(x), m_z(z)
 {
-    const glm::mat4 model_matrix = glm::translate(glm::identity<glm::mat4>(), glm::vec3(x * Chunk::width, y * Chunk::width, z * Chunk::width));
+    m_blocks = alloc_array_uninitialized<BlockState>(block_count_with_overlap);
+    m_biomes = alloc_array_uninitialized<Biome>(block_count_with_overlap);
+    m_slices = alloc_array<Slice>(slice_count);
 
-    m_model.model_matrix = model_matrix;
-    m_model_buffer = RenderingDriver::get()->create_buffer(sizeof(Model), BufferUsageFlagBits::Uniform | BufferUsageFlagBits::CopyDest).value_or(nullptr);
-    m_model_buffer->update(View(m_model).as_bytes());
+    for (size_t i = 0; i < 16; i++)
+    {
+        const glm::mat4 model_matrix = glm::translate(glm::identity<glm::mat4>(), glm::vec3(x * Chunk::width, i * Chunk::width, z * Chunk::width));
+        Slice& slice = m_slices[i];
 
-    m_material = RenderingDriver::get()->create_material(world->m_shader, std::nullopt, MaterialFlagBits::Transparency, PolygonMode::Fill, CullMode::Back, UVType::UVT, "chunk");
-    m_material->set_param("images", BlockRegistry::get_texture_array());
-    m_material->set_param("env", world->m_env_buffer);
-    m_material->set_param("model", m_model_buffer);
+        slice.model.model_matrix = model_matrix;
+        slice.model_buffer = RenderingDriver::get()->create_buffer(sizeof(Model), BufferUsageFlagBits::Uniform | BufferUsageFlagBits::CopyDest).value_or(nullptr);
+        slice.model_buffer->update(View(slice.model).as_bytes());
+
+        slice.material = RenderingDriver::get()->create_material(world->m_shader, std::nullopt, MaterialFlagBits::Transparency, PolygonMode::Fill, CullMode::Back, UVType::UVT, "chunk");
+        slice.material->set_param("images", BlockRegistry::get_texture_array());
+        slice.material->set_param("env", world->m_env_buffer);
+        slice.material->set_param("model", slice.model_buffer);
+    }
 }
 
 Chunk::~Chunk()
 {
+    destroy_array_nodestruct(m_blocks, block_count_with_overlap);
+    destroy_array_nodestruct(m_biomes, block_count_with_overlap);
+    destroy_array(m_slices, slice_count);
 }
 
 void Chunk::set_block(int64_t x, int64_t y, int64_t z, BlockState state)
 {
     m_blocks[linearize(x, y, z)] = state;
-    build_simple_mesh();
+
+    size_t slice = y / width;
+    build_simple_mesh(slice);
 }
 
 struct ChunkBlockFace
@@ -106,18 +121,27 @@ static glm::vec3 normal_from_axis(Axis axis, bool positive)
     return glm::vec3();
 }
 
-void Chunk::build_simple_mesh()
+void Chunk::build_simple_mesh(size_t slice_index)
 {
     ZoneScoped;
+
+    Slice& slice = m_slices[slice_index];
+    int64_t slice_y_offset = int64_t(slice_index) * width;
+
+    // Chunk is empty, nothing to generate.
+    if (slice.empty)
+    {
+        return;
+    }
 
     // Let's detect which faces are not hidden.
     std::vector<ChunkBlockFace> faces;
 
-    for (ssize_t x = 0; x < Chunk::width; x++)
+    for (int64_t x = 0; x < Chunk::width; x++)
     {
-        for (ssize_t y = 0; y < Chunk::width; y++)
+        for (int64_t y = slice_y_offset; y < slice_y_offset + Chunk::width; y++)
         {
-            for (ssize_t z = 0; z < Chunk::width; z++)
+            for (int64_t z = 0; z < Chunk::width; z++)
             {
                 const uint32_t index = linearize(x, y, z);
 
@@ -132,9 +156,9 @@ void Chunk::build_simple_mesh()
                 if (m_blocks[linearize(x + 1, y, z)].is_air())
                     faces.push_back(ChunkBlockFace(x, y, z, Axis::X, true, block->get_texture_index(Axis::X, true)));
 
-                if (m_blocks[linearize(x, y - 1, z)].is_air())
+                if (y == 0 || m_blocks[linearize(x, y - 1, z)].is_air())
                     faces.push_back(ChunkBlockFace(x, y, z, Axis::Y, false, block->get_texture_index(Axis::Y, false)));
-                if (m_blocks[linearize(x, y + 1, z)].is_air())
+                if (y == height || m_blocks[linearize(x, y + 1, z)].is_air())
                     faces.push_back(ChunkBlockFace(x, y, z, Axis::Y, true, block->get_texture_index(Axis::Y, true)));
 
                 if (m_blocks[linearize(x, y, z - 1)].is_air())
@@ -148,12 +172,11 @@ void Chunk::build_simple_mesh()
     // No faces are visible, let's skip mesh generation.
     if (faces.empty())
     {
-        m_empty = true;
-        m_mesh = nullptr;
+        slice.mesh = nullptr;
         return;
     }
 
-    m_empty = false;
+    slice.empty = false;
 
     // Now we build a mesh from the faces.
     std::vector<uint16_t> indices;
@@ -194,5 +217,5 @@ void Chunk::build_simple_mesh()
         normals.push_back(normal);
     }
 
-    m_mesh = Mesh::create_from_data(View(indices).as_bytes(), vertices, normals, View(uvs).as_bytes(), IndexType::Uint16, UVType::UVT);
+    slice.mesh = Mesh::create_from_data(View(indices).as_bytes(), vertices, normals, View(uvs).as_bytes(), IndexType::Uint16, UVType::UVT);
 }
