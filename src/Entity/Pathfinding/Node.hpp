@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Core/Math.hpp"
-#include "glm/ext/vector_float3.hpp"
 
 class Node
 {

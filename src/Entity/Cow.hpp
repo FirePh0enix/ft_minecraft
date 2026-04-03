@@ -1,6 +1,5 @@
 #pragma once
 
-#include "AABB.hpp"
 #include "Entity/Entity.hpp"
 #include "Entity/Pathfinding/Pathfinding.hpp"
 #include "Mob.hpp"
@@ -8,11 +7,8 @@
 class Cow : public Mob
 {
 public:
-    Cow() : Mob(3, 0)
+    Cow() : Mob(3, 0, 1.0f)
     {
-        m_aabb = AABB(
-            glm::vec3(0.0f, 0.5f, 0.0f),
-            glm::vec3(0.5f, 0.5f, 0.5f));
     }
 
     void start() override;
@@ -23,6 +19,7 @@ public:
 
 protected:
     void die() override;
+    void flee_from(const Entity& threat, int radius);
 
     Pathfinding *m_pathfinding = nullptr;
 };

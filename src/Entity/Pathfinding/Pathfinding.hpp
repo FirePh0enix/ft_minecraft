@@ -24,6 +24,7 @@ class Pathfinding
 public:
     Pathfinding(World *world) : m_world(world) {};
     void find_path(const glm::vec3& start_pos, const glm::vec3& target_pos);
+    bool is_walkable(const glm::ivec3& to, int jump_height);
 
     std::vector<Node *> m_path;
     size_t m_path_index = 0;
@@ -34,8 +35,6 @@ private:
     std::unordered_map<glm::ivec3, Node *, Ivec3Hash> m_nodes;
     std::vector<Node *> m_open_set;
     std::unordered_set<glm::ivec3, Ivec3Hash> m_close_set;
-
-    bool is_walkable(const glm::ivec3& from, const glm::ivec3& to, int jump_height);
 
     void retrace_path(Node *start_node, Node *end_node);
     int get_distance(const Node& node_a, const Node& node_b);

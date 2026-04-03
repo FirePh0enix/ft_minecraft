@@ -1,9 +1,11 @@
 #include "Pathfinding.hpp"
 #include "Core/Print.hpp"
+#include <cstddef>
 
 Node *Pathfinding::node_from_world_point(const glm::vec3& pos)
 {
-    glm::ivec3 key{int(round(pos.x)), int(round(pos.y)), int(round(pos.z))};
+    glm::ivec3 key(std::floor(pos.x), std::floor(pos.y), std::floor(pos.z));
+
     auto it = m_nodes.find(key);
     if (it != m_nodes.end())
         return it->second;
@@ -18,15 +20,17 @@ Node *Pathfinding::node_from_world_point(const glm::vec3& pos)
     return node;
 }
 
-bool Pathfinding::is_walkable(const glm::ivec3& from, const glm::ivec3& to, int max_jump_height)
+bool Pathfinding::is_walkable(const glm::ivec3& to, int max_jump_height)
 {
 
     bool block_at_to = !m_world->get_block_state(to.x, to.y, to.z).is_air();
     bool block_below_to = !m_world->get_block_state(to.x, to.y - 1, to.z).is_air();
 
+    // Ensure he can stand on.
     if (!block_at_to && block_below_to)
         return true;
 
+    // Ensure he can move to 4 directions while in air / mid jump.
     if (!block_at_to && !block_below_to && max_jump_height > 0)
         return true;
 
@@ -37,6 +41,7 @@ std::vector<Node *> Pathfinding::get_neighbors(const Node& node)
 {
     std::vector<Node *> neighbors;
 
+    // TODO: Add diagonal.
     static const std::vector<glm::ivec3> directions = {
         {1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}};
 
@@ -44,6 +49,7 @@ std::vector<Node *> Pathfinding::get_neighbors(const Node& node)
     {
         glm::ivec3 neighbor_pos = node.m_gridPos + dir;
 
+        // Track air time so A* won't create infinite neighbors and explore only to where Mob can jump.
         int air_time = node.m_air_time;
         bool on_ground = !m_world->get_block_state(node.m_gridPos.x, node.m_gridPos.y - 1, node.m_gridPos.z).is_air();
         if (on_ground)
@@ -51,7 +57,7 @@ std::vector<Node *> Pathfinding::get_neighbors(const Node& node)
 
         int remaining_jump = 1 - air_time;
 
-        if (!is_walkable(node.m_gridPos, neighbor_pos, remaining_jump))
+        if (!is_walkable(neighbor_pos, remaining_jump))
             continue;
 
         Node *neighbor_node = nullptr;
@@ -61,7 +67,6 @@ std::vector<Node *> Pathfinding::get_neighbors(const Node& node)
         else
         {
             neighbor_node = new Node(true, glm::vec3(neighbor_pos), neighbor_pos);
-
             bool neighbor_on_ground = !m_world->get_block_state(neighbor_pos.x, neighbor_pos.y - 1, neighbor_pos.z).is_air();
             neighbor_node->m_air_time = neighbor_on_ground ? 0 : air_time + 1;
 
@@ -76,6 +81,7 @@ std::vector<Node *> Pathfinding::get_neighbors(const Node& node)
 
 int Pathfinding::get_distance(const Node& node_a, const Node& node_b)
 {
+    // TODO: Add diagonal heuristic.
     int dx = std::abs(node_a.m_gridPos.x - node_b.m_gridPos.x);
     int dz = std::abs(node_a.m_gridPos.z - node_b.m_gridPos.z);
     int dy = std::abs(node_a.m_gridPos.y - node_b.m_gridPos.y);
@@ -101,6 +107,13 @@ void Pathfinding::retrace_path(Node *start_node, Node *end_node)
         m_path.push_back(start_node);
 
     std::reverse(m_path.begin(), m_path.end());
+    
+    println("-- Path Found --");
+    for (size_t i = 0; i < m_path.size(); i++)
+    {
+        const auto pos = m_path[i]->m_position;
+        println("[{} {} {}]", pos.x, pos.y, pos.z);
+    }
 }
 
 void Pathfinding::find_path(const glm::vec3& start_pos, const glm::vec3& target_pos)
@@ -108,10 +121,14 @@ void Pathfinding::find_path(const glm::vec3& start_pos, const glm::vec3& target_
     m_open_set.clear();
     m_close_set.clear();
     m_nodes.clear();
+    m_path.clear();
     m_path_index = 0;
 
     Node *start_node = node_from_world_point(start_pos);
     Node *target_node = node_from_world_point(target_pos);
+
+    start_node->m_g_cost = 0;
+    start_node->m_h_cost = get_distance(*start_node, *target_node);
 
     m_open_set.push_back(start_node);
 
@@ -137,6 +154,7 @@ void Pathfinding::find_path(const glm::vec3& start_pos, const glm::vec3& target_
 
         for (Node *neighbor : get_neighbors(*current_node))
         {
+
             if (!neighbor->m_walkable || m_close_set.contains(neighbor->m_gridPos))
                 continue;
 
@@ -153,4 +171,6 @@ void Pathfinding::find_path(const glm::vec3& start_pos, const glm::vec3& target_
             }
         }
     }
+
+    println("Pathfinding::find_path() cannot reach target. start: [{} {} {}], target: [{} {} {}]", start_node->m_position.x, start_node->m_position.y, start_node->m_position.z, target_node->m_position.x, target_node->m_position.y, target_node->m_position.z);
 }
