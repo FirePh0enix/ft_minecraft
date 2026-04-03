@@ -70,6 +70,8 @@ public:
      */
     virtual void update(View<uint8_t> view, uint32_t layer = 0) = 0;
 
+    virtual void generate_mips() = 0;
+
     inline uint32_t width() const
     {
         return m_width;
@@ -84,6 +86,8 @@ protected:
     uint32_t m_width;
     uint32_t m_height;
     TextureLayout m_layout;
+    uint32_t m_layers;
+    uint32_t m_mip_level;
 };
 
 enum class MeshBufferKind
@@ -376,7 +380,7 @@ public:
      * @param usage
      */
     [[nodiscard]]
-    virtual Result<Ref<Texture>> create_texture(uint32_t width, uint32_t height, TextureFormat format, TextureUsageFlags usage, TextureDimension dimension = TextureDimension::D2D, uint32_t layers = 1) = 0;
+    virtual Result<Ref<Texture>> create_texture(uint32_t width, uint32_t height, TextureFormat format, TextureUsageFlags usage, TextureDimension dimension = TextureDimension::D2D, uint32_t layers = 1, uint32_t mip_level = 1) = 0;
 
     [[nodiscard]]
     virtual Ref<Material> create_material(const Ref<Shader>& shader, std::optional<InstanceLayout> instance_layout, MaterialFlags flags, PolygonMode polygon_mode, CullMode cull_mode, UVType uv_type, String name) = 0;

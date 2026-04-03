@@ -147,6 +147,8 @@ class RenderingDriverWebGPU : public RenderingDriver
 {
     CLASS(RenderingDriverWebGPU, RenderingDriver);
 
+    friend class TextureWebGPU;
+
 public:
     RenderingDriverWebGPU();
     virtual ~RenderingDriverWebGPU() override;
@@ -170,7 +172,7 @@ public:
     virtual Result<Ref<Buffer>> create_buffer(size_t size, BufferUsageFlags usage = {}, BufferVisibility visibility = BufferVisibility::GPUOnly) override;
 
     [[nodiscard]]
-    virtual Result<Ref<Texture>> create_texture(uint32_t width, uint32_t height, TextureFormat format, TextureUsageFlags usage, TextureDimension dimension = TextureDimension::D2D, uint32_t layers = 1) override;
+    virtual Result<Ref<Texture>> create_texture(uint32_t width, uint32_t height, TextureFormat format, TextureUsageFlags usage, TextureDimension dimension = TextureDimension::D2D, uint32_t layers = 1, uint32_t mip_level = 1) override;
 
     [[nodiscard]]
     virtual Ref<Material> create_material(const Ref<Shader>& shader, std::optional<InstanceLayout> instance_layout, MaterialFlags flags, PolygonMode polygon_mode, CullMode cull_mode, UVType uv_type, String name) override;
@@ -218,6 +220,10 @@ private:
     BindGroupCache m_bind_group_cache;
     RenderGraphCache m_render_graph_cache;
 
+    WGPUBindGroupLayout m_mipmap_bind_group_layout;
+    WGPUPipelineLayout m_mipmap_layout;
+    WGPUComputePipeline m_mipmap_pipeline;
+
 #ifdef __platform_macos
     SDL_MetalView m_metal_view;
 #endif
@@ -251,11 +257,13 @@ class TextureWebGPU : public Texture
     CLASS(TextureWebGPU, Texture);
 
 public:
-    TextureWebGPU(WGPUTexture texture, WGPUTextureView view, uint32_t width, uint32_t height, TextureFormat format)
+    TextureWebGPU(WGPUTexture texture, WGPUTextureView view, uint32_t width, uint32_t height, TextureFormat format, uint32_t layers, uint32_t mip_level)
         : texture(texture), view(view), format(format)
     {
         m_width = width;
         m_height = height;
+        m_layers = layers;
+        m_mip_level = mip_level;
     }
 
     virtual ~TextureWebGPU()
@@ -265,6 +273,8 @@ public:
     }
 
     virtual void update(View<uint8_t> view, uint32_t layer = 0) override;
+
+    virtual void generate_mips() override;
 
     WGPUTexture texture;
     WGPUTextureView view;

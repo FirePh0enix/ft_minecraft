@@ -1,9 +1,12 @@
 #include "Render/WebGPU/DriverWebGPU.hpp"
 #include "Core/Alloc.hpp"
 #include "Core/Containers/InplaceVector.hpp"
+#include "Core/Filesystem.hpp"
 #include "Core/Logger.hpp"
+#include "Core/Types.hpp"
 #include "Render/Driver.hpp"
 #include "Render/Graph.hpp"
+#include "Render/WebGPU.hpp"
 #include "webgpu/webgpu.h"
 
 #include <SDL3/SDL.h>
@@ -603,6 +606,54 @@ Result<> RenderingDriverWebGPU::initialize(const Window& window, InitFlags flags
     ImGui_ImplWGPU_Init(&init_info);
 #endif
 
+    // Create resources needed to generate mipmaps
+    // TODO: Should be created per generation since format is required here.
+    const WGPUBindGroupLayoutEntry mipmap_bind_group_layout_entries[] = {
+        WGPUBindGroupLayoutEntry{.nextInChain = nullptr, .binding = 0, .visibility = WGPUShaderStage_Compute, .texture = WGPUTextureBindingLayout{.nextInChain = nullptr, .sampleType = WGPUTextureSampleType_Float, .viewDimension = WGPUTextureViewDimension_2D, .multisampled = false}},
+        WGPUBindGroupLayoutEntry{.nextInChain = nullptr, .binding = 1, .visibility = WGPUShaderStage_Compute, .storageTexture = WGPUStorageTextureBindingLayout{.nextInChain = nullptr, .access = WGPUStorageTextureAccess_WriteOnly, .format = WGPUTextureFormat_RGBA8Unorm, .viewDimension = WGPUTextureViewDimension_2D}},
+    };
+    WGPUBindGroupLayoutDescriptor mipmap_bind_group_layout_desc{
+        .nextInChain = nullptr,
+        .label = WGPU_STRING_VIEW_INIT,
+        .entryCount = sizeof(mipmap_bind_group_layout_entries) / sizeof(WGPUBindGroupLayoutEntry),
+        .entries = mipmap_bind_group_layout_entries,
+    };
+    m_mipmap_bind_group_layout = wgpuDeviceCreateBindGroupLayout(m_device, &mipmap_bind_group_layout_desc);
+
+    WGPUPipelineLayoutDescriptor mipmap_pipeline_layout_desc{
+        .nextInChain = nullptr,
+        .label = WGPU_STRING_VIEW_INIT,
+        .bindGroupLayoutCount = 1,
+        .bindGroupLayouts = &m_mipmap_bind_group_layout,
+    };
+    m_mipmap_layout = wgpuDeviceCreatePipelineLayout(m_device, &mipmap_pipeline_layout_desc);
+
+    const std::vector<char> mipmap_shader_source_code = Filesystem::open_file("assets/shaders/mipmap_generation.wgsl")->read_to_buffer();
+
+    WGPUShaderSourceWGSL mipmap_shader_source{
+        .chain = {.next = nullptr, .sType = WGPUSType_ShaderSourceWGSL},
+        .code = {.data = mipmap_shader_source_code.data(), .length = mipmap_shader_source_code.size()},
+    };
+    WGPUShaderModuleDescriptor mipmap_shader_desc{
+        .nextInChain = &mipmap_shader_source.chain,
+        .label = WGPU_STRING_VIEW_INIT,
+    };
+    const WGPUShaderModule mipmap_shader_module = wgpuDeviceCreateShaderModule(m_device, &mipmap_shader_desc);
+    WGPUComputePipelineDescriptor mipmap_pipeline_desc{
+        .nextInChain = nullptr,
+        .label = WGPU_STRING_VIEW_INIT,
+        .layout = m_mipmap_layout,
+        .compute = WGPUProgrammableStageDescriptor{
+            .nextInChain = nullptr,
+            .module = mipmap_shader_module,
+            .entryPoint = WGPU_STRING_VIEW("main"),
+            .constantCount = 0,
+            .constants = nullptr,
+        },
+    };
+    m_mipmap_pipeline = wgpuDeviceCreateComputePipeline(m_device, &mipmap_pipeline_desc);
+    wgpuShaderModuleRelease(mipmap_shader_module);
+
     return 0;
 }
 
@@ -679,7 +730,7 @@ Result<Ref<Buffer>> RenderingDriverWebGPU::create_buffer(size_t size, BufferUsag
     return newobj(BufferWebGPU, buffer, size, usage).cast_to<Buffer>();
 }
 
-Result<Ref<Texture>> RenderingDriverWebGPU::create_texture(uint32_t width, uint32_t height, TextureFormat format, TextureUsageFlags usage, TextureDimension dimension, uint32_t layers)
+Result<Ref<Texture>> RenderingDriverWebGPU::create_texture(uint32_t width, uint32_t height, TextureFormat format, TextureUsageFlags usage, TextureDimension dimension, uint32_t layers, uint32_t mip_level)
 {
     WGPUTextureFormat format_wgpu = convert_texture_format(format);
 
@@ -690,8 +741,13 @@ Result<Ref<Texture>> RenderingDriverWebGPU::create_texture(uint32_t width, uint3
     desc.format = format_wgpu;
     desc.viewFormatCount = 1;
     desc.viewFormats = &format_wgpu;
-    desc.mipLevelCount = 1;
+    desc.mipLevelCount = mip_level;
     desc.sampleCount = 1;
+
+    if (mip_level > 1)
+    {
+        desc.usage |= WGPUTextureUsage_StorageBinding;
+    }
 
     WGPUTexture texture = wgpuDeviceCreateTexture(m_device, &desc);
     if (!texture)
@@ -701,7 +757,7 @@ Result<Ref<Texture>> RenderingDriverWebGPU::create_texture(uint32_t width, uint3
     view_desc.format = format_wgpu;
     view_desc.dimension = convert_texture_view_dimension(dimension);
     view_desc.baseMipLevel = 0;
-    view_desc.mipLevelCount = 1;
+    view_desc.mipLevelCount = mip_level;
     view_desc.baseArrayLayer = 0;
     view_desc.arrayLayerCount = layers == 0 ? 1 : layers;
 
@@ -709,7 +765,7 @@ Result<Ref<Texture>> RenderingDriverWebGPU::create_texture(uint32_t width, uint3
     if (!view)
         return Error(ErrorKind::OutOfDeviceMemory);
 
-    return newobj(TextureWebGPU, texture, view, width, height, format).cast_to<Texture>();
+    return newobj(TextureWebGPU, texture, view, width, height, format, layers, mip_level).cast_to<Texture>();
 }
 
 Ref<Material> RenderingDriverWebGPU::create_material(const Ref<Shader>& shader, std::optional<InstanceLayout> instance_layout, MaterialFlags flags, PolygonMode polygon_mode, CullMode cull_mode, UVType uv_type, String name)
@@ -1168,6 +1224,86 @@ void TextureWebGPU::update(View<uint8_t> view, uint32_t layer)
 
     wgpuQueueWriteTexture(RenderingDriverWebGPU::get()->get_queue(), &copy_info, view.data(), view.size(), &layout, &write_size);
 #endif
+}
+
+struct Mip
+{
+    WGPUTextureView view = nullptr;
+    Extent2D extent;
+};
+
+void TextureWebGPU::generate_mips()
+{
+    if (m_mip_level <= 1)
+    {
+        return;
+    }
+
+    std::vector<WGPUTextureView> mip_views;
+    std::vector<WGPUTextureView> mip_storage_views;
+    std::vector<Extent2D> mip_sizes;
+
+    Extent2D previous_size;
+    for (uint32_t layer = 0; layer < m_layers; layer++)
+        for (uint32_t i = 0; i < m_mip_level; i++)
+        {
+            WGPUTextureViewDescriptor desc = wgpu::TextureViewDescriptor()
+                                                 .with_format(convert_texture_format(format))
+                                                 .with_dimension(wgpu::TextureViewDimension::D2D)
+                                                 .with_mip_level(i, 1)
+                                                 .with_array_layers(layer, 1)
+                                                 .with_usage(WGPUTextureUsage_TextureBinding);
+            WGPUTextureView view = wgpuTextureCreateView(texture, &desc);
+            mip_views.push_back(view);
+
+            WGPUTextureViewDescriptor storage_desc = wgpu::TextureViewDescriptor()
+                                                         .with_format(convert_texture_format(format))
+                                                         .with_dimension(wgpu::TextureViewDimension::D2D)
+                                                         .with_mip_level(i, 1)
+                                                         .with_array_layers(layer, 1)
+                                                         .with_usage(WGPUTextureUsage_StorageBinding);
+            WGPUTextureView view_storage = wgpuTextureCreateView(texture, &storage_desc);
+            mip_storage_views.push_back(view_storage);
+
+            Extent2D size = i == 0 ? Extent2D(m_width, m_height) : Extent2D(previous_size.width / 2, previous_size.height / 2);
+            mip_sizes.push_back(size);
+            previous_size = size;
+        }
+
+    WGPUCommandEncoder command_encoder = wgpuDeviceCreateCommandEncoder(RenderingDriverWebGPU::get()->m_device, nullptr);
+    WGPUComputePassEncoder encoder = wgpuCommandEncoderBeginComputePass(command_encoder, nullptr);
+
+    for (uint32_t layer = 0; layer < m_layers; layer++)
+        for (uint32_t i = 1; i < m_mip_level; i++)
+        {
+            uint32_t index = layer * m_mip_level + i;
+
+            WGPUBindGroupEntry entries[] = {
+                wgpu::BindGroupEntry().with_binding(0).with_texture_view(mip_views[index - 1]),
+                wgpu::BindGroupEntry().with_binding(1).with_texture_view(mip_storage_views[index]),
+            };
+            WGPUBindGroupDescriptor desc{
+                .nextInChain = nullptr,
+                .label = WGPU_STRING_VIEW_INIT,
+                .layout = RenderingDriverWebGPU::get()->m_mipmap_bind_group_layout,
+                .entryCount = sizeof(entries) / sizeof(WGPUBindGroupEntry),
+                .entries = entries,
+            };
+            WGPUBindGroup bind_group = wgpuDeviceCreateBindGroup(RenderingDriverWebGPU::get()->m_device, &desc);
+
+            Extent2D mip_size = mip_sizes[index];
+
+            wgpuComputePassEncoderSetPipeline(encoder, RenderingDriverWebGPU::get()->m_mipmap_pipeline);
+            wgpuComputePassEncoderSetBindGroup(encoder, 0, bind_group, 0, nullptr);
+            wgpuComputePassEncoderDispatchWorkgroups(encoder, mip_size.width / 8, mip_size.height / 8, 1);
+
+            wgpuBindGroupRelease(bind_group);
+        }
+
+    wgpuComputePassEncoderEnd(encoder);
+    WGPUCommandBuffer command_buffer = wgpuCommandEncoderFinish(command_encoder, nullptr);
+    wgpuQueueSubmit(RenderingDriverWebGPU::get()->get_queue(), 1, &command_buffer);
+    wgpuCommandEncoderRelease(command_encoder);
 }
 
 RenderGraphCache::RenderPass& RenderGraphCache::set_render_pass(uint32_t index, RenderPassDescriptor desc)

@@ -60,7 +60,13 @@ fn is_grayscale(color: vec4<f32>) -> bool {
 }
 
 fn is_black(color: vec3<f32>) -> bool {
-    return color.r == 0.0 && color.g == 0.0 && color.b == 0.0;
+    return all(color == vec3(0.0));
+}
+
+fn srgb2physical(color: vec3<f32>) -> vec3<f32> {
+    let f = pow((color + 0.055) / 1.055, vec3<f32>(2.4));
+    let t = color / 12.92;
+    return select(f, t, color <= vec3<f32>(0.04045));
 }
 
 @fragment
@@ -69,6 +75,8 @@ fn fragment_main(in: VertexOutput) -> @location(0) vec4<f32> {
     uv2.y = 1.0 - uv2.y;
 
     var color = textureSample(images, images_sampler, uv2, in.texture_index);
+    // FIXME: since mipmaps are generated for block textures, SRGB cannot be used so we convert here.
+    color = vec4(srgb2physical(color.xyz), color.a);
 
     if (is_grayscale(color) && !is_black(in.gradient_color)) {
         color *= vec4<f32>(in.gradient_color, 1.0);
