@@ -7,14 +7,16 @@ template <typename T>
 class ForwardIterator
 {
 public:
+    // NOLINTBEGIN those declarations are required by C++ to create an iterator class.
     using difference_type = int64_t;
     using value_type = T;
     using pointer = const T *;
     using reference = const T&;
     using iterator_category = std::forward_iterator_tag;
+    // NOLINTEND
 
     ForwardIterator(const T *ptr)
-        : m_ptr(ptr)
+        : m_ptr((T *)ptr)
     {
     }
 
@@ -41,11 +43,16 @@ public:
         return !(*this == other);
     }
 
-    T operator*()
+    T& operator*()
     {
         return *m_ptr;
     }
 
+    difference_type operator-(ForwardIterator other)
+    {
+        return m_ptr - other.m_ptr;
+    }
+
 private:
-    const T *m_ptr;
+    T *m_ptr;
 };

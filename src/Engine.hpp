@@ -34,8 +34,8 @@ private:
     int m_main_menu_world_type = 0;
     char m_world_seed_buf[32] = "0";
 
-    void draw_main_menu();
-    void draw_world_scene();
+    Result<void> draw_main_menu();
+    Result<void> draw_world_scene();
 
     void create_world_and_start();
 };

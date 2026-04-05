@@ -52,5 +52,5 @@ private:
     String m_executable_name;
     std::map<String, ArgInfo> m_infos;
     std::map<String, ArgValue> m_values;
-    std::vector<String> m_args;
+    Vector<String> m_args;
 };

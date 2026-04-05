@@ -76,7 +76,7 @@ void BlockRegistry::register_block(Ref<Block> block)
 {
     const uint16_t id = s_blocks.size() + 1;
 
-    s_blocks.push_back(block);
+    (void)s_blocks.append(block);
     s_blocks_by_name[block->name()] = id;
 
     switch (block->get_variant())
@@ -153,7 +153,7 @@ uint32_t BlockRegistry::get_or_create(const StringView& name)
         Result<File> file = Filesystem::open_file(path);
         ERR_EXPECT_VR(file, 0, "Failed to open `{}`", path);
 
-        const std::vector<char>& buffer = file->read_to_buffer();
+        const Vector<char>& buffer = file->read_to_buffer();
         SDL_IOStream *texture_stream = SDL_IOFromConstMem(buffer.data(), buffer.size());
 
         SDL_Surface *texture_surface = IMG_LoadPNG_IO(texture_stream);
@@ -163,7 +163,7 @@ uint32_t BlockRegistry::get_or_create(const StringView& name)
 
         const uint32_t id = s_textures.size();
 
-        s_textures.push_back(texture_surface);
+        (void)s_textures.append(texture_surface);
         s_texture_by_name[name] = id;
 
         // SDL_DestroySurface(texture_surface);

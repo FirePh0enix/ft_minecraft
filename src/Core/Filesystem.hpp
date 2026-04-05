@@ -2,6 +2,7 @@
 
 #include <filesystem>
 
+#include "Core/Containers/Vector.hpp"
 #include "Core/Result.hpp"
 
 static inline String get_data_directory()
@@ -56,7 +57,7 @@ struct File
 {
     File();
 
-    std::vector<char> read_to_buffer() const;
+    Vector<char> read_to_buffer() const;
     String read_to_string() const;
 
 private:

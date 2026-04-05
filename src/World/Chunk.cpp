@@ -121,7 +121,7 @@ static glm::vec3 normal_from_axis(Axis axis, bool positive)
     return glm::vec3();
 }
 
-void Chunk::build_simple_mesh(size_t slice_index)
+Result<void> Chunk::build_simple_mesh(size_t slice_index)
 {
     ZoneScoped;
 
@@ -131,7 +131,7 @@ void Chunk::build_simple_mesh(size_t slice_index)
     // Chunk is empty, nothing to generate.
     if (slice.empty)
     {
-        return;
+        return Result<void>();
     }
 
     // Let's detect which faces are not hidden.
@@ -173,16 +173,16 @@ void Chunk::build_simple_mesh(size_t slice_index)
     if (faces.empty())
     {
         slice.mesh = nullptr;
-        return;
+        return Result<void>();
     }
 
     slice.empty = false;
 
     // Now we build a mesh from the faces.
-    std::vector<uint16_t> indices;
-    std::vector<glm::vec3> vertices;
-    std::vector<glm::vec3> uvs;
-    std::vector<glm::vec3> normals;
+    Vector<uint16_t> indices;
+    Vector<glm::vec3> vertices;
+    Vector<glm::vec3> uvs;
+    Vector<glm::vec3> normals;
 
     for (const ChunkBlockFace& face : faces)
     {
@@ -191,31 +191,33 @@ void Chunk::build_simple_mesh(size_t slice_index)
         uint16_t i2 = vertices.size() + 2;
         uint16_t i3 = vertices.size() + 3;
 
-        indices.push_back(i0);
-        indices.push_back(i1);
-        indices.push_back(i2);
+        TRY(indices.append(i0));
+        TRY(indices.append(i1));
+        TRY(indices.append(i2));
 
-        indices.push_back(i2);
-        indices.push_back(i3);
-        indices.push_back(i0);
+        TRY(indices.append(i2));
+        TRY(indices.append(i3));
+        TRY(indices.append(i0));
 
         const std::array<glm::vec3, 4> new_vertices = vertex_from_axis(face.axis, face.positive, glm::vec3(face.x, face.y, face.z));
-        vertices.push_back(new_vertices[0]);
-        vertices.push_back(new_vertices[1]);
-        vertices.push_back(new_vertices[2]);
-        vertices.push_back(new_vertices[3]);
+        TRY(vertices.append(new_vertices[0]));
+        TRY(vertices.append(new_vertices[1]));
+        TRY(vertices.append(new_vertices[2]));
+        TRY(vertices.append(new_vertices[3]));
 
-        uvs.push_back(glm::vec3(0.0, 0.0, (double)face.texture_index));
-        uvs.push_back(glm::vec3(1.0, 0.0, (double)face.texture_index));
-        uvs.push_back(glm::vec3(1.0, 1.0, (double)face.texture_index));
-        uvs.push_back(glm::vec3(0.0, 1.0, (double)face.texture_index));
+        TRY(uvs.append(glm::vec3(0.0, 0.0, (double)face.texture_index)));
+        TRY(uvs.append(glm::vec3(1.0, 0.0, (double)face.texture_index)));
+        TRY(uvs.append(glm::vec3(1.0, 1.0, (double)face.texture_index)));
+        TRY(uvs.append(glm::vec3(0.0, 1.0, (double)face.texture_index)));
 
         const glm::vec3 normal = normal_from_axis(face.axis, face.positive);
-        normals.push_back(normal);
-        normals.push_back(normal);
-        normals.push_back(normal);
-        normals.push_back(normal);
+        TRY(normals.append(normal));
+        TRY(normals.append(normal));
+        TRY(normals.append(normal));
+        TRY(normals.append(normal));
     }
 
     slice.mesh = Mesh::create_from_data(View(indices).as_bytes(), vertices, normals, View(uvs).as_bytes(), IndexType::Uint16, UVType::UVT);
+
+    return Result<void>();
 }

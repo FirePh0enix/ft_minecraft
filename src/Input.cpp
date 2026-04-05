@@ -121,6 +121,6 @@ void Input::add_action(const String& name)
 
 void Input::add_action_mapping(const String& name, ActionMapping mapping)
 {
-    std::vector<ActionMapping>& mappings = s_mappings[name];
-    mappings.push_back(mapping);
+    Vector<ActionMapping>& mappings = s_mappings[name];
+    (void)mappings.append(mapping);
 }

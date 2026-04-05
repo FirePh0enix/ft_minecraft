@@ -187,7 +187,7 @@ void Player::tick(float delta)
         transform.rotation() *= q_yaw;
         m_transform = transform;
 
-        Ref<Camera> camera = m_children[0].cast_to<Camera>();
+        Ref<Camera> camera = m_children.get_unchecked(0).cast_to<Camera>();
         Transform3D camera_transform = camera->get_transform();
 
         const glm::quat q_pitch = glm::angleAxis(relative.y * mouse_sensibility, glm::vec3(1.0, 0.0, 0.0));

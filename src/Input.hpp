@@ -20,6 +20,11 @@ struct ActionMapping
     ActionMappingKind kind;
     uint32_t value;
 
+    ActionMapping()
+        : kind(ActionMappingKind::Key), value(0)
+    {
+    }
+
     ActionMapping(ActionMappingKind kind, uint32_t value)
         : kind(kind), value(value)
     {
@@ -57,7 +62,7 @@ private:
 
     static void set_action_value(const String& action, float value);
 
-    static inline std::map<String, std::vector<ActionMapping>> s_mappings;
+    static inline std::map<String, Vector<ActionMapping>> s_mappings;
     static inline std::map<String, Status> s_actions;
     static inline bool s_mouse_grabbed;
     static inline glm::vec2 s_mouse_relative;

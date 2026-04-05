@@ -134,25 +134,6 @@ struct Formatter<bool> : public FormatterBase
     }
 };
 
-template <typename T>
-struct Formatter<std::vector<T>> : public FormatterBase
-{
-    void format(const std::vector<T>& vec, FormatContext& ctx) const
-    {
-        ctx.write_str("{ ");
-
-        for (size_t i = 0; i < vec.size(); i++)
-        {
-            format_to(ctx.out(), "{}", vec[i]);
-
-            if (i + 1 < vec.size())
-                ctx.write_str(", ");
-        }
-
-        ctx.write_str(" }");
-    }
-};
-
 template <typename K, typename V>
 struct Formatter<std::map<K, V>> : public FormatterBase
 {

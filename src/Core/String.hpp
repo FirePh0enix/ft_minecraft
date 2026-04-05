@@ -13,6 +13,8 @@
  */
 constexpr size_t string_small_capacity = sizeof(char *) + sizeof(size_t) + sizeof(size_t) - 1;
 
+// TODO: All functions that may allocate memory must returns `Result<void>`, remove `+=` implementation.
+//       what to do with `=` ?
 class String
 {
 public:
@@ -42,6 +44,8 @@ public:
         : String(sv.data(), sv.size())
     {
     }
+
+    ~String();
 
     String& operator=(const String& other)
     {

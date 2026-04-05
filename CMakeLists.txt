@@ -42,7 +42,6 @@ list(APPEND SOURCES
     src/Entity/Entity.cpp
     src/Entity/Mob.cpp
     src/Entity/Player.cpp
-    src/Platform/Platform.cpp
     src/Render/WebGPU/DriverWebGPU.cpp
     src/Render/Driver.cpp
     src/Render/Graph.cpp

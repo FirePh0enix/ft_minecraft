@@ -300,7 +300,7 @@ static std::vector<WGPUBindGroupLayoutEntry> convert_bindings(const Ref<Shader>&
     return entries;
 }
 
-RenderPipelineCacheValue RenderPipelineCache2::get_or_create(Ref<MaterialWebGPU> material, std::vector<RenderPassColorAttachment> color_attachments, bool load_depth)
+RenderPipelineCacheValue RenderPipelineCache2::get_or_create(Ref<MaterialWebGPU> material, Vector<RenderPassColorAttachment> color_attachments, bool load_depth)
 {
     Key key{(size_t)material.ptr(), color_attachments.size() > 0, load_depth};
     const auto op = get(key);
@@ -424,11 +424,11 @@ WGPUBindGroup BindGroupCache::get(Ref<Material> material)
             }
         }
 
-        const RenderPipelineCacheValue& value = RenderingDriverWebGPU::get()->get_pipeline_cache().get_or_create(material, {}, false);
+        Ref<MaterialWebGPU> material_wgpu = material.cast_to<MaterialWebGPU>();
 
         WGPUBindGroupDescriptor desc{};
         desc.nextInChain = nullptr;
-        desc.layout = value.bind_group_layout;
+        desc.layout = material_wgpu->bind_group_layout();
         desc.entries = entries.data();
         desc.entryCount = entries.size();
 
@@ -507,7 +507,7 @@ WGPUDevice request_device_sync(WGPUAdapter adapter, const WGPUDeviceDescriptor& 
 
 #endif
 
-Result<> RenderingDriverWebGPU::initialize(const Window& window, InitFlags flags)
+Result<void> RenderingDriverWebGPU::initialize(const Window& window, InitFlags flags)
 {
 #ifndef __platform_web
     WGPUInstanceDescriptor instance_desc{};
@@ -587,7 +587,7 @@ Result<> RenderingDriverWebGPU::initialize(const Window& window, InitFlags flags
     if (!m_queue)
         return Error(ErrorKind::BadDriver);
 
-    YEET(configure_surface(window.size().width, window.size().height, VSync::On));
+    TRY(configure_surface(window.size().width, window.size().height, VSync::On));
 
 #ifdef __has_debug_menu
     IMGUI_CHECKVERSION();
@@ -628,7 +628,7 @@ Result<> RenderingDriverWebGPU::initialize(const Window& window, InitFlags flags
     };
     m_mipmap_layout = wgpuDeviceCreatePipelineLayout(m_device, &mipmap_pipeline_layout_desc);
 
-    const std::vector<char> mipmap_shader_source_code = Filesystem::open_file("assets/shaders/mipmap_generation.wgsl")->read_to_buffer();
+    const Vector<char> mipmap_shader_source_code = Filesystem::open_file("assets/shaders/mipmap_generation.wgsl")->read_to_buffer();
 
     WGPUShaderSourceWGSL mipmap_shader_source{
         .chain = {.next = nullptr, .sType = WGPUSType_ShaderSourceWGSL},
@@ -654,10 +654,10 @@ Result<> RenderingDriverWebGPU::initialize(const Window& window, InitFlags flags
     m_mipmap_pipeline = wgpuDeviceCreateComputePipeline(m_device, &mipmap_pipeline_desc);
     wgpuShaderModuleRelease(mipmap_shader_module);
 
-    return 0;
+    return Result<void>();
 }
 
-Result<> RenderingDriverWebGPU::configure_surface(size_t width, size_t height, VSync vsync)
+Result<void> RenderingDriverWebGPU::configure_surface(size_t width, size_t height, VSync vsync)
 {
     Extent2D surface_extent(width, height);
 
@@ -690,7 +690,7 @@ Result<> RenderingDriverWebGPU::configure_surface(size_t width, size_t height, V
 
     m_render_graph_cache.clear();
 
-    return 0;
+    return Result<void>();
 }
 
 void RenderingDriverWebGPU::poll()
@@ -987,7 +987,7 @@ WGPUShaderModule RenderingDriverWebGPU::create_shader_module(const Ref<Shader>& 
     return wgpuDeviceCreateShaderModule(m_device, &module_desc);
 }
 
-Result<WGPURenderPipeline> RenderingDriverWebGPU::create_render_pipeline(Ref<Shader> shader, UVType uv_type, std::optional<InstanceLayout> instance_layout, WGPUCullMode cull_mode, MaterialFlags flags, WGPUPipelineLayout pipeline_layout, const std::vector<RenderPassColorAttachment>& color_attachs, bool previous_depth_pass)
+Result<WGPURenderPipeline> RenderingDriverWebGPU::create_render_pipeline(Ref<Shader> shader, UVType uv_type, std::optional<InstanceLayout> instance_layout, WGPUCullMode cull_mode, MaterialFlags flags, WGPUPipelineLayout pipeline_layout, const Vector<RenderPassColorAttachment>& color_attachs, bool previous_depth_pass)
 {
     std::vector<WGPUVertexBufferLayout> buffers;
     buffers.reserve(instance_layout.has_value() ? 4 : 3);
@@ -1029,7 +1029,7 @@ Result<WGPURenderPipeline> RenderingDriverWebGPU::create_render_pipeline(Ref<Sha
 
         for (size_t i = 0; i < layout.inputs.size(); i++)
         {
-            const InstanceLayoutInput& input = layout.inputs[i];
+            const InstanceLayoutInput& input = layout.inputs.get_unchecked(i);
             const WGPUVertexFormat format = convert_shader_type(input.type);
             instance_attribs.push_back(WGPUVertexAttribute{.format = format, .offset = input.offset, .shaderLocation = static_cast<uint32_t>(3 + i)});
         }

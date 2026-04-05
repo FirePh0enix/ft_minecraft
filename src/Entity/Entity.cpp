@@ -7,7 +7,7 @@ Entity::Entity()
 
 void Entity::add_child(Ref<Entity> entity)
 {
-    m_children.push_back(entity);
+    (void)m_children.append(entity);
 
     entity->set_parent(this);
     entity->m_world = m_world;

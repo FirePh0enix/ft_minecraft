@@ -40,7 +40,7 @@ size_t size_of(const IndexType& format)
 Result<Ref<Buffer>> RenderingDriver::create_buffer_from_data(size_t size, View<uint8_t> data, BufferUsageFlags flags, BufferVisibility visibility)
 {
     auto buffer_result = create_buffer(size, flags, visibility);
-    YEET(buffer_result);
+    TRY(buffer_result);
 
     Ref<Buffer> buffer = buffer_result.value();
     buffer->update(data);

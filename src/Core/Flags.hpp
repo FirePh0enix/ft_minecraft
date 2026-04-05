@@ -75,22 +75,6 @@ public:
         return ((IntType)m_value & (IntType)other.m_value) != (IntType)0;
     }
 
-    // TODO: Replace this by a iterator without allocations
-    std::vector<T> as_vector()
-    {
-        std::vector<T> values;
-
-        for (size_t i = 0; i < sizeof(T) * 8; i++)
-        {
-            IntType mask = 1 << i;
-
-            if ((IntType)m_value & mask)
-                values.push_back((T)mask);
-        }
-
-        return values;
-    }
-
 private:
     T m_value;
 };

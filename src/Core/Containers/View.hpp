@@ -23,12 +23,7 @@ public:
     {
     }
 
-    // View(const Vector<T>& vector)
-    //     : m_data(vector.data()), m_size(vector.size())
-    // {
-    // }
-
-    View(const std::vector<T>& vector)
+    View(const Vector<T>& vector)
         : m_data(vector.data()), m_size(vector.size())
     {
     }
@@ -80,10 +75,10 @@ public:
         return View<uint8_t>((const uint8_t *)m_data, m_size * sizeof(T));
     }
 
-    std::vector<T> to_vector() const
+    Result<Vector<T>> to_vector() const
     {
-        std::vector<T> vec;
-        vec.insert(vec.begin(), begin(), end());
+        Vector<T> vec;
+        TRY(vec.append_iter(begin(), end()));
         return vec;
     }
 

@@ -14,7 +14,7 @@ public:
     static Result<Ref<Font>> create(const std::string& font_name, uint32_t font_size);
 
     ~Font();
-    static Result<> init_library();
+    static Result<void> init_library();
     static void deinit_library();
 
     struct Character

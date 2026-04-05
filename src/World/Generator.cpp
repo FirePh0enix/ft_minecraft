@@ -69,12 +69,12 @@ void Generator::load_around(int64_t x, int64_t z)
     int64_t middle_x = (int64_t)glm::round((double)x / 16.0);
     int64_t middle_z = (int64_t)glm::round((double)z / 16.0);
 
-    std::vector<ChunkPos> load_positions;
+    Vector<ChunkPos> load_positions;
 
     for (int64_t cx = -m_load_distance; cx <= m_load_distance; cx++)
         for (int64_t cz = -m_load_distance; cz <= m_load_distance; cz++)
         {
-            load_positions.push_back(ChunkPos(cx + middle_x, cz + middle_z));
+            load_positions.append(ChunkPos(cx + middle_x, cz + middle_z));
         }
 
     request_multiple_load(load_positions);
@@ -112,6 +112,11 @@ Ref<Chunk> Generator::generate_chunk(int64_t cx, int64_t cz)
     if (!chunk)
         return chunk;
 
+    for (size_t i = 0; i < Chunk::block_count_with_overlap; i++)
+        chunk->get_blocks()[i] = BlockState();
+
+    memset(chunk->get_biomes(), 0, sizeof(Biome) * Chunk::block_count_with_overlap);
+
     for (size_t index = 0; index < m_passes.size(); index++)
     {
         Ref<GenerationPass>& pass = m_passes[index];
@@ -126,7 +131,7 @@ Ref<Chunk> Generator::generate_chunk(int64_t cx, int64_t cz)
 
                     size_t block_index = Chunk::linearize_with_overlap(x, y, z);
 
-                    pass->generate(gx, y, gz, Chunk::linearize_with_overlap(x, y, z), chunk);
+                    pass->generate(gx, y, gz, block_index, chunk);
                     BlockState state = chunk->get_blocks()[block_index];
 
                     // there is at least one non-empty block.

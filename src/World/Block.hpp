@@ -30,7 +30,7 @@ struct BlockState
         GenericData generic;
     };
 
-    BlockState()
+    constexpr BlockState()
         : id(0), raw(0)
     {
     }

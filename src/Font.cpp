@@ -15,11 +15,11 @@ Result<Ref<Font>> Font::create(const std::string& font_name, uint32_t font_size)
 {
     uint32_t bmp_height = 0;
     uint32_t bmp_width = 0;
-    std::map<uint8_t, std::vector<char>> data;
+    std::map<uint8_t, Vector<char>> data;
 
     FT_Face face;
 
-    std::vector<char> file_bytes = Filesystem::open_file(font_name).value().read_to_buffer();
+    Vector<char> file_bytes = Filesystem::open_file(font_name).value().read_to_buffer();
 
     if (FT_New_Memory_Face(g_lib, (FT_Byte *)file_bytes.data(), (int64_t)file_bytes.size(), 0, &face) != 0)
     {
@@ -50,7 +50,7 @@ Result<Ref<Font>> Font::create(const std::string& font_name, uint32_t font_size)
 
         if (face->glyph->bitmap.width > 0)
         {
-            std::vector<char> char_data;
+            Vector<char> char_data;
             char_data.resize(face->glyph->bitmap.width * face->glyph->bitmap.rows);
             auto glyph_buffer = face->glyph->bitmap.buffer;
 
@@ -60,7 +60,7 @@ Result<Ref<Font>> Font::create(const std::string& font_name, uint32_t font_size)
         bmp_width += face->glyph->bitmap.width;
     }
 
-    std::vector<uint8_t> buffer;
+    Vector<uint8_t> buffer;
     buffer.resize(bmp_height * bmp_width);
 
     uint32_t xpos = 0;
@@ -73,7 +73,7 @@ Result<Ref<Font>> Font::create(const std::string& font_name, uint32_t font_size)
         }
 
         const Font::Character character = font->m_characters[i];
-        const std::vector<char> char_data = data[i];
+        const Vector<char> char_data = data[i];
 
         const int width = character.size.x;
         const int height = character.size.y;
@@ -82,8 +82,8 @@ Result<Ref<Font>> Font::create(const std::string& font_name, uint32_t font_size)
         {
             for (int j = 0; j < height; j++)
             {
-                const char byte = char_data[i + j * width];
-                buffer[(i + xpos) + j * bmp_width] = byte;
+                const char byte = char_data.get_unchecked(i + j * width);
+                buffer.get_unchecked((i + xpos) + j * bmp_width) = byte;
             }
         }
         xpos += width;
@@ -93,7 +93,7 @@ Result<Ref<Font>> Font::create(const std::string& font_name, uint32_t font_size)
     font->m_height = bmp_height;
 
     auto texture_result = RenderingDriver::get()->create_texture(bmp_width, bmp_height, TextureFormat::R8Unorm, TextureUsageFlagBits::CopyDest | TextureUsageFlagBits::Sampled);
-    YEET(texture_result);
+    TRY(texture_result);
     font->m_bitmap = texture_result.value();
 
     font->m_bitmap->update(buffer);
@@ -105,7 +105,7 @@ Font::~Font()
 {
 }
 
-Result<> Font::init_library()
+Result<void> Font::init_library()
 {
     const FT_Error res = FT_Init_FreeType(&g_lib);
 
@@ -160,7 +160,7 @@ Result<> Font::init_library()
 
     g_shader = shader_result.value();
 
-    return 0;
+    return Result<void>();
 }
 
 void Font::deinit_library()

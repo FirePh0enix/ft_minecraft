@@ -71,7 +71,7 @@ public:
 
     const Slice *get_slices() const { return m_slices; }
     Slice *get_slices() { return m_slices; }
-    void build_simple_mesh(size_t slice);
+    Result<void> build_simple_mesh(size_t slice);
 
     static ALWAYS_INLINE size_t linearize(int64_t x, int64_t y, int64_t z) { return (z + 1) * width_with_overlap * height + y * width_with_overlap + (x + 1); }
     static ALWAYS_INLINE size_t linearize_with_overlap(int64_t x, int64_t y, int64_t z) { return z * width_with_overlap * height + y * width_with_overlap + x; }

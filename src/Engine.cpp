@@ -52,7 +52,7 @@ void Engine::tick(float delta)
             break;
             case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
             {
-                Result<> result = RenderingDriver::get()->configure_surface(event->window.data1, event->window.data2, VSync::On);
+                Result<void> result = RenderingDriver::get()->configure_surface(event->window.data1, event->window.data2, VSync::On);
                 ERR_EXPECT_B(result, "Failed to configure the surface");
 
                 if (m_scene == EngineScene::World)
@@ -97,29 +97,41 @@ void Engine::tick(float delta)
 
 void Engine::draw()
 {
+    Result<void> res;
+
     switch (m_scene)
     {
     case EngineScene::MainMenu:
-        draw_main_menu();
+        res = draw_main_menu();
         break;
     case EngineScene::World:
-        draw_world_scene();
+        res = draw_world_scene();
         break;
+    }
+
+    if (res.has_error())
+    {
+        println(stderr, "Draw operation failed with error:");
+        res.error().print();
     }
 }
 
-void Engine::draw_main_menu()
+Result<void> Engine::draw_main_menu()
 {
     const Extent2D window_size = m_window->size();
 
 #ifdef __has_debug_menu
     {
-        RenderPassEncoder encoder = RenderGraph::get().render_pass_begin({.name = "main pass", .color_attachments = {RenderPassColorAttachment{.surface_texture = true}}, .depth_attachment = RenderPassDepthAttachment{}});
+        RenderPassEncoder encoder = RenderGraph::get().render_pass_begin({
+            .name = "main pass",
+            .color_attachments = TRY(Vector<RenderPassColorAttachment>::create(RenderPassColorAttachment{.surface_texture = true})),
+            .depth_attachment = RenderPassDepthAttachment{},
+        });
 
         const float size_x = (float)window_size.width * 0.4f;
         const float size_y = (float)window_size.height * 0.6f;
 
-        ImGui::SetNextWindowPos(ImVec2(window_size.width / 2 - size_x / 2, window_size.height / 2 - size_y / 2));
+        ImGui::SetNextWindowPos(ImVec2((float)window_size.width / 2 - size_x / 2, (float)window_size.height / 2 - size_y / 2));
         ImGui::SetNextWindowSize(ImVec2(size_x, size_y));
         if (ImGui::Begin("Main Menu", nullptr, ImGuiWindowFlags_NoDecoration))
         {
@@ -148,9 +160,11 @@ void Engine::draw_main_menu()
 
     RenderingDriver::get()->draw_graph(RenderGraph::get());
     RenderGraph::get().reset();
+
+    return Result<void>();
 }
 
-void Engine::draw_world_scene()
+Result<void> Engine::draw_world_scene()
 {
     // The first pass: Depth only
     {
@@ -160,7 +174,11 @@ void Engine::draw_world_scene()
 
     // The main color pass.
     {
-        RenderPassEncoder encoder = RenderGraph::get().render_pass_begin({.name = "main pass", .color_attachments = {RenderPassColorAttachment{.surface_texture = true}}, .depth_attachment = RenderPassDepthAttachment{.load = true}});
+        RenderPassEncoder encoder = RenderGraph::get().render_pass_begin({
+            .name = "main pass",
+            .color_attachments = TRY(Vector<RenderPassColorAttachment>::create(RenderPassColorAttachment{.surface_texture = true})),
+            .depth_attachment = RenderPassDepthAttachment{.load = true},
+        });
         m_world->draw(encoder, true);
 
 #if defined(__has_debug_menu)
@@ -170,6 +188,8 @@ void Engine::draw_world_scene()
 
     RenderingDriver::get()->draw_graph(RenderGraph::get());
     RenderGraph::get().reset();
+
+    return Result<void>();
 }
 
 void Engine::create_world_and_start()

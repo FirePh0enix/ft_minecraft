@@ -11,6 +11,7 @@
 #include "World/Generator.hpp"
 #include "World/Registry.hpp"
 #include "World/World.hpp"
+
 #include <SDL3_image/SDL_image.h>
 
 #ifdef __has_webgpu
@@ -43,37 +44,24 @@ Ref<Engine> engine;
 
 MAIN(int argc, char *argv[])
 {
-#if !defined(__has_address_sanitizer) || !defined(__platform_web)
-    // NOTE: Address sanitizer mess with our custom error handling.
-    initialize_error_handling(Filesystem::current_executable_path().c_str());
-#endif
-
-    // String s = "hello world";
-    // String s_copy(s);
-    // println("{}", s_copy);
+    // #if !defined(__has_address_sanitizer) || !defined(__platform_web)
+    //     // NOTE: Address sanitizer mess with our custom error handling.
+    //     initialize_error_handling(Filesystem::current_executable_path().c_str());
+    // #endif
 
     Args args;
     args.add_arg("enable-gpu-validation", {.type = ArgType::Bool});
-    args.add_arg("disable-save", {.type = ArgType::Bool});
-    args.add_arg("connect-to", {.type = ArgType::String});
     args.parse(argv, argc);
 
     register_engine_classes();
     register_all_classes();
 
-    engine = newobj(Engine, args);
+    engine = newref<Engine>(args);
 
     TracySetThreadName("Main");
 
     BlockRegistry::load_blocks();
     BlockRegistry::create_gpu_resources();
-
-    // TODO: Add this back
-    // Font::init_library();
-
-    // auto font_result = Font::create("assets/fonts/Anonymous.ttf", 20);
-    // EXPECT(font_result);
-    // Ref<Font> font = font_result.value();
 
     if (args.has("disable-save"))
     {
@@ -143,7 +131,7 @@ static void register_engine_classes()
         RenderingDriver, Buffer, Texture, Mesh, Material, Shader);
 
 #ifdef __has_webgpu
-    REGISTER_CLASSES(RenderingDriverWebGPU, BufferWebGPU, TextureWebGPU);
+    REGISTER_CLASSES(RenderingDriverWebGPU, BufferWebGPU, TextureWebGPU, MaterialWebGPU);
 #endif
 }
 

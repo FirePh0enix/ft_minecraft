@@ -144,6 +144,11 @@ struct InstanceLayoutInput
     ShaderType type;
     uint32_t offset;
 
+    // InstanceLayoutInput()
+    //     : type(ShaderType::Float32), offset(0)
+    // {
+    // }
+
     InstanceLayoutInput(ShaderType type, uint32_t offset)
         : type(type), offset(offset)
     {
@@ -152,11 +157,11 @@ struct InstanceLayoutInput
 
 struct InstanceLayout
 {
-    std::vector<InstanceLayoutInput> inputs;
+    Vector<InstanceLayoutInput> inputs;
     size_t stride;
 
     InstanceLayout(View<InstanceLayoutInput> inputs, size_t stride)
-        : inputs(inputs.to_vector()), stride(stride)
+        : inputs(EXPECT(inputs.to_vector())), stride(stride)
     {
     }
 };
@@ -285,7 +290,7 @@ struct RenderPassDepthAttachment
 struct RenderPassDescriptor
 {
     std::string name;
-    std::vector<RenderPassColorAttachment> color_attachments = {};
+    Vector<RenderPassColorAttachment> color_attachments = {};
     std::optional<RenderPassDepthAttachment> depth_attachment = {};
 
     bool operator<(const RenderPassDescriptor& other) const
@@ -334,7 +339,7 @@ public:
      * @param window
      */
     [[nodiscard]]
-    virtual Result<> initialize(const Window& window, InitFlags flags) = 0;
+    virtual Result<void> initialize(const Window& window, InitFlags flags) = 0;
 
     /**
      * @brief Configure the surface and swapchain.
@@ -343,7 +348,7 @@ public:
      * @param vsync Enable or disable vsync for the surface.
      */
     [[nodiscard]]
-    virtual Result<> configure_surface(size_t width, size_t height, VSync vsync) = 0;
+    virtual Result<void> configure_surface(size_t width, size_t height, VSync vsync) = 0;
 
     virtual void poll() = 0;
 

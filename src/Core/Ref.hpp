@@ -3,6 +3,7 @@
 #include <atomic>
 #include <cstdint>
 #include <type_traits>
+#include <utility>
 
 #include "Core/Alloc.hpp"
 #include "Core/Definitions.hpp"
@@ -196,4 +197,14 @@ private:
     }
 };
 
+// TODO: remove in favor of `newref`.
 #define newobj(T, ...) Ref<T>(alloc<T>(__VA_ARGS__))
+
+/**
+ *  Create a reference counted object.
+ */
+template <typename T, typename... Args>
+Ref<T> newref(Args&&...args)
+{
+    return Ref<T>(alloc<T>(std::forward<Args...>(args)...));
+}

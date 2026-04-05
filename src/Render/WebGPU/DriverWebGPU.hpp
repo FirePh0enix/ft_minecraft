@@ -61,7 +61,7 @@ struct RenderPipelineCacheValue
 class RenderPipelineCache2
 {
 public:
-    RenderPipelineCacheValue get_or_create(Ref<MaterialWebGPU> material, std::vector<RenderPassColorAttachment> color_attachments, bool load_depth);
+    RenderPipelineCacheValue get_or_create(Ref<MaterialWebGPU> material, Vector<RenderPassColorAttachment> color_attachments, bool load_depth);
 
     struct Key
     {
@@ -159,10 +159,10 @@ public:
     }
 
     [[nodiscard]]
-    virtual Result<> initialize(const Window& window, InitFlags flags) override;
+    virtual Result<void> initialize(const Window& window, InitFlags flags) override;
 
     [[nodiscard]]
-    virtual Result<> configure_surface(size_t width, size_t height, VSync vsync) override;
+    virtual Result<void> configure_surface(size_t width, size_t height, VSync vsync) override;
 
     virtual void poll() override;
 
@@ -179,7 +179,7 @@ public:
 
     virtual void draw_graph(const RenderGraph& graph) override;
 
-    Result<WGPURenderPipeline> create_render_pipeline(Ref<Shader> shader, UVType uv_type, std::optional<InstanceLayout> instance_layout, WGPUCullMode cull_mode, MaterialFlags flags, WGPUPipelineLayout pipeline_layout, const std::vector<RenderPassColorAttachment>& color_attachs, bool previous_depth_pass);
+    Result<WGPURenderPipeline> create_render_pipeline(Ref<Shader> shader, UVType uv_type, std::optional<InstanceLayout> instance_layout, WGPUCullMode cull_mode, MaterialFlags flags, WGPUPipelineLayout pipeline_layout, const Vector<RenderPassColorAttachment>& color_attachs, bool previous_depth_pass);
     Result<WGPUComputePipeline> create_compute_pipeline(const Ref<Shader>& shader, WGPUPipelineLayout pipeline_layout);
 
     inline WGPUDevice get_device()
@@ -220,9 +220,9 @@ private:
     BindGroupCache m_bind_group_cache;
     RenderGraphCache m_render_graph_cache;
 
-    WGPUBindGroupLayout m_mipmap_bind_group_layout;
-    WGPUPipelineLayout m_mipmap_layout;
-    WGPUComputePipeline m_mipmap_pipeline;
+    WGPUBindGroupLayout m_mipmap_bind_group_layout = nullptr;
+    WGPUPipelineLayout m_mipmap_layout = nullptr;
+    WGPUComputePipeline m_mipmap_pipeline = nullptr;
 
 #ifdef __platform_macos
     SDL_MetalView m_metal_view;

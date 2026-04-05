@@ -1,5 +1,6 @@
 #include "Args.hpp"
 #include "Core/Logger.hpp"
+#include "Core/Result.hpp"
 
 void Args::add_arg(const String& name, const ArgInfo& info)
 {
@@ -41,7 +42,7 @@ void Args::parse(char **argv, int argc)
         }
         else
         {
-            m_args.push_back(arg);
+            EXPECT(m_args.append(arg));
         }
     }
 }

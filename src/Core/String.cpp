@@ -30,6 +30,12 @@ String::String(const char *str, size_t size)
     append(str, size);
 }
 
+String::~String()
+{
+    if (!is_small())
+        destroy_array_nodestruct(large.ptr, large.capacity);
+}
+
 void String::resize(size_t new_size)
 {
     // TODO: if `new_size` < string_small_capacity then stay/go back to a small string.

@@ -59,9 +59,10 @@ Result<File> Filesystem::open_file(const StringView& path)
     return file;
 }
 
-std::vector<char> File::read_to_buffer() const
+Vector<char> File::read_to_buffer() const
 {
-    std::vector<char> buffer(m_size);
+    Vector<char> buffer;
+    buffer.resize(m_size);
     Filesystem::read_raw(*this, buffer.data(), m_size);
     return buffer;
 }

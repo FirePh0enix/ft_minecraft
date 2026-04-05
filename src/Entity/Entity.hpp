@@ -85,16 +85,16 @@ public:
 
     void remove_child(size_t index)
     {
-        m_children.erase(m_children.begin() + (ssize_t)index);
+        m_children.remove_at(index);
     }
 
     inline Ref<Entity> get_child(size_t index)
     {
-        return m_children[index];
+        return m_children.get_unchecked(index);
     }
 
-    ALWAYS_INLINE const std::vector<Ref<Entity>>& get_children() const { return m_children; }
-    ALWAYS_INLINE std::vector<Ref<Entity>>& get_children() { return m_children; }
+    ALWAYS_INLINE const Vector<Ref<Entity>>& get_children() const { return m_children; } // TODO: use View<Ref<Entity>> here
+    ALWAYS_INLINE Vector<Ref<Entity>>& get_children() { return m_children; }
 
     ALWAYS_INLINE Entity *get_parent() const { return m_parent; }
     ALWAYS_INLINE void set_parent(Entity *parent) { m_parent = parent; }
@@ -111,7 +111,7 @@ protected:
     EntityId m_id;
     String m_name;
     Entity *m_parent = nullptr; // FIXME: This must be changed by either a Ref<Entity> or a EntityId.
-    std::vector<Ref<Entity>> m_children;
+    Vector<Ref<Entity>> m_children;
     Transform3D m_transform;
     AABB m_aabb;
 
