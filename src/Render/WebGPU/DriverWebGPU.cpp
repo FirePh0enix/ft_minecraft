@@ -1122,12 +1122,12 @@ Result<WGPUComputePipeline> RenderingDriverWebGPU::create_compute_pipeline(const
     WGPUShaderModule module = create_shader_module(shader);
     ERR_COND_R(module == nullptr, "Unable to compile shader", Error(ErrorKind::BadDriver));
 
-    // const std::string& entry_point = shader->get_entry_point(ShaderStageFlagBits::Compute);
+    // const String& entry_point = shader->get_entry_point(ShaderStageFlagBits::Compute);
 
     WGPUProgrammableStageDescriptor compute_desc{};
     compute_desc.module = module;
     // FIXME: For some reason the entrypoint for compute shaders is always `main`.
-    compute_desc.entryPoint = WGPU_STRING_VIEW("main"); // WGPU_STRING_VIEW(entry_point.c_str())
+    compute_desc.entryPoint = WGPU_STRING_VIEW("main"); // WGPU_STRING_VIEW(entry_point.data())
 
     WGPUComputePipelineDescriptor desc{};
     desc.layout = pipeline_layout;

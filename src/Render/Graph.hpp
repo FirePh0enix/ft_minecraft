@@ -7,7 +7,7 @@
 
 struct BeginRenderPassInstruction
 {
-    std::string name;
+    String name;
     RenderPassDescriptor descriptor = {};
 };
 
@@ -17,7 +17,7 @@ struct EndRenderPassInstruction
 
 struct BeginComputePassInstruction
 {
-    std::string name;
+    String name;
 };
 
 struct EndComputePassInstruction

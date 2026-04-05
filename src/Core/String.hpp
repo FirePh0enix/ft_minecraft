@@ -196,11 +196,3 @@ inline String operator+(const String& s1, const String& s2)
     r.append(s2);
     return r;
 }
-
-inline String operator+(const String& s1, const std::string& s2)
-{
-    String r;
-    r.append(s1);
-    r.append(s2.data(), s2.size());
-    return r;
-}

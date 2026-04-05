@@ -30,7 +30,7 @@ void Console::register_command(const String& name, std::vector<CmdArgInfo> args,
 
 void Console::exec()
 {
-    std::string s = StringView(m_buffer, std::strlen(m_buffer));
+    std::string s(StringView(m_buffer, std::strlen(m_buffer)).data());
 
     // TODO: Fully replace with `String`.
     const std::string& delimiter = " ";

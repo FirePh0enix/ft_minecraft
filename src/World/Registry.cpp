@@ -14,6 +14,8 @@ struct BlockManifest
         Cube,
     };
 
+    // TODO: replace `std::string` by `String`.
+
     std::string name;
     Model model;
     std::vector<std::string> faces;

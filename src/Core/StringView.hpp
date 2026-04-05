@@ -28,14 +28,6 @@ public:
 
     StringView(const String& string);
 
-    // TODO: remove
-    operator std::string() const
-    {
-        std::string s;
-        s.append(m_data, m_size);
-        return s;
-    }
-
     const char& operator[](size_t index) const
     {
         return data()[index];

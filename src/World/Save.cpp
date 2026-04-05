@@ -58,7 +58,7 @@ struct __attribute__((packed)) PosStatePair
 
 void Save::save_chunk(const Ref<Chunk>& chunk)
 {
-    const String path = get_path() + "/chunks/" + std::to_string(chunk->x()) + "$" + std::to_string(chunk->z()) + ".chunkdat";
+    const String path = get_path() + "/chunks/" + String(std::to_string(chunk->x()).data()) + "$" + String(std::to_string(chunk->z()).data()) + ".chunkdat";
 
     std::ofstream os(path.data(), std::ios::binary);
     ERR_COND_VR(!os.is_open(), "Failed to open {}/chunks/{}${}.chunkdat", m_name, chunk->x(), chunk->z());
@@ -93,13 +93,13 @@ void Save::save_chunk(const Ref<Chunk>& chunk)
 
 bool Save::chunk_exists(int64_t x, int64_t z)
 {
-    const String path = get_path() + "/chunks/" + std::to_string(x) + "$" + std::to_string(z) + ".chunkdat";
+    const String path = get_path() + "/chunks/" + String(std::to_string(x).data()) + "$" + String(std::to_string(z).data()) + ".chunkdat";
     return std::filesystem::exists(path.data());
 }
 
 Ref<Chunk> Save::load_chunk(int64_t x, int64_t z)
 {
-    // const std::string path = get_path() + "/chunks/" + std::to_string(x) + "$" + std::to_string(z) + ".chunkdat";
+    // const String path = get_path() + "/chunks/" + std::to_string(x) + "$" + std::to_string(z) + ".chunkdat";
     // std::ifstream is(path);
 
     // ERR_COND_V(!is.is_open(), "Failed to open {}/chunks/{}${}.chunkdat", m_name, x, z);

@@ -289,7 +289,7 @@ struct RenderPassDepthAttachment
 
 struct RenderPassDescriptor
 {
-    std::string name;
+    String name;
     Vector<RenderPassColorAttachment> color_attachments = {};
     std::optional<RenderPassDepthAttachment> depth_attachment = {};
 

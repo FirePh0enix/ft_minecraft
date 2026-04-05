@@ -108,15 +108,6 @@ struct Formatter<const char[length]> : public FormatterBase
 };
 
 template <>
-struct Formatter<std::string> : public FormatterBase
-{
-    void format(const std::string& s, FormatContext& ctx) const
-    {
-        ctx.write_str(s.data(), (std::streamsize)s.size());
-    }
-};
-
-template <>
 struct Formatter<String> : public FormatterBase
 {
     void format(const String& s, FormatContext& ctx) const
