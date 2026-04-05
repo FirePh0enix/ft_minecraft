@@ -11,7 +11,7 @@ static glm::mat4 g_ortho_matrix;
 static Ref<Mesh> g_mesh = nullptr;
 static Ref<Shader> g_shader = nullptr;
 
-Result<Ref<Font>> Font::create(const std::string& font_name, uint32_t font_size)
+Result<Ref<Font>> Font::create(const String& font_name, uint32_t font_size)
 {
     uint32_t bmp_height = 0;
     uint32_t bmp_width = 0;

@@ -5,32 +5,7 @@
 #include <cstring>
 
 #include "Core/Logger.hpp"
-
-#ifndef STACKTRACE_SIZE
-#define STACKTRACE_SIZE 128
-#endif
-
-struct StackTrace
-{
-    struct Frame
-    {
-        const char *function;
-        const char *filename;
-        uint32_t line;
-    };
-
-    bool stop_at_main = true;
-
-    Frame frames[STACKTRACE_SIZE];
-    size_t length = 0;
-    size_t total_length = 0;
-    bool non_exhaustive = false;
-    bool early_end = false;
-
-    static const StackTrace& current();
-
-    void print(FILE *fp = stderr, size_t skip_frame = 0) const;
-};
+#include "Core/Stacktrace.hpp"
 
 enum class ErrorKind : uint16_t
 {
@@ -117,25 +92,15 @@ struct Formatter<ErrorKind> : public FormatterBase
 class Error
 {
 public:
-#ifdef __DEBUG__
-
-    Error(ErrorKind kind, StackTrace stacktrace = StackTrace::current())
-        : m_kind(kind), m_stacktrace(stacktrace)
+    Error(ErrorKind kind)
+        : m_kind(kind)
     {
+        Stacktrace::record();
         m_errno_value = errno;
 
         if (errno != 0)
             errno = 0;
     }
-
-#else
-
-    Error(ErrorKind kind)
-        : m_kind(kind)
-    {
-    }
-
-#endif
 
     void print(FILE *fp = stderr);
 
@@ -156,10 +121,6 @@ private:
     {
         int m_errno_value;
     };
-
-#ifdef __DEBUG__
-    StackTrace m_stacktrace;
-#endif
 };
 
 #define ERR_COND(COND, MESSAGE)                                \

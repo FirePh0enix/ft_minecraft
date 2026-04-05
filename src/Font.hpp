@@ -11,7 +11,7 @@ class Font : public Object
     CLASS(Font, Object);
 
 public:
-    static Result<Ref<Font>> create(const std::string& font_name, uint32_t font_size);
+    static Result<Ref<Font>> create(const String& font_name, uint32_t font_size);
 
     ~Font();
     static Result<void> init_library();

@@ -21,11 +21,6 @@ public:
     {
     }
 
-    ALWAYS_INLINE StringView(const std::string& str)
-        : m_data(str.data()), m_size(str.size())
-    {
-    }
-
     ALWAYS_INLINE StringView(const std::filesystem::path& path)
         : m_data(path.c_str()), m_size(std::strlen(path.c_str()))
     {

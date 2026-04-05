@@ -35,7 +35,6 @@ list(APPEND SOURCES
     src/Core/Error.cpp
     src/Core/Filesystem.cpp
     src/Core/Ref.cpp
-    src/Core/Registry.cpp
     src/Core/String.cpp
     src/Core/StringView.cpp
     src/Entity/Camera.cpp

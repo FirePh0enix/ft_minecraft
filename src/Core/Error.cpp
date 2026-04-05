@@ -14,12 +14,12 @@
 
 #include <cxxabi.h>
 
-static thread_local StackTrace stacktrace;
+static thread_local Stacktrace stacktrace;
 
 #ifdef __has_libbacktrace
 static backtrace_state *bt_state;
 
-int bt_callback(StackTrace *st, uintptr_t, const char *filename, int lineno, const char *function)
+int bt_callback(Stacktrace *st, uintptr_t, const char *filename, int lineno, const char *function)
 {
     if (st->length >= STACKTRACE_SIZE)
     {
@@ -61,10 +61,14 @@ void bt_error_callback(void *, const char *msg, int errnum)
     (void)errnum;
 }
 
-const StackTrace& StackTrace::current()
+void Stacktrace::record()
 {
     int skip = 0;
     backtrace_full(bt_state, skip, (backtrace_full_callback)bt_callback, (backtrace_error_callback)bt_error_callback, &stacktrace);
+}
+
+const Stacktrace& Stacktrace::current()
+{
     return stacktrace;
 }
 
@@ -77,7 +81,7 @@ const StackTrace& StackTrace::current()
 
 #endif
 
-void StackTrace::print(FILE *fp, size_t skip_frame) const
+void Stacktrace::print(FILE *fp, size_t skip_frame) const
 {
     for (size_t i = skip_frame; i < length; i++)
     {
@@ -109,7 +113,7 @@ void Error::print(FILE *fp)
     println("\n");
 
 #ifdef __DEBUG__
-    m_stacktrace.print(fp, 1);
+    Stacktrace::current().print(fp, 1);
 #endif
 }
 
@@ -118,7 +122,7 @@ void Error::print(FILE *fp)
 void signal_handler(int sig)
 {
     const char *signal_name = strsignal(sig);
-    const StackTrace& st = StackTrace::current();
+    const Stacktrace& st = Stacktrace::current();
 
     println(stderr, "Received signal: {}\n", signal_name);
     st.print(stderr, 0);

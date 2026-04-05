@@ -1,6 +1,5 @@
 #include "Args.hpp"
 #include "Core/Logger.hpp"
-#include "Core/Registry.hpp"
 #include "Engine.hpp"
 #include "Entity/Camera.hpp"
 #include "Entity/Player.hpp"
@@ -33,9 +32,6 @@
 static constexpr double fixed_update_time = 1.0 / 60.0;
 static clock_t last_update_time;
 
-static void register_engine_classes();
-static void register_all_classes();
-
 static void shutdown_callback();
 static void loop_update();
 static void update_callback();
@@ -52,9 +48,6 @@ MAIN(int argc, char *argv[])
     Args args;
     args.add_arg("enable-gpu-validation", {.type = ArgType::Bool});
     args.parse(argv, argc);
-
-    register_engine_classes();
-    register_all_classes();
 
     engine = newref<Engine>(args);
 
@@ -116,23 +109,6 @@ static void shutdown_callback()
     // Font::deinit_library();
 
     RenderingDriver::destroy_singleton();
-}
-
-static void register_all_classes()
-{
-    REGISTER_CLASSES(World, Chunk, Block, Player, Generator, GenerationPass, BiomeGenerationPass, SurfaceGenerationPass, FeaturesGenerationPass);
-}
-
-static void register_engine_classes()
-{
-    REGISTER_CLASSES(
-        Font,
-        Entity, Camera,
-        RenderingDriver, Buffer, Texture, Mesh, Material, Shader);
-
-#ifdef __has_webgpu
-    REGISTER_CLASSES(RenderingDriverWebGPU, BufferWebGPU, TextureWebGPU, MaterialWebGPU);
-#endif
 }
 
 #else

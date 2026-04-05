@@ -7,6 +7,11 @@
 #include "World/Generator.hpp"
 #include "World/Pass/Overworld.hpp"
 
+World::World()
+    : m_seed(0)
+{
+}
+
 World::World(uint64_t seed)
     : m_seed(seed)
 {

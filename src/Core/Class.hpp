@@ -3,11 +3,9 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
-#include <variant>
 
 #include "Core/Containers/InplaceVector.hpp"
 #include "Core/Containers/View.hpp"
-#include "Core/Registry.hpp"
 
 struct ClassHashCode
 {
@@ -62,11 +60,6 @@ private:                                                                        
 public:                                                                                                                                                                                   \
     static inline InplaceVector<ClassHashCode, BASE::classes.max_capacity() + 1> classes = InplaceVector<ClassHashCode, BASE::classes.max_capacity() + 1>(BASE::classes, {s_class_hash}); \
                                                                                                                                                                                           \
-    static void register_class()                                                                                                                                                          \
-    {                                                                                                                                                                                     \
-        ClassRegistry::get().register_class<NAME>();                                                                                                                                      \
-    }                                                                                                                                                                                     \
-                                                                                                                                                                                          \
     static View<ClassHashCode> get_static_classes()                                                                                                                                       \
     {                                                                                                                                                                                     \
         return View(classes);                                                                                                                                                             \
@@ -99,56 +92,6 @@ public:                                                                         
                                                                                                                                                                                           \
 private:
 
-#define CLASS_EXTERN(NAME)                                                                                   \
-private:                                                                                                     \
-    static constexpr ClassHashCode s_class_hash = fnv32_class_hash(__FILE__, #NAME);                         \
-                                                                                                             \
-public:                                                                                                      \
-    static inline InplaceVector<ClassHashCode, 1> classes = InplaceVector<ClassHashCode, 1>({s_class_hash}); \
-                                                                                                             \
-    static void register_class()                                                                             \
-    {                                                                                                        \
-        ClassRegistry::get().register_class<NAME>();                                                         \
-    }                                                                                                        \
-                                                                                                             \
-    static View<ClassHashCode> get_static_classes()                                                          \
-    {                                                                                                        \
-        return View(classes);                                                                                \
-    }                                                                                                        \
-                                                                                                             \
-    static const char *get_static_class_name()                                                               \
-    {                                                                                                        \
-        return #NAME;                                                                                        \
-    }                                                                                                        \
-                                                                                                             \
-    static constexpr ClassHashCode get_static_hash_code()                                                    \
-    {                                                                                                        \
-        return s_class_hash;                                                                                 \
-    }                                                                                                        \
-                                                                                                             \
-    View<ClassHashCode> get_classes() const                                                                  \
-    {                                                                                                        \
-        return classes;                                                                                      \
-    }                                                                                                        \
-                                                                                                             \
-    const char *get_class_name() const                                                                       \
-    {                                                                                                        \
-        return #NAME;                                                                                        \
-    }                                                                                                        \
-                                                                                                             \
-    ClassHashCode get_class_hash_code() const                                                                \
-    {                                                                                                        \
-        return s_class_hash;                                                                                 \
-    }                                                                                                        \
-                                                                                                             \
-    template <typename T>                                                                                    \
-    constexpr void is()                                                                                      \
-    {                                                                                                        \
-        return s_class_hash == T::get_static_hash_code();                                                    \
-    }                                                                                                        \
-                                                                                                             \
-private:
-
 template <typename T>
 concept IsObject = requires() {
     { T::register_class() } -> std::same_as<void>;
@@ -156,9 +99,6 @@ concept IsObject = requires() {
     { T::get_static_class_name() } -> std::same_as<const char *>;
     { T::get_static_hash_code() } -> std::same_as<ClassHashCode>;
 };
-
-template <typename T>
-struct TypeInfo;
 
 class Object
 {
@@ -214,86 +154,4 @@ public:
         }
         return false;
     }
-};
-
-enum class PrimitiveType
-{
-    Bool,
-
-    Float,
-    Vec2,
-    Vec3,
-    Vec4,
-    Quat,
-};
-
-struct Variant : public std::variant<std::nullptr_t, bool, float, glm::vec2, glm::vec3, glm::vec4, glm::quat>
-{
-    template <typename T>
-    operator T() { return std::get<T>(*this); }
-
-    template <typename T>
-    constexpr bool is() { return std::holds_alternative<T>(); }
-};
-
-template <typename T = Object>
-using PropertyGetter = Variant (*)(T *);
-
-template <typename T = Object>
-using PropertySetter = void (*)(T *, Variant);
-
-struct Property
-{
-    PrimitiveType type;
-    PropertyGetter<> getter;
-    PropertySetter<> setter;
-};
-
-struct ClassInfo
-{
-    std::map<std::string, Property> properties;
-};
-
-template <typename T>
-concept HasBindMethods = requires() {
-    { T::bind_methods() } -> std::same_as<void>;
-};
-
-class ClassRegistry
-{
-public:
-    static ClassRegistry& get()
-    {
-        static ClassRegistry singleton;
-        return singleton;
-    }
-
-    template <typename T>
-    void register_class()
-    {
-        m_classes[T::get_static_hash_code()] = ClassInfo{};
-    }
-
-    template <typename T>
-        requires HasBindMethods<T>
-    void register_class()
-    {
-        m_classes[T::get_static_hash_code()] = ClassInfo{};
-        T::bind_methods();
-    }
-
-    template <typename T>
-    void register_property(const std::string& property_name, PrimitiveType type, PropertyGetter<T> getter, PropertySetter<T> setter)
-    {
-        m_classes[T::get_static_hash_code()].properties[property_name] = Property{.type = type, .getter = reinterpret_cast<PropertyGetter<>>(getter), .setter = reinterpret_cast<PropertySetter<>>(setter)};
-    }
-
-    const ClassInfo& get_class(ClassHashCode hash) const
-    {
-        ASSERT_V(m_classes.contains(hash), "Cannot get class with hash = {x}", hash.value);
-        return m_classes.at(hash);
-    }
-
-private:
-    std::map<ClassHashCode, ClassInfo> m_classes;
 };

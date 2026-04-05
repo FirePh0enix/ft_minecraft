@@ -48,10 +48,8 @@ struct RaycastResult
     float distance;
 };
 
-class World : public Object
+class World
 {
-    CLASS(World, Object);
-
     friend class Generator;
     friend class Chunk;
 
@@ -60,6 +58,7 @@ public:
     static constexpr size_t underworld = 1;
     static constexpr size_t max_dimensions = 2;
 
+    World();
     World(uint64_t seed);
     ~World();
 

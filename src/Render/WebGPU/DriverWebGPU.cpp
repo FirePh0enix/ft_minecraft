@@ -1040,12 +1040,12 @@ Result<WGPURenderPipeline> RenderingDriverWebGPU::create_render_pipeline(Ref<Sha
     WGPUShaderModule module = create_shader_module(shader);
     ERR_COND_R(module == nullptr, "Unable to compile shader", Error(ErrorKind::BadDriver));
 
-    const std::string& vertex_ep = shader->get_entry_point(ShaderStageFlagBits::Vertex);
+    const String& vertex_ep = shader->get_entry_point(ShaderStageFlagBits::Vertex);
 
     WGPUVertexState vertex_state{};
     vertex_state.buffers = buffers.data();
     vertex_state.bufferCount = buffers.size();
-    vertex_state.entryPoint = WGPU_STRING_VIEW(vertex_ep.c_str());
+    vertex_state.entryPoint = WGPU_STRING_VIEW(vertex_ep.data());
     vertex_state.module = module;
 
     WGPUBlendState blend_state{};
@@ -1079,12 +1079,12 @@ Result<WGPURenderPipeline> RenderingDriverWebGPU::create_render_pipeline(Ref<Sha
         color_states.push_back(WGPUColorTargetState{.nextInChain = nullptr, .format = m_surface_format, .blend = &blend_state, .writeMask = WGPUColorWriteMask_All});
     }
 
-    const std::string& fragment_ep = shader->get_entry_point(ShaderStageFlagBits::Fragment);
+    const String& fragment_ep = shader->get_entry_point(ShaderStageFlagBits::Fragment);
 
     WGPUFragmentState fragment_state{};
     fragment_state.targets = color_states.data();
     fragment_state.targetCount = color_states.size();
-    fragment_state.entryPoint = WGPU_STRING_VIEW(fragment_ep.c_str());
+    fragment_state.entryPoint = WGPU_STRING_VIEW(fragment_ep.data());
     fragment_state.module = module;
 
     WGPUDepthStencilState depth_state{};
