@@ -49,7 +49,6 @@ list(APPEND SOURCES
     src/World/Chunk.cpp
     src/World/Dimension.cpp
     src/World/Generator.cpp
-    src/World/PhysicsSystem.cpp
     src/World/Registry.cpp
     src/World/Save.cpp
     src/World/World.cpp

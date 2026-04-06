@@ -57,11 +57,6 @@ void Engine::tick(float delta)
 
                 if (m_scene == EngineScene::World)
                     m_world.get_active_camera()->update_projection((float)event->window.data1 / (float)event->window.data2);
-
-                // TODO
-                // config.get_category("window").set("width", (int64_t)window->size().width);
-                // config.get_category("window").set("height", (int64_t)window->size().height);
-                // config.save_to("config.ini");
             }
             break;
             default:
@@ -83,8 +78,6 @@ void Engine::tick(float delta)
         }
     }
 
-    RenderingDriver::get()->poll();
-
     switch (m_scene)
     {
     case EngineScene::MainMenu:
@@ -98,6 +91,8 @@ void Engine::tick(float delta)
 void Engine::draw()
 {
     Result<void> res;
+
+    RenderingDriver::get()->poll();
 
     switch (m_scene)
     {

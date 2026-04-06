@@ -1,21 +1,15 @@
 #include "Args.hpp"
 #include "Core/Logger.hpp"
 #include "Engine.hpp"
-#include "Entity/Camera.hpp"
-#include "Entity/Player.hpp"
-#include "Font.hpp"
 #include "Input.hpp"
 #include "Profiler.hpp"
 #include "Render/Driver.hpp"
-#include "World/Generator.hpp"
 #include "World/Registry.hpp"
-#include "World/World.hpp"
+#include "webgpu/webgpu.h"
+
+#include <imgui.h>
 
 #include <SDL3_image/SDL_image.h>
-
-#ifdef __has_webgpu
-#include "Render/WebGPU/DriverWebGPU.hpp"
-#endif
 
 #ifdef __platform_web
 #include <emscripten/html5.h>
@@ -92,8 +86,6 @@ static void update_callback()
 
     // TODO: Differentiate between rendering ticks and physics ticks.
     engine->tick(float(fixed_update_time));
-
-    ImGui::NewFrame();
     engine->draw();
 
     Input::post_events();
@@ -103,12 +95,11 @@ static void shutdown_callback()
 {
     println("Shutting down");
 
-    engine = nullptr;
-
     BlockRegistry::destroy();
     // Font::deinit_library();
 
     RenderingDriver::destroy_singleton();
+    engine = nullptr;
 }
 
 #else

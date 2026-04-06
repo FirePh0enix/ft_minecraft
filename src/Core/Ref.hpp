@@ -206,5 +206,5 @@ private:
 template <typename T, typename... Args>
 Ref<T> newref(Args&&...args)
 {
-    return Ref<T>(alloc<T>(std::forward<Args...>(args)...));
+    return Ref<T>(alloc<T>(std::forward<Args>(args)...));
 }

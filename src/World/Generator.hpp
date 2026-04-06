@@ -89,7 +89,7 @@ public:
     void set_distance(uint32_t distance);
     void load_around(int64_t x, int64_t z);
 
-    Ref<Chunk> generate_chunk(int64_t x, int64_t z);
+    Result<Ref<Chunk>> generate_chunk(int64_t x, int64_t z);
 
     void set_reference_pos(const glm::vec3& pos) { m_reference_position = pos; }
 

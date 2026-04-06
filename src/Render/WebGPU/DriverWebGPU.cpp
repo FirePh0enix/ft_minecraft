@@ -454,10 +454,14 @@ RenderingDriverWebGPU::~RenderingDriverWebGPU()
     m_sampler_cache.clear();
     // m_pipeline_cache2.clear();
 
-    // wgpuSurfaceUnconfigure(m_surface);
-    // wgpuSurfaceRelease(m_surface);
+    wgpuComputePipelineRelease(m_mipmap_pipeline);
+    wgpuPipelineLayoutRelease(m_mipmap_layout);
+    wgpuBindGroupLayoutRelease(m_mipmap_bind_group_layout);
+
+    wgpuSurfaceRelease(m_surface);
 
     wgpuDeviceRelease(m_device);
+    wgpuAdapterRelease(m_adapter);
     wgpuInstanceRelease(m_instance);
 }
 
@@ -698,6 +702,8 @@ void RenderingDriverWebGPU::poll()
 #ifdef __has_debug_menu
     ImGui_ImplWGPU_NewFrame();
     ImGui_ImplSDL3_NewFrame();
+
+    ImGui::NewFrame();
 #endif
 }
 
@@ -1114,6 +1120,8 @@ Result<WGPURenderPipeline> RenderingDriverWebGPU::create_render_pipeline(Ref<Sha
     if (!pipeline)
         return Error(ErrorKind::BadDriver);
 
+    wgpuShaderModuleRelease(module);
+
     return pipeline;
 }
 
@@ -1136,6 +1144,8 @@ Result<WGPUComputePipeline> RenderingDriverWebGPU::create_compute_pipeline(const
     WGPUComputePipeline pipeline = wgpuDeviceCreateComputePipeline(m_device, &desc);
     if (!pipeline)
         return Error(ErrorKind::BadDriver);
+
+    wgpuShaderModuleRelease(module);
 
     return pipeline;
 }

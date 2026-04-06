@@ -1,5 +1,6 @@
 #include "World/Chunk.hpp"
 #include "Core/Alloc.hpp"
+#include "Core/Logger.hpp"
 #include "Profiler.hpp"
 #include "Render/Types.hpp"
 #include "World/Block.hpp"
@@ -42,7 +43,13 @@ void Chunk::set_block(int64_t x, int64_t y, int64_t z, BlockState state)
     m_blocks[linearize(x, y, z)] = state;
 
     size_t slice = y / width;
-    build_simple_mesh(slice);
+
+    Result<void> result = build_simple_mesh(slice);
+    if (result.has_error())
+    {
+        error("Rebuilding the mesh ended with error:");
+        result.error().print();
+    }
 }
 
 struct ChunkBlockFace

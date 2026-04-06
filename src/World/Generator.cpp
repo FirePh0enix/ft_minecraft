@@ -104,13 +104,13 @@ void Generator::load_around(int64_t x, int64_t z)
     }
 }
 
-Ref<Chunk> Generator::generate_chunk(int64_t cx, int64_t cz)
+Result<Ref<Chunk>> Generator::generate_chunk(int64_t cx, int64_t cz)
 {
     ZoneScoped;
 
-    Ref<Chunk> chunk = newobj(Chunk, cx, cz, m_world);
+    Ref<Chunk> chunk = newref<Chunk>(cx, cz, m_world);
     if (!chunk)
-        return chunk;
+        return Error(ErrorKind::OutOfMemory);
 
     for (size_t i = 0; i < Chunk::block_count_with_overlap; i++)
         chunk->get_blocks()[i] = BlockState();
@@ -143,7 +143,7 @@ Ref<Chunk> Generator::generate_chunk(int64_t cx, int64_t cz)
     }
 
     for (size_t i = 0; i < Chunk::slice_count; i++)
-        chunk->build_simple_mesh(i);
+        TRY(chunk->build_simple_mesh(i));
 
     return chunk;
 }
@@ -184,11 +184,17 @@ void Generator::load_thread()
         // TODO: Add some kind of memory budget to keep some chunks in memory to not have
         //       to save/read to disk everytime.
 
-        Ref<Chunk> chunk = generate_chunk(pos.x, pos.z);
+        Result<Ref<Chunk>> chunk_result = generate_chunk(pos.x, pos.z);
+        if (chunk_result.has_error())
+        {
+            error("Chunk generation failed with error:");
+            chunk_result.error().print();
+            continue;
+        }
 
         {
             std::lock_guard<std::mutex> guard(m_world->get_dimension(m_dimension).mutex());
-            m_world->get_dimension(m_dimension).add_chunk(pos.x, pos.z, chunk);
+            m_world->get_dimension(m_dimension).add_chunk(pos.x, pos.z, chunk_result.value());
         }
     }
 }
