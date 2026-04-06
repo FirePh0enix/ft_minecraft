@@ -16,12 +16,12 @@ static inline void __assert_internal(bool condition, const char *expression_stri
 
 #ifndef NDEBUG
 
-#define ASSERT(condition, format) __assert_internal(condition, #condition, format)
-#define ASSERT_V(condition, format, ...) __assert_internal(condition, #condition, format, __VA_ARGS__)
+#define ASSERT(condition, format, ...) __assert_internal(condition, #condition, format __VA_OPT__(, ) __VA_ARGS__)
+#define ASSERT_V(...) ASSERT(__VA_ARGS__)
 
 #else
 
-#define ASSERT(condition, format)
+#define ASSERT(condition, format, ...)
 #define ASSERT_V(condition, format, ...)
 
 #endif
