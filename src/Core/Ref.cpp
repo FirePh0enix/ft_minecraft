@@ -37,8 +37,6 @@ public:
 
 TEST_CASE("Ref sanity checks")
 {
-    Foo::register_class();
-
     Ref<Foo> foo_null;
     CHECK(foo_null.is_null());
     CHECK(foo_null.ptr() == nullptr);
@@ -111,10 +109,6 @@ static Ref<Object> make_and_cast()
 
 TEST_CASE("Ref casting")
 {
-    Foo::register_class();
-    Bar::register_class();
-    Bleep::register_class();
-
     // Downcasting
     Ref<Bleep> bleep = newobj(Bleep);
     Ref<Object> object = bleep.cast_to<Object>();

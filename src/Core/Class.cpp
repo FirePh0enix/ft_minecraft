@@ -19,9 +19,6 @@ class Bar : public Foo
 
 TEST_CASE("Class")
 {
-    Foo::register_class();
-    Bar::register_class();
-
     CHECK(!strcmp(Foo::get_static_class_name(), "Foo"));
 
     const View<ClassHashCode>& classes = Bar::get_static_classes();
