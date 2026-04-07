@@ -33,6 +33,8 @@ inline void print(BasicFormatString<> fmt)
 template <typename... _Args>
 void println(FILE *fp, FormatString<_Args...> fmt, _Args&&...args)
 {
+    // TODO: should not call `format` directly since it allocate memory.
+
     String s = format(fmt, std::forward<_Args>(args)...);
     fwrite(s.data(), 1, s.size(), fp);
     fputc('\n', fp);

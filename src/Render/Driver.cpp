@@ -1,5 +1,5 @@
 #include "Render/Driver.hpp"
-#include "Render/Graph.hpp"
+#include "Render/Types.hpp"
 
 size_t size_of(const TextureFormat& format)
 {
@@ -80,7 +80,7 @@ void Material::set_param(const StringView& name, const Ref<Texture>& texture)
 
     // TODO: Check dimensions.
 
-    m_caches[name] = MaterialParamCache{.texture = {.kind = BindingKind::Texture, .texture = texture.ptr()}};
+    m_caches[name] = MaterialParamCache{.kind = BindingKind::Texture, .texture = texture};
     m_param_changed = true;
 }
 
@@ -90,7 +90,7 @@ void Material::set_param(const StringView& name, const Ref<Buffer>& buffer)
     ERR_COND_VR(buffer.is_null(), "Buffer specified for {} is null", name);
     ERR_COND_VR(!binding_result.has_value(), "Invalid parameter name `{}`", name.data());
 
-    m_caches[name] = MaterialParamCache{.buffer = {.kind = BindingKind::UniformBuffer, .buffer = buffer.ptr()}};
+    m_caches[name] = MaterialParamCache{.kind = BindingKind::UniformBuffer, .buffer = buffer};
     m_param_changed = true;
 }
 

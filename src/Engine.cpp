@@ -56,7 +56,7 @@ void Engine::tick(float delta)
                 ERR_EXPECT_B(result, "Failed to configure the surface");
 
                 if (m_scene == EngineScene::World)
-                    m_world.get_active_camera()->update_projection((float)event->window.data1 / (float)event->window.data2);
+                    m_world->get_active_camera()->update_projection((float)event->window.data1 / (float)event->window.data2);
             }
             break;
             default:
@@ -83,7 +83,7 @@ void Engine::tick(float delta)
     case EngineScene::MainMenu:
         break;
     case EngineScene::World:
-        m_world.tick(delta);
+        m_world->tick(delta);
         break;
     }
 }
@@ -164,7 +164,7 @@ Result<void> Engine::draw_world_scene()
     // The first pass: Depth only
     {
         RenderPassEncoder encoder = RenderGraph::get().render_pass_begin({.name = "depth pass", .depth_attachment = RenderPassDepthAttachment{.save = true}});
-        m_world.draw(encoder);
+        m_world->draw(encoder);
     }
 
     // The main color pass.
@@ -174,7 +174,7 @@ Result<void> Engine::draw_world_scene()
             .color_attachments = TRY(Vector<RenderPassColorAttachment>::create(RenderPassColorAttachment{.surface_texture = true})),
             .depth_attachment = RenderPassDepthAttachment{.load = true},
         });
-        m_world.draw(encoder, true);
+        m_world->draw(encoder, true);
 
 #if defined(__has_debug_menu)
         encoder.imgui();
@@ -190,11 +190,11 @@ Result<void> Engine::draw_world_scene()
 void Engine::create_world_and_start()
 {
     uint64_t seed = std::stoull(m_world_seed_buf);
-    new (&m_world) World(seed);
+    m_world = newref<World>(seed);
 
     m_player = newobj(Player);
     m_player->get_transform().position() = glm::vec3(0, 3.0, 0);
-    m_world.add_entity(World::overworld, m_player);
+    m_world->add_entity(World::overworld, m_player);
 
     m_scene = EngineScene::World;
 }

@@ -53,6 +53,8 @@ public:
     ALWAYS_INLINE size_t size() const { return m_size; }
     ALWAYS_INLINE size_t capacity() const { return m_capacity; }
 
+    bool empty() const { return m_size == 0; }
+
     Result<void> append(const T& value)
     {
         TRY(copy_on_write());
@@ -64,7 +66,7 @@ public:
         return Result<void>();
     }
 
-    Result<void> append(const T&& value)
+    Result<void> append(T&& value)
     {
         TRY(copy_on_write());
         TRY(grow_if_needed());
@@ -90,6 +92,13 @@ public:
         }
 
         return Result<void>();
+    }
+
+    T& pop_front_unchecked()
+    {
+        T& value = m_data[m_size - 1];
+        m_size -= 1;
+        return value;
     }
 
     /**
@@ -164,6 +173,16 @@ public:
 
         (m_data + index)->~T();
         memmove((void *)(m_data + index), (void *)(m_data + index + 1), sizeof(T) * m_size);
+    }
+
+    bool contains(const T& value) const
+    {
+        for (auto iter = begin(); iter != end(); iter++)
+        {
+            if (*iter == value)
+                return true;
+        }
+        return false;
     }
 
     ForwardIterator<T> begin() const

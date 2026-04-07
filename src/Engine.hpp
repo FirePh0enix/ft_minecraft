@@ -27,7 +27,7 @@ private:
     EngineScene m_scene = EngineScene::MainMenu;
     Ref<Window> m_window;
 
-    World m_world;
+    Ref<World> m_world;
     Ref<Entity> m_player;
 
     // main menu stuff

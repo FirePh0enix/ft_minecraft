@@ -37,6 +37,7 @@ list(APPEND SOURCES
     src/Core/Ref.cpp
     src/Core/String.cpp
     src/Core/StringView.cpp
+    src/Core/ThreadPool.cpp
     src/Entity/Camera.cpp
     src/Entity/Entity.cpp
     src/Entity/Mob.cpp

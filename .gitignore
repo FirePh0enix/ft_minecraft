@@ -1,6 +1,6 @@
 # CMake
 build
-build-emscripten
+build-*
 
 # clangd
 .cache

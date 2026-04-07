@@ -4,14 +4,6 @@
 #include "World/Block.hpp"
 #include "World/Chunk.hpp"
 
-#include <mutex>
-#include <semaphore>
-#include <set>
-#include <thread>
-#include <vector>
-
-class World;
-
 class GenerationPass : public Object
 {
     CLASS(GenerationPass, Object);
@@ -74,54 +66,4 @@ public:
         const Biome biome = chunk->get_biomes()[block_index];
         chunk->get_blocks()[block_index] = generate_features(x, y, z, state, biome);
     }
-};
-
-class Generator : public Object
-{
-    CLASS(Generator, Object);
-
-public:
-    Generator(World *world, size_t dimension);
-    ~Generator();
-
-    void add_pass(Ref<GenerationPass> pass);
-
-    void set_distance(uint32_t distance);
-    void load_around(int64_t x, int64_t z);
-
-    Result<Ref<Chunk>> generate_chunk(int64_t x, int64_t z);
-
-    void set_reference_pos(const glm::vec3& pos) { m_reference_position = pos; }
-
-private:
-    World *m_world;
-    size_t m_dimension;
-
-    std::vector<Ref<GenerationPass>> m_passes;
-
-    std::thread m_load_thread;
-    std::mutex m_load_orders_mutex;
-    std::atomic_bool m_load_state = true;
-    std::binary_semaphore m_load_orders_semaphore{0};
-    std::set<ChunkPos> m_load_orders;
-
-    ChunkPos pop_nearest_chunk(glm::vec3 position);
-    ChunkPos pop_farsest_chunk(glm::vec3 position);
-
-    std::thread m_unload_thread;
-    std::mutex m_unload_orders_mutex;
-    std::atomic_bool m_unload_orders_state = true;
-    std::binary_semaphore m_unload_orders_semaphore{0};
-    std::set<ChunkPos> m_unload_orders;
-
-    glm::vec3 m_reference_position = glm::vec3();
-
-    int64_t m_load_distance = 1;
-    size_t m_max_chunk_count = 1;
-
-    void request_multiple_load(View<ChunkPos> chunks);
-    void request_unload(int64_t x, int64_t z);
-
-    void load_thread();
-    void unload_thread();
 };

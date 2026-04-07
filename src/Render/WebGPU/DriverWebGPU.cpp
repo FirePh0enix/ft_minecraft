@@ -377,7 +377,7 @@ WGPUBindGroup BindGroupCache::get(Ref<Material> material)
 
                 WGPUBindGroupEntry entry{};
                 entry.binding = binding.binding;
-                entry.textureView = ((TextureWebGPU *)cache.texture.texture)->view;
+                entry.textureView = cache.texture.cast_to<TextureWebGPU>()->view;
 
                 entries.push_back(entry);
 
@@ -396,13 +396,13 @@ WGPUBindGroup BindGroupCache::get(Ref<Material> material)
             case BindingKind::UniformBuffer:
             {
                 const MaterialParamCache& cache = material->get_param(name);
-                ASSERT(cache.buffer.buffer->flags().has_any(BufferUsageFlagBits::Uniform), "Missing Uniform flag on buffer");
+                ASSERT(cache.buffer->flags().has_any(BufferUsageFlagBits::Uniform), "Missing Uniform flag on buffer for param `{}`", name);
 
                 WGPUBindGroupEntry entry{};
                 entry.binding = binding.binding;
-                entry.buffer = ((BufferWebGPU *)cache.buffer.buffer)->buffer;
+                entry.buffer = cache.buffer.cast_to<BufferWebGPU>()->buffer;
                 entry.offset = 0;
-                entry.size = cache.buffer.buffer->size_bytes();
+                entry.size = cache.buffer->size_bytes();
 
                 entries.push_back(entry);
             }
@@ -410,13 +410,13 @@ WGPUBindGroup BindGroupCache::get(Ref<Material> material)
             case BindingKind::StorageBuffer:
             {
                 const MaterialParamCache& cache = material->get_param(name);
-                ASSERT(cache.buffer.buffer->flags().has_any(BufferUsageFlagBits::Storage), "Missing Storage flag on buffer");
+                ASSERT(cache.buffer->flags().has_any(BufferUsageFlagBits::Storage), "Missing Storage flag on buffer for param `{}`", name);
 
                 WGPUBindGroupEntry entry{};
                 entry.binding = binding.binding;
-                entry.buffer = ((BufferWebGPU *)cache.buffer.buffer)->buffer;
+                entry.buffer = cache.buffer.cast_to<BufferWebGPU>()->buffer;
                 entry.offset = 0;
-                entry.size = cache.buffer.buffer->size_bytes();
+                entry.size = cache.buffer->size_bytes();
 
                 entries.push_back(entry);
             }

@@ -50,7 +50,7 @@ public:
     static constexpr int64_t width_with_overlap = width + 2;
     static constexpr int64_t height = 256;
     static constexpr int64_t block_count_with_overlap = width_with_overlap * height * width_with_overlap;
-    static constexpr int64_t slice_count = 16;
+    static constexpr int64_t slice_count = height / width;
 
     Chunk(int64_t x, int64_t z, World *world);
     ~Chunk();

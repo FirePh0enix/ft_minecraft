@@ -34,10 +34,10 @@ Ref<Engine> engine;
 
 MAIN(int argc, char *argv[])
 {
-    // #if !defined(__has_address_sanitizer) || !defined(__platform_web)
-    //     // NOTE: Address sanitizer mess with our custom error handling.
-    //     initialize_error_handling(Filesystem::current_executable_path().c_str());
-    // #endif
+#if !defined(__has_address_sanitizer) || !defined(__platform_web)
+    // NOTE: Address sanitizer mess with our custom error handling.
+    initialize_error_handling(Filesystem::current_executable_path().c_str());
+#endif
 
     Args args;
     args.add_arg("enable-gpu-validation", {.type = ArgType::Bool});

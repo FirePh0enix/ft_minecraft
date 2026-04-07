@@ -3,11 +3,14 @@
 #include "AABB.hpp"
 #include "Entity/Entity.hpp"
 #include "World/Chunk.hpp"
+#include "World/Generator.hpp"
 
 #include <mutex>
 
 class Dimension
 {
+    friend class World;
+
 public:
     Dimension()
     {
@@ -33,28 +36,34 @@ public:
             m_chunks.erase(iter);
     }
 
-    void add_chunk(int64_t x, int64_t z, const Ref<Chunk>& chunk)
+    Result<void> add_chunk(int64_t x, int64_t z, const Ref<Chunk>& chunk)
     {
         m_chunks[ChunkPos(x, z)] = chunk;
-        m_visible_chunks.push_back(chunk);
+        // TRY(m_visible_chunks.append(chunk));
+        return Result<void>();
     }
 
     ALWAYS_INLINE const std::map<ChunkPos, Ref<Chunk>>& get_chunks() const { return m_chunks; }
-    ALWAYS_INLINE const std::vector<Ref<Chunk>>& get_visible_chunks() const { return m_visible_chunks; }
+    // ALWAYS_INLINE const Vector<Ref<Chunk>>& get_visible_chunks() const { return m_visible_chunks; }
 
-    ALWAYS_INLINE void add_entity(Ref<Entity> entity) { m_entities.push_back(entity); }
-    const std::vector<Ref<Entity>>& get_entities() const { return m_entities; }
+    ALWAYS_INLINE Result<void> add_entity(Ref<Entity> entity) { return m_entities.append(entity); }
+    const Vector<Ref<Entity>>& get_entities() const { return m_entities; }
 
     std::mutex& mutex() { return m_chunk_mutex; }
 
-    std::vector<AABB> get_boxes_that_may_collide(const AABB& box) const;
+    Vector<AABB> get_boxes_that_may_collide(const AABB& box) const;
     bool has_solid_block(int64_t x, int64_t y, int64_t z) const;
+
+    Result<Ref<Chunk>> generate_chunk(int64_t cx, int64_t cz);
 
 private:
     std::mutex m_chunk_mutex;
-    std::vector<Ref<Entity>> m_entities;
+    Vector<Ref<Entity>> m_entities;
+    World *m_world;
 
     std::map<ChunkPos, Ref<Chunk>> m_chunks;
-    std::vector<Ref<Chunk>> m_visible_chunks;
+    // Vector<Ref<Chunk>> m_visible_chunks;
     // TODO: add a `std::set` for checking if chunks exists.
+
+    Vector<Ref<GenerationPass>> m_generation_passes;
 };

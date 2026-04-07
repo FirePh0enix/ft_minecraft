@@ -15,7 +15,7 @@ Chunk::Chunk(int64_t x, int64_t z, World *world)
     m_biomes = alloc_array_uninitialized<Biome>(block_count_with_overlap);
     m_slices = alloc_array<Slice>(slice_count);
 
-    for (size_t i = 0; i < 16; i++)
+    for (size_t i = 0; i < slice_count; i++)
     {
         const glm::mat4 model_matrix = glm::translate(glm::identity<glm::mat4>(), glm::vec3(x * Chunk::width, i * Chunk::width, z * Chunk::width));
         Slice& slice = m_slices[i];

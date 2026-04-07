@@ -140,7 +140,7 @@ void Mob::move_and_collide(bool enable_collision)
 
     const AABB pbox = m_aabb.translate(m_transform.position());
     const Dimension& dimension = m_world->get_dimension(m_dimension);
-    const std::vector<AABB> colliders = dimension.get_boxes_that_may_collide(pbox); // TODO: broad phase.
+    const Vector<AABB> colliders = dimension.get_boxes_that_may_collide(pbox); // TODO: broad phase.
 
     float lowest_collision_time = 1.0f;
     const float margin = 0.1f;

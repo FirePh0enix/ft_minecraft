@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Core/Definitions.hpp"
+#include "Core/ThreadPool.hpp"
 #include "Entity/Camera.hpp"
 #include "Ray.hpp"
 #include "Render/Driver.hpp"
@@ -48,8 +49,10 @@ struct RaycastResult
     float distance;
 };
 
-class World
+class World : public Object
 {
+    CLASS(World, Object);
+
     friend class Generator;
     friend class Chunk;
 
@@ -58,7 +61,6 @@ public:
     static constexpr size_t underworld = 1;
     static constexpr size_t max_dimensions = 2;
 
-    World();
     World(uint64_t seed);
     ~World();
 
@@ -95,7 +97,7 @@ public:
         entity->m_world = this;
         entity->m_dimension = dimension;
         entity->on_ready();
-        m_dims[dimension].add_entity(entity);
+        EXPECT(m_dims[dimension].add_entity(entity));
     }
 
     ALWAYS_INLINE const Ref<Buffer>& get_env_buffer() const { return m_env_buffer; };
@@ -113,7 +115,10 @@ private:
     uint64_t m_seed;
 
     std::array<Dimension, max_dimensions> m_dims;
-    std::array<Ref<Generator>, max_dimensions> m_generators;
+
+    // Thread pool used for chunk loading/unloading.
+    ThreadPool m_generation_thread_pool;
+    uint32_t m_load_distance = 4;
 
     Ref<Camera> m_camera;
     Ref<Shader> m_shader;
@@ -121,5 +126,6 @@ private:
     Ref<Buffer> m_env_buffer;
     Environment m_env;
 
+    void load_around_player();
     void update_environment_buffer();
 };

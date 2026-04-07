@@ -1,19 +1,11 @@
 #include "World/World.hpp"
-#include "AABB.hpp"
-#include "Core/Class.hpp"
 #include "Profiler.hpp"
 #include "Render/Driver.hpp"
 #include "Render/Types.hpp"
-#include "World/Generator.hpp"
 #include "World/Pass/Overworld.hpp"
 
-World::World()
-    : m_seed(0)
-{
-}
-
 World::World(uint64_t seed)
-    : m_seed(seed)
+    : m_seed(seed), m_generation_thread_pool(std::thread::hardware_concurrency() - 1)
 {
     m_env_buffer = RenderingDriver::get()->create_buffer(sizeof(Environment), BufferUsageFlagBits::Uniform | BufferUsageFlagBits::CopyDest).value_or(nullptr);
 
@@ -25,11 +17,9 @@ World::World(uint64_t seed)
     m_shader->set_sampler("images", {.min_filter = Filter::Nearest, .mag_filter = Filter::Nearest});
 
     // Setup world generation
-    m_generators[overworld] = newobj(Generator, this, overworld);
-    m_generators[overworld]->set_distance(8);
-
-    m_generators[overworld]->add_pass(newobj(OverworldBiomePass));
-    m_generators[overworld]->add_pass(newobj(OverworldSurfacePass));
+    m_dims[overworld].m_world = this;
+    EXPECT(m_dims[overworld].m_generation_passes.append(newobj(OverworldBiomePass)));
+    EXPECT(m_dims[overworld].m_generation_passes.append(newobj(OverworldSurfacePass)));
 }
 
 World::~World()
@@ -43,9 +33,7 @@ void World::tick(float delta)
     for (Ref<Entity> entity : m_dims[overworld].get_entities())
         entity->recurse_tick(delta);
 
-    const glm::vec3 player_pos = m_camera->get_global_transform().position();
-    m_generators[overworld]->set_reference_pos(player_pos);
-    m_generators[overworld]->load_around(int64_t(player_pos.x), int64_t(player_pos.z));
+    load_around_player();
 }
 
 void World::draw(RenderPassEncoder& encoder, bool include_entities)
@@ -61,8 +49,15 @@ void World::draw(RenderPassEncoder& encoder, bool include_entities)
     m_env.view_matrix = m_camera->get_view_proj_matrix();
     update_environment_buffer();
 
-    std::lock_guard<std::mutex> guard(m_dims[0].mutex());
-    for (const auto& [key, chunk] : m_dims[0].get_chunks())
+    std::map<ChunkPos, Ref<Chunk>> chunks;
+
+    // Create a copy of the chunk map and iterate on it later. Safe to do since `Chunk` is ref-counted.
+    {
+        std::unique_lock<std::mutex> guard(m_dims[0].mutex());
+        chunks = m_dims[0].get_chunks();
+    }
+
+    for (const auto& [key, chunk] : chunks)
     {
         // ChunkPos pos = chunk->pos();
         // AABB aabb = AABB(glm::vec3((float)pos.x * Chunk::width + Chunk::width / 2.0, (float)pos.y * Chunk::width + Chunk::width / 2.0, (float)pos.z * Chunk::width + Chunk::width / 2.0),
@@ -144,6 +139,62 @@ void World::set_active_camera(Ref<Camera> camera)
 {
     m_camera = camera;
     update_environment_buffer();
+}
+
+void World::load_around_player()
+{
+    const glm::vec3 player_pos = m_camera->get_global_transform().position();
+    int64_t player_cx = int64_t(player_pos.x / 16);
+    int64_t player_cz = int64_t(player_pos.z / 16);
+
+    Vector<ChunkPos> positions;
+    EXPECT(positions.reserve((m_load_distance * 2 + 1) * (m_load_distance * 2 + 1)));
+
+    for (int64_t cx = -int32_t(m_load_distance); cx <= m_load_distance; cx++)
+        for (int64_t cz = -int32_t(m_load_distance); cz <= m_load_distance; cz++)
+        {
+            int64_t x = player_cx + cx;
+            int64_t z = player_cz + cz;
+            EXPECT(positions.append(ChunkPos(x, z)));
+        }
+
+    // TODO: Load from closest to farsest.
+    for (ChunkPos pos : positions)
+    {
+        // Prevent loading the same chunk two times.
+        {
+            std::unique_lock<std::mutex> lock(m_dims[0].mutex());
+            if (m_dims[0].has_chunk(pos.x, pos.z))
+                continue;
+        }
+
+        EXPECT(m_generation_thread_pool.async([this, pos]
+                                              {
+                                                      Result<Ref<Chunk>> result = m_dims[0].generate_chunk(pos.x, pos.z);
+                                                      if (result.has_error())
+                                                      {
+                                                          return;
+                                                      }
+
+                                                      std::unique_lock<std::mutex> lock(m_dims[0].mutex());
+                                                      Ref<Chunk> chunk = result.value();
+                                                      // error is ignored.
+                                                      (void)m_dims[0].add_chunk(pos.x, pos.z, chunk); }));
+    }
+
+    std::unique_lock<std::mutex> lock(m_dims[0].mutex());
+    for (const auto& [pos, chunk] : m_dims[0].m_chunks)
+    {
+        if (pos.x >= player_cx - m_load_distance && pos.x <= player_cx + m_load_distance && pos.z >= player_cz - m_load_distance && pos.z <= player_cz + m_load_distance)
+        {
+            continue;
+        }
+
+        EXPECT(m_generation_thread_pool.async([this, pos]
+                                              {
+                                                std::unique_lock<std::mutex> lock(m_dims[0].mutex());
+                                                (void)m_dims[0].remove_chunk(pos.x, pos.z); }));
+    }
 }
 
 inline void adjust_on_boundary(double rcomp, int64_t& vcomp, double dcomp, double eps = 1e-12)

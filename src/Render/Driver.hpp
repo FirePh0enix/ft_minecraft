@@ -12,6 +12,7 @@
 
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
+#include <variant>
 
 class Shader;
 class RenderGraph;
@@ -166,19 +167,11 @@ struct InstanceLayout
     }
 };
 
-union MaterialParamCache
+struct MaterialParamCache
 {
-    BindingKind kind;
-    struct
-    {
-        BindingKind kind;
-        Texture *texture;
-    } texture;
-    struct
-    {
-        BindingKind kind;
-        Buffer *buffer;
-    } buffer;
+    BindingKind kind = BindingKind::Texture;
+    Ref<Texture> texture = nullptr;
+    Ref<Buffer> buffer = nullptr;
 };
 
 enum class MaterialFlagBits
