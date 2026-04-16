@@ -28,6 +28,12 @@ public:
     {
     }
 
+    // TODO: Replace the last usage of `std::vector` by a `LocalVector<T>` or something which does not have Copy-on-write.
+    View(const std::vector<T>& vector)
+        : m_data(vector.data()), m_size(vector.size())
+    {
+    }
+
     template <const size_t size>
     View(const std::array<T, size>& array)
         : m_data(array.data()), m_size(array.size())

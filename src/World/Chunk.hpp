@@ -4,6 +4,9 @@
 #include "Render/Driver.hpp"
 #include "World/Biome.hpp"
 #include "World/Block.hpp"
+
+#include "Render/WebGPU/DriverWebGPU.hpp"
+
 #include <cstdint>
 
 class World;
@@ -44,6 +47,13 @@ public:
         Ref<Buffer> model_buffer = nullptr;
         Model model;
         bool empty = true;
+
+        bool is_visible() const
+        {
+            // `empty` means the slice is only air blocks.
+            // `mesh.is_null()` means the mesh was not created because no faces were visible.
+            return !empty && !mesh.is_null();
+        }
     };
 
     static constexpr int64_t width = 16;

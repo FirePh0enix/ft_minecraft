@@ -3,7 +3,7 @@
 
 #include <imgui.h>
 
-static inline void imguitk_centered_next_widget(const char *label, float alignment = 0.5f)
+static inline void imguitk_center_next_widget(const char *label, float alignment = 0.5f)
 {
     ImGuiStyle& style = ImGui::GetStyle();
 

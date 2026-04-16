@@ -1,14 +1,11 @@
 #include "Render/Shader.hpp"
 #include "Core/Assert.hpp"
 #include "Core/Filesystem.hpp"
+#include "Core/Hash.hpp"
 #include "Core/Print.hpp"
-
-// TODO: add shader variants back.
 
 Shader::~Shader()
 {
-    if (m_code)
-        free(m_code);
 }
 
 Result<Ref<Shader>> Shader::load(const std::filesystem::path& path)
@@ -21,6 +18,7 @@ Result<Ref<Shader>> Shader::load(const std::filesystem::path& path)
 
     Ref<Shader> shader = newobj(Shader);
     shader->m_source_code = source_code;
+    shader->m_hash = hash_fnv32(source_code);
     shader->m_kind = ShaderKind::WGSL;
     shader->m_entry_point_names[ShaderStageFlagBits::Vertex] = "vertex_main";
     shader->m_entry_point_names[ShaderStageFlagBits::Fragment] = "fragment_main";

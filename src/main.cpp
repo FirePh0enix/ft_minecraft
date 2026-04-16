@@ -61,7 +61,9 @@ MAIN(int argc, char *argv[])
                                  { ((Engine *)engine)->update_callback(); }, nullptr, 0, true);
 #else
     while (engine->is_running())
+    {
         loop_update();
+    }
 
     shutdown_callback();
 #endif
@@ -72,7 +74,7 @@ MAIN(int argc, char *argv[])
 static void loop_update()
 {
     const float elapsed_time = (float)(clock() - last_update_time) / CLOCKS_PER_SEC;
-    if (elapsed_time >= fixed_update_time)
+    if (elapsed_time > fixed_update_time)
     {
         last_update_time = clock();
         update_callback();

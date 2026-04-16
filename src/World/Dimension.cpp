@@ -64,7 +64,7 @@ Result<Ref<Chunk>> Dimension::generate_chunk(int64_t cx, int64_t cz)
         return Error(ErrorKind::OutOfMemory);
 
     for (size_t i = 0; i < Chunk::block_count_with_overlap; i++)
-        chunk->get_blocks()[i] = BlockState();
+        chunk->get_blocks()[i] = BlockState(); // TODO: remove this is wasted time
 
     memset(chunk->get_biomes(), 0, sizeof(Biome) * Chunk::block_count_with_overlap);
 

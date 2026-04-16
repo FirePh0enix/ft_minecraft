@@ -25,7 +25,6 @@ list(APPEND SOURCES
     src/Args.cpp
     src/Console.cpp
     src/Engine.cpp
-    src/Font.cpp
     src/Input.cpp
     src/main.cpp
     src/Window.cpp
@@ -370,7 +369,7 @@ if (ENABLE_TRACING)
     FetchContent_Declare(
         tracy
         GIT_REPOSITORY https://github.com/wolfpld/tracy
-        GIT_TAG 5d542dc09f3d9378d005092a4ad446bd405f819a # v0.11.1
+        GIT_TAG 00a069d6088ff8d93304eaac4d925cece0e9081c # master (v0.13.x)
     )
     FetchContent_MakeAvailable(tracy)
 

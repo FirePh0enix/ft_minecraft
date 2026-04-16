@@ -90,23 +90,15 @@ public:
         return m_path;
     }
 
-    inline View<char> get_code() const
-    {
-        return View((char *)m_code, m_size);
-    }
-
-    inline View<uint32_t> get_code_u32() const
-    {
-        return View((uint32_t *)m_code, m_size / sizeof(uint32_t));
-    }
+    uint32_t hash() const { return m_hash; }
 
 private:
     ShaderKind m_kind;
     String m_path;
     String m_source_code;
-
-    char *m_code = nullptr;
     size_t m_size;
+
+    uint32_t m_hash;
 
     ShaderStageFlags m_stage_mask;
 

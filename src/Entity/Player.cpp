@@ -162,7 +162,7 @@ void Player::on_ready()
     m_highlight_shader->set_binding("env", Binding(BindingKind::UniformBuffer, ShaderStageFlagBits::Vertex, 0, 0, BindingAccess::Read));
     m_highlight_shader->set_binding("model", Binding(BindingKind::UniformBuffer, ShaderStageFlagBits::Vertex, 0, 1, BindingAccess::Read));
 
-    m_highlight_material = RenderingDriver::get()->create_material(m_highlight_shader, std::nullopt, MaterialFlagBits::Transparency | MaterialFlagBits::Priority, PolygonMode::Fill, CullMode::Back, UVType::UVT, "HIGHLIGHT_CUBE");
+    m_highlight_material = RenderingDriver::get()->create_material(m_highlight_shader, std::nullopt, MaterialFlagBits::Transparency | MaterialFlagBits::Priority, PolygonMode::Fill, CullMode::Back, UVType::UVT);
     m_highlight_material->set_param("env", m_world->get_env_buffer());
     m_highlight_material->set_param("model", m_highlight_model_buffer);
 }
@@ -177,8 +177,6 @@ void Player::tick(float delta)
 
     if (Input::is_mouse_grabbed())
     {
-        ZoneScopedN("Player::tick.mouse_movements");
-
         constexpr float mouse_sensibility = 0.03f;
 
         const glm::vec2 relative = Input::get_mouse_relative();
@@ -274,7 +272,6 @@ void Player::draw(RenderPassEncoder& encoder)
 {
     if (m_aimed_block.has_value())
     {
-        // (void)encoder;
         m_highlight_model.model_matrix = glm::translate(glm::identity<glm::mat4>(), glm::vec3(m_aimed_block.value()));
         m_highlight_model_buffer->update(View(m_highlight_model).as_bytes());
 

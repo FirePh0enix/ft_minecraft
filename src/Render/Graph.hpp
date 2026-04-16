@@ -106,7 +106,7 @@ public:
     void copy_buffer(const Ref<Buffer>& dest, const Ref<Buffer>& source);
 
 private:
-    Vector<Instruction> m_instructions;
+    std::vector<Instruction> m_instructions;
 };
 
 static inline RenderGraph g_graph;

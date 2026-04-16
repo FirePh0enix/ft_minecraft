@@ -8,7 +8,6 @@
 #include "Render/Graph.hpp"
 #include "World/Chunk.hpp"
 #include "World/Dimension.hpp"
-#include "World/Generator.hpp"
 
 struct Environment
 {

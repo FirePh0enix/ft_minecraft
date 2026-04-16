@@ -6,6 +6,7 @@
 #include "World/Generator.hpp"
 
 #include <mutex>
+#include <set>
 
 class Dimension
 {
@@ -59,9 +60,15 @@ public:
 private:
     std::mutex m_chunk_mutex;
     Vector<Ref<Entity>> m_entities;
-    World *m_world;
+    World *m_world = nullptr;
 
     std::map<ChunkPos, Ref<Chunk>> m_chunks;
+
+    std::mutex m_chunk_loading_mutex;
+    std::set<ChunkPos> m_chunk_loading_queue;
+
+    Vector<Ref<Chunk>> m_chunks_to_flush;
+
     // Vector<Ref<Chunk>> m_visible_chunks;
     // TODO: add a `std::set` for checking if chunks exists.
 

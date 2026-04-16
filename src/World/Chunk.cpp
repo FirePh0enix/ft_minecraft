@@ -1,4 +1,5 @@
 #include "World/Chunk.hpp"
+
 #include "Core/Alloc.hpp"
 #include "Core/Logger.hpp"
 #include "Profiler.hpp"
@@ -6,6 +7,7 @@
 #include "World/Block.hpp"
 #include "World/Registry.hpp"
 #include "World/World.hpp"
+
 #include <cstdint>
 
 Chunk::Chunk(int64_t x, int64_t z, World *world)
@@ -24,7 +26,7 @@ Chunk::Chunk(int64_t x, int64_t z, World *world)
         slice.model_buffer = RenderingDriver::get()->create_buffer(sizeof(Model), BufferUsageFlagBits::Uniform | BufferUsageFlagBits::CopyDest).value_or(nullptr);
         slice.model_buffer->update(View(slice.model).as_bytes());
 
-        slice.material = RenderingDriver::get()->create_material(world->m_shader, std::nullopt, MaterialFlagBits::Transparency, PolygonMode::Fill, CullMode::Back, UVType::UVT, "chunk");
+        slice.material = RenderingDriver::get()->create_material(world->m_shader, std::nullopt, MaterialFlagBits::Transparency, PolygonMode::Fill, CullMode::Back, UVType::UVT);
         slice.material->set_param("images", BlockRegistry::get_texture_array());
         slice.material->set_param("env", world->m_env_buffer);
         slice.material->set_param("model", slice.model_buffer);
@@ -182,8 +184,6 @@ Result<void> Chunk::build_simple_mesh(size_t slice_index)
         slice.mesh = nullptr;
         return Result<void>();
     }
-
-    slice.empty = false;
 
     // Now we build a mesh from the faces.
     Vector<uint16_t> indices;

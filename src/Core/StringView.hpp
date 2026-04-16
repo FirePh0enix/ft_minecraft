@@ -46,7 +46,7 @@ public:
         return m_data;
     }
 
-    ALWAYS_INLINE size_t size() const
+    constexpr ALWAYS_INLINE size_t size() const
     {
         return m_size;
     }

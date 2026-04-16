@@ -1,4 +1,5 @@
 #include "Render/WebGPU/DriverWebGPU.hpp"
+
 #include "Core/Alloc.hpp"
 #include "Core/Containers/InplaceVector.hpp"
 #include "Core/Filesystem.hpp"
@@ -302,7 +303,7 @@ static std::vector<WGPUBindGroupLayoutEntry> convert_bindings(const Ref<Shader>&
 
 RenderPipelineCacheValue RenderPipelineCache2::get_or_create(Ref<MaterialWebGPU> material, Vector<RenderPassColorAttachment> color_attachments, bool load_depth)
 {
-    Key key{(size_t)material.ptr(), color_attachments.size() > 0, load_depth};
+    Key key{.shader_hash = material->get_shader()->hash(), .store_color = color_attachments.size() > 0, .load_depth = load_depth};
     const auto op = get(key);
     if (op.has_value())
     {
@@ -322,7 +323,7 @@ std::optional<RenderPipelineCacheValue> RenderPipelineCache2::get(Key key)
 {
     for (const auto& pair : m_pipelines)
     {
-        if (pair.first.material_ptr == key.material_ptr && pair.first.store_color == key.store_color && pair.first.load_depth == key.load_depth)
+        if (pair.first.shader_hash == key.shader_hash && pair.first.store_color == key.store_color && pair.first.load_depth == key.load_depth)
             return pair.second;
     }
     return std::nullopt;
@@ -774,7 +775,7 @@ Result<Ref<Texture>> RenderingDriverWebGPU::create_texture(uint32_t width, uint3
     return newobj(TextureWebGPU, texture, view, width, height, format, layers, mip_level).cast_to<Texture>();
 }
 
-Ref<Material> RenderingDriverWebGPU::create_material(const Ref<Shader>& shader, std::optional<InstanceLayout> instance_layout, MaterialFlags flags, PolygonMode polygon_mode, CullMode cull_mode, UVType uv_type, String name)
+Ref<Material> RenderingDriverWebGPU::create_material(const Ref<Shader>& shader, std::optional<InstanceLayout> instance_layout, MaterialFlags flags, PolygonMode polygon_mode, CullMode cull_mode, UVType uv_type)
 {
     std::vector<WGPUBindGroupLayoutEntry> entries = convert_bindings(shader);
 
@@ -794,7 +795,7 @@ Ref<Material> RenderingDriverWebGPU::create_material(const Ref<Shader>& shader, 
     WGPUPipelineLayout pipeline_layout = wgpuDeviceCreatePipelineLayout(RenderingDriverWebGPU::get()->get_device(), &pipeline_layout_desc);
     ERR_COND_R(pipeline_layout == nullptr, "PipelineLayout is invalid", {});
 
-    return newobj(MaterialWebGPU, shader, instance_layout, flags, polygon_mode, cull_mode, uv_type, name, pipeline_layout, bind_group_layout);
+    return newobj(MaterialWebGPU, shader, instance_layout, flags, polygon_mode, cull_mode, uv_type, pipeline_layout, bind_group_layout);
 }
 
 void RenderingDriverWebGPU::draw_graph(const RenderGraph& graph)

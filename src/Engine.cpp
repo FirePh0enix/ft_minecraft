@@ -36,6 +36,8 @@ Engine::Engine(const Args& args)
 
 void Engine::tick(float delta)
 {
+    ZoneScoped;
+
     std::optional<SDL_Event> event;
 
     {
@@ -130,7 +132,7 @@ Result<void> Engine::draw_main_menu()
         ImGui::SetNextWindowSize(ImVec2(size_x, size_y));
         if (ImGui::Begin("Main Menu", nullptr, ImGuiWindowFlags_NoDecoration))
         {
-            imguitk_centered_next_widget("Main Menu");
+            imguitk_center_next_widget("Main Menu");
             ImGui::Text("Main Menu");
             ImGui::NewLine();
 
@@ -141,7 +143,7 @@ Result<void> Engine::draw_main_menu()
 
             ImGui::InputText("Seed", m_world_seed_buf, sizeof(m_world_seed_buf));
 
-            imguitk_centered_next_widget("Play");
+            imguitk_center_next_widget("Play");
             if (ImGui::Button("Play"))
             {
                 create_world_and_start();
@@ -193,7 +195,7 @@ void Engine::create_world_and_start()
     m_world = newref<World>(seed);
 
     m_player = newobj(Player);
-    m_player->get_transform().position() = glm::vec3(0, 3.0, 0);
+    m_player->get_transform().position() = glm::vec3(0, 12.0, 0);
     m_world->add_entity(World::overworld, m_player);
 
     m_scene = EngineScene::World;

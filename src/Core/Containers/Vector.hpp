@@ -114,8 +114,12 @@ public:
         unref();
     }
 
-    void clear_keep_capacity()
+    Result<void> clear_keep_capacity()
     {
+        TRY(copy_on_write());
+
+        for (size_t i = 0; i < m_size; i++)
+            m_data[i].~T();
         m_size = 0;
     }
 

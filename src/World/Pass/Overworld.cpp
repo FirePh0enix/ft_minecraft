@@ -10,11 +10,22 @@ Biome OverworldBiomePass::generate_biome(int64_t x, int64_t y, int64_t z)
 
 BlockState OverworldSurfacePass::generate_block(int64_t x, int64_t y, int64_t z, Biome biome)
 {
-    (void)x;
-    (void)z;
     (void)biome;
 
-    if (y <= 1)
+    static constexpr int64_t base_height = 60;
+    static constexpr int64_t amplitude = 80;
+
+    // convert noise value from [-1; 1] to [0; 1].
+    float noise_sample = (m_noise.sample(glm::vec2(x, z)) + 1.0f) / 2.0f;
+    int64_t height = int64_t(noise_sample * amplitude + base_height);
+
+    if (y <= height)
+    {
         return BlockState(2);
+    }
+
+    // if (y <= 10)
+    //     return BlockState(2);
+
     return BlockState();
 }

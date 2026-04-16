@@ -65,7 +65,7 @@ public:
 
     struct Key
     {
-        size_t material_ptr;
+        uint32_t shader_hash;
         bool store_color;
         bool load_depth;
     };
@@ -175,7 +175,7 @@ public:
     virtual Result<Ref<Texture>> create_texture(uint32_t width, uint32_t height, TextureFormat format, TextureUsageFlags usage, TextureDimension dimension = TextureDimension::D2D, uint32_t layers = 1, uint32_t mip_level = 1) override;
 
     [[nodiscard]]
-    virtual Ref<Material> create_material(const Ref<Shader>& shader, std::optional<InstanceLayout> instance_layout, MaterialFlags flags, PolygonMode polygon_mode, CullMode cull_mode, UVType uv_type, String name) override;
+    virtual Ref<Material> create_material(const Ref<Shader>& shader, std::optional<InstanceLayout> instance_layout, MaterialFlags flags, PolygonMode polygon_mode, CullMode cull_mode, UVType uv_type) override;
 
     virtual void draw_graph(const RenderGraph& graph) override;
 
@@ -284,8 +284,8 @@ public:
 class MaterialWebGPU : public Material
 {
 public:
-    MaterialWebGPU(const Ref<Shader>& shader, std::optional<InstanceLayout> instance_layout, MaterialFlags flags, PolygonMode polygon_mode, CullMode cull_mode, UVType uv_type, String name, WGPUPipelineLayout pipeline_layout, WGPUBindGroupLayout bind_group_layout)
-        : Material(shader, instance_layout, flags, polygon_mode, cull_mode, uv_type, name), m_pipeline_layout(pipeline_layout), m_bind_group_layout(bind_group_layout)
+    MaterialWebGPU(const Ref<Shader>& shader, std::optional<InstanceLayout> instance_layout, MaterialFlags flags, PolygonMode polygon_mode, CullMode cull_mode, UVType uv_type, WGPUPipelineLayout pipeline_layout, WGPUBindGroupLayout bind_group_layout)
+        : Material(shader, instance_layout, flags, polygon_mode, cull_mode, uv_type), m_pipeline_layout(pipeline_layout), m_bind_group_layout(bind_group_layout)
     {
     }
 

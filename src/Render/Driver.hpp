@@ -12,7 +12,6 @@
 
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
-#include <variant>
 
 class Shader;
 class RenderGraph;
@@ -211,7 +210,6 @@ public:
     }
 
     ALWAYS_INLINE UVType get_uv_type() const { return m_uv_type; }
-    ALWAYS_INLINE StringView get_name() const { return m_name; }
 
     const Ref<Shader>& get_shader() const
     {
@@ -236,8 +234,8 @@ public:
     void clear_param_changed();
 
 protected:
-    Material(const Ref<Shader>& shader, std::optional<InstanceLayout> instance_layout, MaterialFlags flags, PolygonMode polygon_mode, CullMode cull_mode, UVType uv_type, String name)
-        : m_shader(shader), m_instance_layout(instance_layout), m_flags(flags), m_polygon_mode(polygon_mode), m_cull_mode(cull_mode), m_uv_type(uv_type), m_name(name)
+    Material(const Ref<Shader>& shader, std::optional<InstanceLayout> instance_layout, MaterialFlags flags, PolygonMode polygon_mode, CullMode cull_mode, UVType uv_type)
+        : m_shader(shader), m_instance_layout(instance_layout), m_flags(flags), m_polygon_mode(polygon_mode), m_cull_mode(cull_mode), m_uv_type(uv_type)
     {
     }
 
@@ -248,7 +246,6 @@ private:
     PolygonMode m_polygon_mode;
     CullMode m_cull_mode;
     UVType m_uv_type;
-    String m_name;
     std::map<String, MaterialParamCache> m_caches;
 
     bool m_param_changed : 1 = false;
@@ -381,7 +378,7 @@ public:
     virtual Result<Ref<Texture>> create_texture(uint32_t width, uint32_t height, TextureFormat format, TextureUsageFlags usage, TextureDimension dimension = TextureDimension::D2D, uint32_t layers = 1, uint32_t mip_level = 1) = 0;
 
     [[nodiscard]]
-    virtual Ref<Material> create_material(const Ref<Shader>& shader, std::optional<InstanceLayout> instance_layout, MaterialFlags flags, PolygonMode polygon_mode, CullMode cull_mode, UVType uv_type, String name) = 0;
+    virtual Ref<Material> create_material(const Ref<Shader>& shader, std::optional<InstanceLayout> instance_layout, MaterialFlags flags, PolygonMode polygon_mode, CullMode cull_mode, UVType uv_type) = 0;
 
     /**
      * @brief Draw a frame using a `RenderGraph`.
