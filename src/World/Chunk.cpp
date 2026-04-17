@@ -144,7 +144,7 @@ Result<void> Chunk::build_simple_mesh(size_t slice_index)
     }
 
     // Let's detect which faces are not hidden.
-    std::vector<ChunkBlockFace> faces;
+    Vector<ChunkBlockFace> faces;
 
     for (int64_t x = 0; x < Chunk::width; x++)
     {
@@ -158,22 +158,21 @@ Result<void> Chunk::build_simple_mesh(size_t slice_index)
                     continue;
 
                 const Ref<Block>& block = BlockRegistry::get_block_by_id(m_blocks[index].id);
-                // println("{}", faces.size());
 
                 if (m_blocks[linearize(x - 1, y, z)].is_air())
-                    faces.push_back(ChunkBlockFace(x, y, z, Axis::X, false, block->get_texture_index(Axis::X, false)));
+                    TRY(faces.append(ChunkBlockFace(x, y, z, Axis::X, false, block->get_texture_index(Axis::X, false))));
                 if (m_blocks[linearize(x + 1, y, z)].is_air())
-                    faces.push_back(ChunkBlockFace(x, y, z, Axis::X, true, block->get_texture_index(Axis::X, true)));
+                    TRY(faces.append(ChunkBlockFace(x, y, z, Axis::X, true, block->get_texture_index(Axis::X, true))));
 
                 if (y == 0 || m_blocks[linearize(x, y - 1, z)].is_air())
-                    faces.push_back(ChunkBlockFace(x, y, z, Axis::Y, false, block->get_texture_index(Axis::Y, false)));
+                    TRY(faces.append(ChunkBlockFace(x, y, z, Axis::Y, false, block->get_texture_index(Axis::Y, false))));
                 if (y == height || m_blocks[linearize(x, y + 1, z)].is_air())
-                    faces.push_back(ChunkBlockFace(x, y, z, Axis::Y, true, block->get_texture_index(Axis::Y, true)));
+                    TRY(faces.append(ChunkBlockFace(x, y, z, Axis::Y, true, block->get_texture_index(Axis::Y, true))));
 
                 if (m_blocks[linearize(x, y, z - 1)].is_air())
-                    faces.push_back(ChunkBlockFace(x, y, z, Axis::Z, false, block->get_texture_index(Axis::Z, false)));
+                    TRY(faces.append(ChunkBlockFace(x, y, z, Axis::Z, false, block->get_texture_index(Axis::Z, false))));
                 if (m_blocks[linearize(x, y, z + 1)].is_air())
-                    faces.push_back(ChunkBlockFace(x, y, z, Axis::Z, true, block->get_texture_index(Axis::Z, true)));
+                    TRY(faces.append(ChunkBlockFace(x, y, z, Axis::Z, true, block->get_texture_index(Axis::Z, true))));
             }
         }
     }

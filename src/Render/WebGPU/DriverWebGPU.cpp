@@ -241,10 +241,10 @@ static WGPUSamplerDescriptor convert_sampler(SamplerDescriptor sampler)
     return desc;
 }
 
-static std::vector<WGPUBindGroupLayoutEntry> convert_bindings(const Ref<Shader>& shader)
+static Vector<WGPUBindGroupLayoutEntry> convert_bindings(const Ref<Shader>& shader)
 {
-    std::vector<WGPUBindGroupLayoutEntry> entries;
-    entries.reserve(shader->get_bindings().size());
+    Vector<WGPUBindGroupLayoutEntry> entries;
+    EXPECT(entries.reserve(shader->get_bindings().size()));
 
     for (const auto& binding_pair : shader->get_bindings())
     {
@@ -261,7 +261,7 @@ static std::vector<WGPUBindGroupLayoutEntry> convert_bindings(const Ref<Shader>&
             entry.texture.multisampled = false;
             entry.texture.viewDimension = convert_texture_view_dimension(binding.dimension);
 
-            entries.push_back(entry);
+            EXPECT(entries.append(entry));
 
             WGPUBindGroupLayoutEntry sampler_entry{};
             sampler_entry.binding = binding.binding + 1;
@@ -269,7 +269,7 @@ static std::vector<WGPUBindGroupLayoutEntry> convert_bindings(const Ref<Shader>&
             sampler_entry.sampler.nextInChain = nullptr;
             sampler_entry.sampler.type = WGPUSamplerBindingType_Filtering;
 
-            entries.push_back(sampler_entry);
+            EXPECT(entries.append(sampler_entry));
         }
         break;
         case BindingKind::UniformBuffer:
@@ -279,7 +279,7 @@ static std::vector<WGPUBindGroupLayoutEntry> convert_bindings(const Ref<Shader>&
             entry.visibility = convert_shader_stage(binding.shader_stage);
             entry.buffer.type = WGPUBufferBindingType_Uniform;
 
-            entries.push_back(entry);
+            EXPECT(entries.append(entry));
         }
         break;
         case BindingKind::StorageBuffer:
@@ -289,7 +289,7 @@ static std::vector<WGPUBindGroupLayoutEntry> convert_bindings(const Ref<Shader>&
             entry.visibility = convert_shader_stage(binding.shader_stage);
             entry.buffer.type = binding.access == BindingAccess::Read ? WGPUBufferBindingType_ReadOnlyStorage : WGPUBufferBindingType_Storage;
 
-            entries.push_back(entry);
+            EXPECT(entries.append(entry));
         }
         break;
         default:
@@ -315,7 +315,7 @@ RenderPipelineCacheValue RenderPipelineCache2::get_or_create(Ref<MaterialWebGPU>
 
     RenderPipelineCacheValue value{.pipeline_layout = material->pipeline_layout(), .bind_group_layout = material->bind_group_layout(), .pipeline = pipeline};
 
-    m_pipelines.push_back({key, value});
+    EXPECT(m_pipelines.append({key, value}));
     return value;
 }
 
@@ -365,7 +365,7 @@ WGPUBindGroup BindGroupCache::get(Ref<Material> material)
         if (iter != m_bind_groups.end())
             wgpuBindGroupRelease(iter->second);
 
-        std::vector<WGPUBindGroupEntry> entries;
+        Vector<WGPUBindGroupEntry> entries;
         entries.reserve(material->get_shader()->get_bindings().size());
 
         for (const auto& [name, binding] : material->get_shader()->get_bindings())
@@ -380,7 +380,7 @@ WGPUBindGroup BindGroupCache::get(Ref<Material> material)
                 entry.binding = binding.binding;
                 entry.textureView = cache.texture.cast_to<TextureWebGPU>()->view;
 
-                entries.push_back(entry);
+                entries.append(entry);
 
                 SamplerDescriptor sampler = material->get_shader()->get_sampler(name);
 
@@ -391,7 +391,7 @@ WGPUBindGroup BindGroupCache::get(Ref<Material> material)
                 sampler_entry.binding = binding.binding + 1;
                 sampler_entry.sampler = sampler_result;
 
-                entries.push_back(sampler_entry);
+                entries.append(sampler_entry);
             }
             break;
             case BindingKind::UniformBuffer:
@@ -405,7 +405,7 @@ WGPUBindGroup BindGroupCache::get(Ref<Material> material)
                 entry.offset = 0;
                 entry.size = cache.buffer->size_bytes();
 
-                entries.push_back(entry);
+                entries.append(entry);
             }
             break;
             case BindingKind::StorageBuffer:
@@ -419,7 +419,7 @@ WGPUBindGroup BindGroupCache::get(Ref<Material> material)
                 entry.offset = 0;
                 entry.size = cache.buffer->size_bytes();
 
-                entries.push_back(entry);
+                entries.append(entry);
             }
             break;
             }
@@ -777,7 +777,7 @@ Result<Ref<Texture>> RenderingDriverWebGPU::create_texture(uint32_t width, uint3
 
 Ref<Material> RenderingDriverWebGPU::create_material(const Ref<Shader>& shader, std::optional<InstanceLayout> instance_layout, MaterialFlags flags, PolygonMode polygon_mode, CullMode cull_mode, UVType uv_type)
 {
-    std::vector<WGPUBindGroupLayoutEntry> entries = convert_bindings(shader);
+    Vector<WGPUBindGroupLayoutEntry> entries = convert_bindings(shader);
 
     WGPUBindGroupLayoutDescriptor bind_group_desc{};
     bind_group_desc.entryCount = entries.size();
@@ -996,20 +996,20 @@ WGPUShaderModule RenderingDriverWebGPU::create_shader_module(const Ref<Shader>& 
 
 Result<WGPURenderPipeline> RenderingDriverWebGPU::create_render_pipeline(Ref<Shader> shader, UVType uv_type, std::optional<InstanceLayout> instance_layout, WGPUCullMode cull_mode, MaterialFlags flags, WGPUPipelineLayout pipeline_layout, const Vector<RenderPassColorAttachment>& color_attachs, bool previous_depth_pass)
 {
-    std::vector<WGPUVertexBufferLayout> buffers;
+    Vector<WGPUVertexBufferLayout> buffers;
     buffers.reserve(instance_layout.has_value() ? 4 : 3);
 
     WGPUVertexAttribute vertex_attrib{};
     vertex_attrib.format = WGPUVertexFormat_Float32x3;
     vertex_attrib.offset = 0;
     vertex_attrib.shaderLocation = 0;
-    buffers.push_back(WGPUVertexBufferLayout{.stepMode = WGPUVertexStepMode_Vertex, .arrayStride = sizeof(glm::vec3), .attributeCount = 1, .attributes = &vertex_attrib});
+    buffers.append(WGPUVertexBufferLayout{.stepMode = WGPUVertexStepMode_Vertex, .arrayStride = sizeof(glm::vec3), .attributeCount = 1, .attributes = &vertex_attrib});
 
     WGPUVertexAttribute normal_attrib{};
     normal_attrib.format = WGPUVertexFormat_Float32x3;
     normal_attrib.offset = 0;
     normal_attrib.shaderLocation = 1;
-    buffers.push_back(WGPUVertexBufferLayout{.stepMode = WGPUVertexStepMode_Vertex, .arrayStride = sizeof(glm::vec3), .attributeCount = 1, .attributes = &normal_attrib});
+    buffers.append(WGPUVertexBufferLayout{.stepMode = WGPUVertexStepMode_Vertex, .arrayStride = sizeof(glm::vec3), .attributeCount = 1, .attributes = &normal_attrib});
 
     WGPUVertexAttribute uv_attrib{};
     if (uv_type == UVType::UV)
@@ -1017,17 +1017,17 @@ Result<WGPURenderPipeline> RenderingDriverWebGPU::create_render_pipeline(Ref<Sha
         uv_attrib.format = WGPUVertexFormat_Float32x2;
         uv_attrib.offset = 0;
         uv_attrib.shaderLocation = 2;
-        buffers.push_back(WGPUVertexBufferLayout{.stepMode = WGPUVertexStepMode_Vertex, .arrayStride = sizeof(glm::vec2), .attributeCount = 1, .attributes = &uv_attrib});
+        buffers.append(WGPUVertexBufferLayout{.stepMode = WGPUVertexStepMode_Vertex, .arrayStride = sizeof(glm::vec2), .attributeCount = 1, .attributes = &uv_attrib});
     }
     else if (uv_type == UVType::UVT)
     {
         uv_attrib.format = WGPUVertexFormat_Float32x3;
         uv_attrib.offset = 0;
         uv_attrib.shaderLocation = 2;
-        buffers.push_back(WGPUVertexBufferLayout{.stepMode = WGPUVertexStepMode_Vertex, .arrayStride = sizeof(glm::vec3), .attributeCount = 1, .attributes = &uv_attrib});
+        buffers.append(WGPUVertexBufferLayout{.stepMode = WGPUVertexStepMode_Vertex, .arrayStride = sizeof(glm::vec3), .attributeCount = 1, .attributes = &uv_attrib});
     }
 
-    std::vector<WGPUVertexAttribute> instance_attribs;
+    Vector<WGPUVertexAttribute> instance_attribs;
 
     if (instance_layout)
     {
@@ -1038,10 +1038,10 @@ Result<WGPURenderPipeline> RenderingDriverWebGPU::create_render_pipeline(Ref<Sha
         {
             const InstanceLayoutInput& input = layout.inputs.get_unchecked(i);
             const WGPUVertexFormat format = convert_shader_type(input.type);
-            instance_attribs.push_back(WGPUVertexAttribute{.format = format, .offset = input.offset, .shaderLocation = static_cast<uint32_t>(3 + i)});
+            instance_attribs.append(WGPUVertexAttribute{.format = format, .offset = input.offset, .shaderLocation = static_cast<uint32_t>(3 + i)});
         }
 
-        buffers.push_back(WGPUVertexBufferLayout{.stepMode = WGPUVertexStepMode_Instance, .arrayStride = layout.stride, .attributeCount = instance_attribs.size(), .attributes = instance_attribs.data()});
+        buffers.append(WGPUVertexBufferLayout{.stepMode = WGPUVertexStepMode_Instance, .arrayStride = layout.stride, .attributeCount = instance_attribs.size(), .attributes = instance_attribs.data()});
     }
 
     WGPUShaderModule module = create_shader_module(shader);
@@ -1078,12 +1078,12 @@ Result<WGPURenderPipeline> RenderingDriverWebGPU::create_render_pipeline(Ref<Sha
         blend_state.alpha.operation = WGPUBlendOperation_Add;
     }
 
-    std::vector<WGPUColorTargetState> color_states;
+    Vector<WGPUColorTargetState> color_states;
 
     for (const auto& color_attach : color_attachs)
     {
         (void)color_attach;
-        color_states.push_back(WGPUColorTargetState{.nextInChain = nullptr, .format = m_surface_format, .blend = &blend_state, .writeMask = WGPUColorWriteMask_All});
+        color_states.append(WGPUColorTargetState{.nextInChain = nullptr, .format = m_surface_format, .blend = &blend_state, .writeMask = WGPUColorWriteMask_All});
     }
 
     const String& fragment_ep = shader->get_entry_point(ShaderStageFlagBits::Fragment);
@@ -1250,9 +1250,9 @@ void TextureWebGPU::generate_mips()
         return;
     }
 
-    std::vector<WGPUTextureView> mip_views;
-    std::vector<WGPUTextureView> mip_storage_views;
-    std::vector<Extent2D> mip_sizes;
+    Vector<WGPUTextureView> mip_views;
+    Vector<WGPUTextureView> mip_storage_views;
+    Vector<Extent2D> mip_sizes;
 
     Extent2D previous_size;
     for (uint32_t layer = 0; layer < m_layers; layer++)
@@ -1265,7 +1265,7 @@ void TextureWebGPU::generate_mips()
                                                  .with_array_layers(layer, 1)
                                                  .with_usage(WGPUTextureUsage_TextureBinding);
             WGPUTextureView view = wgpuTextureCreateView(texture, &desc);
-            mip_views.push_back(view);
+            mip_views.append(view);
 
             WGPUTextureViewDescriptor storage_desc = wgpu::TextureViewDescriptor()
                                                          .with_format(convert_texture_format(format))
@@ -1274,10 +1274,10 @@ void TextureWebGPU::generate_mips()
                                                          .with_array_layers(layer, 1)
                                                          .with_usage(WGPUTextureUsage_StorageBinding);
             WGPUTextureView view_storage = wgpuTextureCreateView(texture, &storage_desc);
-            mip_storage_views.push_back(view_storage);
+            mip_storage_views.append(view_storage);
 
             Extent2D size = i == 0 ? Extent2D(m_width, m_height) : Extent2D(previous_size.width / 2, previous_size.height / 2);
-            mip_sizes.push_back(size);
+            mip_sizes.append(size);
             previous_size = size;
         }
 
@@ -1290,8 +1290,8 @@ void TextureWebGPU::generate_mips()
             uint32_t index = layer * m_mip_level + i;
 
             WGPUBindGroupEntry entries[] = {
-                wgpu::BindGroupEntry().with_binding(0).with_texture_view(mip_views[index - 1]),
-                wgpu::BindGroupEntry().with_binding(1).with_texture_view(mip_storage_views[index]),
+                wgpu::BindGroupEntry().with_binding(0).with_texture_view(mip_views.get_unchecked(index - 1)),
+                wgpu::BindGroupEntry().with_binding(1).with_texture_view(mip_storage_views.get_unchecked(index)),
             };
             WGPUBindGroupDescriptor desc{
                 .nextInChain = nullptr,
@@ -1302,7 +1302,7 @@ void TextureWebGPU::generate_mips()
             };
             WGPUBindGroup bind_group = wgpuDeviceCreateBindGroup(RenderingDriverWebGPU::get()->m_device, &desc);
 
-            Extent2D mip_size = mip_sizes[index];
+            Extent2D mip_size = mip_sizes.get_unchecked(index);
 
             wgpuComputePassEncoderSetPipeline(encoder, RenderingDriverWebGPU::get()->m_mipmap_pipeline);
             wgpuComputePassEncoderSetBindGroup(encoder, 0, bind_group, 0, nullptr);

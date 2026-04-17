@@ -5,7 +5,7 @@ ThreadPool::ThreadPool(size_t num_threads)
 {
     for (size_t i = 0; i < num_threads; i++)
     {
-        m_threads.emplace_back(&ThreadPool::thread_worker, this);
+        EXPECT(m_threads.emplace(&ThreadPool::thread_worker, this));
     }
 }
 

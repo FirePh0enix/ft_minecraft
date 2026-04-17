@@ -114,6 +114,9 @@ public:
     StringView slice(size_t offset, size_t length) const { return StringView(*this).slice(offset, length); }
     StringView slice(size_t offset) const { return StringView(*this).slice(offset); }
 
+    template <typename T>
+    T parse_int() const { return StringView(*this).parse_int<T>(); }
+
 protected:
     static std::strong_ordering compare(const char *str1, size_t size1, const char *str2, size_t size2)
     {

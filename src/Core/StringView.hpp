@@ -2,7 +2,6 @@
 
 #include <cstring>
 #include <filesystem>
-#include <string>
 
 #include "Core/Definitions.hpp"
 
@@ -56,6 +55,16 @@ public:
 
     StringView slice(size_t offset, size_t length) const;
     StringView slice(size_t offset) const { return slice(offset, m_size - offset); }
+
+    template <typename T>
+    T parse_int() const
+    {
+        T r = 0;
+        size_t i = 0;
+        for (; i < m_size && std::isdigit(m_data[i]); i++)
+            r = r * 10 + (m_data[i] - '0');
+        return r;
+    }
 
 private:
     const char *m_data;

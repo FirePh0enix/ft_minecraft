@@ -71,7 +71,7 @@ public:
     };
 
 private:
-    std::vector<std::pair<Key, RenderPipelineCacheValue>> m_pipelines;
+    Vector<std::pair<Key, RenderPipelineCacheValue>> m_pipelines;
 
     std::optional<RenderPipelineCacheValue> get(Key key);
 };

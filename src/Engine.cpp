@@ -191,11 +191,11 @@ Result<void> Engine::draw_world_scene()
 
 void Engine::create_world_and_start()
 {
-    uint64_t seed = std::stoull(m_world_seed_buf);
+    uint64_t seed = StringView(m_world_seed_buf).parse_int<uint64_t>();
     m_world = newref<World>(seed);
 
     m_player = newobj(Player);
-    m_player->get_transform().position() = glm::vec3(0, 12.0, 0);
+    m_player->get_transform().position() = glm::vec3(0, 70.0, 0);
     m_world->add_entity(World::overworld, m_player);
 
     m_scene = EngineScene::World;

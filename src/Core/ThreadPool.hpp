@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Core/Containers/LocalVector.hpp"
 #include "Core/Containers/Vector.hpp"
 
 #include <condition_variable>
@@ -17,9 +18,7 @@ public:
     Result<void> async(std::function<void()> task);
 
 private:
-    // TODO: Vector cannot work here since `std::thread` cannot be copied during COW operation. Only option would be to implement a version that
-    //       does not do this.
-    std::vector<std::thread> m_threads;
+    LocalVector<std::thread> m_threads;
 
     std::mutex m_queue_mutex;
     Vector<std::function<void()>> m_tasks;

@@ -117,16 +117,16 @@ void BlockRegistry::create_gpu_resources()
     s_texture_array->generate_mips();
 
     s_texture_registry_buffer = RenderingDriver::get()->create_buffer(s_blocks.size() * sizeof(glm::uvec4), BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Storage).value();
-    std::vector<glm::uvec4> textures;
+    Vector<glm::uvec4> textures;
 
     for (const Ref<Block>& block : s_blocks)
     {
         std::array<uint32_t, 6> block_textures = block->get_texture_ids();
-        textures.push_back(glm::uvec4(
+        EXPECT(textures.append(glm::uvec4(
             (block_textures[0] & 0xFF) | ((block_textures[1] & 0xFF) << 16),
             (block_textures[2] & 0xFF) | ((block_textures[3] & 0xFF) << 16),
             (block_textures[4] & 0xFF) | ((block_textures[5] & 0xFF) << 16),
-            0));
+            0)));
     }
 
     s_texture_registry_buffer->update(View(textures).as_bytes());
