@@ -62,14 +62,6 @@ void World::draw(RenderPassEncoder& encoder, bool include_entities)
     m_env.view_matrix = m_camera->get_view_proj_matrix();
     update_environment_buffer();
 
-    // std::map<ChunkPos, Ref<Chunk>> chunks;
-
-    // // Create a copy of the chunk map and iterate on it later. Safe to do since `Chunk` is ref-counted.
-    // {
-    //     std::unique_lock<std::mutex> guard(m_dims[0].mutex());
-    //     chunks = m_dims[0].get_chunks();
-    // }
-
     for (const auto& [key, chunk] : m_dims[0].get_chunks())
     {
         // ChunkPos pos = chunk->pos();
@@ -103,8 +95,6 @@ void World::draw(RenderPassEncoder& encoder, bool include_entities)
             encoder.draw(mesh->vertex_count(), 1);
         }
     }
-
-    // println("RenderGraph::size = {}", RenderGraph::get().get_instructions().size());
 }
 
 BlockState World::get_block_state(int64_t x, int64_t y, int64_t z) const
@@ -216,19 +206,19 @@ void World::load_around_player()
                                                   } }));
     }
 
-    // std::unique_lock<std::mutex> lock(m_dims[0].mutex());
-    // for (const auto& [pos, chunk] : m_dims[0].m_chunks)
-    // {
-    //     if (pos.x >= player_cx - m_load_distance && pos.x <= player_cx + m_load_distance && pos.z >= player_cz - m_load_distance && pos.z <= player_cz + m_load_distance)
-    //     {
-    //         continue;
-    //     }
+    std::unique_lock<std::mutex> lock(m_dims[0].mutex());
+    for (const auto& [pos, chunk] : m_dims[0].m_chunks)
+    {
+        if (pos.x >= player_cx - m_load_distance && pos.x <= player_cx + m_load_distance && pos.z >= player_cz - m_load_distance && pos.z <= player_cz + m_load_distance)
+        {
+            continue;
+        }
 
-    //     EXPECT(m_generation_thread_pool.async([this, pos]
-    //                                           {
-    //                                             std::unique_lock<std::mutex> lock(m_dims[0].mutex());
-    //                                             (void)m_dims[0].remove_chunk(pos.x, pos.z); }));
-    // }
+        EXPECT(m_generation_thread_pool.async([this, pos]
+                                              {
+                                                std::unique_lock<std::mutex> lock(m_dims[0].mutex());
+                                                (void)m_dims[0].remove_chunk(pos.x, pos.z); }));
+    }
 }
 
 inline void adjust_on_boundary(double rcomp, int64_t& vcomp, double dcomp, double eps = 1e-12)
