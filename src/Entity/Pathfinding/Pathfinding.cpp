@@ -2,6 +2,10 @@
 #include "Core/Print.hpp"
 #include <cstddef>
 
+constexpr int straight = 10;
+constexpr int diag_xz = 14;
+constexpr int vertical = 18;
+
 Node *Pathfinding::node_from_world_point(const glm::vec3& pos)
 {
     glm::ivec3 key(std::floor(pos.x), std::floor(pos.y), std::floor(pos.z));
@@ -41,9 +45,20 @@ std::vector<Node *> Pathfinding::get_neighbors(const Node& node)
 {
     std::vector<Node *> neighbors;
 
-    // TODO: Add diagonal.
     static const std::vector<glm::ivec3> directions = {
-        {1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}};
+        {1, 0, 0},
+        {-1, 0, 0},
+        {0, 0, 1},
+        {0, 0, -1},
+
+        {-1, 0, 1},
+        {1, 0, 1},
+        {-1, 0, -1},
+        {1, 0, -1},
+
+        {0, 1, 0},
+        {0, -1, 0},
+    };
 
     for (const glm::ivec3& dir : directions)
     {
@@ -59,6 +74,20 @@ std::vector<Node *> Pathfinding::get_neighbors(const Node& node)
 
         if (!is_walkable(neighbor_pos, remaining_jump))
             continue;
+
+        glm::ivec3 d = neighbor_pos - node.m_gridPos;
+
+        // diagonal in XZ.
+        if (d.y == 0 && std::abs(d.x) == 1 && std::abs(d.z) == 1)
+        {
+            glm::ivec3 side1(node.m_gridPos.x + d.x, node.m_gridPos.y, node.m_gridPos.z);
+            glm::ivec3 side2(node.m_gridPos.x, node.m_gridPos.y, node.m_gridPos.z + d.z);
+
+            // if either side cell is occupied, don't cut the corner.
+            if (!m_world->get_block_state(side1.x, side1.y, side1.z).is_air() ||
+                !m_world->get_block_state(side2.x, side2.y, side2.z).is_air())
+                continue;
+        }
 
         Node *neighbor_node = nullptr;
         auto it = m_nodes.find(neighbor_pos);
@@ -79,16 +108,17 @@ std::vector<Node *> Pathfinding::get_neighbors(const Node& node)
     return neighbors;
 }
 
-int Pathfinding::get_distance(const Node& node_a, const Node& node_b)
+int Pathfinding::get_distance(const Node& a, const Node& b)
 {
-    // TODO: Add diagonal heuristic.
-    int dx = std::abs(node_a.m_gridPos.x - node_b.m_gridPos.x);
-    int dz = std::abs(node_a.m_gridPos.z - node_b.m_gridPos.z);
-    int dy = std::abs(node_a.m_gridPos.y - node_b.m_gridPos.y);
+    int dx = std::abs(a.m_gridPos.x - b.m_gridPos.x);
+    int dz = std::abs(a.m_gridPos.z - b.m_gridPos.z);
+    int dy = std::abs(a.m_gridPos.y - b.m_gridPos.y);
 
-    int horizontal = (dx > dz) ? 14 * dz + 10 * (dx - dz) : 14 * dx + 10 * (dz - dx);
+    int diag_dir = std::min(dx, dz);
+    int straight_dir = std::max(dx, dz) - diag_dir;
 
-    return horizontal + 10 * dy;
+    int horizontal = diag_xz * diag_dir + straight * straight_dir;
+    return horizontal + vertical * dy;
 }
 
 void Pathfinding::retrace_path(Node *start_node, Node *end_node)
@@ -107,7 +137,7 @@ void Pathfinding::retrace_path(Node *start_node, Node *end_node)
         m_path.push_back(start_node);
 
     std::reverse(m_path.begin(), m_path.end());
-    
+
     println("-- Path Found --");
     for (size_t i = 0; i < m_path.size(); i++)
     {
