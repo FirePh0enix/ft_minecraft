@@ -149,10 +149,11 @@ void Cow::tick(float delta)
         const size_t next_index = std::clamp(index + 1, index, last_index);
 
         const glm::vec3 cow_pos = get_global_transform().position();
-        const glm::ivec3 cow_grid_pos = glm::ivec3(std::round(cow_pos.x), std::round(cow_pos.y), std::round(cow_pos.z));
+        const glm::ivec3 cow_grid_pos = glm::ivec3(std::floor(cow_pos.x), std::floor(cow_pos.y), std::floor(cow_pos.z));
 
         // Ensure actual node and next node are still walkable, else find a new path.
-        if (!m_pathfinding->is_walkable(m_pathfinding->m_path[index]->m_position, 1) || !m_pathfinding->is_walkable(m_pathfinding->m_path[next_index]->m_position, 1))
+        if (!m_pathfinding->is_walkable(m_pathfinding->m_path[index]->m_gridPos, 1) ||
+            !m_pathfinding->is_walkable(m_pathfinding->m_path[next_index]->m_gridPos, 1))
         {
             // Target is still last node.
             const glm::vec3 target_pos = m_pathfinding->m_path[last_index]->m_position;
@@ -290,7 +291,7 @@ static glm::ivec3 find_flee_target(
 
         float dist = glm::distance(glm::vec3(pos), glm::vec3(threat));
 
-        float noise = (float)std::rand() / RAND_MAX * 2.0f - 1.0f;
+        float noise = static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX) * 2.0f - 1.0f;
 
         float score = dist + noise;
 
@@ -311,7 +312,5 @@ void Cow::flee_from(const Entity& threat, int radius)
     glm::ivec3 threat_grid = glm::ivec3(glm::round(threat.get_global_transform().position()));
 
     glm::ivec3 target = find_flee_target(*m_pathfinding, cow_grid, threat_grid, radius);
-
     m_pathfinding->find_path(cow_grid, target);
-    println("Cow fleeing to [{} {} {}]", target.x, target.y, target.z);
 }
