@@ -48,11 +48,6 @@ public:
         return s_texture_array;
     }
 
-    static inline const Ref<Buffer>& get_texture_buffer()
-    {
-        return s_texture_registry_buffer;
-    }
-
     static inline const Vector<Ref<Block>>& get_blocks()
     {
         return s_blocks;

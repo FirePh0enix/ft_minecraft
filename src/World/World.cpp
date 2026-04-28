@@ -22,8 +22,6 @@ World::World(uint64_t seed)
     m_dims[overworld].m_world = this;
     EXPECT(m_dims[overworld].m_generation_passes.append(newobj(OverworldBiomePass)));
     EXPECT(m_dims[overworld].m_generation_passes.append(newobj(OverworldSurfacePass)));
-
-    println("expected chunk number is `{}`", ((m_load_distance * 2 + 1) * (m_load_distance * 2 + 1)));
 }
 
 World::~World()
@@ -64,13 +62,12 @@ void World::draw(RenderPassEncoder& encoder, bool include_entities)
 
     for (const auto& [key, chunk] : m_dims[0].get_chunks())
     {
-        // ChunkPos pos = chunk->pos();
-        // AABB aabb = AABB(glm::vec3((float)pos.x * Chunk::width + Chunk::width / 2.0, (float)pos.y * Chunk::width + Chunk::width / 2.0, (float)pos.z * Chunk::width + Chunk::width / 2.0),
-        //                  glm::vec3(Chunk::width / 2.0, Chunk::width / 2, Chunk::width / 2));
-        // (void)aabb;
+        ChunkPos pos = chunk->pos();
+        AABB aabb = AABB(glm::vec3((float)pos.x * Chunk::width + Chunk::width / 2.0, float(Chunk::height) / 2.0, (float)pos.z * Chunk::width + Chunk::width / 2.0),
+                         glm::vec3(Chunk::width / 2.0, Chunk::height, Chunk::width / 2));
 
-        // if (!m_camera->frustum().contains(aabb))
-        //    continue;;
+        if (!m_camera->frustum().contains(aabb))
+            continue;
 
         const Chunk::Slice *slices = chunk->get_slices();
 
@@ -247,6 +244,9 @@ std::optional<RaycastResult> World::raycast(const Ray& ray, float range)
     adjust_on_boundary(ro.x, vx, rd.x);
     adjust_on_boundary(ro.y, vy, rd.y);
     adjust_on_boundary(ro.z, vz, rd.z);
+
+    if (vy >= Chunk::height)
+        return std::nullopt;
 
     // If starting inside a solid voxel, report immediate hit at t=0
     if (!get_block_state(vx, vy, vz).is_air())

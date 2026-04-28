@@ -102,7 +102,7 @@ void BlockRegistry::create_gpu_resources()
 {
     uint32_t mip_level = 4;
     auto texture_array_result = RenderingDriver::get()->create_texture(16, 16, TextureFormat::RGBA8Unorm, TextureUsageFlagBits::CopyDest | TextureUsageFlagBits::Sampled, TextureDimension::D2DArray, s_textures.size(), mip_level);
-    ERR_COND_R(texture_array_result->is_null(), "Cannot create the block texture array");
+    ERR_COND_R(texture_array_result.has_error(), "Cannot create the block texture array");
 
     s_texture_array = texture_array_result.value();
 
@@ -115,21 +115,6 @@ void BlockRegistry::create_gpu_resources()
     }
 
     s_texture_array->generate_mips();
-
-    s_texture_registry_buffer = RenderingDriver::get()->create_buffer(s_blocks.size() * sizeof(glm::uvec4), BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Storage).value();
-    Vector<glm::uvec4> textures;
-
-    for (const Ref<Block>& block : s_blocks)
-    {
-        std::array<uint32_t, 6> block_textures = block->get_texture_ids();
-        EXPECT(textures.append(glm::uvec4(
-            (block_textures[0] & 0xFF) | ((block_textures[1] & 0xFF) << 16),
-            (block_textures[2] & 0xFF) | ((block_textures[3] & 0xFF) << 16),
-            (block_textures[4] & 0xFF) | ((block_textures[5] & 0xFF) << 16),
-            0)));
-    }
-
-    s_texture_registry_buffer->update(View(textures).as_bytes());
 }
 
 void BlockRegistry::destroy()

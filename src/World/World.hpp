@@ -117,7 +117,7 @@ private:
 
     // Thread pool used for chunk loading/unloading.
     ThreadPool m_generation_thread_pool;
-    uint32_t m_load_distance = 4;
+    uint32_t m_load_distance = 6;
 
     Ref<Camera> m_camera;
     Ref<Shader> m_shader;

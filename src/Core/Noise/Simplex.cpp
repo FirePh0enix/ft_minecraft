@@ -23,20 +23,20 @@ float SimplexNoise::sample(glm::vec2 coords) const
 
     float n0, n1, n2;
 
-    const float F2 = 0.366025403f;
-    const float G2 = 0.211324865f;
+    const float f2 = 0.366025403f;
+    const float g2 = 0.211324865f;
 
-    float s = (x + y) * F2;
+    float s = (x + y) * f2;
     float xs = x + s;
     float ys = y + s;
     int i = glm::floor(xs);
     int j = glm::floor(ys);
 
-    float t = float(i + j) * G2;
-    float X0 = float(i) - t;
-    float Y0 = float(j) - t;
-    float x0 = x - X0;
-    float y0 = y - Y0;
+    float t = float(i + j) * g2;
+    float big_x0 = float(i) - t;
+    float big_y0 = float(j) - t;
+    float x0 = x - big_x0;
+    float y0 = y - big_y0;
 
     int i1, j1;
     if (x0 > y0)
@@ -50,10 +50,10 @@ float SimplexNoise::sample(glm::vec2 coords) const
         j1 = 1;
     }
 
-    float x1 = x0 - float(i1) + G2;
-    float y1 = y0 - float(j1) + G2;
-    float x2 = x0 - 1.0f + 2.0f * G2;
-    float y2 = y0 - 1.0f + 2.0f * G2;
+    float x1 = x0 - float(i1) + g2;
+    float y1 = y0 - float(j1) + g2;
+    float x2 = x0 - 1.0f + 2.0f * g2;
+    float y2 = y0 - 1.0f + 2.0f * g2;
 
     int gi0 = m_perms[i + m_perms[j]];
     int gi1 = m_perms[i + i1 + m_perms[j + j1]];
@@ -95,21 +95,21 @@ float SimplexNoise::sample(glm::vec3 coords) const
 
     float n0, n1, n2, n3;
 
-    const float F3 = 1.0 / 3.0;
-    const float G3 = 1.0 / 6.0;
+    const float f3 = 1.0 / 3.0;
+    const float g3 = 1.0 / 6.0;
 
-    float s = (x + y + z) * F3;
+    float s = (x + y + z) * f3;
     int i = glm::floor(x + s);
     int j = glm::floor(y + s);
     int k = glm::floor(z + s);
 
-    float t = float(i + j + k) * G3;
-    float X0 = float(i) - t;
-    float Y0 = float(j) - t;
-    float Z0 = float(k) - t;
-    float x0 = x - X0;
-    float y0 = y - Y0;
-    float z0 = z - Z0;
+    float t = float(i + j + k) * g3;
+    float big_x0 = float(i) - t;
+    float big_y0 = float(j) - t;
+    float big_z0 = float(k) - t;
+    float x0 = x - big_x0;
+    float y0 = y - big_y0;
+    float z0 = z - big_z0;
 
     int i1, j1, k1;
     int i2, j2, k2;
@@ -175,15 +175,15 @@ float SimplexNoise::sample(glm::vec3 coords) const
         }
     }
 
-    float x1 = x0 - float(i1) + G3;
-    float y1 = y0 - float(j1) + G3;
-    float z1 = z0 - float(k1) + G3;
-    float x2 = x0 - float(i2) + 2.0f * G3;
-    float y2 = y0 - float(j2) + 2.0f * G3;
-    float z2 = z0 - float(k2) + 2.0f * G3;
-    float x3 = x0 - 1.0f + 3.0f * G3;
-    float y3 = y0 - 1.0f + 3.0f * G3;
-    float z3 = z0 - 1.0f + 3.0f * G3;
+    float x1 = x0 - float(i1) + g3;
+    float y1 = y0 - float(j1) + g3;
+    float z1 = z0 - float(k1) + g3;
+    float x2 = x0 - float(i2) + 2.0f * g3;
+    float y2 = y0 - float(j2) + 2.0f * g3;
+    float z2 = z0 - float(k2) + 2.0f * g3;
+    float x3 = x0 - 1.0f + 3.0f * g3;
+    float y3 = y0 - 1.0f + 3.0f * g3;
+    float z3 = z0 - 1.0f + 3.0f * g3;
 
     int gi0 = int(m_perms[i + m_perms[j + m_perms[k]]]);
     int gi1 = int(m_perms[i + i1 + m_perms[j + j1 + m_perms[k + k1]]]);
