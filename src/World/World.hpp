@@ -9,6 +9,12 @@
 #include "World/Chunk.hpp"
 #include "World/Dimension.hpp"
 
+enum WorldPresetType
+{
+    WorldPresetFlat,
+    WorldPresetNormal,
+};
+
 struct Environment
 {
     glm::mat4 view_matrix = glm::identity<glm::mat4>();
@@ -60,7 +66,7 @@ public:
     static constexpr size_t underworld = 1;
     static constexpr size_t max_dimensions = 2;
 
-    World(uint64_t seed);
+    World(uint64_t seed, int type);
     ~World();
 
     void tick(float delta);

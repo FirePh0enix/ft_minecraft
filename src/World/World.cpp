@@ -3,10 +3,11 @@
 #include "Render/Driver.hpp"
 #include "Render/Types.hpp"
 #include "World/Chunk.hpp"
+#include "World/Pass/Flat.hpp"
 #include "World/Pass/Overworld.hpp"
 #include <mutex>
 
-World::World(uint64_t seed)
+World::World(uint64_t seed, int type)
     : m_seed(seed), m_generation_thread_pool(std::thread::hardware_concurrency() - 1)
 {
     m_env_buffer = RenderingDriver::get()->create_buffer(sizeof(Environment), BufferUsageFlagBits::Uniform | BufferUsageFlagBits::CopyDest).value_or(nullptr);
@@ -20,8 +21,17 @@ World::World(uint64_t seed)
 
     // Setup world generation
     m_dims[overworld].m_world = this;
-    EXPECT(m_dims[overworld].m_generation_passes.append(newobj(OverworldBiomePass)));
-    EXPECT(m_dims[overworld].m_generation_passes.append(newobj(OverworldSurfacePass)));
+
+    if (type == WorldPresetFlat)
+    {
+        EXPECT(m_dims[overworld].m_generation_passes.append(newobj(FlatBiomePass)));
+        EXPECT(m_dims[overworld].m_generation_passes.append(newobj(FlatSurfacePass)));
+    }
+    else if (type == WorldPresetNormal)
+    {
+        EXPECT(m_dims[overworld].m_generation_passes.append(newobj(OverworldBiomePass)));
+        EXPECT(m_dims[overworld].m_generation_passes.append(newobj(OverworldSurfacePass)));
+    }
 }
 
 World::~World()
