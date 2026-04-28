@@ -4,6 +4,8 @@
 #include "Entity/Camera.hpp"
 #include "Entity/Entity.hpp"
 #include "Entity/Mob.hpp"
+#include "Model.hpp"
+#include "Render/Driver.hpp"
 #include "Render/Graph.hpp"
 #include "World/Block.hpp"
 #include "World/World.hpp"
@@ -61,6 +63,9 @@ private:
     Ref<Mesh> m_highlight_mesh;
     Ref<Shader> m_highlight_shader;
     Ref<Material> m_highlight_material;
-    Model m_highlight_model;
+    ChunkModel m_highlight_model;
     Ref<Buffer> m_highlight_model_buffer;
+
+    Ref<Model> m_model;
+    Animator m_animator;
 };

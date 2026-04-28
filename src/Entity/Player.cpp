@@ -1,9 +1,11 @@
 #include "Entity/Player.hpp"
+
 #include "AABB.hpp"
 #include "Core/Class.hpp"
 #include "Core/Definitions.hpp"
 #include "Entity/Entity.hpp"
 #include "Input.hpp"
+#include "Model.hpp"
 #include "Profiler.hpp"
 #include "Render/Driver.hpp"
 #include "Render/ImGUIToolKit.hpp"
@@ -12,6 +14,7 @@
 #include "World/Dimension.hpp"
 #include "World/Registry.hpp"
 #include "World/World.hpp"
+#include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/matrix_transform.hpp"
 #include "imgui.h"
 
@@ -156,7 +159,7 @@ void Player::on_ready()
     m_world->set_active_camera(m_camera);
 
     m_highlight_mesh = create_cube_mesh(glm::vec3(1.01f));
-    m_highlight_model_buffer = RenderingDriver::get()->create_buffer(sizeof(Model), BufferUsageFlagBits::Uniform | BufferUsageFlagBits::CopyDest).value_or(nullptr);
+    m_highlight_model_buffer = RenderingDriver::get()->create_buffer(sizeof(ChunkModel), BufferUsageFlagBits::Uniform | BufferUsageFlagBits::CopyDest).value_or(nullptr);
 
     m_highlight_shader = Shader::load("assets/shaders/cube_highlight.wgsl").value_or(nullptr);
     m_highlight_shader->set_binding("env", Binding(BindingKind::UniformBuffer, ShaderStageFlagBits::Vertex, 0, 0, BindingAccess::Read));
@@ -165,6 +168,12 @@ void Player::on_ready()
     m_highlight_material = RenderingDriver::get()->create_material(m_highlight_shader, std::nullopt, MaterialFlagBits::Transparency | MaterialFlagBits::Priority, PolygonMode::Fill, CullMode::Back, UVType::UVT);
     m_highlight_material->set_param("env", m_world->get_env_buffer());
     m_highlight_material->set_param("model", m_highlight_model_buffer);
+
+    m_model = Model::load("assets/models/player.jsonc").value();
+    m_animator.set_model(m_model);
+
+    Model::Info info{.model_matrix = glm::translate(glm::identity<glm::mat4>(), glm::vec3(0.0, 100.0, 0.0))};
+    m_model->get_global_buffer()->update(View(info).as_bytes());
 }
 
 void Player::tick(float delta)
@@ -266,10 +275,29 @@ void Player::tick(float delta)
     {
         Input::set_mouse_grabbed(false);
     }
+
+    // TODO: animation for the cow model
+    m_animator.play("walk");
+    m_animator.tick(delta);
+}
+
+static void encode_cow(RenderPassEncoder& encoder, const Ref<Model>& model)
+{
+    for (const auto& obj : model->objects())
+    {
+        encoder.bind_material(obj.material);
+        encoder.bind_index_buffer(Model::mesh->get_buffer(MeshBufferKind::Index));
+        encoder.bind_vertex_buffer(Model::mesh->get_buffer(MeshBufferKind::Position), 0);
+        encoder.bind_vertex_buffer(Model::mesh->get_buffer(MeshBufferKind::UV), 1);
+        encoder.bind_vertex_buffer(Model::mesh->get_buffer(MeshBufferKind::Normal), 2);
+        encoder.draw(Model::mesh->vertex_count(), 1);
+    }
 }
 
 void Player::draw(RenderPassEncoder& encoder)
 {
+    encode_cow(encoder, m_model);
+
     if (m_aimed_block.has_value())
     {
         m_highlight_model.model_matrix = glm::translate(glm::identity<glm::mat4>(), glm::vec3(m_aimed_block.value()));

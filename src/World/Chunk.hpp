@@ -30,7 +30,7 @@ struct ChunkPos
     }
 };
 
-struct Model
+struct ChunkModel
 {
     glm::mat4 model_matrix = glm::identity<glm::mat4>();
 };
@@ -45,7 +45,7 @@ public:
         Ref<Mesh> mesh = nullptr;
         Ref<Material> material = nullptr;
         Ref<Buffer> model_buffer = nullptr;
-        Model model;
+        ChunkModel model;
         bool empty = true;
 
         bool is_visible() const

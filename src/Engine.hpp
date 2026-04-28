@@ -20,8 +20,11 @@ public:
     bool is_running() const { return m_window->is_running(); }
 
     void tick(float delta);
-
     void draw();
+
+    Ref<World> get_world() { return m_world; }
+
+    static inline Engine *singleton;
 
 private:
     EngineScene m_scene = EngineScene::MainMenu;

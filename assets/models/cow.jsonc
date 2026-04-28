@@ -1,0 +1,37 @@
+{
+    "name": "cow",
+    "objects": [
+        {
+            "name": "body",
+            "size": { "x": 0.6, "y": 0.5, "z": 1.0 },
+            "position": { "x": 0.0, "y": 0.0, "z": 0.0 }
+        },
+
+        {
+            "name": "head",
+            "size": { "x": 0.4, "y": 0.4, "z": 0.4 },
+            "position": { "x": 0.0, "y": 0.4, "z": 0.5 }
+        },
+
+        {
+            "name": "leg_forward_left",
+            "size": { "x": 0.2, "y": 0.4, "z": 0.2 },
+            "position": { "x": 0.25, "y": -0.4, "z": 0.5 }
+        },
+        {
+            "name": "leg_forward_right",
+            "size": { "x": 0.2, "y": 0.4, "z": 0.2 },
+            "position": { "x": -0.25, "y": -0.4, "z": 0.5 }
+        },
+        {
+            "name": "leg_back_left",
+            "size": { "x": 0.2, "y": 0.4, "z": 0.2 },
+            "position": { "x": 0.25, "y": -0.4, "z": -0.5 }
+        },
+        {
+            "name": "leg_back_left",
+            "size": { "x": 0.2, "y": 0.4, "z": 0.2 },
+            "position": { "x": -0.25, "y": -0.4, "z": -0.5 }
+        }
+    ]
+}

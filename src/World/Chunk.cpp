@@ -23,7 +23,7 @@ Chunk::Chunk(int64_t x, int64_t z, World *world)
         Slice& slice = m_slices[i];
 
         slice.model.model_matrix = model_matrix;
-        slice.model_buffer = RenderingDriver::get()->create_buffer(sizeof(Model), BufferUsageFlagBits::Uniform | BufferUsageFlagBits::CopyDest).value_or(nullptr);
+        slice.model_buffer = RenderingDriver::get()->create_buffer(sizeof(ChunkModel), BufferUsageFlagBits::Uniform | BufferUsageFlagBits::CopyDest).value_or(nullptr);
         slice.model_buffer->update(View(slice.model).as_bytes());
 
         slice.material = RenderingDriver::get()->create_material(world->m_shader, std::nullopt, MaterialFlagBits::Transparency, PolygonMode::Fill, CullMode::Back, UVType::UVT);

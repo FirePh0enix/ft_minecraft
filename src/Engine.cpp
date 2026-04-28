@@ -10,10 +10,9 @@
 #include "Render/WebGPU/DriverWebGPU.hpp"
 #include "imgui.h"
 
-#include <string>
-
 Engine::Engine(const Args& args)
 {
+    singleton = this;
     m_window = newobj(Window, "ft_minecraft", 1280, 720);
 
     Input::init(*m_window);
@@ -195,7 +194,7 @@ void Engine::create_world_and_start()
     m_world = newref<World>(seed);
 
     m_player = newobj(Player);
-    m_player->get_transform().position() = glm::vec3(0, 70.0, 0);
+    m_player->get_transform().position() = glm::vec3(0, 100.0, 3);
     m_world->add_entity(World::overworld, m_player);
 
     m_scene = EngineScene::World;
