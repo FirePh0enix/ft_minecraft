@@ -7,6 +7,7 @@
 #include "Render/Types.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/matrix_transform.hpp"
+#include "glm/matrix.hpp"
 #include "glm/trigonometric.hpp"
 
 #include <cmath>
@@ -18,6 +19,7 @@ struct ModelObject
     std::string name;
     std::array<float, 3> size;
     std::array<float, 3> position;
+    std::array<float, 3> origin;
 };
 
 void from_json(const nlohmann::json& j, ModelObject& m)
@@ -25,6 +27,9 @@ void from_json(const nlohmann::json& j, ModelObject& m)
     j.at("name").get_to(m.name);
     j.at("size").get_to(m.size);
     j.at("position").get_to(m.position);
+
+    if (j.contains("origin"))
+        j.at("origin").get_to(m.origin);
 }
 
 struct Transform
@@ -43,28 +48,32 @@ void from_json(const nlohmann::json& j, Transform& m)
         j.at("rotation").get_to(m.rotation);
 }
 
-struct Action
+struct Keyframe
 {
-    float time;
+    uint32_t frame;
     std::vector<Transform> transforms;
 };
 
-void from_json(const nlohmann::json& j, Action& m)
+void from_json(const nlohmann::json& j, Keyframe& m)
 {
-    j.at("time").get_to(m.time);
+    j.at("frame").get_to(m.frame);
     j.at("transforms").get_to(m.transforms);
 }
 
 struct Animation
 {
     std::string name;
-    std::vector<Action> actions;
+    uint32_t fps;
+    uint32_t frames;
+    std::vector<Keyframe> keyframes;
 };
 
 void from_json(const nlohmann::json& j, Animation& m)
 {
     j.at("name").get_to(m.name);
-    j.at("actions").get_to(m.actions);
+    j.at("fps").get_to(m.fps);
+    j.at("frames").get_to(m.frames);
+    j.at("keyframes").get_to(m.keyframes);
 }
 
 struct ModelJSON
@@ -217,8 +226,7 @@ Result<Ref<Model>> Model::load(const StringView& path)
         shader = Shader::load("assets/shaders/model.wgsl").value();
         shader->set_binding("env", Binding(BindingKind::UniformBuffer, ShaderStageFlagBits::Vertex, 0, 0, BindingAccess::Read));
         shader->set_binding("model", Binding(BindingKind::UniformBuffer, ShaderStageFlagBits::Vertex, 0, 1, BindingAccess::Read));
-        shader->set_binding("animation_model", Binding(BindingKind::UniformBuffer, ShaderStageFlagBits::Vertex, 0, 2, BindingAccess::Read));
-        shader->set_binding("global_model", Binding(BindingKind::UniformBuffer, ShaderStageFlagBits::Vertex, 0, 3, BindingAccess::Read));
+        shader->set_binding("global_model", Binding(BindingKind::UniformBuffer, ShaderStageFlagBits::Vertex, 0, 2, BindingAccess::Read));
     }
 
     String source = TRY(Filesystem::open_file(path)).read_to_string();
@@ -233,9 +241,9 @@ Result<Ref<Model>> Model::load(const StringView& path)
         Model::Object obj;
         obj.name.append(object.name.data(), object.name.size());
         obj.model_buffer = TRY(RenderingDriver::get()->create_buffer(sizeof(Model::Info), BufferUsageFlagBits::Uniform | BufferUsageFlagBits::CopyDest));
-        obj.animation_buffer = TRY(RenderingDriver::get()->create_buffer(sizeof(Model::Info), BufferUsageFlagBits::Uniform | BufferUsageFlagBits::CopyDest));
         obj.size = glm::vec3(object.size[0], object.size[1], object.size[2]);
         obj.position = glm::vec3(object.position[0], object.position[1], object.position[2]);
+        obj.origin = glm::vec3(object.origin[0], object.origin[1], object.origin[2]);
         obj.material = RenderingDriver::get()->create_material(shader, std::nullopt, MaterialFlagBits::None, PolygonMode::Fill, CullMode::Back, UVType::UV);
 
         Model::Info info{
@@ -244,12 +252,8 @@ Result<Ref<Model>> Model::load(const StringView& path)
         };
         obj.model_buffer->update(View(info).as_bytes());
 
-        info.model_matrix = glm::identity<glm::mat4>();
-        obj.animation_buffer->update(View(info.model_matrix).as_bytes());
-
         obj.material->set_param("env", Engine::singleton->get_world()->get_env_buffer());
         obj.material->set_param("model", obj.model_buffer);
-        obj.material->set_param("animation_model", obj.animation_buffer);
         obj.material->set_param("global_model", model->m_global_buffer);
 
         TRY(model->m_objects.append(obj));
@@ -259,11 +263,13 @@ Result<Ref<Model>> Model::load(const StringView& path)
     {
         Model::Animation anim;
         anim.name.append(animation.name.data(), animation.name.size());
+        anim.fps = animation.fps;
+        anim.frames = animation.frames;
 
-        for (const auto& action : animation.actions)
+        for (const auto& action : animation.keyframes)
         {
-            Model::Action act;
-            act.time = action.time;
+            Model::Keyframe act;
+            act.frame = action.frame;
 
             for (const auto& transform : action.transforms)
             {
@@ -275,7 +281,7 @@ Result<Ref<Model>> Model::load(const StringView& path)
                 TRY(act.transforms.append(tran));
             }
 
-            TRY(anim.actions.append(act));
+            TRY(anim.keyframes.append(act));
         }
 
         TRY(model->m_animation.append(anim));
@@ -289,7 +295,7 @@ void Animator::set_model(Ref<Model> model)
     m_model = model;
     m_animation_name = "";
     m_time = 0.0;
-    m_animation_index = 0;
+    m_frame = 0;
 }
 
 void Animator::play(String animation)
@@ -299,56 +305,169 @@ void Animator::play(String animation)
 
     m_animation_name = animation;
     m_time = 0.0;
-    m_animation_index = 0;
-
-    for (const auto& object : m_model->objects())
-    {
-        m_previous_transforms[std::string(object.name.data())] = Model::Transform();
-    }
+    m_frame = 0;
 }
 
 void Animator::tick(float delta)
 {
-    Model::Animation animation = m_model->get_animation(m_animation_name).value(); // TODO: check errors
-
-    if (m_animation_index >= animation.actions.size())
+    std::optional<Model::Animation> animation_maybe = m_model->get_animation(m_animation_name);
+    if (!animation_maybe.has_value())
     {
-        // loop the animation
-        m_animation_index = 0;
-        m_time = 0;
+        return;
     }
 
-    const Model::Action& action = animation.actions.get_unchecked(m_animation_index);
+    Model::Animation animation = animation_maybe.value();
 
-    for (const auto& transform : action.transforms)
+    update_model_animation_buffer();
+
+    const float frame_time = 1.0f / float(animation.fps);
+    m_time += delta;
+    if (m_time >= frame_time)
     {
-        std::optional<Model::Object> obj_maybe = m_model->get_object(transform.object_name);
-        if (!obj_maybe.has_value())
+        m_frame = (m_frame + 1) % animation.frames;
+        m_time -= frame_time;
+    }
+}
+
+void Animator::update_model_animation_buffer()
+{
+    std::optional<Model::Animation> animation_maybe = m_model->get_animation(m_animation_name);
+    if (!animation_maybe.has_value())
+    {
+        return;
+    }
+
+    Model::Animation animation = animation_maybe.value();
+
+    for (Model::Object& object : m_model->objects())
+    {
+        std::optional<TransformWithLength> current_twl_maybe = get_current_transform(object.name);
+        std::optional<TransformWithLength> next_twl_maybe = get_next_transform(object.name);
+
+        if (!current_twl_maybe.has_value() || !next_twl_maybe.has_value())
+        {
             continue;
+        }
 
-        Model::Object obj = obj_maybe.value();
+        TransformWithLength current_twl = current_twl_maybe.value();
+        TransformWithLength next_twl = next_twl_maybe.value();
 
-        const Model::Transform& previous_transform = m_previous_transforms[std::string(obj.name.data())];
-        float x = std::lerp(previous_transform.rotation.x, transform.rotation.x, m_time / action.time);
-        float y = std::lerp(previous_transform.rotation.y, transform.rotation.y, m_time / action.time);
-        float z = std::lerp(previous_transform.rotation.z, transform.rotation.z, m_time / action.time);
+        float t = 0.0;
+        if (current_twl.frame_index < next_twl.frame_index)
+        {
+            t = float(m_frame - current_twl.frame_index) / float(next_twl.frame_index - current_twl.frame_index);
+        }
+        else
+        {
+            t = float(m_frame - current_twl.frame_index) / float(current_twl.frame_index - next_twl.frame_index);
+        }
+
+        const float x = std::lerp(current_twl.transform.rotation.x, next_twl.transform.rotation.x, t);
+        const float y = std::lerp(current_twl.transform.rotation.y, next_twl.transform.rotation.y, t);
+        const float z = std::lerp(current_twl.transform.rotation.z, next_twl.transform.rotation.z, t);
+
+        const glm::mat4 scale_m = glm::scale(glm::identity<glm::mat4>(), object.size);
+        const glm::mat4 translate_m = glm::translate(glm::identity<glm::mat4>(), object.position + object.origin);
 
         const glm::mat4 rotation_m = glm::rotate(glm::identity<glm::mat4>(), glm::radians(x), glm::vec3(1.0, 0.0, 0.0)) * glm::rotate(glm::identity<glm::mat4>(), glm::radians(y), glm::vec3(0.0, 1.0, 0.0)) * glm::rotate(glm::identity<glm::mat4>(), glm::radians(z), glm::vec3(0.0, 0.0, 1.0));
-        const glm::mat4 translate_m = glm::translate(glm::identity<glm::mat4>(), transform.position);
-
+        const glm::mat4 origin_m = glm::translate(glm::identity<glm::mat4>(), -object.origin);
         Model::Info info{
-            .model_matrix = rotation_m * translate_m,
+            .model_matrix = translate_m * rotation_m * origin_m * scale_m,
         };
-        obj.animation_buffer->update(View(info).as_bytes());
+        object.model_buffer->update(View(info).as_bytes());
+    }
+}
+
+std::optional<Model::Keyframe> Animator::get_keyframe_for_frame(uint32_t frame) const
+{
+    std::optional<Model::Animation> animation_maybe = m_model->get_animation(m_animation_name);
+    if (!animation_maybe.has_value())
+        return std::nullopt;
+    Model::Animation animation = animation_maybe.value();
+
+    for (const auto& keyframe : animation.keyframes)
+    {
+        if (keyframe.frame == frame)
+            return keyframe;
     }
 
-    if (m_time >= action.time)
+    return std::nullopt;
+}
+
+std::optional<Animator::TransformWithLength> Animator::get_current_transform(String object_name) const
+{
+    std::optional<Model::Animation> animation_maybe = m_model->get_animation(m_animation_name);
+    if (!animation_maybe.has_value())
+        return std::nullopt;
+    Model::Animation animation = animation_maybe.value();
+
+    uint32_t current_frame = m_frame;
+
+    for (int32_t frame = int32_t(m_frame); frame >= 0; frame--)
     {
-        m_time -= action.time;
-        m_animation_index += 1;
+        std::optional<Model::Keyframe> kf_maybe = get_keyframe_for_frame(frame);
+        if (!kf_maybe.has_value())
+            continue;
+        Model::Keyframe kf = kf_maybe.value();
+
+        for (const auto& transform : kf.transforms)
+        {
+            if (transform.object_name == object_name)
+                return Animator::TransformWithLength{.transform = transform, .frame_index = uint32_t(frame)};
+        }
     }
-    else
+
+    for (uint32_t frame = animation.frames - 1; frame > current_frame; frame--)
     {
-        m_time += delta;
+        std::optional<Model::Keyframe> kf_maybe = get_keyframe_for_frame(frame);
+        if (!kf_maybe.has_value())
+            continue;
+        Model::Keyframe kf = kf_maybe.value();
+
+        for (const auto& transform : kf.transforms)
+        {
+            if (transform.object_name == object_name)
+                return Animator::TransformWithLength{.transform = transform, .frame_index = uint32_t(frame)};
+        }
     }
+
+    return std::nullopt;
+}
+
+std::optional<Animator::TransformWithLength> Animator::get_next_transform(String object_name) const
+{
+    std::optional<Model::Animation> animation_maybe = m_model->get_animation(m_animation_name);
+    if (!animation_maybe.has_value())
+        return std::nullopt;
+    Model::Animation animation = animation_maybe.value();
+
+    for (uint32_t frame = m_frame + 1; frame < animation.frames; frame++)
+    {
+        std::optional<Model::Keyframe> kf_maybe = get_keyframe_for_frame(frame);
+        if (!kf_maybe.has_value())
+            continue;
+        Model::Keyframe kf = kf_maybe.value();
+
+        for (const auto& transform : kf.transforms)
+        {
+            if (transform.object_name == object_name)
+                return Animator::TransformWithLength{.transform = transform, .frame_index = uint32_t(frame)};
+        }
+    }
+
+    for (uint32_t frame = 0; frame < animation.frames + 1; frame++)
+    {
+        std::optional<Model::Keyframe> kf_maybe = get_keyframe_for_frame(frame);
+        if (!kf_maybe.has_value())
+            continue;
+        Model::Keyframe kf = kf_maybe.value();
+
+        for (const auto& transform : kf.transforms)
+        {
+            if (transform.object_name == object_name)
+                return Animator::TransformWithLength{.transform = transform, .frame_index = uint32_t(frame)};
+        }
+    }
+
+    return std::nullopt;
 }

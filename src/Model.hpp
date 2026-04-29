@@ -22,10 +22,9 @@ public:
 
         glm::vec3 size;
         glm::vec3 position;
+        glm::vec3 origin;
 
-        // Instance of `Info`.
         Ref<Buffer> model_buffer;
-        Ref<Buffer> animation_buffer;
         Ref<Material> material;
     };
 
@@ -36,16 +35,18 @@ public:
         glm::vec3 rotation;
     };
 
-    struct Action
+    struct Keyframe
     {
-        float time;
+        uint32_t frame;
         Vector<Transform> transforms;
     };
 
     struct Animation
     {
         String name;
-        Vector<Action> actions;
+        uint32_t fps;
+        uint32_t frames;
+        Vector<Keyframe> keyframes;
     };
 
     static Result<Ref<Model>> load(const StringView& path);
@@ -74,7 +75,6 @@ public:
         return std::nullopt;
     }
 
-    // This is a simple 1x1x1 cube scaled when rendering the model.
     static inline Ref<Mesh> mesh;
     static inline Ref<Shader> shader;
 
@@ -92,11 +92,23 @@ public:
     void play(String animation);
     void tick(float delta);
 
+    struct TransformWithLength
+    {
+        Model::Transform transform;
+        uint32_t frame_index = 0;
+    };
+
 private:
     Ref<Model> m_model;
     String m_animation_name;
     float m_time = 0.0;
-    uint32_t m_animation_index = 0;
 
-    std::map<std::string, Model::Transform> m_previous_transforms;
+    uint32_t m_frame;
+
+    void update_model_animation_buffer();
+
+    std::optional<Model::Keyframe> get_keyframe_for_frame(uint32_t frame) const;
+
+    std::optional<TransformWithLength> get_current_transform(String object_name) const;
+    std::optional<TransformWithLength> get_next_transform(String object_name) const;
 };

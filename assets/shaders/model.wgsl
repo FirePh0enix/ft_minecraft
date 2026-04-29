@@ -26,13 +26,12 @@ struct VertexOutput
 
 @group(0) @binding(0) var<uniform> env: Enviromnent;
 @group(0) @binding(1) var<uniform> model: Model;
-@group(0) @binding(2) var<uniform> animation_model: Model;
-@group(0) @binding(3) var<uniform> global_model: Model;
+@group(0) @binding(2) var<uniform> global_model: Model;
 
 @vertex
 fn vertex_main(vertex: VertexInput) -> VertexOutput {
     var out: VertexOutput;
-    out.world_position = global_model.model_matrix * animation_model.model_matrix * model.model_matrix * vec4<f32>(vertex.position, 1.0);
+    out.world_position = global_model.model_matrix * model.model_matrix * vec4<f32>(vertex.position, 1.0);
     out.position = env.view_matrix * out.world_position;
     out.normal = vertex.normal;
     out.light_vec = normalize(vec3<f32>(-1.0, -1.0, 0.0));
