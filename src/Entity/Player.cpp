@@ -3,6 +3,7 @@
 #include "AABB.hpp"
 #include "Core/Class.hpp"
 #include "Core/Definitions.hpp"
+#include "Core/Result.hpp"
 #include "Entity/Entity.hpp"
 #include "Input.hpp"
 #include "Model.hpp"
@@ -149,6 +150,26 @@ static Ref<Mesh> create_cube_mesh(glm::vec3 size = glm::vec3(1.0), glm::vec3 off
     return Mesh::create_from_data(indices_span.as_bytes(), vertices, normals, View(uvs).as_bytes(), IndexType::Uint16);
 }
 
+static Ref<Texture> load_texture(String path)
+{
+    Result<File> file = Filesystem::open_file(path);
+    ERR_EXPECT_VR(file, 0, "Failed to open `{}`", path);
+
+    const Vector<char>& buffer = file->read_to_buffer();
+    SDL_IOStream *texture_stream = SDL_IOFromConstMem(buffer.data(), buffer.size());
+
+    SDL_Surface *texture_surface = IMG_LoadPNG_IO(texture_stream);
+    ERR_COND_V(texture_surface == nullptr, "Failed to parse image `{}`", path);
+
+    auto texture = RenderingDriver::get()->create_texture(texture_surface->w, texture_surface->h, TextureFormat::RGBA8Srgb, TextureUsageFlagBits::CopyDest | TextureUsageFlagBits::Sampled, TextureDimension::D2D, 1, 1).value();
+    texture->update(View((uint8_t *)texture_surface->pixels, texture_surface->w * texture_surface->h * 4));
+
+    SDL_DestroySurface(texture_surface);
+    SDL_CloseIO(texture_stream);
+
+    return texture;
+}
+
 void Player::on_ready()
 {
     m_aabb = AABB(glm::vec3(), glm::vec3(0.35, 0.9, 0.35));
@@ -169,7 +190,9 @@ void Player::on_ready()
     m_highlight_material->set_param("env", m_world->get_env_buffer());
     m_highlight_material->set_param("model", m_highlight_model_buffer);
 
-    m_model = Model::load("assets/models/player.jsonc").value();
+    m_model_texture = load_texture("assets/textures/entities/player.png");
+    m_model = Model::load("assets/models/player.json").value();
+    m_model->set_texture(m_model_texture);
     m_animator.set_model(m_model);
 
     Model::Info info{.model_matrix = glm::translate(glm::identity<glm::mat4>(), glm::vec3(0.0, 100.0, 0.0))};
@@ -316,6 +339,7 @@ void Player::draw(RenderPassEncoder& encoder)
         ImGui::Checkbox("Gravity", &m_gravity_enabled);
         ImGui::Checkbox("Collision", &m_collision_enabled);
         ImGui::Text("Position: %f %f %f", m_transform.position().x, m_transform.position().y, m_transform.position().z);
+        ImGui::SliderFloat("Speed", &m_speed, 1.0, 70.0);
     }
     ImGui::End();
 }

@@ -66,6 +66,7 @@ private:
     ChunkModel m_highlight_model;
     Ref<Buffer> m_highlight_model_buffer;
 
+    Ref<Texture> m_model_texture;
     Ref<Model> m_model;
     Animator m_animator;
 };

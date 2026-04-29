@@ -7,7 +7,6 @@
 #include "Render/Types.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/matrix_transform.hpp"
-#include "glm/matrix.hpp"
 #include "glm/trigonometric.hpp"
 
 #include <cmath>
@@ -20,6 +19,8 @@ struct ModelObject
     std::array<float, 3> size;
     std::array<float, 3> position;
     std::array<float, 3> origin;
+
+    std::array<std::array<uint32_t, 2>, 24> uvs;
 };
 
 void from_json(const nlohmann::json& j, ModelObject& m)
@@ -30,6 +31,9 @@ void from_json(const nlohmann::json& j, ModelObject& m)
 
     if (j.contains("origin"))
         j.at("origin").get_to(m.origin);
+
+    if (j.contains("uvs"))
+        j.at("uvs").get_to(m.uvs);
 }
 
 struct Transform
@@ -79,6 +83,7 @@ void from_json(const nlohmann::json& j, Animation& m)
 struct ModelJSON
 {
     std::string name;
+    std::array<float, 2> texture;
     std::vector<ModelObject> objects;
     std::vector<Animation> animations;
 };
@@ -88,6 +93,9 @@ void from_json(const nlohmann::json& j, ModelJSON& m)
     j.at("name").get_to(m.name);
     j.at("objects").get_to(m.objects);
     j.at("animations").get_to(m.animations);
+
+    if (j.contains("texture"))
+        j.at("texture").get_to(m.texture);
 }
 
 static Result<Ref<Mesh>> create_cube_mesh(glm::vec3 size = glm::vec3(1.0), glm::vec3 offset = glm::vec3())
@@ -227,6 +235,10 @@ Result<Ref<Model>> Model::load(const StringView& path)
         shader->set_binding("env", Binding(BindingKind::UniformBuffer, ShaderStageFlagBits::Vertex, 0, 0, BindingAccess::Read));
         shader->set_binding("model", Binding(BindingKind::UniformBuffer, ShaderStageFlagBits::Vertex, 0, 1, BindingAccess::Read));
         shader->set_binding("global_model", Binding(BindingKind::UniformBuffer, ShaderStageFlagBits::Vertex, 0, 2, BindingAccess::Read));
+        shader->set_binding("uvs", Binding(BindingKind::UniformBuffer, ShaderStageFlagBits::Vertex, 0, 3, BindingAccess::Read));
+        shader->set_binding("texture", Binding(BindingKind::Texture, ShaderStageFlagBits::Fragment, 0, 4, BindingAccess::Read, TextureDimension::D2D));
+
+        shader->set_sampler("texture", SamplerDescriptor(Filter::Nearest, Filter::Nearest));
     }
 
     String source = TRY(Filesystem::open_file(path)).read_to_string();
@@ -246,6 +258,11 @@ Result<Ref<Model>> Model::load(const StringView& path)
         obj.origin = glm::vec3(object.origin[0], object.origin[1], object.origin[2]);
         obj.material = RenderingDriver::get()->create_material(shader, std::nullopt, MaterialFlagBits::None, PolygonMode::Fill, CullMode::Back, UVType::UV);
 
+        Vector<glm::vec2> uvs;
+        for (uint32_t i = 0; i < 24; i++)
+            TRY(uvs.append(glm::vec2(float(object.uvs[i][0]) / float(json.texture[0]), float(object.uvs[i][1]) / float(json.texture[1]))));
+        obj.uv_buffer = TRY(RenderingDriver::get()->create_buffer_from_data(sizeof(glm::vec2) * 24, View(uvs).as_bytes(), BufferUsageFlagBits::Uniform | BufferUsageFlagBits::CopyDest));
+
         Model::Info info{
             // TODO: add rotation.
             .model_matrix = glm::translate(glm::identity<glm::mat4>(), obj.position) * glm::scale(glm::identity<glm::mat4>(), obj.size),
@@ -255,6 +272,7 @@ Result<Ref<Model>> Model::load(const StringView& path)
         obj.material->set_param("env", Engine::singleton->get_world()->get_env_buffer());
         obj.material->set_param("model", obj.model_buffer);
         obj.material->set_param("global_model", model->m_global_buffer);
+        obj.material->set_param("uvs", obj.uv_buffer);
 
         TRY(model->m_objects.append(obj));
     }
@@ -288,6 +306,14 @@ Result<Ref<Model>> Model::load(const StringView& path)
     }
 
     return model;
+}
+
+void Model::set_texture(Ref<Texture> texture)
+{
+    for (auto object : m_objects)
+    {
+        object.material->set_param("texture", texture);
+    }
 }
 
 void Animator::set_model(Ref<Model> model)

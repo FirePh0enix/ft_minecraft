@@ -25,6 +25,8 @@ public:
         glm::vec3 origin;
 
         Ref<Buffer> model_buffer;
+        Ref<Buffer> uv_buffer;
+
         Ref<Material> material;
     };
 
@@ -54,6 +56,9 @@ public:
     String name() const { return m_name; }
     View<Object> objects() const { return m_objects; }
     Ref<Buffer> get_global_buffer() const { return m_global_buffer; }
+
+    // TODO: this sould be handled in the new renderer.
+    void set_texture(Ref<Texture> texture);
 
     std::optional<Animation> get_animation(String name) const
     {
