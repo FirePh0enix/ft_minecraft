@@ -57,9 +57,6 @@ public:
     View<Object> objects() const { return m_objects; }
     Ref<Buffer> get_global_buffer() const { return m_global_buffer; }
 
-    // TODO: this sould be handled in the new renderer.
-    void set_texture(Ref<Texture> texture);
-
     std::optional<Animation> get_animation(String name) const
     {
         for (const Animation& anim : m_animation)
@@ -88,6 +85,7 @@ private:
     Vector<Object> m_objects;
     Vector<Animation> m_animation;
     Ref<Buffer> m_global_buffer;
+    Ref<Texture> m_texture;
 };
 
 class Animator

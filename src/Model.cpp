@@ -13,6 +13,9 @@
 #include <nlohmann/json.hpp>
 #include <optional>
 
+#include <SDL3/SDL.h>
+#include <SDL3_image/SDL_image.h>
+
 struct ModelObject
 {
     std::string name;
@@ -83,7 +86,8 @@ void from_json(const nlohmann::json& j, Animation& m)
 struct ModelJSON
 {
     std::string name;
-    std::array<float, 2> texture;
+    std::array<float, 2> texture_size;
+    std::string texture_path;
     std::vector<ModelObject> objects;
     std::vector<Animation> animations;
 };
@@ -94,8 +98,11 @@ void from_json(const nlohmann::json& j, ModelJSON& m)
     j.at("objects").get_to(m.objects);
     j.at("animations").get_to(m.animations);
 
-    if (j.contains("texture"))
-        j.at("texture").get_to(m.texture);
+    if (j.contains("texture_size"))
+        j.at("texture_size").get_to(m.texture_size);
+
+    if (j.contains("texture_path"))
+        j.at("texture_path").get_to(m.texture_path);
 }
 
 static Result<Ref<Mesh>> create_cube_mesh(glm::vec3 size = glm::vec3(1.0), glm::vec3 offset = glm::vec3())
@@ -223,6 +230,26 @@ static Result<Ref<Mesh>> create_cube_mesh(glm::vec3 size = glm::vec3(1.0), glm::
     return Mesh::create_from_data(View(indices).as_bytes(), vertices, normals, View(uvs).as_bytes(), IndexType::Uint16);
 }
 
+static Ref<Texture> load_texture(StringView path)
+{
+    Result<File> file = Filesystem::open_file(path);
+    ERR_EXPECT_VR(file, 0, "Failed to open `{}`", path);
+
+    const Vector<char>& buffer = file->read_to_buffer();
+    SDL_IOStream *texture_stream = SDL_IOFromConstMem(buffer.data(), buffer.size());
+
+    SDL_Surface *texture_surface = IMG_LoadPNG_IO(texture_stream);
+    ERR_COND_V(texture_surface == nullptr, "Failed to parse image `{}`", path);
+
+    auto texture = RenderingDriver::get()->create_texture(texture_surface->w, texture_surface->h, TextureFormat::RGBA8Srgb, TextureUsageFlagBits::CopyDest | TextureUsageFlagBits::Sampled, TextureDimension::D2D, 1, 1).value();
+    texture->update(View((uint8_t *)texture_surface->pixels, texture_surface->w * texture_surface->h * 4));
+
+    SDL_DestroySurface(texture_surface);
+    SDL_CloseIO(texture_stream);
+
+    return texture;
+}
+
 Result<Ref<Model>> Model::load(const StringView& path)
 {
     if (mesh.is_null())
@@ -247,6 +274,7 @@ Result<Ref<Model>> Model::load(const StringView& path)
     Ref<Model> model = newref<Model>();
     model->m_name.append(json.name.data(), json.name.size());
     model->m_global_buffer = TRY(RenderingDriver::get()->create_buffer(sizeof(Model::Info), BufferUsageFlagBits::Uniform | BufferUsageFlagBits::CopyDest));
+    model->m_texture = load_texture(StringView(json.texture_path.data(), json.texture_path.size()));
 
     for (const auto& object : json.objects)
     {
@@ -260,7 +288,7 @@ Result<Ref<Model>> Model::load(const StringView& path)
 
         Vector<glm::vec2> uvs;
         for (uint32_t i = 0; i < 24; i++)
-            TRY(uvs.append(glm::vec2(float(object.uvs[i][0]) / float(json.texture[0]), float(object.uvs[i][1]) / float(json.texture[1]))));
+            TRY(uvs.append(glm::vec2(float(object.uvs[i][0]) / float(json.texture_size[0]), float(object.uvs[i][1]) / float(json.texture_size[1]))));
         obj.uv_buffer = TRY(RenderingDriver::get()->create_buffer_from_data(sizeof(glm::vec2) * 24, View(uvs).as_bytes(), BufferUsageFlagBits::Uniform | BufferUsageFlagBits::CopyDest));
 
         Model::Info info{
@@ -273,6 +301,7 @@ Result<Ref<Model>> Model::load(const StringView& path)
         obj.material->set_param("model", obj.model_buffer);
         obj.material->set_param("global_model", model->m_global_buffer);
         obj.material->set_param("uvs", obj.uv_buffer);
+        obj.material->set_param("texture", model->m_texture);
 
         TRY(model->m_objects.append(obj));
     }
@@ -306,14 +335,6 @@ Result<Ref<Model>> Model::load(const StringView& path)
     }
 
     return model;
-}
-
-void Model::set_texture(Ref<Texture> texture)
-{
-    for (auto object : m_objects)
-    {
-        object.material->set_param("texture", texture);
-    }
 }
 
 void Animator::set_model(Ref<Model> model)

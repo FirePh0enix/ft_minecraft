@@ -1,6 +1,7 @@
 {
     "name": "player",
-    "texture": [64, 64],
+    "texture_size": [64, 64],
+    "texture_path": "assets/textures/entities/player.png",
     "objects": [
         {
             "name": "body",
