@@ -25,6 +25,7 @@ public:
     Pathfinding(World *world) : m_world(world) {};
     void find_path(const glm::vec3& start_pos, const glm::vec3& target_pos);
     bool is_walkable(const glm::ivec3& to, int jump_height);
+    std::vector<glm::vec3> simplify_path(const std::vector<Node *>& path);
 
     std::vector<Node *> m_path;
     size_t m_path_index = 0;

@@ -1,13 +1,17 @@
 #pragma once
 
 #include "Entity/Entity.hpp"
+#include "Entity/Pathfinding/Path.hpp"
 #include "Entity/Pathfinding/Pathfinding.hpp"
 #include "Mob.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include <cstddef>
+#include <machine/limits.h>
 
 class Cow : public Mob
 {
 public:
-    Cow() : Mob(3, 0, 1.0f)
+    Cow() : Mob(3, 0, 1.0f, 1.0f)
     {
     }
 
@@ -20,6 +24,19 @@ public:
 protected:
     void die() override;
     void flee_from(const Entity& threat, int radius);
+    void flee_to(const glm::ivec3& to);
+    void follow_path(float delta_time);
+    bool verify_if_path_still_valid(const glm::vec3& waypoint);
 
-    Pathfinding *m_pathfinding = nullptr;
+    std::unique_ptr<Pathfinding> m_pathfinding;
+    std::optional<Path> m_path;
+    Entity *m_threat_entity = nullptr;
+
+    float m_turn_speed = 10;
+    float m_stopping_dst = 5;
+
+    size_t m_path_index = 0;
+    size_t m_last_jump_index = SIZE_T_MAX;
+
+    bool m_following_path = false;
 };

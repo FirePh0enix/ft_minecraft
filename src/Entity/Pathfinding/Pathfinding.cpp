@@ -1,5 +1,7 @@
 #include "Pathfinding.hpp"
 #include "Core/Print.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_int3.hpp"
 #include <cstddef>
 
 constexpr int straight = 10;
@@ -62,6 +64,7 @@ std::vector<Node *> Pathfinding::get_neighbors(const Node& node)
 
     for (const glm::ivec3& dir : directions)
     {
+
         glm::ivec3 neighbor_pos = node.m_gridPos + dir;
 
         // Track air time so A* won't create infinite neighbors and explore only to where Mob can jump.
@@ -78,7 +81,7 @@ std::vector<Node *> Pathfinding::get_neighbors(const Node& node)
         glm::ivec3 d = neighbor_pos - node.m_gridPos;
 
         // diagonal in XZ.
-        if (d.y == 0 && std::abs(d.x) == 1 && std::abs(d.z) == 1)
+        if (std::abs(d.x) == 1 && std::abs(d.z) == 1)
         {
             glm::ivec3 side1(node.m_gridPos.x + d.x, node.m_gridPos.y, node.m_gridPos.z);
             glm::ivec3 side2(node.m_gridPos.x, node.m_gridPos.y, node.m_gridPos.z + d.z);
@@ -203,4 +206,34 @@ void Pathfinding::find_path(const glm::vec3& start_pos, const glm::vec3& target_
     }
 
     println("Pathfinding::find_path() cannot reach target. start: [{} {} {}], target: [{} {} {}]", start_node->m_position.x, start_node->m_position.y, start_node->m_position.z, target_node->m_position.x, target_node->m_position.y, target_node->m_position.z);
+}
+
+std::vector<glm::vec3> Pathfinding::simplify_path(const std::vector<Node *>& path)
+{
+    std::vector<glm::vec3> waypoints;
+
+    waypoints.push_back(path[0]->m_position);
+
+    glm::ivec3 last_direction = path[1]->m_gridPos - path[0]->m_gridPos;
+
+    for (size_t i = 2; i < path.size(); i++)
+    {
+        glm::ivec3 current_direction = path[i]->m_gridPos - path[i - 1]->m_gridPos;
+
+        if (current_direction != last_direction)
+        {
+            waypoints.push_back(path[i - 1]->m_position);
+            last_direction = current_direction;
+        }
+    }
+
+    waypoints.push_back(path.back()->m_position);
+
+    println("-- Simplify Path --");
+    for (const auto& pos : waypoints)
+    {
+        println("[{} {} {}]", pos.x, pos.y, pos.z);
+    }
+
+    return waypoints;
 }

@@ -1,4 +1,5 @@
 #include "Entity/Mob.hpp"
+#include "Core/Print.hpp"
 #include "World/World.hpp"
 
 // static AABB get_broadphase_box(const AABB& object, const glm::vec3& v)
@@ -46,7 +47,7 @@ static float sweep_aabb(const AABB& object, const AABB& other, const glm::vec3& 
         dy_entry = other.max_y() - object.min_y();
         dy_exit = other.min_y() - object.max_y();
     }
-    if (v.y > 0.0f)
+    if (v.z > 0.0f)
     {
         dz_entry = other.min_z() - object.max_z();
         dz_exit = other.max_z() - object.min_z();
@@ -152,6 +153,8 @@ void Mob::move_and_collide(bool enable_collision)
         }
     }
 
+
+    
     m_transform.position() += m_velocity * lowest_collision_time;
 
     const glm::vec3& pos = m_transform.position();

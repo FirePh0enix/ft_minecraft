@@ -229,8 +229,8 @@ void Player::tick(float delta)
 
         if (Input::is_action_pressed("attack") && !m_block_broken)
         {
-            m_world->set_block_state(x, y, z, BlockState());
-            m_block_broken = true;
+            // m_world->set_block_state(x, y, z, BlockState());
+            // m_block_broken = true;
         }
         else if (!Input::is_action_pressed("attack"))
         {
