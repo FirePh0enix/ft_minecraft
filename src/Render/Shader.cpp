@@ -15,24 +15,10 @@ Result<Ref<Shader>> Shader::load(const std::filesystem::path& path)
     Ref<Shader> shader = newobj(Shader);
     shader->m_source_code = source_code;
     shader->m_hash = hash_fnv32(source_code);
-    shader->m_entry_point_names[ShaderStageFlagBits::Vertex] = "vertex_main";
-    shader->m_entry_point_names[ShaderStageFlagBits::Fragment] = "fragment_main";
+    shader->m_entry_point_names[WGPUShaderStage_Vertex] = "vertex_main";
+    shader->m_entry_point_names[WGPUShaderStage_Fragment] = "fragment_main";
 
     return shader;
-}
-
-static WGPUShaderStage convert_shader_stage(ShaderStageFlagBits kind)
-{
-    switch (kind)
-    {
-    case ShaderStageFlagBits::Vertex:
-        return WGPUShaderStage_Vertex;
-    case ShaderStageFlagBits::Fragment:
-        return WGPUShaderStage_Fragment;
-    case ShaderStageFlagBits::Compute:
-        return WGPUShaderStage_Compute;
-    }
-    return {};
 }
 
 static WGPUTextureViewDimension convert_texture_view_dimension(TextureDimension dimension)
@@ -70,7 +56,7 @@ static Vector<WGPUBindGroupLayoutEntry> convert_bindings(Shader *shader)
         {
             WGPUBindGroupLayoutEntry entry{};
             entry.binding = binding.binding;
-            entry.visibility = convert_shader_stage(binding.shader_stage);
+            entry.visibility = binding.shader_stage;
             entry.texture.sampleType = WGPUTextureSampleType_Float;
             entry.texture.multisampled = false;
             entry.texture.viewDimension = convert_texture_view_dimension(binding.dimension);
@@ -79,7 +65,7 @@ static Vector<WGPUBindGroupLayoutEntry> convert_bindings(Shader *shader)
 
             WGPUBindGroupLayoutEntry sampler_entry{};
             sampler_entry.binding = binding.binding + 1;
-            sampler_entry.visibility = convert_shader_stage(binding.shader_stage);
+            sampler_entry.visibility = binding.shader_stage;
             sampler_entry.sampler.nextInChain = nullptr;
             sampler_entry.sampler.type = WGPUSamplerBindingType_Filtering;
 
@@ -90,7 +76,7 @@ static Vector<WGPUBindGroupLayoutEntry> convert_bindings(Shader *shader)
         {
             WGPUBindGroupLayoutEntry entry{};
             entry.binding = binding.binding;
-            entry.visibility = convert_shader_stage(binding.shader_stage);
+            entry.visibility = binding.shader_stage;
             entry.buffer.type = WGPUBufferBindingType_Uniform;
 
             EXPECT(entries.append(entry));
@@ -100,7 +86,7 @@ static Vector<WGPUBindGroupLayoutEntry> convert_bindings(Shader *shader)
         {
             WGPUBindGroupLayoutEntry entry{};
             entry.binding = binding.binding;
-            entry.visibility = convert_shader_stage(binding.shader_stage);
+            entry.visibility = binding.shader_stage;
             entry.buffer.type = binding.access == BindingAccess::Read ? WGPUBufferBindingType_ReadOnlyStorage : WGPUBufferBindingType_Storage;
 
             EXPECT(entries.append(entry));

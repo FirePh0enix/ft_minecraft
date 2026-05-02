@@ -8,6 +8,7 @@
 #include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/matrix_transform.hpp"
 #include "glm/trigonometric.hpp"
+#include "webgpu/webgpu.h"
 
 #include <cmath>
 #include <nlohmann/json.hpp>
@@ -15,18 +16,6 @@
 
 #include <SDL3/SDL.h>
 #include <SDL3_image/SDL_image.h>
-
-static WGPUIndexFormat convert_index_type(IndexType type)
-{
-    switch (type)
-    {
-    case IndexType::Uint16:
-        return WGPUIndexFormat_Uint16;
-    case IndexType::Uint32:
-        return WGPUIndexFormat_Uint32;
-    }
-    return {};
-}
 
 struct ModelObject
 {
@@ -128,7 +117,7 @@ static Result<Ref<Texture>> load_texture(StringView path)
     SDL_Surface *texture_surface = IMG_LoadPNG_IO(texture_stream);
     ERR_COND_V(texture_surface == nullptr, "Failed to parse image `{}`", path);
 
-    auto texture = TRY(Texture::create(texture_surface->w, texture_surface->h, TextureFormat::RGBA8Srgb, TextureUsageFlagBits::CopyDest | TextureUsageFlagBits::Sampled, TextureDimension::D2D, 1, 1));
+    Ref<Texture> texture = TRY(Texture::create(texture_surface->w, texture_surface->h, WGPUTextureFormat_RGBA8UnormSrgb, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding, TextureDimension::D2D, 1, 1));
     texture->update(View((uint8_t *)texture_surface->pixels, texture_surface->w * texture_surface->h * 4));
 
     SDL_DestroySurface(texture_surface);
@@ -144,23 +133,23 @@ Result<Ref<Model>> Model::load(const StringView& path)
 
     Ref<Model> model = TRY(newref<Model>());
     model->m_name.append(json.name.data(), json.name.size());
-    model->m_global_buffer = TRY(Buffer::create(sizeof(Model::Info), BufferUsageFlagBits::Uniform | BufferUsageFlagBits::CopyDest));
+    model->m_global_buffer = TRY(Buffer::create(sizeof(Model::Info), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
     model->m_texture = TRY(load_texture(StringView(json.texture_path.data(), json.texture_path.size())));
 
     for (const auto& object : json.objects)
     {
         Model::Object obj;
         obj.name.append(object.name.data(), object.name.size());
-        obj.model_buffer = TRY(Buffer::create(sizeof(Model::Info), BufferUsageFlagBits::Uniform | BufferUsageFlagBits::CopyDest));
+        obj.model_buffer = TRY(Buffer::create(sizeof(Model::Info), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
         obj.size = glm::vec3(object.size[0], object.size[1], object.size[2]);
         obj.position = glm::vec3(object.position[0], object.position[1], object.position[2]);
         obj.origin = glm::vec3(object.origin[0], object.origin[1], object.origin[2]);
-        obj.material = TRY(Material::create(Renderer::get().get_model_shader(), MaterialFlagBits::None, PolygonMode::Fill, WGPUCullMode_Back, UVType::UV));
+        obj.material = TRY(Material::create(Renderer::get().get_model_shader(), MaterialFlagBits::None, WGPUPolygonMode_Fill, WGPUCullMode_Back, UVType::UV));
 
         Vector<glm::vec2> uvs;
         for (uint32_t i = 0; i < 24; i++)
             TRY(uvs.append(glm::vec2(float(object.uvs[i][0]) / float(json.texture_size[0]), float(object.uvs[i][1]) / float(json.texture_size[1]))));
-        obj.uv_buffer = TRY(Buffer::create(sizeof(glm::vec2) * 24, BufferUsageFlagBits::Uniform | BufferUsageFlagBits::CopyDest));
+        obj.uv_buffer = TRY(Buffer::create(sizeof(glm::vec2) * 24, WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
         obj.uv_buffer->update(View(uvs).as_bytes());
 
         Model::Info info{
@@ -223,7 +212,7 @@ void Model::encode(const RenderPassNode& node)
         wgpuRenderPassEncoderSetPipeline(encoder, pipeline);
         wgpuRenderPassEncoderSetBindGroup(encoder, 0, material->get_bind_group(), 0, nullptr);
 
-        wgpuRenderPassEncoderSetIndexBuffer(encoder, mesh->get_buffer(Mesh::BufferKind::Index)->handle(), convert_index_type(mesh->index_type()), 0, mesh->get_buffer(Mesh::BufferKind::Index)->size());
+        wgpuRenderPassEncoderSetIndexBuffer(encoder, mesh->get_buffer(Mesh::BufferKind::Index)->handle(), mesh->index_type(), 0, mesh->get_buffer(Mesh::BufferKind::Index)->size());
         wgpuRenderPassEncoderSetVertexBuffer(encoder, 0, mesh->get_buffer(Mesh::BufferKind::Position)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Position)->size());
         wgpuRenderPassEncoderSetVertexBuffer(encoder, 1, mesh->get_buffer(Mesh::BufferKind::Normal)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Normal)->size());
         wgpuRenderPassEncoderSetVertexBuffer(encoder, 2, mesh->get_buffer(Mesh::BufferKind::UV)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::UV)->size());

@@ -5,6 +5,7 @@
 #include "Entity/Entity.hpp"
 #include "Render/Graph.hpp"
 #include "Render/ImGUIToolKit.hpp"
+#include "Render/Shader.hpp"
 #include "Render/Types.hpp"
 #include "Render/WebGPU.hpp"
 #include "World/Dimension.hpp"
@@ -20,144 +21,6 @@
 #else
 #define WGPU_STRING_VIEW(NAME) {NAME, WGPU_STRLEN}
 #endif
-
-static WGPUTextureFormat convert_texture_format(TextureFormat format)
-{
-    switch (format)
-    {
-    case TextureFormat::R8Unorm:
-        return WGPUTextureFormat_R8Unorm;
-    case TextureFormat::RGBA8Unorm:
-        return WGPUTextureFormat_RGBA8Unorm;
-    case TextureFormat::RGBA8Srgb:
-        return WGPUTextureFormat_RGBA8UnormSrgb;
-    case TextureFormat::BGRA8Srgb:
-        return WGPUTextureFormat_BGRA8UnormSrgb;
-    case TextureFormat::R32Sfloat:
-        return WGPUTextureFormat_R32Float;
-    case TextureFormat::RG32Sfloat:
-        return WGPUTextureFormat_RG32Float;
-    case TextureFormat::RGBA32Sfloat:
-        return WGPUTextureFormat_RGBA32Float;
-    case TextureFormat::Depth32:
-        return WGPUTextureFormat_Depth32Float;
-    default:
-        // RGB32Sfloat not supported
-        std::abort();
-        break;
-    }
-    return {};
-}
-
-static WGPUVertexFormat convert_shader_type(ShaderType type)
-{
-    switch (type)
-    {
-    case ShaderType::Float32:
-        return WGPUVertexFormat_Float32;
-    case ShaderType::Float32x2:
-        return WGPUVertexFormat_Float32x2;
-    case ShaderType::Float32x3:
-        return WGPUVertexFormat_Float32x3;
-    case ShaderType::Float32x4:
-        return WGPUVertexFormat_Float32x4;
-    case ShaderType::Uint32:
-        return WGPUVertexFormat_Uint32;
-    case ShaderType::Uint32x2:
-        return WGPUVertexFormat_Uint32x2;
-    case ShaderType::Uint32x3:
-        return WGPUVertexFormat_Uint32x3;
-    case ShaderType::Uint32x4:
-        return WGPUVertexFormat_Uint32x4;
-    }
-    return WGPUVertexFormat_Force32;
-}
-
-static WGPUBufferUsage convert_buffer_usage(BufferUsageFlags usage)
-{
-    uint32_t flags = {};
-
-    if (usage.has_any(BufferUsageFlagBits::CopySource))
-        flags |= WGPUBufferUsage_CopySrc;
-    if (usage.has_any(BufferUsageFlagBits::CopyDest))
-        flags |= WGPUBufferUsage_CopyDst;
-    if (usage.has_any(BufferUsageFlagBits::Uniform))
-        flags |= WGPUBufferUsage_Uniform;
-    if (usage.has_any(BufferUsageFlagBits::Index))
-        flags |= WGPUBufferUsage_Index;
-    if (usage.has_any(BufferUsageFlagBits::Vertex))
-        flags |= WGPUBufferUsage_Vertex;
-    if (usage.has_any(BufferUsageFlagBits::Storage))
-        flags |= WGPUBufferUsage_Storage;
-
-    return (WGPUBufferUsage)flags;
-}
-
-static WGPUTextureUsage convert_texture_usage(TextureUsageFlags usage)
-{
-    uint32_t flags = {};
-
-    if (usage.has_any(TextureUsageFlagBits::ColorAttachment | TextureUsageFlagBits::DepthAttachment))
-        flags |= WGPUTextureUsage_RenderAttachment;
-    if (usage.has_any(TextureUsageFlagBits::CopySource))
-        flags |= WGPUTextureUsage_CopySrc;
-    if (usage.has_any(TextureUsageFlagBits::CopyDest))
-        flags |= WGPUTextureUsage_CopyDst;
-    if (usage.has_any(TextureUsageFlagBits::Sampled))
-        flags |= WGPUTextureUsage_TextureBinding;
-
-    return (WGPUTextureUsage)flags;
-}
-
-static WGPUIndexFormat convert_index_type(IndexType type)
-{
-    switch (type)
-    {
-    case IndexType::Uint16:
-        return WGPUIndexFormat_Uint16;
-    case IndexType::Uint32:
-        return WGPUIndexFormat_Uint32;
-    }
-    return {};
-}
-
-static WGPUShaderStage convert_shader_stage(ShaderStageFlagBits kind)
-{
-    switch (kind)
-    {
-    case ShaderStageFlagBits::Vertex:
-        return WGPUShaderStage_Vertex;
-    case ShaderStageFlagBits::Fragment:
-        return WGPUShaderStage_Fragment;
-    case ShaderStageFlagBits::Compute:
-        return WGPUShaderStage_Compute;
-    }
-    return {};
-}
-
-static WGPUAddressMode convert_address_mode(AddressMode mode)
-{
-    switch (mode)
-    {
-    case AddressMode::ClampToEdge:
-        return WGPUAddressMode_ClampToEdge;
-    case AddressMode::Repeat:
-        return WGPUAddressMode_Repeat;
-    }
-    return {};
-}
-
-static WGPUFilterMode convert_filter_mode(Filter filter)
-{
-    switch (filter)
-    {
-    case Filter::Linear:
-        return WGPUFilterMode_Linear;
-    case Filter::Nearest:
-        return WGPUFilterMode_Nearest;
-    }
-    return {};
-}
 
 static WGPUTextureViewDimension convert_texture_view_dimension(TextureDimension dimension)
 {
@@ -196,23 +59,21 @@ static WGPUTextureDimension convert_texture_dimension(TextureDimension dimension
     return {};
 }
 
-size_t size_of(const TextureFormat& format)
+size_t size_of(const WGPUTextureFormat& format)
 {
     switch (format)
     {
-    case TextureFormat::R8Unorm:
+    case WGPUTextureFormat_R8Unorm:
         return 1;
-    case TextureFormat::R32Sfloat:
-    case TextureFormat::RGBA8Srgb:
-    case TextureFormat::RGBA8Unorm:
-    case TextureFormat::BGRA8Srgb:
-    case TextureFormat::Depth32:
+    case WGPUTextureFormat_R32Float:
+    case WGPUTextureFormat_RGBA8UnormSrgb:
+    case WGPUTextureFormat_RGBA8Unorm:
+    case WGPUTextureFormat_BGRA8UnormSrgb:
+    case WGPUTextureFormat_Depth32Float:
         return 4;
-    case TextureFormat::RG32Sfloat:
+    case WGPUTextureFormat_RG32Float:
         return 8;
-    case TextureFormat::RGB32Sfloat:
-        return 12;
-    case TextureFormat::RGBA32Sfloat:
+    case WGPUTextureFormat_RGBA32Float:
         return 16;
     default:
         ERR_COND(false, "invalid texture format");
@@ -221,17 +82,17 @@ size_t size_of(const TextureFormat& format)
     return 0;
 }
 
-size_t size_of(const IndexType& format)
+size_t size_of(const WGPUIndexFormat& format)
 {
     switch (format)
     {
-    case IndexType::Uint16:
+    case WGPUIndexFormat_Uint16:
         return 2;
-    case IndexType::Uint32:
+    case WGPUIndexFormat_Uint32:
         return 4;
+    default:
+        return 0;
     };
-
-    return 0;
 }
 
 Buffer::~Buffer()
@@ -239,18 +100,18 @@ Buffer::~Buffer()
     wgpuBufferRelease(m_buffer);
 }
 
-Result<Ref<Buffer>> Buffer::create(size_t size, BufferUsageFlags usage, BufferVisibility visibility)
+Result<Ref<Buffer>> Buffer::create(size_t size, WGPUBufferUsage usage, BufferVisibility visibility)
 {
     WGPUBufferDescriptor desc{};
     desc.size = size;
     desc.mappedAtCreation = false;
-    desc.usage = convert_buffer_usage(usage);
+    desc.usage = usage;
 
     if (visibility == BufferVisibility::GPUAndCPU)
         desc.usage |= WGPUBufferUsage_MapRead;
 
     // WebGPU requires the size of an uniform buffer to a multiple of 16 bytes.
-    if (usage.has_any(BufferUsageFlagBits::Uniform) && size % 16 != 0)
+    if (usage & WGPUBufferUsage_Uniform && size % 16 != 0)
     {
         desc.size = (((size - 1) / 16) + 1) * 16;
         size = desc.size;
@@ -278,17 +139,15 @@ Texture::~Texture()
     wgpuTextureRelease(m_texture);
 }
 
-Result<Ref<Texture>> Texture::create(uint32_t width, uint32_t height, TextureFormat format, TextureUsageFlags usage, TextureDimension dimension, uint32_t layers, uint32_t mip_level)
+Result<Ref<Texture>> Texture::create(uint32_t width, uint32_t height, WGPUTextureFormat format, WGPUTextureUsage usage, TextureDimension dimension, uint32_t layers, uint32_t mip_level)
 {
-    WGPUTextureFormat format_wgpu = convert_texture_format(format);
-
     WGPUTextureDescriptor desc{};
-    desc.usage = convert_texture_usage(usage);
+    desc.usage = usage;
     desc.dimension = convert_texture_dimension(dimension);
     desc.size = WGPUExtent3D{.width = width, .height = height, .depthOrArrayLayers = layers == 0 ? 1 : layers};
-    desc.format = format_wgpu;
+    desc.format = format;
     desc.viewFormatCount = 1;
-    desc.viewFormats = &format_wgpu;
+    desc.viewFormats = &format;
     desc.mipLevelCount = mip_level;
     desc.sampleCount = 1;
 
@@ -302,7 +161,7 @@ Result<Ref<Texture>> Texture::create(uint32_t width, uint32_t height, TextureFor
         return Error(ErrorKind::OutOfDeviceMemory);
 
     WGPUTextureViewDescriptor view_desc{};
-    view_desc.format = format_wgpu;
+    view_desc.format = format;
     view_desc.dimension = convert_texture_view_dimension(dimension);
     view_desc.baseMipLevel = 0;
     view_desc.mipLevelCount = mip_level;
@@ -364,14 +223,14 @@ void Texture::update(View<uint8_t> view, uint32_t layer)
 #endif
 }
 
-Result<Ref<Mesh>> Mesh::create_from_data(const View<uint8_t>& indices, const View<glm::vec3>& positions, const View<glm::vec3>& normals, const View<uint8_t>& uvs, IndexType index_type, UVType uv_type)
+Result<Ref<Mesh>> Mesh::create_from_data(const View<uint8_t>& indices, const View<glm::vec3>& positions, const View<glm::vec3>& normals, const View<uint8_t>& uvs, WGPUIndexFormat index_type, UVType uv_type)
 {
     const size_t vertex_count = indices.size() / size_of(index_type);
 
-    Ref<Buffer> index_buffer = TRY(Buffer::create(indices.size(), BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Index));
-    Ref<Buffer> vertex_buffer = TRY(Buffer::create(positions.size() * sizeof(glm::vec3), BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Vertex));
-    Ref<Buffer> normal_buffer = TRY(Buffer::create(normals.size() * sizeof(glm::vec3), BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Vertex));
-    Ref<Buffer> uv_buffer = TRY(Buffer::create(uvs.size(), BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Vertex));
+    Ref<Buffer> index_buffer = TRY(Buffer::create(indices.size(), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Index));
+    Ref<Buffer> vertex_buffer = TRY(Buffer::create(positions.size() * sizeof(glm::vec3), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Vertex));
+    Ref<Buffer> normal_buffer = TRY(Buffer::create(normals.size() * sizeof(glm::vec3), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Vertex));
+    Ref<Buffer> uv_buffer = TRY(Buffer::create(uvs.size(), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Vertex));
 
     index_buffer->update(indices.as_bytes());
     vertex_buffer->update(positions.as_bytes());
@@ -381,7 +240,7 @@ Result<Ref<Mesh>> Mesh::create_from_data(const View<uint8_t>& indices, const Vie
     return newobj(Mesh, vertex_count, index_type, uv_type, index_buffer, vertex_buffer, normal_buffer, uv_buffer);
 }
 
-Result<Ref<Material>> Material::create(const Ref<Shader>& shader, MaterialFlags flags, PolygonMode polygon_mode, WGPUCullMode cull_mode, UVType uv_type)
+Result<Ref<Material>> Material::create(const Ref<Shader>& shader, MaterialFlags flags, WGPUPolygonMode polygon_mode, WGPUCullMode cull_mode, UVType uv_type)
 {
     Ref<Material> material = TRY(newref<Material>());
     material->m_shader = shader;
@@ -464,7 +323,7 @@ Result<void> Material::create_bind_group()
         case BindingKind::UniformBuffer:
         {
             const MaterialParamCache& cache = get_param(name);
-            ASSERT(cache.buffer->flags().has_any(BufferUsageFlagBits::Uniform), "Missing Uniform flag on buffer for param `{}`", name);
+            ASSERT(cache.buffer->flags() & WGPUBufferUsage_Uniform, "Missing Uniform flag on buffer for param `{}`", name);
 
             WGPUBindGroupEntry entry{};
             entry.binding = binding.binding;
@@ -478,7 +337,7 @@ Result<void> Material::create_bind_group()
         case BindingKind::StorageBuffer:
         {
             const MaterialParamCache& cache = get_param(name);
-            ASSERT(cache.buffer->flags().has_any(BufferUsageFlagBits::Storage), "Missing Storage flag on buffer for param `{}`", name);
+            ASSERT(cache.buffer->flags() & WGPUBufferUsage_Storage, "Missing Storage flag on buffer for param `{}`", name);
 
             WGPUBindGroupEntry entry{};
             entry.binding = binding.binding;
@@ -567,7 +426,7 @@ Result<WGPURenderPipeline> PipelineCache::get(const Key& key)
     WGPUShaderModule module = create_shader_module(key.shader);
     ERR_COND_R(module == nullptr, "Unable to compile shader", Error(ErrorKind::BadDriver));
 
-    const String& vertex_ep = key.shader->get_entry_point(ShaderStageFlagBits::Vertex);
+    const String& vertex_ep = key.shader->get_entry_point(WGPUShaderStage_Vertex);
 
     WGPUVertexState vertex_state{};
     vertex_state.buffers = buffers.data();
@@ -604,7 +463,7 @@ Result<WGPURenderPipeline> PipelineCache::get(const Key& key)
         TRY(color_states.append(WGPUColorTargetState{.nextInChain = nullptr, .format = Renderer::get().get_surface_format(), .blend = &blend_state, .writeMask = WGPUColorWriteMask_All}));
     }
 
-    const String& fragment_ep = key.shader->get_entry_point(ShaderStageFlagBits::Fragment);
+    const String& fragment_ep = key.shader->get_entry_point(WGPUShaderStage_Fragment);
 
     WGPUFragmentState fragment_state{};
     fragment_state.targets = color_states.data();
@@ -615,8 +474,6 @@ Result<WGPURenderPipeline> PipelineCache::get(const Key& key)
     WGPUDepthStencilState depth_state{};
     depth_state.format = WGPUTextureFormat_Depth32Float;
     depth_state.depthWriteEnabled = WGPUOptionalBool_True;
-
-    // TODO: may need to be Less
     depth_state.depthCompare = WGPUCompareFunction_LessEqual;
 
     WGPUPrimitiveState primitive_state{};
@@ -651,11 +508,11 @@ WGPUSampler SamplerCache::get(const SamplerDescriptor& desc)
     }
 
     WGPUSamplerDescriptor d{};
-    d.magFilter = convert_filter_mode(desc.mag_filter);
-    d.minFilter = convert_filter_mode(desc.min_filter);
-    d.addressModeU = convert_address_mode(desc.address_mode.u);
-    d.addressModeV = convert_address_mode(desc.address_mode.v);
-    d.addressModeW = convert_address_mode(desc.address_mode.w);
+    d.magFilter = desc.mag_filter;
+    d.minFilter = desc.min_filter;
+    d.addressModeU = desc.address_mode.u;
+    d.addressModeV = desc.address_mode.v;
+    d.addressModeW = desc.address_mode.w;
     d.maxAnisotropy = 1;
 
     WGPUSampler sampler = wgpuDeviceCreateSampler(Renderer::get().device(), &d);
@@ -902,7 +759,7 @@ static Result<Ref<Mesh>> create_cube_mesh(glm::vec3 size = glm::vec3(1.0), glm::
         glm::vec3(0.0, -1.0, 0.0),
     };
 
-    return Mesh::create_from_data(View(indices).as_bytes(), vertices, normals, View(uvs).as_bytes(), IndexType::Uint16);
+    return Mesh::create_from_data(View(indices).as_bytes(), vertices, normals, View(uvs).as_bytes(), WGPUIndexFormat_Uint16);
 }
 
 Result<void> Renderer::init(const Window& window, InitFlags flags)
@@ -989,7 +846,6 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
 
     TRY(configure_surface(window.size().width, window.size().height, VSync::On));
 
-#ifdef __has_debug_menu
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
 
@@ -1004,24 +860,23 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     init_info.RenderTargetFormat = m_surface_format;
     init_info.DepthStencilFormat = WGPUTextureFormat_Depth32Float;
     ImGui_ImplWGPU_Init(&init_info);
-#endif
 
-    m_env_buffer = TRY(Buffer::create(sizeof(WorldEnvironment), BufferUsageFlagBits::CopyDest | BufferUsageFlagBits::Uniform));
+    m_env_buffer = TRY(Buffer::create(sizeof(WorldEnvironment), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform));
 
     m_voxel_shader = TRY(Shader::load("assets/shaders/voxel.wgsl"));
-    m_voxel_shader->set_binding("images", Binding(BindingKind::Texture, ShaderStageFlagBits::Fragment, 0, 0, BindingAccess::Read, TextureDimension::D2DArray)); // binding = 1 is the sampler
-    m_voxel_shader->set_binding("env", Binding(BindingKind::UniformBuffer, ShaderStageFlagBits::Vertex, 0, 2, BindingAccess::Read));
-    m_voxel_shader->set_binding("model", Binding(BindingKind::UniformBuffer, ShaderStageFlagBits::Vertex, 0, 3, BindingAccess::Read));
-    m_voxel_shader->set_sampler("images", {.min_filter = Filter::Nearest, .mag_filter = Filter::Nearest});
+    m_voxel_shader->set_binding("images", Binding(BindingKind::Texture, WGPUShaderStage_Fragment, 0, 0, BindingAccess::Read, TextureDimension::D2DArray)); // binding = 1 is the sampler
+    m_voxel_shader->set_binding("env", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 2, BindingAccess::Read));
+    m_voxel_shader->set_binding("model", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 3, BindingAccess::Read));
+    m_voxel_shader->set_sampler("images", {.min_filter = WGPUFilterMode_Nearest, .mag_filter = WGPUFilterMode_Nearest});
     m_voxel_shader->create_bind_group_layout();
 
     m_model_shader = TRY(Shader::load("assets/shaders/model.wgsl"));
-    m_model_shader->set_binding("env", Binding(BindingKind::UniformBuffer, ShaderStageFlagBits::Vertex, 0, 0, BindingAccess::Read));
-    m_model_shader->set_binding("model", Binding(BindingKind::UniformBuffer, ShaderStageFlagBits::Vertex, 0, 1, BindingAccess::Read));
-    m_model_shader->set_binding("global_model", Binding(BindingKind::UniformBuffer, ShaderStageFlagBits::Vertex, 0, 2, BindingAccess::Read));
-    m_model_shader->set_binding("uvs", Binding(BindingKind::UniformBuffer, ShaderStageFlagBits::Vertex, 0, 3, BindingAccess::Read));
-    m_model_shader->set_binding("texture", Binding(BindingKind::Texture, ShaderStageFlagBits::Fragment, 0, 4, BindingAccess::Read, TextureDimension::D2D));
-    m_model_shader->set_sampler("texture", SamplerDescriptor(Filter::Nearest, Filter::Nearest));
+    m_model_shader->set_binding("env", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
+    m_model_shader->set_binding("model", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 1, BindingAccess::Read));
+    m_model_shader->set_binding("global_model", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 2, BindingAccess::Read));
+    m_model_shader->set_binding("uvs", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 3, BindingAccess::Read));
+    m_model_shader->set_binding("texture", Binding(BindingKind::Texture, WGPUShaderStage_Fragment, 0, 4, BindingAccess::Read, TextureDimension::D2D));
+    m_model_shader->set_sampler("texture", SamplerDescriptor(WGPUFilterMode_Nearest, WGPUFilterMode_Nearest));
     m_model_shader->create_bind_group_layout();
 
     m_cube_mesh = TRY(create_cube_mesh());
@@ -1164,7 +1019,7 @@ void Renderer::record_world(Renderer& renderer, Ref<World> world, const RenderPa
             wgpuRenderPassEncoderSetBindGroup(encoder, 0, material->get_bind_group(), 0, nullptr);
 
             const Ref<Mesh>& mesh = slice.mesh;
-            wgpuRenderPassEncoderSetIndexBuffer(encoder, mesh->get_buffer(Mesh::BufferKind::Index)->handle(), convert_index_type(mesh->index_type()), 0, mesh->get_buffer(Mesh::BufferKind::Index)->size());
+            wgpuRenderPassEncoderSetIndexBuffer(encoder, mesh->get_buffer(Mesh::BufferKind::Index)->handle(), mesh->index_type(), 0, mesh->get_buffer(Mesh::BufferKind::Index)->size());
             wgpuRenderPassEncoderSetVertexBuffer(encoder, 0, mesh->get_buffer(Mesh::BufferKind::Position)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Position)->size());
             wgpuRenderPassEncoderSetVertexBuffer(encoder, 1, mesh->get_buffer(Mesh::BufferKind::Normal)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Normal)->size());
             wgpuRenderPassEncoderSetVertexBuffer(encoder, 2, mesh->get_buffer(Mesh::BufferKind::UV)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::UV)->size());

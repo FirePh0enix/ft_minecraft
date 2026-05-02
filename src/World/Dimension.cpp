@@ -59,7 +59,7 @@ Result<Ref<Chunk>> Dimension::generate_chunk(int64_t cx, int64_t cz)
 {
     ZoneScoped;
 
-    Ref<Chunk> chunk = TRY(newref<Chunk>(cx, cz, m_world));
+    Ref<Chunk> chunk = TRY(newref<Chunk>(cx, cz));
     memset(chunk->get_biomes(), 0, sizeof(Biome) * Chunk::block_count_with_overlap);
 
     for (size_t index = 0; index < m_generation_passes.size(); index++)

@@ -1,6 +1,7 @@
 #include "World/Registry.hpp"
 #include "SDL3/SDL_surface.h"
 #include "nlohmann/json_fwd.hpp"
+#include "webgpu/webgpu.h"
 
 #include <filesystem>
 #include <fstream>
@@ -68,8 +69,6 @@ void BlockRegistry::load_blocks()
             faces[i] = StringView(block.faces[i]);
         }
 
-        info("Registering block `{}`", block.name);
-
         register_block(newobj(Block, StringView(block.name), faces, block.gradient.value_or(GradientType::None)));
     }
 }
@@ -101,7 +100,7 @@ void BlockRegistry::register_block(Ref<Block> block)
 void BlockRegistry::create_gpu_resources()
 {
     uint32_t mip_level = 1;
-    s_texture_array = EXPECT(Texture::create(16, 16, TextureFormat::RGBA8Unorm, TextureUsageFlagBits::CopyDest | TextureUsageFlagBits::Sampled, TextureDimension::D2DArray, s_textures.size(), mip_level));
+    s_texture_array = EXPECT(Texture::create(16, 16, TextureFormat::RGBA8Unorm, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding, TextureDimension::D2DArray, s_textures.size(), mip_level));
 
     size_t index = 0;
 

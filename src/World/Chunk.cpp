@@ -6,11 +6,11 @@
 #include "Render/Types.hpp"
 #include "World/Block.hpp"
 #include "World/Registry.hpp"
-#include "World/World.hpp"
+#include "webgpu/webgpu.h"
 
 #include <cstdint>
 
-Chunk::Chunk(int64_t x, int64_t z, World *world)
+Chunk::Chunk(int64_t x, int64_t z)
     : m_x(x), m_z(z)
 {
     m_blocks = alloc_array_uninitialized<BlockState>(block_count_with_overlap);
@@ -23,10 +23,10 @@ Chunk::Chunk(int64_t x, int64_t z, World *world)
         Slice& slice = m_slices[i];
 
         slice.model.model_matrix = model_matrix;
-        slice.model_buffer = EXPECT(Buffer::create(sizeof(ChunkModel), BufferUsageFlagBits::Uniform | BufferUsageFlagBits::CopyDest));
+        slice.model_buffer = EXPECT(Buffer::create(sizeof(ChunkModel), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
         slice.model_buffer->update(View(slice.model).as_bytes());
 
-        slice.material = EXPECT(Material::create(Renderer::get().get_voxel_shader(), MaterialFlagBits::Transparency, PolygonMode::Fill, WGPUCullMode_Back, UVType::UVT));
+        slice.material = EXPECT(Material::create(Renderer::get().get_voxel_shader(), MaterialFlagBits::Transparency, WGPUPolygonMode_Fill, WGPUCullMode_Back, UVType::UVT));
         slice.material->set_param("images", BlockRegistry::get_texture_array());
         slice.material->set_param("env", Renderer::get().get_world_environment());
         slice.material->set_param("model", slice.model_buffer);
@@ -223,7 +223,7 @@ Result<void> Chunk::build_simple_mesh(size_t slice_index)
         TRY(normals.append(normal));
     }
 
-    slice.mesh = EXPECT(Mesh::create_from_data(View(indices).as_bytes(), vertices, normals, View(uvs).as_bytes(), IndexType::Uint16, UVType::UVT));
+    slice.mesh = EXPECT(Mesh::create_from_data(View(indices).as_bytes(), vertices, normals, View(uvs).as_bytes(), WGPUIndexFormat_Uint16, UVType::UVT));
 
     return Result<void>();
 }

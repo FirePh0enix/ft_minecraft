@@ -60,7 +60,7 @@ public:
     static constexpr int64_t block_count_with_overlap = width_with_overlap * height * width_with_overlap;
     static constexpr int64_t slice_count = height / width;
 
-    Chunk(int64_t x, int64_t z, World *world);
+    Chunk(int64_t x, int64_t z);
     ~Chunk();
 
     ALWAYS_INLINE BlockState get_block(int64_t x, int64_t y, int64_t z) const { return m_blocks[linearize(x, y, z)]; }

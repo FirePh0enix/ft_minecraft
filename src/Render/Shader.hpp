@@ -66,12 +66,12 @@ public:
 
     StringView get_source_string() const { return m_source_code; }
 
-    String get_entry_point(ShaderStageFlagBits stage) const
+    String get_entry_point(WGPUShaderStage stage) const
     {
         return m_entry_point_names.at(stage);
     }
 
-    ShaderStageFlags get_stage_mask() const
+    WGPUShaderStage get_stage_mask() const
     {
         return m_stage_mask;
     }
@@ -94,12 +94,12 @@ private:
 
     uint32_t m_hash;
 
-    ShaderStageFlags m_stage_mask;
+    WGPUShaderStage m_stage_mask;
 
     std::map<String, Binding> m_bindings;
     std::map<String, SamplerDescriptor> m_samplers;
 
-    std::map<ShaderStageFlagBits, String> m_entry_point_names;
+    std::map<WGPUShaderStage, String> m_entry_point_names;
 
     WGPUBindGroupLayout m_bind_group_layout = nullptr;
     WGPUPipelineLayout m_pipeline_layout = nullptr;

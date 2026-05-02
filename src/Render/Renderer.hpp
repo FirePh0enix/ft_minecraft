@@ -2,10 +2,10 @@
 
 #include "Core/Class.hpp"
 #include "Core/Definitions.hpp"
+#include "Core/Flags.hpp"
 #include "Core/Ref.hpp"
 #include "Core/Result.hpp"
 #include "Core/Types.hpp"
-#include "Render/Shader.hpp"
 #include "Render/Types.hpp"
 #include "Window.hpp"
 
@@ -13,6 +13,7 @@
 
 class World;
 
+class Shader;
 class RenderGraph;
 class RenderPassNode;
 
@@ -24,6 +25,18 @@ enum class InitFlagBits
 typedef Flags<InitFlagBits> InitFlags;
 DEFINE_FLAG_TRAITS(InitFlagBits);
 
+enum class VSync : uint8_t
+{
+    Off,
+    On,
+};
+
+enum class BufferVisibility : uint8_t
+{
+    GPUOnly,
+    GPUAndCPU,
+};
+
 class Buffer : public Object
 {
     CLASS(Buffer, Object);
@@ -31,19 +44,19 @@ class Buffer : public Object
 public:
     ~Buffer();
 
-    static Result<Ref<Buffer>> create(size_t size, BufferUsageFlags usage = {}, BufferVisibility visibility = BufferVisibility::GPUOnly);
+    static Result<Ref<Buffer>> create(size_t size, WGPUBufferUsage usage = WGPUBufferUsage_None, BufferVisibility visibility = BufferVisibility::GPUOnly);
 
     void update(View<uint8_t> view, size_t offset = 0);
 
     size_t size() const { return m_size; }
-    BufferUsageFlags flags() const { return m_usage; }
+    WGPUBufferUsage flags() const { return m_usage; }
 
     WGPUBuffer handle() const { return m_buffer; }
 
 private:
     WGPUBuffer m_buffer;
     size_t m_size;
-    BufferUsageFlags m_usage;
+    WGPUBufferUsage m_usage;
 };
 
 class Texture : public Object
@@ -53,7 +66,7 @@ class Texture : public Object
 public:
     ~Texture();
 
-    static Result<Ref<Texture>> create(uint32_t width, uint32_t height, TextureFormat format, TextureUsageFlags usage, TextureDimension dimension = TextureDimension::D2D, uint32_t layers = 1, uint32_t mip_level = 1);
+    static Result<Ref<Texture>> create(uint32_t width, uint32_t height, WGPUTextureFormat format, WGPUTextureUsage usage = WGPUTextureUsage_None, TextureDimension dimension = TextureDimension::D2D, uint32_t layers = 1, uint32_t mip_level = 1);
 
     void update(View<uint8_t> view, uint32_t layer = 0);
 
@@ -63,7 +76,7 @@ public:
 private:
     WGPUTexture m_texture;
     WGPUTextureView m_view;
-    TextureFormat m_format;
+    WGPUTextureFormat m_format;
     uint32_t m_width;
     uint32_t m_height;
     uint32_t m_layers;
@@ -84,9 +97,9 @@ public:
         Max,
     };
 
-    static Result<Ref<Mesh>> create_from_data(const View<uint8_t>& index, const View<glm::vec3>& positions, const View<glm::vec3>& normals, const View<uint8_t>& uvs, IndexType index_type = IndexType::Uint32, UVType uv_type = UVType::UV);
+    static Result<Ref<Mesh>> create_from_data(const View<uint8_t>& index, const View<glm::vec3>& positions, const View<glm::vec3>& normals, const View<uint8_t>& uvs, WGPUIndexFormat index_type = WGPUIndexFormat_Uint32, UVType uv_type = UVType::UV);
 
-    Mesh(uint32_t vertex_count, IndexType index_type, UVType uv_type, const Ref<Buffer>& index_buffer, const Ref<Buffer>& position_buffer, const Ref<Buffer>& normal_buffer, const Ref<Buffer>& uv_buffer)
+    Mesh(uint32_t vertex_count, WGPUIndexFormat index_type, UVType uv_type, const Ref<Buffer>& index_buffer, const Ref<Buffer>& position_buffer, const Ref<Buffer>& normal_buffer, const Ref<Buffer>& uv_buffer)
         : m_vertex_count(vertex_count), m_index_type(index_type), m_uv_type(uv_type)
     {
         set_buffer(BufferKind::Index, index_buffer);
@@ -97,7 +110,7 @@ public:
 
     ALWAYS_INLINE uint32_t vertex_count() const { return m_vertex_count; }
 
-    ALWAYS_INLINE IndexType index_type() const { return m_index_type; }
+    ALWAYS_INLINE WGPUIndexFormat index_type() const { return m_index_type; }
     ALWAYS_INLINE UVType uv_type() const { return m_uv_type; }
 
     ALWAYS_INLINE Ref<Buffer> get_buffer(BufferKind kind) const
@@ -112,7 +125,7 @@ public:
 
 protected:
     uint32_t m_vertex_count;
-    IndexType m_index_type;
+    WGPUIndexFormat m_index_type;
     UVType m_uv_type;
     Ref<Buffer> m_buffers[(size_t)BufferKind::Max];
 };
@@ -138,7 +151,7 @@ class Material : public Object
     CLASS(Material, Object);
 
 public:
-    static Result<Ref<Material>> create(const Ref<Shader>& shader, MaterialFlags flags, PolygonMode polygon_mode, WGPUCullMode cull_mode, UVType uv_type);
+    static Result<Ref<Material>> create(const Ref<Shader>& shader, MaterialFlags flags, WGPUPolygonMode polygon_mode, WGPUCullMode cull_mode, UVType uv_type);
 
     void set_param(const StringView& name, const Ref<Buffer>& buffer);
     void set_param(const StringView& name, const Ref<Texture>& texture);
@@ -158,7 +171,7 @@ private:
     std::map<String, MaterialParamCache> m_caches;
 
     MaterialFlags m_flags;
-    PolygonMode m_polygon_mode;
+    WGPUPolygonMode m_polygon_mode;
     WGPUCullMode m_cull_mode;
     UVType m_uv_type;
 

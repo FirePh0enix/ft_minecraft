@@ -17,6 +17,7 @@
 #include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/matrix_transform.hpp"
 #include "imgui.h"
+#include "webgpu/webgpu.h"
 
 Player::Player()
 {
@@ -146,7 +147,7 @@ static Ref<Mesh> create_cube_mesh(glm::vec3 size = glm::vec3(1.0), glm::vec3 off
 
     View<uint16_t> indices_span = indices;
 
-    return EXPECT(Mesh::create_from_data(indices_span.as_bytes(), vertices, normals, View(uvs).as_bytes(), IndexType::Uint16));
+    return EXPECT(Mesh::create_from_data(indices_span.as_bytes(), vertices, normals, View(uvs).as_bytes(), WGPUIndexFormat_Uint16));
 }
 
 void Player::on_ready()
