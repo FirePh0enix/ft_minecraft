@@ -48,7 +48,7 @@ void RenderPassNode::end()
 
 WGPUCommandBuffer RenderGraph::record(WGPUCommandEncoder encoder, WGPUTextureView surface_view, std::function<void(const RenderPassNode& node)> f)
 {
-    Ref<Node> node = m_root;
+    Ref<RenderGraphNode> node = m_root;
     while (!node.is_null())
     {
         if (Ref<RenderPassNode> render_pass_node = node)
@@ -64,9 +64,9 @@ WGPUCommandBuffer RenderGraph::record(WGPUCommandEncoder encoder, WGPUTextureVie
     return wgpuCommandEncoderFinish(encoder, nullptr);
 }
 
-void RenderGraph::set_root(Ref<Node> root)
+void RenderGraph::set_root(Ref<RenderGraphNode> root)
 {
-    Ref<Node> node = root;
+    Ref<RenderGraphNode> node = root;
     while (!node->next().is_null())
     {
         node->m_final_pass = false;

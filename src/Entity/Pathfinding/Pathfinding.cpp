@@ -9,7 +9,7 @@ constexpr int straight = 10;
 constexpr int diag_xz = 14;
 constexpr int vertical = 18;
 
-Node *Pathfinding::node_from_world_point(const glm::vec3& pos)
+PathNode *Pathfinding::node_from_world_point(const glm::vec3& pos)
 {
     glm::ivec3 key(std::floor(pos.x), std::floor(pos.y), std::floor(pos.z));
 
@@ -18,7 +18,7 @@ Node *Pathfinding::node_from_world_point(const glm::vec3& pos)
         return it->second;
 
     bool walkable = m_world->get_block_state(key.x, key.y, key.z).is_air();
-    Node *node = new Node(walkable, glm::vec3(key), key);
+    PathNode *node = new PathNode(walkable, glm::vec3(key), key);
     node->m_g_cost = std::numeric_limits<int>::max();
     node->m_h_cost = 0;
     node->m_parent = nullptr;
@@ -44,9 +44,9 @@ bool Pathfinding::is_walkable(const glm::ivec3& to, int max_jump_height)
     return false;
 }
 
-std::vector<Node *> Pathfinding::get_neighbors(const Node& node)
+std::vector<PathNode *> Pathfinding::get_neighbors(const PathNode& node)
 {
-    std::vector<Node *> neighbors;
+    std::vector<PathNode *> neighbors;
 
     static const std::vector<glm::ivec3> directions = {
         {1, 0, 0},
@@ -93,13 +93,13 @@ std::vector<Node *> Pathfinding::get_neighbors(const Node& node)
                 continue;
         }
 
-        Node *neighbor_node = nullptr;
+        PathNode *neighbor_node = nullptr;
         auto it = m_nodes.find(neighbor_pos);
         if (it != m_nodes.end())
             neighbor_node = it->second;
         else
         {
-            neighbor_node = new Node(true, glm::vec3(neighbor_pos), neighbor_pos);
+            neighbor_node = new PathNode(true, glm::vec3(neighbor_pos), neighbor_pos);
             bool neighbor_on_ground = !m_world->get_block_state(neighbor_pos.x, neighbor_pos.y - 1, neighbor_pos.z).is_air();
             neighbor_node->m_air_time = neighbor_on_ground ? 0 : air_time + 1;
 
@@ -112,7 +112,7 @@ std::vector<Node *> Pathfinding::get_neighbors(const Node& node)
     return neighbors;
 }
 
-int Pathfinding::get_distance(const Node& a, const Node& b)
+int Pathfinding::get_distance(const PathNode& a, const PathNode& b)
 {
     int dx = std::abs(a.m_gridPos.x - b.m_gridPos.x);
     int dz = std::abs(a.m_gridPos.z - b.m_gridPos.z);
@@ -125,11 +125,11 @@ int Pathfinding::get_distance(const Node& a, const Node& b)
     return horizontal + vertical * dy;
 }
 
-void Pathfinding::retrace_path(Node *start_node, Node *end_node)
+void Pathfinding::retrace_path(PathNode *start_node, PathNode *end_node)
 {
     m_path.clear();
 
-    Node *current_node = end_node;
+    PathNode *current_node = end_node;
 
     while (current_node != nullptr && current_node != start_node)
     {
@@ -158,8 +158,8 @@ void Pathfinding::find_path(const glm::vec3& start_pos, const glm::vec3& target_
     m_path.clear();
     m_path_index = 0;
 
-    Node *start_node = node_from_world_point(start_pos);
-    Node *target_node = node_from_world_point(target_pos);
+    PathNode *start_node = node_from_world_point(start_pos);
+    PathNode *target_node = node_from_world_point(target_pos);
 
     start_node->m_g_cost = 0;
     start_node->m_h_cost = get_distance(*start_node, *target_node);
@@ -168,7 +168,7 @@ void Pathfinding::find_path(const glm::vec3& start_pos, const glm::vec3& target_
 
     while (!m_open_set.empty())
     {
-        Node *current_node = m_open_set[0];
+        PathNode *current_node = m_open_set[0];
         for (size_t i = 1; i < m_open_set.size(); ++i)
         {
             if (m_open_set[i]->get_f_cost() < current_node->get_f_cost() ||
@@ -186,7 +186,7 @@ void Pathfinding::find_path(const glm::vec3& start_pos, const glm::vec3& target_
             return;
         }
 
-        for (Node *neighbor : get_neighbors(*current_node))
+        for (PathNode *neighbor : get_neighbors(*current_node))
         {
 
             if (!neighbor->m_walkable || m_close_set.contains(neighbor->m_gridPos))
@@ -209,7 +209,7 @@ void Pathfinding::find_path(const glm::vec3& start_pos, const glm::vec3& target_
     println("Pathfinding::find_path() cannot reach target. start: [{} {} {}], target: [{} {} {}]", start_node->m_position.x, start_node->m_position.y, start_node->m_position.z, target_node->m_position.x, target_node->m_position.y, target_node->m_position.z);
 }
 
-std::vector<glm::vec3> Pathfinding::simplify_path(const std::vector<Node *>& path)
+std::vector<glm::vec3> Pathfinding::simplify_path(const std::vector<PathNode *>& path)
 {
     std::vector<glm::vec3> waypoints;
 

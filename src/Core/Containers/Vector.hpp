@@ -179,6 +179,18 @@ public:
         memmove((void *)(m_data + index), (void *)(m_data + index + 1), sizeof(T) * m_size);
     }
 
+    void remove_if(std::function<bool(const T&)> f)
+    {
+        for (size_t i = 0; i < m_size; i++)
+        {
+            if (f(m_data[i]))
+            {
+                remove_at(i);
+                return;
+            }
+        }
+    }
+
     bool contains(const T& value) const
     {
         for (auto iter = begin(); iter != end(); iter++)

@@ -44,16 +44,11 @@ public:
     {
         if (id.is_valid())
         {
-            auto iter = std::find_if(m_entities.begin(), m_entities.end(),
-                                     [&](const Ref<Entity>& entity)
-                                     {
-                                         return entity->id() == id;
-                                     });
-
-            if (iter != m_entities.end())
-            {
-                m_entities.erase(iter);
-            }
+            m_entities.remove_if(
+                [&](const Ref<Entity>& entity)
+                {
+                    return entity->id() == id;
+                });
         }
     }
 

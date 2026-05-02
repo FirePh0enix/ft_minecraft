@@ -121,8 +121,6 @@ public:
 
     void recurse_tick(float delta);
 
-    virtual void on_hit_by(Entity& entity) { (void)entity; }
-
     void call_rpc(const std::string& name, Entity& caller);
 
     ALWAYS_INLINE bool is_active() const { return m_active; }

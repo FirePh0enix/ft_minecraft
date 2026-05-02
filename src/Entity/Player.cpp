@@ -1,155 +1,19 @@
 #include "Entity/Player.hpp"
 
 #include "AABB.hpp"
-#include "Core/Class.hpp"
-#include "Core/Definitions.hpp"
-#include "Core/Print.hpp"
-#include "Core/Result.hpp"
+#include "Core/Math.hpp"
 #include "Entity/Entity.hpp"
 #include "Input.hpp"
 #include "Model.hpp"
 #include "Profiler.hpp"
-#include "Render/ImGUIToolKit.hpp"
-#include "Render/Shader.hpp"
-#include "Render/Types.hpp"
-#include "World/Dimension.hpp"
 #include "World/Registry.hpp"
 #include "World/World.hpp"
-#include "glm/ext/matrix_float4x4.hpp"
-#include "glm/ext/matrix_transform.hpp"
-#include "imgui.h"
-#include "webgpu/webgpu.h"
+
+#include <imgui.h>
 
 Player::Player()
 {
     m_name = "Player";
-}
-
-static Ref<Mesh> create_cube_mesh(glm::vec3 size = glm::vec3(1.0), glm::vec3 offset = glm::vec3())
-{
-    const glm::vec3 hs = size / glm::vec3(2.0);
-
-    // clang-format off
-    std::array<uint16_t, 36> indices{
-        0, 1, 2,
-        2, 3, 0, // front
-
-        20, 21, 22,
-        22, 23, 20, // back
-
-        4, 5, 6,
-        6, 7, 4, // right
-
-        12, 13, 14,
-        14, 15, 12, // left
-
-        8, 9, 10,
-        10, 11, 8, // top
-
-        16, 17, 18,
-        18, 19, 16, // bottom
-    };
-    // clang-format on
-
-    std::array<glm::vec3, 24> vertices{
-        glm::vec3(-hs.x + offset.x, -hs.y + offset.y, hs.z + offset.z), // front
-        glm::vec3(hs.x + offset.x, -hs.y + offset.y, hs.z + offset.z),
-        glm::vec3(hs.x + offset.x, hs.y + offset.y, hs.z + offset.z),
-        glm::vec3(-hs.x + offset.x, hs.y + offset.y, hs.z + offset.z),
-
-        glm::vec3(hs.x + offset.x, -hs.y + offset.y, -hs.z + offset.z), // back
-        glm::vec3(-hs.x + offset.x, -hs.y + offset.y, -hs.z + offset.z),
-        glm::vec3(-hs.x + offset.x, hs.y + offset.y, -hs.z + offset.z),
-        glm::vec3(hs.x + offset.x, hs.y + offset.y, -hs.z + offset.z),
-
-        glm::vec3(-hs.x + offset.x, -hs.y + offset.y, -hs.z + offset.z), // left
-        glm::vec3(-hs.x + offset.x, -hs.y + offset.y, hs.z + offset.z),
-        glm::vec3(-hs.x + offset.x, hs.y + offset.y, hs.z + offset.z),
-        glm::vec3(-hs.x + offset.x, hs.y + offset.y, -hs.z + offset.z),
-
-        glm::vec3(hs.x + offset.x, -hs.y + offset.y, hs.z + offset.z), // right
-        glm::vec3(hs.x + offset.x, -hs.y + offset.y, -hs.z + offset.z),
-        glm::vec3(hs.x + offset.x, hs.y + offset.y, -hs.z + offset.z),
-        glm::vec3(hs.x + offset.x, hs.y + offset.y, hs.z + offset.z),
-
-        glm::vec3(-hs.x + offset.x, hs.y + offset.y, hs.z + offset.z), // top
-        glm::vec3(hs.x + offset.x, hs.y + offset.y, hs.z + offset.z),
-        glm::vec3(hs.x + offset.x, hs.y + offset.y, -hs.z + offset.z),
-        glm::vec3(-hs.x + offset.x, hs.y + offset.y, -hs.z + offset.z),
-
-        glm::vec3(-hs.x + offset.x, -hs.y + offset.y, -hs.z + offset.z), // bottom
-        glm::vec3(hs.x + offset.x, -hs.y + offset.y, -hs.z + offset.z),
-        glm::vec3(hs.x + offset.x, -hs.y + offset.y, hs.z + offset.z),
-        glm::vec3(-hs.x + offset.x, -hs.y + offset.y, hs.z + offset.z),
-    };
-
-    std::array<glm::vec2, 24> uvs{
-        glm::vec2(0.0, 0.0),
-        glm::vec2(1.0, 0.0),
-        glm::vec2(1.0, 1.0),
-        glm::vec2(0.0, 1.0),
-
-        glm::vec2(0.0, 0.0),
-        glm::vec2(1.0, 0.0),
-        glm::vec2(1.0, 1.0),
-        glm::vec2(0.0, 1.0),
-
-        glm::vec2(0.0, 0.0),
-        glm::vec2(1.0, 0.0),
-        glm::vec2(1.0, 1.0),
-        glm::vec2(0.0, 1.0),
-
-        glm::vec2(0.0, 0.0),
-        glm::vec2(1.0, 0.0),
-        glm::vec2(1.0, 1.0),
-        glm::vec2(0.0, 1.0),
-
-        glm::vec2(0.0, 0.0),
-        glm::vec2(1.0, 0.0),
-        glm::vec2(1.0, 1.0),
-        glm::vec2(0.0, 1.0),
-
-        glm::vec2(0.0, 0.0),
-        glm::vec2(1.0, 0.0),
-        glm::vec2(1.0, 1.0),
-        glm::vec2(0.0, 1.0),
-    };
-
-    std::array<glm::vec3, 24> normals{
-        glm::vec3(0.0, 0.0, 1.0), // front
-        glm::vec3(0.0, 0.0, 1.0),
-        glm::vec3(0.0, 0.0, 1.0),
-        glm::vec3(0.0, 0.0, 1.0),
-
-        glm::vec3(0.0, 0.0, -1.0), // back
-        glm::vec3(0.0, 0.0, -1.0),
-        glm::vec3(0.0, 0.0, -1.0),
-        glm::vec3(0.0, 0.0, -1.0),
-
-        glm::vec3(1.0, 0.0, 0.0), // left
-        glm::vec3(1.0, 0.0, 0.0),
-        glm::vec3(1.0, 0.0, 0.0),
-        glm::vec3(1.0, 0.0, 0.0),
-
-        glm::vec3(-1.0, 0.0, 0.0), // right
-        glm::vec3(-1.0, 0.0, 0.0),
-        glm::vec3(-1.0, 0.0, 0.0),
-        glm::vec3(-1.0, 0.0, 0.0),
-
-        glm::vec3(0.0, 1.0, 0.0), // top
-        glm::vec3(0.0, 1.0, 0.0),
-        glm::vec3(0.0, 1.0, 0.0),
-        glm::vec3(0.0, 1.0, 0.0),
-
-        glm::vec3(0.0, -1.0, 0.0), // bottom
-        glm::vec3(0.0, -1.0, 0.0),
-        glm::vec3(0.0, -1.0, 0.0),
-        glm::vec3(0.0, -1.0, 0.0),
-    };
-
-    View<uint16_t> indices_span = indices;
-
-    return EXPECT(Mesh::create_from_data(indices_span.as_bytes(), vertices, normals, View(uvs).as_bytes(), WGPUIndexFormat_Uint16));
 }
 
 void Player::on_ready()
@@ -241,7 +105,7 @@ void Player::tick(float delta)
         {
             glm::vec3 normal = face_normal(raycast_result->face);
 
-            m_world->set_block_state(x + normal.x, y + normal.y, z + normal.z, BlockRegistry::get_block_id("stone"));
+            m_world->set_block_state(int64_t(float(x) + normal.x), int64_t(float(y) + normal.y), int64_t(float(z) + normal.z), BlockState(BlockRegistry::get_block_id("stone")));
             m_block_placed = true;
         }
         else if (!Input::is_action_pressed("interact"))
@@ -349,34 +213,11 @@ void Player::draw(const RenderPassNode& node)
     }
 }
 
-// void Player::on_block_aimed(BlockState state, int64_t x, int64_t y, int64_t z, glm::vec3 dir)
-// {
-//     Transform3D transform(glm::vec3((float)x, (float)y, (float)z));
-//     // FIXME: transform does not matter for MeshInstance, probably should instead of manipulating a buffer directly.
-//     // m_cube_highlight->get_transform->set_transform(transform);
+void Player::die()
+{
+}
 
-//     // CubeHighlightUniforms uniforms{};
-//     // uniforms.model_matrix = transform.translation_matrix();
-//     // uniforms.color = glm::vec3(1.0, 1.0, 0.0);
-
-//     // RenderingDriver::get()->update_buffer(m_cube_highlight_buffer, View(uniforms).as_bytes(), 0);
-
-//     if (Input::is_action_pressed("attack") && !state.is_air())
-//     {
-//         m_world->set_block_state(x, y, z, BlockState());
-//     }
-//     else if (Input::is_action_pressed("place"))
-//     {
-//         Face face = get_face(dir);
-
-//         int64_t x2 = face == Face::West ? x + 1 : (face == Face::East ? x - 1 : x);
-//         int64_t y2 = face == Face::Top ? y + 1 : (face == Face::Bottom ? y - 1 : y);
-//         int64_t z2 = face == Face::South ? z + 1 : (face == Face::North ? z - 1 : z);
-
-//         m_world->set_block_state(x2, y2, z2, BlockState(BlockRegistry::get_block_id("stone")));
-//     }
-// }
-
-void Player::die() {}
-
-void Player::on_hit_by(Entity& entity) {}
+void Player::on_hit_by(Entity& entity)
+{
+    (void)entity;
+}

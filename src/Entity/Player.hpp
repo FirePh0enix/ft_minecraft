@@ -46,7 +46,7 @@ public:
     float get_speed() const { return m_speed; }
     void set_speed(float speed) { m_speed = speed; }
 
-    void on_hit_by(Entity& entity) override;
+    virtual void on_hit_by(Entity& entity) override;
 
 protected:
     void die() override;
@@ -66,11 +66,11 @@ private:
     bool m_block_placed = false;
 
     std::optional<glm::vec3> m_aimed_block = std::nullopt;
-    Ref<Mesh> m_highlight_mesh;
-    Ref<Shader> m_highlight_shader;
-    Ref<Material> m_highlight_material;
-    ChunkModel m_highlight_model;
-    Ref<Buffer> m_highlight_model_buffer;
+    // Ref<Mesh> m_highlight_mesh;
+    // Ref<Shader> m_highlight_shader;
+    // Ref<Material> m_highlight_material;
+    // ChunkModel m_highlight_model;
+    // Ref<Buffer> m_highlight_model_buffer;
 
     Ref<Model> m_model;
     Animator m_animator;

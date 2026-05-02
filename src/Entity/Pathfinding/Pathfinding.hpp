@@ -25,20 +25,20 @@ public:
     Pathfinding(World *world) : m_world(world) {};
     void find_path(const glm::vec3& start_pos, const glm::vec3& target_pos);
     bool is_walkable(const glm::ivec3& to, int jump_height);
-    std::vector<glm::vec3> simplify_path(const std::vector<Node *>& path);
+    std::vector<glm::vec3> simplify_path(const std::vector<PathNode *>& path);
 
-    std::vector<Node *> m_path;
+    std::vector<PathNode *> m_path;
     size_t m_path_index = 0;
 
 private:
     World *m_world = nullptr;
 
-    std::unordered_map<glm::ivec3, Node *, Ivec3Hash> m_nodes;
-    std::vector<Node *> m_open_set;
+    std::unordered_map<glm::ivec3, PathNode *, Ivec3Hash> m_nodes;
+    std::vector<PathNode *> m_open_set;
     std::unordered_set<glm::ivec3, Ivec3Hash> m_close_set;
 
-    void retrace_path(Node *start_node, Node *end_node);
-    int get_distance(const Node& node_a, const Node& node_b);
-    std::vector<Node *> get_neighbors(const Node& node);
-    Node *node_from_world_point(const glm::vec3& world_position);
+    void retrace_path(PathNode *start_node, PathNode *end_node);
+    int get_distance(const PathNode& node_a, const PathNode& node_b);
+    std::vector<PathNode *> get_neighbors(const PathNode& node);
+    PathNode *node_from_world_point(const glm::vec3& world_position);
 };

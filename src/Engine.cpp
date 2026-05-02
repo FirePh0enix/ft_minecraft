@@ -32,8 +32,8 @@ Engine::Engine(const Args& args)
 
     EXPECT(m_renderer.init(*m_window, flags));
 
-    m_depth_texture = EXPECT(Texture::create(1280, 720, TextureFormat::Depth32, WGPUTextureUsage_RenderAttachment));
-    m_color_texture = EXPECT(Texture::create(1280, 720, TextureFormat::RGBA8Srgb, WGPUTextureUsage_RenderAttachment));
+    m_depth_texture = EXPECT(Texture::create(1280, 720, WGPUTextureFormat_Depth32Float, WGPUTextureUsage_RenderAttachment));
+    m_color_texture = EXPECT(Texture::create(1280, 720, WGPUTextureFormat_RGBA8UnormSrgb, WGPUTextureUsage_RenderAttachment));
 
     Ref<RenderPassNode> depth_pass = EXPECT(newref<RenderPassNode>());
     depth_pass->set_depth_output(m_depth_texture);

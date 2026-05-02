@@ -100,7 +100,7 @@ void BlockRegistry::register_block(Ref<Block> block)
 void BlockRegistry::create_gpu_resources()
 {
     uint32_t mip_level = 1;
-    s_texture_array = EXPECT(Texture::create(16, 16, TextureFormat::RGBA8Unorm, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding, TextureDimension::D2DArray, s_textures.size(), mip_level));
+    s_texture_array = EXPECT(Texture::create(16, 16, WGPUTextureFormat_RGBA8Unorm, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding, TextureDimension::D2DArray, s_textures.size(), mip_level));
 
     size_t index = 0;
 

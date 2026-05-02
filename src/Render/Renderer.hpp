@@ -6,6 +6,7 @@
 #include "Core/Ref.hpp"
 #include "Core/Result.hpp"
 #include "Core/Types.hpp"
+#include "Render/Shader.hpp"
 #include "Render/Types.hpp"
 #include "Window.hpp"
 
@@ -13,7 +14,6 @@
 
 class World;
 
-class Shader;
 class RenderGraph;
 class RenderPassNode;
 

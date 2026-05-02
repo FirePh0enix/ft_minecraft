@@ -1,12 +1,12 @@
 #pragma once
 
 #include "Entity/Entity.hpp"
+#include "Model.hpp"
 #include "World/Chunk.hpp"
 
 /**
  * @brief An entity controlled by inputs or AI.
  */
-
 class Mob : public Entity
 {
     CLASS(Mob, Entity);
@@ -18,7 +18,7 @@ public:
     ALWAYS_INLINE int get_attack_damage() const { return m_attack_damage; }
 
     void move_and_collide(bool enable_collision = true);
-    virtual void on_hit_by(Entity *entity) override { (void)entity; };
+    virtual void on_hit_by(Entity& entity) { (void)entity; };
 
 protected:
     bool m_on_ground = true;
@@ -35,9 +35,5 @@ protected:
     virtual void die() {};
     void take_damage(int amount) { m_health -= amount; };
 
-    Ref<Mesh> m_mesh;
-    Ref<Material> m_material;
-    Ref<Shader> m_shader;
-    Ref<Buffer> m_model_buffer;
-    Model m_model;
+    Ref<Model> m_model;
 };

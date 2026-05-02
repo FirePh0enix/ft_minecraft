@@ -4,7 +4,7 @@
 #include "Core/Ref.hpp"
 #include "Render/Renderer.hpp"
 
-class Node : public Object
+class RenderGraphNode : public Object
 {
     CLASS(Node, Object);
 
@@ -14,19 +14,19 @@ public:
     virtual void begin(WGPUCommandEncoder encoder, WGPUTextureView surface_view) = 0;
     virtual void end() = 0;
 
-    Ref<Node> next() const { return m_next; }
-    void set_next(Ref<Node> next) { m_next = next; };
+    Ref<RenderGraphNode> next() const { return m_next; }
+    void set_next(Ref<RenderGraphNode> next) { m_next = next; };
 
     bool is_final_pass() const { return m_final_pass; }
 
 private:
-    Ref<Node> m_next;
+    Ref<RenderGraphNode> m_next;
     bool m_final_pass;
 };
 
-class RenderPassNode : public Node
+class RenderPassNode : public RenderGraphNode
 {
-    CLASS(RenderPassNode, Node);
+    CLASS(RenderPassNode, RenderGraphNode);
 
 public:
     virtual void begin(WGPUCommandEncoder encoder, WGPUTextureView surface_view) override;
@@ -55,8 +55,8 @@ class RenderGraph
 public:
     WGPUCommandBuffer record(WGPUCommandEncoder encoder, WGPUTextureView surface_view, std::function<void(const RenderPassNode& node)> f);
 
-    void set_root(Ref<Node> root);
+    void set_root(Ref<RenderGraphNode> root);
 
 private:
-    Ref<Node> m_root;
+    Ref<RenderGraphNode> m_root;
 };

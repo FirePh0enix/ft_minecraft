@@ -256,14 +256,6 @@ inline void adjust_on_boundary(double rcomp, int64_t& vcomp, double dcomp, doubl
     }
 }
 
-inline void adjust_on_boundary(double rcomp, int64_t& vcomp, double dcomp, double eps = 1e-12)
-{
-    if (std::abs(rcomp - static_cast<double>(vcomp)) <= eps && dcomp < 0.0)
-    {
-        --vcomp;
-    }
-}
-
 std::optional<RaycastResult> World::raycast(const Ray& ray, float range)
 {
     const glm::vec3 ro = ray.origin();
