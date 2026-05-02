@@ -4,9 +4,8 @@
 #include "Entity/Pathfinding/Path.hpp"
 #include "Entity/Pathfinding/Pathfinding.hpp"
 #include "Mob.hpp"
-#include "glm/ext/vector_float3.hpp"
 #include <cstddef>
-#include <machine/limits.h>
+#include <limits>
 
 class Cow : public Mob
 {
@@ -36,7 +35,7 @@ protected:
     float m_stopping_dst = 5;
 
     size_t m_path_index = 0;
-    size_t m_last_jump_index = SIZE_T_MAX;
+    size_t m_last_jump_index = std::numeric_limits<size_t>::max();
 
     bool m_following_path = false;
 };

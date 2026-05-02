@@ -139,7 +139,7 @@ static glm::vec3 safe_normalize(const glm::vec3& v)
     float len2 = glm::length2(v);
     if (len2 < 1e-8f)
         return glm::vec3(0.0f);
-    return v / sqrt(len2);
+    return v / std::sqrt(len2);
 }
 
 void Cow::start() {};
