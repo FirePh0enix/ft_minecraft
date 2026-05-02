@@ -1,7 +1,6 @@
 struct Enviromnent
 {
     view_matrix: mat4x4<f32>,
-    time: f32,
 };
 
 struct Model

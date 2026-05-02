@@ -1,29 +1,26 @@
 #include "Engine.hpp"
 #include "Args.hpp"
+#include "Core/Ref.hpp"
+#include "Core/Result.hpp"
 #include "Core/Types.hpp"
 #include "Entity/Player.hpp"
 #include "Input.hpp"
 #include "Profiler.hpp"
-#include "Render/Driver.hpp"
 #include "Render/Graph.hpp"
 #include "Render/ImGUIToolKit.hpp"
-#include "Render/WebGPU/DriverWebGPU.hpp"
+#include "Render/Types.hpp"
 #include "World/World.hpp"
 #include "imgui.h"
+
+#include <backends/imgui_impl_sdl3.h>
 
 Engine::Engine(const Args& args)
 {
     singleton = this;
-    m_window = newobj(Window, "ft_minecraft", 1280, 720);
+    m_window = EXPECT(newref<Window>("ft_minecraft", 1280, 720));
 
     Input::init(*m_window);
     Input::load_config();
-
-#ifdef __has_webgpu
-    RenderingDriver::create_singleton<RenderingDriverWebGPU>();
-#else
-#error "WebGPU is the only API supported"
-#endif
 
     InitFlags flags;
     if (args.has("enable-gpu-validation"))
@@ -31,7 +28,23 @@ Engine::Engine(const Args& args)
         flags |= InitFlagBits::Validation;
     }
 
-    (void)RenderingDriver::get()->initialize(*m_window, flags);
+    EXPECT(m_renderer.init(*m_window, flags));
+
+    m_depth_texture = EXPECT(Texture::create(1280, 720, TextureFormat::Depth32, TextureUsageFlagBits::DepthAttachment));
+    m_color_texture = EXPECT(Texture::create(1280, 720, TextureFormat::RGBA8Srgb, TextureUsageFlagBits::ColorAttachment));
+
+    Ref<RenderPassNode> depth_pass = EXPECT(newref<RenderPassNode>());
+    depth_pass->set_depth_output(m_depth_texture);
+
+    Ref<RenderPassNode> color_pass = EXPECT(newref<RenderPassNode>());
+    color_pass->set_depth_output(m_depth_texture);
+    color_pass->set_color_output(m_color_texture);
+    color_pass->set_load_depth(true);
+    color_pass->set_output_to_surface(true);
+    color_pass->set_next(nullptr);
+
+    depth_pass->set_next(color_pass);
+    m_graph.set_root(depth_pass);
 }
 
 void Engine::tick(float delta)
@@ -54,7 +67,7 @@ void Engine::tick(float delta)
             break;
             case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
             {
-                Result<void> result = RenderingDriver::get()->configure_surface(event->window.data1, event->window.data2, VSync::On);
+                Result<void> result = Renderer::get().configure_surface(event->window.data1, event->window.data2, VSync::On);
                 ERR_EXPECT_B(result, "Failed to configure the surface");
 
                 if (m_scene == EngineScene::World)
@@ -94,8 +107,6 @@ void Engine::draw()
 {
     Result<void> res;
 
-    RenderingDriver::get()->poll();
-
     switch (m_scene)
     {
     case EngineScene::MainMenu:
@@ -117,84 +128,52 @@ Result<void> Engine::draw_main_menu()
 {
     const Extent2D window_size = m_window->size();
 
-#ifdef __has_debug_menu
-    {
-        RenderPassEncoder encoder = RenderGraph::get().render_pass_begin({
-            .name = "main pass",
-            .color_attachments = TRY(Vector<RenderPassColorAttachment>::create(RenderPassColorAttachment{.surface_texture = true})),
-            .depth_attachment = RenderPassDepthAttachment{},
-        });
-
-        const float size_x = (float)window_size.width * 0.4f;
-        const float size_y = (float)window_size.height * 0.6f;
-
-        ImGui::SetNextWindowPos(ImVec2((float)window_size.width / 2 - size_x / 2, (float)window_size.height / 2 - size_y / 2));
-        ImGui::SetNextWindowSize(ImVec2(size_x, size_y));
-        if (ImGui::Begin("Main Menu", nullptr, ImGuiWindowFlags_NoDecoration))
+    m_renderer.draw(m_graph, [this, window_size](const RenderPassNode& node)
+                    {
+        if (node.is_final_pass())
         {
-            imguitk_center_next_widget("Main Menu");
-            ImGui::Text("Main Menu");
-            ImGui::NewLine();
+            const float size_x = (float)window_size.width * 0.4f;
+            const float size_y = (float)window_size.height * 0.6f;
 
-            const char *types[] = {"flat", "normal"};
-            if (ImGui::Combo("World Type", &m_main_menu_world_type, types, 2))
+            ImGui::SetNextWindowPos(ImVec2((float)window_size.width / 2 - size_x / 2, (float)window_size.height / 2 - size_y / 2));
+            ImGui::SetNextWindowSize(ImVec2(size_x, size_y));
+            if (ImGui::Begin("Main Menu", nullptr, ImGuiWindowFlags_NoDecoration))
             {
+                imguitk_center_next_widget("Main Menu");
+                ImGui::Text("Main Menu");
+                ImGui::NewLine();
+
+                const char *types[] = {"flat", "normal"};
+                if (ImGui::Combo("World Type", &m_main_menu_world_type, types, 2))
+                {
+                }
+
+                ImGui::InputText("Seed", m_world_seed_buf, sizeof(m_world_seed_buf));
+
+                imguitk_center_next_widget("Play");
+                if (ImGui::Button("Play"))
+                {
+                    create_world_and_start();
+                }
             }
-
-            ImGui::InputText("Seed", m_world_seed_buf, sizeof(m_world_seed_buf));
-
-            imguitk_center_next_widget("Play");
-            if (ImGui::Button("Play"))
-            {
-                create_world_and_start();
-            }
-        }
-        ImGui::End();
-
-        encoder.imgui();
-    }
-#endif
-
-    RenderingDriver::get()->draw_graph(RenderGraph::get());
-    RenderGraph::get().reset();
+            ImGui::End();
+        } });
 
     return Result<void>();
 }
 
 Result<void> Engine::draw_world_scene()
 {
-    // The first pass: Depth only
-    {
-        RenderPassEncoder encoder = RenderGraph::get().render_pass_begin({.name = "depth pass", .depth_attachment = RenderPassDepthAttachment{.save = true}});
-        m_world->draw(encoder);
-    }
-
-    // The main color pass.
-    {
-        RenderPassEncoder encoder = RenderGraph::get().render_pass_begin({
-            .name = "main pass",
-            .color_attachments = TRY(Vector<RenderPassColorAttachment>::create(RenderPassColorAttachment{.surface_texture = true})),
-            .depth_attachment = RenderPassDepthAttachment{.load = true},
-        });
-        m_world->draw(encoder, true);
-
-#if defined(__has_debug_menu)
-        encoder.imgui();
-#endif
-    }
-
-    RenderingDriver::get()->draw_graph(RenderGraph::get());
-    RenderGraph::get().reset();
-
+    Renderer::get().draw(m_graph, m_world);
     return Result<void>();
 }
 
 void Engine::create_world_and_start()
 {
     uint64_t seed = StringView(m_world_seed_buf).parse_int<uint64_t>();
-    m_world = newref<World>(seed, m_main_menu_world_type);
+    m_world = EXPECT(newref<World>(seed, m_main_menu_world_type));
 
-    m_player = newobj(Player);
+    m_player = EXPECT(newref<Player>());
     m_player->get_transform().position() = glm::vec3(0, 100.0, 3);
     m_world->add_entity(World::overworld, m_player);
 

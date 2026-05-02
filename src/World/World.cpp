@@ -1,24 +1,16 @@
 #include "World/World.hpp"
+
 #include "Profiler.hpp"
-#include "Render/Driver.hpp"
 #include "Render/Types.hpp"
 #include "World/Chunk.hpp"
 #include "World/Pass/Flat.hpp"
 #include "World/Pass/Overworld.hpp"
+
 #include <mutex>
 
 World::World(uint64_t seed, int type)
     : m_seed(seed), m_generation_thread_pool(std::thread::hardware_concurrency() - 1)
 {
-    m_env_buffer = RenderingDriver::get()->create_buffer(sizeof(Environment), BufferUsageFlagBits::Uniform | BufferUsageFlagBits::CopyDest).value_or(nullptr);
-
-    m_shader = Shader::load("assets/shaders/voxel.wgsl").value_or(nullptr);
-    m_shader->set_binding("images", Binding(BindingKind::Texture, ShaderStageFlagBits::Fragment, 0, 0, BindingAccess::Read, TextureDimension::D2DArray)); // binding = 1 is the sampler
-    m_shader->set_binding("env", Binding(BindingKind::UniformBuffer, ShaderStageFlagBits::Vertex, 0, 2, BindingAccess::Read));
-    m_shader->set_binding("model", Binding(BindingKind::UniformBuffer, ShaderStageFlagBits::Vertex, 0, 3, BindingAccess::Read));
-
-    m_shader->set_sampler("images", {.min_filter = Filter::Nearest, .mag_filter = Filter::Nearest});
-
     // Setup world generation
     m_dims[overworld].m_world = this;
 
@@ -57,7 +49,7 @@ void World::tick(float delta)
     m_dims[0].m_chunks_to_flush.clear();
 }
 
-void World::draw(RenderPassEncoder& encoder, bool include_entities)
+/*void World::draw(RenderPassEncoder& encoder, bool include_entities)
 {
     ZoneScoped;
 
@@ -102,7 +94,7 @@ void World::draw(RenderPassEncoder& encoder, bool include_entities)
             encoder.draw(mesh->vertex_count(), 1);
         }
     }
-}
+}*/
 
 BlockState World::get_block_state(int64_t x, int64_t y, int64_t z) const
 {
@@ -155,7 +147,6 @@ std::optional<Ref<Chunk>> World::get_chunk(int64_t x, int64_t z)
 void World::set_active_camera(Ref<Camera> camera)
 {
     m_camera = camera;
-    update_environment_buffer();
 }
 
 void World::load_around_player()
@@ -406,9 +397,4 @@ std::optional<RaycastResult> World::raycast(const Ray& ray, float range)
     }
 
     return std::nullopt;
-}
-
-void World::update_environment_buffer()
-{
-    m_env_buffer->update(View(m_env).as_bytes());
 }

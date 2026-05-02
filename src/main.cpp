@@ -3,9 +3,7 @@
 #include "Engine.hpp"
 #include "Input.hpp"
 #include "Profiler.hpp"
-#include "Render/Driver.hpp"
 #include "World/Registry.hpp"
-#include "webgpu/webgpu.h"
 
 #include <imgui.h>
 
@@ -43,7 +41,7 @@ MAIN(int argc, char *argv[])
     args.add_arg("enable-gpu-validation", {.type = ArgType::Bool});
     args.parse(argv, argc);
 
-    engine = newref<Engine>(args);
+    engine = EXPECT(newref<Engine>(args));
 
     TracySetThreadName("Main");
 
@@ -100,7 +98,7 @@ static void shutdown_callback()
     BlockRegistry::destroy();
     // Font::deinit_library();
 
-    RenderingDriver::destroy_singleton();
+    // RenderingDriver::destroy_singleton();
     engine = nullptr;
 }
 

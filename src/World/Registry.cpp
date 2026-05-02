@@ -100,11 +100,8 @@ void BlockRegistry::register_block(Ref<Block> block)
 
 void BlockRegistry::create_gpu_resources()
 {
-    uint32_t mip_level = 4;
-    auto texture_array_result = RenderingDriver::get()->create_texture(16, 16, TextureFormat::RGBA8Unorm, TextureUsageFlagBits::CopyDest | TextureUsageFlagBits::Sampled, TextureDimension::D2DArray, s_textures.size(), mip_level);
-    ERR_COND_R(texture_array_result.has_error(), "Cannot create the block texture array");
-
-    s_texture_array = texture_array_result.value();
+    uint32_t mip_level = 1;
+    s_texture_array = EXPECT(Texture::create(16, 16, TextureFormat::RGBA8Unorm, TextureUsageFlagBits::CopyDest | TextureUsageFlagBits::Sampled, TextureDimension::D2DArray, s_textures.size(), mip_level));
 
     size_t index = 0;
 
@@ -114,7 +111,7 @@ void BlockRegistry::create_gpu_resources()
         index++;
     }
 
-    s_texture_array->generate_mips();
+    // s_texture_array->generate_mips();
 }
 
 void BlockRegistry::destroy()

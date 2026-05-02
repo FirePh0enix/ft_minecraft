@@ -42,10 +42,11 @@ list(APPEND SOURCES
     src/Entity/Entity.cpp
     src/Entity/Mob.cpp
     src/Entity/Player.cpp
-    src/Render/WebGPU/DriverWebGPU.cpp
-    src/Render/Driver.cpp
+    # src/Render/WebGPU/DriverWebGPU.cpp
+    # src/Render/Driver.cpp
     src/Render/Graph.cpp
     src/Render/Shader.cpp
+    src/Render/Renderer.cpp
     src/World/Pass/Flat.cpp
     src/World/Pass/Overworld.cpp
     src/World/Chunk.cpp

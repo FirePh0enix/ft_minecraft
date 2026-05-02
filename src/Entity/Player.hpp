@@ -5,7 +5,6 @@
 #include "Entity/Entity.hpp"
 #include "Entity/Mob.hpp"
 #include "Model.hpp"
-#include "Render/Driver.hpp"
 #include "Render/Graph.hpp"
 #include "World/Block.hpp"
 #include "World/World.hpp"
@@ -20,7 +19,7 @@ public:
     virtual ~Player() {}
 
     virtual void tick(float delta) override;
-    virtual void draw(RenderPassEncoder& encoder) override;
+    virtual void draw(const RenderPassNode& node) override;
 
     void on_ready() override;
 

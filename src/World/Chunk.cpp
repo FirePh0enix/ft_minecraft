@@ -23,12 +23,12 @@ Chunk::Chunk(int64_t x, int64_t z, World *world)
         Slice& slice = m_slices[i];
 
         slice.model.model_matrix = model_matrix;
-        slice.model_buffer = RenderingDriver::get()->create_buffer(sizeof(ChunkModel), BufferUsageFlagBits::Uniform | BufferUsageFlagBits::CopyDest).value_or(nullptr);
+        slice.model_buffer = EXPECT(Buffer::create(sizeof(ChunkModel), BufferUsageFlagBits::Uniform | BufferUsageFlagBits::CopyDest));
         slice.model_buffer->update(View(slice.model).as_bytes());
 
-        slice.material = RenderingDriver::get()->create_material(world->m_shader, std::nullopt, MaterialFlagBits::Transparency, PolygonMode::Fill, CullMode::Back, UVType::UVT);
+        slice.material = EXPECT(Material::create(Renderer::get().get_voxel_shader(), MaterialFlagBits::Transparency, PolygonMode::Fill, WGPUCullMode_Back, UVType::UVT));
         slice.material->set_param("images", BlockRegistry::get_texture_array());
-        slice.material->set_param("env", world->m_env_buffer);
+        slice.material->set_param("env", Renderer::get().get_world_environment());
         slice.material->set_param("model", slice.model_buffer);
     }
 }
@@ -223,7 +223,7 @@ Result<void> Chunk::build_simple_mesh(size_t slice_index)
         TRY(normals.append(normal));
     }
 
-    slice.mesh = Mesh::create_from_data(View(indices).as_bytes(), vertices, normals, View(uvs).as_bytes(), IndexType::Uint16, UVType::UVT);
+    slice.mesh = EXPECT(Mesh::create_from_data(View(indices).as_bytes(), vertices, normals, View(uvs).as_bytes(), IndexType::Uint16, UVType::UVT));
 
     return Result<void>();
 }

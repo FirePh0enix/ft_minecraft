@@ -3,7 +3,7 @@
 #include "Core/Filesystem.hpp"
 #include "Core/Ref.hpp"
 #include "Engine.hpp"
-#include "Render/Driver.hpp"
+#include "Render/Renderer.hpp"
 #include "Render/Types.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/matrix_transform.hpp"
@@ -15,6 +15,18 @@
 
 #include <SDL3/SDL.h>
 #include <SDL3_image/SDL_image.h>
+
+static WGPUIndexFormat convert_index_type(IndexType type)
+{
+    switch (type)
+    {
+    case IndexType::Uint16:
+        return WGPUIndexFormat_Uint16;
+    case IndexType::Uint32:
+        return WGPUIndexFormat_Uint32;
+    }
+    return {};
+}
 
 struct ModelObject
 {
@@ -105,135 +117,10 @@ void from_json(const nlohmann::json& j, ModelJSON& m)
         j.at("texture_path").get_to(m.texture_path);
 }
 
-static Result<Ref<Mesh>> create_cube_mesh(glm::vec3 size = glm::vec3(1.0), glm::vec3 offset = glm::vec3())
-{
-    const glm::vec3 hs = size / glm::vec3(2.0);
-
-    // clang-format off
-    std::array<uint16_t, 36> indices{
-        0, 1, 2,
-        2, 3, 0, // front
-
-        20, 21, 22,
-        22, 23, 20, // back
-
-        4, 5, 6,
-        6, 7, 4, // right
-
-        12, 13, 14,
-        14, 15, 12, // left
-
-        8, 9, 10,
-        10, 11, 8, // top
-
-        16, 17, 18,
-        18, 19, 16, // bottom
-    };
-    // clang-format on
-
-    std::array<glm::vec3, 24> vertices{
-        glm::vec3(-hs.x + offset.x, -hs.y + offset.y, hs.z + offset.z), // front
-        glm::vec3(hs.x + offset.x, -hs.y + offset.y, hs.z + offset.z),
-        glm::vec3(hs.x + offset.x, hs.y + offset.y, hs.z + offset.z),
-        glm::vec3(-hs.x + offset.x, hs.y + offset.y, hs.z + offset.z),
-
-        glm::vec3(hs.x + offset.x, -hs.y + offset.y, -hs.z + offset.z), // back
-        glm::vec3(-hs.x + offset.x, -hs.y + offset.y, -hs.z + offset.z),
-        glm::vec3(-hs.x + offset.x, hs.y + offset.y, -hs.z + offset.z),
-        glm::vec3(hs.x + offset.x, hs.y + offset.y, -hs.z + offset.z),
-
-        glm::vec3(-hs.x + offset.x, -hs.y + offset.y, -hs.z + offset.z), // left
-        glm::vec3(-hs.x + offset.x, -hs.y + offset.y, hs.z + offset.z),
-        glm::vec3(-hs.x + offset.x, hs.y + offset.y, hs.z + offset.z),
-        glm::vec3(-hs.x + offset.x, hs.y + offset.y, -hs.z + offset.z),
-
-        glm::vec3(hs.x + offset.x, -hs.y + offset.y, hs.z + offset.z), // right
-        glm::vec3(hs.x + offset.x, -hs.y + offset.y, -hs.z + offset.z),
-        glm::vec3(hs.x + offset.x, hs.y + offset.y, -hs.z + offset.z),
-        glm::vec3(hs.x + offset.x, hs.y + offset.y, hs.z + offset.z),
-
-        glm::vec3(-hs.x + offset.x, hs.y + offset.y, hs.z + offset.z), // top
-        glm::vec3(hs.x + offset.x, hs.y + offset.y, hs.z + offset.z),
-        glm::vec3(hs.x + offset.x, hs.y + offset.y, -hs.z + offset.z),
-        glm::vec3(-hs.x + offset.x, hs.y + offset.y, -hs.z + offset.z),
-
-        glm::vec3(-hs.x + offset.x, -hs.y + offset.y, -hs.z + offset.z), // bottom
-        glm::vec3(hs.x + offset.x, -hs.y + offset.y, -hs.z + offset.z),
-        glm::vec3(hs.x + offset.x, -hs.y + offset.y, hs.z + offset.z),
-        glm::vec3(-hs.x + offset.x, -hs.y + offset.y, hs.z + offset.z),
-    };
-
-    std::array<glm::vec2, 24> uvs{
-        glm::vec2(0.0, 0.0),
-        glm::vec2(1.0, 0.0),
-        glm::vec2(1.0, 1.0),
-        glm::vec2(0.0, 1.0),
-
-        glm::vec2(0.0, 0.0),
-        glm::vec2(1.0, 0.0),
-        glm::vec2(1.0, 1.0),
-        glm::vec2(0.0, 1.0),
-
-        glm::vec2(0.0, 0.0),
-        glm::vec2(1.0, 0.0),
-        glm::vec2(1.0, 1.0),
-        glm::vec2(0.0, 1.0),
-
-        glm::vec2(0.0, 0.0),
-        glm::vec2(1.0, 0.0),
-        glm::vec2(1.0, 1.0),
-        glm::vec2(0.0, 1.0),
-
-        glm::vec2(0.0, 0.0),
-        glm::vec2(1.0, 0.0),
-        glm::vec2(1.0, 1.0),
-        glm::vec2(0.0, 1.0),
-
-        glm::vec2(0.0, 0.0),
-        glm::vec2(1.0, 0.0),
-        glm::vec2(1.0, 1.0),
-        glm::vec2(0.0, 1.0),
-    };
-
-    std::array<glm::vec3, 24> normals{
-        glm::vec3(0.0, 0.0, 1.0), // front
-        glm::vec3(0.0, 0.0, 1.0),
-        glm::vec3(0.0, 0.0, 1.0),
-        glm::vec3(0.0, 0.0, 1.0),
-
-        glm::vec3(0.0, 0.0, -1.0), // back
-        glm::vec3(0.0, 0.0, -1.0),
-        glm::vec3(0.0, 0.0, -1.0),
-        glm::vec3(0.0, 0.0, -1.0),
-
-        glm::vec3(1.0, 0.0, 0.0), // left
-        glm::vec3(1.0, 0.0, 0.0),
-        glm::vec3(1.0, 0.0, 0.0),
-        glm::vec3(1.0, 0.0, 0.0),
-
-        glm::vec3(-1.0, 0.0, 0.0), // right
-        glm::vec3(-1.0, 0.0, 0.0),
-        glm::vec3(-1.0, 0.0, 0.0),
-        glm::vec3(-1.0, 0.0, 0.0),
-
-        glm::vec3(0.0, 1.0, 0.0), // top
-        glm::vec3(0.0, 1.0, 0.0),
-        glm::vec3(0.0, 1.0, 0.0),
-        glm::vec3(0.0, 1.0, 0.0),
-
-        glm::vec3(0.0, -1.0, 0.0), // bottom
-        glm::vec3(0.0, -1.0, 0.0),
-        glm::vec3(0.0, -1.0, 0.0),
-        glm::vec3(0.0, -1.0, 0.0),
-    };
-
-    return Mesh::create_from_data(View(indices).as_bytes(), vertices, normals, View(uvs).as_bytes(), IndexType::Uint16);
-}
-
-static Ref<Texture> load_texture(StringView path)
+static Result<Ref<Texture>> load_texture(StringView path)
 {
     Result<File> file = Filesystem::open_file(path);
-    ERR_EXPECT_VR(file, 0, "Failed to open `{}`", path);
+    ERR_EXPECT_VR(file, Error(ErrorKind::FileNotFound), "Failed to open `{}`", path);
 
     const Vector<char>& buffer = file->read_to_buffer();
     SDL_IOStream *texture_stream = SDL_IOFromConstMem(buffer.data(), buffer.size());
@@ -241,7 +128,7 @@ static Ref<Texture> load_texture(StringView path)
     SDL_Surface *texture_surface = IMG_LoadPNG_IO(texture_stream);
     ERR_COND_V(texture_surface == nullptr, "Failed to parse image `{}`", path);
 
-    auto texture = RenderingDriver::get()->create_texture(texture_surface->w, texture_surface->h, TextureFormat::RGBA8Srgb, TextureUsageFlagBits::CopyDest | TextureUsageFlagBits::Sampled, TextureDimension::D2D, 1, 1).value();
+    auto texture = TRY(Texture::create(texture_surface->w, texture_surface->h, TextureFormat::RGBA8Srgb, TextureUsageFlagBits::CopyDest | TextureUsageFlagBits::Sampled, TextureDimension::D2D, 1, 1));
     texture->update(View((uint8_t *)texture_surface->pixels, texture_surface->w * texture_surface->h * 4));
 
     SDL_DestroySurface(texture_surface);
@@ -252,44 +139,29 @@ static Ref<Texture> load_texture(StringView path)
 
 Result<Ref<Model>> Model::load(const StringView& path)
 {
-    if (mesh.is_null())
-    {
-        mesh = TRY(create_cube_mesh());
-    }
-    if (shader.is_null())
-    {
-        shader = Shader::load("assets/shaders/model.wgsl").value();
-        shader->set_binding("env", Binding(BindingKind::UniformBuffer, ShaderStageFlagBits::Vertex, 0, 0, BindingAccess::Read));
-        shader->set_binding("model", Binding(BindingKind::UniformBuffer, ShaderStageFlagBits::Vertex, 0, 1, BindingAccess::Read));
-        shader->set_binding("global_model", Binding(BindingKind::UniformBuffer, ShaderStageFlagBits::Vertex, 0, 2, BindingAccess::Read));
-        shader->set_binding("uvs", Binding(BindingKind::UniformBuffer, ShaderStageFlagBits::Vertex, 0, 3, BindingAccess::Read));
-        shader->set_binding("texture", Binding(BindingKind::Texture, ShaderStageFlagBits::Fragment, 0, 4, BindingAccess::Read, TextureDimension::D2D));
-
-        shader->set_sampler("texture", SamplerDescriptor(Filter::Nearest, Filter::Nearest));
-    }
-
     String source = TRY(Filesystem::open_file(path)).read_to_string();
     ModelJSON json = nlohmann::json::parse(std::string(source.data(), source.size()));
 
-    Ref<Model> model = newref<Model>();
+    Ref<Model> model = TRY(newref<Model>());
     model->m_name.append(json.name.data(), json.name.size());
-    model->m_global_buffer = TRY(RenderingDriver::get()->create_buffer(sizeof(Model::Info), BufferUsageFlagBits::Uniform | BufferUsageFlagBits::CopyDest));
-    model->m_texture = load_texture(StringView(json.texture_path.data(), json.texture_path.size()));
+    model->m_global_buffer = TRY(Buffer::create(sizeof(Model::Info), BufferUsageFlagBits::Uniform | BufferUsageFlagBits::CopyDest));
+    model->m_texture = TRY(load_texture(StringView(json.texture_path.data(), json.texture_path.size())));
 
     for (const auto& object : json.objects)
     {
         Model::Object obj;
         obj.name.append(object.name.data(), object.name.size());
-        obj.model_buffer = TRY(RenderingDriver::get()->create_buffer(sizeof(Model::Info), BufferUsageFlagBits::Uniform | BufferUsageFlagBits::CopyDest));
+        obj.model_buffer = TRY(Buffer::create(sizeof(Model::Info), BufferUsageFlagBits::Uniform | BufferUsageFlagBits::CopyDest));
         obj.size = glm::vec3(object.size[0], object.size[1], object.size[2]);
         obj.position = glm::vec3(object.position[0], object.position[1], object.position[2]);
         obj.origin = glm::vec3(object.origin[0], object.origin[1], object.origin[2]);
-        obj.material = RenderingDriver::get()->create_material(shader, std::nullopt, MaterialFlagBits::None, PolygonMode::Fill, CullMode::Back, UVType::UV);
+        obj.material = TRY(Material::create(Renderer::get().get_model_shader(), MaterialFlagBits::None, PolygonMode::Fill, WGPUCullMode_Back, UVType::UV));
 
         Vector<glm::vec2> uvs;
         for (uint32_t i = 0; i < 24; i++)
             TRY(uvs.append(glm::vec2(float(object.uvs[i][0]) / float(json.texture_size[0]), float(object.uvs[i][1]) / float(json.texture_size[1]))));
-        obj.uv_buffer = TRY(RenderingDriver::get()->create_buffer_from_data(sizeof(glm::vec2) * 24, View(uvs).as_bytes(), BufferUsageFlagBits::Uniform | BufferUsageFlagBits::CopyDest));
+        obj.uv_buffer = TRY(Buffer::create(sizeof(glm::vec2) * 24, BufferUsageFlagBits::Uniform | BufferUsageFlagBits::CopyDest));
+        obj.uv_buffer->update(View(uvs).as_bytes());
 
         Model::Info info{
             // TODO: add rotation.
@@ -297,7 +169,7 @@ Result<Ref<Model>> Model::load(const StringView& path)
         };
         obj.model_buffer->update(View(info).as_bytes());
 
-        obj.material->set_param("env", Engine::singleton->get_world()->get_env_buffer());
+        obj.material->set_param("env", Renderer::get().get_world_environment());
         obj.material->set_param("model", obj.model_buffer);
         obj.material->set_param("global_model", model->m_global_buffer);
         obj.material->set_param("uvs", obj.uv_buffer);
@@ -335,6 +207,29 @@ Result<Ref<Model>> Model::load(const StringView& path)
     }
 
     return model;
+}
+
+void Model::encode(const RenderPassNode& node)
+{
+    WGPURenderPassEncoder encoder = node.encoder();
+    const Ref<Mesh>& mesh = Renderer::get().get_cube_mesh();
+
+    // TODO: could use some instancing.
+    for (const auto& obj : m_objects)
+    {
+        Ref<Material> material = obj.material;
+
+        WGPURenderPipeline pipeline = Renderer::get().get_pipeline(material, node);
+        wgpuRenderPassEncoderSetPipeline(encoder, pipeline);
+        wgpuRenderPassEncoderSetBindGroup(encoder, 0, material->get_bind_group(), 0, nullptr);
+
+        wgpuRenderPassEncoderSetIndexBuffer(encoder, mesh->get_buffer(Mesh::BufferKind::Index)->handle(), convert_index_type(mesh->index_type()), 0, mesh->get_buffer(Mesh::BufferKind::Index)->size());
+        wgpuRenderPassEncoderSetVertexBuffer(encoder, 0, mesh->get_buffer(Mesh::BufferKind::Position)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Position)->size());
+        wgpuRenderPassEncoderSetVertexBuffer(encoder, 1, mesh->get_buffer(Mesh::BufferKind::Normal)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Normal)->size());
+        wgpuRenderPassEncoderSetVertexBuffer(encoder, 2, mesh->get_buffer(Mesh::BufferKind::UV)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::UV)->size());
+
+        wgpuRenderPassEncoderDrawIndexed(encoder, mesh->vertex_count(), 1, 0, 0, 0);
+    }
 }
 
 void Animator::set_model(Ref<Model> model)

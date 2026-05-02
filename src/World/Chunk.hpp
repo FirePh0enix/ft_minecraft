@@ -1,11 +1,9 @@
 #pragma once
 
 #include "Core/Definitions.hpp"
-#include "Render/Driver.hpp"
+#include "Render/Renderer.hpp"
 #include "World/Biome.hpp"
 #include "World/Block.hpp"
-
-#include "Render/WebGPU/DriverWebGPU.hpp"
 
 #include <cstdint>
 

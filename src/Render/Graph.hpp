@@ -1,112 +1,62 @@
 #pragma once
 
-#include "Core/Containers/View.hpp"
-#include "Render/Driver.hpp"
+#include "Core/Class.hpp"
+#include "Core/Ref.hpp"
+#include "Render/Renderer.hpp"
 
-#include <variant>
-
-struct BeginRenderPassInstruction
+class Node : public Object
 {
-    String name;
-    RenderPassDescriptor descriptor = {};
-};
+    CLASS(Node, Object);
 
-struct EndRenderPassInstruction
-{
-};
+    friend class RenderGraph;
 
-struct BeginComputePassInstruction
-{
-    String name;
-};
-
-struct EndComputePassInstruction
-{
-};
-
-struct CopyInstruction
-{
-    Ref<Buffer> src = nullptr;
-    Ref<Buffer> dst = nullptr;
-    size_t src_offset = 0;
-    size_t dst_offset = 0;
-    size_t size = 0;
-};
-
-struct ImGuiDrawInstruction
-{
-};
-
-struct BindMaterialInstruction
-{
-    Ref<Material> material = nullptr;
-};
-
-struct BindIndexBufferInstruction
-{
-    Ref<Buffer> buffer = nullptr;
-    IndexType index_type = IndexType::Uint16;
-};
-
-struct BindVertexBufferInstruction
-{
-    Ref<Buffer> buffer = nullptr;
-    uint32_t location = 0;
-};
-
-struct DrawInstruction
-{
-    uint32_t vertex_count;
-    uint32_t instance_count;
-};
-
-struct DispatchInstruction
-{
-    uint32_t group_x = 0;
-    uint32_t group_y = 0;
-    uint32_t group_z = 0;
-};
-
-using Instruction = std::variant<BeginRenderPassInstruction, EndRenderPassInstruction, BeginComputePassInstruction, EndComputePassInstruction, DrawInstruction, CopyInstruction, ImGuiDrawInstruction, BindIndexBufferInstruction, BindVertexBufferInstruction, BindMaterialInstruction, DispatchInstruction>;
-
-class RenderPassEncoder
-{
 public:
-    RenderPassEncoder(const RenderPassDescriptor& desc);
-    ~RenderPassEncoder();
+    virtual void begin(WGPUCommandEncoder encoder, WGPUTextureView surface_view) = 0;
+    virtual void end() = 0;
 
-    RenderPassEncoder(const RenderPassEncoder& encoder) = delete;
-    RenderPassEncoder operator==(const RenderPassEncoder& encoder) = delete;
+    Ref<Node> next() const { return m_next; }
+    void set_next(Ref<Node> next) { m_next = next; };
 
-    void bind_material(const Ref<Material>& material);
-    void bind_index_buffer(const Ref<Buffer>& buffer);
-    void bind_vertex_buffer(const Ref<Buffer>& buffer, uint32_t location);
-    void draw(uint32_t vertex_count, uint32_t instance_count);
-    void imgui();
-    void end();
+    bool is_final_pass() const { return m_final_pass; }
 
 private:
-    bool m_end = false;
+    Ref<Node> m_next;
+    bool m_final_pass;
+};
+
+class RenderPassNode : public Node
+{
+    CLASS(RenderPassNode, Node);
+
+public:
+    virtual void begin(WGPUCommandEncoder encoder, WGPUTextureView surface_view) override;
+    virtual void end() override;
+
+    WGPURenderPassEncoder encoder() const { return m_encoder; }
+    Ref<Texture> get_color_output() const { return m_color_output; }
+    Ref<Texture> get_depth_output() const { return m_depth_output; }
+
+    void set_color_output(Ref<Texture> color_output) { m_color_output = color_output; }
+    void set_depth_output(Ref<Texture> depth_output) { m_depth_output = depth_output; }
+
+    void set_load_depth(bool v) { m_load_depth = v; };
+    void set_output_to_surface(bool v) { m_output_to_surface = v; }
+
+private:
+    WGPURenderPassEncoder m_encoder = nullptr;
+    Ref<Texture> m_color_output;
+    Ref<Texture> m_depth_output;
+    bool m_load_depth;
+    bool m_output_to_surface;
 };
 
 class RenderGraph
 {
 public:
-    friend class RenderPassEncoder;
-    friend class ComputePassEncoder;
+    WGPUCommandBuffer record(WGPUCommandEncoder encoder, WGPUTextureView surface_view, std::function<void(const RenderPassNode& node)> f);
 
-    RenderGraph();
-
-    static RenderGraph& get();
-
-    void reset();
-    View<Instruction> get_instructions() const;
-
-    RenderPassEncoder render_pass_begin(const RenderPassDescriptor& descriptor);
-    void copy_buffer(const Ref<Buffer>& dest, const Ref<Buffer>& source);
+    void set_root(Ref<Node> root);
 
 private:
-    Vector<Instruction> m_instructions;
+    Ref<Node> m_root;
 };
-
-static inline RenderGraph g_graph;

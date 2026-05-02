@@ -165,13 +165,6 @@ enum class PolygonMode : uint8_t
     Point,
 };
 
-enum class CullMode : uint8_t
-{
-    None,
-    Front,
-    Back,
-};
-
 enum class ShaderType : uint8_t
 {
     Float32,

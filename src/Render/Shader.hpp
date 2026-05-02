@@ -1,10 +1,9 @@
 #pragma once
 
 #include "Core/Class.hpp"
-#include "Core/Containers/View.hpp"
 #include "Core/Ref.hpp"
-#include "Render/Driver.hpp"
 #include "Render/Types.hpp"
+#include "Render/WebGPU.hpp"
 
 #include <filesystem>
 #include <map>
@@ -16,13 +15,6 @@ enum class ShaderFlagBits
 };
 using ShaderFlags = Flags<ShaderFlagBits>;
 DEFINE_FLAG_TRAITS(ShaderFlagBits);
-
-enum class ShaderKind
-{
-    SPIRV,
-    WGSL,
-    GLSL,
-};
 
 class Shader : public Object
 {
@@ -73,7 +65,6 @@ public:
     }
 
     StringView get_source_string() const { return m_source_code; }
-    ShaderKind get_shader_kind() const { return m_kind; }
 
     String get_entry_point(ShaderStageFlagBits stage) const
     {
@@ -91,9 +82,12 @@ public:
     }
 
     uint32_t hash() const { return m_hash; }
+    WGPUBindGroupLayout get_bind_group_layout() const { return m_bind_group_layout; }
+    WGPUPipelineLayout get_pipeline_layout() const { return m_pipeline_layout; }
+
+    void create_bind_group_layout();
 
 private:
-    ShaderKind m_kind;
     String m_path;
     String m_source_code;
     size_t m_size;
@@ -107,6 +101,6 @@ private:
 
     std::map<ShaderStageFlagBits, String> m_entry_point_names;
 
-    static Result<Ref<Shader>> load_glsl_shader(const std::filesystem::path& path);
-    static Result<Ref<Shader>> load_slang_shader(const std::filesystem::path& path, bool compute_shader);
+    WGPUBindGroupLayout m_bind_group_layout = nullptr;
+    WGPUPipelineLayout m_pipeline_layout = nullptr;
 };

@@ -8,7 +8,6 @@
 #include "Input.hpp"
 #include "Model.hpp"
 #include "Profiler.hpp"
-#include "Render/Driver.hpp"
 #include "Render/ImGUIToolKit.hpp"
 #include "Render/Shader.hpp"
 #include "Render/Types.hpp"
@@ -147,7 +146,7 @@ static Ref<Mesh> create_cube_mesh(glm::vec3 size = glm::vec3(1.0), glm::vec3 off
 
     View<uint16_t> indices_span = indices;
 
-    return Mesh::create_from_data(indices_span.as_bytes(), vertices, normals, View(uvs).as_bytes(), IndexType::Uint16);
+    return EXPECT(Mesh::create_from_data(indices_span.as_bytes(), vertices, normals, View(uvs).as_bytes(), IndexType::Uint16));
 }
 
 void Player::on_ready()
@@ -159,18 +158,18 @@ void Player::on_ready()
     add_child(m_camera);
     m_world->set_active_camera(m_camera);
 
-    m_highlight_mesh = create_cube_mesh(glm::vec3(1.01f));
-    m_highlight_model_buffer = RenderingDriver::get()->create_buffer(sizeof(ChunkModel), BufferUsageFlagBits::Uniform | BufferUsageFlagBits::CopyDest).value_or(nullptr);
+    // m_highlight_mesh = create_cube_mesh(glm::vec3(1.01f));
+    // m_highlight_model_buffer = EXPECT(Buffer::create(sizeof(ChunkModel), BufferUsageFlagBits::Uniform | BufferUsageFlagBits::CopyDest));
 
-    m_highlight_shader = Shader::load("assets/shaders/cube_highlight.wgsl").value_or(nullptr);
-    m_highlight_shader->set_binding("env", Binding(BindingKind::UniformBuffer, ShaderStageFlagBits::Vertex, 0, 0, BindingAccess::Read));
-    m_highlight_shader->set_binding("model", Binding(BindingKind::UniformBuffer, ShaderStageFlagBits::Vertex, 0, 1, BindingAccess::Read));
+    // m_highlight_shader = EXPECT(Shader::load("assets/shaders/cube_highlight.wgsl"));
+    // m_highlight_shader->set_binding("env", Binding(BindingKind::UniformBuffer, ShaderStageFlagBits::Vertex, 0, 0, BindingAccess::Read));
+    // m_highlight_shader->set_binding("model", Binding(BindingKind::UniformBuffer, ShaderStageFlagBits::Vertex, 0, 1, BindingAccess::Read));
 
-    m_highlight_material = RenderingDriver::get()->create_material(m_highlight_shader, std::nullopt, MaterialFlagBits::Transparency | MaterialFlagBits::Priority, PolygonMode::Fill, CullMode::Back, UVType::UVT);
-    m_highlight_material->set_param("env", m_world->get_env_buffer());
-    m_highlight_material->set_param("model", m_highlight_model_buffer);
+    // m_highlight_material = EXPECT(Material::create(m_highlight_shader, MaterialFlagBits::Transparency | MaterialFlagBits::Priority, PolygonMode::Fill, WGPUCullMode_Back, UVType::UVT));
+    // m_highlight_material->set_param("env", Renderer::get().get_world_environment());
+    // m_highlight_material->set_param("model", m_highlight_model_buffer);
 
-    m_model = Model::load("assets/models/player.json").value();
+    m_model = EXPECT(Model::load("assets/models/player.json"));
     m_animator.set_model(m_model);
 
     Model::Info info{.model_matrix = glm::translate(glm::identity<glm::mat4>(), glm::vec3(0.0, 100.0, 0.0))};
@@ -282,44 +281,34 @@ void Player::tick(float delta)
     m_animator.tick(delta);
 }
 
-static void encode_cow(RenderPassEncoder& encoder, const Ref<Model>& model)
+void Player::draw(const RenderPassNode& node)
 {
-    for (const auto& obj : model->objects())
+    m_model->encode(node);
+
+    // if (m_aimed_block.has_value())
+    // {
+    //     m_highlight_model.model_matrix = glm::translate(glm::identity<glm::mat4>(), glm::vec3(m_aimed_block.value()));
+    //     m_highlight_model_buffer->update(View(m_highlight_model).as_bytes());
+
+    //     encoder.bind_material(m_highlight_material);
+    //     encoder.bind_index_buffer(m_highlight_mesh->get_buffer(MeshBufferKind::Index));
+    //     encoder.bind_vertex_buffer(m_highlight_mesh->get_buffer(MeshBufferKind::Position), 0);
+    //     encoder.bind_vertex_buffer(m_highlight_mesh->get_buffer(MeshBufferKind::UV), 1);
+    //     encoder.bind_vertex_buffer(m_highlight_mesh->get_buffer(MeshBufferKind::Normal), 2);
+    //     encoder.draw(m_highlight_mesh->vertex_count(), 1);
+    // }
+
+    if (node.is_final_pass())
     {
-        encoder.bind_material(obj.material);
-        encoder.bind_index_buffer(Model::mesh->get_buffer(MeshBufferKind::Index));
-        encoder.bind_vertex_buffer(Model::mesh->get_buffer(MeshBufferKind::Position), 0);
-        encoder.bind_vertex_buffer(Model::mesh->get_buffer(MeshBufferKind::UV), 1);
-        encoder.bind_vertex_buffer(Model::mesh->get_buffer(MeshBufferKind::Normal), 2);
-        encoder.draw(Model::mesh->vertex_count(), 1);
+        if (ImGui::Begin("Player"))
+        {
+            ImGui::Checkbox("Gravity", &m_gravity_enabled);
+            ImGui::Checkbox("Collision", &m_collision_enabled);
+            ImGui::Text("Position: %f %f %f", m_transform.position().x, m_transform.position().y, m_transform.position().z);
+            ImGui::SliderFloat("Speed", &m_speed, 1.0, 70.0);
+        }
+        ImGui::End();
     }
-}
-
-void Player::draw(RenderPassEncoder& encoder)
-{
-    encode_cow(encoder, m_model);
-
-    if (m_aimed_block.has_value())
-    {
-        m_highlight_model.model_matrix = glm::translate(glm::identity<glm::mat4>(), glm::vec3(m_aimed_block.value()));
-        m_highlight_model_buffer->update(View(m_highlight_model).as_bytes());
-
-        encoder.bind_material(m_highlight_material);
-        encoder.bind_index_buffer(m_highlight_mesh->get_buffer(MeshBufferKind::Index));
-        encoder.bind_vertex_buffer(m_highlight_mesh->get_buffer(MeshBufferKind::Position), 0);
-        encoder.bind_vertex_buffer(m_highlight_mesh->get_buffer(MeshBufferKind::UV), 1);
-        encoder.bind_vertex_buffer(m_highlight_mesh->get_buffer(MeshBufferKind::Normal), 2);
-        encoder.draw(m_highlight_mesh->vertex_count(), 1);
-    }
-
-    if (ImGui::Begin("Player"))
-    {
-        ImGui::Checkbox("Gravity", &m_gravity_enabled);
-        ImGui::Checkbox("Collision", &m_collision_enabled);
-        ImGui::Text("Position: %f %f %f", m_transform.position().x, m_transform.position().y, m_transform.position().z);
-        ImGui::SliderFloat("Speed", &m_speed, 1.0, 70.0);
-    }
-    ImGui::End();
 }
 
 // void Player::on_block_aimed(BlockState state, int64_t x, int64_t y, int64_t z, glm::vec3 dir)

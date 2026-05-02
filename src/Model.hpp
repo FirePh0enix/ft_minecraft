@@ -4,7 +4,7 @@
 #include "Core/Containers/View.hpp"
 #include "Core/Ref.hpp"
 #include "Core/String.hpp"
-#include "Render/Driver.hpp"
+#include "Render/Renderer.hpp"
 
 class Model : public Object
 {
@@ -77,8 +77,7 @@ public:
         return std::nullopt;
     }
 
-    static inline Ref<Mesh> mesh;
-    static inline Ref<Shader> shader;
+    void encode(const RenderPassNode& node);
 
 private:
     String m_name;

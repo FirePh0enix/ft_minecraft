@@ -6,6 +6,8 @@
 
 #include "Core/Alloc.hpp"
 #include "Core/Definitions.hpp"
+#include "Core/Error.hpp"
+#include "Core/Result.hpp"
 
 void ref_check_null_access(bool cond, const char *class_name);
 
@@ -203,7 +205,10 @@ private:
  *  Create a reference counted object.
  */
 template <typename T, typename... Args>
-Ref<T> newref(Args&&...args)
+Result<Ref<T>> newref(Args&&...args)
 {
-    return Ref<T>(alloc<T>(std::forward<Args>(args)...));
+    T *r = alloc<T>(std::forward<Args>(args)...);
+    if (r == nullptr)
+        return Error(ErrorKind::OutOfMemory);
+    return Ref<T>(r);
 }

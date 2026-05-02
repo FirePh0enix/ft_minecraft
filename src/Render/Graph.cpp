@@ -1,73 +1,80 @@
 #include "Render/Graph.hpp"
+#include "Core/Assert.hpp"
 
-RenderPassEncoder::RenderPassEncoder(const RenderPassDescriptor& desc)
+void RenderPassNode::begin(WGPUCommandEncoder encoder, WGPUTextureView surface_view)
 {
-    g_graph.m_instructions.append(BeginRenderPassInstruction{.name = desc.name, .descriptor = desc});
+    WGPURenderPassDescriptor desc{};
+    desc.nextInChain = nullptr;
+    desc.label = WGPU_STRING_VIEW_INIT;
+    desc.timestampWrites = nullptr;
+    desc.occlusionQuerySet = nullptr;
+
+    InplaceVector<WGPURenderPassColorAttachment, 4> color_attachs;
+    WGPURenderPassDepthStencilAttachment depth_attach{};
+
+    if (!m_color_output.is_null())
+    {
+        WGPURenderPassColorAttachment attach{};
+        attach.clearValue = WGPUColor(0.0, 0.0, 0.0, 1.0);
+        attach.depthSlice = WGPU_DEPTH_SLICE_UNDEFINED;
+        attach.loadOp = WGPULoadOp_Clear;
+        attach.storeOp = WGPUStoreOp_Store;
+        attach.view = m_output_to_surface ? surface_view : m_color_output->handle_view();
+
+        color_attachs.push_back(attach);
+    }
+
+    desc.colorAttachmentCount = color_attachs.size();
+    desc.colorAttachments = color_attachs.data();
+
+    if (!m_depth_output.is_null())
+    {
+        depth_attach.depthClearValue = 1.0;
+        depth_attach.depthLoadOp = m_load_depth ? WGPULoadOp_Load : WGPULoadOp_Clear;
+        depth_attach.depthStoreOp = WGPUStoreOp_Store; // TODO: discard if not needed WGPUStoreOp_Discard (like at the end of the graph)
+        depth_attach.view = m_depth_output->handle_view();
+
+        desc.depthStencilAttachment = &depth_attach;
+    }
+
+    m_encoder = wgpuCommandEncoderBeginRenderPass(encoder, &desc);
 }
 
-RenderPassEncoder::~RenderPassEncoder()
+void RenderPassNode::end()
 {
-    g_graph.m_instructions.append(EndRenderPassInstruction{});
+    wgpuRenderPassEncoderEnd(m_encoder);
+    wgpuRenderPassEncoderRelease(m_encoder);
 }
 
-void RenderPassEncoder::bind_material(const Ref<Material>& material)
+WGPUCommandBuffer RenderGraph::record(WGPUCommandEncoder encoder, WGPUTextureView surface_view, std::function<void(const RenderPassNode& node)> f)
 {
-    g_graph.m_instructions.append(BindMaterialInstruction{.material = material});
+    Ref<Node> node = m_root;
+    while (!node.is_null())
+    {
+        if (Ref<RenderPassNode> render_pass_node = node)
+        {
+            node->begin(encoder, surface_view);
+            f(*node.cast_to<RenderPassNode>());
+            node->end();
+        }
+
+        node = node->next();
+    }
+
+    return wgpuCommandEncoderFinish(encoder, nullptr);
 }
 
-void RenderPassEncoder::bind_index_buffer(const Ref<Buffer>& buffer)
+void RenderGraph::set_root(Ref<Node> root)
 {
-    g_graph.m_instructions.append(BindIndexBufferInstruction{.buffer = buffer});
-}
+    Ref<Node> node = root;
+    while (!node->next().is_null())
+    {
+        node->m_final_pass = false;
+        node = node->next();
+    }
 
-void RenderPassEncoder::bind_vertex_buffer(const Ref<Buffer>& buffer, uint32_t location)
-{
-    g_graph.m_instructions.append(BindVertexBufferInstruction{.buffer = buffer, .location = location});
-}
+    ASSERT(node->is<RenderPassNode>(), "");
 
-void RenderPassEncoder::draw(uint32_t vertex_count, uint32_t instance_count)
-{
-    g_graph.m_instructions.append(DrawInstruction{.vertex_count = vertex_count, .instance_count = instance_count});
-}
-
-void RenderPassEncoder::imgui()
-{
-#ifdef __has_debug_menu
-    g_graph.m_instructions.append(ImGuiDrawInstruction{});
-#endif
-}
-
-void RenderPassEncoder::end()
-{
-    m_end = true;
-    g_graph.m_instructions.append(EndRenderPassInstruction{});
-}
-
-RenderGraph& RenderGraph::get()
-{
-    return g_graph;
-}
-
-RenderGraph::RenderGraph()
-{
-}
-
-void RenderGraph::reset()
-{
-    m_instructions.clear();
-}
-
-View<Instruction> RenderGraph::get_instructions() const
-{
-    return m_instructions;
-}
-
-RenderPassEncoder RenderGraph::render_pass_begin(const RenderPassDescriptor& descriptor)
-{
-    return RenderPassEncoder(descriptor);
-}
-
-void RenderGraph::copy_buffer(const Ref<Buffer>& dest, const Ref<Buffer>& source)
-{
-    m_instructions.append(CopyInstruction{.src = source, .dst = dest, .src_offset = 0, .dst_offset = 0, .size = dest->size_bytes()});
+    node->m_final_pass = true;
+    m_root = root;
 }

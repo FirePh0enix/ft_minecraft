@@ -4,7 +4,6 @@
 #include "Core/ThreadPool.hpp"
 #include "Entity/Camera.hpp"
 #include "Ray.hpp"
-#include "Render/Driver.hpp"
 #include "Render/Graph.hpp"
 #include "World/Chunk.hpp"
 #include "World/Dimension.hpp"
@@ -13,12 +12,6 @@ enum WorldPresetType
 {
     WorldPresetFlat,
     WorldPresetNormal,
-};
-
-struct Environment
-{
-    glm::mat4 view_matrix = glm::identity<glm::mat4>();
-    glm::f32 time = 0.0;
 };
 
 enum class Face
@@ -74,7 +67,7 @@ public:
     /**
      *  Draw all the blocks and entities.
      */
-    void draw(RenderPassEncoder& encoder, bool include_entities = false);
+    // void draw(RenderPassEncoder& encoder, bool include_entities = false);
 
     BlockState get_block_state(int64_t x, int64_t y, int64_t z) const;
     void set_block_state(int64_t x, int64_t y, int64_t z, BlockState state);
@@ -105,8 +98,6 @@ public:
         EXPECT(m_dims[dimension].add_entity(entity));
     }
 
-    ALWAYS_INLINE const Ref<Buffer>& get_env_buffer() const { return m_env_buffer; };
-
     std::optional<RaycastResult> raycast(const Ray& ray, float range);
 
     static EntityId next_id()
@@ -126,11 +117,6 @@ private:
     uint32_t m_load_distance = 6;
 
     Ref<Camera> m_camera;
-    Ref<Shader> m_shader;
-
-    Ref<Buffer> m_env_buffer;
-    Environment m_env;
 
     void load_around_player();
-    void update_environment_buffer();
 };

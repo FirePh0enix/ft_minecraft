@@ -2,6 +2,8 @@
 
 #include "Args.hpp"
 #include "Core/Class.hpp"
+#include "Render/Graph.hpp"
+#include "Render/Renderer.hpp"
 #include "World/World.hpp"
 
 enum class EngineScene
@@ -30,8 +32,14 @@ private:
     EngineScene m_scene = EngineScene::MainMenu;
     Ref<Window> m_window;
 
+    Renderer m_renderer;
+    RenderGraph m_graph;
+
     Ref<World> m_world;
     Ref<Entity> m_player;
+
+    Ref<Texture> m_depth_texture;
+    Ref<Texture> m_color_texture;
 
     // main menu stuff
     int m_main_menu_world_type = 0;
