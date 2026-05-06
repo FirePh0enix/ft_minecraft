@@ -12,8 +12,8 @@ class Mob : public Entity
     CLASS(Mob, Entity);
 
 public:
-    Mob() : m_health(1), m_max_health(1), m_attack_damage(1), m_speed(1), m_jump_force(1) {}
-    Mob(int health, int attack_damage, float speed, float jump_force) : m_health(health), m_max_health(health), m_attack_damage(attack_damage), m_speed(speed), m_jump_force(jump_force) {}
+    Mob(String serialized_id) : Entity(serialized_id), m_health(1), m_max_health(1), m_attack_damage(1), m_speed(1), m_jump_force(1) {}
+    Mob(String serialized_id, int health, int attack_damage, float speed, float jump_force) : Entity(serialized_id), m_health(health), m_max_health(health), m_attack_damage(attack_damage), m_speed(speed), m_jump_force(jump_force) {}
 
     ALWAYS_INLINE int get_attack_damage() const { return m_attack_damage; }
 

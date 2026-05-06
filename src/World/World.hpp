@@ -6,10 +6,9 @@
 #include "Entity/Camera.hpp"
 #include "Entity/Entity.hpp"
 #include "Ray.hpp"
-#include "Render/Graph.hpp"
 #include "World/Chunk.hpp"
 #include "World/Dimension.hpp"
-#include "World/Generator.hpp"
+
 #include <cstddef>
 
 enum WorldPresetType
@@ -70,8 +69,11 @@ public:
     static constexpr size_t underworld = 1;
     static constexpr size_t max_dimensions = 2;
 
+    World(uint64_t seed);
     World(uint64_t seed, int type);
     ~World();
+
+    static Result<Ref<World>> create_proxy(uint64_t seed);
 
     void tick(float delta);
 
@@ -116,12 +118,17 @@ public:
     void set_active_camera(Ref<Camera> camera);
     ALWAYS_INLINE Ref<Camera> get_active_camera() { return m_camera; }
 
-    void add_entity(size_t dimension, Ref<Entity>& entity)
+    void add_entity(size_t dimension, Ref<Entity> entity)
     {
         entity->m_world = this;
         entity->m_dimension = dimension;
         entity->on_ready();
         EXPECT(m_dims[dimension].add_entity(entity));
+    }
+
+    Ref<Entity> get_entity(EntityId id) const
+    {
+        return m_dims[0].get_entity(id);
     }
 
     std::optional<RaycastResult> raycast(const Ray& ray, float range);
@@ -144,6 +151,7 @@ private:
     uint32_t m_load_distance = 6;
 
     Ref<Camera> m_camera;
+    bool m_proxy = false;
 
     void load_around_player();
 };

@@ -3,6 +3,7 @@
 #include "Core/Class.hpp"
 #include "Core/Print.hpp"
 #include "Core/Ref.hpp"
+#include "Engine.hpp"
 #include "Entity/Entity.hpp"
 #include "Profiler.hpp"
 #include "Render/Types.hpp"
@@ -50,6 +51,19 @@ World::World(uint64_t seed, int type)
     }
 }
 
+World::World(uint64_t seed)
+    : m_seed(seed)
+{
+}
+
+Result<Ref<World>> World::create_proxy(uint64_t seed)
+{
+    Ref<World> world = EXPECT(newref<World>(seed));
+    world->m_seed = seed;
+    world->m_proxy = true;
+    return world;
+}
+
 World::~World()
 {
 }
@@ -62,68 +76,39 @@ void World::tick(float delta)
     {
         if (entity->is_active())
             entity->recurse_tick(delta);
-        else
-            remove_entity(entity->m_dimension, entity->id());
+        // else
+        //     remove_entity(entity->m_dimension, entity->id());
     }
 
-    load_around_player();
-
-    // Flush all new chunks.
-    std::unique_lock<std::mutex> lock(m_dims[0].m_chunk_mutex);
-    for (auto& chunk : m_dims[0].m_chunks_to_flush)
+    if (!m_proxy)
     {
-        const ChunkPos pos = chunk->pos();
-        EXPECT(m_dims[0].add_chunk(pos.x, pos.z, chunk));
-    }
-    m_dims[0].m_chunks_to_flush.clear();
-}
+        load_around_player();
 
-/*void World::draw(RenderPassEncoder& encoder, bool include_entities)
-{
-    ZoneScoped;
-
-    if (include_entities)
-    {
-        for (Ref<Entity> entity : m_dims[0].get_entities())
-            entity->draw(encoder);
-    }
-
-    m_env.view_matrix = m_camera->get_view_proj_matrix();
-    update_environment_buffer();
-
-    for (const auto& [key, chunk] : m_dims[0].get_chunks())
-    {
-        ChunkPos pos = chunk->pos();
-        AABB aabb = AABB(glm::vec3((float)pos.x * Chunk::width + Chunk::width / 2.0, float(Chunk::height) / 2.0, (float)pos.z * Chunk::width + Chunk::width / 2.0),
-                         glm::vec3(Chunk::width / 2.0, Chunk::height, Chunk::width / 2));
-
-        if (!m_camera->frustum().contains(aabb))
-            continue;
-
-        const Chunk::Slice *slices = chunk->get_slices();
-
-        for (size_t i = 0; i < Chunk::slice_count; i++)
+        // Flush all new chunks.
+        std::unique_lock<std::mutex> lock(m_dims[0].m_chunk_mutex);
+        for (auto& chunk : m_dims[0].m_chunks_to_flush)
         {
-            const Chunk::Slice& slice = slices[i];
+            const ChunkPos pos = chunk->pos();
+            EXPECT(m_dims[0].add_chunk(pos.x, pos.z, chunk));
 
-            // Skip draw calls if the chunk is not visible.
-            if (!slice.is_visible())
-                continue;
+            if (Engine::singleton->is_server())
+            {
+                ChunkDataPacket p;
+                p.x = pos.x;
+                p.z = pos.z;
 
-            encoder.bind_material(slice.material);
+                EXPECT(p.blocks.resize(Chunk::block_count_with_overlap));
+                std::memcpy(p.blocks.data(), chunk->get_blocks(), sizeof(BlockState) * p.blocks.size());
 
-            const Ref<Mesh>& mesh = slice.mesh;
-            // println("{}", mesh->vertex_count());
+                EXPECT(p.biomes.resize(Chunk::block_count_with_overlap));
+                std::memcpy(p.biomes.data(), chunk->get_blocks(), sizeof(Biome) * p.biomes.size());
 
-            encoder.bind_index_buffer(mesh->get_buffer(MeshBufferKind::Index));
-            encoder.bind_vertex_buffer(mesh->get_buffer(MeshBufferKind::Position), 0);
-            encoder.bind_vertex_buffer(mesh->get_buffer(MeshBufferKind::Normal), 1);
-            encoder.bind_vertex_buffer(mesh->get_buffer(MeshBufferKind::UV), 2);
-
-            encoder.draw(mesh->vertex_count(), 1);
+                Engine::singleton->get_connection().broadcast(Engine::singleton->get_connection().create_packet(p));
+            }
         }
+        m_dims[0].m_chunks_to_flush.clear();
     }
-}*/
+}
 
 BlockState World::get_block_state(int64_t x, int64_t y, int64_t z) const
 {

@@ -2,7 +2,7 @@
 
 #include "Core/Filesystem.hpp"
 #include "Core/Ref.hpp"
-#include "Engine.hpp"
+#include "Render/Graph.hpp"
 #include "Render/Renderer.hpp"
 #include "Render/Types.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
@@ -198,10 +198,13 @@ Result<Ref<Model>> Model::load(const StringView& path)
     return model;
 }
 
-void Model::encode(const RenderPassNode& node)
+void Model::encode(const RenderPassNode& node, const Transform3D& transform)
 {
     WGPURenderPassEncoder encoder = node.encoder();
     const Ref<Mesh>& mesh = Renderer::get().get_cube_mesh();
+
+    Info info{.model_matrix = transform.to_matrix()};
+    m_global_buffer->update(View(info).as_bytes());
 
     // TODO: could use some instancing.
     for (const auto& obj : m_objects)

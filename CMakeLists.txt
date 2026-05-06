@@ -45,8 +45,8 @@ list(APPEND SOURCES
     src/Entity/Player.cpp
     src/Entity/Pathfinding/Node.cpp
     src/Entity/Pathfinding/Pathfinding.cpp
-    # src/Render/WebGPU/DriverWebGPU.cpp
-    # src/Render/Driver.cpp
+    src/Network/Network.cpp
+    src/Network/Packet.cpp
     src/Render/Graph.cpp
     src/Render/Shader.cpp
     src/Render/Renderer.cpp
@@ -98,7 +98,7 @@ add_executable(${TARGET_NAME} ${SOURCES})
 target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/src)
 
 # Disable exceptions
-# target_compile_options(${TARGET_NAME} PUBLIC -fno-exceptions -fno-rtti)
+target_compile_options(${TARGET_NAME} PUBLIC -fno-exceptions -fno-rtti)
 
 if(DETERMINISTIC)
     if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")

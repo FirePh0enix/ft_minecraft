@@ -122,10 +122,10 @@ void Error::print(FILE *fp)
 void signal_handler(int sig)
 {
     const char *signal_name = strsignal(sig);
-    const Stacktrace& st = Stacktrace::current();
 
     println(stderr, "Received signal: {}\n", signal_name);
-    st.print(stderr, 0);
+    Stacktrace::record();
+    Stacktrace::current().print(stderr, 0);
 
     exit(1);
 }

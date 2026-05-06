@@ -48,6 +48,16 @@ enum class ErrorKind : uint16_t
      * @brief ImGui initialization failed.
      */
     ImGuiInitFailed = 0x1004,
+
+    /**
+     * @brief Something went wrong with network.
+     */
+    HostCreationFailed = 0x2000,
+
+    /**
+     * @brief Fail to connect to a remove peer.
+     */
+    ConnectionFailed = 0x2001,
 };
 
 template <>
@@ -82,6 +92,12 @@ struct Formatter<ErrorKind> : public FormatterBase
             break;
         case ErrorKind::ImGuiInitFailed:
             msg = "ImGui initialization failed";
+            break;
+        case ErrorKind::HostCreationFailed:
+            msg = "Host creating failed";
+            break;
+        case ErrorKind::ConnectionFailed:
+            msg = "Connection failed";
             break;
         }
 

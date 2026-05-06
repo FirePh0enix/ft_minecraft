@@ -1,3 +1,5 @@
+#pragma once
+
 #include "Core/Math.hpp"
 
 class Transform3D

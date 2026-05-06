@@ -24,7 +24,7 @@ class Camera : public Entity
 
 public:
     Camera()
-        : m_projection_matrix(1.0)
+        : Entity(""), m_projection_matrix(1.0)
     {
         // Default values for field members are set after the initializer list so this need to be here.
         m_projection_matrix = calculate_projection_matrix();

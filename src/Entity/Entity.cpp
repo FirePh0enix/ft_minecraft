@@ -1,7 +1,10 @@
 #include "Entity/Entity.hpp"
+#include "Engine.hpp"
+#include "Rpc.hpp"
 #include "World/World.hpp"
 
-Entity::Entity()
+Entity::Entity(String serialized_id)
+    : m_serialized_id(serialized_id)
 {
 }
 
@@ -24,21 +27,28 @@ void Entity::recurse_tick(float delta)
     tick(delta);
 }
 
-void Entity::register_rpc(const std::string& name, std::function<void(Entity&)> func, RpcTarget target)
+void Entity::call_rpc(String name, Rpc rpc, Vector<Variant> args)
 {
-    m_rpc[name] = {.func = func, .target = target};
-}
-
-void Entity::call_rpc(const std::string& name, Entity& caller)
-{
-    auto iter = m_rpc.find(name);
-    if (iter != m_rpc.end())
+    if (rpc.target == RpcTarget::Both || (Engine::singleton->is_server() && rpc.target == RpcTarget::Server) || (!Engine::singleton->is_server() && rpc.target == RpcTarget::Client))
     {
-        RpcEntry& entry = iter->second;
+        rpc.func(this, args);
+    }
 
-        if (entry.target == RpcTarget::SERVER || entry.target == RpcTarget::BOTH)
-        {
-            entry.func(caller);
-        }
+    if (rpc.target == RpcTarget::Both || (Engine::singleton->is_server() && rpc.target == RpcTarget::Client) || (!Engine::singleton->is_server() && rpc.target == RpcTarget::Server))
+    {
+        RpcCallPacket p;
+        p.id = id();
+        p.name = name;
+
+        // FIXME: that sucks but using the STL is way easier with json...
+        p.args.reserve(args.size());
+
+        for (const Variant& v : args)
+            p.args.push_back(v);
+
+        if (Engine::singleton->is_server())
+            Engine::singleton->get_connection().broadcast(Engine::singleton->get_connection().create_packet(p));
+        else
+            Engine::singleton->get_connection().send(Engine::singleton->get_connection().create_packet(p));
     }
 }

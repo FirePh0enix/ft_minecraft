@@ -93,12 +93,13 @@ static void update_callback()
 
 static void shutdown_callback()
 {
-    println("Shutting down");
+    info("Shutting down");
 
     BlockRegistry::destroy();
     // Font::deinit_library();
 
     // RenderingDriver::destroy_singleton();
+    engine->exit();
     engine = nullptr;
 }
 

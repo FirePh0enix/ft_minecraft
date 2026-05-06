@@ -2,16 +2,20 @@
 
 #include "AABB.hpp"
 #include "Core/Math.hpp"
+#include "Engine.hpp"
 #include "Entity/Entity.hpp"
 #include "Input.hpp"
 #include "Model.hpp"
+#include "Network/Packet.hpp"
 #include "Profiler.hpp"
+#include "Rpc.hpp"
 #include "World/Registry.hpp"
 #include "World/World.hpp"
 
 #include <imgui.h>
 
 Player::Player()
+    : Mob("player")
 {
     m_name = "Player";
 }
@@ -20,10 +24,13 @@ void Player::on_ready()
 {
     m_aabb = AABB(glm::vec3(), glm::vec3(0.35, 0.9, 0.35));
 
-    m_camera = newobj(Camera);
-    m_camera->get_transform().position() = glm::vec3(0, 0.85, 0);
-    add_child(m_camera);
-    m_world->set_active_camera(m_camera);
+    if (m_local_player)
+    {
+        m_camera = newobj(Camera);
+        m_camera->get_transform().position() = glm::vec3(0, 0.85, 0);
+        add_child(m_camera);
+        m_world->set_active_camera(m_camera);
+    }
 
     // m_highlight_mesh = create_cube_mesh(glm::vec3(1.01f));
     // m_highlight_model_buffer = EXPECT(Buffer::create(sizeof(ChunkModel), BufferUsageFlagBits::Uniform | BufferUsageFlagBits::CopyDest));
@@ -52,19 +59,17 @@ void Player::tick(float delta)
     if (Input::is_action_pressed("attack") && !Input::is_mouse_grabbed())
     {
         Input::set_mouse_grabbed(true);
-        return;
     }
     else if (Input::is_action_pressed("escape") && Input::is_mouse_grabbed())
     {
         Input::set_mouse_grabbed(false);
-        return;
     }
 
     Transform3D transform = m_transform;
 
     const glm::vec3 up(0.0, 1.0, 0.0);
 
-    if (Input::is_mouse_grabbed())
+    if (Input::is_mouse_grabbed() && m_local_player)
     {
         constexpr float mouse_sensibility = 0.03f;
 
@@ -83,62 +88,65 @@ void Player::tick(float delta)
         camera->get_transform() = camera_transform;
     }
 
-    const std::optional<RaycastResult> raycast_result = m_world->raycast(Ray(m_camera->get_global_transform().position(), m_camera->get_global_transform().forward()), 4.0);
-    if (Input::is_mouse_grabbed() && raycast_result.has_value())
+    if (m_local_player)
     {
-        int64_t x = raycast_result->x;
-        int64_t y = raycast_result->y;
-        int64_t z = raycast_result->z;
-        m_aimed_block = glm::vec3(x, y, z);
+        const std::optional<RaycastResult> raycast_result = m_world->raycast(Ray(m_camera->get_global_transform().position(), m_camera->get_global_transform().forward()), 4.0);
+        if (Input::is_mouse_grabbed() && raycast_result.has_value())
+        {
+            int64_t x = raycast_result->x;
+            int64_t y = raycast_result->y;
+            int64_t z = raycast_result->z;
+            m_aimed_block = glm::vec3(x, y, z);
 
-        if (Input::is_action_pressed("attack") && !m_block_broken)
-        {
-            // m_world->set_block_state(x, y, z, BlockState());
-            // m_block_broken = true;
+            if (Input::is_action_pressed("attack") && !m_block_broken)
+            {
+                // m_world->set_block_state(x, y, z, BlockState());
+                // m_block_broken = true;
+            }
+            else if (!Input::is_action_pressed("attack"))
+            {
+                m_block_broken = false;
+            }
+
+            if (Input::is_action_pressed("interact") && !m_block_placed)
+            {
+                glm::vec3 normal = face_normal(raycast_result->face);
+
+                m_world->set_block_state(int64_t(float(x) + normal.x), int64_t(float(y) + normal.y), int64_t(float(z) + normal.z), BlockState(BlockRegistry::get_block_id("stone")));
+                m_block_placed = true;
+            }
+            else if (!Input::is_action_pressed("interact"))
+            {
+                m_block_placed = false;
+            }
         }
-        else if (!Input::is_action_pressed("attack"))
+        else
         {
-            m_block_broken = false;
+            m_aimed_block = std::nullopt;
         }
 
-        if (Input::is_action_pressed("interact") && !m_block_placed)
-        {
-            glm::vec3 normal = face_normal(raycast_result->face);
+        bool is_attack_pressed = Input::is_action_pressed("attack");
 
-            m_world->set_block_state(int64_t(float(x) + normal.x), int64_t(float(y) + normal.y), int64_t(float(z) + normal.z), BlockState(BlockRegistry::get_block_id("stone")));
-            m_block_placed = true;
-        }
-        else if (!Input::is_action_pressed("interact"))
+        if (is_attack_pressed && !m_was_attack_pressed)
         {
-            m_block_placed = false;
+            Ray ray(
+                m_camera->get_global_transform().position(),
+                m_camera->get_global_transform().forward());
+
+            float attack_range = 5.0f;
+            // Max range for entity raycast is either attack range, or either distance of first block detected.
+            float max_dist = raycast_result.has_value() ? raycast_result->distance : attack_range;
+
+            auto hit = m_world->raycast_entities(ray, max_dist, this);
+
+            // TODO
+            // if (hit)
+            // {
+            //     hit->entity->call_rpc("on_hit", *this);
+            // }
         }
+        m_was_attack_pressed = is_attack_pressed;
     }
-    else
-    {
-        m_aimed_block = std::nullopt;
-    }
-
-    bool is_attack_pressed = Input::is_action_pressed("attack");
-
-    if (is_attack_pressed && !m_was_attack_pressed)
-    {
-        Ray ray(
-            m_camera->get_global_transform().position(),
-            m_camera->get_global_transform().forward());
-
-        float attack_range = 5.0f;
-        // Max range for entity raycast is either attack range, or either distance of first block detected.
-        float max_dist = raycast_result.has_value() ? raycast_result->distance : attack_range;
-
-        auto hit = m_world->raycast_entities(ray, max_dist, this);
-
-        if (hit)
-        {
-            hit->entity->call_rpc("on_hit", *this);
-        }
-    }
-
-    m_was_attack_pressed = is_attack_pressed;
 
     const glm::vec3 forward = get_global_transform().forward();
     const glm::vec3 right = get_global_transform().right();
@@ -146,12 +154,12 @@ void Player::tick(float delta)
     const glm::vec2 dir = Input::get_vector("left", "right", "backward", "forward");
 
     float updown_dir = 0.0;
-    if (Input::is_mouse_grabbed() && !m_gravity_enabled)
+    if (Input::is_mouse_grabbed() && !m_gravity_enabled && m_local_player)
     {
         updown_dir = Input::get_action_value("up") - Input::get_action_value("down");
     }
 
-    if (Input::is_mouse_grabbed() && (glm::length2(dir) != 0.0 || updown_dir != 0.0))
+    if (Input::is_mouse_grabbed() && (glm::length2(dir) != 0.0 || updown_dir != 0.0) && m_local_player)
     {
         glm::vec3 move = glm::normalize(forward * dir.y + right * dir.x + up * updown_dir) * m_speed;
         m_velocity += move * delta;
@@ -169,47 +177,63 @@ void Player::tick(float delta)
     m_velocity.y = std::min(m_velocity.x, 40.0f);
     m_velocity.z = 0.0;
 
-    if (Input::is_action_pressed("attack") && !Input::is_mouse_grabbed())
+    if (Input::is_action_pressed("attack") && !Input::is_mouse_grabbed() && m_local_player)
     {
         Input::set_mouse_grabbed(true);
     }
-    else if (Input::is_action_pressed("escape") && Input::is_mouse_grabbed())
+    else if (Input::is_action_pressed("escape") && Input::is_mouse_grabbed() && m_local_player)
     {
         Input::set_mouse_grabbed(false);
     }
 
-    // TODO: animation for the cow model
-    m_animator.play("walk");
-    m_animator.tick(delta);
+    if (!m_local_player)
+    {
+        m_animator.play("walk");
+        m_animator.tick(delta);
+    }
+
+    if (m_local_player && !Engine::singleton->is_server())
+    {
+        SendPlayerTransformPacket p{};
+        p.id = m_id;
+        p.position = get_global_transform().position();
+        p.rotation = get_global_transform().rotation();
+        Engine::singleton->get_connection().send(Engine::singleton->get_connection().create_packet(p));
+    }
 }
 
 void Player::draw(const RenderPassNode& node)
 {
-    m_model->encode(node);
-
-    // if (m_aimed_block.has_value())
-    // {
-    //     m_highlight_model.model_matrix = glm::translate(glm::identity<glm::mat4>(), glm::vec3(m_aimed_block.value()));
-    //     m_highlight_model_buffer->update(View(m_highlight_model).as_bytes());
-
-    //     encoder.bind_material(m_highlight_material);
-    //     encoder.bind_index_buffer(m_highlight_mesh->get_buffer(MeshBufferKind::Index));
-    //     encoder.bind_vertex_buffer(m_highlight_mesh->get_buffer(MeshBufferKind::Position), 0);
-    //     encoder.bind_vertex_buffer(m_highlight_mesh->get_buffer(MeshBufferKind::UV), 1);
-    //     encoder.bind_vertex_buffer(m_highlight_mesh->get_buffer(MeshBufferKind::Normal), 2);
-    //     encoder.draw(m_highlight_mesh->vertex_count(), 1);
-    // }
-
-    if (node.is_final_pass())
+    if (!m_local_player)
     {
-        if (ImGui::Begin("Player"))
+        m_model->encode(node, get_global_transform());
+    }
+    else
+    {
+        // if (m_aimed_block.has_value())
+        // {
+        //     m_highlight_model.model_matrix = glm::translate(glm::identity<glm::mat4>(), glm::vec3(m_aimed_block.value()));
+        //     m_highlight_model_buffer->update(View(m_highlight_model).as_bytes());
+
+        //     encoder.bind_material(m_highlight_material);
+        //     encoder.bind_index_buffer(m_highlight_mesh->get_buffer(MeshBufferKind::Index));
+        //     encoder.bind_vertex_buffer(m_highlight_mesh->get_buffer(MeshBufferKind::Position), 0);
+        //     encoder.bind_vertex_buffer(m_highlight_mesh->get_buffer(MeshBufferKind::UV), 1);
+        //     encoder.bind_vertex_buffer(m_highlight_mesh->get_buffer(MeshBufferKind::Normal), 2);
+        //     encoder.draw(m_highlight_mesh->vertex_count(), 1);
+        // }
+
+        if (node.is_final_pass())
         {
-            ImGui::Checkbox("Gravity", &m_gravity_enabled);
-            ImGui::Checkbox("Collision", &m_collision_enabled);
-            ImGui::Text("Position: %f %f %f", m_transform.position().x, m_transform.position().y, m_transform.position().z);
-            ImGui::SliderFloat("Speed", &m_speed, 1.0, 70.0);
+            if (ImGui::Begin("Player"))
+            {
+                ImGui::Checkbox("Gravity", &m_gravity_enabled);
+                ImGui::Checkbox("Collision", &m_collision_enabled);
+                ImGui::Text("Position: %f %f %f", m_transform.position().x, m_transform.position().y, m_transform.position().z);
+                ImGui::SliderFloat("Speed", &m_speed, 1.0, 70.0);
+            }
+            ImGui::End();
         }
-        ImGui::End();
     }
 }
 

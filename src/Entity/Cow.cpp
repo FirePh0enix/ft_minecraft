@@ -60,8 +60,8 @@ void Cow::draw(const RenderPassNode& node)
 
 void Cow::on_ready()
 {
-    register_rpc("on_hit", [this](Entity& attacker)
-                 { this->on_hit_by(attacker); }, RpcTarget::SERVER);
+    // register_rpc("on_hit", [this](Entity& attacker)
+    //              { this->on_hit_by(attacker); }, RpcTarget::Server);
 
     m_model = EXPECT(Model::load("assets/models/player.json"));
 
@@ -78,7 +78,7 @@ void Cow::die()
 
 void Cow::on_hit_by(Entity& entity)
 {
-    Mob *mob_caller = dynamic_cast<Mob *>(&entity);
+    Mob *mob_caller = reinterpret_cast<Mob *>(&entity);
     m_threat_entity = &entity;
 
     int damage = mob_caller->get_attack_damage();

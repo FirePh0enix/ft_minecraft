@@ -2,6 +2,7 @@
 
 #include "Core/Error.hpp"
 #include "Core/Ref.hpp"
+#include "Engine.hpp"
 #include "Entity/Entity.hpp"
 #include "Render/Graph.hpp"
 #include "Render/ImGUIToolKit.hpp"
@@ -982,6 +983,11 @@ void Renderer::record_world(Renderer& renderer, Ref<World> world, const RenderPa
 {
     const Dimension& dim = world->get_dimension(0);
     const Ref<Camera> camera = world->get_active_camera();
+
+    if (camera.is_null())
+    {
+        return;
+    }
 
     WorldEnvironment env{
         .view_matrix = camera->get_view_proj_matrix(),

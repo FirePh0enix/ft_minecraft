@@ -2,12 +2,15 @@
 
 #include "Core/Filesystem.hpp"
 #include "Core/Ref.hpp"
+#include "Core/String.hpp"
+#include "Entity/Entity.hpp"
 #include "Render/Renderer.hpp"
 #include "World/Block.hpp"
 
 #include <SDL3_image/SDL_image.h>
 
 #include <bitset>
+#include <functional>
 #include <map>
 
 class BlockRegistry
@@ -71,4 +74,22 @@ private:
     static inline Vector<SDL_Surface *> s_textures;
     static inline Ref<Texture> s_texture_array;
     static inline Ref<Buffer> s_texture_registry_buffer;
+};
+
+class EntityRegistry
+{
+public:
+    using Constructor = std::function<Result<Ref<Entity>>()>;
+
+    template <typename T>
+    void register_entity(String name)
+    {
+        m_constructors[name] = []() -> Result<Ref<Entity>>
+        { return TRY(newref<T>()).template cast_to<Entity>(); };
+    }
+
+    Result<Ref<Entity>> create_entity(String name);
+
+private:
+    std::map<String, Constructor> m_constructors;
 };

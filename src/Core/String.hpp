@@ -14,7 +14,7 @@
 constexpr size_t string_small_capacity = sizeof(char *) + sizeof(size_t) + sizeof(size_t) - 1;
 
 // TODO: All functions that may allocate memory must returns `Result<void>`, remove `+=` implementation.
-//       what to do with `=` ?
+//       what to do with `=` ? Maybe delete the assign operator and force a `copy()` function.
 class String
 {
 public:

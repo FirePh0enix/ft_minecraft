@@ -5,6 +5,9 @@
 #include "Core/Ref.hpp"
 #include "Core/String.hpp"
 #include "Render/Renderer.hpp"
+#include "Transform3D.hpp"
+
+// FIXME: world is flip on the X axis.
 
 class Model : public Object
 {
@@ -77,7 +80,7 @@ public:
         return std::nullopt;
     }
 
-    void encode(const RenderPassNode& node);
+    void encode(const RenderPassNode& node, const Transform3D& transform = Transform3D());
 
 private:
     String m_name;

@@ -6,8 +6,6 @@
 #include "Entity/Mob.hpp"
 #include "Model.hpp"
 #include "Render/Graph.hpp"
-#include "World/Block.hpp"
-#include "World/World.hpp"
 
 class Player : public Mob
 {
@@ -46,6 +44,8 @@ public:
     float get_speed() const { return m_speed; }
     void set_speed(float speed) { m_speed = speed; }
 
+    void set_remote() { m_local_player = false; }
+
     virtual void on_hit_by(Entity& entity) override;
 
 protected:
@@ -74,4 +74,9 @@ private:
 
     Ref<Model> m_model;
     Animator m_animator;
+
+    /**
+     * Player class is a little special since its behavor is different if this is the local or remote.
+     */
+    bool m_local_player = true;
 };

@@ -159,3 +159,8 @@ uint32_t BlockRegistry::get_or_create(const StringView& name)
         return id_pair->second;
     }
 }
+
+Result<Ref<Entity>> EntityRegistry::create_entity(String name)
+{
+    return m_constructors.at(name)();
+}
