@@ -1,6 +1,7 @@
 #include "Render/Renderer.hpp"
 
 #include "Core/Error.hpp"
+#include "Core/Format.hpp"
 #include "Core/Ref.hpp"
 #include "Engine.hpp"
 #include "Entity/Entity.hpp"
@@ -12,7 +13,7 @@
 #include "World/Dimension.hpp"
 #include "World/Registry.hpp"
 #include "World/World.hpp"
-#include "webgpu/webgpu.h"
+#include "imgui.h"
 
 #include <backends/imgui_impl_sdl3.h>
 #include <backends/imgui_impl_wgpu.h>
@@ -101,6 +102,7 @@ size_t size_of(const WGPUIndexFormat& format)
 Buffer::~Buffer()
 {
     wgpuBufferRelease(m_buffer);
+    Renderer::get().m_device_memory_freed += m_size;
 }
 
 Result<Ref<Buffer>> Buffer::create(size_t size, WGPUBufferUsage usage, BufferVisibility visibility)
@@ -127,6 +129,8 @@ Result<Ref<Buffer>> Buffer::create(size_t size, WGPUBufferUsage usage, BufferVis
     buffer->m_buffer = wgpu_buffer;
     buffer->m_usage = usage;
     buffer->m_size = size;
+
+    Renderer::get().m_device_memory_allocated += size;
 
     return buffer;
 }
@@ -1004,6 +1008,19 @@ void Renderer::record_world(Renderer& renderer, Ref<World> world, const RenderPa
 {
     const Dimension& dim = world->get_dimension(0);
     const Ref<Camera> camera = world->get_active_camera();
+
+    if (node.is_final_pass())
+    {
+        if (ImGui::Begin("Stats"))
+        {
+            String s = format("{}", FormatBin<size_t>(Engine::singleton->get_memory_usage()));
+            ImGui::Text("RAM  = %s", s.data());
+
+            String s2 = format("{}", FormatBin(renderer.get_device_memory_usage()));
+            ImGui::Text("VRAM = %s", s2.data());
+        }
+        ImGui::End();
+    }
 
     if (camera.is_null())
     {

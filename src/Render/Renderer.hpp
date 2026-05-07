@@ -257,6 +257,8 @@ public:
 
     Ref<Mesh> get_cube_mesh() const { return m_cube_mesh; }
 
+    size_t get_device_memory_usage() const { return m_device_memory_allocated - m_device_memory_freed; }
+
     static ALWAYS_INLINE Renderer& get() { return *singleton; }
 
 private:
@@ -279,6 +281,9 @@ private:
 
     Ref<Material> m_chunk_material;
     Ref<Buffer> m_env_buffer;
+
+    size_t m_device_memory_allocated = 0;
+    size_t m_device_memory_freed = 0;
 
     static inline Renderer *singleton;
 

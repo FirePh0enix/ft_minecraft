@@ -1,6 +1,7 @@
 #include "Engine.hpp"
 
 #include "Args.hpp"
+#include "Core/Alloc.hpp"
 #include "Core/Logger.hpp"
 #include "Core/Ref.hpp"
 #include "Core/Result.hpp"
@@ -108,6 +109,13 @@ void Engine::tick(float delta)
             Input::process_event(event.value());
         }
     }
+
+    if (m_last_second_timer_time >= 1.0)
+    {
+        m_current_memory_usage = core::get_memory_usage();
+        m_last_second_timer_time -= 1.0;
+    }
+    m_last_second_timer_time += delta;
 
     m_connection.tick();
 

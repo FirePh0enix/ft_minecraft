@@ -33,6 +33,8 @@ public:
 
     bool is_server() const { return m_authority == RpcTarget::Server; }
 
+    size_t get_memory_usage() const { return m_current_memory_usage; }
+
     Ref<World> get_world()
     {
         return m_world;
@@ -63,6 +65,9 @@ private:
 
     Ref<Texture> m_depth_texture;
     Ref<Texture> m_color_texture;
+
+    float m_last_second_timer_time = 0.0;
+    size_t m_current_memory_usage = 0;
 
     // main menu stuff
     int m_main_menu_world_type = 1;
