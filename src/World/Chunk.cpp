@@ -16,20 +16,11 @@ Chunk::Chunk(int64_t x, int64_t z)
     m_biomes = alloc_array_uninitialized<Biome>(block_count_with_overlap);
     m_slices = alloc_array<Slice>(slice_count);
 
+    m_chunk_buffer = EXPECT(Buffer::create(sizeof(glm::vec3) * slice_count, WGPUBufferUsage_Vertex | WGPUBufferUsage_CopyDst));
+    std::array<glm::vec3, slice_count> chunk_data{};
     for (size_t i = 0; i < slice_count; i++)
-    {
-        const glm::mat4 model_matrix = glm::translate(glm::identity<glm::mat4>(), glm::vec3(x * Chunk::width, i * Chunk::width, z * Chunk::width));
-        Slice& slice = m_slices[i];
-
-        slice.model.model_matrix = model_matrix;
-        slice.model_buffer = EXPECT(Buffer::create(sizeof(ChunkModel), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
-        slice.model_buffer->update(View(slice.model).as_bytes());
-
-        slice.material = EXPECT(Material::create(Renderer::get().get_voxel_shader(), MaterialFlagBits::Transparency, WGPUPolygonMode_Fill, WGPUCullMode_Back, UVType::UVT));
-        slice.material->set_param("images", BlockRegistry::get_texture_array());
-        slice.material->set_param("env", Renderer::get().get_world_environment());
-        slice.material->set_param("model", slice.model_buffer);
-    }
+        chunk_data[i] = glm::vec3(x * Chunk::width, i * Chunk::width, z * Chunk::width);
+    m_chunk_buffer->update(View(chunk_data).as_bytes());
 }
 
 Chunk::~Chunk()

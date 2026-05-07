@@ -41,12 +41,9 @@ MAIN(int argc, char *argv[])
     args.add_arg("enable-gpu-validation", {.type = ArgType::Bool});
     args.parse(argv, argc);
 
-    engine = EXPECT(newref<Engine>(args));
-
     TracySetThreadName("Main");
 
-    BlockRegistry::load_blocks();
-    BlockRegistry::create_gpu_resources();
+    engine = EXPECT(newref<Engine>(args));
 
     if (args.has("disable-save"))
     {

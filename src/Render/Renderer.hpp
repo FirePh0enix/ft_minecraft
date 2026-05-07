@@ -130,6 +130,12 @@ protected:
     Ref<Buffer> m_buffers[(size_t)BufferKind::Max];
 };
 
+struct InstanceAttribute
+{
+    uint32_t stride;
+    WGPUVertexFormat format;
+};
+
 struct MaterialParamCache
 {
     BindingKind kind = BindingKind::Texture;
@@ -151,7 +157,7 @@ class Material : public Object
     CLASS(Material, Object);
 
 public:
-    static Result<Ref<Material>> create(const Ref<Shader>& shader, MaterialFlags flags, WGPUPolygonMode polygon_mode, WGPUCullMode cull_mode, UVType uv_type);
+    static Result<Ref<Material>> create(const Ref<Shader>& shader, MaterialFlags flags, WGPUPolygonMode polygon_mode, WGPUCullMode cull_mode, UVType uv_type, Vector<InstanceAttribute> attributes = {});
 
     void set_param(const StringView& name, const Ref<Buffer>& buffer);
     void set_param(const StringView& name, const Ref<Texture>& texture);
@@ -164,6 +170,8 @@ public:
     MaterialFlags flags() const { return m_flags; }
     WGPUCullMode get_cull_mode() const { return m_cull_mode; }
 
+    Vector<InstanceAttribute> get_attributes() const { return m_attributes; }
+
 private:
     Ref<Shader> m_shader;
     WGPUBindGroup m_bind_group = nullptr;
@@ -174,6 +182,8 @@ private:
     WGPUPolygonMode m_polygon_mode;
     WGPUCullMode m_cull_mode;
     UVType m_uv_type;
+
+    Vector<InstanceAttribute> m_attributes;
 
     bool m_dirty = true;
 
@@ -190,6 +200,7 @@ public:
         UVType uv_type;
         MaterialFlags flags;
         WGPUCullMode cull_mode;
+        Vector<InstanceAttribute> attributes;
 
         bool has_color_attach;
         bool has_depth_attach;
@@ -266,6 +277,7 @@ private:
 
     Ref<Mesh> m_cube_mesh;
 
+    Ref<Material> m_chunk_material;
     Ref<Buffer> m_env_buffer;
 
     static inline Renderer *singleton;

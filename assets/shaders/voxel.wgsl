@@ -9,16 +9,13 @@ struct Enviromnent
     view_matrix: mat4x4<f32>,
 };
 
-struct Model
-{
-    model_matrix: mat4x4<f32>,
-}
-
 struct VertexInput
 {
     @location(0) position: vec3<f32>,
     @location(1) normal: vec3<f32>,
     @location(2) uvt: vec3<f32>,
+
+    @location(3) chunk_position: vec3<f32>,
 }
 
 struct VertexOutput
@@ -36,14 +33,13 @@ struct VertexOutput
 @group(0) @binding(0) var images: texture_2d_array<f32>;
 @group(0) @binding(1) var images_sampler: sampler;
 @group(0) @binding(2) var<uniform> env: Enviromnent;
-@group(0) @binding(3) var<uniform> model: Model;
 
 @vertex
 fn vertex_main(vertex: VertexInput) -> VertexOutput {
     var out: VertexOutput = VertexOutput();
     out.gradient_color = vec3<f32>(1.0, 1.0, 1.0);
 
-    out.world_position = model.model_matrix * vec4<f32>(vertex.position, 1.0);
+    out.world_position = vec4<f32>(vertex.position + vertex.chunk_position, 1.0);
     out.position = env.view_matrix * out.world_position;
 
     out.uv = vertex.uvt.xy;

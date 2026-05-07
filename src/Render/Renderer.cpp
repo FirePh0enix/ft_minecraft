@@ -10,7 +10,9 @@
 #include "Render/Types.hpp"
 #include "Render/WebGPU.hpp"
 #include "World/Dimension.hpp"
+#include "World/Registry.hpp"
 #include "World/World.hpp"
+#include "webgpu/webgpu.h"
 
 #include <backends/imgui_impl_sdl3.h>
 #include <backends/imgui_impl_wgpu.h>
@@ -241,7 +243,7 @@ Result<Ref<Mesh>> Mesh::create_from_data(const View<uint8_t>& indices, const Vie
     return newobj(Mesh, vertex_count, index_type, uv_type, index_buffer, vertex_buffer, normal_buffer, uv_buffer);
 }
 
-Result<Ref<Material>> Material::create(const Ref<Shader>& shader, MaterialFlags flags, WGPUPolygonMode polygon_mode, WGPUCullMode cull_mode, UVType uv_type)
+Result<Ref<Material>> Material::create(const Ref<Shader>& shader, MaterialFlags flags, WGPUPolygonMode polygon_mode, WGPUCullMode cull_mode, UVType uv_type, Vector<InstanceAttribute> attributes)
 {
     Ref<Material> material = TRY(newref<Material>());
     material->m_shader = shader;
@@ -249,6 +251,7 @@ Result<Ref<Material>> Material::create(const Ref<Shader>& shader, MaterialFlags 
     material->m_polygon_mode = polygon_mode;
     material->m_cull_mode = cull_mode;
     material->m_uv_type = uv_type;
+    material->m_attributes = attributes;
     return material;
 }
 
@@ -394,7 +397,7 @@ Result<WGPURenderPipeline> PipelineCache::get(const Key& key)
         return m_pipelines.at(key);
 
     Vector<WGPUVertexBufferLayout> buffers;
-    TRY(buffers.reserve(3));
+    TRY(buffers.reserve(3 + key.attributes.size()));
 
     WGPUVertexAttribute vertex_attrib{};
     vertex_attrib.format = WGPUVertexFormat_Float32x3;
@@ -422,6 +425,15 @@ Result<WGPURenderPipeline> PipelineCache::get(const Key& key)
         uv_attrib.offset = 0;
         uv_attrib.shaderLocation = 2;
         TRY(buffers.append(WGPUVertexBufferLayout{.stepMode = WGPUVertexStepMode_Vertex, .arrayStride = sizeof(glm::vec3), .attributeCount = 1, .attributes = &uv_attrib}));
+    }
+
+    Vector<WGPUVertexAttribute> attributes;
+    TRY(attributes.reserve(key.attributes.size()));
+    for (uint32_t i = 0; i < key.attributes.size(); i++)
+    {
+        InstanceAttribute attrib = key.attributes.get_unchecked(i);
+        TRY(attributes.append(WGPUVertexAttribute{.format = attrib.format, .offset = 0, .shaderLocation = 3 + i}));
+        TRY(buffers.append(WGPUVertexBufferLayout{.stepMode = WGPUVertexStepMode_Instance, .arrayStride = attrib.stride, .attributeCount = 1, .attributes = &attributes.data()[i]}));
     }
 
     WGPUShaderModule module = create_shader_module(key.shader);
@@ -867,7 +879,6 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_voxel_shader = TRY(Shader::load("assets/shaders/voxel.wgsl"));
     m_voxel_shader->set_binding("images", Binding(BindingKind::Texture, WGPUShaderStage_Fragment, 0, 0, BindingAccess::Read, TextureDimension::D2DArray)); // binding = 1 is the sampler
     m_voxel_shader->set_binding("env", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 2, BindingAccess::Read));
-    m_voxel_shader->set_binding("model", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 3, BindingAccess::Read));
     m_voxel_shader->set_sampler("images", {.min_filter = WGPUFilterMode_Nearest, .mag_filter = WGPUFilterMode_Nearest});
     m_voxel_shader->create_bind_group_layout();
 
@@ -881,6 +892,15 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_model_shader->create_bind_group_layout();
 
     m_cube_mesh = TRY(create_cube_mesh());
+
+    BlockRegistry::create_gpu_resources();
+
+    Vector<InstanceAttribute> attributes;
+    TRY(attributes.append(InstanceAttribute{.stride = sizeof(glm::vec3), .format = WGPUVertexFormat_Float32x3}));
+
+    m_chunk_material = TRY(Material::create(m_voxel_shader, MaterialFlagBits::Transparency, WGPUPolygonMode_Fill, WGPUCullMode_Back, UVType::UVT, attributes));
+    m_chunk_material->set_param("images", BlockRegistry::get_texture_array());
+    m_chunk_material->set_param("env", Renderer::get().get_world_environment());
 
     return Result<void>();
 }
@@ -974,6 +994,7 @@ WGPURenderPipeline Renderer::get_pipeline(Ref<Material> material, const RenderPa
         .uv_type = material->get_uv_type(),
         .flags = material->flags(),
         .cull_mode = material->get_cull_mode(),
+        .attributes = material->get_attributes(),
         .has_color_attach = !node.get_color_output().is_null(),
         .has_depth_attach = !node.get_depth_output().is_null(),
     }));
@@ -994,10 +1015,17 @@ void Renderer::record_world(Renderer& renderer, Ref<World> world, const RenderPa
     };
     renderer.m_env_buffer->update(View(env).as_bytes());
 
+    Ref<Material> material = renderer.m_chunk_material;
+
     for (Ref<Entity> entity : dim.get_entities())
         entity->draw(node);
 
     WGPURenderPassEncoder encoder = node.encoder();
+
+    WGPURenderPipeline pipeline = renderer.get_pipeline(material, node);
+    wgpuRenderPassEncoderSetPipeline(encoder, pipeline);
+    wgpuRenderPassEncoderSetBindGroup(encoder, 0, material->get_bind_group(), 0, nullptr);
+
     for (const auto& [key, chunk] : dim.get_chunks())
     {
         ChunkPos pos = chunk->pos();
@@ -1018,17 +1046,13 @@ void Renderer::record_world(Renderer& renderer, Ref<World> world, const RenderPa
             if (!slice.is_visible())
                 continue;
 
-            Ref<Material> material = slice.material;
-
-            WGPURenderPipeline pipeline = renderer.get_pipeline(material, node);
-            wgpuRenderPassEncoderSetPipeline(encoder, pipeline);
-            wgpuRenderPassEncoderSetBindGroup(encoder, 0, material->get_bind_group(), 0, nullptr);
-
             const Ref<Mesh>& mesh = slice.mesh;
             wgpuRenderPassEncoderSetIndexBuffer(encoder, mesh->get_buffer(Mesh::BufferKind::Index)->handle(), mesh->index_type(), 0, mesh->get_buffer(Mesh::BufferKind::Index)->size());
             wgpuRenderPassEncoderSetVertexBuffer(encoder, 0, mesh->get_buffer(Mesh::BufferKind::Position)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Position)->size());
             wgpuRenderPassEncoderSetVertexBuffer(encoder, 1, mesh->get_buffer(Mesh::BufferKind::Normal)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Normal)->size());
             wgpuRenderPassEncoderSetVertexBuffer(encoder, 2, mesh->get_buffer(Mesh::BufferKind::UV)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::UV)->size());
+
+            wgpuRenderPassEncoderSetVertexBuffer(encoder, 3, chunk->get_chunk_buffer()->handle(), sizeof(glm::vec3) * i, sizeof(glm::vec3));
 
             wgpuRenderPassEncoderDrawIndexed(encoder, mesh->vertex_count(), 1, 0, 0, 0);
         }

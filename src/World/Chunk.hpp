@@ -67,13 +67,7 @@ public:
     struct Slice
     {
         Ref<Mesh> mesh = nullptr;
-        Ref<Material> material = nullptr;
-        Ref<Buffer> model_buffer = nullptr;
-        ChunkModel model;
         bool empty = true;
-
-        // Vector<BlockState> blocks;
-        // Vector<ChunkNode> nodes;
 
         bool is_visible() const
         {
@@ -109,6 +103,9 @@ public:
 
     const Slice *get_slices() const { return m_slices; }
     Slice *get_slices() { return m_slices; }
+
+    Ref<Buffer> get_chunk_buffer() const { return m_chunk_buffer; }
+
     Result<void> build_simple_mesh(size_t slice);
 
     static ALWAYS_INLINE size_t linearize(int64_t x, int64_t y, int64_t z) { return (z + 1) * width_with_overlap * height + y * width_with_overlap + (x + 1); }
@@ -118,6 +115,8 @@ private:
     BlockState *m_blocks;
     Biome *m_biomes;
     Slice *m_slices;
+
+    Ref<Buffer> m_chunk_buffer;
 
     int64_t m_x;
     int64_t m_z;

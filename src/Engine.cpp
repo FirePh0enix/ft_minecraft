@@ -14,6 +14,7 @@
 #include "Render/Graph.hpp"
 #include "Render/ImGUIToolKit.hpp"
 #include "Rpc.hpp"
+#include "World/Registry.hpp"
 #include "World/World.hpp"
 
 #include <backends/imgui_impl_sdl3.h>
@@ -34,6 +35,8 @@ Engine::Engine(const Args& args)
     {
         flags |= InitFlagBits::Validation;
     }
+
+    BlockRegistry::load_blocks();
 
     EXPECT(m_renderer.init(*m_window, flags));
 
