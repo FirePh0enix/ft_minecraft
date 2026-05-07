@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Core/Class.hpp"
+#include "Core/Definitions.hpp"
 
 enum class GradientType : uint8_t
 {
@@ -17,7 +18,6 @@ enum class BlockStateVariant : uint8_t
 
 struct GenericData
 {
-    uint8_t visibility : 6;
 };
 
 struct BlockState
@@ -45,9 +45,14 @@ struct BlockState
     {
     }
 
-    inline bool is_air() const
+    ALWAYS_INLINE bool is_air() const
     {
         return id == 0;
+    }
+
+    bool operator==(BlockState other) const
+    {
+        return *(uint32_t *)this == *(uint32_t *)&other;
     }
 };
 

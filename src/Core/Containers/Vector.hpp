@@ -1,8 +1,11 @@
 #pragma once
 
 #include <cstddef>
+#include <functional>
+#include <optional>
 
 #include "Core/Alloc.hpp"
+#include "Core/Assert.hpp"
 #include "Core/Containers/Iterator.hpp"
 #include "Core/Definitions.hpp"
 #include "Core/Error.hpp"
@@ -94,11 +97,19 @@ public:
         return Result<void>();
     }
 
-    T& pop_front_unchecked()
+    T pop_unchecked()
     {
-        T& value = m_data[m_size - 1];
+        T value = m_data[m_size - 1];
         m_size -= 1;
+        m_data[m_size].~T();
         return value;
+    }
+
+    void remove_one()
+    {
+        ASSERT(m_size >= 1, "");
+        m_size -= 1;
+        m_data[m_size].~T();
     }
 
     /**
@@ -189,6 +200,14 @@ public:
                 return;
             }
         }
+    }
+
+    std::optional<size_t> index_of(const T& value)
+    {
+        for (size_t i = 0; i < m_size; i++)
+            if (m_data[i] == value)
+                return i;
+        return std::nullopt;
     }
 
     bool contains(const T& value) const

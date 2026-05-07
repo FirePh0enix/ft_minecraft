@@ -1,5 +1,7 @@
 #include "World/Dimension.hpp"
 #include "Profiler.hpp"
+#include "World/Block.hpp"
+#include "World/Chunk.hpp"
 
 Vector<AABB> Dimension::get_boxes_that_may_collide(const AABB& box) const
 {
@@ -89,6 +91,23 @@ Result<Ref<Chunk>> Dimension::generate_chunk(int64_t cx, int64_t cz)
 
     for (size_t i = 0; i < Chunk::slice_count; i++)
         TRY(chunk->build_simple_mesh(i));
+
+    // static size_t min_bytes = std::numeric_limits<size_t>::max(), max_bytes = 0;
+    // static size_t min_bytes_biomes = std::numeric_limits<size_t>::max(), max_bytes_biomes = 0;
+
+    // const size_t compressed_bytes = chunk->get_compressed_blocks().size() * sizeof(BlockState) + chunk->get_compressed_nodes().size() * sizeof(ChunkNode);
+    // if (compressed_bytes < min_bytes)
+    //     min_bytes = compressed_bytes;
+    // if (compressed_bytes > max_bytes)
+    //     max_bytes = compressed_bytes;
+
+    // const size_t compressed_bytes_biomes = chunk->get_compressed_biomes().size() * sizeof(Biome) + chunk->get_compressed_biome_nodes().size() * sizeof(ChunkBiomeNode);
+    // if (compressed_bytes_biomes < min_bytes_biomes)
+    //     min_bytes_biomes = compressed_bytes_biomes;
+    // if (compressed_bytes_biomes > max_bytes_biomes)
+    //     max_bytes_biomes = compressed_bytes_biomes;
+
+    // println("blocks > min = {}, max = {} | biomes > min = {}, max = {}", min_bytes, max_bytes, min_bytes_biomes, max_bytes_biomes);
 
     return chunk;
 }

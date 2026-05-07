@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Core/Containers/Vector.hpp"
+#include "Core/Containers/View.hpp"
 #include "Core/Definitions.hpp"
 #include "Render/Renderer.hpp"
 #include "World/Biome.hpp"
@@ -33,6 +35,30 @@ struct ChunkModel
     glm::mat4 model_matrix = glm::identity<glm::mat4>();
 };
 
+struct __attribute__((packed)) ChunkNode
+{
+    uint32_t leaf : 1 = 0;
+    /**
+     * If `same` is set this means all children are the same block. For a leaf block `ptr` points *one* block.
+     * For a non-leaf block this means no child nodes are present and `ptr` points to the block.
+     * For `same` to be valid all bits of `child_mask` must be set.
+     */
+    uint32_t same : 1 = 0;
+    uint32_t ptr : 30 = 0;
+    uint64_t child_mask = 0;
+};
+
+struct __attribute__((packed)) ChunkBiomeNode
+{
+    uint16_t ptr = 0;
+    /**
+     * All children of this node are the same value. If set then the children nodes
+     * are ignored and `ptr` points to the biome value.
+     */
+    uint16_t same : 1 = 0;
+    uint16_t reserved : 15 = 0;
+};
+
 class Chunk : public Object
 {
     CLASS(Chunk, Object);
@@ -45,6 +71,9 @@ public:
         Ref<Buffer> model_buffer = nullptr;
         ChunkModel model;
         bool empty = true;
+
+        // Vector<BlockState> blocks;
+        // Vector<ChunkNode> nodes;
 
         bool is_visible() const
         {
@@ -92,4 +121,32 @@ private:
 
     int64_t m_x;
     int64_t m_z;
+};
+
+class CompressedChunk
+{
+public:
+    CompressedChunk();
+
+    CompressedChunk(Vector<BlockState> compressed_blocks, Vector<ChunkNode> compressed_nodes, uint16_t compressed_slice_mask, Vector<Biome> compressed_biomes, Vector<ChunkBiomeNode> compressed_biome_nodes)
+        : m_compressed_blocks(compressed_blocks), m_compressed_nodes(compressed_nodes), m_compressed_slice_mask(compressed_slice_mask), m_compressed_biomes(compressed_biomes), m_compressed_biome_nodes(compressed_biome_nodes)
+    {
+    }
+
+    Result<void> compress(Ref<Chunk> chunk);
+    Result<void> uncompress(Ref<Chunk> chunk) const;
+
+    View<BlockState> get_blocks() const { return m_compressed_blocks; }
+    View<ChunkNode> get_nodes() const { return m_compressed_nodes; }
+
+    View<Biome> get_biomes() const { return m_compressed_biomes; }
+    View<ChunkBiomeNode> get_biome_nodes() const { return m_compressed_biome_nodes; }
+
+private:
+    Vector<BlockState> m_compressed_blocks;
+    Vector<ChunkNode> m_compressed_nodes;
+    uint16_t m_compressed_slice_mask;
+
+    Vector<Biome> m_compressed_biomes;
+    Vector<ChunkBiomeNode> m_compressed_biome_nodes;
 };
