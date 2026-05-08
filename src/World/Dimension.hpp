@@ -44,16 +44,23 @@ public:
     {
         if (id.is_valid())
         {
-            m_entities.remove_if(
+            EXPECT(m_entities.remove_if(
                 [&](const Ref<Entity>& entity)
                 {
                     return entity->id() == id;
-                });
+                }));
         }
     }
 
     Result<void> add_chunk(int64_t x, int64_t z, const Ref<Chunk>& chunk)
     {
+#ifndef NDEBUG
+        if (m_chunks.contains(ChunkPos(x, z)))
+        {
+            println("chunk on [{}, {}] is duplicated", x, z);
+        }
+#endif
+
         m_chunks[ChunkPos(x, z)] = chunk;
         return Result<void>();
     }
@@ -89,16 +96,10 @@ private:
      * Chunks loaded in memory. Could also be called `Simulated chunks`.
      */
     std::map<ChunkPos, Ref<Chunk>> m_chunks;
-    /**
-     * Chunks rendered to the screen.
-     */
-    std::map<ChunkPos, Ref<Chunk>> m_render_chunks;
 
     std::mutex m_chunk_loading_mutex;
     std::set<ChunkPos> m_chunk_loading_queue;
 
-    Vector<Ref<Chunk>> m_chunks_to_flush;
-    // TODO: add a `std::set` for checking if chunks exists.
-
+    std::map<ChunkPos, Ref<Chunk>> m_chunks_to_flush;
     Vector<Ref<GenerationPass>> m_generation_passes;
 };

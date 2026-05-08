@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <cstdlib>
 
 typedef void *(*MallocHook)(size_t);
@@ -10,8 +11,8 @@ namespace core
 extern MallocHook malloc_func;
 extern FreeHook free_func;
 
-extern size_t memory_allocated_bytes;
-extern size_t memory_freed_bytes;
+extern std::atomic_size_t memory_allocated_bytes;
+extern std::atomic_size_t memory_freed_bytes;
 
 size_t get_memory_usage();
 }; // namespace core

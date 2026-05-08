@@ -51,7 +51,7 @@ void ThreadPool::thread_worker()
                 return;
             }
 
-            task = m_tasks.pop_unchecked();
+            task = EXPECT(m_tasks.pop_unchecked());
         }
 
         task();

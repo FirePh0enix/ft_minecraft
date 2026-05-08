@@ -97,32 +97,39 @@ public:
         return Result<void>();
     }
 
-    T pop_unchecked()
+    Result<T> pop_unchecked()
     {
+        TRY(copy_on_write());
+
         T value = m_data[m_size - 1];
         m_size -= 1;
         m_data[m_size].~T();
         return value;
     }
 
-    void remove_one()
+    Result<void> remove_one()
     {
+        TRY(copy_on_write());
+
         ASSERT(m_size >= 1, "");
         m_size -= 1;
         m_data[m_size].~T();
     }
 
     /**
-     *  Clear the content of the vector and free the memory.
+     * Clear the content of the vector and free the memory.
      */
-    void clear()
+    Result<void> clear()
     {
         if (!m_references)
         {
-            return;
+            return Result<void>();
         }
 
+        TRY(copy_on_write());
+
         unref();
+        return Result<void>();
     }
 
     Result<void> clear_keep_capacity()
@@ -179,25 +186,31 @@ public:
         return Result<void>();
     }
 
-    void remove_at(size_t index)
+    Result<void> remove_at(size_t index)
     {
         if (index >= m_size)
-            return;
+            return Result<void>();
+
+        TRY(copy_on_write());
 
         // TODO: do some testing.
 
         (m_data + index)->~T();
         memmove((void *)(m_data + index), (void *)(m_data + index + 1), sizeof(T) * m_size);
+
+        return Result<void>();
     }
 
-    void remove_if(std::function<bool(const T&)> f)
+    Result<void> remove_if(std::function<bool(const T&)> f)
     {
+        TRY(copy_on_write());
+
         for (size_t i = 0; i < m_size; i++)
         {
             if (f(m_data[i]))
             {
                 remove_at(i);
-                return;
+                return Result<void>();
             }
         }
     }
@@ -233,6 +246,8 @@ public:
     const T& get_unchecked(size_t index) const { return m_data[index]; }
     T& get_unchecked(size_t index) { return m_data[index]; }
 
+    uint32_t references() const { return m_references ? *m_references : 0; }
+
     void operator=(const Vector& other)
     {
         if (m_references)
@@ -241,15 +256,6 @@ public:
         }
 
         new (this) Vector<T>(other);
-        // if (other.m_references)
-        // {
-        //     m_data = other.m_data;
-        //     m_references = other.m_references;
-        //     m_size = other.m_size;
-        //     m_capacity = other.m_capacity;
-
-        //     *m_references += 1;
-        // }
     }
 
     static constexpr size_t initial_capacity = 3;

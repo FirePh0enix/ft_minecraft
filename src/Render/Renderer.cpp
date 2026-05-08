@@ -13,10 +13,12 @@
 #include "World/Dimension.hpp"
 #include "World/Registry.hpp"
 #include "World/World.hpp"
-#include "imgui.h"
 
 #include <backends/imgui_impl_sdl3.h>
 #include <backends/imgui_impl_wgpu.h>
+#include <imgui.h>
+
+#include <mutex>
 
 #ifdef __platform_web
 #define WGPU_STRING_VIEW_INIT nullptr
@@ -122,7 +124,10 @@ Result<Ref<Buffer>> Buffer::create(size_t size, WGPUBufferUsage usage, BufferVis
         size = desc.size;
     }
 
-    WGPUBuffer wgpu_buffer = wgpuDeviceCreateBuffer(Renderer::get().m_device, &desc);
+    WGPUBuffer wgpu_buffer = ({
+        std::lock_guard<std::mutex> guard(Renderer::get().get_device_queue());
+        wgpuDeviceCreateBuffer(Renderer::get().m_device, &desc);
+    });
     ERR_COND_VRV(wgpu_buffer == nullptr, Error(ErrorKind::OutOfDeviceMemory), "Failed to create buffer of size {}", size);
 
     Ref<Buffer> buffer = TRY(newref<Buffer>());
@@ -137,6 +142,7 @@ Result<Ref<Buffer>> Buffer::create(size_t size, WGPUBufferUsage usage, BufferVis
 
 void Buffer::update(View<uint8_t> view, size_t offset)
 {
+    std::lock_guard<std::mutex> guard(Renderer::get().get_queue_mutex());
     wgpuQueueWriteBuffer(Renderer::get().m_queue, m_buffer, static_cast<uint64_t>(offset), view.data(), view.size());
 }
 
@@ -193,6 +199,8 @@ Result<Ref<Texture>> Texture::create(uint32_t width, uint32_t height, WGPUTextur
 
 void Texture::update(View<uint8_t> view, uint32_t layer)
 {
+    std::lock_guard<std::mutex> guard(Renderer::get().get_queue_mutex());
+
 #ifndef __platform_web
     WGPUTexelCopyTextureInfo copy_info{};
     copy_info.texture = m_texture;
@@ -244,7 +252,7 @@ Result<Ref<Mesh>> Mesh::create_from_data(const View<uint8_t>& indices, const Vie
     normal_buffer->update(normals.as_bytes());
     uv_buffer->update(uvs.as_bytes());
 
-    return newobj(Mesh, vertex_count, index_type, uv_type, index_buffer, vertex_buffer, normal_buffer, uv_buffer);
+    return newref<Mesh>(vertex_count, index_type, uv_type, index_buffer, vertex_buffer, normal_buffer, uv_buffer);
 }
 
 Result<Ref<Material>> Material::create(const Ref<Shader>& shader, MaterialFlags flags, WGPUPolygonMode polygon_mode, WGPUCullMode cull_mode, UVType uv_type, Vector<InstanceAttribute> attributes)
@@ -965,10 +973,12 @@ void Renderer::draw(RenderGraph& graph, std::function<void(const RenderPassNode&
                                                         // Draw ImGui only on the main color pass.
                         if (node.is_final_pass())
                         {
+                            std::lock_guard<std::mutex> guard(Renderer::get().get_queue_mutex());
                             ImGui::Render();
                             ImGui_ImplWGPU_RenderDrawData(ImGui::GetDrawData(), node.encoder());
                         } });
 
+    std::lock_guard<std::mutex> guard(Renderer::get().get_queue_mutex());
     wgpuQueueSubmit(m_queue, 1, &command_buffer);
 
 #ifdef __platform_web

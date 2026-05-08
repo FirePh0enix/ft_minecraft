@@ -95,16 +95,13 @@ void Engine::tick(float delta)
                 break;
             }
 
-#ifdef __has_debug_menu
             ImGui_ImplSDL3_ProcessEvent(&*event);
-
             ImGuiIO& imgui_io = ImGui::GetIO();
 
             if (imgui_io.WantCaptureMouse || imgui_io.WantCaptureKeyboard)
             {
                 continue;
             }
-#endif
 
             Input::process_event(event.value());
         }
@@ -114,6 +111,7 @@ void Engine::tick(float delta)
     {
         m_current_memory_usage = core::get_memory_usage();
         m_last_second_timer_time -= 1.0;
+        // println("{}", Chunk::instances);
     }
     m_last_second_timer_time += delta;
 

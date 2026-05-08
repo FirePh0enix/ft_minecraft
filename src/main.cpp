@@ -3,6 +3,7 @@
 #include "Engine.hpp"
 #include "Input.hpp"
 #include "Profiler.hpp"
+#include "World/Chunk.hpp"
 #include "World/Registry.hpp"
 
 #include <imgui.h>

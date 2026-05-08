@@ -82,12 +82,12 @@ void World::tick(float delta)
         load_around_player();
 
         // Flush all new chunks.
-        std::unique_lock<std::mutex> lock(m_dims[0].m_chunk_mutex);
-        for (auto& chunk : m_dims[0].m_chunks_to_flush)
+        std::unique_lock<std::mutex> lock(m_dims[0].mutex());
+        for (auto [pos, chunk] : m_dims[0].m_chunks_to_flush)
         {
-            const ChunkPos pos = chunk->pos();
             EXPECT(m_dims[0].add_chunk(pos.x, pos.z, chunk));
 
+            /*TODO
             if (Engine::singleton->is_server())
             {
                 ChunkDataPacket p;
@@ -101,7 +101,7 @@ void World::tick(float delta)
                 std::memcpy(p.biomes.data(), chunk->get_blocks(), sizeof(Biome) * p.biomes.size());
 
                 Engine::singleton->get_connection().broadcast(Engine::singleton->get_connection().create_packet(p));
-            }
+            }*/
         }
         m_dims[0].m_chunks_to_flush.clear();
     }
@@ -166,54 +166,30 @@ void World::load_around_player()
     int64_t player_cx = int64_t(player_pos.x / 16);
     int64_t player_cz = int64_t(player_pos.z / 16);
 
-    Vector<ChunkPos> positions;
-    EXPECT(positions.reserve((m_load_distance * 2 + 1) * (m_load_distance * 2 + 1)));
-
-    for (int64_t cx = -int32_t(m_load_distance); cx <= m_load_distance; cx++)
-        for (int64_t cz = -int32_t(m_load_distance); cz <= m_load_distance; cz++)
+    for (int64_t cx = -m_load_distance; cx <= m_load_distance; cx++)
+        for (int64_t cz = -m_load_distance; cz <= m_load_distance; cz++)
         {
             int64_t x = player_cx + cx;
             int64_t z = player_cz + cz;
-            EXPECT(positions.append(ChunkPos(x, z)));
+            ChunkPos pos(x, z);
+
+            {
+                std::lock_guard<std::mutex> lock(m_dims[0].mutex());
+                if (m_dims[0].has_chunk(x, z) || m_dims[0].m_chunks_to_flush.contains(pos))
+                    continue;
+            }
+
+            {
+                std::lock_guard<std::mutex> lock(m_dims[0].m_chunk_loading_mutex);
+                if (m_dims[0].m_chunk_loading_queue.contains(pos))
+                    continue;
+
+                m_dims[0].m_chunk_loading_queue.insert(pos);
+            }
+
+            EXPECT(m_generation_thread_pool.async([this, pos]
+                                                  { load_one_chunk(pos); }));
         }
-
-    for (ChunkPos pos : positions)
-    {
-        // Prevent loading the same chunk two times.
-        {
-            std::lock_guard<std::mutex> lock(m_dims[0].mutex());
-            if (m_dims[0].has_chunk(pos.x, pos.z))
-                continue;
-        }
-
-        // Prevent loading a chunk already loading.
-        {
-            std::lock_guard<std::mutex> lock(m_dims[0].m_chunk_loading_mutex);
-            if (m_dims[0].m_chunk_loading_queue.contains(pos))
-                continue;
-
-            m_dims[0].m_chunk_loading_queue.insert(pos);
-        }
-
-        EXPECT(m_generation_thread_pool.async([this, pos]
-                                              {
-                                                  Result<Ref<Chunk>> result = m_dims[0].generate_chunk(pos.x, pos.z);
-                                                  if (result.has_error())
-                                                  {
-                                                      return;
-                                                  }
-
-                                                  {
-                                                      std::lock_guard<std::mutex> lock(m_dims[0].mutex());
-                                                      Ref<Chunk> chunk = result.value();
-                                                      // error is ignored.
-                                                      (void)m_dims[0].m_chunks_to_flush.append(chunk);
-                                                  }
-                                                  {
-                                                      std::lock_guard<std::mutex> lock(m_dims[0].m_chunk_loading_mutex);
-                                                      m_dims[0].m_chunk_loading_queue.erase(pos);
-                                                  } }));
-    }
 
     std::unique_lock<std::mutex> lock(m_dims[0].mutex());
     for (const auto& [pos, chunk] : m_dims[0].m_chunks)
@@ -224,9 +200,7 @@ void World::load_around_player()
         }
 
         EXPECT(m_generation_thread_pool.async([this, pos]
-                                              {
-                                                std::unique_lock<std::mutex> lock(m_dims[0].mutex());
-                                                (void)m_dims[0].remove_chunk(pos.x, pos.z); }));
+                                              { unload_one_chunk(pos); }));
     }
 }
 
@@ -444,4 +418,29 @@ std::optional<EntityRaycastResult> World::raycast_entities(
         return closest_hit;
 
     return std::nullopt;
+}
+
+void World::load_one_chunk(ChunkPos pos)
+{
+    Result<Ref<Chunk>> result = m_dims[0].generate_chunk(pos.x, pos.z);
+    if (result.has_error())
+    {
+        return;
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(m_dims[0].mutex());
+        Ref<Chunk> chunk = result.value();
+        m_dims[0].m_chunks_to_flush[pos] = chunk;
+    }
+    {
+        std::lock_guard<std::mutex> lock(m_dims[0].m_chunk_loading_mutex);
+        m_dims[0].m_chunk_loading_queue.erase(pos);
+    }
+}
+
+void World::unload_one_chunk(ChunkPos pos)
+{
+    std::unique_lock<std::mutex> lock(m_dims[0].mutex());
+    m_dims[0].remove_chunk(pos.x, pos.z);
 }

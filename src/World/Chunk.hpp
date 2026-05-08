@@ -84,6 +84,8 @@ public:
     static constexpr int64_t block_count = width * height * width;
     static constexpr int64_t slice_count = height / width;
 
+    static inline std::atomic_size_t instances = 0;
+
     Chunk(int64_t x, int64_t z);
     ~Chunk();
 

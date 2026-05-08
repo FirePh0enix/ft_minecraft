@@ -21,6 +21,8 @@ Chunk::Chunk(int64_t x, int64_t z)
     for (size_t i = 0; i < slice_count; i++)
         chunk_data[i] = glm::vec3(x * Chunk::width, i * Chunk::width, z * Chunk::width);
     m_chunk_buffer->update(View(chunk_data).as_bytes());
+
+    instances += 1;
 }
 
 Chunk::~Chunk()
@@ -28,6 +30,8 @@ Chunk::~Chunk()
     destroy_array_nodestruct(m_blocks, block_count_with_overlap);
     destroy_array_nodestruct(m_biomes, block_count_with_overlap);
     destroy_array(m_slices, slice_count);
+
+    instances -= 1;
 }
 
 void Chunk::set_block(int64_t x, int64_t y, int64_t z, BlockState state)

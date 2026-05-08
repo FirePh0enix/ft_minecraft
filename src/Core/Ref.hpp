@@ -1,13 +1,14 @@
 #pragma once
 
-#include <cstdint>
-#include <type_traits>
-#include <utility>
-
 #include "Core/Alloc.hpp"
 #include "Core/Definitions.hpp"
 #include "Core/Error.hpp"
 #include "Core/Result.hpp"
+
+#include <atomic>
+#include <cstdint>
+#include <type_traits>
+#include <utility>
 
 void ref_check_null_access(bool cond, const char *class_name);
 
@@ -15,8 +16,6 @@ template <typename T>
 class Ref
 {
 public:
-    using ReferenceType = uint32_t;
-
     ALWAYS_INLINE Ref()
         : m_ptr(nullptr), m_references(nullptr)
     {
@@ -28,11 +27,12 @@ public:
     }
 
     ALWAYS_INLINE explicit Ref(T *ptr)
-        : m_ptr(ptr), m_references(alloc<ReferenceType>(ReferenceType(1)))
+        : m_ptr(ptr), m_references(alloc<std::atomic_size_t>(1))
     {
     }
 
     Ref(const Ref& other)
+        : Ref()
     {
         if (!other.is_null())
         {
@@ -41,14 +41,9 @@ public:
 
             ref();
         }
-        else
-        {
-            m_ptr = nullptr;
-            m_references = nullptr;
-        }
     }
 
-    Ref(T *ptr, ReferenceType *references)
+    Ref(T *ptr, std::atomic_size_t *references)
         : m_ptr(ptr), m_references(references)
     {
         if (!is_null())
@@ -145,11 +140,6 @@ public:
         return cast_to<B>();
     }
 
-    ALWAYS_INLINE ReferenceType references()
-    {
-        return m_references ? *m_references : 0;
-    }
-
     ALWAYS_INLINE bool is_null() const
     {
         return m_ptr == nullptr;
@@ -178,17 +168,20 @@ public:
 
 private:
     T *m_ptr;
-    ReferenceType *m_references;
+    std::atomic_size_t *m_references;
 
     ALWAYS_INLINE void ref()
     {
-        *m_references += 1;
+        // *m_references += 1;
+        m_references->fetch_add(1, std::memory_order::consume);
     }
 
     void unref()
     {
-        if (--*m_references == 0)
+        if (m_references->fetch_sub(1, std::memory_order::release) == 1)
         {
+            m_references->load(std::memory_order::acquire);
+
             destroy(m_ptr);
             destroy(m_references);
 

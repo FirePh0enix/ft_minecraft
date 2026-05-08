@@ -8,9 +8,11 @@
 #include "Core/Types.hpp"
 #include "Render/Shader.hpp"
 #include "Render/Types.hpp"
+#include "Render/WebGPU.hpp"
 #include "Window.hpp"
 
-#include "Render/WebGPU.hpp"
+#include <atomic>
+#include <mutex>
 
 class World;
 
@@ -252,6 +254,9 @@ public:
     WGPUTextureFormat get_surface_format() const { return m_surface_format; }
     Ref<Buffer> get_world_environment() const { return m_env_buffer; }
 
+    std::mutex& get_device_queue() { return m_device_queue; }
+    std::mutex& get_queue_mutex() { return m_queue_mutex; }
+
     Ref<Shader> get_voxel_shader() const { return m_voxel_shader; }
     Ref<Shader> get_model_shader() const { return m_model_shader; }
 
@@ -268,6 +273,9 @@ private:
     WGPUSurface m_surface = nullptr;
     WGPUQueue m_queue = nullptr;
 
+    std::mutex m_device_queue;
+    std::mutex m_queue_mutex;
+
     WGPUTextureFormat m_surface_format = WGPUTextureFormat_Undefined;
     Extent2D m_surface_extent;
 
@@ -282,8 +290,8 @@ private:
     Ref<Material> m_chunk_material;
     Ref<Buffer> m_env_buffer;
 
-    size_t m_device_memory_allocated = 0;
-    size_t m_device_memory_freed = 0;
+    std::atomic_size_t m_device_memory_allocated = 0;
+    std::atomic_size_t m_device_memory_freed = 0;
 
     static inline Renderer *singleton;
 

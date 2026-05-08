@@ -13,7 +13,8 @@ public:
     ~ThreadPool();
 
     /**
-     *  @brief Starts an asynchronous task.
+     * Starts an asynchronous task.
+     * TODO: Should returns a future that can be canceled.
      */
     Result<void> async(std::function<void()> task);
 
