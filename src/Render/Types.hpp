@@ -1,7 +1,9 @@
 #pragma once
 
-#include "Core/Flags.hpp"
-#include "Render/WebGPU.hpp"
+#include <webgpu/webgpu.h>
+
+#include <cstdint>
+#include <tuple>
 
 enum class TextureDimension : uint8_t
 {

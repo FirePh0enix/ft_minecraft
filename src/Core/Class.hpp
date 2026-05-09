@@ -1,11 +1,11 @@
 #pragma once
 
+#include "Core/Containers/InplaceVector.hpp"
+#include "Core/Containers/View.hpp"
+
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
-
-#include "Core/Containers/InplaceVector.hpp"
-#include "Core/Containers/View.hpp"
 
 struct ClassHashCode
 {

@@ -8,8 +8,9 @@
 #include "Core/Types.hpp"
 #include "Render/Shader.hpp"
 #include "Render/Types.hpp"
-#include "Render/WebGPU.hpp"
 #include "Window.hpp"
+
+#include <webgpu/webgpu.h>
 
 #include <atomic>
 #include <mutex>
@@ -159,7 +160,7 @@ class Material : public Object
     CLASS(Material, Object);
 
 public:
-    static Result<Ref<Material>> create(const Ref<Shader>& shader, MaterialFlags flags, WGPUPolygonMode polygon_mode, WGPUCullMode cull_mode, UVType uv_type, Vector<InstanceAttribute> attributes = {});
+    static Result<Ref<Material>> create(const Ref<Shader>& shader, MaterialFlags flags, WGPUCullMode cull_mode, UVType uv_type, Vector<InstanceAttribute> attributes = {});
 
     void set_param(const StringView& name, const Ref<Buffer>& buffer);
     void set_param(const StringView& name, const Ref<Texture>& texture);
@@ -181,7 +182,6 @@ private:
     std::map<String, MaterialParamCache> m_caches;
 
     MaterialFlags m_flags;
-    WGPUPolygonMode m_polygon_mode;
     WGPUCullMode m_cull_mode;
     UVType m_uv_type;
 

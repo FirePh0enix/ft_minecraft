@@ -253,12 +253,11 @@ Result<Ref<Mesh>> Mesh::create_from_data(const View<uint8_t>& indices, const Vie
     return newref<Mesh>(vertex_count, index_type, uv_type, index_buffer, vertex_buffer, normal_buffer, uv_buffer);
 }
 
-Result<Ref<Material>> Material::create(const Ref<Shader>& shader, MaterialFlags flags, WGPUPolygonMode polygon_mode, WGPUCullMode cull_mode, UVType uv_type, Vector<InstanceAttribute> attributes)
+Result<Ref<Material>> Material::create(const Ref<Shader>& shader, MaterialFlags flags, WGPUCullMode cull_mode, UVType uv_type, Vector<InstanceAttribute> attributes)
 {
     Ref<Material> material = TRY(newref<Material>());
     material->m_shader = shader;
     material->m_flags = flags;
-    material->m_polygon_mode = polygon_mode;
     material->m_cull_mode = cull_mode;
     material->m_uv_type = uv_type;
     material->m_attributes = attributes;
@@ -908,7 +907,7 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     Vector<InstanceAttribute> attributes;
     TRY(attributes.append(InstanceAttribute{.stride = sizeof(glm::vec3), .format = WGPUVertexFormat_Float32x3}));
 
-    m_chunk_material = TRY(Material::create(m_voxel_shader, MaterialFlagBits::Transparency, WGPUPolygonMode_Fill, WGPUCullMode_Back, UVType::UVT, attributes));
+    m_chunk_material = TRY(Material::create(m_voxel_shader, MaterialFlagBits::Transparency, WGPUCullMode_Back, UVType::UVT, attributes));
     m_chunk_material->set_param("images", Engine::get().block_registry().get_texture_array());
     m_chunk_material->set_param("env", Renderer::get().get_world_environment());
 

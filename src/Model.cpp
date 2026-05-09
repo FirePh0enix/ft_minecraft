@@ -141,7 +141,7 @@ Result<Ref<Model>> Model::load(const StringView& path)
         obj.size = glm::vec3(object.size[0], object.size[1], object.size[2]);
         obj.position = glm::vec3(object.position[0], object.position[1], object.position[2]);
         obj.origin = glm::vec3(object.origin[0], object.origin[1], object.origin[2]);
-        obj.material = TRY(Material::create(Renderer::get().get_model_shader(), MaterialFlagBits::None, WGPUPolygonMode_Fill, WGPUCullMode_Back, UVType::UV));
+        obj.material = TRY(Material::create(Renderer::get().get_model_shader(), MaterialFlagBits::None, WGPUCullMode_Back, UVType::UV));
 
         Vector<glm::vec2> uvs;
         for (uint32_t i = 0; i < 24; i++)

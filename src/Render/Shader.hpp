@@ -1,9 +1,9 @@
 #pragma once
 
 #include "Core/Class.hpp"
+#include "Core/Flags.hpp"
 #include "Core/Ref.hpp"
 #include "Render/Types.hpp"
-#include "Render/WebGPU.hpp"
 
 #include <filesystem>
 #include <map>
