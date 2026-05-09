@@ -114,6 +114,8 @@ public:
         ASSERT(m_size >= 1, "");
         m_size -= 1;
         m_data[m_size].~T();
+
+        return Result<void>();
     }
 
     /**
@@ -182,6 +184,7 @@ public:
         if (m_capacity >= capacity)
             return Result<void>();
 
+        TRY(copy_on_write());
         TRY(grow_to(m_capacity, capacity));
         return Result<void>();
     }
@@ -294,6 +297,8 @@ private:
             for (size_t i = 0; i < m_size; i++)
                 new (new_data + i) T(m_data[i]);
             m_data = new_data;
+
+            println("m_references = {}", m_references);
         }
 
         return Result<void>();
@@ -374,11 +379,10 @@ private:
         {
             destroy_array(m_data, m_size);
             destroy(m_references);
-
-            m_data = nullptr;
-            m_references = nullptr;
         }
         m_size = 0;
         m_capacity = 0;
+        m_data = nullptr;
+        m_references = nullptr;
     }
 };

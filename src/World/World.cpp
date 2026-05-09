@@ -1,7 +1,6 @@
 #include "World/World.hpp"
 #include "AABB.hpp"
 #include "Core/Ref.hpp"
-#include "Engine.hpp"
 #include "Entity/Entity.hpp"
 #include "Profiler.hpp"
 #include "World/Chunk.hpp"
@@ -33,18 +32,15 @@ bool ray_intersect_aabb(const Ray& ray, const AABB& aabb, float& t_min)
 World::World(uint64_t seed, int type)
     : m_seed(seed), m_generation_thread_pool(std::thread::hardware_concurrency() - 1)
 {
-    // Setup world generation
-    m_dims[overworld].m_world = this;
-
     if (type == WorldPresetFlat)
     {
-        EXPECT(m_dims[overworld].m_generation_passes.append(newobj(FlatBiomePass)));
-        EXPECT(m_dims[overworld].m_generation_passes.append(newobj(FlatSurfacePass)));
+        EXPECT(m_dims[overworld].m_generation_passes.append(EXPECT(newref<FlatBiomePass>())));
+        EXPECT(m_dims[overworld].m_generation_passes.append(EXPECT(newref<FlatSurfacePass>())));
     }
     else if (type == WorldPresetNormal)
     {
-        EXPECT(m_dims[overworld].m_generation_passes.append(newobj(OverworldBiomePass)));
-        EXPECT(m_dims[overworld].m_generation_passes.append(newobj(OverworldSurfacePass)));
+        EXPECT(m_dims[overworld].m_generation_passes.append(EXPECT(newref<OverworldBiomePass>())));
+        EXPECT(m_dims[overworld].m_generation_passes.append(EXPECT(newref<OverworldSurfacePass>())));
     }
 }
 

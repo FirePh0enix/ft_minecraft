@@ -2,7 +2,7 @@
 
 #include <filesystem>
 
-#include "Core/Containers/Vector.hpp"
+#include "Core/Containers/LocalVector.hpp"
 #include "Core/Result.hpp"
 
 static inline String get_data_directory()
@@ -57,8 +57,8 @@ struct File
 {
     File();
 
-    Vector<char> read_to_buffer() const;
-    String read_to_string() const;
+    Result<void> read_to_buffer(LocalVector<char>& buffer) const;
+    Result<String> read_to_string() const;
 
 private:
     friend class Filesystem;

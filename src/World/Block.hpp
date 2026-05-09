@@ -10,12 +10,6 @@ enum class GradientType : uint8_t
     Water,
 };
 
-enum class BlockStateVariant : uint8_t
-{
-    // Uses the `generic` field of the block state.
-    Generic,
-};
-
 struct GenericData
 {
 };
@@ -76,11 +70,6 @@ public:
     inline String name() const
     {
         return m_name;
-    }
-
-    virtual BlockStateVariant get_variant() const
-    {
-        return BlockStateVariant::Generic;
     }
 
     void set_texture_ids(const std::array<uint32_t, 6>& texture_ids)

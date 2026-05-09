@@ -10,7 +10,7 @@
 #endif
 
 File::File()
-    : m_fd(-1)
+    : m_size(0), m_fd(-1)
 {
 }
 
@@ -59,15 +59,14 @@ Result<File> Filesystem::open_file(const StringView& path)
     return file;
 }
 
-Vector<char> File::read_to_buffer() const
+Result<void> File::read_to_buffer(LocalVector<char>& buffer) const
 {
-    Vector<char> buffer;
-    buffer.resize(m_size);
+    EXPECT(buffer.resize(m_size));
     Filesystem::read_raw(*this, buffer.data(), m_size);
-    return buffer;
+    return Result<void>();
 }
 
-String File::read_to_string() const
+Result<String> File::read_to_string() const
 {
     String str;
     str.resize(m_size);

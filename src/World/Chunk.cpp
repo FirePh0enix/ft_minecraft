@@ -2,6 +2,7 @@
 
 #include "Core/Alloc.hpp"
 #include "Core/Logger.hpp"
+#include "Engine.hpp"
 #include "Render/Types.hpp"
 #include "World/Block.hpp"
 #include "World/Registry.hpp"
@@ -149,7 +150,7 @@ Result<void> Chunk::build_simple_mesh(size_t slice_index)
                 if (m_blocks[index].is_air())
                     continue;
 
-                const Ref<Block>& block = BlockRegistry::get_block_by_id(m_blocks[index].id);
+                const Ref<Block>& block = Engine::get().block_registry().get_block_by_id(m_blocks[index].id);
 
                 if (m_blocks[linearize(x - 1, y, z)].is_air())
                     TRY(faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::X, false, block->get_texture_index(Axis::X, false))));
@@ -222,11 +223,11 @@ Result<void> Chunk::build_simple_mesh(size_t slice_index)
 
 Result<void> CompressedChunk::compress(Ref<Chunk> chunk)
 {
-    m_compressed_blocks.clear();
-    m_compressed_nodes.clear();
+    TRY(m_compressed_blocks.clear());
+    TRY(m_compressed_nodes.clear());
 
-    m_compressed_biome_nodes.clear();
-    m_compressed_biomes.clear();
+    TRY(m_compressed_biome_nodes.clear());
+    TRY(m_compressed_biomes.clear());
 
     const BlockState *chunk_blocks = chunk->get_blocks();
     const Biome *chunk_biomes = chunk->get_biomes();
@@ -305,7 +306,7 @@ Result<void> CompressedChunk::compress(Ref<Chunk> chunk)
                     }
                     else
                     {
-                        nodes.remove_one();
+                        TRY(nodes.remove_one());
                     }
                 }
 
@@ -330,7 +331,7 @@ Result<void> CompressedChunk::compress(Ref<Chunk> chunk)
         }
         else
         {
-            m_compressed_nodes.remove_one();
+            TRY(m_compressed_nodes.remove_one());
         }
 
         // Compress the biome data. Each block has a biome values so the only case available is

@@ -10,10 +10,9 @@ Shader::~Shader()
 
 Result<Ref<Shader>> Shader::load(const std::filesystem::path& path)
 {
-    String source_code = Filesystem::open_file(path).value().read_to_string();
+    String source_code = TRY(TRY(Filesystem::open_file(path)).read_to_string());
 
-    Ref<Shader>
-        shader = newobj(Shader);
+    Ref<Shader> shader = TRY(newref<Shader>());
     shader->m_source_code = source_code;
     shader->m_hash = hash_fnv32(source_code);
     shader->m_entry_point_names[WGPUShaderStage_Vertex] = "vertex_main";
@@ -42,9 +41,9 @@ static WGPUTextureViewDimension convert_texture_view_dimension(TextureDimension 
     return {};
 }
 
-static Vector<WGPUBindGroupLayoutEntry> convert_bindings(Shader *shader)
+static LocalVector<WGPUBindGroupLayoutEntry> convert_bindings(Shader *shader)
 {
-    Vector<WGPUBindGroupLayoutEntry> entries;
+    LocalVector<WGPUBindGroupLayoutEntry> entries;
     EXPECT(entries.reserve(shader->get_bindings().size()));
 
     for (const auto& binding_pair : shader->get_bindings())
@@ -104,7 +103,9 @@ static Vector<WGPUBindGroupLayoutEntry> convert_bindings(Shader *shader)
 
 void Shader::create_bind_group_layout()
 {
-    Vector<WGPUBindGroupLayoutEntry> entries = convert_bindings(this);
+    LocalVector<WGPUBindGroupLayoutEntry> entries = convert_bindings(this);
+
+    // println("{} |<>| {}", entries.size(), entries.references());
 
     WGPUBindGroupLayoutDescriptor bind_group_desc{};
     bind_group_desc.entryCount = entries.size();

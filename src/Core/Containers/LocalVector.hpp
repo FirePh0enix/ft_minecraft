@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Core/Alloc.hpp"
 #include "Core/Containers/Iterator.hpp"
 #include "Core/Result.hpp"
 
@@ -18,6 +19,30 @@ public:
     ~LocalVector()
     {
         destroy_array(m_data, m_size);
+    }
+
+    LocalVector(const LocalVector<T>& other)
+        : m_data(nullptr), m_size(0), m_capacity(0)
+    {
+        m_data = alloc_array_uninitialized<T>(other.size());
+        for (size_t i = 0; i < other.size(); i++)
+            new (m_data + i) T(other.data()[i]);
+
+        m_size = other.size();
+        m_capacity = other.capacity();
+    }
+
+    void operator=(const LocalVector<T>& other)
+    {
+        T *data = alloc_array_uninitialized<T>(other.size());
+        for (size_t i = 0; i < other.size(); i++)
+            new (data + i) T(other.data()[i]);
+
+        destroy_array(other, 0);
+
+        m_data = data;
+        m_size = other.size();
+        m_capacity = other.capacity();
     }
 
     ALWAYS_INLINE T *data() { return m_data; }
@@ -47,6 +72,79 @@ public:
         m_size += 1;
 
         return Result<void>();
+    }
+
+    Result<void> resize(size_t size)
+    {
+        if (m_capacity == 0)
+        {
+            TRY(grow_to(0, size));
+            m_size = size;
+        }
+
+        if (size > m_size)
+        {
+            if (size <= m_capacity)
+            {
+                m_size = m_capacity;
+            }
+            else
+            {
+                TRY(grow_to(m_capacity, size));
+            }
+
+            m_size = size;
+        }
+        else if (size < m_size)
+        {
+            for (size_t i = size; i < m_size; i++)
+                (m_data + i)->~T();
+            m_size = size;
+
+            // keep the capacity
+        }
+
+        return Result<void>();
+    }
+
+    Result<void> reserve(size_t capacity)
+    {
+        if (m_capacity >= capacity)
+            return Result<void>();
+
+        TRY(grow_to(m_capacity, capacity));
+        return Result<void>();
+    }
+
+    T pop_unchecked()
+    {
+        T value = m_data[m_size - 1];
+        m_size -= 1;
+        m_data[m_size].~T();
+        return value;
+    }
+
+    void remove_at(size_t index)
+    {
+        if (index >= m_size)
+            return;
+
+        // TODO: do some testing.
+
+        (m_data + index)->~T();
+        memmove((void *)(m_data + index), (void *)(m_data + index + 1), sizeof(T) * m_size);
+    }
+
+    void remove_if(std::function<bool(const T&)> f)
+    {
+        for (size_t i = 0; i < m_size; i++)
+        {
+            if (f(m_data[i]))
+            {
+                remove_at(i);
+                return;
+            }
+        }
     }
 
     const T& get_unchecked(size_t index) const { return m_data[index]; }

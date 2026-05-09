@@ -82,6 +82,7 @@ void Cow::on_hit_by(Entity& entity)
     m_threat_entity = &entity;
 
     int damage = mob_caller->get_attack_damage();
+    (void)damage;
     // take_damage(damage);
 
     if (m_health <= 0)

@@ -1,4 +1,5 @@
 #include "World/Pass/Overworld.hpp"
+#include "Engine.hpp"
 #include "World/Registry.hpp"
 
 Biome OverworldBiomePass::generate_biome(int64_t x, int64_t y, int64_t z)
@@ -11,8 +12,8 @@ Biome OverworldBiomePass::generate_biome(int64_t x, int64_t y, int64_t z)
 
 OverworldSurfacePass::OverworldSurfacePass()
 {
-    m_dirt_id = BlockRegistry::get_block_id("dirt");
-    m_water_id = BlockRegistry::get_block_id("water");
+    m_dirt_id = Engine::get().block_registry().get_block_id("dirt");
+    m_water_id = Engine::get().block_registry().get_block_id("water");
 }
 
 BlockState OverworldSurfacePass::generate_block(int64_t x, int64_t y, int64_t z, Biome biome)

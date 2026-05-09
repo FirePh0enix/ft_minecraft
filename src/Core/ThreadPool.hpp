@@ -22,7 +22,7 @@ private:
     LocalVector<std::thread> m_threads;
 
     std::mutex m_queue_mutex;
-    Vector<std::function<void()>> m_tasks;
+    LocalVector<std::function<void()>> m_tasks;
 
     std::condition_variable m_cv;
     bool m_stop = false;

@@ -8,6 +8,11 @@ Entity::Entity(String serialized_id)
 {
 }
 
+Transform3D Entity::get_global_transform() const
+{
+    return m_parent ? m_transform.with_parent(m_parent->get_global_transform()) : m_transform;
+}
+
 void Entity::add_child(Ref<Entity> entity)
 {
     (void)m_children.append(entity);
@@ -18,6 +23,16 @@ void Entity::add_child(Ref<Entity> entity)
 
     if (entity->get_name().size() == 0)
         entity->set_name(format("Entity #{}", (uint32_t)entity->id()));
+}
+
+void Entity::remove_child(size_t index)
+{
+    m_children.remove_at(index);
+}
+
+Ref<Entity> Entity::get_child(size_t index)
+{
+    return m_children.get_unchecked(index);
 }
 
 void Entity::recurse_tick(float delta)

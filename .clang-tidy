@@ -12,7 +12,7 @@ Checks: "
         performance-type-promotion-in-math-fn,
         performance-inefficient-algorithm,
         bugprone-narrowing-conversions,
-        readability-identifier-naming,
+        # readability-identifier-naming,
         # cppcoreguidelines-owning-memory,
         cppcoreguidelines-pro-type-member-init,
 "

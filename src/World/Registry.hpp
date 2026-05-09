@@ -1,6 +1,5 @@
 #pragma once
 
-#include "Core/Filesystem.hpp"
 #include "Core/Ref.hpp"
 #include "Core/String.hpp"
 #include "Entity/Entity.hpp"
@@ -9,71 +8,51 @@
 
 #include <SDL3_image/SDL_image.h>
 
-#include <bitset>
 #include <functional>
 #include <map>
 
 class BlockRegistry
 {
 public:
-    static void destroy();
+    BlockRegistry();
+    ~BlockRegistry();
 
-    static inline bool is_generic(uint16_t id)
-    {
-        return s_generics.test(id);
-    }
+    Result<void> register_block(StringView name);
 
     /**
      * @brief Returns the block id for `name` or `0`.
      */
-    static uint16_t get_block_id(const String& name)
+    uint16_t get_block_id(const String& name)
     {
-        const auto& el = s_blocks_by_name.find(name);
-        if (el == s_blocks_by_name.end())
+        const auto& el = m_blocks_by_name.find(name);
+        if (el == m_blocks_by_name.end())
         {
             [[unlikely]] return 0;
         }
         return el->second;
     }
 
-    static void load_blocks();
-    static void register_block(Ref<Block> block);
-
-    static void create_gpu_resources();
-
-    static const Ref<Block>& get_block_by_id(uint16_t id)
+    const Ref<Block>& get_block_by_id(uint16_t id)
     {
-        return s_blocks.get_unchecked(id - 1);
+        return m_blocks.get_unchecked(id - 1);
     }
 
-    static inline const Ref<Texture>& get_texture_array()
-    {
-        return s_texture_array;
-    }
+    void create_gpu_resources();
 
-    static inline const Vector<Ref<Block>>& get_blocks()
+    inline const Ref<Texture>& get_texture_array()
     {
-        return s_blocks;
-    }
-
-    static inline size_t get_block_count()
-    {
-        return s_blocks.size();
+        return m_texture_array;
     }
 
 private:
-    static uint32_t get_or_create(const StringView& name);
+    LocalVector<Ref<Block>> m_blocks;
+    std::map<String, uint16_t> m_blocks_by_name;
+    std::map<String, uint32_t> m_texture_by_name;
+    Vector<SDL_Surface *> m_textures;
+    Ref<Texture> m_texture_array;
+    Ref<Buffer> m_texture_registry_buffer;
 
-    static inline Vector<Ref<Block>> s_blocks;
-    static inline std::map<String, uint16_t> s_blocks_by_name;
-
-    // Block ids that use the `generic` variant.
-    static inline std::bitset<std::numeric_limits<uint16_t>::max()> s_generics;
-
-    static inline std::map<String, uint32_t> s_texture_by_name;
-    static inline Vector<SDL_Surface *> s_textures;
-    static inline Ref<Texture> s_texture_array;
-    static inline Ref<Buffer> s_texture_registry_buffer;
+    uint32_t get_or_create(const StringView& name);
 };
 
 class EntityRegistry

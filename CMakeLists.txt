@@ -68,11 +68,6 @@ elseif(WIN32)
     set(TARGET_IS_WINDOWS YES)
 endif()
 
-cmake_host_system_information(RESULT DISTRIB_INFO QUERY DISTRIB_NAME)
-if (TARGET_IS_LINUX AND DISTRIB_INFO MATCHES "Alpine")
-    set(TARGET_IS_ALPINE_LINUX YES)
-endif()
-
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Debug")
 endif()
@@ -128,10 +123,6 @@ elseif(TARGET_IS_WINDOWS)
     target_compile_definitions(${TARGET_NAME} PRIVATE __platform_windows)
 elseif(TARGET_IS_WEB)
     target_compile_definitions(${TARGET_NAME} PRIVATE __platform_web)
-endif()
-
-if(TARGET_IS_ALPINE_LINUX)
-    target_link_libraries(${TARGET_NAME} PRIVATE -static)
 endif()
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
@@ -214,94 +205,61 @@ if(TARGET_IS_LINUX OR TARGET_IS_MACOS OR TARGET_IS_WINDOWS)
     # wgpu-native
     FetchContent_Declare(
         wgpu-native
-        URL https://github.com/gfx-rs/wgpu-native/releases/download/v27.0.2.0/wgpu-${WGPU_PLATFORM}-${WGPU_ARCH}-debug.zip
+        URL https://github.com/gfx-rs/wgpu-native/releases/download/v29.0.0.0/wgpu-${WGPU_PLATFORM}-${WGPU_ARCH}-debug.zip
     )
     FetchContent_MakeAvailable(wgpu-native)
 
     target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_BINARY_DIR}/_deps/wgpu-native-src/include)
     target_link_directories(${TARGET_NAME} PRIVATE ${CMAKE_BINARY_DIR}/_deps/wgpu-native-src/lib)
     target_link_libraries(${TARGET_NAME} PRIVATE wgpu_native)
-# elseif(TARGET_IS_ALPINE_LINUX)
-    # FetchContent_Declare(
-    #     wgpu-native
-    #     GIT_REPOSITORY https://github.com/gfx-rs/wgpu-native
-    #     GIT_TAG 74f8c24c903b6352d09f1928c56962ce06f77a4d # master
-    # )
-    # FetchContent_MakeAvailable(wgpu-native)
-
-    # add_custom_command(
-    #     OUTPUT ${wgpu-native_SOURCE_DIR}/dist/wgpu--debug.zip
-    #     COMMAND make package
-    #     WORKING_DIRECTORY ${wgpu-native_SOURCE_DIR}
-    # )
-
-    # add_custom_command(
-    #     OUTPUT ${wgpu-native_SOURCE_DIR}/dist/lib/libwgpu_native.so
-    #     COMMAND unzip -o wgpu--debug.zip
-    #     WORKING_DIRECTORY ${wgpu-native_SOURCE_DIR}/dist
-    #     DEPENDS ${wgpu-native_SOURCE_DIR}/dist/wgpu--debug.zip
-    # )
-
-    # add_custom_target(wgpu_native_compilations DEPENDS ${wgpu-native_SOURCE_DIR}/dist/lib/libwgpu_native.so)
-    # add_dependencies(${TARGET_NAME} wgpu_native_compilations)
-
-    # target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_BINARY_DIR}/_deps/wgpu-native-src/dist/include)
-    # target_link_directories(${TARGET_NAME} PRIVATE ${CMAKE_BINARY_DIR}/_deps/wgpu-native-src/dist/lib)
-    # target_link_libraries(${TARGET_NAME} PRIVATE wgpu_native)
 endif()
 
 # SDL
-# find_package(SDL3)
+set(SDL_STATIC ON)
+set(SDL_DEPS_SHARED ON)
 
-# if (SDL3_FOUND)
-#     target_link_libraries(${TARGET_NAME} PUBLIC SDL3::SDL3)
-# else()
-    set(SDL_STATIC ON)
-    set(SDL_DEPS_SHARED ON)
+set(SDL_DUMMYAUDIO OFF)
+set(SDL_DUMMYVIDEO OFF)
+set(SDL_OPENGL OFF)
+set(SDL_OPENGLES OFF)
+set(SDL_OPENVR OFF)
+set(SDL_KMSDRM OFF)
+set(SDL_OFFSCREEN OFF)
+set(SDL_RENDER OFF)
+set(SDL_CAMERA OFF)
 
-    set(SDL_DUMMYAUDIO OFF)
-    set(SDL_DUMMYVIDEO OFF)
-    set(SDL_OPENGL OFF)
-    set(SDL_OPENGLES OFF)
-    set(SDL_OPENVR OFF)
-    set(SDL_KMSDRM OFF)
-    set(SDL_OFFSCREEN OFF)
-    set(SDL_RENDER OFF)
-    set(SDL_CAMERA OFF)
+if (TARGET_IS_MACOS)
+    set(SDL_METAL ON)
+endif()
 
-    if (TARGET_IS_MACOS)
-        set(SDL_METAL ON)
-    endif()
-
-    FetchContent_Declare(
-        SDL
-        GIT_REPOSITORY https://github.com/libsdl-org/SDL
-        GIT_TAG 96292a5b464258a2b926e0a3d72f8b98c2a81aa6 # 3.2.20
-    )
-    FetchContent_MakeAvailable(SDL)
-    target_link_libraries(${TARGET_NAME} PUBLIC SDL3::SDL3)
-# endif()
+FetchContent_Declare(
+    SDL
+    GIT_REPOSITORY https://github.com/libsdl-org/SDL
+    GIT_TAG 96292a5b464258a2b926e0a3d72f8b98c2a81aa6 # 3.2.20
+)
+FetchContent_MakeAvailable(SDL)
+target_link_libraries(${TARGET_NAME} PUBLIC SDL3::SDL3)
 
 # SDL_image
-# find_package(SDL3_image)
-
-# if (SDL3_image_FOUND)
-#     target_link_libraries(${TARGET_NAME} PUBLIC SDL3_image::SDL3_image)
-# else()
-    FetchContent_Declare(
-        SDL_image
-        GIT_REPOSITORY https://github.com/libsdl-org/SDL_image
-        GIT_TAG 1c23b06a13161314f6f33e7ab35a2e5c601f1bc3
-    )
-    FetchContent_MakeAvailable(SDL_image)
-    target_link_libraries(${TARGET_NAME} PUBLIC SDL3_image::SDL3_image)
-# endif()
+FetchContent_Declare(
+    SDL_image
+    GIT_REPOSITORY https://github.com/libsdl-org/SDL_image
+    GIT_TAG 1c23b06a13161314f6f33e7ab35a2e5c601f1bc3
+)
+FetchContent_MakeAvailable(SDL_image)
+target_link_libraries(${TARGET_NAME} PUBLIC SDL3_image::SDL3_image)
 
 # ImGui
+# FetchContent_Declare(
+#     ImGui
+#     GIT_REPOSITORY https://github.com/ocornut/imgui
+#     GIT_TAG dac07199cfd761113d966eb8ad739254e10df2fe # v1.92.7
+# )
+# FIXME: when ImGui includes this patch, we can use the official repository again
 FetchContent_Declare(
     ImGui
-    GIT_REPOSITORY https://github.com/ocornut/imgui
-    GIT_TAG 9a5d5c45f54b1301ea471622eddede70384243af # v1.92.4
+    GIT_REPOSITORY https://github.com/lucascompython/imgui
+    GIT_TAG 2246cd09dbdba3153a75c2fa750dc9ea7f45830e
 )
 FetchContent_MakeAvailable(ImGui)
 target_sources(${TARGET_NAME} PRIVATE
@@ -313,7 +271,6 @@ target_sources(${TARGET_NAME} PRIVATE
     ${imgui_SOURCE_DIR}/backends/imgui_impl_wgpu.cpp
 )
 target_include_directories(${TARGET_NAME} PRIVATE ${imgui_SOURCE_DIR})
-# target_compile_definitions(${TARGET_NAME} PRIVATE IMGUI_IMPL_VULKAN_NO_PROTOTYPES VK_NO_PROTOTYPES)
 
 if(TARGET_IS_WEB)
     target_compile_definitions(${TARGET_NAME} PRIVATE IMGUI_IMPL_WEBGPU_BACKEND_DAWN=1)

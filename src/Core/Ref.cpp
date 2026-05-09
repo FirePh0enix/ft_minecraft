@@ -1,6 +1,5 @@
 #include "Core/Ref.hpp"
-#include "Core/Class.hpp"
-#include "Core/Error.hpp"
+#include "Core/Assert.hpp"
 
 void ref_check_null_access(bool cond, const char *class_name)
 {
@@ -8,6 +7,9 @@ void ref_check_null_access(bool cond, const char *class_name)
 }
 
 #ifdef DOCTEST_CONFIG_ENABLE
+
+#include "Core/Class.hpp"
+#include "Core/Error.hpp"
 
 #include <doctest/doctest.h>
 
@@ -42,7 +44,7 @@ TEST_CASE("Ref sanity checks")
     CHECK(foo_null.ptr() == nullptr);
     CHECK(foo_null.references() == 0);
 
-    Ref<Foo> foo = newobj(Foo);
+    Ref<Foo> foo = EXPECT(newref<Foo>());
     CHECK(foo.references() == 1);
 
     {
@@ -55,8 +57,8 @@ TEST_CASE("Ref sanity checks")
     foo = nullptr;
     CHECK(foo.is_null());
 
-    Ref<Foo> foo3 = newobj(Foo);
-    Ref<Foo> foo4 = newobj(Foo);
+    Ref<Foo> foo3 = EXPECT(newref<Foo>());
+    Ref<Foo> foo4 = EXPECT(newref<Foo>());
     foo3 = foo4;
     foo4 = nullptr;
 
@@ -70,7 +72,7 @@ TEST_CASE("Ref sanity checks")
 
     foo3 = nullptr;
 
-    Ref<Foo> foo5 = newobj(Foo);
+    Ref<Foo> foo5 = EXPECT(newref<Foo>());
     {
         Ref<Foo> foo5_1 = foo5;
         Ref<Foo> foo5_2 = foo5;
@@ -94,7 +96,7 @@ TEST_CASE("Ref sanity checks")
     foo5 = nullptr;
 
     // Self assignment
-    Ref<Foo> foo6 = newobj(Foo);
+    Ref<Foo> foo6 = EXPECT(newref<Foo>());
     Ref<Foo> foo7 = foo6;
 
     foo6 = foo7;
@@ -104,13 +106,13 @@ TEST_CASE("Ref sanity checks")
 
 static Ref<Object> make_and_cast()
 {
-    return newobj(Foo).cast_to<Object>();
+    return EXPECT(newref<Foo>()).cast_to<Object>();
 }
 
 TEST_CASE("Ref casting")
 {
     // Downcasting
-    Ref<Bleep> bleep = newobj(Bleep);
+    Ref<Bleep> bleep = EXPECT(newref<Bleep>());
     Ref<Object> object = bleep.cast_to<Object>();
     CHECK(!object.is_null());
 

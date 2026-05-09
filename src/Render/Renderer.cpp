@@ -6,10 +6,8 @@
 #include "Engine.hpp"
 #include "Entity/Entity.hpp"
 #include "Render/Graph.hpp"
-#include "Render/ImGUIToolKit.hpp"
 #include "Render/Shader.hpp"
 #include "Render/Types.hpp"
-#include "Render/WebGPU.hpp"
 #include "World/Dimension.hpp"
 #include "World/Registry.hpp"
 #include "World/World.hpp"
@@ -307,8 +305,8 @@ Result<void> Material::create_bind_group()
     if (m_bind_group != nullptr)
         wgpuBindGroupRelease(m_bind_group);
 
-    Vector<WGPUBindGroupEntry> entries;
-    TRY(entries.reserve(m_shader->get_bindings().size()));
+    LocalVector<WGPUBindGroupEntry> entries;
+    // TRY(entries.reserve(m_shader->get_bindings().size()));
 
     for (const auto& [name, binding] : m_shader->get_bindings())
     {
@@ -408,20 +406,20 @@ Result<WGPURenderPipeline> PipelineCache::get(const Key& key)
     if (m_pipelines.contains(key))
         return m_pipelines.at(key);
 
-    Vector<WGPUVertexBufferLayout> buffers;
+    LocalVector<WGPUVertexBufferLayout> buffers;
     TRY(buffers.reserve(3 + key.attributes.size()));
 
     WGPUVertexAttribute vertex_attrib{};
     vertex_attrib.format = WGPUVertexFormat_Float32x3;
     vertex_attrib.offset = 0;
     vertex_attrib.shaderLocation = 0;
-    TRY(buffers.append(WGPUVertexBufferLayout{.stepMode = WGPUVertexStepMode_Vertex, .arrayStride = sizeof(glm::vec3), .attributeCount = 1, .attributes = &vertex_attrib}));
+    TRY(buffers.append(WGPUVertexBufferLayout{.nextInChain = nullptr, .stepMode = WGPUVertexStepMode_Vertex, .arrayStride = sizeof(glm::vec3), .attributeCount = 1, .attributes = &vertex_attrib}));
 
     WGPUVertexAttribute normal_attrib{};
     normal_attrib.format = WGPUVertexFormat_Float32x3;
     normal_attrib.offset = 0;
     normal_attrib.shaderLocation = 1;
-    TRY(buffers.append(WGPUVertexBufferLayout{.stepMode = WGPUVertexStepMode_Vertex, .arrayStride = sizeof(glm::vec3), .attributeCount = 1, .attributes = &normal_attrib}));
+    TRY(buffers.append(WGPUVertexBufferLayout{.nextInChain = nullptr, .stepMode = WGPUVertexStepMode_Vertex, .arrayStride = sizeof(glm::vec3), .attributeCount = 1, .attributes = &normal_attrib}));
 
     WGPUVertexAttribute uv_attrib{};
     if (key.uv_type == UVType::UV)
@@ -429,29 +427,29 @@ Result<WGPURenderPipeline> PipelineCache::get(const Key& key)
         uv_attrib.format = WGPUVertexFormat_Float32x2;
         uv_attrib.offset = 0;
         uv_attrib.shaderLocation = 2;
-        TRY(buffers.append(WGPUVertexBufferLayout{.stepMode = WGPUVertexStepMode_Vertex, .arrayStride = sizeof(glm::vec2), .attributeCount = 1, .attributes = &uv_attrib}));
+        TRY(buffers.append(WGPUVertexBufferLayout{.nextInChain = nullptr, .stepMode = WGPUVertexStepMode_Vertex, .arrayStride = sizeof(glm::vec2), .attributeCount = 1, .attributes = &uv_attrib}));
     }
     else if (key.uv_type == UVType::UVT)
     {
         uv_attrib.format = WGPUVertexFormat_Float32x3;
         uv_attrib.offset = 0;
         uv_attrib.shaderLocation = 2;
-        TRY(buffers.append(WGPUVertexBufferLayout{.stepMode = WGPUVertexStepMode_Vertex, .arrayStride = sizeof(glm::vec3), .attributeCount = 1, .attributes = &uv_attrib}));
+        TRY(buffers.append(WGPUVertexBufferLayout{.nextInChain = nullptr, .stepMode = WGPUVertexStepMode_Vertex, .arrayStride = sizeof(glm::vec3), .attributeCount = 1, .attributes = &uv_attrib}));
     }
 
-    Vector<WGPUVertexAttribute> attributes;
+    LocalVector<WGPUVertexAttribute> attributes;
     TRY(attributes.reserve(key.attributes.size()));
     for (uint32_t i = 0; i < key.attributes.size(); i++)
     {
         InstanceAttribute attrib = key.attributes.get_unchecked(i);
-        TRY(attributes.append(WGPUVertexAttribute{.format = attrib.format, .offset = 0, .shaderLocation = 3 + i}));
-        TRY(buffers.append(WGPUVertexBufferLayout{.stepMode = WGPUVertexStepMode_Instance, .arrayStride = attrib.stride, .attributeCount = 1, .attributes = &attributes.data()[i]}));
+        TRY(attributes.append(WGPUVertexAttribute{.nextInChain = nullptr, .format = attrib.format, .offset = 0, .shaderLocation = 3 + i}));
+        TRY(buffers.append(WGPUVertexBufferLayout{.nextInChain = nullptr, .stepMode = WGPUVertexStepMode_Instance, .arrayStride = attrib.stride, .attributeCount = 1, .attributes = &attributes.data()[i]}));
     }
 
     WGPUShaderModule module = create_shader_module(key.shader);
     ERR_COND_R(module == nullptr, "Unable to compile shader", Error(ErrorKind::BadDriver));
 
-    const String& vertex_ep = key.shader->get_entry_point(WGPUShaderStage_Vertex);
+    String vertex_ep = key.shader->get_entry_point(WGPUShaderStage_Vertex);
 
     WGPUVertexState vertex_state{};
     vertex_state.buffers = buffers.data();
@@ -905,13 +903,13 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
 
     m_cube_mesh = TRY(create_cube_mesh());
 
-    BlockRegistry::create_gpu_resources();
+    Engine::get().block_registry().create_gpu_resources();
 
     Vector<InstanceAttribute> attributes;
     TRY(attributes.append(InstanceAttribute{.stride = sizeof(glm::vec3), .format = WGPUVertexFormat_Float32x3}));
 
     m_chunk_material = TRY(Material::create(m_voxel_shader, MaterialFlagBits::Transparency, WGPUPolygonMode_Fill, WGPUCullMode_Back, UVType::UVT, attributes));
-    m_chunk_material->set_param("images", BlockRegistry::get_texture_array());
+    m_chunk_material->set_param("images", Engine::get().block_registry().get_texture_array());
     m_chunk_material->set_param("env", Renderer::get().get_world_environment());
 
     return Result<void>();

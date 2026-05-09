@@ -8,7 +8,6 @@
 #include "Model.hpp"
 #include "Network/Packet.hpp"
 #include "Profiler.hpp"
-#include "Rpc.hpp"
 #include "World/Registry.hpp"
 #include "World/World.hpp"
 
@@ -26,7 +25,7 @@ void Player::on_ready()
 
     if (m_local_player)
     {
-        m_camera = newobj(Camera);
+        m_camera = EXPECT(newref<Camera>());
         m_camera->get_transform().position() = glm::vec3(0, 0.85, 0);
         add_child(m_camera);
         m_world->set_active_camera(m_camera);
@@ -112,7 +111,7 @@ void Player::tick(float delta)
             {
                 glm::vec3 normal = face_normal(raycast_result->face);
 
-                m_world->set_block_state(int64_t(float(x) + normal.x), int64_t(float(y) + normal.y), int64_t(float(z) + normal.z), BlockState(BlockRegistry::get_block_id("stone")));
+                m_world->set_block_state(int64_t(float(x) + normal.x), int64_t(float(y) + normal.y), int64_t(float(z) + normal.z), BlockState(Engine::get().block_registry().get_block_id("stone")));
                 m_block_placed = true;
             }
             else if (!Input::is_action_pressed("interact"))

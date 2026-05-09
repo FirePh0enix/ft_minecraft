@@ -45,12 +45,18 @@ public:
         return m_connection;
     }
 
+    BlockRegistry& block_registry() { return m_block_registry; }
+    EntityRegistry& entity_registry() { return m_entity_registry; }
+
+    static Engine& get() { return *singleton; }
+
     static inline Engine *singleton;
 
 private:
     EngineScene m_scene = EngineScene::MainMenu;
     Ref<Window> m_window;
 
+    BlockRegistry m_block_registry;
     EntityRegistry m_entity_registry;
 
     RpcTarget m_authority = RpcTarget::Server;
@@ -75,6 +81,7 @@ private:
     char m_connect_ip[32] = "127.0.0.1";
     int m_connect_port = NetworkConnection::default_port;
 
+    void register_blocks();
     void register_entities();
 
     Result<void> draw_main_menu();

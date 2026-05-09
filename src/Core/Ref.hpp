@@ -5,8 +5,7 @@
 #include "Core/Error.hpp"
 #include "Core/Result.hpp"
 
-#include <atomic>
-#include <cstdint>
+#include <cstddef>
 #include <type_traits>
 #include <utility>
 
@@ -27,7 +26,7 @@ public:
     }
 
     ALWAYS_INLINE explicit Ref(T *ptr)
-        : m_ptr(ptr), m_references(alloc<std::atomic_size_t>(1))
+        : m_ptr(ptr), m_references(alloc<size_t>(1))
     {
     }
 
@@ -43,7 +42,7 @@ public:
         }
     }
 
-    Ref(T *ptr, std::atomic_size_t *references)
+    Ref(T *ptr, size_t *references)
         : m_ptr(ptr), m_references(references)
     {
         if (!is_null())
@@ -168,20 +167,17 @@ public:
 
 private:
     T *m_ptr;
-    std::atomic_size_t *m_references;
+    size_t *m_references;
 
     ALWAYS_INLINE void ref()
     {
-        // *m_references += 1;
-        m_references->fetch_add(1, std::memory_order::consume);
+        *m_references += 1;
     }
 
     void unref()
     {
-        if (m_references->fetch_sub(1, std::memory_order::release) == 1)
+        if (*m_references-- == 1)
         {
-            m_references->load(std::memory_order::acquire);
-
             destroy(m_ptr);
             destroy(m_references);
 
@@ -190,9 +186,6 @@ private:
         }
     }
 };
-
-// TODO: remove in favor of `newref`.
-#define newobj(T, ...) Ref<T>(alloc<T>(__VA_ARGS__))
 
 /**
  *  Create a reference counted object.

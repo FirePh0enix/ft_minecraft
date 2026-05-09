@@ -1,13 +1,11 @@
 #pragma once
 
 #include "AABB.hpp"
-#include "Core/Print.hpp"
+#include "Core/Containers/LocalVector.hpp"
 #include "Entity/Entity.hpp"
 #include "World/Chunk.hpp"
 #include "World/Generator.hpp"
 
-#include <algorithm>
-#include <cstddef>
 #include <mutex>
 #include <set>
 
@@ -20,65 +18,20 @@ public:
     {
     }
 
-    std::optional<Ref<Chunk>> get_chunk(int64_t x, int64_t z) const
-    {
-        auto iter = m_chunks.find(ChunkPos(x, z));
-        if (iter == m_chunks.end())
-            return std::nullopt;
-        return iter->second;
-    }
+    std::optional<Ref<Chunk>> get_chunk(int64_t x, int64_t z) const;
 
-    bool has_chunk(int64_t x, int64_t z) const
-    {
-        return m_chunks.contains(ChunkPos(x, z));
-    }
+    bool has_chunk(int64_t x, int64_t z) const;
 
-    void remove_chunk(int64_t x, int64_t z)
-    {
-        auto iter = m_chunks.find(ChunkPos(x, z));
-        if (iter != m_chunks.end())
-            m_chunks.erase(iter);
-    }
+    Result<void> add_chunk(int64_t x, int64_t z, const Ref<Chunk>& chunk);
+    void remove_chunk(int64_t x, int64_t z);
 
-    void remove_entity(EntityId id)
-    {
-        if (id.is_valid())
-        {
-            EXPECT(m_entities.remove_if(
-                [&](const Ref<Entity>& entity)
-                {
-                    return entity->id() == id;
-                }));
-        }
-    }
-
-    Result<void> add_chunk(int64_t x, int64_t z, const Ref<Chunk>& chunk)
-    {
-#ifndef NDEBUG
-        if (m_chunks.contains(ChunkPos(x, z)))
-        {
-            println("chunk on [{}, {}] is duplicated", x, z);
-        }
-#endif
-
-        m_chunks[ChunkPos(x, z)] = chunk;
-        return Result<void>();
-    }
+    Ref<Entity> get_entity(EntityId id) const;
+    Result<void> add_entity(Ref<Entity> entity);
+    void remove_entity(EntityId id);
 
     ALWAYS_INLINE const std::map<ChunkPos, Ref<Chunk>>& get_chunks() const { return m_chunks; }
 
-    ALWAYS_INLINE Result<void> add_entity(Ref<Entity> entity) { return m_entities.append(entity); }
-    const Vector<Ref<Entity>>& get_entities() const { return m_entities; }
-
-    Ref<Entity> get_entity(EntityId id) const
-    {
-        for (const auto& entity : m_entities)
-        {
-            if (entity->id() == id)
-                return entity;
-        }
-        return nullptr;
-    }
+    const LocalVector<Ref<Entity>>& get_entities() const { return m_entities; }
 
     std::mutex& mutex() { return m_chunk_mutex; }
 
@@ -89,8 +42,7 @@ public:
 
 private:
     std::mutex m_chunk_mutex;
-    Vector<Ref<Entity>> m_entities;
-    World *m_world = nullptr;
+    LocalVector<Ref<Entity>> m_entities;
 
     /**
      * Chunks loaded in memory. Could also be called `Simulated chunks`.

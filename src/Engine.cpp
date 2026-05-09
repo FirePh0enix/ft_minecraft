@@ -29,6 +29,7 @@ Engine::Engine(const Args& args)
     Input::init(*m_window);
     Input::load_config();
 
+    register_blocks();
     register_entities();
 
     InitFlags flags;
@@ -36,8 +37,6 @@ Engine::Engine(const Args& args)
     {
         flags |= InitFlagBits::Validation;
     }
-
-    BlockRegistry::load_blocks();
 
     EXPECT(m_renderer.init(*m_window, flags));
 
@@ -56,6 +55,18 @@ Engine::Engine(const Args& args)
 
     depth_pass->set_next(color_pass);
     m_graph.set_root(depth_pass);
+}
+
+void Engine::register_blocks()
+{
+    EXPECT(m_block_registry.register_block("stone"));
+    EXPECT(m_block_registry.register_block("dirt"));
+    EXPECT(m_block_registry.register_block("grass"));
+    EXPECT(m_block_registry.register_block("log"));
+    EXPECT(m_block_registry.register_block("leaves"));
+    EXPECT(m_block_registry.register_block("sand"));
+    EXPECT(m_block_registry.register_block("snow"));
+    EXPECT(m_block_registry.register_block("water"));
 }
 
 void Engine::register_entities()
@@ -127,13 +138,13 @@ void Engine::tick(float delta)
     {
         m_world->tick(delta);
 
-        if (!is_server())
-            break;
-
-        for (Ref<Entity> entity : m_world->get_dimension(0).get_entities())
+        if (is_server() && m_connection.state() == ConnectionState::Host)
         {
-            UpdateEntityPacket p(entity->id(), entity->get_transform().position(), entity->get_transform().rotation());
-            m_connection.broadcast(m_connection.create_packet(p));
+            for (Ref<Entity> entity : m_world->get_dimension(0).get_entities())
+            {
+                UpdateEntityPacket p(entity->id(), entity->get_transform().position(), entity->get_transform().rotation());
+                m_connection.broadcast(m_connection.create_packet(p));
+            }
         }
     }
     break;
@@ -240,8 +251,7 @@ void Engine::create_world_and_start()
     m_player->get_transform().position() = glm::vec3(0, 100.0, 3);
     m_world->add_entity(World::overworld, m_player);
 
-    Ref<Entity> cow;
-    cow = newobj(Cow);
+    Ref<Entity> cow = EXPECT(newref<Cow>());
     cow->get_transform().position() = glm::vec3(0.0f, 2.0f, 0.0f);
     m_world->add_entity(World::overworld, cow);
 

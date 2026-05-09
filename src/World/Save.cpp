@@ -1,6 +1,5 @@
 #include "World/Save.hpp"
 #include "Core/Filesystem.hpp"
-#include "World/Registry.hpp"
 
 #include <filesystem>
 #include <fstream>
@@ -12,6 +11,7 @@ Save::Save(String name)
 
 void Save::save_info(const Ref<World>& world)
 {
+    (void)world;
     const String path = get_path();
     std::filesystem::create_directories(path.data());
 
@@ -22,32 +22,32 @@ void Save::save_info(const Ref<World>& world)
     ERR_COND_VR(!os.is_open(), "Failed to open {}/world.dat", m_name);
 
     std::vector<uint32_t> encoded_string_table;
-    uint32_t accumulated_size = 0;
-    uint32_t block_id = 0;
-    for (const auto& block : BlockRegistry::get_blocks())
-    {
-        encoded_string_table.push_back(accumulated_size);
-        block_id += 1;
-        accumulated_size += block->name().size() + 1;
-    }
+    // uint32_t accumulated_size = 0;
+    // uint32_t block_id = 0;
+    // for (const auto& block : BlockRegistry::get_blocks())
+    // {
+    //     encoded_string_table.push_back(accumulated_size);
+    //     block_id += 1;
+    //     accumulated_size += block->name().size() + 1;
+    // }
 
     // write the file header.
     SavedWorldHeader header{};
     header.magic = saved_world_magic;
     header.version = 1;
     header.block_table_offset = sizeof(SavedWorldHeader);
-    header.block_table_count = BlockRegistry::get_block_count();
-    header.string_table_offset = sizeof(SavedWorldHeader) + sizeof(uint32_t) * BlockRegistry::get_block_count();
+    // header.block_table_count = BlockRegistry::get_block_count();
+    // header.string_table_offset = sizeof(SavedWorldHeader) + sizeof(uint32_t) * BlockRegistry::get_block_count();
     os.write((char *)&header, sizeof(SavedWorldHeader));
 
     // write the block table
     os.write((char *)encoded_string_table.data(), (ssize_t)(encoded_string_table.size() * sizeof(uint32_t)));
 
     // write the string table
-    for (const auto& block : BlockRegistry::get_blocks())
-    {
-        os.write(block->name().data(), (ssize_t)block->name().size() + 1); // copy also the null byte
-    }
+    // for (const auto& block : BlockRegistry::get_blocks())
+    // {
+    //     os.write(block->name().data(), (ssize_t)block->name().size() + 1); // copy also the null byte
+    // }
 }
 
 struct __attribute__((packed)) PosStatePair
@@ -75,13 +75,13 @@ void Save::save_chunk(const Ref<Chunk>& chunk)
         {
             for (size_t z = 0; z < Chunk::width; z++)
             {
-                uint16_t pos = x | (y << 4) | (z << 8);
-                BlockState state = chunk->get_block(x, y, z);
+                // uint16_t pos = x | (y << 4) | (z << 8);
+                // BlockState state = chunk->get_block(x, y, z);
 
-                if (state.is_air())
-                    continue;
+                // if (state.is_air())
+                //     continue;
 
-                blocks.push_back(PosStatePair{.pos = pos, .state = *(uint32_t *)&state});
+                // blocks.push_back(PosStatePair{.pos = pos, .state = *(uint32_t *)&state});
             }
         }
     }

@@ -5,10 +5,6 @@
 #include "Render/Graph.hpp"
 #include "Render/Renderer.hpp"
 #include "Render/Types.hpp"
-#include "glm/ext/matrix_float4x4.hpp"
-#include "glm/ext/matrix_transform.hpp"
-#include "glm/trigonometric.hpp"
-#include "webgpu/webgpu.h"
 
 #include <cmath>
 #include <nlohmann/json.hpp>
@@ -111,7 +107,8 @@ static Result<Ref<Texture>> load_texture(StringView path)
     Result<File> file = Filesystem::open_file(path);
     ERR_EXPECT_VR(file, Error(ErrorKind::FileNotFound), "Failed to open `{}`", path);
 
-    const Vector<char>& buffer = file->read_to_buffer();
+    LocalVector<char> buffer;
+    TRY(file->read_to_buffer(buffer));
     SDL_IOStream *texture_stream = SDL_IOFromConstMem(buffer.data(), buffer.size());
 
     SDL_Surface *texture_surface = IMG_LoadPNG_IO(texture_stream);
@@ -128,7 +125,7 @@ static Result<Ref<Texture>> load_texture(StringView path)
 
 Result<Ref<Model>> Model::load(const StringView& path)
 {
-    String source = TRY(Filesystem::open_file(path)).read_to_string();
+    String source = TRY(TRY(Filesystem::open_file(path)).read_to_string());
     ModelJSON json = nlohmann::json::parse(std::string(source.data(), source.size()));
 
     Ref<Model> model = TRY(newref<Model>());

@@ -3,6 +3,59 @@
 #include "World/Block.hpp"
 #include "World/Chunk.hpp"
 
+std::optional<Ref<Chunk>> Dimension::get_chunk(int64_t x, int64_t z) const
+{
+    auto iter = m_chunks.find(ChunkPos(x, z));
+    if (iter == m_chunks.end())
+        return std::nullopt;
+    return iter->second;
+}
+
+bool Dimension::has_chunk(int64_t x, int64_t z) const
+{
+    return m_chunks.contains(ChunkPos(x, z));
+}
+
+Result<void> Dimension::add_chunk(int64_t x, int64_t z, const Ref<Chunk>& chunk)
+{
+    m_chunks[ChunkPos(x, z)] = chunk;
+    return Result<void>();
+}
+
+void Dimension::remove_chunk(int64_t x, int64_t z)
+{
+    auto iter = m_chunks.find(ChunkPos(x, z));
+    if (iter != m_chunks.end())
+        m_chunks.erase(iter);
+}
+
+Result<void> Dimension::add_entity(Ref<Entity> entity)
+{
+    return m_entities.append(entity);
+}
+
+void Dimension::remove_entity(EntityId id)
+{
+    if (id.is_valid())
+    {
+        m_entities.remove_if(
+            [&](const Ref<Entity>& entity)
+            {
+                return entity->id() == id;
+            });
+    }
+}
+
+Ref<Entity> Dimension::get_entity(EntityId id) const
+{
+    for (const auto& entity : m_entities)
+    {
+        if (entity->id() == id)
+            return entity;
+    }
+    return nullptr;
+}
+
 Vector<AABB> Dimension::get_boxes_that_may_collide(const AABB& box) const
 {
     Vector<AABB> boxes;
@@ -43,6 +96,9 @@ Vector<AABB> Dimension::get_boxes_that_may_collide(const AABB& box) const
 
 bool Dimension::has_solid_block(int64_t x, int64_t y, int64_t z) const
 {
+    if (y < 0 || y >= Chunk::height)
+        return false;
+
     int64_t chunk_x = x >= 0 ? (x / 16) : (x / 16 - 1);
     int64_t chunk_z = z >= 0 ? (z / 16) : (z / 16 - 1);
 

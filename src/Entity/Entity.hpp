@@ -2,6 +2,7 @@
 
 #include "AABB.hpp"
 #include "Core/Class.hpp"
+#include "Core/Containers/LocalVector.hpp"
 #include "Core/Definitions.hpp"
 #include "Core/Ref.hpp"
 #include "Render/Renderer.hpp"
@@ -75,25 +76,15 @@ public:
     const Transform3D& get_transform() const { return m_transform; }
     Transform3D& get_transform() { return m_transform; }
 
-    Transform3D get_global_transform() const
-    {
-        return m_parent ? m_transform.with_parent(m_parent->get_global_transform()) : m_transform;
-    }
+    Transform3D get_global_transform() const;
 
     void add_child(Ref<Entity> entity);
+    void remove_child(size_t index);
 
-    void remove_child(size_t index)
-    {
-        m_children.remove_at(index);
-    }
+    Ref<Entity> get_child(size_t index);
 
-    inline Ref<Entity> get_child(size_t index)
-    {
-        return m_children.get_unchecked(index);
-    }
-
-    ALWAYS_INLINE const Vector<Ref<Entity>>& get_children() const { return m_children; } // TODO: use View<Ref<Entity>> here
-    ALWAYS_INLINE Vector<Ref<Entity>>& get_children() { return m_children; }
+    ALWAYS_INLINE const LocalVector<Ref<Entity>>& get_children() const { return m_children; } // TODO: use View<Ref<Entity>> here
+    ALWAYS_INLINE LocalVector<Ref<Entity>>& get_children() { return m_children; }
 
     ALWAYS_INLINE Entity *get_parent() const { return m_parent; }
     ALWAYS_INLINE void set_parent(Entity *parent) { m_parent = parent; }
@@ -142,7 +133,7 @@ protected:
     String m_serialized_id;
     String m_name;
     Entity *m_parent = nullptr; // FIXME: This must be changed by either a Ref<Entity> or a EntityId.
-    Vector<Ref<Entity>> m_children;
+    LocalVector<Ref<Entity>> m_children;
     Transform3D m_transform;
     AABB m_aabb;
 

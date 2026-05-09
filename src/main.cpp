@@ -1,10 +1,9 @@
 #include "Args.hpp"
+#include "Core/Filesystem.hpp"
 #include "Core/Logger.hpp"
 #include "Engine.hpp"
 #include "Input.hpp"
 #include "Profiler.hpp"
-#include "World/Chunk.hpp"
-#include "World/Registry.hpp"
 
 #include <imgui.h>
 
@@ -93,10 +92,6 @@ static void shutdown_callback()
 {
     info("Shutting down");
 
-    BlockRegistry::destroy();
-    // Font::deinit_library();
-
-    // RenderingDriver::destroy_singleton();
     engine->exit();
     engine = nullptr;
 }

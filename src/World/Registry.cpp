@@ -1,11 +1,11 @@
 #include "World/Registry.hpp"
-#include "SDL3/SDL_surface.h"
-#include "nlohmann/json_fwd.hpp"
-#include "webgpu/webgpu.h"
+#include "Core/Filesystem.hpp"
+#include "Core/Format.hpp"
 
 #include <filesystem>
 #include <fstream>
 
+#include <SDL3/SDL_surface.h>
 #include <nlohmann/json.hpp>
 
 struct BlockManifest
@@ -49,43 +49,45 @@ NLOHMANN_JSON_SERIALIZE_ENUM(GradientType, {
                                                {GradientType::Water, "water"},
                                            });
 
-void BlockRegistry::load_blocks()
+BlockRegistry::BlockRegistry()
 {
-    // TODO: also change `std::filesystem::directory_iterator` to use the data pack system.
-
-    for (auto& iter : std::filesystem::directory_iterator("assets/blocks"))
-    {
-        std::ifstream ifs(iter.path(), std::ifstream::ate);
-        String s;
-        s.resize(ifs.tellg());
-        ifs.seekg(0);
-        ifs.read(s.data(), (std::streamsize)s.size());
-
-        BlockManifest block = nlohmann::json::parse(std::string(s.data(), s.size()));
-        std::array<String, 6> faces;
-
-        for (size_t i = 0; i < faces.size(); i++)
-        {
-            faces[i] = StringView(block.faces[i]);
-        }
-
-        register_block(newobj(Block, StringView(block.name), faces, block.gradient.value_or(GradientType::None)));
-    }
 }
 
-void BlockRegistry::register_block(Ref<Block> block)
+BlockRegistry::~BlockRegistry()
 {
-    const uint16_t id = s_blocks.size() + 1;
+    for (auto& surface : m_textures)
+        SDL_DestroySurface(surface);
+}
 
-    (void)s_blocks.append(block);
-    s_blocks_by_name[block->name()] = id;
+Result<void> BlockRegistry::register_block(StringView name)
+{
+    String path = format("assets/blocks/{}.json", name);
 
-    switch (block->get_variant())
+    std::ifstream ifs(path.data(), std::ifstream::ate);
+    String s;
+    s.resize(ifs.tellg());
+    ifs.seekg(0);
+    ifs.read(s.data(), (std::streamsize)s.size());
+
+    BlockManifest block_json = nlohmann::json::parse(std::string(s.data(), s.size()));
+    std::array<String, 6> faces;
+
+    for (size_t i = 0; i < faces.size(); i++)
     {
-    case BlockStateVariant::Generic:
-        s_generics.set(id);
-        break;
+        faces[i] = StringView(block_json.faces[i]);
     }
+
+    String names = name;
+
+    std::array<String, 6> textures;
+    for (size_t i = 0; i < 6; i++)
+        textures[i].append(block_json.faces[i].data());
+
+    Ref<Block> block = EXPECT(newref<Block>(names, textures, block_json.gradient.value_or(GradientType::None)));
+    const uint16_t id = m_blocks.size() + 1;
+
+    (void)m_blocks.append(block);
+    m_blocks_by_name[block->name()] = id;
 
     block->set_texture_ids({
         get_or_create(block->get_texture_names()[0]),
@@ -95,40 +97,31 @@ void BlockRegistry::register_block(Ref<Block> block)
         get_or_create(block->get_texture_names()[4]),
         get_or_create(block->get_texture_names()[5]),
     });
+
+    return Result<void>();
 }
 
 void BlockRegistry::create_gpu_resources()
 {
     uint32_t mip_level = 1;
-    s_texture_array = EXPECT(Texture::create(16, 16, WGPUTextureFormat_RGBA8Unorm, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding, TextureDimension::D2DArray, s_textures.size(), mip_level));
+    m_texture_array = EXPECT(Texture::create(16, 16, WGPUTextureFormat_RGBA8Unorm, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding, TextureDimension::D2DArray, m_textures.size(), mip_level));
 
     size_t index = 0;
 
-    for (const auto& surface : s_textures)
+    for (const auto& surface : m_textures)
     {
-        s_texture_array->update(View((uint8_t *)surface->pixels, surface->w * surface->h * 4), index);
+        m_texture_array->update(View((uint8_t *)surface->pixels, surface->w * surface->h * 4), index);
         index++;
     }
 
     // s_texture_array->generate_mips();
 }
 
-void BlockRegistry::destroy()
-{
-    s_texture_array = nullptr;
-    s_texture_registry_buffer = nullptr;
-
-    s_texture_by_name.clear();
-    for (auto& surface : s_textures)
-        SDL_DestroySurface(surface);
-    s_textures.clear();
-}
-
 uint32_t BlockRegistry::get_or_create(const StringView& name)
 {
-    const auto id_pair = s_texture_by_name.find(name);
+    const auto id_pair = m_texture_by_name.find(name);
 
-    if (id_pair == s_texture_by_name.end())
+    if (id_pair == m_texture_by_name.end())
     {
         String path = "assets/textures/";
         path.append(name);
@@ -136,7 +129,8 @@ uint32_t BlockRegistry::get_or_create(const StringView& name)
         Result<File> file = Filesystem::open_file(path);
         ERR_EXPECT_VR(file, 0, "Failed to open `{}`", path);
 
-        const Vector<char>& buffer = file->read_to_buffer();
+        LocalVector<char> buffer;
+        EXPECT(file->read_to_buffer(buffer));
         SDL_IOStream *texture_stream = SDL_IOFromConstMem(buffer.data(), buffer.size());
 
         SDL_Surface *texture_surface = IMG_LoadPNG_IO(texture_stream);
@@ -144,10 +138,10 @@ uint32_t BlockRegistry::get_or_create(const StringView& name)
 
         // TODO: Check the format of the image and resize it if necessary.
 
-        const uint32_t id = s_textures.size();
+        const uint32_t id = m_textures.size();
 
-        (void)s_textures.append(texture_surface);
-        s_texture_by_name[name] = id;
+        (void)m_textures.append(texture_surface);
+        m_texture_by_name[name] = id;
 
         // SDL_DestroySurface(texture_surface);
         SDL_CloseIO(texture_stream);
