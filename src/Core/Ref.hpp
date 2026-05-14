@@ -178,7 +178,8 @@ private:
 
     void unref()
     {
-        if (*m_references-- == 1)
+        *m_references -= 1;
+        if (*m_references == 0)
         {
             destroy(m_ptr);
             destroy(m_references);
