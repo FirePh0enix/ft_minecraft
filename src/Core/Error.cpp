@@ -74,7 +74,11 @@ const Stacktrace& Stacktrace::current()
 
 #else
 
-const StackTrace& StackTrace::current()
+void Stacktrace::record()
+{
+}
+
+const Stacktrace& Stacktrace::current()
 {
     return stacktrace;
 }

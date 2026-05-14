@@ -19,8 +19,6 @@
 #define MAIN(...) int main(__VA_ARGS__)
 #endif
 
-#ifndef DOCTEST_CONFIG_ENABLE
-
 static constexpr double fixed_update_time = 1.0 / 60.0;
 static clock_t last_update_time;
 
@@ -95,10 +93,3 @@ static void shutdown_callback()
     engine->exit();
     engine = nullptr;
 }
-
-#else
-
-#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
-#include "doctest/doctest.h"
-
-#endif // DOCTEST_CONFIG_ENABLE

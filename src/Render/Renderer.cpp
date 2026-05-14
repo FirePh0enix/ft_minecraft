@@ -16,6 +16,8 @@
 #include <backends/imgui_impl_wgpu.h>
 #include <imgui.h>
 
+#include <webgpu/wgpu.h>
+
 #include <mutex>
 
 #ifdef __platform_web

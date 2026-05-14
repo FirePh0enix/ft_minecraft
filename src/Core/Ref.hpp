@@ -165,6 +165,8 @@ public:
         return nullptr;
     }
 
+    size_t references() const { return m_references ? *m_references : 0; }
+
 private:
     T *m_ptr;
     size_t *m_references;
