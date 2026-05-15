@@ -58,6 +58,7 @@ list(APPEND SOURCES
 
 list(APPEND SOURCES_TEST
     tests/class.cpp
+    tests/HashMap.cpp
     tests/main.cpp
     tests/ref.cpp
 )

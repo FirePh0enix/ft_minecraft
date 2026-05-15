@@ -6,6 +6,8 @@
 #include <cstring>
 
 #include "Core/Alloc.hpp"
+#include "Core/Hash.hpp"
+#include "Core/Hasher.hpp"
 #include "Core/StringView.hpp"
 
 /**
@@ -28,6 +30,9 @@ public:
         small.data[0] = '\0';
     }
 
+    String(int) = delete;
+
+    // TODO this function could allocate memory, fix this.
     String(const String& other);
 
     /**
@@ -199,3 +204,12 @@ inline String operator+(const String& s1, const String& s2)
     r.append(s2);
     return r;
 }
+
+template <>
+struct Hasher<String>
+{
+    uint64_t operator()(const String& str)
+    {
+        return hash_fnv32(str);
+    }
+};

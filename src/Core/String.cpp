@@ -1,6 +1,5 @@
 #include "Core/String.hpp"
 #include "Core/Alloc.hpp"
-#include "Core/Error.hpp"
 
 String::String(const String& other)
 {
