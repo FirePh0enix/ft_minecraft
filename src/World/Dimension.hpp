@@ -1,6 +1,7 @@
 #pragma once
 
 #include "AABB.hpp"
+#include "Core/Containers/HashMap.hpp"
 #include "Core/Containers/LocalVector.hpp"
 #include "Entity/Entity.hpp"
 #include "World/Chunk.hpp"

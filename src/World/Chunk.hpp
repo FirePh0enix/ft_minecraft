@@ -3,6 +3,7 @@
 #include "Core/Containers/Vector.hpp"
 #include "Core/Containers/View.hpp"
 #include "Core/Definitions.hpp"
+#include "Core/Hasher.hpp"
 #include "Render/Renderer.hpp"
 #include "World/Biome.hpp"
 #include "World/Block.hpp"
@@ -27,6 +28,17 @@ struct ChunkPos
     bool operator==(const ChunkPos& other) const
     {
         return std::tie(x, z) == std::tie(other.x, other.z);
+    }
+};
+
+template <>
+struct Hasher<ChunkPos>
+{
+    uint64_t operator()(const ChunkPos& i)
+    {
+        uint64_t x = *(uint64_t *)(int *)&i | (0 << 31);
+        uint64_t z = *(uint64_t *)(int *)&i | (0 << 31);
+        return x * 3 + z * 5;
     }
 };
 

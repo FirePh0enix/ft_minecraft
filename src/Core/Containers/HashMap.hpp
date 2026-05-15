@@ -1,17 +1,18 @@
 #pragma once
 
 #include "Core/Alloc.hpp"
+#include "Core/Containers/Iterator.hpp"
 #include "Core/Containers/View.hpp"
 #include "Core/Hasher.hpp"
-#include "Core/Print.hpp"
 #include "Core/Result.hpp"
 
 #include <optional>
 
-template <typename K, typename V>
+template <typename H, typename K, typename V>
 struct Pair
 {
-    K hash;
+    H hash;
+    K key;
     V value;
 };
 
@@ -20,7 +21,7 @@ class HashMap
 {
 public:
     using Hash = uint64_t;
-    using PairType = Pair<Hash, V>;
+    using PairType = Pair<Hash, K, V>;
 
     HashMap()
         : m_size(0), m_capacity(0), m_pairs(nullptr)
@@ -28,6 +29,7 @@ public:
     }
 
     HashMap(const HashMap&) = delete;
+    void operator==(const HashMap) = delete;
 
     ~HashMap()
     {
@@ -40,15 +42,14 @@ public:
         Hash hash = H{}(key);
 
         PairType *pair = TRY(insert(hash));
-        // println("b {}| {} {} {}", pair, hash, pair->value, value);
         pair->hash = hash;
-        pair->value = value;
-        // println("a {}| {} {} {}", pair, hash, pair->value, value);
+        new (&pair->key) K(key);
+        new (&pair->value) V(value);
 
         return Result<void>();
     }
 
-    std::optional<V> get(const K& key)
+    std::optional<V> get(const K& key) const
     {
         Hash hash = H{}(key);
         return find(hash);
@@ -59,8 +60,36 @@ public:
         Hash hash = H{}(key);
         size_t index;
         bool exact;
-        bsearch(index, exact);
+        bsearch(hash, index, exact);
         return exact;
+    }
+
+    void erase(const K& key)
+    {
+        Hash hash = H{}(key);
+
+        size_t index;
+        bool exact;
+        bsearch(hash, index, exact);
+
+        // no value for this key.
+        if (!exact)
+            return;
+
+        m_pairs[index].~PairType();
+        m_size -= 1;
+
+        if (index == m_size - 1)
+            return;
+
+        std::memmove(m_pairs + index, m_pairs + index + 1, (m_size + 1) - index - 1);
+    }
+
+    void clear()
+    {
+        for (size_t i = 0; i < m_size; i++)
+            m_pairs[i].~PairType();
+        m_size = 0;
     }
 
     View<PairType> pairs() const { return View(m_pairs, m_size); }
@@ -73,12 +102,15 @@ public:
         return size * 2;
     }
 
+    ForwardIterator<PairType> begin() const { return ForwardIterator<PairType>(m_pairs); }
+    ForwardIterator<PairType> end() const { return ForwardIterator<PairType>(m_pairs + m_size); }
+
 private:
     size_t m_size;
     size_t m_capacity;
     PairType *m_pairs;
 
-    std::optional<V> find(Hash hash)
+    std::optional<V> find(Hash hash) const
     {
         size_t index;
         bool exact;
@@ -112,7 +144,7 @@ private:
         else if (m_size + 1 <= m_capacity)
         {
             if (index < m_size - 1)
-                std::memmove(m_pairs + index + 1, m_pairs + index, (m_size - index - 1) * sizeof(PairType));
+                std::memmove((void *)(m_pairs + index + 1), (void *)(m_pairs + index), (m_size - index - 1) * sizeof(PairType));
             m_size += 1;
             return m_pairs + index;
         }
@@ -124,9 +156,9 @@ private:
                 return Error(ErrorKind::BadDriver);
 
             if (index > 0)
-                std::memmove(pairs, m_pairs, index * sizeof(PairType));
+                std::memmove((void *)pairs, (void *)m_pairs, index * sizeof(PairType));
             if (index < m_size - 1)
-                std::memmove(pairs + index + 1, m_pairs + index, (m_size - index - 1) * sizeof(PairType));
+                std::memmove((void *)(pairs + index + 1), (void *)(m_pairs + index), (m_size - index - 1) * sizeof(PairType));
 
             destroy_array_nodestruct(m_pairs, 0);
             m_pairs = pairs;
@@ -137,7 +169,7 @@ private:
         }
     }
 
-    void bsearch(Hash hash, size_t& index, bool& exact)
+    void bsearch(Hash hash, size_t& index, bool& exact) const
     {
         if (m_size == 0)
         {
