@@ -19,6 +19,7 @@ struct BlockManifest
 
     std::string name;
     Model model;
+    bool transparent = false;
     std::vector<std::string> faces;
     std::optional<GradientType> gradient;
 };
@@ -37,6 +38,8 @@ void from_json(const nlohmann::json& j, BlockManifest& m)
 
     if (j.contains("gradient"))
         m.gradient = j.at("gradient");
+    if (j.contains("transparent"))
+        m.transparent = j.at("transparent");
 }
 
 NLOHMANN_JSON_SERIALIZE_ENUM(BlockManifest::Model, {
@@ -72,6 +75,8 @@ Result<void> BlockRegistry::register_block(StringView name)
     BlockManifest block_json = nlohmann::json::parse(std::string(s.data(), s.size()));
     std::array<String, 6> faces;
 
+    // println("{} {}", name, block_json.transparent);
+
     for (size_t i = 0; i < faces.size(); i++)
     {
         faces[i] = StringView(block_json.faces[i]);
@@ -83,7 +88,7 @@ Result<void> BlockRegistry::register_block(StringView name)
     for (size_t i = 0; i < 6; i++)
         textures[i].append(block_json.faces[i].data());
 
-    Ref<Block> block = EXPECT(newref<Block>(names, textures, block_json.gradient.value_or(GradientType::None)));
+    Ref<Block> block = EXPECT(newref<Block>(names, textures, block_json.gradient.value_or(GradientType::None), block_json.transparent));
     const uint16_t id = m_blocks.size() + 1;
 
     (void)m_blocks.append(block);
@@ -154,7 +159,7 @@ uint32_t BlockRegistry::get_or_create(const StringView& name)
     }
 }
 
-Result<Ref<Entity>> EntityRegistry::create_entity(String name)
+Result<Ref<Entity>> EntityRegistry::create_entity(ClassHashCode class_hash)
 {
-    return m_constructors.at(name)();
+    return m_entries.at(class_hash).c.value()();
 }

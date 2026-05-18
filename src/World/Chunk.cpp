@@ -152,19 +152,24 @@ Result<void> Chunk::build_simple_mesh(size_t slice_index)
 
                 const Ref<Block>& block = Engine::get().block_registry().get_block_by_id(m_blocks[index].id);
 
-                if (m_blocks[linearize(x - 1, y, z)].is_air())
+#define FACE_NEEDS_RENDER(state, block)                                                                        \
+    (state.is_air() ||                                                                                         \
+     (block->is_tranparent() && !Engine::get().block_registry().get_block_by_id(state.id)->is_tranparent()) || \
+     (!block->is_tranparent() && Engine::get().block_registry().get_block_by_id(state.id)->is_tranparent()))
+
+                if (FACE_NEEDS_RENDER(m_blocks[linearize(x - 1, y, z)], block))
                     TRY(faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::X, false, block->get_texture_index(Axis::X, false))));
-                if (m_blocks[linearize(x + 1, y, z)].is_air())
+                if (FACE_NEEDS_RENDER(m_blocks[linearize(x + 1, y, z)], block))
                     TRY(faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::X, true, block->get_texture_index(Axis::X, true))));
 
-                if (y == 0 || m_blocks[linearize(x, y - 1, z)].is_air())
+                if (y == 0 || FACE_NEEDS_RENDER(m_blocks[linearize(x, y - 1, z)], block))
                     TRY(faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Y, false, block->get_texture_index(Axis::Y, false))));
-                if (y == height || m_blocks[linearize(x, y + 1, z)].is_air())
+                if (y == height || FACE_NEEDS_RENDER(m_blocks[linearize(x, y + 1, z)], block))
                     TRY(faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Y, true, block->get_texture_index(Axis::Y, true))));
 
-                if (m_blocks[linearize(x, y, z - 1)].is_air())
+                if (FACE_NEEDS_RENDER(m_blocks[linearize(x, y, z - 1)], block))
                     TRY(faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Z, false, block->get_texture_index(Axis::Z, false))));
-                if (m_blocks[linearize(x, y, z + 1)].is_air())
+                if (FACE_NEEDS_RENDER(m_blocks[linearize(x, y, z + 1)], block))
                     TRY(faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Z, true, block->get_texture_index(Axis::Z, true))));
             }
         }

@@ -2,6 +2,8 @@
 
 #include "Core/Containers/InplaceVector.hpp"
 #include "Core/Containers/View.hpp"
+#include "Type.hpp"
+#include "Variant.hpp"
 
 #include <cassert>
 #include <cstddef>
@@ -59,6 +61,7 @@ private:                                                                        
                                                                                                                                                                                           \
 public:                                                                                                                                                                                   \
     static inline InplaceVector<ClassHashCode, BASE::classes.max_capacity() + 1> classes = InplaceVector<ClassHashCode, BASE::classes.max_capacity() + 1>(BASE::classes, {s_class_hash}); \
+    static inline Type type;                                                                                                                                                              \
                                                                                                                                                                                           \
     static View<ClassHashCode> get_static_classes()                                                                                                                                       \
     {                                                                                                                                                                                     \
@@ -90,6 +93,11 @@ public:                                                                         
         return s_class_hash;                                                                                                                                                              \
     }                                                                                                                                                                                     \
                                                                                                                                                                                           \
+    virtual Type *get_type() const override                                                                                                                                               \
+    {                                                                                                                                                                                     \
+        return &type;                                                                                                                                                                     \
+    }                                                                                                                                                                                     \
+                                                                                                                                                                                          \
 private:
 
 template <typename T>
@@ -106,6 +114,7 @@ class Object
 
 public:
     static inline InplaceVector<ClassHashCode, 1> classes{s_class_hash};
+    static inline Type type;
 
     virtual ~Object() {}
 
@@ -153,5 +162,25 @@ public:
                 return true;
         }
         return false;
+    }
+
+    virtual Type *get_type() const
+    {
+        return &type;
+    }
+
+    Variant call(String name, View<Variant> args)
+    {
+        return get_type()->call(name, this, args);
+    }
+
+    void set(String name, Variant value)
+    {
+        get_type()->set(name, this, value);
+    }
+
+    Variant get(String name)
+    {
+        return get_type()->get(name, this);
     }
 };

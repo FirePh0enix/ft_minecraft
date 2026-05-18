@@ -155,6 +155,12 @@ enum class MaterialFlagBits
 using MaterialFlags = Flags<MaterialFlagBits>;
 DEFINE_FLAG_TRAITS(MaterialFlagBits);
 
+struct GPU_ATTRIBUTE SimpleUniforms
+{
+    glm::mat4 model_matrix;
+    glm::vec4 color;
+};
+
 class Material : public Object
 {
     CLASS(Material, Object);
@@ -247,6 +253,8 @@ public:
     void draw(RenderGraph& graph, std::function<void(const RenderPassNode& node)> f);
     void draw(RenderGraph& graph, Ref<World> world);
 
+    void record_simple_shape(const RenderPassNode& node, Ref<Material> material);
+
     WGPURenderPipeline get_pipeline(Ref<Material> material, const RenderPassNode& node);
     WGPUSampler get_sampler(const SamplerDescriptor& desc) { return m_sampler_cache.get(desc); }
 
@@ -261,6 +269,7 @@ public:
     Ref<Shader> get_model_shader() const { return m_model_shader; }
 
     Ref<Mesh> get_cube_mesh() const { return m_cube_mesh; }
+    Ref<Shader> get_simple_shader() const { return m_simple_shader; }
 
     size_t get_device_memory_usage() const { return m_device_memory_allocated - m_device_memory_freed; }
 
@@ -284,6 +293,7 @@ private:
 
     Ref<Shader> m_voxel_shader;
     Ref<Shader> m_model_shader;
+    Ref<Shader> m_simple_shader;
 
     Ref<Mesh> m_cube_mesh;
 

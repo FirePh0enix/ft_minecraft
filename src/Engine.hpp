@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Args.hpp"
+#include "Console.hpp"
 #include "Core/Class.hpp"
 #include "Entity/Entity.hpp"
 #include "Entity/Player.hpp"
@@ -40,13 +41,19 @@ public:
         return m_world;
     }
 
-    NetworkConnection& get_connection()
+    NetworkConnection& connection()
     {
         return m_connection;
     }
 
+    bool is_online() const { return m_connection.state() == ConnectionState::Idle; }
+
     BlockRegistry& block_registry() { return m_block_registry; }
     EntityRegistry& entity_registry() { return m_entity_registry; }
+
+    Ref<Player> get_player() const { return m_player; }
+
+    void encode_debug_menu();
 
     static Engine& get() { return *singleton; }
 
@@ -80,6 +87,10 @@ private:
     char m_world_seed_buf[32] = "0";
     char m_connect_ip[32] = "127.0.0.1";
     int m_connect_port = NetworkConnection::default_port;
+
+    // Debug Menu
+    bool m_debug_menu = false;
+    Console m_console;
 
     void register_blocks();
     void register_entities();

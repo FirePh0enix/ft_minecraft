@@ -1,8 +1,4 @@
 #include "World/Generator.hpp"
-#include "Core/Print.hpp"
-#include "Profiler.hpp"
-#include "World/Chunk.hpp"
-#include "World/World.hpp"
 
 // ChunkPos Generator::pop_nearest_chunk(glm::vec3 position)
 // {

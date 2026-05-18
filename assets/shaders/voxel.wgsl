@@ -83,5 +83,5 @@ fn fragment_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let R = normalize(-reflect(L, N));
     let diffuse = max(dot(N, -L), minimum_brightness) * color.rgb;
 
-    return vec4<f32>(diffuse, 1.0);
+    return vec4<f32>(diffuse, color.a);
 }

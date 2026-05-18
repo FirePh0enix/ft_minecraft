@@ -60,15 +60,20 @@ class EntityRegistry
 public:
     using Constructor = std::function<Result<Ref<Entity>>()>;
 
-    template <typename T>
-    void register_entity(String name)
+    struct Entry
     {
-        m_constructors[name] = []() -> Result<Ref<Entity>>
-        { return TRY(newref<T>()).template cast_to<Entity>(); };
+        std::optional<Constructor> c;
+    };
+
+    template <typename T>
+    void register_entity()
+    {
+        m_entries[T::get_static_hash_code()] = Entry{.c = []() -> Result<Ref<Entity>>
+                                                     { return TRY(newref<T>()).template cast_to<Entity>(); }};
     }
 
-    Result<Ref<Entity>> create_entity(String name);
+    Result<Ref<Entity>> create_entity(ClassHashCode class_hash);
 
 private:
-    std::map<String, Constructor> m_constructors;
+    std::map<ClassHashCode, Entry> m_entries;
 };

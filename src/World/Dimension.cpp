@@ -61,12 +61,14 @@ Vector<AABB> Dimension::get_boxes_that_may_collide(const AABB& box) const
     Vector<AABB> boxes;
     int64_t size = 3;
 
-    int64_t min_x = (int64_t)box.center.x - size, max_x = (int64_t)box.center.x + size;
-    int64_t min_y = (int64_t)box.center.y - size, max_y = (int64_t)box.center.y + size;
-    int64_t min_z = (int64_t)box.center.z - size, max_z = (int64_t)box.center.z + size;
+    glm::i64vec3 pos = box.center();
+
+    int64_t min_x = pos.x - size, max_x = pos.x + size;
+    int64_t min_y = pos.y - size, max_y = pos.y + size;
+    int64_t min_z = pos.z - size, max_z = pos.z + size;
     for (int64_t x = min_x; x <= max_x; x++)
     {
-        for (int64_t y = min_y; y <= max_y; y++)
+        for (int64_t y = std::max(min_y, 0l); y <= std::min(max_y, Chunk::height - 1); y++)
         {
             for (int64_t z = min_z; z <= max_z; z++)
             {
@@ -78,14 +80,13 @@ Vector<AABB> Dimension::get_boxes_that_may_collide(const AABB& box) const
                     continue;
 
                 int64_t local_x = x >= 0 ? (x % 16) : (16 + x % 16);
-                int64_t local_y = y >= 0 ? (y % 16) : (16 + y % 16);
                 int64_t local_z = z >= 0 ? (z % 16) : (16 + z % 16);
 
                 Ref<Chunk> chunk = chunk_maybe.value();
-                if (chunk->get_block(local_x, local_y, local_z).is_air())
+                if (chunk->get_block(local_x, y, local_z).is_air())
                     continue;
 
-                AABB block_box(glm::vec3(x, y, z) + glm::vec3(0.5), glm::vec3(0.5, 0.5, 0.5));
+                AABB block_box = AABB(-glm::vec3(0.5), glm::vec3(0.5)).translate(glm::vec3(x, y, z));
                 EXPECT(boxes.append(block_box)); // TODO: change to `TRY`
             }
         }
@@ -120,27 +121,22 @@ Result<Ref<Chunk>> Dimension::generate_chunk(int64_t cx, int64_t cz)
     Ref<Chunk> chunk = TRY(newref<Chunk>(cx, cz));
     memset(chunk->get_biomes(), 0, sizeof(Biome) * Chunk::block_count_with_overlap);
 
-    for (size_t index = 0; index < m_generation_passes.size(); index++)
+    for (int64_t x = 0; x < Chunk::width_with_overlap; x++)
     {
-        Ref<GenerationPass>& pass = m_generation_passes.get_unchecked(index);
-        for (int64_t x = 0; x < Chunk::width_with_overlap; x++)
+        for (int64_t y = 0; y < Chunk::height; y++)
         {
-            for (int64_t y = 0; y < Chunk::height; y++)
+            for (int64_t z = 0; z < Chunk::width_with_overlap; z++)
             {
-                for (int64_t z = 0; z < Chunk::width_with_overlap; z++)
-                {
-                    int64_t gx = cx * 16 + (x - 1);
-                    int64_t gz = cz * 16 + (z - 1);
+                int64_t gx = cx * 16 + (x - 1);
+                int64_t gz = cz * 16 + (z - 1);
 
-                    size_t block_index = Chunk::linearize_with_overlap(x, y, z);
+                size_t block_index = Chunk::linearize_with_overlap(x, y, z);
+                BlockState state = generate_block(gx, y, gz);
+                chunk->get_blocks()[block_index] = state;
 
-                    pass->generate(gx, y, gz, block_index, chunk);
-                    BlockState state = chunk->get_blocks()[block_index];
-
-                    // there is at least one non-empty block.
-                    if (!state.is_air())
-                        chunk->get_slices()[y / Chunk::width].empty = false;
-                }
+                // there is at least one non-empty block.
+                if (!state.is_air())
+                    chunk->get_slices()[y / Chunk::width].empty = false;
             }
         }
     }
@@ -148,22 +144,16 @@ Result<Ref<Chunk>> Dimension::generate_chunk(int64_t cx, int64_t cz)
     for (size_t i = 0; i < Chunk::slice_count; i++)
         TRY(chunk->build_simple_mesh(i));
 
-    // static size_t min_bytes = std::numeric_limits<size_t>::max(), max_bytes = 0;
-    // static size_t min_bytes_biomes = std::numeric_limits<size_t>::max(), max_bytes_biomes = 0;
-
-    // const size_t compressed_bytes = chunk->get_compressed_blocks().size() * sizeof(BlockState) + chunk->get_compressed_nodes().size() * sizeof(ChunkNode);
-    // if (compressed_bytes < min_bytes)
-    //     min_bytes = compressed_bytes;
-    // if (compressed_bytes > max_bytes)
-    //     max_bytes = compressed_bytes;
-
-    // const size_t compressed_bytes_biomes = chunk->get_compressed_biomes().size() * sizeof(Biome) + chunk->get_compressed_biome_nodes().size() * sizeof(ChunkBiomeNode);
-    // if (compressed_bytes_biomes < min_bytes_biomes)
-    //     min_bytes_biomes = compressed_bytes_biomes;
-    // if (compressed_bytes_biomes > max_bytes_biomes)
-    //     max_bytes_biomes = compressed_bytes_biomes;
-
-    // println("blocks > min = {}, max = {} | biomes > min = {}, max = {}", min_bytes, max_bytes, min_bytes_biomes, max_bytes_biomes);
-
     return chunk;
+}
+
+BlockState Dimension::generate_block(int64_t x, int64_t y, int64_t z)
+{
+    BlockState state;
+    for (size_t index = 0; index < m_generation_passes.size(); index++)
+    {
+        Ref<GenerationPass>& pass = m_generation_passes.get_unchecked(index);
+        state = pass->generate_block(x, y, z);
+    }
+    return state;
 }

@@ -44,7 +44,7 @@ void Cow::tick(float delta)
         }
     }
 
-    move_and_collide(true);
+    move_and_collide();
 
     m_velocity.x = 0.0;
     m_velocity.z = 0.0;

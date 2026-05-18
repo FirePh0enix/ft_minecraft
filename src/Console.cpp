@@ -48,4 +48,7 @@ void Console::exec()
     const CommandInfo& info = m_commands[tokens[0]];
     Command command(m_commands[tokens[0]], tokens);
     info.callback(command);
+
+    // clear buffer
+    m_buffer[0] = '\0';
 }

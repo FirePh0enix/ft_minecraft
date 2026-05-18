@@ -52,21 +52,21 @@ bool Frustum::contains(const AABB& aabb) const
 {
     for (size_t i = 0; i < 6; i++)
     {
-        if (m_planes[i][0] * (aabb.center[0] - aabb.half_extent[0]) + m_planes[i][1] * (aabb.center[1] - aabb.half_extent[1]) + m_planes[i][2] * (aabb.center[2] - aabb.half_extent[2]) + m_planes[i][3] > 0)
+        if (m_planes[i][0] * (aabb.min[0]) + m_planes[i][1] * (aabb.min[1]) + m_planes[i][2] * (aabb.min[2]) + m_planes[i][3] > 0)
             continue;
-        if (m_planes[i][0] * (aabb.center[0] + aabb.half_extent[0]) + m_planes[i][1] * (aabb.center[1] - aabb.half_extent[1]) + m_planes[i][2] * (aabb.center[2] - aabb.half_extent[2]) + m_planes[i][3] > 0)
+        if (m_planes[i][0] * (aabb.max[0]) + m_planes[i][1] * (aabb.min[1]) + m_planes[i][2] * (aabb.min[2]) + m_planes[i][3] > 0)
             continue;
-        if (m_planes[i][0] * (aabb.center[0] - aabb.half_extent[0]) + m_planes[i][1] * (aabb.center[1] + aabb.half_extent[1]) + m_planes[i][2] * (aabb.center[2] - aabb.half_extent[2]) + m_planes[i][3] > 0)
+        if (m_planes[i][0] * (aabb.min[0]) + m_planes[i][1] * (aabb.max[1]) + m_planes[i][2] * (aabb.min[2]) + m_planes[i][3] > 0)
             continue;
-        if (m_planes[i][0] * (aabb.center[0] + aabb.half_extent[0]) + m_planes[i][1] * (aabb.center[1] + aabb.half_extent[1]) + m_planes[i][2] * (aabb.center[2] - aabb.half_extent[2]) + m_planes[i][3] > 0)
+        if (m_planes[i][0] * (aabb.max[0]) + m_planes[i][1] * (aabb.max[1]) + m_planes[i][2] * (aabb.min[2]) + m_planes[i][3] > 0)
             continue;
-        if (m_planes[i][0] * (aabb.center[0] - aabb.half_extent[0]) + m_planes[i][1] * (aabb.center[1] - aabb.half_extent[1]) + m_planes[i][2] * (aabb.center[2] + aabb.half_extent[2]) + m_planes[i][3] > 0)
+        if (m_planes[i][0] * (aabb.min[0]) + m_planes[i][1] * (aabb.min[1]) + m_planes[i][2] * (aabb.max[2]) + m_planes[i][3] > 0)
             continue;
-        if (m_planes[i][0] * (aabb.center[0] + aabb.half_extent[0]) + m_planes[i][1] * (aabb.center[1] - aabb.half_extent[1]) + m_planes[i][2] * (aabb.center[2] + aabb.half_extent[2]) + m_planes[i][3] > 0)
+        if (m_planes[i][0] * (aabb.max[0]) + m_planes[i][1] * (aabb.min[1]) + m_planes[i][2] * (aabb.max[2]) + m_planes[i][3] > 0)
             continue;
-        if (m_planes[i][0] * (aabb.center[0] - aabb.half_extent[0]) + m_planes[i][1] * (aabb.center[1] + aabb.half_extent[1]) + m_planes[i][2] * (aabb.center[2] + aabb.half_extent[2]) + m_planes[i][3] > 0)
+        if (m_planes[i][0] * (aabb.min[0]) + m_planes[i][1] * (aabb.max[1]) + m_planes[i][2] * (aabb.max[2]) + m_planes[i][3] > 0)
             continue;
-        if (m_planes[i][0] * (aabb.center[0] + aabb.half_extent[0]) + m_planes[i][1] * (aabb.center[1] + aabb.half_extent[1]) + m_planes[i][2] * (aabb.center[2] + aabb.half_extent[2]) + m_planes[i][3] > 0)
+        if (m_planes[i][0] * (aabb.max[0]) + m_planes[i][1] * (aabb.max[1]) + m_planes[i][2] * (aabb.max[2]) + m_planes[i][3] > 0)
             continue;
 
         return false;

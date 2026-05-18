@@ -1,21 +1,26 @@
 #include "World/World.hpp"
 #include "AABB.hpp"
+#include "Core/Containers/LocalVector.hpp"
 #include "Core/Ref.hpp"
+#include "Engine.hpp"
 #include "Entity/Entity.hpp"
 #include "Profiler.hpp"
 #include "World/Chunk.hpp"
 #include "World/Pass/Flat.hpp"
 #include "World/Pass/Overworld.hpp"
 
+#include <algorithm>
+#include <cstdlib>
+#include <limits>
 #include <mutex>
+#include <thread>
 
 // https://gamedev.stackexchange.com/questions/18436/most-efficient-aabb-vs-ray-collision-algorithms
 bool ray_intersect_aabb(const Ray& ray, const AABB& aabb, float& t_min)
 {
-
     glm::vec3 inv_dir = 1.0f / ray.dir();
-    glm::vec3 t0s = (aabb.min() - ray.origin()) * inv_dir;
-    glm::vec3 t1s = (aabb.max() - ray.origin()) * inv_dir;
+    glm::vec3 t0s = (aabb.min - ray.origin()) * inv_dir;
+    glm::vec3 t1s = (aabb.max - ray.origin()) * inv_dir;
 
     glm::vec3 tsmaller = glm::min(t0s, t1s);
     glm::vec3 tbigger = glm::max(t0s, t1s);
@@ -34,19 +39,66 @@ World::World(uint64_t seed, int type)
 {
     if (type == WorldPresetFlat)
     {
-        EXPECT(m_dims[overworld].m_generation_passes.append(EXPECT(newref<FlatBiomePass>())));
+        // EXPECT(m_dims[overworld].m_generation_passes.append(EXPECT(newref<FlatBiomePass>())));
         EXPECT(m_dims[overworld].m_generation_passes.append(EXPECT(newref<FlatSurfacePass>())));
     }
     else if (type == WorldPresetNormal)
     {
-        EXPECT(m_dims[overworld].m_generation_passes.append(EXPECT(newref<OverworldBiomePass>())));
+        // EXPECT(m_dims[overworld].m_generation_passes.append(EXPECT(newref<OverworldBiomePass>())));
         EXPECT(m_dims[overworld].m_generation_passes.append(EXPECT(newref<OverworldSurfacePass>())));
     }
+
+    find_safe_spawn();
+
+    // Wait for the spawn chunk to be loaded or else the player might fall through the floor.
+    int64_t chunk_x = int64_t(m_spawn_position.x) >= 0 ? (int64_t(m_spawn_position.x) / 16) : (int64_t(m_spawn_position.x) / 16 - 1);
+    int64_t chunk_z = int64_t(m_spawn_position.z) >= 0 ? (int64_t(m_spawn_position.z) / 16) : (int64_t(m_spawn_position.z) / 16 - 1);
+    load_one_chunk(ChunkPos(chunk_x, chunk_z));
 }
 
 World::World(uint64_t seed)
     : m_seed(seed)
 {
+}
+
+void World::find_safe_spawn()
+{
+    srand(0);
+    glm::vec3 water_spawn_position;
+    uint16_t water_id = Engine::get().block_registry().get_block_id("water");
+    bool found = false;
+    size_t i;
+
+    for (i = 0; i < 30 && !found; i++)
+    {
+        int64_t x = rand() % 30;
+        int64_t z = rand() % 30;
+
+        for (int64_t y = Chunk::height - 1; y > 3; y -= 4)
+        {
+            BlockState state = m_dims[overworld].generate_block(x, y, z);
+            BlockState state1 = m_dims[overworld].generate_block(x, y - 1, z);
+            BlockState state2 = m_dims[overworld].generate_block(x, y - 2, z);
+            BlockState state3 = m_dims[overworld].generate_block(x, y - 3, z);
+
+            if (state.is_air() && state1.is_air() && state2.is_air() && !state3.is_air())
+            {
+                if (state3.id != water_id)
+                {
+                    m_spawn_position = glm::vec3(x, y - 3, z) + glm::vec3(0, 6.6, 0);
+                    found = true;
+                    break;
+                }
+                else
+                {
+                    water_spawn_position = glm::vec3(x, y - 3, z) + glm::vec3(0, 6.6, 0);
+                }
+            }
+        }
+    }
+
+    if (!found)
+        m_spawn_position = water_spawn_position;
 }
 
 Result<Ref<World>> World::create_proxy(uint64_t seed)
@@ -208,212 +260,51 @@ inline void adjust_on_boundary(double rcomp, int64_t& vcomp, double dcomp, doubl
     }
 }
 
-std::optional<RaycastResult> World::raycast(const Ray& ray, float range)
+bool World::raycast(const Ray& ray, float range, RaycastResult& result)
 {
-    const glm::vec3 ro = ray.origin();
-    const glm::vec3 rd = ray.dir();
+    bool hit = false;
+    bool is_entiy = false;
+    float t_min = std::numeric_limits<float>::infinity();
+    glm::i64vec3 block_pos;
+    Ref<Entity> entity;
 
-    // avoid zero direction
-    if (ro == glm::vec3())
-        return std::nullopt;
-
-    // current voxel coordinates
-    int64_t vx = (int)std::floor(ro.x);
-    int64_t vy = (int)std::floor(ro.y);
-    int64_t vz = (int)std::floor(ro.z);
-
-    // if starting exactly on integer boundary and ray goes negative, move to neighbor voxel
-    adjust_on_boundary(ro.x, vx, rd.x);
-    adjust_on_boundary(ro.y, vy, rd.y);
-    adjust_on_boundary(ro.z, vz, rd.z);
-
-    if (vy >= Chunk::height)
-        return std::nullopt;
-
-    // If starting inside a solid voxel, report immediate hit at t=0
-    if (!get_block_state(vx, vy, vz).is_air())
+    for (const Ref<Entity>& e : m_dims[overworld].get_entities())
     {
-        // Determine closest face? common choice: return entry face as opposite of ray direction
-        Face face;
-        if (std::abs(rd.x) >= std::abs(rd.y) && std::abs(rd.x) >= std::abs(rd.z))
+        float t = 0.0f;
+        if (ray_intersect_aabb(ray, e->m_aabb, t) && t < t_min)
         {
-            face = (rd.x > 0.0) ? Face::NegX : Face::PosX;
-        }
-        else if (std::abs(rd.y) >= std::abs(rd.x) && std::abs(rd.y) >= std::abs(rd.z))
-        {
-            face = (rd.y > 0.0) ? Face::NegY : Face::PosY;
-        }
-        else
-        {
-            face = (rd.z > 0.0) ? Face::NegZ : Face::PosZ;
-        }
-        return RaycastResult{vx, vy, vz, face, ro, 0.0};
-    }
-
-    // step direction: +1 or -1 per axis
-    int64_t step_x = (rd.x > 0.0) ? 1 : (rd.x < 0.0) ? -1
-                                                     : 0;
-    int64_t step_y = (rd.y > 0.0) ? 1 : (rd.y < 0.0) ? -1
-                                                     : 0;
-    int64_t step_z = (rd.z > 0.0) ? 1 : (rd.z < 0.0) ? -1
-                                                     : 0;
-
-    // tMax: distance along ray to the first voxel boundary on each axis
-    float tmax_x, tmax_y, tmax_z;
-    // tDelta: distance along ray between subsequent crossings of voxel boundaries
-    float tdelta_x, tdelta_y, tdelta_z;
-
-    auto safe_div = [](float a, float b) -> float
-    { return (b == 0.0) ? INFINITY : a / b; };
-
-    // compute initial tMax for X
-    if (step_x != 0)
-    {
-        float nextBoundaryX = float(vx + (step_x > 0 ? 1 : 0));
-        tmax_x = safe_div(nextBoundaryX - ro.x, rd.x);
-        tdelta_x = std::abs(safe_div(1.0, rd.x));
-    }
-    else
-    {
-        tmax_x = INFINITY;
-        tdelta_x = INFINITY;
-    }
-
-    if (step_y != 0)
-    {
-        float nextBoundaryY = float(vy + (step_y > 0 ? 1 : 0));
-        tmax_y = safe_div(nextBoundaryY - ro.y, rd.y);
-        tdelta_y = std::abs(safe_div(1.0, rd.y));
-    }
-    else
-    {
-        tmax_y = INFINITY;
-        tdelta_y = INFINITY;
-    }
-
-    if (step_z != 0)
-    {
-        float nextBoundaryZ = float(vz + (step_z > 0 ? 1 : 0));
-        tmax_z = safe_div(nextBoundaryZ - ro.z, rd.z);
-        tdelta_z = std::abs(safe_div(1.0, rd.z));
-    }
-    else
-    {
-        tmax_z = INFINITY;
-        tdelta_z = INFINITY;
-    }
-
-    float t = 0.0;
-    const int max_steps = 100000; // safety cap
-    for (int i = 0; i < max_steps && t <= range; ++i)
-    {
-        // advance to next voxel boundary
-        if (tmax_x < tmax_y)
-        {
-            if (tmax_x < tmax_z)
-            {
-                // step X
-                vx += step_x;
-                t = tmax_x;
-                tmax_x += tdelta_x;
-                // entering through ±X face
-                Face face = (step_x > 0) ? Face::NegX : Face::PosX;
-                if (t > range)
-                    break;
-                if (!get_block_state(vx, vy, vz).is_air())
-                {
-                    glm::dvec3 pos = ro + rd * t;
-                    return RaycastResult{vx, vy, vz, face, pos, t};
-                }
-            }
-            else
-            {
-                // step Z
-                vz += step_z;
-                t = tmax_z;
-                tmax_z += tdelta_z;
-                Face face = (step_z > 0) ? Face::NegZ : Face::PosZ;
-                if (t > range)
-                    break;
-                if (!get_block_state(vx, vy, vz).is_air())
-                {
-                    glm::dvec3 pos = ro + rd * t;
-                    return RaycastResult{vx, vy, vz, face, pos, t};
-                }
-            }
-        }
-        else
-        {
-            if (tmax_y < tmax_z)
-            {
-                // step Y
-                vy += step_y;
-                t = tmax_y;
-                tmax_y += tdelta_y;
-                Face face = (step_y > 0) ? Face::NegY : Face::PosY;
-                if (t > range)
-                    break;
-                if (!get_block_state(vx, vy, vz).is_air())
-                {
-                    glm::vec3 pos = ro + rd * t;
-                    return RaycastResult{vx, vy, vz, face, pos, t};
-                }
-            }
-            else
-            {
-                // step Z
-                vz += step_z;
-                t = tmax_z;
-                tmax_z += tdelta_z;
-                Face face = (step_z > 0) ? Face::NegZ : Face::PosZ;
-                if (t > range)
-                    break;
-                if (!get_block_state(vx, vy, vz).is_air())
-                {
-                    glm::vec3 pos = ro + rd * t;
-                    return RaycastResult{vx, vy, vz, face, pos, t};
-                }
-            }
+            t_min = t;
+            hit = true;
+            is_entiy = true;
+            entity = e;
         }
     }
 
-    return std::nullopt;
-}
-
-std::optional<EntityRaycastResult> World::raycast_entities(
-    const Ray& ray, float range, Entity *self)
-{
-    EntityRaycastResult closest_hit{};
-    float closest_distance = range;
-    bool found = false;
-
-    for (auto& entity_ref : m_dims[self->m_dimension].get_entities())
+    float d = 0.0f;
+    while (d <= range)
     {
-
-        // TODO: Comparing entity id can be more efficient ? For now it seems like every entity has id 0.
-        if (self == entity_ref.ptr())
-            continue;
-
+        glm::vec3 pos = ray.at(d);
+        glm::i64vec3 ipos(glm::round(pos));
         float t;
-        AABB world_aabb = entity_ref->get_aabb().translate(entity_ref->get_global_transform().position());
-
-        if (ray_intersect_aabb(ray, world_aabb, t))
+        if (!get_block_state(ipos.x, ipos.y, ipos.z).is_air() && ray_intersect_aabb(ray, AABB(-glm::vec3(0.5), glm::vec3(0.5)).translate(pos), t) && t < t_min)
         {
-            if (t >= 0.0f && t < closest_distance)
-            {
-                closest_distance = t;
-                closest_hit.entity = entity_ref;
-                closest_hit.hit_position = ray.at(t);
-                closest_hit.distance = t;
-                found = true;
-            }
+            t_min = t;
+            hit = true;
+            is_entiy = false;
+            block_pos = ipos;
         }
+        d += range / 10.0f;
     }
 
-    if (found)
-        return closest_hit;
-
-    return std::nullopt;
+    if (hit)
+    {
+        result.hit_entity = is_entiy;
+        result.pos = ray.at(t_min);
+        result.distance = t_min;
+        result.block_pos = block_pos;
+        return true;
+    }
+    return false;
 }
 
 void World::load_one_chunk(ChunkPos pos)

@@ -1,10 +1,20 @@
 #include "Entity/Entity.hpp"
+#include "Core/Result.hpp"
 #include "Engine.hpp"
-#include "Rpc.hpp"
+#include "Network/Network.hpp"
+#include "Type.hpp"
 #include "World/World.hpp"
 
-Entity::Entity(String serialized_id)
-    : m_serialized_id(serialized_id)
+void Entity::bind_methods()
+{
+    EXPECT(type.add_property("position", &Entity::get_position, &Entity::set_position));
+    expose_rpc<Entity>("set/position");
+
+    EXPECT(type.add_property("rotation", &Entity::get_rotation, &Entity::set_rotation));
+    expose_rpc<Entity>("set/rotation");
+}
+
+Entity::Entity()
 {
 }
 
@@ -20,9 +30,6 @@ void Entity::add_child(Ref<Entity> entity)
     entity->set_parent(this);
     entity->m_world = m_world;
     entity->m_id = World::next_id();
-
-    if (entity->get_name().size() == 0)
-        entity->set_name(format("Entity #{}", (uint32_t)entity->id()));
 }
 
 void Entity::remove_child(size_t index)
@@ -42,14 +49,44 @@ void Entity::recurse_tick(float delta)
     tick(delta);
 }
 
-void Entity::call_rpc(String name, Rpc rpc, Vector<Variant> args)
+std::optional<RpcTarget> Entity::get_rpc(StringView name)
 {
-    if (rpc.target == RpcTarget::Both || (Engine::singleton->is_server() && rpc.target == RpcTarget::Server) || (!Engine::singleton->is_server() && rpc.target == RpcTarget::Client))
+    for (ssize_t i = (ssize_t)get_classes().size(); i >= 0; i--)
     {
-        rpc.func(this, args);
+        ClassHashCode class_hash = get_classes()[i];
+        if (s_exposed_rpc.contains(class_hash))
+        {
+            const auto& rpcs = s_exposed_rpc.at(class_hash);
+            if (rpcs.contains(name))
+                return rpcs.at(name);
+        }
+    }
+    return std::nullopt;
+}
+
+void Entity::call_rpc(StringView name, View<Variant> args)
+{
+    auto rpc_target_maybe = get_rpc(name);
+    if (!rpc_target_maybe.has_value())
+        return;
+
+    RpcTarget rpc_target = rpc_target_maybe.value();
+
+    if (Engine::get().is_online() || rpc_target == RpcTarget::Both || (Engine::singleton->is_server() && rpc_target == RpcTarget::Server) || (!Engine::singleton->is_server() && rpc_target == RpcTarget::Client))
+    {
+        if (name.starts_with("set/"))
+        {
+            const Type::Property& property = get_type()->get_property(name.slice(4));
+            property.setter((Object *)this, Arguments{.args = args});
+        }
+        else
+        {
+            const Type::Method& method = get_type()->get_method(name);
+            method.func((Object *)this, Arguments{.args = args});
+        }
     }
 
-    if (rpc.target == RpcTarget::Both || (Engine::singleton->is_server() && rpc.target == RpcTarget::Client) || (!Engine::singleton->is_server() && rpc.target == RpcTarget::Server))
+    if (Engine::get().is_online() && (rpc_target == RpcTarget::Both || (Engine::singleton->is_server() && rpc_target == RpcTarget::Client) || (!Engine::singleton->is_server() && rpc_target == RpcTarget::Server)))
     {
         RpcCallPacket p;
         p.id = id();
@@ -62,8 +99,8 @@ void Entity::call_rpc(String name, Rpc rpc, Vector<Variant> args)
             p.args.push_back(v);
 
         if (Engine::singleton->is_server())
-            Engine::singleton->get_connection().broadcast(Engine::singleton->get_connection().create_packet(p));
+            Engine::singleton->connection().broadcast(Engine::singleton->connection().create_packet(p));
         else
-            Engine::singleton->get_connection().send(Engine::singleton->get_connection().create_packet(p));
+            Engine::singleton->connection().send(Engine::singleton->connection().create_packet(p));
     }
 }

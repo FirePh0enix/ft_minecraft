@@ -2,7 +2,6 @@
 
 #include "Core/Containers/Vector.hpp"
 #include "Entity/Entity.hpp"
-#include "Rpc.hpp"
 #include "World/Biome.hpp"
 #include "World/Block.hpp"
 #include "World/Chunk.hpp"
@@ -187,7 +186,7 @@ struct AddEntityPacket
     glm::vec3 position;
     glm::quat rotation;
     EntityId id;
-    String serialized_id;
+    ClassHashCode class_id;
 
     static constexpr PacketType type = PacketType::AddEntity;
 };
@@ -201,7 +200,7 @@ inline Result<void> serialize(DataBuffer& buffer, const AddEntityPacket& p)
     TRY(buffer.write(p.rotation.z));
     TRY(buffer.write(p.rotation.w));
     TRY(buffer.write(p.id));
-    TRY(buffer.write(p.serialized_id));
+    TRY(buffer.write(p.class_id));
     return Result<void>();
 }
 inline Result<void> deserialize(DataBuffer& buffer, AddEntityPacket& p)
@@ -209,7 +208,7 @@ inline Result<void> deserialize(DataBuffer& buffer, AddEntityPacket& p)
     p.position = glm::vec3(TRY(buffer.read<float>()), TRY(buffer.read<float>()), TRY(buffer.read<float>()));
     p.rotation = glm::quat(TRY(buffer.read<float>()), TRY(buffer.read<float>()), TRY(buffer.read<float>()), TRY(buffer.read<float>()));
     p.id = TRY(buffer.read<EntityId>());
-    p.serialized_id = TRY(buffer.read());
+    p.class_id = TRY(buffer.read<ClassHashCode>());
     return Result<void>();
 }
 

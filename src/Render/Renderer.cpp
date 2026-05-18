@@ -913,6 +913,11 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_chunk_material->set_param("images", Engine::get().block_registry().get_texture_array());
     m_chunk_material->set_param("env", Renderer::get().get_world_environment());
 
+    m_simple_shader = TRY(Shader::load("assets/shaders/simple_shape.wgsl"));
+    m_simple_shader->set_binding("env", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
+    m_simple_shader->set_binding("model", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 1, BindingAccess::Read));
+    m_simple_shader->create_bind_group_layout();
+
     return Result<void>();
 }
 
@@ -1019,17 +1024,7 @@ void Renderer::record_world(Renderer& renderer, Ref<World> world, const RenderPa
     const Ref<Camera> camera = world->get_active_camera();
 
     if (node.is_final_pass())
-    {
-        if (ImGui::Begin("Stats"))
-        {
-            String s = format("{}", FormatBin<size_t>(Engine::singleton->get_memory_usage()));
-            ImGui::Text("RAM  = %s", s.data());
-
-            String s2 = format("{}", FormatBin(renderer.get_device_memory_usage()));
-            ImGui::Text("VRAM = %s", s2.data());
-        }
-        ImGui::End();
-    }
+        Engine::get().encode_debug_menu();
 
     if (camera.is_null())
     {
@@ -1055,8 +1050,8 @@ void Renderer::record_world(Renderer& renderer, Ref<World> world, const RenderPa
     for (const auto& [key, chunk] : dim.get_chunks())
     {
         ChunkPos pos = chunk->pos();
-        AABB aabb = AABB(glm::vec3((float)pos.x * Chunk::width + Chunk::width / 2.0, float(Chunk::height) / 2.0, (float)pos.z * Chunk::width + Chunk::width / 2.0),
-                         glm::vec3(Chunk::width / 2.0, Chunk::height, Chunk::width / 2));
+        AABB aabb = AABB(-glm::vec3(Chunk::width / 2.0, Chunk::height, Chunk::width / 2), glm::vec3(Chunk::width / 2.0, Chunk::height, Chunk::width / 2))
+                        .translate(glm::vec3((float)pos.x * Chunk::width + Chunk::width / 2.0, float(Chunk::height) / 2.0, (float)pos.z * Chunk::width + Chunk::width / 2.0));
 
         if (!camera->frustum().contains(aabb))
             continue;
@@ -1083,4 +1078,21 @@ void Renderer::record_world(Renderer& renderer, Ref<World> world, const RenderPa
             wgpuRenderPassEncoderDrawIndexed(encoder, mesh->vertex_count(), 1, 0, 0, 0);
         }
     }
+}
+
+void Renderer::record_simple_shape(const RenderPassNode& node, Ref<Material> material)
+{
+    WGPURenderPassEncoder encoder = node.encoder();
+    const Ref<Mesh>& mesh = m_cube_mesh;
+
+    WGPURenderPipeline pipeline = get_pipeline(material, node);
+    wgpuRenderPassEncoderSetPipeline(encoder, pipeline);
+    wgpuRenderPassEncoderSetBindGroup(encoder, 0, material->get_bind_group(), 0, nullptr);
+
+    wgpuRenderPassEncoderSetIndexBuffer(encoder, mesh->get_buffer(Mesh::BufferKind::Index)->handle(), mesh->index_type(), 0, mesh->get_buffer(Mesh::BufferKind::Index)->size());
+    wgpuRenderPassEncoderSetVertexBuffer(encoder, 0, mesh->get_buffer(Mesh::BufferKind::Position)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Position)->size());
+    wgpuRenderPassEncoderSetVertexBuffer(encoder, 1, mesh->get_buffer(Mesh::BufferKind::Normal)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Normal)->size());
+    wgpuRenderPassEncoderSetVertexBuffer(encoder, 2, mesh->get_buffer(Mesh::BufferKind::UV)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::UV)->size());
+
+    wgpuRenderPassEncoderDrawIndexed(encoder, mesh->vertex_count(), 1, 0, 0, 0);
 }

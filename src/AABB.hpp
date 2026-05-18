@@ -1,8 +1,6 @@
 #pragma once
 
-#include "Core/Definitions.hpp"
 #include "Core/Math.hpp"
-#include "Core/Print.hpp"
 
 struct CollisionResult
 {
@@ -10,91 +8,139 @@ struct CollisionResult
     float penetration = 0.0;
 };
 
+/**
+ * Axis-Aligned Bounding Box.
+ */
 struct AABB
 {
-public:
+    glm::vec3 min;
+    glm::vec3 max;
+
     AABB()
-        : center(0.0), half_extent(0.0)
+        : min(0.0), max(0.0)
     {
     }
 
-    AABB(glm::vec3 center, glm::vec3 half_extent)
-        : center(center), half_extent(half_extent)
+    AABB(glm::vec3 min, glm::vec3 max)
+        : min(min), max(max)
     {
     }
 
-    ALWAYS_INLINE float min_x() const { return center.x - half_extent.x; }
-    ALWAYS_INLINE float min_y() const { return center.y - half_extent.y; }
-    ALWAYS_INLINE float min_z() const { return center.z - half_extent.z; }
-    ALWAYS_INLINE float max_x() const { return center.x + half_extent.x; }
-    ALWAYS_INLINE float max_y() const { return center.y + half_extent.y; }
-    ALWAYS_INLINE float max_z() const { return center.z + half_extent.z; }
-
-    ALWAYS_INLINE glm::vec3 min() const { return glm::vec3(min_x(), min_y(), min_z()); }
-    ALWAYS_INLINE glm::vec3 max() const { return glm::vec3(max_x(), max_y(), max_z()); }
-
-    bool intersect_x(const AABB& o) const
+    static AABB from_center_extent(glm::vec3 center, glm::vec3 half_extent)
     {
-        return min_x() < o.max_x() && max_x() > o.min_x();
+        return AABB(center - half_extent, center + half_extent);
     }
 
-    bool intersect_y(const AABB& o) const
+    glm::vec3 center() const
     {
-        return min_y() < o.max_y() && max_y() > o.min_y();
+        return (min + max) / 2.0f;
     }
 
-    bool intersect_z(const AABB& o) const
+    AABB expand(glm::vec3 v) const
     {
-        return min_z() < o.max_z() && max_z() > o.min_z();
+        AABB aabb = *this;
+
+        if (v.x > 0)
+            aabb.max.x += v.x;
+        else
+            aabb.min.x += v.x;
+
+        if (v.y > 0)
+            aabb.max.y += v.y;
+        else
+            aabb.min.y += v.y;
+
+        if (v.z > 0)
+            aabb.max.z += v.z;
+        else
+            aabb.min.z += v.z;
+
+        return aabb;
     }
 
-    bool intersect(const AABB& other) const
+    AABB grow(glm::vec3 v) const
     {
-        return intersect_x(other) && intersect_y(other) && intersect_z(other);
+        AABB aabb = *this;
+        aabb.min -= v;
+        aabb.max += v;
+        return aabb;
     }
 
-    bool intersect(const AABB& other, CollisionResult& result) const
+    AABB translate(glm::vec3 v) const
     {
-        constexpr glm::vec3 normals[6] = {
-            {-1.0f, 0.0f, 0.0f},
-            {1.0f, 0.0f, 0.0f},
-            {0.0f, -1.0f, 0.0f},
-            {0.0f, 1.0f, 0.0f},
-            {0.0f, 0.0f, -1.0f},
-            {0.0f, 0.0f, 1.0f},
-        };
+        AABB aabb = *this;
+        aabb.min += v;
+        aabb.max += v;
+        return aabb;
+    }
 
-        const float distances[6] = {
-            (other.center.x + other.half_extent.x) - (center.x - half_extent.x),
-            (center.x + half_extent.x) - (other.center.x - other.half_extent.x),
-            (other.center.y + other.half_extent.y) - (center.y - half_extent.y),
-            (center.y + half_extent.y) - (other.center.y - other.half_extent.y),
-            (other.center.z + other.half_extent.z) - (center.z - half_extent.z),
-            (center.z + half_extent.z) - (other.center.z - other.half_extent.z),
-        };
+    bool intersect_x(const AABB& o) const { return min.x < o.max.x && max.x > o.min.x; }
+    bool intersect_y(const AABB& o) const { return min.y < o.max.y && max.y > o.min.y; }
+    bool intersect_z(const AABB& o) const { return min.z < o.max.z && max.z > o.min.z; }
+    bool intersect(const AABB& o) const { return intersect_x(o) && intersect_y(o) && intersect_z(o); }
 
-        int collided_face = 0;
+    bool intersect(glm::vec3 position) const { return position.x >= min.x && position.x <= max.x && position.y >= min.y && position.y <= max.y && position.z >= min.z && position.z <= max.z; }
 
-        for (int i = 0; i < 6; i++)
+    float get_clip_x(const AABB& o, float d) const
+    {
+        if (intersect_y(o) && intersect_z(o))
         {
-            if (distances[i] <= 0.0f)
-                return false;
-
-            if (distances[i] < distances[collided_face])
-                collided_face = i;
+            if (d > 0 && max.x <= o.min.x)
+            {
+                float clip = o.min.x - max.x;
+                if (d > clip)
+                    d = clip;
+            }
+            if (d < 0 && min.x >= o.max.x)
+            {
+                float clip = o.max.x - min.x;
+                if (d < clip)
+                    d = clip;
+            }
+            return d;
         }
-
-        result.normal = normals[collided_face];
-        result.penetration = distances[collided_face];
-
-        return true;
+        return d;
     }
 
-    AABB translate(const glm::vec3& pos) const
+    float get_clip_y(const AABB& o, float d) const
     {
-        return AABB(center + pos, half_extent);
+        if (intersect_x(o) && intersect_z(o))
+        {
+            if (d > 0 && max.y <= o.min.y)
+            {
+                float clip = o.min.y - max.y;
+                if (d > clip)
+                    d = clip;
+            }
+            if (d < 0 && min.y >= o.max.y)
+            {
+                float clip = o.max.y - min.y;
+                if (d < clip)
+                    d = clip;
+            }
+            return d;
+        }
+        return d;
     }
 
-    glm::vec3 center;
-    glm::vec3 half_extent;
+    float get_clip_z(const AABB& o, float d) const
+    {
+        if (intersect_x(o) && intersect_y(o))
+        {
+            if (d > 0 && max.z <= o.min.z)
+            {
+                float clip = o.min.z - max.z;
+                if (d > clip)
+                    d = clip;
+            }
+            if (d < 0 && min.z >= o.max.z)
+            {
+                float clip = o.max.z - min.z;
+                if (d < clip)
+                    d = clip;
+            }
+            return d;
+        }
+        return d;
+    }
 };

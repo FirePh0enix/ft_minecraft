@@ -2,6 +2,7 @@
 
 #include "Core/Containers/InplaceVector.hpp"
 #include "Core/Containers/Iterator.hpp"
+#include "Core/Containers/LocalVector.hpp"
 #include "Core/Containers/Vector.hpp"
 
 template <typename T>
@@ -24,6 +25,11 @@ public:
     }
 
     View(const Vector<T>& vector)
+        : m_data(vector.data()), m_size(vector.size())
+    {
+    }
+
+    View(const LocalVector<T>& vector)
         : m_data(vector.data()), m_size(vector.size())
     {
     }

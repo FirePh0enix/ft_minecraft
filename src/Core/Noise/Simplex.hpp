@@ -32,6 +32,26 @@ public:
         return sum / norm;
     }
 
+    template <const size_t octaves>
+    float fractal(glm::vec2 coords, float frequency, float amplitude, float lacunarity, float persistence) const
+    {
+        float sum = 0.0;
+        float norm = 0.0;
+
+        glm::vec2 pos = coords;
+
+        for (size_t i = 0; i < octaves; i++)
+        {
+            sum += amplitude * sample(pos * frequency);
+            norm += amplitude;
+
+            frequency *= lacunarity;
+            amplitude *= persistence;
+        }
+
+        return sum / norm;
+    }
+
 private:
     uint8_t m_perms[256];
 

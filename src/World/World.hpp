@@ -42,19 +42,15 @@ inline glm::vec3 face_normal(Face face)
 
 struct RaycastResult
 {
-    int64_t x;
-    int64_t y;
-    int64_t z;
-    Face face;
     glm::vec3 pos;
     float distance;
-};
+    /**
+     * If true, `entity` is a valid reference to an entity else `block_pos` is valid.
+     */
+    bool hit_entity;
 
-struct EntityRaycastResult
-{
+    glm::i64vec3 block_pos;
     Ref<Entity> entity;
-    glm::vec3 hit_position;
-    float distance;
 };
 
 class World : public Object
@@ -131,8 +127,16 @@ public:
         return m_dims[0].get_entity(id);
     }
 
-    std::optional<RaycastResult> raycast(const Ray& ray, float range);
-    std::optional<EntityRaycastResult> raycast_entities(const Ray& ray, float range, Entity *self);
+    glm::vec3 get_spawn_position() const { return m_spawn_position; }
+
+    /**
+     * Cast a ray through the world and returns the first thing it hit.
+     *
+     * @param ray Describe the ray direction and origin
+     * @param range Size of the ray
+     * @return true if the ray hit something
+     */
+    bool raycast(const Ray& ray, float range, RaycastResult& result);
 
     static EntityId next_id()
     {
@@ -153,6 +157,9 @@ private:
     Ref<Camera> m_camera;
     bool m_proxy = false;
 
+    glm::vec3 m_spawn_position = glm::vec3();
+
+    void find_safe_spawn();
     void load_around_player();
 
     void load_one_chunk(ChunkPos pos);

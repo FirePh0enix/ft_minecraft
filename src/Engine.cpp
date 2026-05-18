@@ -1,6 +1,7 @@
 #include "Engine.hpp"
 
 #include "Args.hpp"
+#include "Console.hpp"
 #include "Core/Alloc.hpp"
 #include "Core/Logger.hpp"
 #include "Core/Ref.hpp"
@@ -14,7 +15,6 @@
 #include "Profiler.hpp"
 #include "Render/Graph.hpp"
 #include "Render/ImGUIToolKit.hpp"
-#include "Rpc.hpp"
 #include "World/Registry.hpp"
 #include "World/World.hpp"
 
@@ -55,6 +55,30 @@ Engine::Engine(const Args& args)
 
     depth_pass->set_next(color_pass);
     m_graph.set_root(depth_pass);
+
+    m_console.register_command("tp", {
+                                         CmdArgInfo(CmdArgKind::Int, "x"),
+                                         CmdArgInfo(CmdArgKind::Int, "y"),
+                                         CmdArgInfo(CmdArgKind::Int, "z"),
+                                     },
+                               [](const Command& cmd)
+                               { Engine::get().get_player()->set_position(glm::vec3(cmd.get_arg_int("x"), cmd.get_arg_int("y"), cmd.get_arg_int("z"))); });
+
+    m_console.register_command("gamemode", {
+                                               CmdArgInfo(CmdArgKind::String, "gamemode"),
+                                           },
+                               [](const Command& cmd)
+                               {
+                                   String mode = cmd.get_arg_string("gamemode");
+                                   if (mode == "survival")
+                                   {
+                                       Engine::get().get_player()->set_gamemode(GameMode::Survival);
+                                   }
+                                   else if (mode == "creative")
+                                   {
+                                       Engine::get().get_player()->set_gamemode(GameMode::Creative);
+                                   }
+                               });
 }
 
 void Engine::register_blocks()
@@ -71,8 +95,10 @@ void Engine::register_blocks()
 
 void Engine::register_entities()
 {
-    m_entity_registry.register_entity<Player>("player");
-    m_entity_registry.register_entity<Cow>("cow");
+    Entity::bind_methods();
+
+    m_entity_registry.register_entity<Player>();
+    m_entity_registry.register_entity<Cow>();
 }
 
 void Engine::tick(float delta)
@@ -100,6 +126,12 @@ void Engine::tick(float delta)
 
                 if (m_scene == EngineScene::World)
                     m_world->get_active_camera()->update_projection((float)event->window.data1 / (float)event->window.data2);
+            }
+            break;
+            case SDL_EVENT_KEY_DOWN:
+            {
+                if (event->key.key == SDLK_F3)
+                    m_debug_menu = !m_debug_menu;
             }
             break;
             default:
@@ -138,7 +170,7 @@ void Engine::tick(float delta)
     {
         m_world->tick(delta);
 
-        if (is_server() && m_connection.state() == ConnectionState::Host)
+        if (is_server() && is_online())
         {
             for (Ref<Entity> entity : m_world->get_dimension(0).get_entities())
             {
@@ -149,6 +181,8 @@ void Engine::tick(float delta)
     }
     break;
     }
+
+    Input::post_events();
 }
 
 void Engine::draw()
@@ -238,6 +272,34 @@ Result<void> Engine::draw_world_scene()
     return Result<void>();
 }
 
+void Engine::encode_debug_menu()
+{
+    if (!m_debug_menu)
+        return;
+
+    if (ImGui::Begin("Debug"))
+    {
+        String s = format("{}", FormatBin(Engine::singleton->get_memory_usage()));
+        ImGui::Text("RAM  = %s", s.data());
+
+        String s2 = format("{}", FormatBin(Renderer::get().get_device_memory_usage()));
+        ImGui::Text("VRAM = %s", s2.data());
+
+        Transform3D transform = m_player->get_global_transform();
+        ImGui::Text("Position: %.2f %.2f %.2f", transform.position().x, transform.position().y, transform.position().z);
+
+        ImGui::InputText("Cmd", m_console.get_buffer(), m_console.get_buffer_size(), ImGuiInputTextFlags_CallbackCompletion, [](ImGuiInputTextCallbackData *data) -> int
+                         {
+                             Engine *self = (Engine *)data->UserData;
+                             if (data->EventFlag == ImGuiInputTextFlags_CallbackCompletion)
+                             {
+                                self->m_console.exec();
+                             }
+                             return 0; }, this);
+    }
+    ImGui::End();
+}
+
 void Engine::create_world_and_start()
 {
     m_connection.set_connect_handler(&Engine::connect_server, this);
@@ -248,7 +310,7 @@ void Engine::create_world_and_start()
     m_world = EXPECT(newref<World>(seed, m_main_menu_world_type));
 
     m_player = EXPECT(newref<Player>());
-    m_player->get_transform().position() = glm::vec3(0, 100.0, 3);
+    m_player->get_transform().position() = m_world->get_spawn_position();
     m_world->add_entity(World::overworld, m_player);
 
     Ref<Entity> cow = EXPECT(newref<Cow>());
@@ -313,9 +375,9 @@ void Engine::receive_client(void *user, NetworkConnection& conn, ENetPacket *pac
         AddEntityPacket p;
         EXPECT(deserialize(buffer, p));
 
-        debug("new entity (serialized = {}, id = {})", p.serialized_id, (uint32_t)p.id);
+        debug("new entity (class_id = {}, id = {})", p.class_id.value, (uint32_t)p.id);
 
-        Ref<Entity> entity = EXPECT(self->m_entity_registry.create_entity(p.serialized_id));
+        Ref<Entity> entity = EXPECT(self->m_entity_registry.create_entity(p.class_id));
         entity->set_id(p.id);
         entity->get_transform().position() = p.position;
         entity->get_transform().rotation() = p.rotation;
@@ -364,14 +426,14 @@ void Engine::receive_client(void *user, NetworkConnection& conn, ENetPacket *pac
         for (const Variant& v : p.args)
             EXPECT(variants.append(v));
 
-        std::optional<Rpc> rpc = entity->get_rpc(p.name);
+        std::optional<RpcTarget> rpc = entity->get_rpc(p.name);
         if (!rpc.has_value())
             break;
 
-        if (rpc->target == RpcTarget::Server)
+        if (rpc == RpcTarget::Server)
             break;
 
-        rpc->func(entity.ptr(), variants);
+        entity->call(p.name, variants);
     };
     break;
     case PacketType::ChunkData:
@@ -460,14 +522,14 @@ void Engine::receive_server(void *user, NetworkConnection& conn, ENetPacket *pac
         for (const Variant& v : p.args)
             EXPECT(variants.append(v));
 
-        std::optional<Rpc> rpc = entity->get_rpc(p.name);
+        std::optional<RpcTarget> rpc = entity->get_rpc(p.name);
         if (!rpc.has_value())
             break;
 
-        if (rpc->target == RpcTarget::Server || rpc->target == RpcTarget::Both)
-            rpc->func(entity.ptr(), variants);
+        if (rpc == RpcTarget::Server || rpc == RpcTarget::Both)
+            entity->call(p.name, variants);
 
-        if (rpc->target == RpcTarget::Both || rpc->target == RpcTarget::Client)
+        if (rpc == RpcTarget::Both || rpc == RpcTarget::Client)
         {
             conn.broadcast(conn.create_packet(p), client.peer());
         }
@@ -491,7 +553,7 @@ void Engine::connect_server(void *user, NetworkConnection& conn, const Client& c
     for (Ref<Entity> entity : self->m_world->get_dimension(0).get_entities())
     {
         Transform3D transform = entity->get_transform();
-        AddEntityPacket p(transform.position(), transform.rotation(), entity->id(), entity->get_serialized_id());
+        AddEntityPacket p(transform.position(), transform.rotation(), entity->id(), entity->get_class_hash_code());
         conn.send(client.peer(), conn.create_packet(p));
     }
 
@@ -510,7 +572,7 @@ void Engine::connect_server(void *user, NetworkConnection& conn, const Client& c
         conn.send(client.peer(), conn.create_packet(chunk_packet));
     }
 
-    Engine::singleton->get_connection().broadcast(Engine::singleton->get_connection().create_packet(p));
+    Engine::singleton->connection().broadcast(Engine::singleton->connection().create_packet(p));
 
     Ref<Player> player = EXPECT(newref<Player>());
     player->set_remote();
@@ -520,7 +582,7 @@ void Engine::connect_server(void *user, NetworkConnection& conn, const Client& c
     self->m_world->add_entity(0, player);
     self->m_players[client.peer()] = player;
 
-    AddEntityPacket p2(player->get_transform().position(), player->get_transform().rotation(), id, player->get_serialized_id());
+    AddEntityPacket p2(player->get_transform().position(), player->get_transform().rotation(), id, player->get_class_hash_code());
     conn.broadcast(conn.create_packet(p2), client.peer());
 }
 

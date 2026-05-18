@@ -2,22 +2,21 @@
 #include "Engine.hpp"
 #include "World/Registry.hpp"
 
-Biome FlatBiomePass::generate_biome(int64_t x, int64_t y, int64_t z)
-{
-    (void)x;
-    (void)y;
-    (void)z;
-    return Biome::Plain;
-}
+// Biome FlatBiomePass::generate_biome(int64_t x, int64_t y, int64_t z)
+// {
+//     (void)x;
+//     (void)y;
+//     (void)z;
+//     return Biome::Plain;
+// }
 
 FlatSurfacePass::FlatSurfacePass()
 {
     m_dirt_id = Engine::get().block_registry().get_block_id("dirt");
 }
 
-BlockState FlatSurfacePass::generate_block(int64_t x, int64_t y, int64_t z, Biome biome)
+BlockState FlatSurfacePass::generate_block(int64_t x, int64_t y, int64_t z)
 {
-    (void)biome;
     (void)x;
     (void)z;
 

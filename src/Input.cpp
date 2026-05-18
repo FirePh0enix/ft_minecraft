@@ -22,8 +22,8 @@ void Input::load_config()
     Input::add_action("right");
     Input::add_action_mapping("right", ActionMapping(ActionMappingKind::Key, SDLK_D));
 
-    Input::add_action("up");
-    Input::add_action_mapping("up", ActionMapping(ActionMappingKind::Key, SDLK_SPACE));
+    Input::add_action("jump");
+    Input::add_action_mapping("jump", ActionMapping(ActionMappingKind::Key, SDLK_SPACE));
 
     Input::add_action("down");
     Input::add_action_mapping("down", ActionMapping(ActionMappingKind::Key, SDLK_LCTRL));
@@ -43,6 +43,11 @@ bool Input::is_action_pressed(const String& action)
     return s_actions[action].value > 0.0;
 }
 
+bool Input::is_action_just_pressed(const String& action)
+{
+    return s_actions[action].value > 0.0 && !s_actions[action].repeat;
+}
+
 float Input::get_action_value(const String& action)
 {
     return s_actions[action].value;
@@ -51,6 +56,9 @@ float Input::get_action_value(const String& action)
 void Input::set_action_value(const String& action, float value)
 {
     s_actions[action].value = value;
+
+    if (value == 0.0)
+        s_actions[action].repeat = false;
 }
 
 glm::vec2 Input::get_vector(const String& x_negative, const String& x_positive, const String& y_negative, const String& y_positive)
@@ -80,6 +88,12 @@ glm::vec2 Input::get_mouse_relative()
 void Input::post_events()
 {
     s_mouse_relative = glm::vec2();
+
+    for (auto& [_, status] : s_actions)
+    {
+        if (status.value > 0)
+            status.repeat = true;
+    }
 }
 
 void Input::process_event(SDL_Event event)

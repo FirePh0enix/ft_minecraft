@@ -1,5 +1,6 @@
 {
     "name": "water",
     "model": "cube",
+    "transparent": true,
     "faces": [ "Water.png", "Water.png", "Water.png", "Water.png", "Water.png", "Water.png" ]
 }

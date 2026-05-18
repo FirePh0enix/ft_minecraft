@@ -10,7 +10,7 @@
 class Cow : public Mob
 {
 public:
-    Cow() : Mob("cow", 3, 0, 1.0f, 1.0f)
+    Cow() : Mob(3, 0, 1.0f, 1.0f)
     {
     }
 

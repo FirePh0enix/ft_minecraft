@@ -24,6 +24,7 @@ list(APPEND SOURCES
     src/Engine.cpp
     src/Input.cpp
     src/Model.cpp
+    src/Type.cpp
     src/Window.cpp
     src/Core/Noise/Simplex.cpp
     src/Core/Alloc.cpp

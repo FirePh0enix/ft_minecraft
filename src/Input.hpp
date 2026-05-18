@@ -7,6 +7,7 @@
 struct Status
 {
     float value = 0.0;
+    bool repeat = false;
 };
 
 enum class ActionMappingKind
@@ -38,6 +39,8 @@ public:
     static void load_config();
 
     static bool is_action_pressed(const String& action);
+    static bool is_action_just_pressed(const String& action);
+
     static float get_action_value(const String& action);
 
     static glm::vec2 get_vector(const String& x_negative, const String& x_positive, const String& y_negative, const String& y_positive);
