@@ -37,6 +37,8 @@ Chunk::~Chunk()
 
 void Chunk::set_block(int64_t x, int64_t y, int64_t z, BlockState state)
 {
+    if (y < 0 || y > Chunk::height)
+        return;
     m_blocks[linearize(x, y, z)] = state;
 
     size_t slice = y / width;

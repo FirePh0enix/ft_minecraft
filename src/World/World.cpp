@@ -191,6 +191,31 @@ void World::set_block_state(int64_t x, int64_t y, int64_t z, BlockState state)
     const int64_t chunk_local_z = z >= 0 ? (z % 16) : 16 + (z % 16);
 
     chunk->set_block(chunk_local_x, y, chunk_local_z, state);
+
+    if (chunk_local_x == 0)
+    {
+        chunk_value = get_chunk(chunk_x - 1, chunk_z);
+        if (chunk_value.has_value())
+            chunk_value.value()->set_block(16, y, chunk_local_z, state);
+    }
+    else if (chunk_local_x == 15)
+    {
+        chunk_value = get_chunk(chunk_x + 1, chunk_z);
+        if (chunk_value.has_value())
+            chunk_value.value()->set_block(-1, y, chunk_local_z, state);
+    }
+    if (chunk_local_z == 0)
+    {
+        chunk_value = get_chunk(chunk_x, chunk_z - 1);
+        if (chunk_value.has_value())
+            chunk_value.value()->set_block(chunk_local_x, y, 16, state);
+    }
+    else if (chunk_local_z == 15)
+    {
+        chunk_value = get_chunk(chunk_x, chunk_z + 1);
+        if (chunk_value.has_value())
+            chunk_value.value()->set_block(chunk_local_x, y, -1, state);
+    }
 }
 
 std::optional<Ref<Chunk>> World::get_chunk(int64_t x, int64_t z) const
