@@ -1,10 +1,15 @@
 #include "Cow.hpp"
+#include "Core/Containers/LocalVector.hpp"
 #include "Core/Print.hpp"
+#include "Core/Result.hpp"
 #include "Entity/Entity.hpp"
-#include "Entity/Pathfinding/Node.hpp"
+#include "Entity/Pathfinding/PathNode.hpp"
 #include "World/World.hpp"
 #include <cstddef>
+#include <cstdint>
 #include <memory>
+
+constexpr size_t attempts = 16;
 
 static glm::vec3 safe_normalize(const glm::vec3& v)
 {
@@ -12,6 +17,37 @@ static glm::vec3 safe_normalize(const glm::vec3& v)
     if (len2 < 1e-8f)
         return glm::vec3(0.0f);
     return v / std::sqrt(len2);
+}
+
+static glm::ivec3 find_random_walkable_position(Pathfinding& pathfinder, const glm::ivec3& start, int radius, const glm::vec3& preferred_dir = glm::vec3(0.0f))
+{
+    glm::ivec3 result = start;
+
+    for (size_t i = 0; i < attempts; i++)
+    {
+        int dx = rand() % (radius * 2 + 1) - radius;
+        int dz = rand() % (radius * 2 + 1) - radius;
+        int dy = rand() % 5 - 2;
+
+        glm::vec3 dir = safe_normalize(glm::vec3(dx, 0.0f, dz));
+
+        if (glm::length2(preferred_dir) > 0.0f)
+            dir = safe_normalize(dir + preferred_dir);
+
+        int dist = rand() % radius + 1;
+
+        glm::ivec3 horizontal = glm::ivec3(glm::round(dir * (float)dist));
+        glm::ivec3 pos = start + glm::ivec3(horizontal.x, dy, horizontal.z);
+        glm::ivec3 below(pos.x, pos.y - 1, pos.z);
+
+        if (pathfinder.is_walkable(pos, 1) && !pathfinder.is_walkable(below, 1))
+        {
+            result = pos;
+            break;
+        }
+    }
+
+    return result;
 }
 
 void Cow::start() {};
@@ -24,23 +60,28 @@ void Cow::tick(float delta)
 
     follow_path(delta);
 
+    glm::ivec3 cow_grid = glm::ivec3(glm::floor(m_transform.position()));
+
     if (m_following_path)
     {
-        if (!verify_if_path_still_valid(m_path->look_points[m_path_index]))
+
+        if (!verify_if_path_still_valid(m_path->look_points.get_unchecked(m_path_index)))
         {
-            const glm::ivec3& to = m_path->look_points[m_path->finish_line_index];
+            const glm::ivec3& to = m_path->look_points.get_unchecked(m_path->finish_line_index);
             bool is_final_pos_reachable = m_pathfinding->is_walkable(to, 0);
 
             if (is_final_pos_reachable)
-            {
-                flee_to(m_path->look_points[m_path->finish_line_index]);
-                println("Path is not valid anymore ! (flee_to)");
-            }
+                flee_to(m_path->look_points.get_unchecked(m_path->finish_line_index));
             else
-            {
                 flee_from(*m_threat_entity, 10);
-                println("Path is not valid anymore ! (flee_from)");
-            }
+        }
+    }
+    else
+    {
+        if (m_on_ground)
+        {
+            const glm::ivec3 to = find_random_walkable_position(*m_pathfinding, cow_grid, 10);
+            flee_to(to);
         }
     }
 
@@ -55,7 +96,7 @@ void Cow::tick(float delta)
 
 void Cow::draw(const RenderPassNode& node)
 {
-    m_model->encode(node);
+    m_model->encode(node, get_global_transform());
 }
 
 void Cow::on_ready()
@@ -94,56 +135,30 @@ void Cow::on_hit_by(Entity& entity)
     flee_from(entity, 10);
 }
 
-static glm::ivec3 find_flee_target(
-    Pathfinding& pathfinder,
-    const glm::ivec3& start,
-    const glm::ivec3& threat,
-    int radius)
-{
-    glm::ivec3 flee_pos = start;
-    int distance = static_cast<int>(glm::round(glm::distance(glm::vec3(start), glm::vec3(threat))));
-
-    int sign = (start.z - threat.z) >= 0 ? 1 : -1;
-    int bias_z = glm::clamp(distance, 0, radius);
-
-    const int attempts = 16;
-    for (int i = 0; i < attempts; i++)
-    {
-        int dx = rand() % (radius * 2 + 1) - radius;
-        int dz = rand() % (radius * 2 + 1) - radius + sign * bias_z;
-        int dy = rand() % 3 - 1;
-
-        glm::ivec3 pos = start + glm::ivec3(dx, dy, dz);
-        glm::ivec3 below(pos.x, pos.y - 1, pos.z);
-
-        if (pathfinder.is_walkable(pos, 1) && !pathfinder.is_walkable(below, 1))
-        {
-            flee_pos = pos;
-            break;
-        }
-    }
-
-    return flee_pos;
-}
-
 void Cow::flee_from(const Entity& threat, int radius)
 {
     glm::ivec3 cow_grid = glm::ivec3(glm::round(m_transform.position()));
     glm::ivec3 threat_grid = glm::ivec3(glm::round(threat.get_global_transform().position()));
 
-    glm::ivec3 target = find_flee_target(*m_pathfinding, cow_grid, threat_grid, radius);
-    m_pathfinding->find_path(cow_grid, target);
+    glm::vec3 flee_dir = safe_normalize(glm::vec3(cow_grid - threat_grid));
+    glm::ivec3 flee_position = find_random_walkable_position(*m_pathfinding, cow_grid, radius, flee_dir);
 
-    if (m_pathfinding->m_path.empty())
+    auto result = m_pathfinding->find_path(cow_grid, flee_position);
+
+    if (m_pathfinding->m_path.empty() || !result)
     {
         m_following_path = false;
         return;
     }
 
-    std::vector<glm::vec3> waypoints = m_pathfinding->simplify_path(m_pathfinding->m_path);
-    m_path.emplace(waypoints, m_stopping_dst);
+    Result<Vector<glm::vec3>> waypoints = m_pathfinding->simplify_path(m_pathfinding->m_path);
+
+    if (!waypoints.has_value())
+        return;
+
+    m_path.emplace(waypoints.value(), m_stopping_dst);
     m_following_path = true;
-    // Cow is already at waypoint 0, so he should look toward actual target.
+    // Cow is already at waypoint 0.
     m_path_index = 1;
 }
 
@@ -151,15 +166,18 @@ void Cow::flee_to(const glm::ivec3& to)
 {
     glm::ivec3 cow_grid = glm::ivec3(glm::round(m_transform.position()));
 
-    m_pathfinding->find_path(cow_grid, to);
-    if (m_pathfinding->m_path.empty())
+    auto value = m_pathfinding->find_path(cow_grid, to).has_value();
+    if (m_pathfinding->m_path.empty() || !value)
     {
         m_following_path = false;
         return;
     }
 
-    std::vector<glm::vec3> waypoints = m_pathfinding->simplify_path(m_pathfinding->m_path);
-    m_path.emplace(waypoints, m_stopping_dst);
+    Result<Vector<glm::vec3>> waypoints = m_pathfinding->simplify_path(m_pathfinding->m_path);
+    if (!waypoints.has_value())
+        return;
+
+    m_path.emplace(waypoints.value(), m_stopping_dst);
     m_following_path = true;
     // Cow is already at waypoint 0, so he should look toward actual target.
     m_path_index = 1;
@@ -178,7 +196,7 @@ void Cow::follow_path(float delta_time)
     }
 
     glm::vec3 pos = m_transform.position();
-    glm::vec3 target = m_path->look_points[m_path_index];
+    glm::vec3 target = m_path->look_points.get_unchecked(m_path_index);
     glm::vec3 to_target = target - pos;
     to_target.y = 0.0f;
 
@@ -186,7 +204,9 @@ void Cow::follow_path(float delta_time)
     float speed_percent = 1.0f;
     if (m_path_index >= m_path->slow_down_index && m_stopping_dst > 0.0f)
     {
-        glm::vec2 end_2d = glm::vec2(m_path->look_points.back().x, m_path->look_points.back().z);
+        size_t size = m_path->look_points.size();
+
+        glm::vec2 end_2d = glm::vec2(m_path->look_points.get_unchecked(size - 1).x, m_path->look_points.get_unchecked(size - 1).z);
         float dist_to_end = glm::distance(glm::vec2(pos.x, pos.z), end_2d);
         speed_percent = glm::clamp(dist_to_end / m_stopping_dst, 0.0f, 1.0f);
 
@@ -202,7 +222,7 @@ void Cow::follow_path(float delta_time)
     glm::vec3 target_dir_norm = safe_normalize(to_target);
     if (m_path_index + 1 < m_path->look_points.size())
     {
-        glm::vec3 b = m_path->look_points[m_path_index + 1];
+        glm::vec3 b = m_path->look_points.get_unchecked(m_path_index + 1);
         glm::vec3 seg = b - target;
         seg.y = 0.0f;
 
@@ -222,22 +242,15 @@ void Cow::follow_path(float delta_time)
     m_velocity.z = move.z;
 
     // Jump.
-    if (m_path_index != m_last_jump_index)
+    float dy = m_path->look_points.get_unchecked(m_path_index).y - pos.y;
+
+    if (m_on_ground && m_velocity.y <= 0.0f && dy >= 0.4f)
     {
-        m_last_jump_index = m_path_index;
-        size_t prev_index = m_path_index - 1;
-
-        // For ensuring jump is done once, compare last waypoint and current to check if jump is needed.
-        glm::vec3 prev = m_path->look_points[prev_index];
-        glm::vec3 next = m_path->look_points[m_path_index];
-
-        float dy = next.y - pos.y;
-
-        if (next.y == prev.y || dy < 0.9f)
-            return;
-
-        if (m_on_ground && m_velocity.y <= 0.0f)
-            m_velocity.y = m_jump_force;
+        m_velocity.y = m_jump_force;
+        const auto to = m_path->look_points.get_unchecked(m_path_index);
+        println("to: {} {} {}", to.x, to.y, to.z);
+        println("pos: {} {} {}", pos.x, pos.y, pos.z);
+        println("dy: {}", dy);
     }
 
     // Switch to next waypoint.
@@ -252,28 +265,25 @@ void Cow::follow_path(float delta_time)
 
 bool Cow::verify_if_path_still_valid(const glm::vec3& waypoint)
 {
-
-    const std::vector<PathNode *>& path = m_pathfinding->m_path;
+    const LocalVector<uint32_t>& path = m_pathfinding->m_path;
     const size_t path_size = path.size();
     glm::ivec3 waypoint_grid_pos = glm::ivec3(waypoint);
+    size_t start_index = path_size;
 
-    size_t start_index = path.size();
+    const auto& nodes = m_pathfinding->m_nodes;
 
-    for (size_t i = 0; i < path_size; i++)
+    for (size_t i = 0; i < path_size; ++i)
     {
-        if (path[i]->m_gridPos == waypoint_grid_pos)
+        if (nodes.get_unchecked(path.get_unchecked(i)).m_gridPos == waypoint_grid_pos)
         {
             start_index = i;
             break;
         }
     }
 
-    if (start_index == path_size)
-        return false;
-
     for (size_t i = start_index; i < path_size; i++)
     {
-        if (!m_pathfinding->is_walkable(path[i]->m_gridPos, 1))
+        if (!m_pathfinding->is_walkable(nodes.get_unchecked(path.get_unchecked(i)).m_gridPos, 1))
             return false;
     }
 

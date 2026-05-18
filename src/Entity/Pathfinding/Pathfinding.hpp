@@ -1,10 +1,13 @@
 #pragma once
 
+#include "Core/Containers/InplaceVector.hpp"
+#include "Core/Containers/LocalVector.hpp"
 #include "Core/Math.hpp"
 #include "Entity/Entity.hpp"
-#include "Entity/Pathfinding/Node.hpp"
+#include "Entity/Pathfinding/PathNode.hpp"
 #include "World/World.hpp"
 #include <cstddef>
+#include <cstdint>
 #include <unordered_set>
 #include <vector>
 
@@ -23,22 +26,24 @@ class Pathfinding
 {
 public:
     Pathfinding(World *world) : m_world(world) {};
-    void find_path(const glm::vec3& start_pos, const glm::vec3& target_pos);
-    bool is_walkable(const glm::ivec3& to, int jump_height);
-    std::vector<glm::vec3> simplify_path(const std::vector<PathNode *>& path);
 
-    std::vector<PathNode *> m_path;
+    Result<void> find_path(const glm::vec3& start_pos, const glm::vec3& target_pos);
+    Result<Vector<glm::vec3>> simplify_path(const LocalVector<uint32_t>& path);
+    bool is_walkable(const glm::ivec3& to, int jump_height);
+
+    LocalVector<uint32_t> m_path;
+    LocalVector<PathNode> m_nodes;
     size_t m_path_index = 0;
 
 private:
     World *m_world = nullptr;
 
-    std::unordered_map<glm::ivec3, PathNode *, Ivec3Hash> m_nodes;
-    std::vector<PathNode *> m_open_set;
+    std::unordered_map<glm::ivec3, uint32_t, Ivec3Hash> m_node_lookup;
+    LocalVector<uint32_t> m_open_set;
     std::unordered_set<glm::ivec3, Ivec3Hash> m_close_set;
 
-    void retrace_path(PathNode *start_node, PathNode *end_node);
+    Result<void> retrace_path(uint32_t start_index, uint32_t end_index);
     int get_distance(const PathNode& node_a, const PathNode& node_b);
-    std::vector<PathNode *> get_neighbors(const PathNode& node);
-    PathNode *node_from_world_point(const glm::vec3& world_position);
+    Result<InplaceVector<uint32_t, 10>> get_neighbors(uint32_t current_index);
+    Result<uint32_t> node_from_world_point(const glm::vec3& world_position);
 };
