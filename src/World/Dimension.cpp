@@ -2,6 +2,7 @@
 #include "Profiler.hpp"
 #include "World/Block.hpp"
 #include "World/Chunk.hpp"
+#include <algorithm>
 
 std::optional<Ref<Chunk>> Dimension::get_chunk(int64_t x, int64_t z) const
 {
@@ -66,9 +67,11 @@ Vector<AABB> Dimension::get_boxes_that_may_collide(const AABB& box) const
     int64_t min_x = pos.x - size, max_x = pos.x + size;
     int64_t min_y = pos.y - size, max_y = pos.y + size;
     int64_t min_z = pos.z - size, max_z = pos.z + size;
+
     for (int64_t x = min_x; x <= max_x; x++)
     {
-        for (int64_t y = std::max(min_y, 0l); y <= std::min(max_y, Chunk::height - 1); y++)
+        // ! On mac we need to use 0ll and not 0l.
+        for (int64_t y = std::max(min_y, 0ll); y <= std::min(max_y, Chunk::height - 1); y++)
         {
             for (int64_t z = min_z; z <= max_z; z++)
             {

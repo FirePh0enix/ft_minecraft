@@ -40,7 +40,6 @@ list(APPEND SOURCES
     src/Entity/Mob.cpp
     src/Entity/Cow.cpp
     src/Entity/Player.cpp
-    src/Entity/Pathfinding/Node.cpp
     src/Entity/Pathfinding/Pathfinding.cpp
     src/Network/Network.cpp
     src/Network/Packet.cpp
@@ -301,6 +300,10 @@ target_sources(${TARGET_NAME}_test PRIVATE
 )
 target_include_directories(${TARGET_NAME} PRIVATE ${imgui_SOURCE_DIR})
 target_include_directories(${TARGET_NAME}_test PRIVATE ${imgui_SOURCE_DIR})
+
+if (TARGET_IS_MACOS)
+    set_source_files_properties(${imgui_SOURCE_DIR}/backends/imgui_impl_wgpu.cpp PROPERTIES COMPILE_FLAGS "-x objective-c++")
+endif()
 
 if(TARGET_IS_WEB)
     target_compile_definitions(${TARGET_NAME} PRIVATE IMGUI_IMPL_WEBGPU_BACKEND_DAWN=1)

@@ -600,7 +600,7 @@ static WGPUSurface create_surface(WGPUInstance instance, SDL_Window *window)
     WGPUSurface surface = {};
 #if defined(__platform_macos)
     {
-        m_metal_view = SDL_Metal_CreateView(window);
+       auto m_metal_view = SDL_Metal_CreateView(window);
 
         WGPUSurfaceSourceMetalLayer surface_src_metal = {};
         surface_src_metal.chain.sType = WGPUSType_SurfaceSourceMetalLayer;

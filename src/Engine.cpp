@@ -314,7 +314,7 @@ void Engine::create_world_and_start()
     m_world->add_entity(World::overworld, m_player);
 
     Ref<Entity> cow = EXPECT(newref<Cow>());
-    cow->get_transform().position() = glm::vec3(0.0f, 2.0f, 0.0f);
+    cow->get_transform().position() = m_world->get_spawn_position();
     m_world->add_entity(World::overworld, cow);
 
     m_scene = EngineScene::World;

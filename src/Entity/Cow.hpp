@@ -12,6 +12,7 @@ class Cow : public Mob
 public:
     Cow() : Mob(3, 0, 1.0f, 1.0f)
     {
+        m_aabb = AABB(-glm::vec3(0.35, 0.9, 0.35), glm::vec3(0.35, 0.9, 0.35));
     }
 
     void start() override;

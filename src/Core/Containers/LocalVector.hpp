@@ -2,6 +2,7 @@
 
 #include "Core/Alloc.hpp"
 #include "Core/Containers/Iterator.hpp"
+#include "Core/Print.hpp"
 #include "Core/Result.hpp"
 
 #include <cstddef>
@@ -18,7 +19,8 @@ public:
 
     ~LocalVector()
     {
-        destroy_array(m_data, m_size);
+        if (m_data)
+            destroy_array(m_data, m_size);
     }
 
     LocalVector(const LocalVector<T>& other)
@@ -38,7 +40,7 @@ public:
         for (size_t i = 0; i < other.size(); i++)
             new (data + i) T(other.data()[i]);
 
-        destroy_array(other, 0);
+        destroy_array(m_data, m_size);
 
         m_data = data;
         m_size = other.size();
@@ -164,6 +166,31 @@ public:
     static constexpr size_t growth_factor(size_t size)
     {
         return size * 2;
+    }
+
+    void clear()
+    {
+        if (m_data)
+        {
+            destroy_array(m_data, m_size);
+            m_size = 0;
+            m_capacity = 0;
+            m_data = nullptr;
+        }
+    }
+
+    void erase_swap(const T& value)
+    {
+        for (size_t i = 0; i < m_size; i++)
+        {
+            if (m_data[i] == value)
+            {
+                m_data[i] = std::move(m_data[m_size - 1]);
+                (m_data + (m_size - 1))->~T();
+                m_size--;
+                return;
+            }
+        }
     }
 
 private:
