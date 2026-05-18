@@ -36,8 +36,8 @@ struct Hasher<ChunkPos>
 {
     uint64_t operator()(const ChunkPos& i)
     {
-        uint64_t x = *(uint64_t *)(int *)&i | (0 << 31);
-        uint64_t z = *(uint64_t *)(int *)&i | (0 << 31);
+        uint64_t x = *(uint64_t *)&i.x;
+        uint64_t z = *(uint64_t *)&i.z;
         return x * 3 + z * 5;
     }
 };
@@ -90,13 +90,11 @@ public:
     };
 
     static constexpr int64_t width = 16;
-    static constexpr int64_t width_with_overlap = width + 2;
+    // static constexpr int64_t width_with_overlap = width + 2;
     static constexpr int64_t height = 256;
-    static constexpr int64_t block_count_with_overlap = width_with_overlap * height * width_with_overlap;
+    // static constexpr int64_t block_count_with_overlap = width_with_overlap * height * width_with_overlap;
     static constexpr int64_t block_count = width * height * width;
     static constexpr int64_t slice_count = height / width;
-
-    static inline std::atomic_size_t instances = 0;
 
     Chunk(int64_t x, int64_t z);
     ~Chunk();
@@ -122,8 +120,8 @@ public:
 
     Result<void> build_simple_mesh(size_t slice);
 
-    static ALWAYS_INLINE size_t linearize(int64_t x, int64_t y, int64_t z) { return (z + 1) * width_with_overlap * height + y * width_with_overlap + (x + 1); }
-    static ALWAYS_INLINE size_t linearize_with_overlap(int64_t x, int64_t y, int64_t z) { return z * width_with_overlap * height + y * width_with_overlap + x; }
+    static ALWAYS_INLINE size_t linearize(int64_t x, int64_t y, int64_t z) { return z * width * height + y * width + x; }
+    // static ALWAYS_INLINE size_t linearize_with_overlap(int64_t x, int64_t y, int64_t z) { return z * width * height + y * width + x; }
 
 private:
     BlockState *m_blocks;

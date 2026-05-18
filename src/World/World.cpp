@@ -157,65 +157,12 @@ void World::tick(float delta)
 
 BlockState World::get_block_state(int64_t x, int64_t y, int64_t z) const
 {
-    int64_t chunk_x = x >= 0 ? (x / 16) : (x / 16 - 1);
-    int64_t chunk_z = z >= 0 ? (z / 16) : (z / 16 - 1);
-
-    std::optional<Ref<Chunk>> chunk_value = get_chunk(chunk_x, chunk_z);
-
-    if (!chunk_value.has_value())
-    {
-        return BlockState();
-    }
-
-    Ref<Chunk> chunk = chunk_value.value();
-    const int64_t chunk_local_x = x >= 0 ? (x % 16) : 16 + (x % 16);
-    const int64_t chunk_local_z = z >= 0 ? (z % 16) : 16 + (z % 16);
-
-    return chunk->get_block(chunk_local_x, y, chunk_local_z);
+    return m_dims[overworld].get_block(x, y, z);
 }
 
 void World::set_block_state(int64_t x, int64_t y, int64_t z, BlockState state)
 {
-    int64_t chunk_x = x >= 0 ? (x / 16) : (x / 16 - 1);
-    int64_t chunk_z = z >= 0 ? (z / 16) : (z / 16 - 1);
-
-    std::optional<Ref<Chunk>> chunk_value = get_chunk(chunk_x, chunk_z);
-
-    if (!chunk_value.has_value())
-    {
-        return;
-    }
-
-    Ref<Chunk> chunk = chunk_value.value();
-    const int64_t chunk_local_x = x >= 0 ? (x % 16) : 16 + (x % 16);
-    const int64_t chunk_local_z = z >= 0 ? (z % 16) : 16 + (z % 16);
-
-    chunk->set_block(chunk_local_x, y, chunk_local_z, state);
-
-    if (chunk_local_x == 0)
-    {
-        chunk_value = get_chunk(chunk_x - 1, chunk_z);
-        if (chunk_value.has_value())
-            chunk_value.value()->set_block(16, y, chunk_local_z, state);
-    }
-    else if (chunk_local_x == 15)
-    {
-        chunk_value = get_chunk(chunk_x + 1, chunk_z);
-        if (chunk_value.has_value())
-            chunk_value.value()->set_block(-1, y, chunk_local_z, state);
-    }
-    if (chunk_local_z == 0)
-    {
-        chunk_value = get_chunk(chunk_x, chunk_z - 1);
-        if (chunk_value.has_value())
-            chunk_value.value()->set_block(chunk_local_x, y, 16, state);
-    }
-    else if (chunk_local_z == 15)
-    {
-        chunk_value = get_chunk(chunk_x, chunk_z + 1);
-        if (chunk_value.has_value())
-            chunk_value.value()->set_block(chunk_local_x, y, -1, state);
-    }
+    m_dims[overworld].set_block(x, y, z, state);
 }
 
 std::optional<Ref<Chunk>> World::get_chunk(int64_t x, int64_t z) const

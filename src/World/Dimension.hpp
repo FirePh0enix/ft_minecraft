@@ -37,6 +37,10 @@ public:
     std::mutex& mutex() { return m_chunk_mutex; }
 
     Vector<AABB> get_boxes_that_may_collide(const AABB& box) const;
+
+    BlockState get_block(int64_t x, int64_t y, int64_t z) const;
+    void set_block(int64_t x, int64_t y, int64_t z, BlockState state);
+
     bool has_solid_block(int64_t x, int64_t y, int64_t z) const;
 
     Result<Ref<Chunk>> generate_chunk(int64_t cx, int64_t cz);

@@ -72,18 +72,7 @@ Vector<AABB> Dimension::get_boxes_that_may_collide(const AABB& box) const
         {
             for (int64_t z = min_z; z <= max_z; z++)
             {
-                int64_t chunk_x = x >= 0 ? (x / 16) : (x / 16 - 1);
-                int64_t chunk_z = z >= 0 ? (z / 16) : (z / 16 - 1);
-
-                const auto chunk_maybe = get_chunk(chunk_x, chunk_z);
-                if (!chunk_maybe)
-                    continue;
-
-                int64_t local_x = x >= 0 ? (x % 16) : (16 + x % 16);
-                int64_t local_z = z >= 0 ? (z % 16) : (16 + z % 16);
-
-                Ref<Chunk> chunk = chunk_maybe.value();
-                if (chunk->get_block(local_x, y, local_z).is_air())
+                if (!has_solid_block(x, y, z))
                     continue;
 
                 AABB block_box = AABB(-glm::vec3(0.5), glm::vec3(0.5)).translate(glm::vec3(x, y, z));
@@ -95,23 +84,91 @@ Vector<AABB> Dimension::get_boxes_that_may_collide(const AABB& box) const
     return boxes;
 }
 
-bool Dimension::has_solid_block(int64_t x, int64_t y, int64_t z) const
+static int64_t local_coords(int64_t g)
+{
+    int64_t loc = g % 16;
+    if (loc < 0)
+        loc += 16;
+    return loc;
+}
+
+inline int64_t chunk_index(int64_t global)
+{
+    int64_t c = global / 16;
+    if (global < 0 && global % 16 != 0)
+        --c;
+    return c;
+}
+
+BlockState Dimension::get_block(int64_t x, int64_t y, int64_t z) const
 {
     if (y < 0 || y >= Chunk::height)
-        return false;
+        return BlockState();
 
-    int64_t chunk_x = x >= 0 ? (x / 16) : (x / 16 - 1);
-    int64_t chunk_z = z >= 0 ? (z / 16) : (z / 16 - 1);
+    int64_t chunk_x = chunk_index(x);
+    int64_t chunk_z = chunk_index(z);
 
     const auto chunk_maybe = get_chunk(chunk_x, chunk_z);
     if (!chunk_maybe)
-        return false;
+        return BlockState();
 
     Ref<Chunk> chunk = chunk_maybe.value();
-    int64_t local_x = x >= 0 ? (x % 16) : (16 + x % 16);
-    int64_t local_z = z >= 0 ? (z % 16) : (16 + z % 16);
+    int64_t local_x = local_coords(x);
+    int64_t local_z = local_coords(z);
 
-    return !chunk->get_block(local_x, y, local_z).is_air();
+    return chunk->get_block(local_x, y, local_z);
+}
+
+void Dimension::set_block(int64_t x, int64_t y, int64_t z, BlockState state)
+{
+    if (y < 0 || y >= Chunk::height)
+        return;
+
+    int64_t chunk_x = chunk_index(x);
+    int64_t chunk_z = chunk_index(z);
+
+    std::optional<Ref<Chunk>> chunk_value = get_chunk(chunk_x, chunk_z);
+
+    if (!chunk_value.has_value())
+    {
+        return;
+    }
+
+    Ref<Chunk> chunk = chunk_value.value();
+    int64_t local_x = local_coords(x);
+    int64_t local_z = local_coords(z);
+
+    chunk->set_block(local_x, y, local_z, state);
+
+    if (local_x == 0)
+    {
+        chunk_value = get_chunk(chunk_x - 1, chunk_z);
+        if (chunk_value.has_value())
+            EXPECT(chunk_value.value()->build_simple_mesh(y / 16));
+    }
+    else if (local_x == 15)
+    {
+        chunk_value = get_chunk(chunk_x + 1, chunk_z);
+        if (chunk_value.has_value())
+            EXPECT(chunk_value.value()->build_simple_mesh(y / 16));
+    }
+    if (local_z == 0)
+    {
+        chunk_value = get_chunk(chunk_x, chunk_z - 1);
+        if (chunk_value.has_value())
+            EXPECT(chunk_value.value()->build_simple_mesh(y / 16));
+    }
+    else if (local_z == 15)
+    {
+        chunk_value = get_chunk(chunk_x, chunk_z + 1);
+        if (chunk_value.has_value())
+            EXPECT(chunk_value.value()->build_simple_mesh(y / 16));
+    }
+}
+
+bool Dimension::has_solid_block(int64_t x, int64_t y, int64_t z) const
+{
+    return !get_block(x, y, z).is_air();
 }
 
 Result<Ref<Chunk>> Dimension::generate_chunk(int64_t cx, int64_t cz)
@@ -119,20 +176,19 @@ Result<Ref<Chunk>> Dimension::generate_chunk(int64_t cx, int64_t cz)
     ZoneScoped;
 
     Ref<Chunk> chunk = TRY(newref<Chunk>(cx, cz));
-    memset(chunk->get_biomes(), 0, sizeof(Biome) * Chunk::block_count_with_overlap);
+    memset(chunk->get_biomes(), 0, sizeof(Biome) * Chunk::block_count);
 
-    for (int64_t x = 0; x < Chunk::width_with_overlap; x++)
+    for (int64_t x = 0; x < Chunk::width; x++)
     {
         for (int64_t y = 0; y < Chunk::height; y++)
         {
-            for (int64_t z = 0; z < Chunk::width_with_overlap; z++)
+            for (int64_t z = 0; z < Chunk::width; z++)
             {
-                int64_t gx = cx * 16 + (x - 1);
-                int64_t gz = cz * 16 + (z - 1);
+                int64_t gx = cx * 16 + x;
+                int64_t gz = cz * 16 + z;
 
-                size_t block_index = Chunk::linearize_with_overlap(x, y, z);
                 BlockState state = generate_block(gx, y, gz);
-                chunk->get_blocks()[block_index] = state;
+                chunk->get_blocks()[Chunk::linearize(x, y, z)] = state;
 
                 // there is at least one non-empty block.
                 if (!state.is_air())

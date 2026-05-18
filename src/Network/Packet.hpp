@@ -310,7 +310,7 @@ inline Result<void> deserialize(DataBuffer& buffer, ChunkDataPacket& p)
 {
     p.x = TRY(buffer.read<int64_t>());
     p.z = TRY(buffer.read<int64_t>());
-    p.blocks = TRY(buffer.read_array<BlockState>(Chunk::block_count_with_overlap));
-    p.biomes = TRY(buffer.read_array<Biome>(Chunk::block_count_with_overlap));
+    p.blocks = TRY(buffer.read_array<BlockState>(Chunk::block_count));
+    p.biomes = TRY(buffer.read_array<Biome>(Chunk::block_count));
     return Result<void>();
 }

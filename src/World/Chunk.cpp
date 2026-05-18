@@ -1,7 +1,6 @@
 #include "World/Chunk.hpp"
 
 #include "Core/Alloc.hpp"
-#include "Core/Logger.hpp"
 #include "Engine.hpp"
 #include "Render/Types.hpp"
 #include "World/Block.hpp"
@@ -13,8 +12,8 @@
 Chunk::Chunk(int64_t x, int64_t z)
     : m_x(x), m_z(z)
 {
-    m_blocks = alloc_array_uninitialized<BlockState>(block_count_with_overlap);
-    m_biomes = alloc_array_uninitialized<Biome>(block_count_with_overlap);
+    m_blocks = alloc_array_uninitialized<BlockState>(block_count);
+    m_biomes = alloc_array_uninitialized<Biome>(block_count);
     m_slices = alloc_array<Slice>(slice_count);
 
     m_chunk_buffer = EXPECT(Buffer::create(sizeof(glm::vec3) * slice_count, WGPUBufferUsage_Vertex | WGPUBufferUsage_CopyDst));
@@ -22,17 +21,13 @@ Chunk::Chunk(int64_t x, int64_t z)
     for (size_t i = 0; i < slice_count; i++)
         chunk_data[i] = glm::vec3(x * Chunk::width, i * Chunk::width, z * Chunk::width);
     m_chunk_buffer->update(View(chunk_data).as_bytes());
-
-    instances += 1;
 }
 
 Chunk::~Chunk()
 {
-    destroy_array_nodestruct(m_blocks, block_count_with_overlap);
-    destroy_array_nodestruct(m_biomes, block_count_with_overlap);
+    destroy_array_nodestruct(m_blocks, block_count);
+    destroy_array_nodestruct(m_biomes, block_count);
     destroy_array(m_slices, slice_count);
-
-    instances -= 1;
 }
 
 void Chunk::set_block(int64_t x, int64_t y, int64_t z, BlockState state)
@@ -43,11 +38,15 @@ void Chunk::set_block(int64_t x, int64_t y, int64_t z, BlockState state)
 
     size_t slice = y / width;
 
-    Result<void> result = build_simple_mesh(slice);
-    if (result.has_error())
+    EXPECT(build_simple_mesh(slice));
+
+    if (y > 0 && y % width == 0)
     {
-        error("Rebuilding the mesh ended with error:");
-        result.error().print();
+        EXPECT(build_simple_mesh(slice - 1));
+    }
+    else if (y < Chunk::height - 1 && y % width == width - 1)
+    {
+        EXPECT(build_simple_mesh(slice + 1));
     }
 }
 
@@ -159,19 +158,19 @@ Result<void> Chunk::build_simple_mesh(size_t slice_index)
      (block->is_tranparent() && !Engine::get().block_registry().get_block_by_id(state.id)->is_tranparent()) || \
      (!block->is_tranparent() && Engine::get().block_registry().get_block_by_id(state.id)->is_tranparent()))
 
-                if (FACE_NEEDS_RENDER(m_blocks[linearize(x - 1, y, z)], block))
+                if (x == 0 || FACE_NEEDS_RENDER(m_blocks[linearize(x - 1, y, z)], block))
                     TRY(faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::X, false, block->get_texture_index(Axis::X, false))));
-                if (FACE_NEEDS_RENDER(m_blocks[linearize(x + 1, y, z)], block))
+                if (x == Chunk::width - 1 || FACE_NEEDS_RENDER(m_blocks[linearize(x + 1, y, z)], block))
                     TRY(faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::X, true, block->get_texture_index(Axis::X, true))));
 
                 if (y == 0 || FACE_NEEDS_RENDER(m_blocks[linearize(x, y - 1, z)], block))
                     TRY(faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Y, false, block->get_texture_index(Axis::Y, false))));
-                if (y == height || FACE_NEEDS_RENDER(m_blocks[linearize(x, y + 1, z)], block))
+                if (y == height - 1 || FACE_NEEDS_RENDER(m_blocks[linearize(x, y + 1, z)], block))
                     TRY(faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Y, true, block->get_texture_index(Axis::Y, true))));
 
-                if (FACE_NEEDS_RENDER(m_blocks[linearize(x, y, z - 1)], block))
+                if (z == 0 || FACE_NEEDS_RENDER(m_blocks[linearize(x, y, z - 1)], block))
                     TRY(faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Z, false, block->get_texture_index(Axis::Z, false))));
-                if (FACE_NEEDS_RENDER(m_blocks[linearize(x, y, z + 1)], block))
+                if (z == Chunk::width - 1 || FACE_NEEDS_RENDER(m_blocks[linearize(x, y, z + 1)], block))
                     TRY(faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Z, true, block->get_texture_index(Axis::Z, true))));
             }
         }
