@@ -9,7 +9,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <unordered_set>
-#include <vector>
 
 struct Ivec3Hash
 {
@@ -33,7 +32,6 @@ public:
 
     LocalVector<uint32_t> m_path;
     LocalVector<PathNode> m_nodes;
-    size_t m_path_index = 0;
 
 private:
     World *m_world = nullptr;

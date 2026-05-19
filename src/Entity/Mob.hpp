@@ -30,4 +30,7 @@ protected:
     void take_damage(int amount) { m_health -= amount; }
 
     Ref<Model> m_model;
+
+    bool m_blocked_x = false;
+    bool m_blocked_z = false;
 };

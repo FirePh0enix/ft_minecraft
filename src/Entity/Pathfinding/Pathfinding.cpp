@@ -169,7 +169,6 @@ Result<void> Pathfinding::find_path(const glm::vec3& start_pos, const glm::vec3&
     m_nodes.clear();
     m_path.clear();
     m_node_lookup.clear();
-    m_path_index = 0;
 
     uint32_t start_index = node_from_world_point(start_pos).value();
     uint32_t target_index = node_from_world_point(target_pos).value();
@@ -250,27 +249,15 @@ Result<Vector<glm::vec3>> Pathfinding::simplify_path(const LocalVector<uint32_t>
 
     for (size_t i = 2; i < path.size(); i++)
     {
-        glm::ivec3 current_direction =
-            m_nodes.get_unchecked(path.get_unchecked(i)).m_gridPos -
-            m_nodes.get_unchecked(path.get_unchecked(i - 1)).m_gridPos;
-
+        glm::ivec3 current_direction = m_nodes.get_unchecked(path.get_unchecked(i)).m_gridPos - m_nodes.get_unchecked(path.get_unchecked(i - 1)).m_gridPos;
         if (current_direction != last_direction)
         {
-            TRY(waypoints.append(
-                m_nodes.get_unchecked(path.get_unchecked(i - 1)).m_position));
-
+            TRY(waypoints.append(m_nodes.get_unchecked(path.get_unchecked(i - 1)).m_position));
             last_direction = current_direction;
         }
     }
 
     TRY(waypoints.append(m_nodes.get_unchecked(path.get_unchecked(path.size() - 1)).m_position));
-
-    println("-- Simplify Path --");
-    for (size_t i = 0; i < waypoints.size(); i++)
-    {
-        const auto pos = waypoints.get_unchecked(i);
-        println("[{} {} {}]", pos.x, pos.y, pos.z);
-    }
 
     return waypoints;
 }
