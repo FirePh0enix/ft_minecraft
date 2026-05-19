@@ -2,7 +2,6 @@
 
 #include "AABB.hpp"
 #include "Core/Math.hpp"
-#include "Core/Print.hpp"
 #include "Engine.hpp"
 #include "Entity/Entity.hpp"
 #include "Input.hpp"
@@ -11,7 +10,6 @@
 #include "Profiler.hpp"
 #include "Render/Renderer.hpp"
 #include "World/World.hpp"
-#include "glm/ext/matrix_transform.hpp"
 
 #include <imgui.h>
 
@@ -99,10 +97,40 @@ void Player::tick(float delta)
                     if (Ref<Mob> mob = result.entity)
                         mob->on_hit_by(*this);
                 }
-                else
+            }
+
+            if (m_gamemode == GameMode::Creative && !result.entity && Input::is_action_just_pressed("attack"))
+            {
+                m_world->set_block_state(result.block_pos.x, result.block_pos.y, result.block_pos.z, BlockState());
+            }
+            else if (m_gamemode == GameMode::Survival && !result.entity)
+            {
+                if (Input::is_action_pressed("attack"))
                 {
-                    m_world->set_block_state(result.block_pos.x, result.block_pos.y, result.block_pos.z, BlockState());
+                    if (!m_is_destroing)
+                    {
+                        m_is_destroing = true;
+                        m_destroy_block_pos = result.block_pos;
+                    }
+                    else if (m_destroy_block_pos != result.block_pos)
+                    {
+                        m_is_destroing = false;
+                        m_destroy_ticks = 0;
+                    }
+
+                    m_destroy_ticks += 1;
+                    if (m_destroy_ticks >= max_destroy_ticks)
+                    {
+                        m_world->break_block(result.block_pos.x, result.block_pos.y, result.block_pos.z);
+                        m_is_destroing = false;
+                        m_destroy_ticks = 0;
+                    }
                 }
+            }
+            else
+            {
+                m_destroy_ticks = 0;
+                m_is_destroing = false;
             }
         }
         else

@@ -918,6 +918,13 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_simple_shader->set_binding("model", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 1, BindingAccess::Read));
     m_simple_shader->create_bind_group_layout();
 
+    m_item_block_shader = TRY(Shader::load("assets/shaders/item_block.wgsl"));
+    m_item_block_shader->set_binding("env", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
+    m_item_block_shader->set_binding("model", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 1, BindingAccess::Read));
+    m_item_block_shader->set_binding("images", Binding(BindingKind::Texture, WGPUShaderStage_Fragment, 0, 2, BindingAccess::Read, TextureDimension::D2DArray)); // binding = 3 is the sampler
+    m_item_block_shader->set_sampler("images", {.min_filter = WGPUFilterMode_Nearest, .mag_filter = WGPUFilterMode_Nearest});
+    m_item_block_shader->create_bind_group_layout();
+
     return Result<void>();
 }
 

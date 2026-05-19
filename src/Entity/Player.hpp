@@ -46,7 +46,6 @@ private:
     GameMode m_gamemode = GameMode::Survival;
 
     float m_speed = 8.0;
-    float m_gravity_value = 9.81 / 10.0f;
     float m_jump_force = 0.24f;
 
     std::optional<glm::vec3> m_aimed_block = std::nullopt;
@@ -62,4 +61,9 @@ private:
      * Player class is a little special since its behavor is different if this is the local or remote.
      */
     bool m_local_player = true;
+
+    static constexpr size_t max_destroy_ticks = 60;
+    size_t m_destroy_ticks = 0;
+    glm::i64vec3 m_destroy_block_pos = glm::i64vec3();
+    bool m_is_destroing = false;
 };

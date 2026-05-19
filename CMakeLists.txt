@@ -37,6 +37,7 @@ list(APPEND SOURCES
     src/Core/ThreadPool.cpp
     src/Entity/Camera.cpp
     src/Entity/Entity.cpp
+    src/Entity/Item.cpp
     src/Entity/Mob.cpp
     src/Entity/Cow.cpp
     src/Entity/Player.cpp

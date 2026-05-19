@@ -270,6 +270,7 @@ public:
 
     Ref<Mesh> get_cube_mesh() const { return m_cube_mesh; }
     Ref<Shader> get_simple_shader() const { return m_simple_shader; }
+    Ref<Shader> get_item_block_shader() const { return m_item_block_shader; }
 
     size_t get_device_memory_usage() const { return m_device_memory_allocated - m_device_memory_freed; }
 
@@ -294,6 +295,7 @@ private:
     Ref<Shader> m_voxel_shader;
     Ref<Shader> m_model_shader;
     Ref<Shader> m_simple_shader;
+    Ref<Shader> m_item_block_shader;
 
     Ref<Mesh> m_cube_mesh;
 

@@ -138,6 +138,11 @@ public:
      */
     bool raycast(const Ray& ray, float range, RaycastResult& result);
 
+    /**
+     * Break the block and drop an item corresponding to it.
+     */
+    void break_block(int64_t x, int64_t y, int64_t z);
+
     static EntityId next_id()
     {
         static uint32_t id = 0;

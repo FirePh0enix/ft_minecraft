@@ -124,12 +124,18 @@ public:
 
     std::optional<RpcTarget> get_rpc(StringView name);
 
+    void move_and_collide();
+
 protected:
     EntityId m_id;
     Entity *m_parent = nullptr; // FIXME: This must be changed by either a Ref<Entity> or a EntityId.
     LocalVector<Ref<Entity>> m_children;
     Transform3D m_transform;
     AABB m_aabb;
+
+    float m_gravity_value = 9.81 / 10.0;
+    bool m_on_ground = false;
+    glm::vec3 m_velocity = glm::vec3();
 
     World *m_world = nullptr;
 

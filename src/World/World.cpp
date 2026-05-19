@@ -1,13 +1,15 @@
 #include "World/World.hpp"
 #include "AABB.hpp"
-#include "Core/Containers/LocalVector.hpp"
 #include "Core/Ref.hpp"
 #include "Engine.hpp"
 #include "Entity/Entity.hpp"
+#include "Entity/Item.hpp"
 #include "Profiler.hpp"
 #include "World/Chunk.hpp"
 #include "World/Pass/Flat.hpp"
 #include "World/Pass/Overworld.hpp"
+
+#include <SDL3/SDL.h>
 
 #include <algorithm>
 #include <cstdlib>
@@ -277,6 +279,18 @@ bool World::raycast(const Ray& ray, float range, RaycastResult& result)
         return true;
     }
     return false;
+}
+
+void World::break_block(int64_t x, int64_t y, int64_t z)
+{
+    BlockState state = get_block_state(x, y, z);
+    set_block_state(x, y, z, BlockState());
+
+    Ref<Block> block = Engine::get().block_registry().get_block_by_id(state.id);
+    Ref<ItemEntity> item_entity = EXPECT(newref<ItemEntity>(block));
+    item_entity->set_position(glm::vec3(x, y, z) + glm::vec3(rand_float(-0.6, 0.6), 0, rand_float(-0.6, 0.6)));
+
+    add_entity(World::overworld, item_entity);
 }
 
 void World::load_one_chunk(ChunkPos pos)

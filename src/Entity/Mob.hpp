@@ -16,14 +16,9 @@ public:
 
     ALWAYS_INLINE int get_attack_damage() const { return m_attack_damage; }
 
-    void move_and_collide();
     virtual void on_hit_by(Entity& entity) { (void)entity; }
 
 protected:
-    bool m_on_ground = false;
-
-    glm::vec3 m_velocity = glm::vec3();
-
     int m_health;
     int m_max_health;
     int m_attack_damage;
