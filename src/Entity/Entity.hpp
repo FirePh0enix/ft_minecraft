@@ -77,6 +77,11 @@ public:
         (void)node;
     }
 
+    virtual void draw_ui(const RenderPassNode& node)
+    {
+        (void)node;
+    }
+
     virtual void on_ready()
     {
     }

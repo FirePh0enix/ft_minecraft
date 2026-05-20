@@ -139,6 +139,12 @@ struct InstanceAttribute
     WGPUVertexFormat format;
 };
 
+struct Instance
+{
+    Vector<InstanceAttribute> attribs;
+    size_t stride;
+};
+
 struct MaterialParamCache
 {
     BindingKind kind = BindingKind::Texture;
@@ -151,6 +157,9 @@ enum class MaterialFlagBits
     None,
     Transparency = 1 << 0,
     Priority = 1 << 1,
+
+    NoNormal = 1 << 2,
+    NoUV = 1 << 3,
 };
 using MaterialFlags = Flags<MaterialFlagBits>;
 DEFINE_FLAG_TRAITS(MaterialFlagBits);
@@ -166,7 +175,7 @@ class Material : public Object
     CLASS(Material, Object);
 
 public:
-    static Result<Ref<Material>> create(const Ref<Shader>& shader, MaterialFlags flags, WGPUCullMode cull_mode, UVType uv_type, Vector<InstanceAttribute> attributes = {});
+    static Result<Ref<Material>> create(const Ref<Shader>& shader, MaterialFlags flags, WGPUCullMode cull_mode, UVType uv_type, Instance instance = {});
 
     void set_param(const StringView& name, const Ref<Buffer>& buffer);
     void set_param(const StringView& name, const Ref<Texture>& texture);
@@ -178,6 +187,7 @@ public:
     UVType get_uv_type() const { return m_uv_type; }
     MaterialFlags flags() const { return m_flags; }
     WGPUCullMode get_cull_mode() const { return m_cull_mode; }
+    size_t get_instance_stride() const { return m_instance_stride; }
 
     Vector<InstanceAttribute> get_attributes() const { return m_attributes; }
 
@@ -192,6 +202,7 @@ private:
     UVType m_uv_type;
 
     Vector<InstanceAttribute> m_attributes;
+    size_t m_instance_stride;
 
     bool m_dirty = true;
 
@@ -209,13 +220,14 @@ public:
         MaterialFlags flags;
         WGPUCullMode cull_mode;
         Vector<InstanceAttribute> attributes;
+        size_t instance_stride;
 
         bool has_color_attach;
         bool has_depth_attach;
 
         bool operator<(const Key& k) const
         {
-            return std::tie(shader, bind_group_layout, uv_type, flags, cull_mode, has_color_attach, has_depth_attach) < std::tie(k.shader, k.bind_group_layout, k.uv_type, k.flags, k.cull_mode, k.has_color_attach, k.has_depth_attach);
+            return std::tie(shader, bind_group_layout, uv_type, flags, cull_mode, has_color_attach, has_depth_attach, instance_stride) < std::tie(k.shader, k.bind_group_layout, k.uv_type, k.flags, k.cull_mode, k.has_color_attach, k.has_depth_attach, k.instance_stride);
         }
     };
 
@@ -260,7 +272,10 @@ public:
 
     WGPUDevice device() const { return m_device; }
     WGPUTextureFormat get_surface_format() const { return m_surface_format; }
+    Extent2D get_surface_extent() const { return m_surface_extent; }
+
     Ref<Buffer> get_world_environment() const { return m_env_buffer; }
+    Ref<Buffer> get_env_2d() const { return m_env_2d_buffer; }
 
     std::mutex& get_device_queue() { return m_device_queue; }
     std::mutex& get_queue_mutex() { return m_queue_mutex; }
@@ -269,8 +284,12 @@ public:
     Ref<Shader> get_model_shader() const { return m_model_shader; }
 
     Ref<Mesh> get_cube_mesh() const { return m_cube_mesh; }
+    Ref<Mesh> get_square_mesh() const { return m_square_mesh; }
+
     Ref<Shader> get_simple_shader() const { return m_simple_shader; }
     Ref<Shader> get_item_block_shader() const { return m_item_block_shader; }
+    Ref<Shader> get_color_rect_shader() const { return m_color_rect_shader; }
+    Ref<Shader> get_texture_rect_shader() const { return m_texture_rect_shader; }
 
     size_t get_device_memory_usage() const { return m_device_memory_allocated - m_device_memory_freed; }
 
@@ -296,11 +315,15 @@ private:
     Ref<Shader> m_model_shader;
     Ref<Shader> m_simple_shader;
     Ref<Shader> m_item_block_shader;
+    Ref<Shader> m_color_rect_shader;
+    Ref<Shader> m_texture_rect_shader;
 
     Ref<Mesh> m_cube_mesh;
+    Ref<Mesh> m_square_mesh;
 
     Ref<Material> m_chunk_material;
     Ref<Buffer> m_env_buffer;
+    Ref<Buffer> m_env_2d_buffer;
 
     std::atomic_size_t m_device_memory_allocated = 0;
     std::atomic_size_t m_device_memory_freed = 0;

@@ -22,6 +22,7 @@ list(APPEND SOURCES
     src/Args.cpp
     src/Console.cpp
     src/Engine.cpp
+    src/Font.cpp
     src/Input.cpp
     src/Model.cpp
     src/Type.cpp
@@ -43,11 +44,16 @@ list(APPEND SOURCES
     src/Entity/Player.cpp
     src/Entity/Pathfinding/Node.cpp
     src/Entity/Pathfinding/Pathfinding.cpp
+    src/Item/Inventory.cpp
     src/Network/Network.cpp
     src/Network/Packet.cpp
     src/Render/Graph.cpp
     src/Render/Shader.cpp
     src/Render/Renderer.cpp
+    src/UI/ColorRect.cpp
+    src/UI/ItemSlot.cpp
+    src/UI/Label.cpp
+    src/UI/TextureRect.cpp
     src/World/Pass/Flat.cpp
     src/World/Pass/Overworld.cpp
     src/World/Chunk.cpp
@@ -336,13 +342,14 @@ target_link_libraries(${TARGET_NAME} PRIVATE glm::glm-header-only)
 target_link_libraries(${TARGET_NAME}_test PRIVATE glm::glm-header-only)
 
 # FreeType
-# FetchContent_Declare(
-#     FreeType
-#     GIT_REPOSITORY https://github.com/freetype/freetype
-#     GIT_TAG 8a152c824ae08fc3459df5c87e10770fc47f80b1
-# )
-# FetchContent_MakeAvailable(FreeType)
-# target_link_libraries(${TARGET_NAME} PRIVATE freetype)
+FetchContent_Declare(
+    FreeType
+    GIT_REPOSITORY https://github.com/freetype/freetype
+    GIT_TAG 8a152c824ae08fc3459df5c87e10770fc47f80b1
+)
+FetchContent_MakeAvailable(FreeType)
+target_link_libraries(${TARGET_NAME} PRIVATE freetype)
+target_link_libraries(${TARGET_NAME}_test PRIVATE freetype)
 
 # nlohmann/json
 FetchContent_Declare(

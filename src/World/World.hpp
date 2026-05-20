@@ -43,6 +43,7 @@ inline glm::vec3 face_normal(Face face)
 struct RaycastResult
 {
     glm::vec3 pos;
+    glm::vec3 normal;
     float distance;
     /**
      * If true, `entity` is a valid reference to an entity else `block_pos` is valid.
@@ -84,9 +85,9 @@ public:
         m_dims[0].remove_chunk(x, z);
     }
 
-    void remove_entity(size_t dim, EntityId id)
+    void remove_entity(size_t dim, Ref<Entity> entity)
     {
-        m_dims[dim].remove_entity(id);
+        m_dims[dim].remove_entity(entity);
     }
 
     void add_chunk(int64_t x, int64_t z, const Ref<Chunk>& chunk)

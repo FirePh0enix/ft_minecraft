@@ -2,6 +2,7 @@
 
 #include "Core/Error.hpp"
 #include "Core/Format.hpp"
+#include "Core/Math.hpp"
 #include "Core/Ref.hpp"
 #include "Engine.hpp"
 #include "Entity/Entity.hpp"
@@ -243,26 +244,33 @@ Result<Ref<Mesh>> Mesh::create_from_data(const View<uint8_t>& indices, const Vie
     const size_t vertex_count = indices.size() / size_of(index_type);
 
     Ref<Buffer> index_buffer = TRY(Buffer::create(indices.size(), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Index));
-    Ref<Buffer> vertex_buffer = TRY(Buffer::create(positions.size() * sizeof(glm::vec3), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Vertex));
-    Ref<Buffer> normal_buffer = TRY(Buffer::create(normals.size() * sizeof(glm::vec3), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Vertex));
-    Ref<Buffer> uv_buffer = TRY(Buffer::create(uvs.size(), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Vertex));
-
     index_buffer->update(indices.as_bytes());
+
+    Ref<Buffer> vertex_buffer = TRY(Buffer::create(positions.size() * sizeof(glm::vec3), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Vertex));
     vertex_buffer->update(positions.as_bytes());
-    normal_buffer->update(normals.as_bytes());
+
+    Ref<Buffer> uv_buffer = TRY(Buffer::create(uvs.size(), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Vertex));
     uv_buffer->update(uvs.as_bytes());
+
+    Ref<Buffer> normal_buffer;
+    if (normals.size() > 0)
+    {
+        normal_buffer = TRY(Buffer::create(normals.size() * sizeof(glm::vec3), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Vertex));
+        normal_buffer->update(normals.as_bytes());
+    }
 
     return newref<Mesh>(vertex_count, index_type, uv_type, index_buffer, vertex_buffer, normal_buffer, uv_buffer);
 }
 
-Result<Ref<Material>> Material::create(const Ref<Shader>& shader, MaterialFlags flags, WGPUCullMode cull_mode, UVType uv_type, Vector<InstanceAttribute> attributes)
+Result<Ref<Material>> Material::create(const Ref<Shader>& shader, MaterialFlags flags, WGPUCullMode cull_mode, UVType uv_type, Instance instance)
 {
     Ref<Material> material = TRY(newref<Material>());
     material->m_shader = shader;
     material->m_flags = flags;
     material->m_cull_mode = cull_mode;
     material->m_uv_type = uv_type;
-    material->m_attributes = attributes;
+    material->m_attributes = instance.attribs;
+    material->m_instance_stride = instance.stride;
     return material;
 }
 
@@ -410,41 +418,54 @@ Result<WGPURenderPipeline> PipelineCache::get(const Key& key)
     LocalVector<WGPUVertexBufferLayout> buffers;
     TRY(buffers.reserve(3 + key.attributes.size()));
 
+    uint32_t attrib_index = 0;
+
     WGPUVertexAttribute vertex_attrib{};
     vertex_attrib.format = WGPUVertexFormat_Float32x3;
     vertex_attrib.offset = 0;
-    vertex_attrib.shaderLocation = 0;
+    vertex_attrib.shaderLocation = attrib_index++;
     TRY(buffers.append(WGPUVertexBufferLayout{.nextInChain = nullptr, .stepMode = WGPUVertexStepMode_Vertex, .arrayStride = sizeof(glm::vec3), .attributeCount = 1, .attributes = &vertex_attrib}));
 
     WGPUVertexAttribute normal_attrib{};
-    normal_attrib.format = WGPUVertexFormat_Float32x3;
-    normal_attrib.offset = 0;
-    normal_attrib.shaderLocation = 1;
-    TRY(buffers.append(WGPUVertexBufferLayout{.nextInChain = nullptr, .stepMode = WGPUVertexStepMode_Vertex, .arrayStride = sizeof(glm::vec3), .attributeCount = 1, .attributes = &normal_attrib}));
+    if (!key.flags.has_any(MaterialFlagBits::NoNormal))
+    {
+        normal_attrib.format = WGPUVertexFormat_Float32x3;
+        normal_attrib.offset = 0;
+        normal_attrib.shaderLocation = attrib_index++;
+        TRY(buffers.append(WGPUVertexBufferLayout{.nextInChain = nullptr, .stepMode = WGPUVertexStepMode_Vertex, .arrayStride = sizeof(glm::vec3), .attributeCount = 1, .attributes = &normal_attrib}));
+    }
 
     WGPUVertexAttribute uv_attrib{};
-    if (key.uv_type == UVType::UV)
+    if (!key.flags.has_any(MaterialFlagBits::NoUV))
     {
-        uv_attrib.format = WGPUVertexFormat_Float32x2;
-        uv_attrib.offset = 0;
-        uv_attrib.shaderLocation = 2;
-        TRY(buffers.append(WGPUVertexBufferLayout{.nextInChain = nullptr, .stepMode = WGPUVertexStepMode_Vertex, .arrayStride = sizeof(glm::vec2), .attributeCount = 1, .attributes = &uv_attrib}));
-    }
-    else if (key.uv_type == UVType::UVT)
-    {
-        uv_attrib.format = WGPUVertexFormat_Float32x3;
-        uv_attrib.offset = 0;
-        uv_attrib.shaderLocation = 2;
-        TRY(buffers.append(WGPUVertexBufferLayout{.nextInChain = nullptr, .stepMode = WGPUVertexStepMode_Vertex, .arrayStride = sizeof(glm::vec3), .attributeCount = 1, .attributes = &uv_attrib}));
+        if (key.uv_type == UVType::UV)
+        {
+            uv_attrib.format = WGPUVertexFormat_Float32x2;
+            uv_attrib.offset = 0;
+            uv_attrib.shaderLocation = attrib_index++;
+            TRY(buffers.append(WGPUVertexBufferLayout{.nextInChain = nullptr, .stepMode = WGPUVertexStepMode_Vertex, .arrayStride = sizeof(glm::vec2), .attributeCount = 1, .attributes = &uv_attrib}));
+        }
+        else if (key.uv_type == UVType::UVT)
+        {
+            uv_attrib.format = WGPUVertexFormat_Float32x3;
+            uv_attrib.offset = 0;
+            uv_attrib.shaderLocation = attrib_index++;
+            TRY(buffers.append(WGPUVertexBufferLayout{.nextInChain = nullptr, .stepMode = WGPUVertexStepMode_Vertex, .arrayStride = sizeof(glm::vec3), .attributeCount = 1, .attributes = &uv_attrib}));
+        }
     }
 
     LocalVector<WGPUVertexAttribute> attributes;
+    size_t total_size = 0;
     TRY(attributes.reserve(key.attributes.size()));
     for (uint32_t i = 0; i < key.attributes.size(); i++)
     {
         InstanceAttribute attrib = key.attributes.get_unchecked(i);
-        TRY(attributes.append(WGPUVertexAttribute{.nextInChain = nullptr, .format = attrib.format, .offset = 0, .shaderLocation = 3 + i}));
-        TRY(buffers.append(WGPUVertexBufferLayout{.nextInChain = nullptr, .stepMode = WGPUVertexStepMode_Instance, .arrayStride = attrib.stride, .attributeCount = 1, .attributes = &attributes.data()[i]}));
+        TRY(attributes.append(WGPUVertexAttribute{.nextInChain = nullptr, .format = attrib.format, .offset = 0, .shaderLocation = attrib_index + i}));
+        total_size += attrib.stride;
+    }
+    if (key.attributes.size() > 0)
+    {
+        TRY(buffers.append(WGPUVertexBufferLayout{.nextInChain = nullptr, .stepMode = WGPUVertexStepMode_Instance, .arrayStride = total_size, .attributeCount = attributes.size(), .attributes = attributes.data()}));
     }
 
     WGPUShaderModule module = create_shader_module(key.shader);
@@ -868,6 +889,8 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     if (!m_queue)
         return Error(ErrorKind::BadDriver);
 
+    m_env_2d_buffer = TRY(Buffer::create(sizeof(glm::mat4), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform));
+
     TRY(configure_surface(window.size().width, window.size().height, VSync::On));
 
     IMGUI_CHECKVERSION();
@@ -904,13 +927,13 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
 
     m_cube_mesh = TRY(create_cube_mesh());
 
-    Engine::get().block_registry().create_gpu_resources();
+    Engine::get().blocks().create_gpu_resources();
 
     Vector<InstanceAttribute> attributes;
     TRY(attributes.append(InstanceAttribute{.stride = sizeof(glm::vec3), .format = WGPUVertexFormat_Float32x3}));
 
-    m_chunk_material = TRY(Material::create(m_voxel_shader, MaterialFlagBits::Transparency, WGPUCullMode_Back, UVType::UVT, attributes));
-    m_chunk_material->set_param("images", Engine::get().block_registry().get_texture_array());
+    m_chunk_material = TRY(Material::create(m_voxel_shader, MaterialFlagBits::Transparency, WGPUCullMode_Back, UVType::UVT, Instance(attributes, sizeof(glm::vec3))));
+    m_chunk_material->set_param("images", Engine::get().blocks().get_texture_array());
     m_chunk_material->set_param("env", Renderer::get().get_world_environment());
 
     m_simple_shader = TRY(Shader::load("assets/shaders/simple_shape.wgsl"));
@@ -924,6 +947,33 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_item_block_shader->set_binding("images", Binding(BindingKind::Texture, WGPUShaderStage_Fragment, 0, 2, BindingAccess::Read, TextureDimension::D2DArray)); // binding = 3 is the sampler
     m_item_block_shader->set_sampler("images", {.min_filter = WGPUFilterMode_Nearest, .mag_filter = WGPUFilterMode_Nearest});
     m_item_block_shader->create_bind_group_layout();
+
+    std::array<uint16_t, 6> indices{0, 1, 2, 0, 2, 3};
+    std::array<glm::vec3, 4> vertices{
+        glm::vec3(-0.5, -0.5, 0.1),
+        glm::vec3(+0.5, -0.5, 0.1),
+        glm::vec3(+0.5, +0.5, 0.1),
+        glm::vec3(-0.5, +0.5, 0.1),
+    };
+    std::array<glm::vec2, 4> uvs{
+        glm::vec2(0.0, 0.0),
+        glm::vec2(1.0, 0.0),
+        glm::vec2(1.0, 1.0),
+        glm::vec2(0.0, 1.0),
+    };
+    m_square_mesh = TRY(Mesh::create_from_data(View(indices).as_bytes(), vertices, {}, View(uvs).as_bytes(), WGPUIndexFormat_Uint16));
+
+    m_color_rect_shader = TRY(Shader::load("assets/shaders/ui/color_rect.wgsl"));
+    m_color_rect_shader->set_binding("env", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
+    m_color_rect_shader->set_binding("uniforms", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 1, BindingAccess::Read));
+    m_color_rect_shader->create_bind_group_layout();
+
+    m_texture_rect_shader = TRY(Shader::load("assets/shaders/ui/tex_rect.wgsl"));
+    m_texture_rect_shader->set_binding("env", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
+    m_texture_rect_shader->set_binding("uniforms", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 1, BindingAccess::Read));
+    m_texture_rect_shader->set_binding("image", Binding(BindingKind::Texture, WGPUShaderStage_Fragment, 0, 2, BindingAccess::Read, TextureDimension::D2D)); // binding = 3 is the sampler
+    m_texture_rect_shader->set_sampler("image", {.min_filter = WGPUFilterMode_Nearest, .mag_filter = WGPUFilterMode_Nearest});
+    m_texture_rect_shader->create_bind_group_layout();
 
     return Result<void>();
 }
@@ -958,6 +1008,10 @@ Result<void> Renderer::configure_surface(size_t width, size_t height, VSync vsyn
     wgpuSurfaceConfigure(m_surface, &config);
     m_surface_extent = surface_extent;
     m_surface_format = config.format;
+
+    float ratio = float(width) / float(height);
+    glm::mat4 ortho_matrix = glm::ortho(-1.0f * ratio, 1.0f * ratio, -1.0f, 1.0f, -1.0f, 1.0f);
+    m_env_2d_buffer->update(View(ortho_matrix).as_bytes());
 
     return Result<void>();
 }
@@ -1020,6 +1074,7 @@ WGPURenderPipeline Renderer::get_pipeline(Ref<Material> material, const RenderPa
         .flags = material->flags(),
         .cull_mode = material->get_cull_mode(),
         .attributes = material->get_attributes(),
+        .instance_stride = material->get_instance_stride(),
         .has_color_attach = !node.get_color_output().is_null(),
         .has_depth_attach = !node.get_depth_output().is_null(),
     }));
@@ -1030,23 +1085,19 @@ void Renderer::record_world(Renderer& renderer, Ref<World> world, const RenderPa
     const Dimension& dim = world->get_dimension(0);
     const Ref<Camera> camera = world->get_active_camera();
 
-    if (node.is_final_pass())
-        Engine::get().encode_debug_menu();
-
     if (camera.is_null())
     {
         return;
     }
 
-    WorldEnvironment env{
-        .view_matrix = camera->get_view_proj_matrix(),
-    };
+    WorldEnvironment env(camera->get_view_proj_matrix());
     renderer.m_env_buffer->update(View(env).as_bytes());
 
     Ref<Material> material = renderer.m_chunk_material;
 
     for (Ref<Entity> entity : dim.get_entities())
-        entity->draw(node);
+        if (!entity.is_null())
+            entity->draw(node);
 
     WGPURenderPassEncoder encoder = node.encoder();
 
@@ -1084,6 +1135,14 @@ void Renderer::record_world(Renderer& renderer, Ref<World> world, const RenderPa
 
             wgpuRenderPassEncoderDrawIndexed(encoder, mesh->vertex_count(), 1, 0, 0, 0);
         }
+    }
+
+    // TODO: separate UI pass ?
+    if (node.is_final_pass())
+    {
+        for (Ref<Entity> entity : dim.get_entities())
+            entity->draw_ui(node);
+        Engine::get().encode_debug_menu();
     }
 }
 

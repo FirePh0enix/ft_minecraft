@@ -124,6 +124,13 @@ public:
         return value;
     }
 
+    void clear()
+    {
+        for (size_t i = 0; i < m_size; i++)
+            m_data[i].~T();
+        m_size = 0;
+    }
+
     void remove_at(size_t index)
     {
         if (index >= m_size)
@@ -132,6 +139,7 @@ public:
         // TODO: do some testing.
 
         (m_data + index)->~T();
+        m_size -= 1;
         memmove((void *)(m_data + index), (void *)(m_data + index + 1), sizeof(T) * m_size);
     }
 
@@ -145,6 +153,28 @@ public:
                 return;
             }
         }
+    }
+
+    void remove(const T& value)
+    {
+        for (size_t i = 0; i < m_size; i++)
+        {
+            if (value == m_data[i])
+            {
+                remove_at(i);
+                break;
+            }
+        }
+    }
+
+    std::optional<T> find_if(std::function<bool(const T&)> f)
+    {
+        for (size_t i = 0; i < m_size; i++)
+        {
+            if (f(m_data[i]))
+                return m_data[i];
+        }
+        return std::nullopt;
     }
 
     const T& get_unchecked(size_t index) const { return m_data[index]; }

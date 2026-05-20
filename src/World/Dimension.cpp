@@ -31,19 +31,12 @@ void Dimension::remove_chunk(int64_t x, int64_t z)
 
 Result<void> Dimension::add_entity(Ref<Entity> entity)
 {
-    return m_entities.append(entity);
+    return m_entities_to_add.append(entity);
 }
 
-void Dimension::remove_entity(EntityId id)
+void Dimension::remove_entity(Ref<Entity> entity)
 {
-    if (id.is_valid())
-    {
-        m_entities.remove_if(
-            [&](const Ref<Entity>& entity)
-            {
-                return entity->id() == id;
-            });
-    }
+    EXPECT(m_entities_to_remove.append(entity));
 }
 
 Ref<Entity> Dimension::get_entity(EntityId id) const
@@ -82,6 +75,19 @@ Vector<AABB> Dimension::get_boxes_that_may_collide(const AABB& box) const
     }
 
     return boxes;
+}
+
+Vector<Ref<Entity>> Dimension::cast_box(const AABB& box) const
+{
+    Vector<Ref<Entity>> entities;
+
+    for (Ref<Entity>& entity : m_entities)
+    {
+        if (entity->get_aabb().translate(entity->get_position()).intersect(box))
+            EXPECT(entities.append(entity));
+    }
+
+    return entities;
 }
 
 static int64_t local_coords(int64_t g)

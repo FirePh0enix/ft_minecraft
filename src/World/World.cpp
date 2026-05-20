@@ -18,7 +18,7 @@
 #include <thread>
 
 // https://gamedev.stackexchange.com/questions/18436/most-efficient-aabb-vs-ray-collision-algorithms
-bool ray_intersect_aabb(const Ray& ray, const AABB& aabb, float& t_min)
+static bool ray_intersect_aabb(const Ray& ray, const AABB& aabb, float& t_min, glm::vec3& normal)
 {
     glm::vec3 inv_dir = 1.0f / ray.dir();
     glm::vec3 t0s = (aabb.min - ray.origin()) * inv_dir;
@@ -27,13 +27,21 @@ bool ray_intersect_aabb(const Ray& ray, const AABB& aabb, float& t_min)
     glm::vec3 tsmaller = glm::min(t0s, t1s);
     glm::vec3 tbigger = glm::max(t0s, t1s);
 
-    t_min = std::max({tsmaller.x, tsmaller.y, tsmaller.z});
-    float t_max = std::min({tbigger.x, tbigger.y, tbigger.z});
+    t_min = std::max(tsmaller.x, std::max(tsmaller.y, tsmaller.z));
+    float t_max = std::min(tbigger.x, std::min(tbigger.y, tbigger.z));
 
-    if (t_max < 0.0f)
+    if (t_min > t_max)
         return false;
 
-    return t_min <= t_max;
+    const float eps = 1e-6f;
+    if (t_min == tsmaller.x || std::abs(t_min - tsmaller.x) < eps)
+        normal = (inv_dir.x >= 0.0f) ? glm::vec3(-1.0f, 0.0f, 0.0f) : glm::vec3(1.0f, 0.0f, 0.0f);
+    else if (t_min == tsmaller.y || std::abs(t_min - tsmaller.y) < eps)
+        normal = (inv_dir.y >= 0.0f) ? glm::vec3(0.0f, -1.0f, 0.0f) : glm::vec3(0.0f, 1.0f, 0.0f);
+    else
+        normal = (inv_dir.z >= 0.0f) ? glm::vec3(0.0f, 0.0f, -1.0f) : glm::vec3(0.0f, 0.0f, 1.0f);
+
+    return true;
 }
 
 World::World(uint64_t seed, int type)
@@ -67,7 +75,7 @@ void World::find_safe_spawn()
 {
     srand(0);
     glm::vec3 water_spawn_position;
-    uint16_t water_id = Engine::get().block_registry().get_block_id("water");
+    uint16_t water_id = Engine::get().blocks().get_block_id("water");
     bool found = false;
     size_t i;
 
@@ -123,9 +131,21 @@ void World::tick(float delta)
     {
         if (entity->is_active())
             entity->recurse_tick(delta);
-        // else
-        //     remove_entity(entity->m_dimension, entity->id());
+        else
+            remove_entity(entity->m_dimension, entity);
     }
+
+    for (Ref<Entity> entity : m_dims[0].m_entities_to_remove)
+    {
+        m_dims[0].m_entities.remove(entity);
+    }
+    m_dims[0].m_entities_to_remove.clear();
+    for (Ref<Entity> entity : m_dims[0].m_entities_to_add)
+    {
+        EXPECT(m_dims[0].m_entities.append(entity));
+        // entity->recurse_tick(delta);
+    }
+    m_dims[0].m_entities_to_add.clear();
 
     if (!m_proxy)
     {
@@ -241,11 +261,12 @@ bool World::raycast(const Ray& ray, float range, RaycastResult& result)
     float t_min = std::numeric_limits<float>::infinity();
     glm::i64vec3 block_pos;
     Ref<Entity> entity;
+    glm::vec3 normal;
 
     for (const Ref<Entity>& e : m_dims[overworld].get_entities())
     {
         float t = 0.0f;
-        if (ray_intersect_aabb(ray, e->m_aabb, t) && t < t_min)
+        if (ray_intersect_aabb(ray, e->m_aabb, t, normal) && t < t_min)
         {
             t_min = t;
             hit = true;
@@ -260,7 +281,7 @@ bool World::raycast(const Ray& ray, float range, RaycastResult& result)
         glm::vec3 pos = ray.at(d);
         glm::i64vec3 ipos(glm::round(pos));
         float t;
-        if (!get_block_state(ipos.x, ipos.y, ipos.z).is_air() && ray_intersect_aabb(ray, AABB(-glm::vec3(0.5), glm::vec3(0.5)).translate(pos), t) && t < t_min)
+        if (!get_block_state(ipos.x, ipos.y, ipos.z).is_air() && ray_intersect_aabb(ray, AABB(-glm::vec3(0.5), glm::vec3(0.5)).translate(pos), t, normal) && t < t_min)
         {
             t_min = t;
             hit = true;
@@ -276,6 +297,7 @@ bool World::raycast(const Ray& ray, float range, RaycastResult& result)
         result.pos = ray.at(t_min);
         result.distance = t_min;
         result.block_pos = block_pos;
+        result.normal = normal;
         return true;
     }
     return false;
@@ -286,7 +308,7 @@ void World::break_block(int64_t x, int64_t y, int64_t z)
     BlockState state = get_block_state(x, y, z);
     set_block_state(x, y, z, BlockState());
 
-    Ref<Block> block = Engine::get().block_registry().get_block_by_id(state.id);
+    Ref<Block> block = Engine::get().blocks().get_block_by_id(state.id);
     Ref<ItemEntity> item_entity = EXPECT(newref<ItemEntity>(block));
     item_entity->set_position(glm::vec3(x, y, z) + glm::vec3(rand_float(-0.6, 0.6), 0, rand_float(-0.6, 0.6)));
 

@@ -5,7 +5,7 @@
 #include <cstdio>
 
 #ifndef STACKTRACE_SIZE
-#define STACKTRACE_SIZE 10
+#define STACKTRACE_SIZE 31
 #endif
 
 struct Stacktrace
@@ -19,7 +19,7 @@ struct Stacktrace
 
     bool stop_at_main = true;
 
-    Frame frames[STACKTRACE_SIZE];
+    Frame frames[STACKTRACE_SIZE]{};
     size_t length = 0;
     size_t total_length = 0;
     bool non_exhaustive = false;

@@ -4,10 +4,10 @@
 #include "Core/Math.hpp"
 #include "Engine.hpp"
 #include "Entity/Entity.hpp"
+#include "Entity/Item.hpp"
 #include "Input.hpp"
 #include "Model.hpp"
 #include "Network/Packet.hpp"
-#include "Profiler.hpp"
 #include "Render/Renderer.hpp"
 #include "World/World.hpp"
 
@@ -20,6 +20,10 @@ Player::Player()
 
 void Player::on_ready()
 {
+    m_inventory = EXPECT(newref<Inventory>());
+    m_inventory->set_quick_stack(0, ItemStack(Engine::get().blocks().get_block_by_name("stone"), 16));
+    m_inventory->set_quick_stack(1, ItemStack(Engine::get().blocks().get_block_by_name("dirt"), 16));
+
     if (m_local_player)
     {
         m_camera = EXPECT(newref<Camera>());
@@ -46,22 +50,60 @@ void Player::on_ready()
 
 void Player::tick(float delta)
 {
-    ZoneScopedN("Player::tick");
-
-    if (Input::is_action_pressed("attack") && !Input::is_mouse_grabbed())
+    if (Input::is_action_pressed("attack") && !Input::is_mouse_grabbed() && !m_open_inventory && m_local_player)
     {
         Input::set_mouse_grabbed(true);
     }
-    else if (Input::is_action_pressed("escape") && Input::is_mouse_grabbed())
+    else if (Input::is_action_pressed("escape") && Input::is_mouse_grabbed() && m_local_player)
     {
         Input::set_mouse_grabbed(false);
+    }
+
+    if (Input::is_action_just_pressed("open_inventory"))
+    {
+        m_open_inventory = !m_open_inventory;
+        m_inventory->set_open(m_open_inventory);
+        Input::set_mouse_grabbed(!m_open_inventory);
+    }
+
+    if (m_local_player)
+    {
+        if (Input::is_action_just_pressed("1"))
+            set_slot(0);
+        if (Input::is_action_just_pressed("2"))
+            set_slot(1);
+        if (Input::is_action_just_pressed("3"))
+            set_slot(2);
+        if (Input::is_action_just_pressed("4"))
+            set_slot(3);
+        if (Input::is_action_just_pressed("5"))
+            set_slot(4);
+        if (Input::is_action_just_pressed("6"))
+            set_slot(5);
+        if (Input::is_action_just_pressed("7"))
+            set_slot(6);
+        if (Input::is_action_just_pressed("8"))
+            set_slot(7);
+        if (Input::is_action_just_pressed("9"))
+            set_slot(8);
+    }
+
+    AABB item_box = get_aabb().translate(get_position()).grow(glm::vec3(0.5));
+    Vector<Ref<Entity>> entities = m_world->get_dimension(World::overworld).cast_box(item_box);
+    for (const Ref<Entity>& entity : entities)
+    {
+        if (Ref<ItemEntity> item = entity.cast_to<ItemEntity>())
+        {
+            m_inventory->add_stack(ItemStack(item->get_block(), 1));
+            m_world->remove_entity(World::overworld, item);
+        }
     }
 
     Transform3D transform = m_transform;
 
     const glm::vec3 up(0.0, 1.0, 0.0);
 
-    if (Input::is_mouse_grabbed() && m_local_player)
+    if (are_input_available() && m_local_player)
     {
         constexpr float mouse_sensibility = 0.03f;
 
@@ -80,7 +122,7 @@ void Player::tick(float delta)
         camera->get_transform() = camera_transform;
     }
 
-    if (m_local_player)
+    if (m_local_player && are_input_available())
     {
         RaycastResult result;
         if (m_world->raycast(Ray(m_camera->get_global_transform().position(), m_camera->get_global_transform().forward()), 4.0f, result))
@@ -132,6 +174,16 @@ void Player::tick(float delta)
                 m_destroy_ticks = 0;
                 m_is_destroing = false;
             }
+
+            if (Input::is_action_just_pressed("interact"))
+            {
+                ItemStack& stack = m_inventory->get_quick_stack(m_slot);
+                if (!stack.get_block().is_null() && m_world->get_block_state(result.block_pos.x + int64_t(result.normal.x), result.block_pos.y + int64_t(result.normal.y), result.block_pos.z + int64_t(result.normal.z)).is_air())
+                {
+                    m_world->set_block_state(result.block_pos.x + int64_t(result.normal.x), result.block_pos.y + int64_t(result.normal.y), result.block_pos.z + int64_t(result.normal.z), BlockState(stack.get_block()->id()));
+                    stack.set_count(stack.count() - 1);
+                }
+            }
         }
         else
         {
@@ -145,18 +197,18 @@ void Player::tick(float delta)
     const glm::vec2 dir = Input::get_vector("left", "right", "backward", "forward");
 
     float updown_dir = 0.0;
-    if (Input::is_mouse_grabbed() && !has_gravity() && m_local_player)
+    if (are_input_available() && !has_gravity() && m_local_player)
     {
         updown_dir = Input::get_action_value("jump") - Input::get_action_value("down");
     }
 
-    if (Input::is_mouse_grabbed() && (glm::length2(dir) != 0.0 || updown_dir != 0.0) && m_local_player)
+    if (are_input_available() && (glm::length2(dir) != 0.0 || updown_dir != 0.0) && m_local_player)
     {
         glm::vec3 move = glm::normalize(forward * dir.y + right * dir.x + up * updown_dir) * m_speed;
         m_velocity += move * delta;
     }
 
-    if (Input::is_mouse_grabbed() && m_on_ground && Input::is_action_just_pressed("jump"))
+    if (are_input_available() && m_on_ground && Input::is_action_just_pressed("jump"))
     {
         m_velocity += glm::vec3(0, 1, 0) * m_jump_force;
     }
@@ -177,19 +229,16 @@ void Player::tick(float delta)
     else
         m_velocity.y = 0.0;
 
-    if (Input::is_action_pressed("attack") && !Input::is_mouse_grabbed() && m_local_player)
-    {
-        Input::set_mouse_grabbed(true);
-    }
-    else if (Input::is_action_pressed("escape") && Input::is_mouse_grabbed() && m_local_player)
-    {
-        Input::set_mouse_grabbed(false);
-    }
-
     if (!m_local_player)
     {
         m_animator.play("walk");
         m_animator.tick(delta);
+    }
+
+    if (m_local_player)
+    {
+        m_inventory->set_selected_slot(m_slot);
+        m_inventory->update(delta);
     }
 
     if (m_local_player && Engine::get().is_online() && !Engine::get().is_server())
@@ -208,14 +257,20 @@ void Player::draw(const RenderPassNode& node)
     {
         m_model->encode(node, get_global_transform());
     }
-    else
+
+    if (m_local_player && m_aimed_block.has_value())
     {
-        if (m_aimed_block.has_value())
-        {
-            SimpleUniforms uniforms(glm::translate(glm::identity<glm::mat4>(), glm::vec3(m_aimed_block.value())) * glm::scale(glm::identity<glm::mat4>(), glm::vec3(1.01f)), glm::vec4(aim_color, 0.4));
-            m_aim_buffer->update(View(uniforms).as_bytes());
-            Renderer::get().record_simple_shape(node, m_aim_material);
-        }
+        SimpleUniforms uniforms(glm::translate(glm::identity<glm::mat4>(), glm::vec3(m_aimed_block.value())) * glm::scale(glm::identity<glm::mat4>(), glm::vec3(1.01f)), glm::vec4(aim_color, 0.4));
+        m_aim_buffer->update(View(uniforms).as_bytes());
+        Renderer::get().record_simple_shape(node, m_aim_material);
+    }
+}
+
+void Player::draw_ui(const RenderPassNode& node)
+{
+    if (m_local_player)
+    {
+        m_inventory->draw(node);
     }
 }
 

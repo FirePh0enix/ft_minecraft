@@ -121,17 +121,24 @@ public:
     /**
      * Clear the content of the vector and free the memory.
      */
-    Result<void> clear()
+    void clear()
     {
         if (!m_references)
         {
-            return Result<void>();
+            return;
         }
 
-        TRY(copy_on_write());
+        if (*m_references == 1)
+        {
+            for (size_t i = 0; i < m_size; i++)
+                m_data[i].~T();
+        }
 
-        unref();
-        return Result<void>();
+        *m_references -= 1;
+        m_size = 0;
+        m_capacity = 0;
+        m_data = nullptr;
+        m_references = nullptr;
     }
 
     Result<void> clear_keep_capacity()

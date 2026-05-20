@@ -62,8 +62,8 @@ class Block : public Object
     CLASS(Block, Object);
 
 public:
-    Block(String name, const std::array<String, 6>& textures, GradientType gradient_type = GradientType::None, bool transparent = false)
-        : m_name(name), m_textures(textures), m_texture_ids({0, 0, 0, 0, 0, 0}), m_gradient_type(gradient_type), m_transparent(transparent)
+    Block(String name, uint16_t id, const std::array<String, 6>& textures, GradientType gradient_type = GradientType::None, bool transparent = false)
+        : m_name(name), m_id(id), m_textures(textures), m_texture_ids({0, 0, 0, 0, 0, 0}), m_gradient_type(gradient_type), m_transparent(transparent)
     {
     }
 
@@ -71,6 +71,8 @@ public:
     {
         return m_name;
     }
+
+    uint16_t id() const { return m_id; }
 
     void set_texture_ids(const std::array<uint32_t, 6>& texture_ids)
     {
@@ -109,6 +111,7 @@ public:
 
 private:
     String m_name;
+    uint16_t m_id;
     std::array<String, 6> m_textures;
     std::array<uint32_t, 6> m_texture_ids; // [+Z, -Z, +X, -X, +Y, -Y]
     GradientType m_gradient_type;

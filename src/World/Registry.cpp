@@ -88,8 +88,8 @@ Result<void> BlockRegistry::register_block(StringView name)
     for (size_t i = 0; i < 6; i++)
         textures[i].append(block_json.faces[i].data());
 
-    Ref<Block> block = EXPECT(newref<Block>(names, textures, block_json.gradient.value_or(GradientType::None), block_json.transparent));
     const uint16_t id = m_blocks.size() + 1;
+    Ref<Block> block = EXPECT(newref<Block>(names, id, textures, block_json.gradient.value_or(GradientType::None), block_json.transparent));
 
     (void)m_blocks.append(block);
     m_blocks_by_name[block->name()] = id;
@@ -116,6 +116,12 @@ void BlockRegistry::create_gpu_resources()
     for (const auto& surface : m_textures)
     {
         m_texture_array->update(View((uint8_t *)surface->pixels, surface->w * surface->h * 4), index);
+
+        Ref<Texture> texture = EXPECT(Texture::create(16, 16, WGPUTextureFormat_RGBA8Unorm, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding, TextureDimension::D2D));
+        texture->update(View((uint8_t *)surface->pixels, surface->w * surface->h * 4));
+
+        // TODO: create textureview instead of duplicating data in memory.
+        EXPECT(m_texture_handles.append(texture));
         index++;
     }
 

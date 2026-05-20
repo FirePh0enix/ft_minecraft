@@ -5,6 +5,7 @@
 #include "Core/Class.hpp"
 #include "Entity/Entity.hpp"
 #include "Entity/Player.hpp"
+#include "Font.hpp"
 #include "Network/Network.hpp"
 #include "Render/Graph.hpp"
 #include "Render/Renderer.hpp"
@@ -48,10 +49,12 @@ public:
 
     bool is_online() const { return m_connection.state() == ConnectionState::Idle; }
 
-    BlockRegistry& block_registry() { return m_block_registry; }
-    EntityRegistry& entity_registry() { return m_entity_registry; }
+    BlockRegistry& blocks() { return m_block_registry; }
+    EntityRegistry& entities() { return m_entity_registry; }
 
     Ref<Player> get_player() const { return m_player; }
+
+    Ref<Font> get_font() const { return m_font; }
 
     void encode_debug_menu();
 
@@ -78,6 +81,8 @@ private:
 
     Ref<Texture> m_depth_texture;
     Ref<Texture> m_color_texture;
+
+    Ref<Font> m_font;
 
     float m_last_second_timer_time = 0.0;
     size_t m_current_memory_usage = 0;

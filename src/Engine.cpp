@@ -56,6 +56,9 @@ Engine::Engine(const Args& args)
     depth_pass->set_next(color_pass);
     m_graph.set_root(depth_pass);
 
+    EXPECT(Font::init_library());
+    m_font = EXPECT(Font::create("assets/fonts/Anonymous.ttf", 32));
+
     m_console.register_command("tp", {
                                          CmdArgInfo(CmdArgKind::Int, "x"),
                                          CmdArgInfo(CmdArgKind::Int, "y"),
@@ -170,14 +173,14 @@ void Engine::tick(float delta)
     {
         m_world->tick(delta);
 
-        if (is_server() && is_online())
-        {
-            for (Ref<Entity> entity : m_world->get_dimension(0).get_entities())
-            {
-                UpdateEntityPacket p(entity->id(), entity->get_transform().position(), entity->get_transform().rotation());
-                m_connection.broadcast(m_connection.create_packet(p));
-            }
-        }
+        // if (is_server() && is_online())
+        // {
+        //     for (Ref<Entity> entity : m_world->get_dimension(0).get_entities())
+        //     {
+        //         UpdateEntityPacket p(entity->id(), entity->get_transform().position(), entity->get_transform().rotation());
+        //         m_connection.broadcast(m_connection.create_packet(p));
+        //     }
+        // }
     }
     break;
     }
@@ -313,9 +316,9 @@ void Engine::create_world_and_start()
     m_player->get_transform().position() = m_world->get_spawn_position();
     m_world->add_entity(World::overworld, m_player);
 
-    Ref<Entity> cow = EXPECT(newref<Cow>());
-    cow->get_transform().position() = glm::vec3(0.0f, 2.0f, 0.0f);
-    m_world->add_entity(World::overworld, cow);
+    // Ref<Entity> cow = EXPECT(newref<Cow>());
+    // cow->get_transform().position() = glm::vec3(0.0f, 2.0f, 0.0f);
+    // m_world->add_entity(World::overworld, cow);
 
     m_scene = EngineScene::World;
     m_authority = RpcTarget::Server;
@@ -337,6 +340,7 @@ void Engine::connect_to_remote_world()
 void Engine::exit()
 {
     m_connection.close();
+    Font::deinit_library();
 }
 
 void Engine::receive_client(void *user, NetworkConnection& conn, ENetPacket *packet, const Client& client)
@@ -394,7 +398,8 @@ void Engine::receive_client(void *user, NetworkConnection& conn, ENetPacket *pac
         EXPECT(deserialize(buffer, p));
 
         debug("remove entity (id = {})", (uint32_t)p.id);
-        self->m_world->remove_entity(0, p.id);
+        // FIXME
+        // self->m_world->remove_entity(0, p.id);
     }
     break;
     case PacketType::UpdateEntity:

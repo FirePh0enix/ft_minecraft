@@ -51,6 +51,11 @@ public:
 
     static glm::vec2 get_mouse_relative();
 
+    /**
+     * Mouse coordinates in the same range as the UI with X in [-w/h, +w/h] and Y [-1, 1].
+     */
+    static glm::vec2 get_mouse_absolute();
+
     static void post_events();
 
     static void process_event(SDL_Event event);

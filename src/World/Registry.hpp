@@ -22,7 +22,7 @@ public:
     /**
      * @brief Returns the block id for `name` or `0`.
      */
-    uint16_t get_block_id(const String& name)
+    uint16_t get_block_id(const StringView& name)
     {
         const auto& el = m_blocks_by_name.find(name);
         if (el == m_blocks_by_name.end())
@@ -37,6 +37,11 @@ public:
         return m_blocks.get_unchecked(id - 1);
     }
 
+    const Ref<Block>& get_block_by_name(const StringView& name)
+    {
+        return m_blocks.get_unchecked(get_block_id(name) - 1);
+    }
+
     void create_gpu_resources();
 
     inline const Ref<Texture>& get_texture_array()
@@ -44,11 +49,17 @@ public:
         return m_texture_array;
     }
 
+    inline const Ref<Texture>& get_texture(size_t index)
+    {
+        return m_texture_handles.get_unchecked(index);
+    }
+
 private:
     LocalVector<Ref<Block>> m_blocks;
     std::map<String, uint16_t> m_blocks_by_name;
     std::map<String, uint32_t> m_texture_by_name;
     Vector<SDL_Surface *> m_textures;
+    LocalVector<Ref<Texture>> m_texture_handles;
     Ref<Texture> m_texture_array;
     Ref<Buffer> m_texture_registry_buffer;
 

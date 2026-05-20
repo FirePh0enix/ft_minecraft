@@ -4,6 +4,8 @@
 #include "Entity/Camera.hpp"
 #include "Entity/Entity.hpp"
 #include "Entity/Mob.hpp"
+#include "Input.hpp"
+#include "Item/Inventory.hpp"
 #include "Model.hpp"
 #include "Render/Graph.hpp"
 
@@ -24,6 +26,7 @@ public:
 
     virtual void tick(float delta) override;
     virtual void draw(const RenderPassNode& node) override;
+    virtual void draw_ui(const RenderPassNode& node) override;
 
     void on_ready() override;
 
@@ -37,6 +40,12 @@ public:
     virtual void on_hit_by(Entity& entity) override;
 
     bool has_gravity() const { return m_gamemode == GameMode::Survival; }
+
+    void set_slot(size_t slot)
+    {
+        m_slot = slot;
+        m_inventory->set_selected_slot(slot);
+    }
 
 protected:
     void die() override;
@@ -57,13 +66,20 @@ private:
     Ref<Model> m_model;
     Animator m_animator;
 
+    Ref<Inventory> m_inventory;
+    size_t m_slot = 0;
+
+    bool m_open_inventory = false;
+
     /**
      * Player class is a little special since its behavor is different if this is the local or remote.
      */
     bool m_local_player = true;
 
-    static constexpr size_t max_destroy_ticks = 60;
+    static constexpr size_t max_destroy_ticks = 35;
     size_t m_destroy_ticks = 0;
     glm::i64vec3 m_destroy_block_pos = glm::i64vec3();
     bool m_is_destroing = false;
+
+    bool are_input_available() { return Input::is_mouse_grabbed() && !m_open_inventory; }
 };

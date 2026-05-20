@@ -12,9 +12,9 @@
 
 OverworldSurfacePass::OverworldSurfacePass()
 {
-    m_dirt_id = Engine::get().block_registry().get_block_id("dirt");
-    m_grass_id = Engine::get().block_registry().get_block_id("grass");
-    m_water_id = Engine::get().block_registry().get_block_id("water");
+    m_dirt_id = Engine::get().blocks().get_block_id("dirt");
+    m_grass_id = Engine::get().blocks().get_block_id("grass");
+    m_water_id = Engine::get().blocks().get_block_id("water");
 }
 
 BlockState OverworldSurfacePass::generate_block(int64_t x, int64_t y, int64_t z)

@@ -13,6 +13,8 @@ public:
     virtual void tick(float delta) override;
     virtual void draw(const RenderPassNode& node) override;
 
+    Ref<Block> get_block() const { return m_block; }
+
 private:
     Ref<Material> m_material;
     Ref<Block> m_block;

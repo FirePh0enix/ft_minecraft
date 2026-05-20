@@ -151,12 +151,12 @@ Result<void> Chunk::build_simple_mesh(size_t slice_index)
                 if (m_blocks[index].is_air())
                     continue;
 
-                const Ref<Block>& block = Engine::get().block_registry().get_block_by_id(m_blocks[index].id);
+                const Ref<Block>& block = Engine::get().blocks().get_block_by_id(m_blocks[index].id);
 
-#define FACE_NEEDS_RENDER(state, block)                                                                        \
-    (state.is_air() ||                                                                                         \
-     (block->is_tranparent() && !Engine::get().block_registry().get_block_by_id(state.id)->is_tranparent()) || \
-     (!block->is_tranparent() && Engine::get().block_registry().get_block_by_id(state.id)->is_tranparent()))
+#define FACE_NEEDS_RENDER(state, block)                                                                \
+    (state.is_air() ||                                                                                 \
+     (block->is_tranparent() && !Engine::get().blocks().get_block_by_id(state.id)->is_tranparent()) || \
+     (!block->is_tranparent() && Engine::get().blocks().get_block_by_id(state.id)->is_tranparent()))
 
                 if (x == 0 || FACE_NEEDS_RENDER(m_blocks[linearize(x - 1, y, z)], block))
                     TRY(faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::X, false, block->get_texture_index(Axis::X, false))));
@@ -229,11 +229,11 @@ Result<void> Chunk::build_simple_mesh(size_t slice_index)
 
 Result<void> CompressedChunk::compress(Ref<Chunk> chunk)
 {
-    TRY(m_compressed_blocks.clear());
-    TRY(m_compressed_nodes.clear());
+    m_compressed_blocks.clear();
+    m_compressed_nodes.clear();
 
-    TRY(m_compressed_biome_nodes.clear());
-    TRY(m_compressed_biomes.clear());
+    m_compressed_biome_nodes.clear();
+    m_compressed_biomes.clear();
 
     const BlockState *chunk_blocks = chunk->get_blocks();
     const Biome *chunk_biomes = chunk->get_biomes();

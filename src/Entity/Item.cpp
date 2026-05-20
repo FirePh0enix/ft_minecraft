@@ -19,7 +19,7 @@ ItemEntity::ItemEntity(Ref<Block> block)
     m_material = EXPECT(Material::create(Renderer::get().get_item_block_shader(), MaterialFlagBits::None, WGPUCullMode_Back, UVType::UV));
     m_material->set_param("env", Renderer::get().get_world_environment());
     m_material->set_param("model", m_model_buffer);
-    m_material->set_param("images", Engine::get().block_registry().get_texture_array());
+    m_material->set_param("images", Engine::get().blocks().get_texture_array());
 }
 
 void ItemEntity::tick(float delta)

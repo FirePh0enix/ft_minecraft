@@ -1,7 +1,6 @@
 #pragma once
 
 #include "AABB.hpp"
-#include "Core/Containers/HashMap.hpp"
 #include "Core/Containers/LocalVector.hpp"
 #include "Entity/Entity.hpp"
 #include "World/Chunk.hpp"
@@ -28,7 +27,7 @@ public:
 
     Ref<Entity> get_entity(EntityId id) const;
     Result<void> add_entity(Ref<Entity> entity);
-    void remove_entity(EntityId id);
+    void remove_entity(Ref<Entity> entity);
 
     ALWAYS_INLINE const std::map<ChunkPos, Ref<Chunk>>& get_chunks() const { return m_chunks; }
 
@@ -37,6 +36,7 @@ public:
     std::mutex& mutex() { return m_chunk_mutex; }
 
     Vector<AABB> get_boxes_that_may_collide(const AABB& box) const;
+    Vector<Ref<Entity>> cast_box(const AABB& box) const;
 
     BlockState get_block(int64_t x, int64_t y, int64_t z) const;
     void set_block(int64_t x, int64_t y, int64_t z, BlockState state);
@@ -49,6 +49,9 @@ public:
 private:
     std::mutex m_chunk_mutex;
     LocalVector<Ref<Entity>> m_entities;
+
+    LocalVector<Ref<Entity>> m_entities_to_add;
+    LocalVector<Ref<Entity>> m_entities_to_remove;
 
     /**
      * Chunks loaded in memory. Could also be called `Simulated chunks`.

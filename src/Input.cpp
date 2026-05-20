@@ -1,5 +1,6 @@
 #include "Input.hpp"
 #include "SDL3/SDL_mouse.h"
+#include "SDL3/SDL_video.h"
 
 void Input::init(const Window& window)
 {
@@ -36,6 +37,19 @@ void Input::load_config()
 
     Input::add_action("escape");
     Input::add_action_mapping("escape", ActionMapping(ActionMappingKind::Key, SDLK_ESCAPE));
+
+    Input::add_action("open_inventory");
+    Input::add_action_mapping("open_inventory", ActionMapping(ActionMappingKind::Key, SDLK_E));
+
+    Input::add_action_mapping("1", ActionMapping(ActionMappingKind::Key, SDLK_1));
+    Input::add_action_mapping("2", ActionMapping(ActionMappingKind::Key, SDLK_2));
+    Input::add_action_mapping("3", ActionMapping(ActionMappingKind::Key, SDLK_3));
+    Input::add_action_mapping("4", ActionMapping(ActionMappingKind::Key, SDLK_4));
+    Input::add_action_mapping("5", ActionMapping(ActionMappingKind::Key, SDLK_5));
+    Input::add_action_mapping("6", ActionMapping(ActionMappingKind::Key, SDLK_6));
+    Input::add_action_mapping("7", ActionMapping(ActionMappingKind::Key, SDLK_7));
+    Input::add_action_mapping("8", ActionMapping(ActionMappingKind::Key, SDLK_8));
+    Input::add_action_mapping("9", ActionMapping(ActionMappingKind::Key, SDLK_9));
 }
 
 bool Input::is_action_pressed(const String& action)
@@ -83,6 +97,17 @@ bool Input::is_mouse_grabbed()
 glm::vec2 Input::get_mouse_relative()
 {
     return s_mouse_relative;
+}
+
+glm::vec2 Input::get_mouse_absolute()
+{
+    float x, y;
+    SDL_GetMouseState(&x, &y);
+
+    int w, h;
+    SDL_GetWindowSize(s_window, &w, &h);
+
+    return ((glm::vec2(x, y) / glm::vec2(w - 1, h - 1)) * 2.0f - 1.0f) * glm::vec2(float(w) / float(h), -1.0f);
 }
 
 void Input::post_events()
