@@ -310,7 +310,7 @@ void Engine::create_world_and_start()
     m_connection.set_packet_handler(&Engine::receive_server, this);
 
     uint64_t seed = StringView(m_world_seed_buf).parse_int<uint64_t>();
-    m_world = EXPECT(newref<World>(seed, m_main_menu_world_type));
+    m_world = EXPECT(World::create("unamed", seed, m_main_menu_world_type));
 
     m_player = EXPECT(newref<Player>());
     m_player->get_transform().position() = m_world->get_spawn_position();

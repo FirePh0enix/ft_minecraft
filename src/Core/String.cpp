@@ -102,7 +102,7 @@ void String::append(const char *str, size_t size)
         }
 
         memcpy(large.ptr + large.size, str, size);
-        large.ptr[new_size] = '0';
+        large.ptr[new_size] = '\0';
         large.size = new_size;
     }
 }

@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Core/Containers/Vector.hpp"
-#include "Core/Containers/View.hpp"
 #include "Core/Definitions.hpp"
 #include "Core/Hasher.hpp"
 #include "Render/Renderer.hpp"
@@ -132,32 +131,37 @@ private:
 
     int64_t m_x;
     int64_t m_z;
+
+    bool modified : 1 = false;
 };
 
-class CompressedChunk
+struct CompressedChunk
 {
 public:
-    CompressedChunk();
+    CompressedChunk()
+        : compressed_slice_mask(0)
+    {
+    }
 
     CompressedChunk(Vector<BlockState> compressed_blocks, Vector<ChunkNode> compressed_nodes, uint16_t compressed_slice_mask, Vector<Biome> compressed_biomes, Vector<ChunkBiomeNode> compressed_biome_nodes)
-        : m_compressed_blocks(compressed_blocks), m_compressed_nodes(compressed_nodes), m_compressed_slice_mask(compressed_slice_mask), m_compressed_biomes(compressed_biomes), m_compressed_biome_nodes(compressed_biome_nodes)
+        : compressed_blocks(compressed_blocks), compressed_nodes(compressed_nodes), compressed_slice_mask(compressed_slice_mask), compressed_biomes(compressed_biomes), compressed_biome_nodes(compressed_biome_nodes)
     {
     }
 
     Result<void> compress(Ref<Chunk> chunk);
     Result<void> uncompress(Ref<Chunk> chunk) const;
 
-    View<BlockState> get_blocks() const { return m_compressed_blocks; }
-    View<ChunkNode> get_nodes() const { return m_compressed_nodes; }
+    //     View<BlockState> get_blocks() const { return m_compressed_blocks; }
+    //     View<ChunkNode> get_nodes() const { return m_compressed_nodes; }
 
-    View<Biome> get_biomes() const { return m_compressed_biomes; }
-    View<ChunkBiomeNode> get_biome_nodes() const { return m_compressed_biome_nodes; }
+    //     View<Biome> get_biomes() const { return m_compressed_biomes; }
+    //     View<ChunkBiomeNode> get_biome_nodes() const { return m_compressed_biome_nodes; }
 
-private:
-    Vector<BlockState> m_compressed_blocks;
-    Vector<ChunkNode> m_compressed_nodes;
-    uint16_t m_compressed_slice_mask;
+    // private:
+    Vector<BlockState> compressed_blocks;
+    Vector<ChunkNode> compressed_nodes;
+    uint16_t compressed_slice_mask;
 
-    Vector<Biome> m_compressed_biomes;
-    Vector<ChunkBiomeNode> m_compressed_biome_nodes;
+    Vector<Biome> compressed_biomes;
+    Vector<ChunkBiomeNode> compressed_biome_nodes;
 };

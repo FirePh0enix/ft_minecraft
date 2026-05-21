@@ -11,7 +11,7 @@
 
 #include <cstddef>
 
-enum WorldPresetType
+enum WorldPresetType : uint32_t
 {
     WorldPresetFlat,
     WorldPresetNormal,
@@ -54,6 +54,39 @@ struct RaycastResult
     Ref<Entity> entity;
 };
 
+/**
+ * -> ~/.local/share/ft_minecraft/saves/
+ *    -> <name>
+ *       -> info.dat
+ *       -> DIM0
+ *          -> <x>$<y>
+ *             -> blocks.dat
+ *             -> entities.dat
+ *       -> DIM1
+ */
+
+struct WorldSaveInfo
+{
+    uint64_t seed;
+    WorldPresetType type;
+};
+
+struct WorldBlocks
+{
+    uint16_t padding0;
+    uint16_t chunk_slice_mask;
+
+    uint32_t blocks_offset;
+    uint32_t blocks_len;
+    uint32_t blocks_tree_offset;
+    uint32_t blocks_tree_len;
+
+    uint32_t biomes_offset;
+    uint32_t biomes_len;
+    uint32_t biomes_tree_offset;
+    uint32_t biomes_tree_len;
+};
+
 class World : public Object
 {
     CLASS(World, Object);
@@ -66,11 +99,14 @@ public:
     static constexpr size_t underworld = 1;
     static constexpr size_t max_dimensions = 2;
 
-    World(uint64_t seed);
-    World(uint64_t seed, int type);
+    World();
+    // World(uint64_t seed);
+    // World(uint64_t seed, int type);
     ~World();
 
+    static Result<Ref<World>> create(String name, uint64_t seed, int type);
     static Result<Ref<World>> create_proxy(uint64_t seed);
+    static Result<Ref<World>> load(StringView name);
 
     void tick(float delta);
 
@@ -144,6 +180,11 @@ public:
      */
     void break_block(int64_t x, int64_t y, int64_t z);
 
+    /**
+     * Save chunk to the disk.
+     */
+    Result<void> save_chunk(const Ref<Chunk>& chunk);
+
     static EntityId next_id()
     {
         static uint32_t id = 0;
@@ -152,7 +193,8 @@ public:
     }
 
 private:
-    uint64_t m_seed;
+    uint64_t m_seed = 0;
+    String m_name;
 
     std::array<Dimension, max_dimensions> m_dims;
 

@@ -18,3 +18,5 @@ imgui.ini
 config.ini
 /.local
 *.spv
+/appdata
+/config

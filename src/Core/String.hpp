@@ -111,7 +111,7 @@ public:
     void resize(size_t new_size);
 
     void append(const char *str, size_t size);
-    void append(const String& str) { append(str.data(), str.size()); }
+    void append(const StringView& str) { append(str.data(), str.size()); }
     void append(char c) { append(&c, 1); }
 
     bool contains(char c) const { return StringView(*this).contains(c); }

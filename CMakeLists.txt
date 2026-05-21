@@ -60,7 +60,6 @@ list(APPEND SOURCES
     src/World/Dimension.cpp
     src/World/Generator.cpp
     src/World/Registry.cpp
-    src/World/Save.cpp
     src/World/World.cpp
 )
 

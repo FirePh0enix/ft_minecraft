@@ -1,7 +1,9 @@
 #include "Core/Filesystem.hpp"
+#include "Core/Format.hpp"
 #include "Core/Result.hpp"
 
 #include <fcntl.h>
+#include <filesystem>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -31,9 +33,9 @@ std::filesystem::path Filesystem::current_executable_path()
         return std::filesystem::path(s);
     }
 
-    return "";
+    return "./";
 #elif defined(__platform_web)
-    return "/";
+    return "./";
 #endif
 }
 
@@ -42,9 +44,35 @@ std::filesystem::path Filesystem::current_executable_directory()
     return current_executable_path().parent_path();
 }
 
-Result<File> Filesystem::open_file(const StringView& path)
+String Filesystem::get_data_directory()
 {
-    int fd = open(path.data(), O_RDONLY);
+    if (data_dir.has_value())
+        return data_dir.value();
+
+#ifdef __platform_linux
+    const char *xdg_data_home = getenv("XDG_DATA_HOME");
+    if (xdg_data_home != nullptr)
+        return format("{}/ft_minecraft/", xdg_data_home);
+
+    const char *home = getenv("HOME");
+    if (home != nullptr)
+        return format("{}/.local/share/ft_minecraft");
+
+    return format("./appdata/");
+#else
+    return format("./appdata/");
+#endif
+}
+
+bool Filesystem::exists(const StringView& path)
+{
+    struct stat s{};
+    return stat(path.data(), &s) != -1;
+}
+
+Result<File> Filesystem::open_file(const StringView& path, bool rw)
+{
+    int fd = open(path.data(), rw ? (O_RDWR | O_CREAT) : O_RDONLY, S_IRUSR | S_IWUSR);
 
     if (fd == -1)
         return Error(ErrorKind::FileNotFound);
@@ -59,10 +87,30 @@ Result<File> Filesystem::open_file(const StringView& path)
     return file;
 }
 
+Result<void> Filesystem::make_dirs(const StringView& path)
+{
+    // TODO: replace with C lib
+    std::filesystem::create_directories(path.data());
+    return Result<void>();
+}
+
+void File::close()
+{
+    ::close(m_fd);
+}
+
+Result<void> File::read_raw(void *buffer, size_t size) const
+{
+    ssize_t r = read(m_fd, buffer, size);
+    if (r == -1)
+        return Error(ErrorKind::FileNotFound);
+    return Result<void>();
+}
+
 Result<void> File::read_to_buffer(LocalVector<char>& buffer) const
 {
     EXPECT(buffer.resize(m_size));
-    Filesystem::read_raw(*this, buffer.data(), m_size);
+    TRY(read_raw(buffer.data(), m_size));
     return Result<void>();
 }
 
@@ -70,12 +118,14 @@ Result<String> File::read_to_string() const
 {
     String str;
     str.resize(m_size);
-
-    Filesystem::read_raw(*this, str.data(), m_size);
+    TRY(read_raw(str.data(), m_size));
     return str;
 }
 
-void Filesystem::read_raw(const File& file, void *buffer, size_t size)
+Result<void> File::write_raw(void *buffer, size_t len)
 {
-    read(file.m_fd, buffer, size);
+    ssize_t r = write(m_fd, buffer, len);
+    if (r == -1)
+        return Error(ErrorKind::FileNotFound);
+    return Result<void>();
 }

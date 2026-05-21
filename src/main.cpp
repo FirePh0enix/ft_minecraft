@@ -37,6 +37,7 @@ MAIN(int argc, char *argv[])
 
     Args args;
     args.add_arg("enable-gpu-validation", {.type = ArgType::Bool});
+    args.add_arg("data-dir", {.type = ArgType::String});
     args.parse(argv, argc);
 
     TracySetThreadName("Main");
@@ -48,6 +49,14 @@ MAIN(int argc, char *argv[])
         // TODO
         info("World won't be saved, `--disable-save` is present.");
     }
+
+    if (args.has("data-dir"))
+    {
+        Filesystem::data_dir = args.get_arg("data-dir").string;
+        Filesystem::data_dir->append("/");
+    }
+
+    info("using data directory `{}`", Filesystem::get_data_directory());
 
 #ifdef __platform_web
     emscripten_set_main_loop_arg([](void *engine)

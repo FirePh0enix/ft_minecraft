@@ -1,5 +1,7 @@
 #include "World/World.hpp"
 #include "AABB.hpp"
+#include "Core/Filesystem.hpp"
+#include "Core/Format.hpp"
 #include "Core/Ref.hpp"
 #include "Engine.hpp"
 #include "Entity/Entity.hpp"
@@ -15,7 +17,6 @@
 #include <cstdlib>
 #include <limits>
 #include <mutex>
-#include <thread>
 
 // https://gamedev.stackexchange.com/questions/18436/most-efficient-aabb-vs-ray-collision-algorithms
 static bool ray_intersect_aabb(const Ray& ray, const AABB& aabb, float& t_min, glm::vec3& normal)
@@ -44,30 +45,7 @@ static bool ray_intersect_aabb(const Ray& ray, const AABB& aabb, float& t_min, g
     return true;
 }
 
-World::World(uint64_t seed, int type)
-    : m_seed(seed), m_generation_thread_pool(std::thread::hardware_concurrency() - 1)
-{
-    if (type == WorldPresetFlat)
-    {
-        // EXPECT(m_dims[overworld].m_generation_passes.append(EXPECT(newref<FlatBiomePass>())));
-        EXPECT(m_dims[overworld].m_generation_passes.append(EXPECT(newref<FlatSurfacePass>())));
-    }
-    else if (type == WorldPresetNormal)
-    {
-        // EXPECT(m_dims[overworld].m_generation_passes.append(EXPECT(newref<OverworldBiomePass>())));
-        EXPECT(m_dims[overworld].m_generation_passes.append(EXPECT(newref<OverworldSurfacePass>())));
-    }
-
-    find_safe_spawn();
-
-    // Wait for the spawn chunk to be loaded or else the player might fall through the floor.
-    int64_t chunk_x = int64_t(m_spawn_position.x) >= 0 ? (int64_t(m_spawn_position.x) / 16) : (int64_t(m_spawn_position.x) / 16 - 1);
-    int64_t chunk_z = int64_t(m_spawn_position.z) >= 0 ? (int64_t(m_spawn_position.z) / 16) : (int64_t(m_spawn_position.z) / 16 - 1);
-    load_one_chunk(ChunkPos(chunk_x, chunk_z));
-}
-
-World::World(uint64_t seed)
-    : m_seed(seed)
+World::World()
 {
 }
 
@@ -111,11 +89,77 @@ void World::find_safe_spawn()
         m_spawn_position = water_spawn_position;
 }
 
+Result<Ref<World>> World::create(String name, uint64_t seed, int type)
+{
+    Ref<World> world = TRY(newref<World>());
+    world->m_seed = seed;
+    world->m_name = name;
+
+    String path = format("{}saves/{}/", Filesystem::get_data_directory(), name);
+    TRY(Filesystem::make_dirs(path));
+    path.append("info.dat");
+    File file = TRY(Filesystem::open_file(path, true));
+
+    WorldSaveInfo wi{};
+    wi.seed = seed;
+    wi.type = WorldPresetType(type);
+    TRY(file.write_raw(&wi, sizeof(WorldSaveInfo)));
+    file.close();
+
+    if (type == WorldPresetFlat)
+    {
+        // EXPECT(m_dims[overworld].m_generation_passes.append(EXPECT(newref<FlatBiomePass>())));
+        EXPECT(world->m_dims[overworld].m_generation_passes.append(EXPECT(newref<FlatSurfacePass>())));
+    }
+    else if (type == WorldPresetNormal)
+    {
+        // EXPECT(m_dims[overworld].m_generation_passes.append(EXPECT(newref<OverworldBiomePass>())));
+        EXPECT(world->m_dims[overworld].m_generation_passes.append(EXPECT(newref<OverworldSurfacePass>())));
+    }
+
+    world->find_safe_spawn();
+
+    // Wait for the spawn chunk to be loaded or else the player might fall through the floor.
+    int64_t chunk_x = int64_t(world->m_spawn_position.x) >= 0 ? (int64_t(world->m_spawn_position.x) / 16) : (int64_t(world->m_spawn_position.x) / 16 - 1);
+    int64_t chunk_z = int64_t(world->m_spawn_position.z) >= 0 ? (int64_t(world->m_spawn_position.z) / 16) : (int64_t(world->m_spawn_position.z) / 16 - 1);
+    world->load_one_chunk(ChunkPos(chunk_x, chunk_z));
+
+    return world;
+}
+
 Result<Ref<World>> World::create_proxy(uint64_t seed)
 {
-    Ref<World> world = EXPECT(newref<World>(seed));
+    Ref<World> world = EXPECT(newref<World>());
     world->m_seed = seed;
     world->m_proxy = true;
+    return world;
+}
+
+Result<Ref<World>> World::load(StringView name)
+{
+    Ref<World> world = TRY(newref<World>());
+
+    String path = format("{}/saves/{}/info.dat", Filesystem::get_data_directory(), name);
+    path.append("info.dat");
+    File file = TRY(Filesystem::open_file(path));
+
+    WorldSaveInfo wi{};
+    TRY(file.read_raw(&wi, sizeof(WorldSaveInfo)));
+    file.close();
+
+    world->m_seed = wi.seed;
+
+    if (wi.type == WorldPresetFlat)
+    {
+        // EXPECT(m_dims[overworld].m_generation_passes.append(EXPECT(newref<FlatBiomePass>())));
+        EXPECT(world->m_dims[overworld].m_generation_passes.append(EXPECT(newref<FlatSurfacePass>())));
+    }
+    else if (wi.type == WorldPresetNormal)
+    {
+        // EXPECT(m_dims[overworld].m_generation_passes.append(EXPECT(newref<OverworldBiomePass>())));
+        EXPECT(world->m_dims[overworld].m_generation_passes.append(EXPECT(newref<OverworldSurfacePass>())));
+    }
+
     return world;
 }
 
@@ -315,23 +359,65 @@ void World::break_block(int64_t x, int64_t y, int64_t z)
     add_entity(World::overworld, item_entity);
 }
 
+Result<void> World::save_chunk(const Ref<Chunk>& chunk)
+{
+    CompressedChunk cchunk;
+    TRY(cchunk.compress(chunk));
+
+    String path = format("~/.local/share/ft_minecraft/saves/unamed-world/DIM0/{}${}/", chunk->x(), chunk->z());
+    TRY(Filesystem::make_dirs(path));
+
+    path.append("blocks.dat");
+    File file = TRY(Filesystem::open_file(path, true));
+
+    WorldBlocks wb{};
+    wb.padding0 = 0;
+    wb.chunk_slice_mask = cchunk.compressed_slice_mask;
+    wb.blocks_offset = sizeof(WorldBlocks);
+    wb.blocks_len = cchunk.compressed_blocks.size();
+    wb.blocks_tree_offset = wb.blocks_offset + cchunk.compressed_blocks.size() * sizeof(BlockState);
+    wb.blocks_tree_len = cchunk.compressed_nodes.size();
+    wb.biomes_offset = wb.blocks_tree_offset + cchunk.compressed_nodes.size() * sizeof(ChunkNode);
+    wb.biomes_len = cchunk.compressed_biomes.size();
+    wb.biomes_tree_offset = wb.biomes_offset + cchunk.compressed_biomes.size() * sizeof(Biome);
+    wb.biomes_tree_len = cchunk.compressed_biome_nodes.size();
+
+    TRY(file.write_raw(&wb, sizeof(WorldBlocks)));
+    TRY(file.write_raw(cchunk.compressed_blocks.data(), cchunk.compressed_blocks.size() * sizeof(BlockState)));
+    TRY(file.write_raw(cchunk.compressed_nodes.data(), cchunk.compressed_nodes.size() * sizeof(ChunkNode)));
+    TRY(file.write_raw(cchunk.compressed_biomes.data(), cchunk.compressed_biomes.size() * sizeof(Biome)));
+    TRY(file.write_raw(cchunk.compressed_biome_nodes.data(), cchunk.compressed_biome_nodes.size() * sizeof(ChunkBiomeNode)));
+
+    file.close();
+
+    return Result<void>();
+}
+
 void World::load_one_chunk(ChunkPos pos)
 {
+    String path = format("{}saves/{}/blocks.dat");
+    if (Filesystem::exists(path))
+    {
+    }
+
     Result<Ref<Chunk>> result = m_dims[0].generate_chunk(pos.x, pos.z);
     if (result.has_error())
     {
         return;
     }
 
+    Ref<Chunk> chunk;
     {
         std::lock_guard<std::mutex> lock(m_dims[0].mutex());
-        Ref<Chunk> chunk = result.value();
+        chunk = result.value();
         m_dims[0].m_chunks_to_flush[pos] = chunk;
     }
     {
         std::lock_guard<std::mutex> lock(m_dims[0].m_chunk_loading_mutex);
         m_dims[0].m_chunk_loading_queue.erase(pos);
     }
+
+    EXPECT(save_chunk(chunk));
 }
 
 void World::unload_one_chunk(ChunkPos pos)

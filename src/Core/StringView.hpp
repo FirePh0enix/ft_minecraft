@@ -40,6 +40,9 @@ public:
 
     bool operator==(const StringView& other) const { return *this <=> other == std::strong_ordering::equal; }
 
+    /**
+     * Returns a pointer to a NULL terminated c-style string.
+     */
     ALWAYS_INLINE const char *data() const
     {
         return m_data;
