@@ -7,6 +7,7 @@
 #include "Entity/Entity.hpp"
 #include "Entity/Item.hpp"
 #include "Profiler.hpp"
+#include "World/Biome.hpp"
 #include "World/Chunk.hpp"
 #include "World/Pass/Flat.hpp"
 #include "World/Pass/Overworld.hpp"
@@ -95,6 +96,17 @@ Result<Ref<World>> World::create(String name, uint64_t seed, int type)
     world->m_seed = seed;
     world->m_name = name;
 
+    if (type == WorldPresetFlat)
+    {
+        EXPECT(world->m_dims[overworld].m_generation_passes.append(EXPECT(newref<FlatSurfacePass>())));
+    }
+    else if (type == WorldPresetNormal)
+    {
+        EXPECT(world->m_dims[overworld].m_generation_passes.append(EXPECT(newref<OverworldSurfacePass>())));
+    }
+
+    world->find_safe_spawn();
+
     String path = format("{}saves/{}/", Filesystem::get_data_directory(), name);
     TRY(Filesystem::make_dirs(path));
     path.append("info.dat");
@@ -103,21 +115,9 @@ Result<Ref<World>> World::create(String name, uint64_t seed, int type)
     WorldSaveInfo wi{};
     wi.seed = seed;
     wi.type = WorldPresetType(type);
+    wi.spawn_position = world->get_spawn_position();
     TRY(file.write_raw(&wi, sizeof(WorldSaveInfo)));
     file.close();
-
-    if (type == WorldPresetFlat)
-    {
-        // EXPECT(m_dims[overworld].m_generation_passes.append(EXPECT(newref<FlatBiomePass>())));
-        EXPECT(world->m_dims[overworld].m_generation_passes.append(EXPECT(newref<FlatSurfacePass>())));
-    }
-    else if (type == WorldPresetNormal)
-    {
-        // EXPECT(m_dims[overworld].m_generation_passes.append(EXPECT(newref<OverworldBiomePass>())));
-        EXPECT(world->m_dims[overworld].m_generation_passes.append(EXPECT(newref<OverworldSurfacePass>())));
-    }
-
-    world->find_safe_spawn();
 
     // Wait for the spawn chunk to be loaded or else the player might fall through the floor.
     int64_t chunk_x = int64_t(world->m_spawn_position.x) >= 0 ? (int64_t(world->m_spawn_position.x) / 16) : (int64_t(world->m_spawn_position.x) / 16 - 1);
@@ -139,26 +139,29 @@ Result<Ref<World>> World::load(StringView name)
 {
     Ref<World> world = TRY(newref<World>());
 
-    String path = format("{}/saves/{}/info.dat", Filesystem::get_data_directory(), name);
-    path.append("info.dat");
+    String path = format("{}saves/{}/info.dat", Filesystem::get_data_directory(), name);
     File file = TRY(Filesystem::open_file(path));
 
     WorldSaveInfo wi{};
     TRY(file.read_raw(&wi, sizeof(WorldSaveInfo)));
     file.close();
 
+    world->m_name = name;
     world->m_seed = wi.seed;
+    world->m_spawn_position = wi.spawn_position;
 
     if (wi.type == WorldPresetFlat)
     {
-        // EXPECT(m_dims[overworld].m_generation_passes.append(EXPECT(newref<FlatBiomePass>())));
         EXPECT(world->m_dims[overworld].m_generation_passes.append(EXPECT(newref<FlatSurfacePass>())));
     }
     else if (wi.type == WorldPresetNormal)
     {
-        // EXPECT(m_dims[overworld].m_generation_passes.append(EXPECT(newref<OverworldBiomePass>())));
         EXPECT(world->m_dims[overworld].m_generation_passes.append(EXPECT(newref<OverworldSurfacePass>())));
     }
+
+    int64_t chunk_x = int64_t(world->m_spawn_position.x) >= 0 ? (int64_t(world->m_spawn_position.x) / 16) : (int64_t(world->m_spawn_position.x) / 16 - 1);
+    int64_t chunk_z = int64_t(world->m_spawn_position.z) >= 0 ? (int64_t(world->m_spawn_position.z) / 16) : (int64_t(world->m_spawn_position.z) / 16 - 1);
+    world->load_one_chunk(ChunkPos(chunk_x, chunk_z));
 
     return world;
 }
@@ -193,6 +196,14 @@ void World::tick(float delta)
 
     if (!m_proxy)
     {
+        // TODO: put this in a queue.
+        for (auto [pos, chunk] : m_dims[0].m_chunks)
+        {
+            if (chunk->is_modified())
+                EXPECT(save_chunk(chunk));
+            chunk->clear_modified();
+        }
+
         load_around_player();
 
         // Flush all new chunks.
@@ -361,10 +372,9 @@ void World::break_block(int64_t x, int64_t y, int64_t z)
 
 Result<void> World::save_chunk(const Ref<Chunk>& chunk)
 {
-    CompressedChunk cchunk;
-    TRY(cchunk.compress(chunk));
+    CompressedChunk cchunk = TRY(chunk->compress());
 
-    String path = format("~/.local/share/ft_minecraft/saves/unamed-world/DIM0/{}${}/", chunk->x(), chunk->z());
+    String path = format("{}/saves/{}/DIM0/{}${}/", Filesystem::get_data_directory(), m_name, chunk->x(), chunk->z());
     TRY(Filesystem::make_dirs(path));
 
     path.append("blocks.dat");
@@ -374,19 +384,22 @@ Result<void> World::save_chunk(const Ref<Chunk>& chunk)
     wb.padding0 = 0;
     wb.chunk_slice_mask = cchunk.compressed_slice_mask;
     wb.blocks_offset = sizeof(WorldBlocks);
-    wb.blocks_len = cchunk.compressed_blocks.size();
-    wb.blocks_tree_offset = wb.blocks_offset + cchunk.compressed_blocks.size() * sizeof(BlockState);
-    wb.blocks_tree_len = cchunk.compressed_nodes.size();
-    wb.biomes_offset = wb.blocks_tree_offset + cchunk.compressed_nodes.size() * sizeof(ChunkNode);
-    wb.biomes_len = cchunk.compressed_biomes.size();
-    wb.biomes_tree_offset = wb.biomes_offset + cchunk.compressed_biomes.size() * sizeof(Biome);
-    wb.biomes_tree_len = cchunk.compressed_biome_nodes.size();
+    // wb.blocks_len = cchunk.compressed_blocks.size();
+    // wb.blocks_tree_offset = wb.blocks_offset + cchunk.compressed_blocks.size() * sizeof(BlockState);
+    // wb.blocks_tree_len = cchunk.compressed_nodes.size();
+    // wb.biomes_offset = wb.blocks_tree_offset + cchunk.compressed_nodes.size() * sizeof(ChunkNode);
+    // wb.biomes_len = cchunk.compressed_biomes.size();
+    // wb.biomes_tree_offset = wb.biomes_offset + cchunk.compressed_biomes.size() * sizeof(Biome);
+    // wb.biomes_tree_len = cchunk.compressed_biome_nodes.size();
+    wb.biomes_offset = Chunk::block_count * sizeof(BlockState);
 
     TRY(file.write_raw(&wb, sizeof(WorldBlocks)));
-    TRY(file.write_raw(cchunk.compressed_blocks.data(), cchunk.compressed_blocks.size() * sizeof(BlockState)));
-    TRY(file.write_raw(cchunk.compressed_nodes.data(), cchunk.compressed_nodes.size() * sizeof(ChunkNode)));
-    TRY(file.write_raw(cchunk.compressed_biomes.data(), cchunk.compressed_biomes.size() * sizeof(Biome)));
-    TRY(file.write_raw(cchunk.compressed_biome_nodes.data(), cchunk.compressed_biome_nodes.size() * sizeof(ChunkBiomeNode)));
+    TRY(file.write_raw(chunk->get_blocks(), sizeof(BlockState) * Chunk::block_count));
+    TRY(file.write_raw(chunk->get_biomes(), sizeof(Biome) * Chunk::block_count));
+    // TRY(file.write_raw(cchunk.compressed_blocks.data(), cchunk.compressed_blocks.size() * sizeof(BlockState)));
+    // TRY(file.write_raw(cchunk.compressed_nodes.data(), cchunk.compressed_nodes.size() * sizeof(ChunkNode)));
+    // TRY(file.write_raw(cchunk.compressed_biomes.data(), cchunk.compressed_biomes.size() * sizeof(Biome)));
+    // TRY(file.write_raw(cchunk.compressed_biome_nodes.data(), cchunk.compressed_biome_nodes.size() * sizeof(ChunkBiomeNode)));
 
     file.close();
 
@@ -395,29 +408,73 @@ Result<void> World::save_chunk(const Ref<Chunk>& chunk)
 
 void World::load_one_chunk(ChunkPos pos)
 {
-    String path = format("{}saves/{}/blocks.dat");
+    Ref<Chunk> chunk;
+
+    String path = format("{}saves/{}/DIM0/{}${}/blocks.dat", Filesystem::get_data_directory(), m_name, pos.x, pos.z);
     if (Filesystem::exists(path))
     {
-    }
+        chunk = EXPECT(newref<Chunk>(pos.x, pos.z));
 
-    Result<Ref<Chunk>> result = m_dims[0].generate_chunk(pos.x, pos.z);
-    if (result.has_error())
+        LocalVector<char> data;
+        // TODO: how to handle errors from loading chunks ?
+        File file = EXPECT(Filesystem::open_file(path));
+        EXPECT(file.read_to_buffer(data));
+        file.close();
+
+        WorldBlocks wb = *(WorldBlocks *)data.data();
+        // println("size = {}", data.size());
+        // println("{} - {}", wb.blocks_offset, wb.blocks_offset + wb.blocks_len * sizeof(BlockState));
+        // println("{} - {}", wb.blocks_tree_offset, wb.blocks_tree_offset + wb.blocks_tree_len * sizeof(ChunkNode));
+        // println("{} - {}", wb.biomes_offset, wb.biomes_offset + wb.biomes_len * sizeof(Biome));
+        // println("{} - {}\n", wb.biomes_tree_offset, wb.biomes_tree_offset + wb.biomes_tree_len * sizeof(ChunkBiomeNode));
+
+        // some sanity checks
+        // if (
+        //     wb.blocks_offset + wb.blocks_len * sizeof(BlockState) > data.size() ||
+        //     wb.blocks_tree_offset + wb.blocks_tree_len * sizeof(ChunkNode) > data.size() ||
+        //     wb.biomes_offset + wb.biomes_len * sizeof(Biome) > data.size() ||
+        //     wb.biomes_tree_offset + wb.biomes_tree_len * sizeof(ChunkBiomeNode) > data.size())
+        // {
+        //     return;
+        // }
+
+        memcpy(chunk->get_blocks(), data.data() + wb.blocks_offset, sizeof(BlockState) * Chunk::block_count);
+        memcpy(chunk->get_biomes(), data.data() + wb.biomes_offset, sizeof(BlockState) * Chunk::block_count);
+
+        for (size_t i = 0; i < Chunk::slice_count; i++)
+        {
+            chunk->get_slices()[i].empty = false;
+            EXPECT(chunk->build_simple_mesh(i));
+        }
+
+        // memset(chunk->get_blocks(), 0, sizeof(BlockState) * Chunk::block_count);
+        // memset(chunk->get_biomes(), 0, sizeof(Biome) * Chunk::block_count);
+
+        // EXPECT(chunk->uncompress(
+        //     View((BlockState *)(data.data() + wb.blocks_offset), wb.blocks_len),
+        //     View((ChunkNode *)(data.data() + wb.blocks_tree_offset), wb.blocks_tree_len),
+        //     wb.chunk_slice_mask,
+        //     View((Biome *)(data.data() + wb.biomes_offset), wb.biomes_len),
+        //     View((ChunkBiomeNode *)(data.data() + wb.biomes_tree_offset), wb.biomes_tree_len)));
+    }
+    else
     {
-        return;
+        Result<Ref<Chunk>> result = m_dims[0].generate_chunk(pos.x, pos.z);
+        if (result.has_error())
+            return;
+        chunk = result.value();
+
+        EXPECT(save_chunk(chunk));
     }
 
-    Ref<Chunk> chunk;
     {
         std::lock_guard<std::mutex> lock(m_dims[0].mutex());
-        chunk = result.value();
         m_dims[0].m_chunks_to_flush[pos] = chunk;
     }
     {
         std::lock_guard<std::mutex> lock(m_dims[0].m_chunk_loading_mutex);
         m_dims[0].m_chunk_loading_queue.erase(pos);
     }
-
-    EXPECT(save_chunk(chunk));
 }
 
 void World::unload_one_chunk(ChunkPos pos)

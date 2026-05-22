@@ -6,6 +6,7 @@
 #include "World/Block.hpp"
 #include "World/Registry.hpp"
 
+#include <bit>
 #include <cstdint>
 #include <optional>
 
@@ -37,6 +38,10 @@ void Chunk::set_block(int64_t x, int64_t y, int64_t z, BlockState state)
     m_blocks[linearize(x, y, z)] = state;
 
     size_t slice = y / width;
+
+    if (!state.is_air())
+        m_slices[slice].empty = false;
+    m_modified = true;
 
     EXPECT(build_simple_mesh(slice));
 
@@ -227,27 +232,23 @@ Result<void> Chunk::build_simple_mesh(size_t slice_index)
     return Result<void>();
 }
 
-Result<void> CompressedChunk::compress(Ref<Chunk> chunk)
+Result<CompressedChunk> Chunk::compress() const
 {
-    compressed_blocks.clear();
-    compressed_nodes.clear();
+    CompressedChunk cchunk{};
 
-    compressed_biome_nodes.clear();
-    compressed_biomes.clear();
-
-    const BlockState *chunk_blocks = chunk->get_blocks();
-    const Biome *chunk_biomes = chunk->get_biomes();
+    const BlockState *chunk_blocks = get_blocks();
+    const Biome *chunk_biomes = get_biomes();
 
     for (int64_t i = 0; i < Chunk::slice_count; i++)
     {
-        size_t node_index = compressed_nodes.size();
+        size_t node_index = cchunk.compressed_nodes.size();
 
         ChunkNode node;
-        node.same = 1;
+        node.same = 0;
 
-        TRY(compressed_nodes.append(node));
+        TRY(cchunk.compressed_nodes.append(node));
 
-        BlockState saved_block;
+        BlockState saved_block = m_blocks[(i * 16 + 0) + 0];
 
         Vector<BlockState> blocks;
         Vector<ChunkNode> nodes;
@@ -261,10 +262,10 @@ Result<void> CompressedChunk::compress(Ref<Chunk> chunk)
                     size_t node2_index = nodes.size();
                     ChunkNode node2;
                     node2.leaf = 1;
-                    node2.same = 1;
+                    node2.same = 0;
 
                     TRY(nodes.append(node2));
-                    node2.ptr = compressed_blocks.size() + blocks.size();
+                    node2.ptr = cchunk.compressed_blocks.size() + blocks.size();
 
                     BlockState saved_block2 = chunk_blocks[Chunk::linearize(0, i * 16, 0)];
 
@@ -318,37 +319,37 @@ Result<void> CompressedChunk::compress(Ref<Chunk> chunk)
 
         if (node.child_mask != 0)
         {
-            compressed_slice_mask = 1 << i;
+            cchunk.compressed_slice_mask = 1 << i;
 
             if (!node.same)
             {
                 for (BlockState block : blocks)
-                    TRY(compressed_blocks.append(block));
+                    TRY(cchunk.compressed_blocks.append(block));
                 for (ChunkNode node : nodes)
-                    TRY(compressed_nodes.append(node));
+                    TRY(cchunk.compressed_nodes.append(node));
             }
             else
             {
-                node.ptr = compressed_blocks.size();
-                TRY(compressed_blocks.append(saved_block));
+                node.ptr = cchunk.compressed_blocks.size();
+                TRY(cchunk.compressed_blocks.append(saved_block));
             }
 
-            compressed_nodes.get_unchecked(node_index) = node;
+            cchunk.compressed_nodes.get_unchecked(node_index) = node;
         }
         else
         {
-            TRY(compressed_nodes.remove_one());
+            TRY(cchunk.compressed_nodes.remove_one());
         }
 
         // Compress the biome data. Each block has a biome values so the only case available is
         // if a 4x4x4 node has the same value.
 
-        size_t bnode_index = compressed_biome_nodes.size();
+        size_t bnode_index = cchunk.compressed_biome_nodes.size();
 
         ChunkBiomeNode bnode;
         bnode.same = 1;
 
-        TRY(compressed_biome_nodes.append(bnode));
+        TRY(cchunk.compressed_biome_nodes.append(bnode));
 
         Vector<Biome> biomes;
         Vector<ChunkBiomeNode> biome_nodes;
@@ -402,24 +403,90 @@ Result<void> CompressedChunk::compress(Ref<Chunk> chunk)
         if (!bnode.same)
         {
             for (Biome biome : biomes)
-                TRY(compressed_biomes.append(biome));
+                TRY(cchunk.compressed_biomes.append(biome));
             for (ChunkBiomeNode node : biome_nodes)
-                TRY(compressed_biome_nodes.append(node));
+                TRY(cchunk.compressed_biome_nodes.append(node));
         }
         else
         {
-            bnode.ptr = compressed_biomes.size();
-            TRY(compressed_biomes.append(saved_biome.value()));
+            bnode.ptr = cchunk.compressed_biomes.size();
+            TRY(cchunk.compressed_biomes.append(saved_biome.value()));
         }
 
-        compressed_biome_nodes.get_unchecked(bnode_index) = bnode;
+        cchunk.compressed_biome_nodes.get_unchecked(bnode_index) = bnode;
     }
 
-    return Result<void>();
+    return cchunk;
 }
 
-Result<void> CompressedChunk::uncompress(Ref<Chunk> chunk) const
+Result<void> Chunk::uncompress(View<BlockState> compressed_blocks, View<ChunkNode> compressed_nodes, uint16_t compressed_slice_mask, View<Biome> compressed_biomes, View<ChunkBiomeNode> compressed_biome_nodes)
 {
-    (void)chunk;
+    (void)compressed_biomes;
+    (void)compressed_biome_nodes;
+
+    size_t cursor = 0;
+
+    for (int64_t slice_y = 0; slice_y < Chunk::slice_count; slice_y++)
+    {
+        if (((compressed_slice_mask >> slice_y) & 1) == 0)
+        {
+            continue;
+        }
+
+        ChunkNode node = compressed_nodes[cursor];
+        // if (node.same)
+        // {
+        //     m_slices[slice_y].empty = false;
+
+        //     BlockState bs = compressed_blocks[node.ptr];
+        //     for (int64_t x = 0; x < Chunk::width; x++)
+        //         for (int64_t y = 0; y < Chunk::width; y++)
+        //             for (int64_t z = 0; z < Chunk::width; z++)
+        //                 m_blocks[Chunk::linearize(x, y + slice_y * 16, z)] = bs;
+        // }
+        // else
+        // {
+        for (int64_t x = 0; x < 4; x++)
+            for (int64_t y = 0; y < 4; y++)
+                for (int64_t z = 0; z < 4; z++)
+                {
+                    uint64_t index = x + y * 4 + z * 4 * 4;
+                    if (((node.child_mask >> index) & 1) == 0)
+                        continue;
+
+                    ChunkNode node2 = compressed_nodes[cursor];
+                    // auto leaf = node.leaf;
+                    // auto ptr = node.ptr;
+                    // println("{} {}", leaf, ptr);
+
+                    // BlockState bs = compressed_blocks[node.ptr];
+                    // for (int64_t x2 = 0; x2 < Chunk::width; x2++)
+                    //     for (int64_t y2 = 0; y2 < Chunk::width; y2++)
+                    //         for (int64_t z2 = 0; z2 < Chunk::width; z2++)
+                    //             m_blocks[Chunk::linearize(x * 4 + x2, (y * 4 + y2) + slice_y * 16, z * 4 + z2)] = bs;
+
+                    for (int64_t x2 = 0; x2 < 4; x2++)
+                        for (int64_t y2 = 0; y2 < 4; y2++)
+                            for (int64_t z2 = 0; z2 < 4; z2++)
+                            {
+                                uint64_t index2 = x + y * 4 + z * 4 * 4;
+                                if (((node2.child_mask >> index2) & 1) == 0)
+                                    continue;
+
+                                BlockState bs = compressed_blocks[node2.ptr];
+                                m_blocks[Chunk::linearize(x * 4 + x2, (y * 4 + y2) + slice_y * 16, z * 4 + z2)] = bs;
+                            }
+
+                    cursor += std::popcount(node2.child_mask);
+                    // TODO: learn to use popcount
+                }
+
+        // cursor += offset; // std::popcount(node.child_mask);
+        // }
+
+        EXPECT(build_simple_mesh(slice_y));
+        cursor += std::popcount(node.child_mask);
+    }
+
     return Result<void>();
 }

@@ -38,7 +38,7 @@ struct File
     Result<void> read_to_buffer(LocalVector<char>& buffer) const;
     Result<String> read_to_string() const;
 
-    Result<void> write_raw(void *buffer, size_t len);
+    Result<void> write_raw(const void *buffer, size_t len);
 
 private:
     friend class Filesystem;

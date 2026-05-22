@@ -70,6 +70,22 @@ struct __attribute__((packed)) ChunkBiomeNode
     uint16_t reserved : 15 = 0;
 };
 
+struct CompressedChunk
+{
+public:
+    CompressedChunk()
+        : compressed_slice_mask(0)
+    {
+    }
+
+    Vector<BlockState> compressed_blocks;
+    Vector<ChunkNode> compressed_nodes;
+    uint16_t compressed_slice_mask;
+
+    Vector<Biome> compressed_biomes;
+    Vector<ChunkBiomeNode> compressed_biome_nodes;
+};
+
 class Chunk : public Object
 {
     CLASS(Chunk, Object);
@@ -119,6 +135,12 @@ public:
 
     Result<void> build_simple_mesh(size_t slice);
 
+    Result<CompressedChunk> compress() const;
+    Result<void> uncompress(View<BlockState> compressed_blocks, View<ChunkNode> compressed_nodes, uint16_t compressed_slice_mask, View<Biome> compressed_biomes, View<ChunkBiomeNode> compressed_biome_nodes);
+
+    bool is_modified() const { return m_modified; }
+    void clear_modified() { m_modified = false; }
+
     static ALWAYS_INLINE size_t linearize(int64_t x, int64_t y, int64_t z) { return z * width * height + y * width + x; }
     // static ALWAYS_INLINE size_t linearize_with_overlap(int64_t x, int64_t y, int64_t z) { return z * width * height + y * width + x; }
 
@@ -132,36 +154,5 @@ private:
     int64_t m_x;
     int64_t m_z;
 
-    bool modified : 1 = false;
-};
-
-struct CompressedChunk
-{
-public:
-    CompressedChunk()
-        : compressed_slice_mask(0)
-    {
-    }
-
-    CompressedChunk(Vector<BlockState> compressed_blocks, Vector<ChunkNode> compressed_nodes, uint16_t compressed_slice_mask, Vector<Biome> compressed_biomes, Vector<ChunkBiomeNode> compressed_biome_nodes)
-        : compressed_blocks(compressed_blocks), compressed_nodes(compressed_nodes), compressed_slice_mask(compressed_slice_mask), compressed_biomes(compressed_biomes), compressed_biome_nodes(compressed_biome_nodes)
-    {
-    }
-
-    Result<void> compress(Ref<Chunk> chunk);
-    Result<void> uncompress(Ref<Chunk> chunk) const;
-
-    //     View<BlockState> get_blocks() const { return m_compressed_blocks; }
-    //     View<ChunkNode> get_nodes() const { return m_compressed_nodes; }
-
-    //     View<Biome> get_biomes() const { return m_compressed_biomes; }
-    //     View<ChunkBiomeNode> get_biome_nodes() const { return m_compressed_biome_nodes; }
-
-    // private:
-    Vector<BlockState> compressed_blocks;
-    Vector<ChunkNode> compressed_nodes;
-    uint16_t compressed_slice_mask;
-
-    Vector<Biome> compressed_biomes;
-    Vector<ChunkBiomeNode> compressed_biome_nodes;
+    bool m_modified : 1 = false;
 };

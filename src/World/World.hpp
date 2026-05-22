@@ -54,21 +54,11 @@ struct RaycastResult
     Ref<Entity> entity;
 };
 
-/**
- * -> ~/.local/share/ft_minecraft/saves/
- *    -> <name>
- *       -> info.dat
- *       -> DIM0
- *          -> <x>$<y>
- *             -> blocks.dat
- *             -> entities.dat
- *       -> DIM1
- */
-
 struct WorldSaveInfo
 {
     uint64_t seed;
     WorldPresetType type;
+    glm::vec3 spawn_position;
 };
 
 struct WorldBlocks

@@ -206,7 +206,8 @@ public:
         // TODO: do some testing.
 
         (m_data + index)->~T();
-        memmove((void *)(m_data + index), (void *)(m_data + index + 1), sizeof(T) * m_size);
+        m_size -= 1;
+        memmove((void *)(m_data + index), (void *)(m_data + index + 1), sizeof(T) * (m_size - index));
 
         return Result<void>();
     }

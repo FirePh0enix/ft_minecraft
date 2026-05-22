@@ -3,6 +3,7 @@
 #include "Args.hpp"
 #include "Console.hpp"
 #include "Core/Alloc.hpp"
+#include "Core/Filesystem.hpp"
 #include "Core/Logger.hpp"
 #include "Core/Ref.hpp"
 #include "Core/Result.hpp"
@@ -310,7 +311,18 @@ void Engine::create_world_and_start()
     m_connection.set_packet_handler(&Engine::receive_server, this);
 
     uint64_t seed = StringView(m_world_seed_buf).parse_int<uint64_t>();
-    m_world = EXPECT(World::create("unamed", seed, m_main_menu_world_type));
+    String name = "unamed";
+
+    if (Filesystem::exists(format("{}saves/{}", Filesystem::get_data_directory(), name)))
+    {
+        info("loading existing world `{}`", name);
+        m_world = EXPECT(World::load(name));
+    }
+    else
+    {
+        info("creating eworld `{}` with seed {}", name, seed);
+        m_world = EXPECT(World::create(name, seed, m_main_menu_world_type));
+    }
 
     m_player = EXPECT(newref<Player>());
     m_player->get_transform().position() = m_world->get_spawn_position();
@@ -341,6 +353,8 @@ void Engine::exit()
 {
     m_connection.close();
     Font::deinit_library();
+
+    m_renderer.deinit();
 }
 
 void Engine::receive_client(void *user, NetworkConnection& conn, ENetPacket *packet, const Client& client)

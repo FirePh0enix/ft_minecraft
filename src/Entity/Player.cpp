@@ -218,7 +218,14 @@ void Player::tick(float delta)
         m_velocity += glm::vec3(0, -1, 0) * m_gravity_value * delta;
     }
 
-    move_and_collide();
+    if (has_gravity())
+    {
+        move_and_collide();
+    }
+    else
+    {
+        get_transform().position() += m_velocity;
+    }
 
     // Reset velocity after movements.
     m_velocity.x = 0.0;

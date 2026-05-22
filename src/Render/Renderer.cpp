@@ -12,6 +12,7 @@
 #include "World/Dimension.hpp"
 #include "World/Registry.hpp"
 #include "World/World.hpp"
+#include "webgpu/webgpu.h"
 
 #include <backends/imgui_impl_sdl3.h>
 #include <backends/imgui_impl_wgpu.h>
@@ -260,6 +261,12 @@ Result<Ref<Mesh>> Mesh::create_from_data(const View<uint8_t>& indices, const Vie
     }
 
     return newref<Mesh>(vertex_count, index_type, uv_type, index_buffer, vertex_buffer, normal_buffer, uv_buffer);
+}
+
+Material::~Material()
+{
+    if (m_bind_group)
+        wgpuBindGroupRelease(m_bind_group);
 }
 
 Result<Ref<Material>> Material::create(const Ref<Shader>& shader, MaterialFlags flags, WGPUCullMode cull_mode, UVType uv_type, Instance instance)
@@ -545,6 +552,12 @@ Result<WGPURenderPipeline> PipelineCache::get(const Key& key)
     return pipeline;
 }
 
+void PipelineCache::clear()
+{
+    for (auto [_, pipeline] : m_pipelines)
+        wgpuRenderPipelineRelease(pipeline);
+}
+
 WGPUSampler SamplerCache::get(const SamplerDescriptor& desc)
 {
     if (m_samplers.contains(desc))
@@ -564,6 +577,12 @@ WGPUSampler SamplerCache::get(const SamplerDescriptor& desc)
     m_samplers[desc] = sampler;
 
     return sampler;
+}
+
+void SamplerCache::clear()
+{
+    for (auto [_, sampler] : m_samplers)
+        wgpuSamplerRelease(sampler);
 }
 
 Renderer::Renderer()
@@ -976,6 +995,14 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_texture_rect_shader->create_bind_group_layout();
 
     return Result<void>();
+}
+
+void Renderer::deinit()
+{
+    m_sampler_cache.clear();
+    m_pipeline_cache.clear();
+
+    wgpuSurfaceRelease(m_surface);
 }
 
 Result<void> Renderer::configure_surface(size_t width, size_t height, VSync vsync)

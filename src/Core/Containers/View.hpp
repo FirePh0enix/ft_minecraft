@@ -46,14 +46,16 @@ public:
     {
     }
 
-    const T& operator[](size_t size) const
+    const T& operator[](size_t index) const
     {
-        return m_data[size];
+        ASSERT_V(index < m_size, "");
+        return m_data[index];
     }
 
-    const T& operator[](size_t size)
+    const T& operator[](size_t index)
     {
-        return m_data[size];
+        ASSERT_V(index < m_size, "");
+        return m_data[index];
     }
 
     inline const T *data() const

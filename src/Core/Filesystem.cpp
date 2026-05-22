@@ -122,7 +122,7 @@ Result<String> File::read_to_string() const
     return str;
 }
 
-Result<void> File::write_raw(void *buffer, size_t len)
+Result<void> File::write_raw(const void *buffer, size_t len)
 {
     ssize_t r = write(m_fd, buffer, len);
     if (r == -1)

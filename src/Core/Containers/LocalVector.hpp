@@ -140,7 +140,7 @@ public:
 
         (m_data + index)->~T();
         m_size -= 1;
-        memmove((void *)(m_data + index), (void *)(m_data + index + 1), sizeof(T) * m_size);
+        memmove((void *)(m_data + index), (void *)(m_data + index + 1), sizeof(T) * (m_size - index));
     }
 
     void remove_if(std::function<bool(const T&)> f)

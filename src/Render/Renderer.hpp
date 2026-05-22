@@ -175,6 +175,8 @@ class Material : public Object
     CLASS(Material, Object);
 
 public:
+    ~Material();
+
     static Result<Ref<Material>> create(const Ref<Shader>& shader, MaterialFlags flags, WGPUCullMode cull_mode, UVType uv_type, Instance instance = {});
 
     void set_param(const StringView& name, const Ref<Buffer>& buffer);
@@ -232,6 +234,7 @@ public:
     };
 
     Result<WGPURenderPipeline> get(const Key& key);
+    void clear();
 
 private:
     std::map<Key, WGPURenderPipeline> m_pipelines;
@@ -241,6 +244,7 @@ class SamplerCache
 {
 public:
     WGPUSampler get(const SamplerDescriptor& desc);
+    void clear();
 
 private:
     std::map<SamplerDescriptor, WGPUSampler> m_samplers;
@@ -260,6 +264,8 @@ public:
     Renderer();
 
     Result<void> init(const Window& window, InitFlags flags);
+    void deinit();
+
     Result<void> configure_surface(size_t width, size_t height, VSync vsync);
 
     void draw(RenderGraph& graph, std::function<void(const RenderPassNode& node)> f);
