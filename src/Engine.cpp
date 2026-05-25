@@ -9,6 +9,7 @@
 #include "Core/Result.hpp"
 #include "Core/Types.hpp"
 #include "Entity/Cow.hpp"
+#include "Entity/Entity.hpp"
 #include "Entity/Player.hpp"
 #include "Input.hpp"
 #include "Network/Network.hpp"
@@ -320,12 +321,31 @@ void Engine::create_world_and_start()
     }
     else
     {
-        info("creating eworld `{}` with seed {}", name, seed);
+        info("creating world `{}` with seed {}", name, seed);
         m_world = EXPECT(World::create(name, seed, m_main_menu_world_type));
     }
 
     m_player = EXPECT(newref<Player>());
-    m_player->get_transform().position() = m_world->get_spawn_position();
+    if (m_world->is_player_saved("player"))
+    {
+        String path = format("{}saves/{}/players/{}.dat", Filesystem::get_data_directory(), m_world->get_name(), "player");
+
+        EntitySerializer serializer;
+        EXPECT(serializer.load(path));
+
+        glm::vec3 position = serializer.get<glm::vec3>("position").value();
+        glm::quat rotation = serializer.get<glm::quat>("rotation").value();
+
+        m_player->set_position(position);
+        m_player->set_rotation(rotation);
+        m_player->load(serializer);
+    }
+    else
+    {
+        m_player->get_transform().position() = m_world->get_spawn_position();
+    }
+
+    m_world->force_load_chunk_for(m_player->get_position());
     m_world->add_entity(World::overworld, m_player);
 
     // Ref<Entity> cow = EXPECT(newref<Cow>());

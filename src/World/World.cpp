@@ -116,13 +116,8 @@ Result<Ref<World>> World::create(String name, uint64_t seed, int type)
     wi.seed = seed;
     wi.type = WorldPresetType(type);
     wi.spawn_position = world->get_spawn_position();
-    TRY(file.write_raw(&wi, sizeof(WorldSaveInfo)));
+    TRY(file.writer().write_raw(&wi, sizeof(WorldSaveInfo)));
     file.close();
-
-    // Wait for the spawn chunk to be loaded or else the player might fall through the floor.
-    int64_t chunk_x = int64_t(world->m_spawn_position.x) >= 0 ? (int64_t(world->m_spawn_position.x) / 16) : (int64_t(world->m_spawn_position.x) / 16 - 1);
-    int64_t chunk_z = int64_t(world->m_spawn_position.z) >= 0 ? (int64_t(world->m_spawn_position.z) / 16) : (int64_t(world->m_spawn_position.z) / 16 - 1);
-    world->load_one_chunk(ChunkPos(chunk_x, chunk_z));
 
     return world;
 }
@@ -143,7 +138,7 @@ Result<Ref<World>> World::load(StringView name)
     File file = TRY(Filesystem::open_file(path));
 
     WorldSaveInfo wi{};
-    TRY(file.read_raw(&wi, sizeof(WorldSaveInfo)));
+    TRY(file.reader().read_raw(&wi, sizeof(WorldSaveInfo)));
     file.close();
 
     world->m_name = name;
@@ -158,10 +153,6 @@ Result<Ref<World>> World::load(StringView name)
     {
         EXPECT(world->m_dims[overworld].m_generation_passes.append(EXPECT(newref<OverworldSurfacePass>())));
     }
-
-    int64_t chunk_x = int64_t(world->m_spawn_position.x) >= 0 ? (int64_t(world->m_spawn_position.x) / 16) : (int64_t(world->m_spawn_position.x) / 16 - 1);
-    int64_t chunk_z = int64_t(world->m_spawn_position.z) >= 0 ? (int64_t(world->m_spawn_position.z) / 16) : (int64_t(world->m_spawn_position.z) / 16 - 1);
-    world->load_one_chunk(ChunkPos(chunk_x, chunk_z));
 
     return world;
 }
@@ -202,6 +193,12 @@ void World::tick(float delta)
             if (chunk->is_modified())
                 EXPECT(save_chunk(chunk));
             chunk->clear_modified();
+        }
+
+        for (const Ref<Entity>& entity : m_dims[World::overworld].get_entities())
+        {
+            if (Ref<Player> player = entity.cast_to<Player>())
+                EXPECT(save_player(player));
         }
 
         load_around_player();
@@ -393,9 +390,9 @@ Result<void> World::save_chunk(const Ref<Chunk>& chunk)
     // wb.biomes_tree_len = cchunk.compressed_biome_nodes.size();
     wb.biomes_offset = Chunk::block_count * sizeof(BlockState);
 
-    TRY(file.write_raw(&wb, sizeof(WorldBlocks)));
-    TRY(file.write_raw(chunk->get_blocks(), sizeof(BlockState) * Chunk::block_count));
-    TRY(file.write_raw(chunk->get_biomes(), sizeof(Biome) * Chunk::block_count));
+    TRY(file.writer().write_raw(&wb, sizeof(WorldBlocks)));
+    TRY(file.writer().write_raw(chunk->get_blocks(), sizeof(BlockState) * Chunk::block_count));
+    TRY(file.writer().write_raw(chunk->get_biomes(), sizeof(Biome) * Chunk::block_count));
     // TRY(file.write_raw(cchunk.compressed_blocks.data(), cchunk.compressed_blocks.size() * sizeof(BlockState)));
     // TRY(file.write_raw(cchunk.compressed_nodes.data(), cchunk.compressed_nodes.size() * sizeof(ChunkNode)));
     // TRY(file.write_raw(cchunk.compressed_biomes.data(), cchunk.compressed_biomes.size() * sizeof(Biome)));
@@ -404,6 +401,54 @@ Result<void> World::save_chunk(const Ref<Chunk>& chunk)
     file.close();
 
     return Result<void>();
+}
+
+Result<void> World::save_entity(const Ref<Entity>& entity)
+{
+    int64_t cx = chunk_index(int64_t(entity->get_position().x));
+    int64_t cz = chunk_index(int64_t(entity->get_position().z));
+
+    String path = format("{}saves/{}/DIM0/{}${}/entities/", Filesystem::get_data_directory(), m_name, cx, cz);
+    TRY(Filesystem::make_dirs(path));
+
+    EntitySerializer serializer;
+    TRY(serializer.set("position", entity->get_position()));
+    TRY(serializer.set("rotation", entity->get_rotation()));
+    entity->save(serializer);
+
+    path.append("");
+
+    return Result<void>();
+}
+
+Result<void> World::save_player(const Ref<Player>& player)
+{
+    String path = format("{}saves/{}/players/", Filesystem::get_data_directory(), m_name);
+    TRY(Filesystem::make_dirs(path));
+
+    path.append("player.dat");
+
+    EntitySerializer serializer;
+    TRY(serializer.set("position", player->get_position()));
+    TRY(serializer.set("rotation", player->get_rotation()));
+    player->save(serializer);
+
+    TRY(serializer.save(path));
+
+    return Result<void>();
+}
+
+void World::force_load_chunk_for(glm::vec3 position)
+{
+    int64_t chunk_x = chunk_index(int64_t(position.x));
+    int64_t chunk_z = chunk_index(int64_t(position.z));
+    load_one_chunk(ChunkPos(chunk_x, chunk_z));
+}
+
+bool World::is_player_saved(const StringView& name) const
+{
+    String path = format("{}saves/{}/players/{}.dat", Filesystem::get_data_directory(), m_name, name);
+    return Filesystem::exists(path);
 }
 
 void World::load_one_chunk(ChunkPos pos)
@@ -418,7 +463,7 @@ void World::load_one_chunk(ChunkPos pos)
         LocalVector<char> data;
         // TODO: how to handle errors from loading chunks ?
         File file = EXPECT(Filesystem::open_file(path));
-        EXPECT(file.read_to_buffer(data));
+        EXPECT(file.reader().read_to_buffer(data));
         file.close();
 
         WorldBlocks wb = *(WorldBlocks *)data.data();

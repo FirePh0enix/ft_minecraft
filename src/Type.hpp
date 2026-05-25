@@ -19,7 +19,7 @@ struct Arguments
     T pop()
     {
         ASSERT_V(i <= args.size(), "");
-        return std::get<T>(args[i++]);
+        return args[i++].get_unchecked<T>();
     }
 };
 
@@ -70,7 +70,7 @@ public:
     }
 
     template <typename T, typename Value>
-    Result<void> add_property(String name, Value (T::*getter)(), void (T::*setter)(Value v))
+    Result<void> add_property(String name, Value (T::*getter)() const, void (T::*setter)(Value v))
     {
         m_properties[name] = Property{
             .getter = [&](Object *instance, Arguments args)

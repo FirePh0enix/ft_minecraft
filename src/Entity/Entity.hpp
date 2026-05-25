@@ -5,6 +5,7 @@
 #include "Core/Containers/LocalVector.hpp"
 #include "Core/Definitions.hpp"
 #include "Core/Ref.hpp"
+#include "Core/String.hpp"
 #include "Render/Renderer.hpp"
 #include "Transform3D.hpp"
 
@@ -51,6 +52,29 @@ private:
     uint32_t m_inner;
 };
 
+class EntitySerializer
+{
+public:
+    template <typename T>
+    Result<void> set(const StringView& attrib, const T& value)
+    {
+        m_variants[attrib] = Variant(value);
+        return Result<void>();
+    }
+
+    template <typename T>
+    std::optional<T> get(const StringView& attrib) const
+    {
+        return m_variants.at(attrib).get_unchecked<T>();
+    }
+
+    Result<void> save(const StringView& path) const;
+    Result<void> load(const StringView& path);
+
+private:
+    std::map<String, Variant> m_variants;
+};
+
 class Entity : public Object
 {
     CLASS(Entity, Object);
@@ -86,6 +110,22 @@ public:
     {
     }
 
+    /**
+     * Called when saving the entity to disk.
+     */
+    virtual void save(EntitySerializer& ser) const
+    {
+        (void)ser;
+    }
+
+    /**
+     * Called when loading the entity from the disk.
+     */
+    virtual void load(const EntitySerializer& deser) const
+    {
+        (void)deser;
+    }
+
     const Transform3D& get_transform() const { return m_transform; }
     Transform3D& get_transform() { return m_transform; }
 
@@ -106,10 +146,10 @@ public:
     ALWAYS_INLINE EntityId id() const { return m_id; }
 
     void set_position(glm::vec3 position) { get_transform().position() = position; }
-    glm::vec3 get_position() { return get_transform().position(); }
+    glm::vec3 get_position() const { return get_transform().position(); }
 
     void set_rotation(glm::quat rotation) { get_transform().rotation() = rotation; }
-    glm::quat get_rotation() { return get_transform().rotation(); }
+    glm::quat get_rotation() const { return get_transform().rotation(); }
 
     template <typename... Args>
     void call_rpc(const StringView& name, Args&&...args)

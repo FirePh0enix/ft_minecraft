@@ -47,23 +47,25 @@ void Inventory::update(float d)
         for (size_t y = 0; y < 5; y++)
         {
             ItemStack stack = m_data[x + y * 9];
-            if (stack.get_block().is_null())
+            if (stack.get_block() == 0)
             {
                 m_slots[x + y * 9]->set_empty(true);
                 continue;
             }
-            m_slots[x + y * 9]->set_texture(Engine::get().blocks().get_texture(stack.get_block()->get_texture_index(Axis::Z, true)));
+            Ref<Block> block = Engine::get().blocks().get_block_by_id(stack.get_block());
+            m_slots[x + y * 9]->set_texture(Engine::get().blocks().get_texture(block->get_texture_index(Axis::Z, true)));
             m_slots[x + y * 9]->set_count(stack.count());
         }
     for (size_t x = 0; x < 9; x++)
     {
         ItemStack stack = m_quick_data[x];
-        if (stack.get_block().is_null())
+        if (stack.get_block() == 0)
         {
             m_quick_slots[x]->set_empty(true);
             continue;
         }
-        m_quick_slots[x]->set_texture(Engine::get().blocks().get_texture(stack.get_block()->get_texture_index(Axis::Z, true)));
+        Ref<Block> block = Engine::get().blocks().get_block_by_id(stack.get_block());
+        m_quick_slots[x]->set_texture(Engine::get().blocks().get_texture(block->get_texture_index(Axis::Z, true)));
         m_quick_slots[x]->set_count(stack.count());
     }
 
@@ -100,7 +102,7 @@ void Inventory::add_stack(ItemStack stack)
             m_quick_data[x].set_count(m_quick_data[x].count() + stack.count());
             return;
         }
-        else if (m_quick_data[x].get_block().is_null())
+        else if (m_quick_data[x].get_block() == 0)
         {
             m_quick_data[x] = stack;
             return;

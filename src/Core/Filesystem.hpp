@@ -2,7 +2,7 @@
 
 #include <filesystem>
 
-#include "Core/Containers/LocalVector.hpp"
+#include "Core/IO.hpp"
 #include "Core/Result.hpp"
 
 static inline String get_config_directory()
@@ -29,16 +29,50 @@ static inline String get_config_directory()
     return path;
 }
 
-struct File
+class File;
+
+class FileReader : public Reader
 {
+public:
+    FileReader(const File *fp)
+        : m_fp(fp)
+    {
+    }
+
+    virtual Result<size_t> read_raw(void *buf, size_t size) override;
+    virtual size_t size() override;
+    virtual bool eof() override;
+
+private:
+    const File *m_fp;
+    bool m_eof = false;
+};
+
+class FileWriter : public Writer
+{
+public:
+    FileWriter(int fd)
+        : m_fd(fd)
+    {
+    }
+
+    virtual Result<size_t> write_raw(const void *buf, size_t size) override;
+
+private:
+    int m_fd;
+};
+
+class File
+{
+public:
+    friend class FileReader;
+    friend class FileWriter;
+
     File();
     void close();
 
-    Result<void> read_raw(void *buffer, size_t size) const;
-    Result<void> read_to_buffer(LocalVector<char>& buffer) const;
-    Result<String> read_to_string() const;
-
-    Result<void> write_raw(const void *buffer, size_t len);
+    FileReader reader() const { return FileReader(this); }
+    FileWriter writer() const { return FileWriter(m_fd); }
 
 private:
     friend class Filesystem;

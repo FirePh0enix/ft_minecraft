@@ -137,11 +137,11 @@ uint32_t BlockRegistry::get_or_create(const StringView& name)
         String path = "assets/textures/";
         path.append(name);
 
-        Result<File> file = Filesystem::open_file(path);
-        ERR_EXPECT_VR(file, 0, "Failed to open `{}`", path);
-
+        File file = EXPECT(Filesystem::open_file(path));
         LocalVector<char> buffer;
-        EXPECT(file->read_to_buffer(buffer));
+        EXPECT(file.reader().read_to_buffer(buffer));
+        file.close();
+
         SDL_IOStream *texture_stream = SDL_IOFromConstMem(buffer.data(), buffer.size());
 
         SDL_Surface *texture_surface = IMG_LoadPNG_IO(texture_stream);

@@ -104,11 +104,12 @@ void from_json(const nlohmann::json& j, ModelJSON& m)
 
 static Result<Ref<Texture>> load_texture(StringView path)
 {
-    Result<File> file = Filesystem::open_file(path);
-    ERR_EXPECT_VR(file, Error(ErrorKind::FileNotFound), "Failed to open `{}`", path);
+    File file = TRY(Filesystem::open_file(path));
 
     LocalVector<char> buffer;
-    TRY(file->read_to_buffer(buffer));
+    TRY(file.reader().read_to_buffer(buffer));
+    file.close();
+
     SDL_IOStream *texture_stream = SDL_IOFromConstMem(buffer.data(), buffer.size());
 
     SDL_Surface *texture_surface = IMG_LoadPNG_IO(texture_stream);
@@ -125,7 +126,9 @@ static Result<Ref<Texture>> load_texture(StringView path)
 
 Result<Ref<Model>> Model::load(const StringView& path)
 {
-    String source = TRY(TRY(Filesystem::open_file(path)).read_to_string());
+    File file = TRY(Filesystem::open_file(path));
+    String source = TRY(file.reader().read_to_string());
+
     ModelJSON json = nlohmann::json::parse(std::string(source.data(), source.size()));
 
     Ref<Model> model = TRY(newref<Model>());

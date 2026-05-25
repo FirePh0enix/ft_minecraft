@@ -1,9 +1,49 @@
 #include "Entity/Entity.hpp"
+
+#include "Core/Filesystem.hpp"
 #include "Core/Result.hpp"
 #include "Engine.hpp"
 #include "Network/Network.hpp"
 #include "Type.hpp"
+#include "Variant.hpp"
 #include "World/World.hpp"
+
+Result<void> EntitySerializer::save(const StringView& path) const
+{
+    File file = TRY(Filesystem::open_file(path, true));
+    FileWriter writer = file.writer();
+
+    for (auto& [name, value] : m_variants)
+    {
+        TRY(writer.write_variant(Variant(name)));
+        TRY(writer.write_variant(value));
+    }
+
+    file.close();
+    return Result<void>();
+}
+
+Result<void> EntitySerializer::load(const StringView& path)
+{
+    File file = TRY(Filesystem::open_file(path));
+    FileReader reader = file.reader();
+
+    while (!reader.eof())
+    {
+        Variant vname = TRY(reader.read_variant());
+        // TODO: good way to check EOF
+        if (reader.eof())
+            break;
+        ASSERT_V(vname.has(VariantType::String), "");
+        String s = vname.get_unchecked<String>();
+
+        Variant value = TRY(reader.read_variant());
+        m_variants[s] = value;
+    }
+
+    file.close();
+    return Result<void>();
+}
 
 void Entity::bind_methods()
 {

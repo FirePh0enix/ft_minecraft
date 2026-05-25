@@ -64,8 +64,19 @@ public:
     {
         T r = 0;
         size_t i = 0;
+
+        bool neg;
+
+        if constexpr (std::is_unsigned_v<T>)
+            if (i > 0 && m_data[i] == '-')
+                neg = true;
+
         for (; i < m_size && std::isdigit(m_data[i]); i++)
             r = r * 10 + (m_data[i] - '0');
+
+        if constexpr (std::is_unsigned_v<T>)
+            return neg ? -1 * r : r;
+
         return r;
     }
 

@@ -97,35 +97,36 @@ Result<void> Filesystem::make_dirs(const StringView& path)
 void File::close()
 {
     ::close(m_fd);
+    m_fd = -1;
 }
 
-Result<void> File::read_raw(void *buffer, size_t size) const
+Result<size_t> FileReader::read_raw(void *buffer, size_t size)
 {
-    ssize_t r = read(m_fd, buffer, size);
-    if (r == -1)
-        return Error(ErrorKind::FileNotFound);
-    return Result<void>();
+    ssize_t r = ::read(m_fp->m_fd, buffer, size);
+    if (r == 0)
+    {
+        m_eof = true;
+        return 0;
+    }
+    if (r < (ssize_t)size)
+        return Error(ErrorKind::ReadFailure);
+    return (size_t)r;
 }
 
-Result<void> File::read_to_buffer(LocalVector<char>& buffer) const
+size_t FileReader::size()
 {
-    EXPECT(buffer.resize(m_size));
-    TRY(read_raw(buffer.data(), m_size));
-    return Result<void>();
+    return m_fp->m_size;
 }
 
-Result<String> File::read_to_string() const
+bool FileReader::eof()
 {
-    String str;
-    str.resize(m_size);
-    TRY(read_raw(str.data(), m_size));
-    return str;
+    return m_eof;
 }
 
-Result<void> File::write_raw(const void *buffer, size_t len)
+Result<size_t> FileWriter::write_raw(const void *buffer, size_t len)
 {
     ssize_t r = write(m_fd, buffer, len);
     if (r == -1)
-        return Error(ErrorKind::FileNotFound);
-    return Result<void>();
+        return Error(ErrorKind::WriteFailure);
+    return (size_t)r;
 }

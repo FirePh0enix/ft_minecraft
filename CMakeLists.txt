@@ -32,6 +32,7 @@ list(APPEND SOURCES
     src/Core/Class.cpp
     src/Core/Error.cpp
     src/Core/Filesystem.cpp
+    src/Core/IO.cpp
     src/Core/Ref.cpp
     src/Core/String.cpp
     src/Core/StringView.cpp
@@ -68,6 +69,7 @@ list(APPEND SOURCES_TEST
     tests/HashMap.cpp
     tests/main.cpp
     tests/ref.cpp
+    tests/Variant.cpp
 )
 
 if (EMSCRIPTEN)

@@ -21,8 +21,8 @@ Player::Player()
 void Player::on_ready()
 {
     m_inventory = EXPECT(newref<Inventory>());
-    m_inventory->set_quick_stack(0, ItemStack(Engine::get().blocks().get_block_by_name("stone"), 16));
-    m_inventory->set_quick_stack(1, ItemStack(Engine::get().blocks().get_block_by_name("dirt"), 16));
+    m_inventory->set_quick_stack(0, ItemStack(Engine::get().blocks().get_block_id("stone"), 16));
+    m_inventory->set_quick_stack(1, ItemStack(Engine::get().blocks().get_block_id("dirt"), 16));
 
     if (m_local_player)
     {
@@ -178,9 +178,9 @@ void Player::tick(float delta)
             if (Input::is_action_just_pressed("interact"))
             {
                 ItemStack& stack = m_inventory->get_quick_stack(m_slot);
-                if (!stack.get_block().is_null() && m_world->get_block_state(result.block_pos.x + int64_t(result.normal.x), result.block_pos.y + int64_t(result.normal.y), result.block_pos.z + int64_t(result.normal.z)).is_air())
+                if (stack.get_block() != 0 && m_world->get_block_state(result.block_pos.x + int64_t(result.normal.x), result.block_pos.y + int64_t(result.normal.y), result.block_pos.z + int64_t(result.normal.z)).is_air())
                 {
-                    m_world->set_block_state(result.block_pos.x + int64_t(result.normal.x), result.block_pos.y + int64_t(result.normal.y), result.block_pos.z + int64_t(result.normal.z), BlockState(stack.get_block()->id()));
+                    m_world->set_block_state(result.block_pos.x + int64_t(result.normal.x), result.block_pos.y + int64_t(result.normal.y), result.block_pos.z + int64_t(result.normal.z), BlockState(stack.get_block()));
                     stack.set_count(stack.count() - 1);
                 }
             }

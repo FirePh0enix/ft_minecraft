@@ -1,7 +1,9 @@
 #include "World/Dimension.hpp"
+
 #include "Profiler.hpp"
 #include "World/Block.hpp"
 #include "World/Chunk.hpp"
+#include "World/World.hpp"
 
 std::optional<Ref<Chunk>> Dimension::get_chunk(int64_t x, int64_t z) const
 {
@@ -96,14 +98,6 @@ static int64_t local_coords(int64_t g)
     if (loc < 0)
         loc += 16;
     return loc;
-}
-
-inline int64_t chunk_index(int64_t global)
-{
-    int64_t c = global / 16;
-    if (global < 0 && global % 16 != 0)
-        --c;
-    return c;
 }
 
 BlockState Dimension::get_block(int64_t x, int64_t y, int64_t z) const

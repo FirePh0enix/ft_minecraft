@@ -1,20 +1,18 @@
 #pragma once
 
-#include "Core/Ref.hpp"
-#include "World/Block.hpp"
-
 #include <cstddef>
+#include <cstdint>
 
 class ItemStack
 {
 public:
     ItemStack()
-        : m_block(nullptr), m_count(0)
+        : m_block_id(0), m_count(0)
     {
     }
 
-    ItemStack(Ref<Block> block, size_t count = 1)
-        : m_block(block), m_count(count)
+    ItemStack(uint16_t block_id, size_t count = 1)
+        : m_block_id(block_id), m_count(count)
     {
     }
 
@@ -23,12 +21,12 @@ public:
     {
         m_count = count;
         if (count == 0)
-            m_block = nullptr;
+            m_block_id = 0;
     }
 
-    Ref<Block> get_block() const { return m_block; }
+    uint16_t get_block() const { return m_block_id; }
 
 private:
-    Ref<Block> m_block;
+    uint16_t m_block_id;
     size_t m_count;
 };

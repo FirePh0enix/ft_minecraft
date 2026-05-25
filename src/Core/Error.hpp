@@ -24,6 +24,10 @@ enum class ErrorKind : uint16_t
      */
     FileNotFound = 0x2,
 
+    ReadFailure = 0x3,
+    WriteFailure = 0x4,
+    EndOfFile = 0x5,
+
     /**
      * @brief A generic error to indicate something went wrong while talking to the GPU.
      */
@@ -43,11 +47,6 @@ enum class ErrorKind : uint16_t
      * @brief A shader failed to compile.
      */
     ShaderCompilationFailed = 0x1003,
-
-    /**
-     * @brief ImGui initialization failed.
-     */
-    ImGuiInitFailed = 0x1004,
 
     /**
      * @brief Something went wrong with network.
@@ -78,6 +77,15 @@ struct Formatter<ErrorKind> : public FormatterBase
         case ErrorKind::FileNotFound:
             msg = "File not found";
             break;
+        case ErrorKind::ReadFailure:
+            msg = "Read failed";
+            break;
+        case ErrorKind::WriteFailure:
+            msg = "Write failed";
+            break;
+        case ErrorKind::EndOfFile:
+            msg = "End of file";
+            break;
         case ErrorKind::BadDriver:
             msg = "Bad driver";
             break;
@@ -89,9 +97,6 @@ struct Formatter<ErrorKind> : public FormatterBase
             break;
         case ErrorKind::ShaderCompilationFailed:
             msg = "Shader compilation failed";
-            break;
-        case ErrorKind::ImGuiInitFailed:
-            msg = "ImGui initialization failed";
             break;
         case ErrorKind::HostCreationFailed:
             msg = "Host creating failed";

@@ -11,6 +11,16 @@
 
 #include <cstddef>
 
+class Player;
+
+inline int64_t chunk_index(int64_t global)
+{
+    int64_t c = global / 16;
+    if (global < 0 && global % 16 != 0)
+        --c;
+    return c;
+}
+
 enum WorldPresetType : uint32_t
 {
     WorldPresetFlat,
@@ -106,6 +116,8 @@ public:
     std::optional<Ref<Chunk>> get_chunk(int64_t x, int64_t z) const;
     std::optional<Ref<Chunk>> get_chunk(int64_t x, int64_t z);
 
+    StringView get_name() const { return m_name; }
+
     void remove_chunk(int64_t x, int64_t z)
     {
         m_dims[0].remove_chunk(x, z);
@@ -174,6 +186,13 @@ public:
      * Save chunk to the disk.
      */
     Result<void> save_chunk(const Ref<Chunk>& chunk);
+
+    Result<void> save_entity(const Ref<Entity>& entity);
+    Result<void> save_player(const Ref<Player>& player);
+
+    void force_load_chunk_for(glm::vec3 position);
+
+    bool is_player_saved(const StringView& name) const;
 
     static EntityId next_id()
     {

@@ -1,4 +1,5 @@
 #include "Render/Shader.hpp"
+
 #include "Core/Assert.hpp"
 #include "Core/Filesystem.hpp"
 #include "Core/Hash.hpp"
@@ -10,7 +11,9 @@ Shader::~Shader()
 
 Result<Ref<Shader>> Shader::load(const std::filesystem::path& path)
 {
-    String source_code = TRY(TRY(Filesystem::open_file(path)).read_to_string());
+    File file = TRY(Filesystem::open_file(path));
+    String source_code = TRY(file.reader().read_to_string());
+    file.close();
 
     Ref<Shader> shader = TRY(newref<Shader>());
     shader->m_source_code = source_code;
