@@ -7,8 +7,6 @@
 
 #include <imgui.h>
 
-#include <SDL3_image/SDL_image.h>
-
 #ifdef __platform_web
 #include <emscripten/html5.h>
 #endif

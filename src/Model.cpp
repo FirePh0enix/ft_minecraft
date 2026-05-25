@@ -11,7 +11,7 @@
 #include <optional>
 
 #include <SDL3/SDL.h>
-#include <SDL3_image/SDL_image.h>
+#include <stb_image.h>
 
 struct ModelObject
 {
@@ -110,16 +110,14 @@ static Result<Ref<Texture>> load_texture(StringView path)
     TRY(file.reader().read_to_buffer(buffer));
     file.close();
 
-    SDL_IOStream *texture_stream = SDL_IOFromConstMem(buffer.data(), buffer.size());
+    int w, h, channels;
+    stbi_uc *data = stbi_load_from_memory((const stbi_uc *)buffer.data(), (int)buffer.size(), &w, &h, &channels, 4);
+    ERR_COND_V(data == nullptr, "Failed to parse image `{}`", path);
 
-    SDL_Surface *texture_surface = IMG_LoadPNG_IO(texture_stream);
-    ERR_COND_V(texture_surface == nullptr, "Failed to parse image `{}`", path);
+    Ref<Texture> texture = TRY(Texture::create(w, h, WGPUTextureFormat_RGBA8UnormSrgb, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding, TextureDimension::D2D, 1, 1));
+    texture->update(View((uint8_t *)data, w * h * 4));
 
-    Ref<Texture> texture = TRY(Texture::create(texture_surface->w, texture_surface->h, WGPUTextureFormat_RGBA8UnormSrgb, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding, TextureDimension::D2D, 1, 1));
-    texture->update(View((uint8_t *)texture_surface->pixels, texture_surface->w * texture_surface->h * 4));
-
-    SDL_DestroySurface(texture_surface);
-    SDL_CloseIO(texture_stream);
+    stbi_image_free(data);
 
     return texture;
 }

@@ -6,10 +6,19 @@
 #include "Render/Renderer.hpp"
 #include "World/Block.hpp"
 
-#include <SDL3_image/SDL_image.h>
+// #include <SDL3_image/SDL_image.h>
+#include <stb_image.h>
 
 #include <functional>
 #include <map>
+
+struct Image
+{
+    const stbi_uc *data;
+    int w;
+    int h;
+    int channels;
+};
 
 class BlockRegistry
 {
@@ -58,7 +67,7 @@ private:
     LocalVector<Ref<Block>> m_blocks;
     std::map<String, uint16_t> m_blocks_by_name;
     std::map<String, uint32_t> m_texture_by_name;
-    Vector<SDL_Surface *> m_textures;
+    Vector<Image> m_textures;
     LocalVector<Ref<Texture>> m_texture_handles;
     Ref<Texture> m_texture_array;
     Ref<Buffer> m_texture_registry_buffer;

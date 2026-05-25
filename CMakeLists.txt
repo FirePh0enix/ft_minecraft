@@ -25,6 +25,7 @@ list(APPEND SOURCES
     src/Font.cpp
     src/Input.cpp
     src/Model.cpp
+    src/stb_image.cpp
     src/Type.cpp
     src/Window.cpp
     src/Core/Noise/Simplex.cpp
@@ -269,14 +270,14 @@ target_link_libraries(${TARGET_NAME} PUBLIC SDL3::SDL3)
 target_link_libraries(${TARGET_NAME}_test PUBLIC SDL3::SDL3)
 
 # SDL_image
-FetchContent_Declare(
-    SDL_image
-    GIT_REPOSITORY https://github.com/libsdl-org/SDL_image
-    GIT_TAG 1c23b06a13161314f6f33e7ab35a2e5c601f1bc3
-)
-FetchContent_MakeAvailable(SDL_image)
-target_link_libraries(${TARGET_NAME} PUBLIC SDL3_image::SDL3_image)
-target_link_libraries(${TARGET_NAME}_test PUBLIC SDL3_image::SDL3_image)
+# FetchContent_Declare(
+#     SDL_image
+#     GIT_REPOSITORY https://github.com/libsdl-org/SDL_image
+#     GIT_TAG 1c23b06a13161314f6f33e7ab35a2e5c601f1bc3
+# )
+# FetchContent_MakeAvailable(SDL_image)
+# target_link_libraries(${TARGET_NAME} PUBLIC SDL3_image::SDL3_image)
+# target_link_libraries(${TARGET_NAME}_test PUBLIC SDL3_image::SDL3_image)
 
 # ImGui
 # FetchContent_Declare(
@@ -316,6 +317,16 @@ else()
     target_compile_definitions(${TARGET_NAME} PRIVATE IMGUI_IMPL_WEBGPU_BACKEND_WGPU=1)
     target_compile_definitions(${TARGET_NAME}_test PRIVATE IMGUI_IMPL_WEBGPU_BACKEND_WGPU=1)
 endif()
+
+# stb
+FetchContent_Declare(
+    stb
+    GIT_REPOSITORY https://github.com/nothings/stb
+    GIT_TAG 31c1ad37456438565541f4919958214b6e762fb4
+)
+FetchContent_MakeAvailable(stb)
+target_include_directories(${TARGET_NAME} PRIVATE ${stb_SOURCE_DIR})
+target_include_directories(${TARGET_NAME}_test PRIVATE ${stb_SOURCE_DIR})
 
 # enet
 set(BUILD_SHARED_LIBS 0)

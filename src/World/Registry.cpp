@@ -5,7 +5,7 @@
 #include <filesystem>
 #include <fstream>
 
-#include <SDL3/SDL_surface.h>
+// #include <SDL3/SDL_surface.h>
 #include <nlohmann/json.hpp>
 
 struct BlockManifest
@@ -59,7 +59,7 @@ BlockRegistry::BlockRegistry()
 BlockRegistry::~BlockRegistry()
 {
     for (auto& surface : m_textures)
-        SDL_DestroySurface(surface);
+        stbi_image_free((void *)surface.data);
 }
 
 Result<void> BlockRegistry::register_block(StringView name)
@@ -115,10 +115,10 @@ void BlockRegistry::create_gpu_resources()
 
     for (const auto& surface : m_textures)
     {
-        m_texture_array->update(View((uint8_t *)surface->pixels, surface->w * surface->h * 4), index);
+        m_texture_array->update(View((uint8_t *)surface.data, surface.w * surface.h * 4), index);
 
         Ref<Texture> texture = EXPECT(Texture::create(16, 16, WGPUTextureFormat_RGBA8Unorm, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding, TextureDimension::D2D));
-        texture->update(View((uint8_t *)surface->pixels, surface->w * surface->h * 4));
+        texture->update(View((uint8_t *)surface.data, surface.w * surface.h * 4));
 
         // TODO: create textureview instead of duplicating data in memory.
         EXPECT(m_texture_handles.append(texture));
@@ -142,20 +142,22 @@ uint32_t BlockRegistry::get_or_create(const StringView& name)
         EXPECT(file.reader().read_to_buffer(buffer));
         file.close();
 
-        SDL_IOStream *texture_stream = SDL_IOFromConstMem(buffer.data(), buffer.size());
+        int w, h, channels;
+        stbi_uc *data = stbi_load_from_memory((const stbi_uc *)buffer.data(), (int)buffer.size(), &w, &h, &channels, 4);
+        ERR_COND_V(data == nullptr, "Failed to parse image `{}`", path);
 
-        SDL_Surface *texture_surface = IMG_LoadPNG_IO(texture_stream);
-        ERR_COND_V(texture_surface == nullptr, "Failed to parse image `{}`", path);
+        // SDL_IOStream *texture_stream = SDL_IOFromConstMem(buffer.data(), buffer.size());
 
+        // SDL_Surface *texture_surface = IMG_LoadPNG_IO(texture_stream);
         // TODO: Check the format of the image and resize it if necessary.
 
         const uint32_t id = m_textures.size();
 
-        (void)m_textures.append(texture_surface);
+        (void)m_textures.append(Image(data, w, h, channels));
         m_texture_by_name[name] = id;
 
         // SDL_DestroySurface(texture_surface);
-        SDL_CloseIO(texture_stream);
+        // SDL_CloseIO(texture_stream);
 
         return id;
     }
