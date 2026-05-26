@@ -124,7 +124,7 @@ private:
         if (!__result.has_value())    \
         {                             \
             __result.error().print(); \
-            exit(1);                  \
+            ::exit(1);                \
         }                             \
         __result.value();             \
     })
