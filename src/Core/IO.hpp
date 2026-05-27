@@ -15,7 +15,7 @@ public:
 
     Result<String> read_to_string();
     Result<void> read_to_buffer(LocalVector<char>& buf);
-    Result<Variant> read_variant();
+    Result<Option<Variant>> read_variant();
 };
 
 class Writer

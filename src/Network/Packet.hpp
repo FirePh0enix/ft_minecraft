@@ -261,7 +261,7 @@ struct RpcCallPacket
 {
     EntityId id;
     String name;
-    std::vector<Variant> args;
+    Vector<Variant> args;
 
     static constexpr PacketType type = PacketType::RpcCall;
 };

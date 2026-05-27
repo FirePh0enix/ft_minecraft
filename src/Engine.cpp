@@ -61,17 +61,11 @@ Engine::Engine(const Args& args)
     EXPECT(Font::init_library());
     m_font = EXPECT(Font::create("assets/fonts/Anonymous.ttf", 32));
 
-    m_console.register_command("tp", {
-                                         CmdArgInfo(CmdArgKind::Int, "x"),
-                                         CmdArgInfo(CmdArgKind::Int, "y"),
-                                         CmdArgInfo(CmdArgKind::Int, "z"),
-                                     },
+    m_console.register_command("tp", EXPECT(Vector<CmdArgInfo>::create(CmdArgInfo(CmdArgKind::Int, "x"), CmdArgInfo(CmdArgKind::Int, "y"), CmdArgInfo(CmdArgKind::Int, "z"))),
                                [](const Command& cmd)
                                { Engine::get().get_player()->set_position(glm::vec3(cmd.get_arg_int("x"), cmd.get_arg_int("y"), cmd.get_arg_int("z"))); });
 
-    m_console.register_command("gamemode", {
-                                               CmdArgInfo(CmdArgKind::String, "gamemode"),
-                                           },
+    m_console.register_command("gamemode", EXPECT(Vector<CmdArgInfo>::create(CmdArgInfo(CmdArgKind::String, "gamemode"))),
                                [](const Command& cmd)
                                {
                                    String mode = cmd.get_arg_string("gamemode");
@@ -110,14 +104,16 @@ void Engine::tick(float delta)
 {
     ZoneScoped;
 
-    std::optional<SDL_Event> event;
+    Option<SDL_Event> event_opt;
 
     {
         ZoneScopedN("handle events");
 
-        while ((event = m_window->poll_event()))
+        while ((event_opt = m_window->poll_event()))
         {
-            switch (event->type)
+            SDL_Event event = event_opt.get();
+
+            switch (event.type)
             {
             case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
             {
@@ -126,16 +122,16 @@ void Engine::tick(float delta)
             break;
             case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
             {
-                Result<void> result = Renderer::get().configure_surface(event->window.data1, event->window.data2, VSync::On);
+                Result<void> result = Renderer::get().configure_surface(event.window.data1, event.window.data2, VSync::On);
                 ERR_EXPECT_B(result, "Failed to configure the surface");
 
                 if (m_scene == EngineScene::World)
-                    m_world->get_active_camera()->update_projection((float)event->window.data1 / (float)event->window.data2);
+                    m_world->get_active_camera()->update_projection((float)event.window.data1 / (float)event.window.data2);
             }
             break;
             case SDL_EVENT_KEY_DOWN:
             {
-                if (event->key.key == SDLK_F3)
+                if (event.key.key == SDLK_F3)
                     m_debug_menu = !m_debug_menu;
             }
             break;
@@ -143,7 +139,7 @@ void Engine::tick(float delta)
                 break;
             }
 
-            ImGui_ImplSDL3_ProcessEvent(&*event);
+            ImGui_ImplSDL3_ProcessEvent(&event);
             ImGuiIO& imgui_io = ImGui::GetIO();
 
             if (imgui_io.WantCaptureMouse || imgui_io.WantCaptureKeyboard)
@@ -151,7 +147,7 @@ void Engine::tick(float delta)
                 continue;
             }
 
-            Input::process_event(event.value());
+            Input::process_event(event);
         }
     }
 
@@ -333,8 +329,8 @@ void Engine::create_world_and_start()
         EntitySerializer serializer;
         EXPECT(serializer.load(path));
 
-        glm::vec3 position = serializer.get<glm::vec3>("position").value();
-        glm::quat rotation = serializer.get<glm::quat>("rotation").value();
+        glm::vec3 position = serializer.get<glm::vec3>("position").get();
+        glm::quat rotation = serializer.get<glm::quat>("rotation").get();
 
         m_player->set_position(position);
         m_player->set_rotation(rotation);
@@ -375,6 +371,7 @@ void Engine::exit()
     Font::deinit_library();
 
     m_renderer.deinit();
+    Entity::cleanup();
 }
 
 void Engine::receive_client(void *user, NetworkConnection& conn, ENetPacket *packet, const Client& client)
@@ -465,7 +462,7 @@ void Engine::receive_client(void *user, NetworkConnection& conn, ENetPacket *pac
         for (const Variant& v : p.args)
             EXPECT(variants.append(v));
 
-        std::optional<RpcTarget> rpc = entity->get_rpc(p.name);
+        Option<RpcTarget> rpc = entity->get_rpc(p.name);
         if (!rpc.has_value())
             break;
 
@@ -483,7 +480,7 @@ void Engine::receive_client(void *user, NetworkConnection& conn, ENetPacket *pac
         if (self->m_world->get_dimension(0).has_chunk(p.x, p.z))
         {
             // SAFETY: we already checked if the chunk exists, there is no multithreading to mess things up.
-            Ref<Chunk> chunk = self->m_world->get_dimension(0).get_chunk(p.x, p.z).value();
+            Ref<Chunk> chunk = self->m_world->get_dimension(0).get_chunk(p.x, p.z).get();
             std::memcpy(chunk->get_blocks(), p.blocks.data(), sizeof(BlockState) * p.blocks.size());
             std::memcpy(chunk->get_biomes(), p.biomes.data(), sizeof(Biome) * p.biomes.size());
         }
@@ -561,7 +558,7 @@ void Engine::receive_server(void *user, NetworkConnection& conn, ENetPacket *pac
         for (const Variant& v : p.args)
             EXPECT(variants.append(v));
 
-        std::optional<RpcTarget> rpc = entity->get_rpc(p.name);
+        Option<RpcTarget> rpc = entity->get_rpc(p.name);
         if (!rpc.has_value())
             break;
 
@@ -619,7 +616,7 @@ void Engine::connect_server(void *user, NetworkConnection& conn, const Client& c
     player->get_transform().position() = spawn_position;
 
     self->m_world->add_entity(0, player);
-    self->m_players[client.peer()] = player;
+    EXPECT(self->m_players.put(client.peer(), player));
 
     AddEntityPacket p2(player->get_transform().position(), player->get_transform().rotation(), id, player->get_class_hash_code());
     conn.broadcast(conn.create_packet(p2), client.peer());
@@ -631,7 +628,7 @@ void Engine::disconnect_server(void *user, NetworkConnection& conn, const Client
     (void)client;
     Engine *self = (Engine *)user;
 
-    Ref<Player> player = self->m_players[client.peer()];
+    Ref<Player> player = self->m_players.get(client.peer()).get();
 
     RemoveEntityPacket p(player->id());
     conn.broadcast(conn.create_packet(p), client.peer());

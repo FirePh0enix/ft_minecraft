@@ -26,7 +26,7 @@ public:
     }
 
     ALWAYS_INLINE explicit Ref(T *ptr)
-        : m_ptr(ptr), m_references(alloc<size_t>(1))
+        : m_ptr(ptr), m_references(alloc<std::size_t>(1))
     {
     }
 
@@ -42,7 +42,7 @@ public:
         }
     }
 
-    Ref(T *ptr, size_t *references)
+    Ref(T *ptr, std::size_t *references)
         : m_ptr(ptr), m_references(references)
     {
         if (!is_null())
@@ -53,6 +53,8 @@ public:
     {
         if (!is_null())
             unref();
+        m_ptr = nullptr;
+        m_references = nullptr;
     }
 
     Ref& operator=(std::nullptr_t)

@@ -41,41 +41,68 @@ void Input::load_config()
     Input::add_action("open_inventory");
     Input::add_action_mapping("open_inventory", ActionMapping(ActionMappingKind::Key, SDLK_E));
 
+    Input::add_action("1");
     Input::add_action_mapping("1", ActionMapping(ActionMappingKind::Key, SDLK_1));
+
+    Input::add_action("2");
     Input::add_action_mapping("2", ActionMapping(ActionMappingKind::Key, SDLK_2));
+
+    Input::add_action("3");
     Input::add_action_mapping("3", ActionMapping(ActionMappingKind::Key, SDLK_3));
+
+    Input::add_action("4");
     Input::add_action_mapping("4", ActionMapping(ActionMappingKind::Key, SDLK_4));
+
+    Input::add_action("5");
     Input::add_action_mapping("5", ActionMapping(ActionMappingKind::Key, SDLK_5));
+
+    Input::add_action("6");
     Input::add_action_mapping("6", ActionMapping(ActionMappingKind::Key, SDLK_6));
+
+    Input::add_action("7");
     Input::add_action_mapping("7", ActionMapping(ActionMappingKind::Key, SDLK_7));
+
+    Input::add_action("8");
     Input::add_action_mapping("8", ActionMapping(ActionMappingKind::Key, SDLK_8));
+
+    Input::add_action("9");
     Input::add_action_mapping("9", ActionMapping(ActionMappingKind::Key, SDLK_9));
 }
 
-bool Input::is_action_pressed(const String& action)
+bool Input::is_action_pressed(const StringView& action)
 {
-    return s_actions[action].value > 0.0;
+    Option<Status> status_opt = s_actions.get(action);
+    if (!status_opt.has_value())
+        return false;
+    return status_opt.get().value > 0.0;
 }
 
-bool Input::is_action_just_pressed(const String& action)
+bool Input::is_action_just_pressed(const StringView& action)
 {
-    return s_actions[action].value > 0.0 && !s_actions[action].repeat;
+    Option<Status> status_opt = s_actions.get(action);
+    if (!status_opt.has_value())
+        return false;
+    return status_opt.get().value > 0.0 && !status_opt.get().repeat;
 }
 
-float Input::get_action_value(const String& action)
+float Input::get_action_value(const StringView& action)
 {
-    return s_actions[action].value;
+    Option<Status> status_opt = s_actions.get(action);
+    if (!status_opt.has_value())
+        return false;
+    return status_opt.get().value;
 }
 
-void Input::set_action_value(const String& action, float value)
+void Input::set_action_value(const StringView& action, float value)
 {
-    s_actions[action].value = value;
+    Status *status = EXPECT(s_actions.get_or_put(action, {}));
+    status->value = value;
 
     if (value == 0.0)
-        s_actions[action].repeat = false;
+        status->repeat = false;
 }
 
-glm::vec2 Input::get_vector(const String& x_negative, const String& x_positive, const String& y_negative, const String& y_positive)
+glm::vec2 Input::get_vector(const StringView& x_negative, const StringView& x_positive, const StringView& y_negative, const StringView& y_positive)
 {
     return glm::vec2(get_action_value(x_positive) - get_action_value(x_negative), get_action_value(y_positive) - get_action_value(y_negative));
 }
@@ -114,7 +141,7 @@ void Input::post_events()
 {
     s_mouse_relative = glm::vec2();
 
-    for (auto& [_, status] : s_actions)
+    for (auto& [_, key, status] : s_actions)
     {
         if (status.value > 0)
             status.repeat = true;
@@ -125,23 +152,23 @@ void Input::process_event(SDL_Event event)
 {
     for (const auto& mappings : s_mappings)
     {
-        for (const auto& mapping : mappings.second)
+        for (const auto& mapping : mappings.value)
         {
             if (event.type == SDL_EVENT_KEY_DOWN && mapping.kind == ActionMappingKind::Key && event.key.key == mapping.value)
             {
-                set_action_value(mappings.first, 1.0);
+                set_action_value(mappings.key, 1.0);
             }
             else if (event.type == SDL_EVENT_KEY_UP && mapping.kind == ActionMappingKind::Key && event.key.key == mapping.value)
             {
-                set_action_value(mappings.first, 0.0);
+                set_action_value(mappings.key, 0.0);
             }
             else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN && mapping.kind == ActionMappingKind::MouseButton && event.button.button == mapping.value)
             {
-                set_action_value(mappings.first, 1.0);
+                set_action_value(mappings.key, 1.0);
             }
             else if (event.type == SDL_EVENT_MOUSE_BUTTON_UP && mapping.kind == ActionMappingKind::MouseButton && event.button.button == mapping.value)
             {
-                set_action_value(mappings.first, 0.0);
+                set_action_value(mappings.key, 0.0);
             }
         }
     }
@@ -153,13 +180,13 @@ void Input::process_event(SDL_Event event)
     }
 }
 
-void Input::add_action(const String& name)
+void Input::add_action(const StringView& name)
 {
-    s_mappings[name] = {};
+    EXPECT(s_mappings.put(name, {}));
 }
 
-void Input::add_action_mapping(const String& name, ActionMapping mapping)
+void Input::add_action_mapping(const StringView& name, ActionMapping mapping)
 {
-    Vector<ActionMapping>& mappings = s_mappings[name];
-    (void)mappings.append(mapping);
+    Vector<ActionMapping>& mappings = *s_mappings.get_ptr(name).get();
+    EXPECT(mappings.append(mapping));
 }

@@ -1,9 +1,8 @@
 #include "World/Registry.hpp"
 #include "Core/Filesystem.hpp"
 #include "Core/Format.hpp"
-
-#include <filesystem>
-#include <fstream>
+#include "Core/Json.hpp"
+#include "World/Block.hpp"
 
 // #include <SDL3/SDL_surface.h>
 #include <nlohmann/json.hpp>
@@ -15,20 +14,12 @@ struct BlockManifest
         Cube,
     };
 
-    // TODO: replace `std::string` by `String`.
-
-    std::string name;
+    String name;
     Model model;
     bool transparent = false;
-    std::vector<std::string> faces;
-    std::optional<GradientType> gradient;
+    Vector<String> faces;
+    Option<GradientType> gradient;
 };
-
-void from_json(const nlohmann::json& j, String& m)
-{
-    const auto s = j.get_ptr<const nlohmann::json::string_t *>();
-    m = String(s->data(), s->size());
-}
 
 void from_json(const nlohmann::json& j, BlockManifest& m)
 {
@@ -37,7 +28,7 @@ void from_json(const nlohmann::json& j, BlockManifest& m)
     j.at("faces").get_to(m.faces);
 
     if (j.contains("gradient"))
-        m.gradient = j.at("gradient");
+        m.gradient = GradientType(j.at("gradient"));
     if (j.contains("transparent"))
         m.transparent = j.at("transparent");
 }
@@ -66,11 +57,8 @@ Result<void> BlockRegistry::register_block(StringView name)
 {
     String path = format("assets/blocks/{}.json", name);
 
-    std::ifstream ifs(path.data(), std::ifstream::ate);
-    String s;
-    s.resize(ifs.tellg());
-    ifs.seekg(0);
-    ifs.read(s.data(), (std::streamsize)s.size());
+    File file = TRY(Filesystem::open_file(path));
+    String s = TRY(file.reader().read_to_string());
 
     BlockManifest block_json = nlohmann::json::parse(std::string(s.data(), s.size()));
     std::array<String, 6> faces;
@@ -79,20 +67,20 @@ Result<void> BlockRegistry::register_block(StringView name)
 
     for (size_t i = 0; i < faces.size(); i++)
     {
-        faces[i] = StringView(block_json.faces[i]);
+        faces[i] = StringView(block_json.faces.get_unchecked(i));
     }
 
     String names = name;
 
     std::array<String, 6> textures;
     for (size_t i = 0; i < 6; i++)
-        textures[i].append(block_json.faces[i].data());
+        textures[i] = String(block_json.faces.get_unchecked(i).data());
 
     const uint16_t id = m_blocks.size() + 1;
     Ref<Block> block = EXPECT(newref<Block>(names, id, textures, block_json.gradient.value_or(GradientType::None), block_json.transparent));
 
-    (void)m_blocks.append(block);
-    m_blocks_by_name[block->name()] = id;
+    TRY(m_blocks.append(block));
+    TRY(m_blocks_by_name.put(block->name(), id));
 
     block->set_texture_ids({
         get_or_create(block->get_texture_names()[0]),
@@ -130,9 +118,9 @@ void BlockRegistry::create_gpu_resources()
 
 uint32_t BlockRegistry::get_or_create(const StringView& name)
 {
-    const auto id_pair = m_texture_by_name.find(name);
+    const auto id_pair = m_texture_by_name.get(name);
 
-    if (id_pair == m_texture_by_name.end())
+    if (!id_pair.has_value())
     {
         String path = "assets/textures/";
         path.append(name);
@@ -146,28 +134,20 @@ uint32_t BlockRegistry::get_or_create(const StringView& name)
         stbi_uc *data = stbi_load_from_memory((const stbi_uc *)buffer.data(), (int)buffer.size(), &w, &h, &channels, 4);
         ERR_COND_V(data == nullptr, "Failed to parse image `{}`", path);
 
-        // SDL_IOStream *texture_stream = SDL_IOFromConstMem(buffer.data(), buffer.size());
-
-        // SDL_Surface *texture_surface = IMG_LoadPNG_IO(texture_stream);
-        // TODO: Check the format of the image and resize it if necessary.
-
         const uint32_t id = m_textures.size();
 
-        (void)m_textures.append(Image(data, w, h, channels));
-        m_texture_by_name[name] = id;
-
-        // SDL_DestroySurface(texture_surface);
-        // SDL_CloseIO(texture_stream);
+        EXPECT(m_textures.append(Image(data, w, h, channels)));
+        EXPECT(m_texture_by_name.put(name, id));
 
         return id;
     }
     else
     {
-        return id_pair->second;
+        return id_pair.get();
     }
 }
 
 Result<Ref<Entity>> EntityRegistry::create_entity(ClassHashCode class_hash)
 {
-    return m_entries.at(class_hash).c.value()();
+    return m_entries.get(class_hash).get().c();
 }

@@ -100,8 +100,6 @@ public:
     static constexpr size_t max_dimensions = 2;
 
     World();
-    // World(uint64_t seed);
-    // World(uint64_t seed, int type);
     ~World();
 
     static Result<Ref<World>> create(String name, uint64_t seed, int type);
@@ -113,8 +111,8 @@ public:
     BlockState get_block_state(int64_t x, int64_t y, int64_t z) const;
     void set_block_state(int64_t x, int64_t y, int64_t z, BlockState state);
 
-    std::optional<Ref<Chunk>> get_chunk(int64_t x, int64_t z) const;
-    std::optional<Ref<Chunk>> get_chunk(int64_t x, int64_t z);
+    Option<Ref<Chunk>> get_chunk(int64_t x, int64_t z) const;
+    Option<Ref<Chunk>> get_chunk(int64_t x, int64_t z);
 
     StringView get_name() const { return m_name; }
 

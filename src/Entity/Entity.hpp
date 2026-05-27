@@ -2,6 +2,7 @@
 
 #include "AABB.hpp"
 #include "Core/Class.hpp"
+#include "Core/Containers/HashMap.hpp"
 #include "Core/Containers/LocalVector.hpp"
 #include "Core/Definitions.hpp"
 #include "Core/Ref.hpp"
@@ -63,7 +64,7 @@ public:
     }
 
     template <typename T>
-    std::optional<T> get(const StringView& attrib) const
+    Option<T> get(const StringView& attrib) const
     {
         return m_variants.at(attrib).get_unchecked<T>();
     }
@@ -167,9 +168,14 @@ public:
 
     ALWAYS_INLINE bool is_active() const { return m_active; }
 
-    std::optional<RpcTarget> get_rpc(StringView name);
+    Option<RpcTarget> get_rpc(StringView name);
 
     void move_and_collide();
+
+    static void cleanup()
+    {
+        s_exposed_rpc.clear();
+    }
 
 protected:
     EntityId m_id;
@@ -187,12 +193,14 @@ protected:
     bool m_active = true;
     size_t m_dimension = 0;
 
-    static inline std::map<ClassHashCode, std::map<String, RpcTarget>> s_exposed_rpc;
+    static inline HashMap<ClassHashCode, HashMap<String, RpcTarget>> s_exposed_rpc;
 
     template <typename T>
     static ALWAYS_INLINE void expose_rpc(String name, RpcTarget target = RpcTarget::Both)
     {
-        s_exposed_rpc[T::get_static_hash_code()][name] = target;
+        if (!s_exposed_rpc.contains(T::get_static_hash_code()))
+            EXPECT(s_exposed_rpc.put(T::get_static_hash_code(), {}));
+        EXPECT(s_exposed_rpc.get_ptr(T::get_static_hash_code()).get()->put(name, target));
     }
 
     void call_rpc(StringView name, View<Variant> args);

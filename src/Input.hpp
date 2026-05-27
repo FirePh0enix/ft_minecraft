@@ -2,8 +2,6 @@
 
 #include "Window.hpp"
 
-#include <map>
-
 struct Status
 {
     float value = 0.0;
@@ -38,12 +36,12 @@ public:
     static void init(const Window& window);
     static void load_config();
 
-    static bool is_action_pressed(const String& action);
-    static bool is_action_just_pressed(const String& action);
+    static bool is_action_pressed(const StringView& action);
+    static bool is_action_just_pressed(const StringView& action);
 
-    static float get_action_value(const String& action);
+    static float get_action_value(const StringView& action);
 
-    static glm::vec2 get_vector(const String& x_negative, const String& x_positive, const String& y_negative, const String& y_positive);
+    static glm::vec2 get_vector(const StringView& x_negative, const StringView& x_positive, const StringView& y_negative, const StringView& y_positive);
 
     static void set_mouse_grabbed(bool value);
 
@@ -60,18 +58,18 @@ public:
 
     static void process_event(SDL_Event event);
 
-    static void add_action(const String& name);
-    static void add_action_mapping(const String& name, ActionMapping mapping);
+    static void add_action(const StringView& name);
+    static void add_action_mapping(const StringView& name, ActionMapping mapping);
 
 private:
     Input()
     {
     }
 
-    static void set_action_value(const String& action, float value);
+    static void set_action_value(const StringView& action, float value);
 
-    static inline std::map<String, Vector<ActionMapping>> s_mappings;
-    static inline std::map<String, Status> s_actions;
+    static inline HashMap<String, Vector<ActionMapping>> s_mappings;
+    static inline HashMap<String, Status> s_actions;
     static inline bool s_mouse_grabbed;
     static inline glm::vec2 s_mouse_relative;
 

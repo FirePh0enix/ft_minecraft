@@ -17,7 +17,7 @@ Result<Ref<Font>> Font::create(const StringView& font_name, uint32_t font_size)
 {
     uint32_t bmp_height = 0;
     uint32_t bmp_width = 0;
-    std::map<uint8_t, Vector<char>> data;
+    HashMap<uint8_t, Vector<char>> data;
 
     FT_Face face;
 
@@ -46,7 +46,7 @@ Result<Ref<Font>> Font::create(const StringView& font_name, uint32_t font_size)
             .advance = (uint32_t)face->glyph->advance.x,
         };
 
-        font->m_characters[c] = character;
+        TRY(font->m_characters.put(c, character));
 
         if (face->glyph->bitmap.width > 0)
         {
@@ -55,7 +55,7 @@ Result<Ref<Font>> Font::create(const StringView& font_name, uint32_t font_size)
             auto glyph_buffer = face->glyph->bitmap.buffer;
 
             memcpy(char_data.data(), glyph_buffer, face->glyph->bitmap.width * face->glyph->bitmap.rows);
-            data[c] = char_data;
+            TRY(data.put(c, char_data));
         }
         bmp_width += face->glyph->bitmap.width;
     }
@@ -72,8 +72,8 @@ Result<Ref<Font>> Font::create(const StringView& font_name, uint32_t font_size)
             continue;
         }
 
-        const Font::Character character = font->m_characters[i];
-        const Vector<char>& char_data = data[i];
+        const Font::Character character = font->m_characters.get(i).get();
+        const Vector<char>& char_data = *data.get_ptr(i).get();
 
         const int width = character.size.x;
         const int height = character.size.y;

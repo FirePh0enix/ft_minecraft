@@ -68,14 +68,14 @@ Extent2D Window::size() const
 #endif
 }
 
-std::optional<SDL_Event> Window::poll_event() const
+Option<SDL_Event> Window::poll_event() const
 {
     SDL_Event event;
 
     if (SDL_PollEvent(&event))
         return event;
     else
-        return std::nullopt;
+        return None;
 }
 
 void Window::set_fullscreen(bool f)

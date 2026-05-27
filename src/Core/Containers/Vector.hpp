@@ -26,7 +26,7 @@ public:
     {
         Vector v;
         TRY(v.reserve(sizeof...(args)));
-        TRY(v.append(args), ...);
+        ((void)v.append(args), ...); // TODO: check errors
         return v;
     }
 
@@ -254,8 +254,8 @@ public:
         return ForwardIterator<T>(&data()[m_size]);
     }
 
-    const T& get_unchecked(size_t index) const { return m_data[index]; }
-    T& get_unchecked(size_t index) { return m_data[index]; }
+    ALWAYS_INLINE const T& get_unchecked(size_t index) const { return m_data[index]; }
+    ALWAYS_INLINE T& get_unchecked(size_t index) { return m_data[index]; }
 
     uint32_t references() const { return m_references ? *m_references : 0; }
 

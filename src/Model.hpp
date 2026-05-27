@@ -60,24 +60,24 @@ public:
     View<Object> objects() const { return m_objects; }
     Ref<Buffer> get_global_buffer() const { return m_global_buffer; }
 
-    std::optional<Animation> get_animation(String name) const
+    Option<Animation> get_animation(String name) const
     {
         for (const Animation& anim : m_animation)
         {
             if (anim.name == name)
                 return anim;
         }
-        return std::nullopt;
+        return None;
     }
 
-    std::optional<Object> get_object(String name) const
+    Option<Object> get_object(String name) const
     {
         for (const auto& obj : m_objects)
         {
             if (obj.name == name)
                 return obj;
         }
-        return std::nullopt;
+        return None;
     }
 
     void encode(const RenderPassNode& node, const Transform3D& transform = Transform3D());
@@ -112,8 +112,8 @@ private:
 
     void update_model_animation_buffer();
 
-    std::optional<Model::Keyframe> get_keyframe_for_frame(uint32_t frame) const;
+    Option<Model::Keyframe> get_keyframe_for_frame(uint32_t frame) const;
 
-    std::optional<TransformWithLength> get_current_transform(String object_name) const;
-    std::optional<TransformWithLength> get_next_transform(String object_name) const;
+    Option<TransformWithLength> get_current_transform(String object_name) const;
+    Option<TransformWithLength> get_next_transform(String object_name) const;
 };

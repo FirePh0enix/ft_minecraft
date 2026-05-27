@@ -6,8 +6,6 @@
 #include "Core/Hasher.hpp"
 #include "Core/Result.hpp"
 
-#include <optional>
-
 template <typename H, typename K, typename V>
 struct Pair
 {
@@ -28,13 +26,41 @@ public:
     {
     }
 
-    HashMap(const HashMap&) = delete;
-    void operator==(const HashMap) = delete;
+    HashMap(const HashMap& o)
+        : m_size(o.m_size), m_capacity(o.m_size)
+    {
+        m_pairs = alloc_array_uninitialized<PairType>(o.m_size);
+        for (size_t i = 0; i < m_size; i++)
+            new (&m_pairs[i]) PairType(o.m_pairs[i]);
+    }
 
     ~HashMap()
     {
         if (m_pairs)
             destroy_array(m_pairs, m_size);
+        m_pairs = nullptr;
+    }
+
+    void operator=(const HashMap& o)
+    {
+        if (m_pairs)
+            destroy_array(m_pairs, m_size);
+
+        if (o.m_size > 0)
+        {
+            m_size = o.m_size;
+            m_capacity = o.m_size;
+            m_pairs = alloc_array_uninitialized<PairType>(m_capacity);
+
+            for (size_t i = 0; i < m_size; i++)
+                new (&m_pairs[i]) PairType(o.m_pairs[i]);
+        }
+        else
+        {
+            m_size = 0;
+            m_capacity = 0;
+            m_pairs = nullptr;
+        }
     }
 
     Result<void> put(const K& key, V value)
@@ -49,10 +75,34 @@ public:
         return Result<void>();
     }
 
-    std::optional<V> get(const K& key) const
+    Option<V> get(const K& key) const
     {
         Hash hash = H{}(key);
         return find(hash);
+    }
+
+    Option<V *> get_ptr(const K& key)
+    {
+        Hash hash = H{}(key);
+        return find_ptr(hash);
+    }
+
+    Option<const V *> get_ptr(const K& key) const
+    {
+        Hash hash = H{}(key);
+        return find_const_ptr(hash);
+    }
+
+    Result<V *> get_or_put(const K& key, V value)
+    {
+        Hash hash = H{}(key);
+
+        PairType *pair = TRY(insert(hash));
+        pair->hash = hash;
+        new (&pair->key) K(key);
+        new (&pair->value) V(value);
+
+        return &pair->value;
     }
 
     bool contains(const K& key) const
@@ -82,14 +132,15 @@ public:
         if (index == m_size - 1)
             return;
 
-        std::memmove(m_pairs + index, m_pairs + index + 1, (m_size + 1) - index - 1);
+        std::memmove((void *)(m_pairs + index), (void *)(m_pairs + index + 1), (m_size + 1) - index - 1);
     }
 
     void clear()
     {
-        for (size_t i = 0; i < m_size; i++)
-            m_pairs[i].~PairType();
+        destroy_array(m_pairs, m_size);
+        m_pairs = nullptr;
         m_size = 0;
+        m_capacity = 0;
     }
 
     View<PairType> pairs() const { return View(m_pairs, m_size); }
@@ -110,7 +161,7 @@ private:
     size_t m_capacity;
     PairType *m_pairs;
 
-    std::optional<V> find(Hash hash) const
+    Option<V> find(Hash hash) const
     {
         size_t index;
         bool exact;
@@ -118,7 +169,29 @@ private:
 
         if (exact)
             return m_pairs[index].value;
-        return std::nullopt;
+        return None;
+    }
+
+    Option<V *> find_ptr(Hash hash)
+    {
+        size_t index;
+        bool exact;
+        bsearch(hash, index, exact);
+
+        if (exact)
+            return &m_pairs[index].value;
+        return None;
+    }
+
+    Option<const V *> find_const_ptr(Hash hash) const
+    {
+        size_t index;
+        bool exact;
+        bsearch(hash, index, exact);
+
+        if (exact)
+            return &m_pairs[index].value;
+        return None;
     }
 
     Result<PairType *> insert(Hash hash)
@@ -143,8 +216,8 @@ private:
         }
         else if (m_size + 1 <= m_capacity)
         {
-            if (index < m_size - 1)
-                std::memmove((void *)(m_pairs + index + 1), (void *)(m_pairs + index), (m_size - index - 1) * sizeof(PairType));
+            if (m_size > 0 && index < m_size)
+                std::memmove((void *)(m_pairs + index + 1), (void *)(m_pairs + index), (m_size - index) * sizeof(PairType));
             m_size += 1;
             return m_pairs + index;
         }
@@ -153,12 +226,12 @@ private:
             size_t capacity = growth_factor(m_capacity);
             PairType *pairs = alloc_array_uninitialized<PairType>(capacity);
             if (!pairs)
-                return Error(ErrorKind::BadDriver);
+                return Error(ErrorKind::OutOfMemory);
 
             if (index > 0)
                 std::memmove((void *)pairs, (void *)m_pairs, index * sizeof(PairType));
-            if (index < m_size - 1)
-                std::memmove((void *)(pairs + index + 1), (void *)(m_pairs + index), (m_size - index - 1) * sizeof(PairType));
+            if (index < m_size)
+                std::memmove((void *)(pairs + index + 1), (void *)(m_pairs + index), (m_size - index) * sizeof(PairType));
 
             destroy_array_nodestruct(m_pairs, 0);
             m_pairs = pairs;

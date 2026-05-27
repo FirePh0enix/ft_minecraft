@@ -5,8 +5,14 @@
 
 #include "Core/Definitions.hpp"
 
+template <typename T>
+class Vector;
+
 class String;
 
+/**
+ * NOTE: StringView are NOT required to be null terminated.
+ */
 class StringView
 {
 public:
@@ -58,6 +64,8 @@ public:
 
     StringView slice(size_t offset, size_t length) const;
     StringView slice(size_t offset) const { return slice(offset, m_size - offset); }
+
+    Vector<StringView> split(StringView delim) const;
 
     template <typename T>
     T parse_int() const

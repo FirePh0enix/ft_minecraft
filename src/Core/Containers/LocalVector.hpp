@@ -167,14 +167,14 @@ public:
         }
     }
 
-    std::optional<T> find_if(std::function<bool(const T&)> f)
+    Option<T> find_if(std::function<bool(const T&)> f)
     {
         for (size_t i = 0; i < m_size; i++)
         {
             if (f(m_data[i]))
                 return m_data[i];
         }
-        return std::nullopt;
+        return None;
     }
 
     const T& get_unchecked(size_t index) const { return m_data[index]; }

@@ -5,12 +5,12 @@
 #include "World/Chunk.hpp"
 #include "World/World.hpp"
 
-std::optional<Ref<Chunk>> Dimension::get_chunk(int64_t x, int64_t z) const
+Option<Ref<Chunk>> Dimension::get_chunk(int64_t x, int64_t z) const
 {
-    auto iter = m_chunks.find(ChunkPos(x, z));
-    if (iter == m_chunks.end())
-        return std::nullopt;
-    return iter->second;
+    // return m_chunks.get(ChunkPos(x, z));
+    if (m_chunks.contains(ChunkPos(x, z)))
+        return m_chunks.at(ChunkPos(x, z));
+    return None;
 }
 
 bool Dimension::has_chunk(int64_t x, int64_t z) const
@@ -20,15 +20,15 @@ bool Dimension::has_chunk(int64_t x, int64_t z) const
 
 Result<void> Dimension::add_chunk(int64_t x, int64_t z, const Ref<Chunk>& chunk)
 {
+    // TRY(m_chunks.put(ChunkPos(x, z), chunk));
     m_chunks[ChunkPos(x, z)] = chunk;
     return Result<void>();
 }
 
 void Dimension::remove_chunk(int64_t x, int64_t z)
 {
-    auto iter = m_chunks.find(ChunkPos(x, z));
-    if (iter != m_chunks.end())
-        m_chunks.erase(iter);
+    std::lock_guard<std::mutex> g(m_chunk_mutex);
+    EXPECT(m_chunks_to_remove.append(ChunkPos(x, z)));
 }
 
 Result<void> Dimension::add_entity(Ref<Entity> entity)
@@ -112,7 +112,7 @@ BlockState Dimension::get_block(int64_t x, int64_t y, int64_t z) const
     if (!chunk_maybe)
         return BlockState();
 
-    Ref<Chunk> chunk = chunk_maybe.value();
+    Ref<Chunk> chunk = chunk_maybe.get();
     int64_t local_x = local_coords(x);
     int64_t local_z = local_coords(z);
 
@@ -127,14 +127,14 @@ void Dimension::set_block(int64_t x, int64_t y, int64_t z, BlockState state)
     int64_t chunk_x = chunk_index(x);
     int64_t chunk_z = chunk_index(z);
 
-    std::optional<Ref<Chunk>> chunk_value = get_chunk(chunk_x, chunk_z);
+    Option<Ref<Chunk>> chunk_value = get_chunk(chunk_x, chunk_z);
 
     if (!chunk_value.has_value())
     {
         return;
     }
 
-    Ref<Chunk> chunk = chunk_value.value();
+    Ref<Chunk> chunk = chunk_value.get();
     int64_t local_x = local_coords(x);
     int64_t local_z = local_coords(z);
 
@@ -144,25 +144,25 @@ void Dimension::set_block(int64_t x, int64_t y, int64_t z, BlockState state)
     {
         chunk_value = get_chunk(chunk_x - 1, chunk_z);
         if (chunk_value.has_value())
-            EXPECT(chunk_value.value()->build_simple_mesh(y / 16));
+            EXPECT(chunk_value.get()->build_simple_mesh(y / 16));
     }
     else if (local_x == 15)
     {
         chunk_value = get_chunk(chunk_x + 1, chunk_z);
         if (chunk_value.has_value())
-            EXPECT(chunk_value.value()->build_simple_mesh(y / 16));
+            EXPECT(chunk_value.get()->build_simple_mesh(y / 16));
     }
     if (local_z == 0)
     {
         chunk_value = get_chunk(chunk_x, chunk_z - 1);
         if (chunk_value.has_value())
-            EXPECT(chunk_value.value()->build_simple_mesh(y / 16));
+            EXPECT(chunk_value.get()->build_simple_mesh(y / 16));
     }
     else if (local_z == 15)
     {
         chunk_value = get_chunk(chunk_x, chunk_z + 1);
         if (chunk_value.has_value())
-            EXPECT(chunk_value.value()->build_simple_mesh(y / 16));
+            EXPECT(chunk_value.get()->build_simple_mesh(y / 16));
     }
 }
 

@@ -27,6 +27,15 @@ inline bool operator==(ClassHashCode lhs, ClassHashCode rhs)
     return (lhs <=> rhs) == std::strong_ordering::equal;
 }
 
+template <>
+struct Hasher<ClassHashCode>
+{
+    uint64_t operator()(const ClassHashCode& i)
+    {
+        return i.value;
+    }
+};
+
 constexpr ClassHashCode fnv32_class_hash(const char *filename, const char *class_name)
 {
     size_t filename_len = 0;

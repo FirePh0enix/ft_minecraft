@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Core/Containers/HashMap.hpp"
 #include "Core/Containers/Vector.hpp"
 #include "Core/Containers/View.hpp"
 #include "Core/String.hpp"
@@ -35,7 +36,7 @@ public:
 
     ArgValue get_arg(const String& name)
     {
-        return m_values[name];
+        return m_values.get(name).get();
     }
 
     bool has(const String& name) const
@@ -50,7 +51,7 @@ public:
 
 private:
     String m_executable_name;
-    std::map<String, ArgInfo> m_infos;
-    std::map<String, ArgValue> m_values;
+    HashMap<String, ArgInfo> m_infos;
+    HashMap<String, ArgValue> m_values;
     Vector<String> m_args;
 };

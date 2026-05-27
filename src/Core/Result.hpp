@@ -1,8 +1,9 @@
 #pragma once
 
 #include "Core/Error.hpp"
+#include "Core/Option.hpp"
 
-#include <optional>
+// TODO: lots of space could be saved by not using Option here.
 
 template <typename T, typename E = Error>
 class [[nodiscard]] Result
@@ -43,20 +44,20 @@ public:
         return m_error.has_value();
     }
 
-    inline const T& value() const { return m_value.value(); }
-    inline T& value() { return m_value.value(); }
+    inline const T& value() const { return m_value.get(); }
+    inline T& value() { return m_value.get(); }
 
     inline T value_or(const T& default_value)
     {
         return has_value() ? value() : default_value;
     }
 
-    inline const E& error() const { return m_error.value(); }
-    inline E& error() { return m_error.value(); }
+    inline const E& error() const { return m_error.get(); }
+    inline E& error() { return m_error.get(); }
 
 private:
-    std::optional<T> m_value;
-    std::optional<E> m_error;
+    Option<T> m_value;
+    Option<E> m_error;
 };
 
 template <typename E>
@@ -93,16 +94,16 @@ public:
 
     inline const E& error() const
     {
-        return *m_error;
+        return m_error.get();
     }
 
     inline E& error()
     {
-        return *m_error;
+        return m_error.get();
     }
 
 private:
-    std::optional<E> m_error;
+    Option<E> m_error;
 };
 
 // Inspired by Ladybird `TRY` and `MUST` macro. This depends on (statement expression)[1] which is non standard but implemented by gcc and clang.
@@ -124,7 +125,7 @@ private:
         if (!__result.has_value())    \
         {                             \
             __result.error().print(); \
-            ::exit(1);                \
+            std::abort();             \
         }                             \
         __result.value();             \
     })

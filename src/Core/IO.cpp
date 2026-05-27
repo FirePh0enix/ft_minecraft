@@ -1,35 +1,36 @@
 #include "Core/IO.hpp"
 #include "Core/Error.hpp"
 #include "Variant.hpp"
-#include "glm/ext/quaternion_float.hpp"
 
-Result<Variant> Reader::read_variant()
+Result<Option<Variant>> Reader::read_variant()
 {
     uint32_t type_raw;
-    TRY(read_raw(&type_raw, sizeof(uint32_t)));
+    size_t n = TRY(read_raw(&type_raw, sizeof(uint32_t)));
+    if (n == 0)
+        return Option<Variant>(None);
 
     VariantType type = VariantType((uint8_t)type_raw);
     if (type == VariantType::Null)
     {
-        return Variant(nullptr);
+        return Option(Variant(nullptr));
     }
     else if (type == VariantType::Bool)
     {
         uint32_t b;
         TRY(read_raw(&b, sizeof(uint32_t)));
-        return Variant(bool(b));
+        return Option(Variant(bool(b)));
     }
     else if (type == VariantType::Double)
     {
         double d;
         TRY(read_raw(&d, sizeof(double)));
-        return Variant(d);
+        return Option(Variant(d));
     }
     else if (type == VariantType::Integer)
     {
         int64_t i;
         TRY(read_raw(&i, sizeof(int64_t)));
-        return Variant(i);
+        return Option(Variant(i));
     }
     else if (type == VariantType::String)
     {
@@ -47,25 +48,25 @@ Result<Variant> Reader::read_variant()
         if (size != aligned_size)
             TRY(read_raw(buf, aligned_size - size));
 
-        return Variant(s);
+        return Option(Variant(s));
     }
     else if (type == VariantType::Vec2)
     {
         float f[2];
         TRY(read_raw(f, sizeof(f)));
-        return Variant(glm::vec2(f[0], f[1]));
+        return Option(Variant(glm::vec2(f[0], f[1])));
     }
     else if (type == VariantType::Vec3)
     {
         float f[3];
         TRY(read_raw(f, sizeof(f)));
-        return Variant(glm::vec3(f[0], f[1], f[2]));
+        return Option(Variant(glm::vec3(f[0], f[1], f[2])));
     }
     else if (type == VariantType::Quat)
     {
         float f[4];
         TRY(read_raw(f, sizeof(f)));
-        return Variant(glm::quat(f[0], f[1], f[2], f[3]));
+        return Option(Variant(glm::quat(f[0], f[1], f[2], f[3])));
     }
     else if (type == VariantType::ItemStack)
     {
@@ -75,7 +76,7 @@ Result<Variant> Reader::read_variant()
         TRY(read_raw(&size, sizeof(uint32_t)));
         TRY(read_raw(&block_id, sizeof(uint32_t)));
 
-        return Variant(ItemStack(block_id, size));
+        return Option(Variant(ItemStack(block_id, size)));
     }
 
     println("{}", type_raw);

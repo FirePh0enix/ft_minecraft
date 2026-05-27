@@ -1,10 +1,9 @@
 #pragma once
 
+#include "Core/Containers/HashMap.hpp"
 #include "Core/Ref.hpp"
 #include "Core/Result.hpp"
 #include "Render/Renderer.hpp"
-
-#include <map>
 
 class Font : public Object
 {
@@ -54,11 +53,9 @@ public:
         return m_mesh.ptr();
     }
 
-    inline std::optional<Character> get_character(uint8_t c)
+    inline Option<Character> get_character(uint8_t c)
     {
-        if (!m_characters.contains(c))
-            return std::nullopt;
-        return m_characters[c];
+        return m_characters.get(c);
     }
 
     inline Ref<Texture> get_bitmap() const
@@ -70,7 +67,7 @@ private:
     Ref<Texture> m_bitmap;
     Ref<Buffer> m_buffer;
     Ref<Mesh> m_mesh;
-    std::map<uint8_t, Character> m_characters;
+    HashMap<uint8_t, Character> m_characters;
 
     size_t m_width;
     size_t m_height;

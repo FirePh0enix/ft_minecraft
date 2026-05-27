@@ -18,7 +18,7 @@ public:
     {
     }
 
-    std::optional<Ref<Chunk>> get_chunk(int64_t x, int64_t z) const;
+    Option<Ref<Chunk>> get_chunk(int64_t x, int64_t z) const;
 
     bool has_chunk(int64_t x, int64_t z) const;
 
@@ -55,6 +55,7 @@ private:
 
     /**
      * Chunks loaded in memory. Could also be called `Simulated chunks`.
+     * NOTE: This map is only should only be called from the main thread. For adding chunks from other threads use `m_chunks_to_flush` and `m_chunk_mutex`.
      */
     std::map<ChunkPos, Ref<Chunk>> m_chunks;
 
@@ -62,5 +63,7 @@ private:
     std::set<ChunkPos> m_chunk_loading_queue;
 
     std::map<ChunkPos, Ref<Chunk>> m_chunks_to_flush;
+    Vector<ChunkPos> m_chunks_to_remove;
+
     Vector<Ref<GenerationPass>> m_generation_passes;
 };

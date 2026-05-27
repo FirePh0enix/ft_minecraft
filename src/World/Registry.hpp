@@ -6,11 +6,9 @@
 #include "Render/Renderer.hpp"
 #include "World/Block.hpp"
 
-// #include <SDL3_image/SDL_image.h>
 #include <stb_image.h>
 
 #include <functional>
-#include <map>
 
 struct Image
 {
@@ -33,12 +31,12 @@ public:
      */
     uint16_t get_block_id(const StringView& name)
     {
-        const auto& el = m_blocks_by_name.find(name);
-        if (el == m_blocks_by_name.end())
+        const auto& el = m_blocks_by_name.get(name);
+        if (!el.has_value())
         {
             [[unlikely]] return 0;
         }
-        return el->second;
+        return el.get();
     }
 
     const Ref<Block>& get_block_by_id(uint16_t id)
@@ -65,8 +63,8 @@ public:
 
 private:
     LocalVector<Ref<Block>> m_blocks;
-    std::map<String, uint16_t> m_blocks_by_name;
-    std::map<String, uint32_t> m_texture_by_name;
+    HashMap<String, uint16_t> m_blocks_by_name;
+    HashMap<String, uint32_t> m_texture_by_name;
     Vector<Image> m_textures;
     LocalVector<Ref<Texture>> m_texture_handles;
     Ref<Texture> m_texture_array;
@@ -82,18 +80,18 @@ public:
 
     struct Entry
     {
-        std::optional<Constructor> c;
+        Constructor c;
     };
 
     template <typename T>
     void register_entity()
     {
-        m_entries[T::get_static_hash_code()] = Entry{.c = []() -> Result<Ref<Entity>>
-                                                     { return TRY(newref<T>()).template cast_to<Entity>(); }};
+        EXPECT(m_entries.put(T::get_static_hash_code(), Entry{.c = []() -> Result<Ref<Entity>>
+                                                              { return TRY(newref<T>()).template cast_to<Entity>(); }}));
     }
 
     Result<Ref<Entity>> create_entity(ClassHashCode class_hash);
 
 private:
-    std::map<ClassHashCode, Entry> m_entries;
+    HashMap<ClassHashCode, Entry> m_entries;
 };

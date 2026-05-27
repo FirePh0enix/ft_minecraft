@@ -71,7 +71,7 @@ private:
 
     RpcTarget m_authority = RpcTarget::Server;
     NetworkConnection m_connection;
-    std::map<ENetPeer *, Ref<Player>> m_players;
+    HashMap<ENetPeer *, Ref<Player>> m_players;
 
     Renderer m_renderer;
     RenderGraph m_graph;

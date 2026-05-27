@@ -181,14 +181,12 @@ void World::tick(float delta)
     for (Ref<Entity> entity : m_dims[0].m_entities_to_add)
     {
         EXPECT(m_dims[0].m_entities.append(entity));
-        // entity->recurse_tick(delta);
     }
     m_dims[0].m_entities_to_add.clear();
 
     if (!m_proxy)
     {
-        // TODO: put this in a queue.
-        for (auto [pos, chunk] : m_dims[0].m_chunks)
+        for (auto& [pos, chunk] : m_dims[0].m_chunks)
         {
             if (chunk->is_modified())
                 EXPECT(save_chunk(chunk));
@@ -226,6 +224,12 @@ void World::tick(float delta)
             }*/
         }
         m_dims[0].m_chunks_to_flush.clear();
+
+        for (auto pos : m_dims[0].m_chunks_to_remove)
+        {
+            m_dims[0].m_chunks.erase(pos);
+        }
+        m_dims[0].m_chunks_to_remove.clear();
     }
 }
 
@@ -239,12 +243,12 @@ void World::set_block_state(int64_t x, int64_t y, int64_t z, BlockState state)
     m_dims[overworld].set_block(x, y, z, state);
 }
 
-std::optional<Ref<Chunk>> World::get_chunk(int64_t x, int64_t z) const
+Option<Ref<Chunk>> World::get_chunk(int64_t x, int64_t z) const
 {
     return m_dims[overworld].get_chunk(x, z);
 }
 
-std::optional<Ref<Chunk>> World::get_chunk(int64_t x, int64_t z)
+Option<Ref<Chunk>> World::get_chunk(int64_t x, int64_t z)
 {
     return m_dims[overworld].get_chunk(x, z);
 }
@@ -514,6 +518,7 @@ void World::load_one_chunk(ChunkPos pos)
 
     {
         std::lock_guard<std::mutex> lock(m_dims[0].mutex());
+        // EXPECT(m_dims[0].m_chunks_to_flush.put(pos, chunk));
         m_dims[0].m_chunks_to_flush[pos] = chunk;
     }
     {

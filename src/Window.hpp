@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Core/Class.hpp"
+#include "Core/Option.hpp"
 #include "Core/Types.hpp"
 
 #include <SDL3/SDL.h>
@@ -22,7 +23,7 @@ public:
     Extent2D size() const;
 
     [[nodiscard]]
-    std::optional<SDL_Event> poll_event() const;
+    Option<SDL_Event> poll_event() const;
 
     void set_fullscreen(bool f);
     void close();

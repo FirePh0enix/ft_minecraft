@@ -30,14 +30,15 @@ Result<void> EntitySerializer::load(const StringView& path)
 
     while (!reader.eof())
     {
-        Variant vname = TRY(reader.read_variant());
-        // TODO: good way to check EOF
-        if (reader.eof())
+        Option<Variant> vname_opt = TRY(reader.read_variant());
+        if (!vname_opt.has_value())
             break;
+
+        Variant vname = vname_opt.get();
         ASSERT_V(vname.has(VariantType::String), "");
         String s = vname.get_unchecked<String>();
 
-        Variant value = TRY(reader.read_variant());
+        Variant value = TRY(reader.read_variant()).get();
         m_variants[s] = value;
     }
 
@@ -89,19 +90,19 @@ void Entity::recurse_tick(float delta)
     tick(delta);
 }
 
-std::optional<RpcTarget> Entity::get_rpc(StringView name)
+Option<RpcTarget> Entity::get_rpc(StringView name)
 {
     for (ssize_t i = (ssize_t)get_classes().size(); i >= 0; i--)
     {
         ClassHashCode class_hash = get_classes()[i];
         if (s_exposed_rpc.contains(class_hash))
         {
-            const auto& rpcs = s_exposed_rpc.at(class_hash);
+            const auto rpcs = s_exposed_rpc.get(class_hash).get();
             if (rpcs.contains(name))
-                return rpcs.at(name);
+                return rpcs.get(name);
         }
     }
-    return std::nullopt;
+    return None;
 }
 
 void Entity::call_rpc(StringView name, View<Variant> args)
@@ -110,7 +111,7 @@ void Entity::call_rpc(StringView name, View<Variant> args)
     if (!rpc_target_maybe.has_value())
         return;
 
-    RpcTarget rpc_target = rpc_target_maybe.value();
+    RpcTarget rpc_target = rpc_target_maybe.get();
 
     if (Engine::get().is_online() || rpc_target == RpcTarget::Both || (Engine::singleton->is_server() && rpc_target == RpcTarget::Server) || (!Engine::singleton->is_server() && rpc_target == RpcTarget::Client))
     {
@@ -131,12 +132,7 @@ void Entity::call_rpc(StringView name, View<Variant> args)
         RpcCallPacket p;
         p.id = id();
         p.name = name;
-
-        // FIXME: that sucks but using the STL is way easier with json...
-        p.args.reserve(args.size());
-
-        for (const Variant& v : args)
-            p.args.push_back(v);
+        p.args = EXPECT(args.to_vector());
 
         if (Engine::singleton->is_server())
             Engine::singleton->connection().broadcast(Engine::singleton->connection().create_packet(p));

@@ -4,7 +4,7 @@
 
 void Args::add_arg(const String& name, const ArgInfo& info)
 {
-    m_infos[name] = info;
+    EXPECT(m_infos.put(name, info));
 }
 
 void Args::parse(char **argv, int argc)
@@ -23,7 +23,7 @@ void Args::parse(char **argv, int argc)
                 continue;
             }
 
-            const ArgInfo& info = m_infos[name];
+            ArgInfo info = m_infos.get(name).get();
 
             if (info.type != ArgType::Bool && i + 1 >= argc)
             {
@@ -32,12 +32,12 @@ void Args::parse(char **argv, int argc)
             }
             else if (info.type == ArgType::Bool)
             {
-                m_values[name] = {.boolean = true};
+                EXPECT(m_values.put(name, {.boolean = true}));
             }
             else
             {
                 char *next_argv = argv[i + 1];
-                m_values[name] = {.string = next_argv};
+                EXPECT(m_values.put(name, {.string = next_argv}));
             }
         }
         else
