@@ -5,6 +5,7 @@
 #include "Core/Error.hpp"
 #include "Core/Result.hpp"
 
+#include <compare>
 #include <cstddef>
 #include <type_traits>
 #include <utility>
@@ -26,7 +27,7 @@ public:
     }
 
     ALWAYS_INLINE explicit Ref(T *ptr)
-        : m_ptr(ptr), m_references(alloc<std::size_t>(1))
+        : m_ptr(ptr), m_references(alloc<std::atomic_size_t>(1))
     {
     }
 
@@ -42,7 +43,7 @@ public:
         }
     }
 
-    Ref(T *ptr, std::size_t *references)
+    Ref(T *ptr, std::atomic_size_t *references)
         : m_ptr(ptr), m_references(references)
     {
         if (!is_null())
@@ -167,21 +168,22 @@ public:
         return nullptr;
     }
 
-    size_t references() const { return m_references ? *m_references : 0; }
+    size_t references() const { return m_references ? m_references->load() : 0; }
 
 private:
     T *m_ptr;
-    size_t *m_references;
+    std::atomic_size_t *m_references;
 
     ALWAYS_INLINE void ref()
     {
-        *m_references += 1;
+        // *m_references += 1;
+        m_references->fetch_add(1);
     }
 
     void unref()
     {
-        *m_references -= 1;
-        if (*m_references == 0)
+        // *m_references -= 1;
+        if (m_references->fetch_sub(1) == 1)
         {
             destroy(m_ptr);
             destroy(m_references);

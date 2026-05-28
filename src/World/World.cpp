@@ -202,26 +202,10 @@ void World::tick(float delta)
         load_around_player();
 
         // Flush all new chunks.
-        std::unique_lock<std::mutex> lock(m_dims[0].mutex());
-        for (auto [pos, chunk] : m_dims[0].m_chunks_to_flush)
+        std::lock_guard<std::mutex> lock(m_dims[0].mutex());
+        for (auto& [pos, chunk] : m_dims[0].m_chunks_to_flush)
         {
-            EXPECT(m_dims[0].add_chunk(pos.x, pos.z, chunk));
-
-            /*TODO
-            if (Engine::singleton->is_server())
-            {
-                ChunkDataPacket p;
-                p.x = pos.x;
-                p.z = pos.z;
-
-                EXPECT(p.blocks.resize(Chunk::block_count_with_overlap));
-                std::memcpy(p.blocks.data(), chunk->get_blocks(), sizeof(BlockState) * p.blocks.size());
-
-                EXPECT(p.biomes.resize(Chunk::block_count_with_overlap));
-                std::memcpy(p.biomes.data(), chunk->get_blocks(), sizeof(Biome) * p.biomes.size());
-
-                Engine::singleton->get_connection().broadcast(Engine::singleton->get_connection().create_packet(p));
-            }*/
+            EXPECT(m_dims[0].m_chunks.put(pos, chunk));
         }
         m_dims[0].m_chunks_to_flush.clear();
 
@@ -282,14 +266,14 @@ void World::load_around_player()
                 if (m_dims[0].m_chunk_loading_queue.contains(pos))
                     continue;
 
-                m_dims[0].m_chunk_loading_queue.insert(pos);
+                EXPECT(m_dims[0].m_chunk_loading_queue.put(pos));
             }
 
             EXPECT(m_generation_thread_pool.async([this, pos]
                                                   { load_one_chunk(pos); }));
         }
 
-    std::unique_lock<std::mutex> lock(m_dims[0].mutex());
+    std::lock_guard<std::mutex> lock(m_dims[0].mutex());
     for (const auto& [pos, chunk] : m_dims[0].m_chunks)
     {
         if (pos.x >= player_cx - m_load_distance && pos.x <= player_cx + m_load_distance && pos.z >= player_cz - m_load_distance && pos.z <= player_cz + m_load_distance)
@@ -371,7 +355,7 @@ void World::break_block(int64_t x, int64_t y, int64_t z)
     add_entity(World::overworld, item_entity);
 }
 
-Result<void> World::save_chunk(const Ref<Chunk>& chunk)
+Result<void> World::save_chunk(Ref<Chunk> chunk)
 {
     CompressedChunk cchunk = TRY(chunk->compress());
 
@@ -516,11 +500,8 @@ void World::load_one_chunk(ChunkPos pos)
         EXPECT(save_chunk(chunk));
     }
 
-    {
-        std::lock_guard<std::mutex> lock(m_dims[0].mutex());
-        // EXPECT(m_dims[0].m_chunks_to_flush.put(pos, chunk));
-        m_dims[0].m_chunks_to_flush[pos] = chunk;
-    }
+    EXPECT(m_dims[0].add_chunk(pos.x, pos.z, chunk));
+
     {
         std::lock_guard<std::mutex> lock(m_dims[0].m_chunk_loading_mutex);
         m_dims[0].m_chunk_loading_queue.erase(pos);
@@ -529,6 +510,5 @@ void World::load_one_chunk(ChunkPos pos)
 
 void World::unload_one_chunk(ChunkPos pos)
 {
-    std::unique_lock<std::mutex> lock(m_dims[0].mutex());
     m_dims[0].remove_chunk(pos.x, pos.z);
 }

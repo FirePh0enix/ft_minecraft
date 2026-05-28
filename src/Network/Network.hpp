@@ -98,7 +98,7 @@ public:
 
 private:
     ConnectionState m_state = ConnectionState::Idle;
-    std::map<ENetPeer *, Client> m_clients;
+    HashMap<ENetPeer *, Client> m_clients;
 
     size_t m_maximum_connection = 32;
     ENetAddress m_address{};

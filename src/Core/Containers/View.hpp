@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Core/Containers/Array.hpp"
 #include "Core/Containers/InplaceVector.hpp"
 #include "Core/Containers/Iterator.hpp"
 #include "Core/Containers/LocalVector.hpp"
@@ -35,7 +36,7 @@ public:
     }
 
     template <const size_t size>
-    View(const std::array<T, size>& array)
+    View(const Array<T, size>& array)
         : m_data(array.data()), m_size(array.size())
     {
     }

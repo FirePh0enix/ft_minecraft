@@ -2,7 +2,6 @@
 
 #include "Core/Containers/Vector.hpp"
 #include "Core/Definitions.hpp"
-#include "Core/Hasher.hpp"
 #include "Render/Renderer.hpp"
 #include "World/Biome.hpp"
 #include "World/Block.hpp"
@@ -24,20 +23,14 @@ struct ChunkPos
         return std::tie(x, z) < std::tie(other.x, other.z);
     }
 
+    bool operator>(const ChunkPos& other) const
+    {
+        return std::tie(x, z) > std::tie(other.x, other.z);
+    }
+
     bool operator==(const ChunkPos& other) const
     {
         return std::tie(x, z) == std::tie(other.x, other.z);
-    }
-};
-
-template <>
-struct Hasher<ChunkPos>
-{
-    uint64_t operator()(const ChunkPos& i)
-    {
-        uint64_t x = *(uint64_t *)&i.x;
-        uint64_t z = *(uint64_t *)&i.z;
-        return x * 3 + z * 5;
     }
 };
 
@@ -105,9 +98,7 @@ public:
     };
 
     static constexpr int64_t width = 16;
-    // static constexpr int64_t width_with_overlap = width + 2;
     static constexpr int64_t height = 256;
-    // static constexpr int64_t block_count_with_overlap = width_with_overlap * height * width_with_overlap;
     static constexpr int64_t block_count = width * height * width;
     static constexpr int64_t slice_count = height / width;
 
@@ -142,7 +133,6 @@ public:
     void clear_modified() { m_modified = false; }
 
     static ALWAYS_INLINE size_t linearize(int64_t x, int64_t y, int64_t z) { return z * width * height + y * width + x; }
-    // static ALWAYS_INLINE size_t linearize_with_overlap(int64_t x, int64_t y, int64_t z) { return z * width * height + y * width + x; }
 
 private:
     BlockState *m_blocks;

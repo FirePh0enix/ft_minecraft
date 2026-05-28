@@ -1,7 +1,10 @@
 #include "Model.hpp"
 
+#include "Core/Containers/Array.hpp"
 #include "Core/Filesystem.hpp"
+#include "Core/Json.hpp"
 #include "Core/Ref.hpp"
+#include "Core/String.hpp"
 #include "Render/Graph.hpp"
 #include "Render/Renderer.hpp"
 #include "Render/Types.hpp"
@@ -14,12 +17,12 @@
 
 struct ModelObject
 {
-    std::string name;
-    std::array<float, 3> size;
-    std::array<float, 3> position;
-    std::array<float, 3> origin;
+    String name;
+    Array<float, 3> size;
+    Array<float, 3> position;
+    Array<float, 3> origin;
 
-    std::array<std::array<uint32_t, 2>, 24> uvs;
+    Array<Array<uint32_t, 2>, 24> uvs;
 };
 
 void from_json(const nlohmann::json& j, ModelObject& m)
@@ -37,9 +40,9 @@ void from_json(const nlohmann::json& j, ModelObject& m)
 
 struct Transform
 {
-    std::string object;
-    std::array<float, 3> position;
-    std::array<float, 3> rotation;
+    String object;
+    Array<float, 3> position;
+    Array<float, 3> rotation;
 };
 
 void from_json(const nlohmann::json& j, Transform& m)
@@ -54,7 +57,7 @@ void from_json(const nlohmann::json& j, Transform& m)
 struct Keyframe
 {
     uint32_t frame;
-    std::vector<Transform> transforms;
+    Vector<Transform> transforms;
 };
 
 void from_json(const nlohmann::json& j, Keyframe& m)
@@ -65,10 +68,10 @@ void from_json(const nlohmann::json& j, Keyframe& m)
 
 struct Animation
 {
-    std::string name;
+    String name;
     uint32_t fps;
     uint32_t frames;
-    std::vector<Keyframe> keyframes;
+    Vector<Keyframe> keyframes;
 };
 
 void from_json(const nlohmann::json& j, Animation& m)
@@ -81,11 +84,11 @@ void from_json(const nlohmann::json& j, Animation& m)
 
 struct ModelJSON
 {
-    std::string name;
-    std::array<float, 2> texture_size;
-    std::string texture_path;
-    std::vector<ModelObject> objects;
-    std::vector<Animation> animations;
+    String name;
+    Array<float, 2> texture_size;
+    String texture_path;
+    Vector<ModelObject> objects;
+    Vector<Animation> animations;
 };
 
 void from_json(const nlohmann::json& j, ModelJSON& m)

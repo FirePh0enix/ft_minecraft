@@ -33,6 +33,24 @@ struct Hasher<unsigned int>
     }
 };
 
+template <>
+struct Hasher<int64_t>
+{
+    uint64_t operator()(const int64_t& i)
+    {
+        return *(uint64_t *)&i;
+    }
+};
+
+template <>
+struct Hasher<uint64_t>
+{
+    uint64_t operator()(const uint64_t& i)
+    {
+        return i;
+    }
+};
+
 template <typename T>
 struct Hasher<T *>
 {

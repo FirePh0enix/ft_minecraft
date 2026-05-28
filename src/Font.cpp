@@ -1,4 +1,5 @@
 #include "Font.hpp"
+#include "Core/Containers/Array.hpp"
 #include "Core/Containers/Vector.hpp"
 #include "Render/Graph.hpp"
 #include "Render/Renderer.hpp"
@@ -116,20 +117,20 @@ Result<void> Font::init_library()
         return Error(ErrorKind::FileNotFound);
     }
 
-    std::array<uint16_t, 6> indices = {0, 1, 2, 0, 2, 3};
-    std::array<glm::vec3, 4> vertices = {
+    Array<uint16_t, 6> indices = {0, 1, 2, 0, 2, 3};
+    Array<glm::vec3, 4> vertices = {
         glm::vec3(-0.5, 0.0, -1.0),
         glm::vec3(0.5, 0.0, -1.0),
         glm::vec3(0.5, -1.0, -1.0),
         glm::vec3(-0.5, -1.0, -1.0)};
-    std::array<glm::vec3, 4> normals = {
+    Array<glm::vec3, 4> normals = {
         glm::vec3(),
         glm::vec3(),
         glm::vec3(),
         glm::vec3(),
 
     };
-    std::array<glm::vec2, 4> uvs = {
+    Array<glm::vec2, 4> uvs = {
         glm::vec2(0.0, 0.0),
         glm::vec2(1.0, 0.0),
         glm::vec2(1.0, 1.0),
@@ -137,20 +138,6 @@ Result<void> Font::init_library()
     };
 
     g_mesh = EXPECT(Mesh::create_from_data(View(indices).as_bytes(), vertices, normals, View(uvs).as_bytes(), WGPUIndexFormat_Uint16));
-
-    // const Extent2D size = Renderer::get().get_surface_extent();
-    // const float aspect_radio = (float)size.width / (float)size.height;
-
-    // g_ortho_matrix = glm::ortho(-1.0 * aspect_radio, 1.0 * aspect_radio, -1.0, 1.0, 0.01, 10.0);
-    // #ifdef __platform_web
-    // FIXME: For some reason this is needed on web and not desktop.
-    // g_ortho_matrix[1][1] *= -1;
-    // #endif
-
-    // std::array<InstanceAttribute, 3> inputs = {InstanceAttribute(0, WGPUVertexFormat_Float32x4),
-    //                                            InstanceAttribute(sizeof(float) * 4, WGPUVertexFormat_Float32x3),
-    //                                            InstanceAttribute(sizeof(float) * 7, WGPUVertexFormat_Float32x2)};
-    // InstanceLayout instance_layout(inputs, sizeof(Instance));
 
     g_shader = TRY(Shader::load("assets/shaders/font.wgsl"));
     g_shader->set_binding("env", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
@@ -214,7 +201,7 @@ void Text::set(const String& text)
     }
 
     constexpr size_t batch_size = 32;
-    std::array<Font::Instance, batch_size> instances{};
+    Array<Font::Instance, batch_size> instances{};
 
     for (size_t i = 0; i < text.size(); i++)
     {

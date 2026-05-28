@@ -2,7 +2,6 @@
 
 #include <compare>
 #include <type_traits>
-#include <vector>
 
 template <typename T, typename = std::is_enum<T>>
 struct Flags
@@ -33,6 +32,11 @@ public:
     inline constexpr std::strong_ordering operator<=>(Flags<T> rhs) const
     {
         return (IntType)(m_value) <=> (IntType)rhs.m_value;
+    }
+
+    inline constexpr std::strong_ordering operator==(Flags<T> rhs) const
+    {
+        return (IntType)(m_value) == (IntType)rhs.m_value;
     }
 
     inline constexpr Flags<T> operator|(Flags<T> rhs) const

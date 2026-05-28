@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Core/Class.hpp"
+#include "Core/Containers/Map.hpp"
 #include "Core/Definitions.hpp"
 #include "Core/Flags.hpp"
 #include "Core/Ref.hpp"
@@ -197,7 +198,7 @@ private:
     Ref<Shader> m_shader;
     WGPUBindGroup m_bind_group = nullptr;
 
-    std::map<String, MaterialParamCache> m_caches;
+    HashMap<String, MaterialParamCache> m_caches;
 
     MaterialFlags m_flags;
     WGPUCullMode m_cull_mode;
@@ -231,13 +232,25 @@ public:
         {
             return std::tie(shader, bind_group_layout, uv_type, flags, cull_mode, has_color_attach, has_depth_attach, instance_stride) < std::tie(k.shader, k.bind_group_layout, k.uv_type, k.flags, k.cull_mode, k.has_color_attach, k.has_depth_attach, k.instance_stride);
         }
+
+        bool operator>(const Key& k) const
+        {
+            return std::tie(shader, bind_group_layout, uv_type, flags, cull_mode, has_color_attach, has_depth_attach, instance_stride) > std::tie(k.shader, k.bind_group_layout, k.uv_type, k.flags, k.cull_mode, k.has_color_attach, k.has_depth_attach, k.instance_stride);
+        }
+
+        bool operator==(const Key& k) const
+        {
+            uint32_t flags = (uint32_t)this->flags;
+            uint32_t k_flags = (uint32_t)k.flags;
+            return std::tie(shader, bind_group_layout, uv_type, flags, cull_mode, has_color_attach, has_depth_attach, instance_stride) == std::tie(k.shader, k.bind_group_layout, k.uv_type, k_flags, k.cull_mode, k.has_color_attach, k.has_depth_attach, k.instance_stride);
+        }
     };
 
     Result<WGPURenderPipeline> get(const Key& key);
     void clear();
 
 private:
-    std::map<Key, WGPURenderPipeline> m_pipelines;
+    Map<Key, WGPURenderPipeline> m_pipelines;
 };
 
 class SamplerCache
@@ -247,7 +260,7 @@ public:
     void clear();
 
 private:
-    std::map<SamplerDescriptor, WGPUSampler> m_samplers;
+    Map<SamplerDescriptor, WGPUSampler> m_samplers;
 };
 
 struct GPU_ATTRIBUTE WorldEnvironment

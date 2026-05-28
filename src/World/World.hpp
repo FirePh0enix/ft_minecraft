@@ -126,7 +126,7 @@ public:
         m_dims[dim].remove_entity(entity);
     }
 
-    void add_chunk(int64_t x, int64_t z, const Ref<Chunk>& chunk)
+    void add_chunk(int64_t x, int64_t z, Ref<Chunk> chunk)
     {
         EXPECT(m_dims[0].add_chunk(x, z, chunk));
     }
@@ -183,7 +183,7 @@ public:
     /**
      * Save chunk to the disk.
      */
-    Result<void> save_chunk(const Ref<Chunk>& chunk);
+    Result<void> save_chunk(Ref<Chunk> chunk);
 
     Result<void> save_entity(const Ref<Entity>& entity);
     Result<void> save_player(const Ref<Player>& player);
@@ -203,7 +203,7 @@ private:
     uint64_t m_seed = 0;
     String m_name;
 
-    std::array<Dimension, max_dimensions> m_dims;
+    Array<Dimension, max_dimensions> m_dims;
 
     // Thread pool used for chunk loading/unloading.
     ThreadPool m_generation_thread_pool;

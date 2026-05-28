@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Core/Containers/Array.hpp"
+#include "Core/Json.hpp"
 #include "Core/Math.hpp"
 #include "Core/String.hpp"
 #include "Item/ItemStack.hpp"
@@ -98,19 +100,19 @@ struct __attribute__((aligned(16))) Variant
 
 inline void from_json(const nlohmann::json& j, glm::vec2& m)
 {
-    std::array<float, 2> array = j;
+    Array<float, 2> array = j;
     m = glm::vec2(array[0], array[1]);
 }
 
 inline void from_json(const nlohmann::json& j, glm::vec3& m)
 {
-    std::array<float, 3> array = j;
+    Array<float, 3> array = j;
     m = glm::vec3(array[0], array[1], array[2]);
 }
 
 inline void from_json(const nlohmann::json& j, glm::quat& m)
 {
-    std::array<float, 4> array = j;
+    Array<float, 4> array = j;
     m = glm::quat(array[0], array[1], array[2], array[3]);
 }
 
@@ -135,17 +137,17 @@ inline void from_json(const nlohmann::json& j, Variant& m)
     }
     else if (j.is_array() && j.size() == 2)
     {
-        std::array<float, 2> a = j;
+        Array<float, 2> a = j;
         m = glm::vec2(a[0], a[1]);
     }
     else if (j.is_array() && j.size() == 3)
     {
-        std::array<float, 3> a = j;
+        Array<float, 3> a = j;
         m = glm::vec3(a[0], a[1], a[2]);
     }
     else if (j.is_array() && j.size() == 4)
     {
-        std::array<float, 4> a = j;
+        Array<float, 4> a = j;
         m = glm::quat(a[0], a[1], a[2], a[3]);
     }
     else if (j.contains("count") && j.contains("id"))
@@ -156,19 +158,19 @@ inline void from_json(const nlohmann::json& j, Variant& m)
 
 inline void to_json(nlohmann::json& j, const glm::vec2& m)
 {
-    std::array<float, 2> array{m.x, m.y};
+    Array<float, 2> array{m.x, m.y};
     j = array;
 }
 
 inline void to_json(nlohmann::json& j, const glm::vec3& m)
 {
-    std::array<float, 3> array{m.x, m.y, m.z};
+    Array<float, 3> array{m.x, m.y, m.z};
     j = array;
 }
 
 inline void to_json(nlohmann::json& j, const glm::quat& m)
 {
-    std::array<float, 4> array{m.w, m.x, m.y, m.z};
+    Array<float, 4> array{m.w, m.x, m.y, m.z};
     j = array;
 }
 

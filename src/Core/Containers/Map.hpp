@@ -1,32 +1,27 @@
 #pragma once
 
-#include "Core/Alloc.hpp"
-#include "Core/Containers/Iterator.hpp"
 #include "Core/Containers/View.hpp"
-#include "Core/Hasher.hpp"
 #include "Core/Result.hpp"
 
-template <typename H, typename K, typename V>
-struct Pair
+template <typename K, typename V>
+struct MapPair
 {
-    H hash;
     K key;
     V value;
 };
 
-template <typename K, typename V, typename H = Hasher<K>>
-class HashMap
+template <typename K, typename V>
+class Map
 {
 public:
-    using Hash = uint64_t;
-    using PairType = Pair<Hash, K, V>;
+    using PairType = MapPair<K, V>;
 
-    HashMap()
+    Map()
         : m_size(0), m_capacity(0), m_pairs(nullptr)
     {
     }
 
-    HashMap(const HashMap& o)
+    Map(const Map& o)
         : m_size(o.m_size), m_capacity(o.m_size)
     {
         m_pairs = alloc_array_uninitialized<PairType>(o.m_size);
@@ -34,14 +29,16 @@ public:
             new (&m_pairs[i]) PairType(o.m_pairs[i]);
     }
 
-    ~HashMap()
+    ~Map()
     {
         if (m_pairs)
             destroy_array(m_pairs, m_size);
         m_pairs = nullptr;
+        m_size = 0;
+        m_capacity = 0;
     }
 
-    void operator=(const HashMap& o)
+    void operator=(const Map& o)
     {
         if (m_pairs)
             destroy_array(m_pairs, m_size);
@@ -65,62 +62,48 @@ public:
 
     Result<void> put(const K& key, V value)
     {
-        Hash hash = H{}(key);
-
-        PairType *pair = TRY(insert(hash));
-        pair->hash = hash;
+        PairType *pair = TRY(insert(key));
         new (&pair->key) K(key);
         new (&pair->value) V(value);
-
         return Result<void>();
     }
 
     Option<V> get(const K& key) const
     {
-        Hash hash = H{}(key);
-        return find(hash);
+        return find(key);
     }
 
     Option<V *> get_ptr(const K& key)
     {
-        Hash hash = H{}(key);
-        return find_ptr(hash);
+        return find_ptr(key);
     }
 
     Option<const V *> get_ptr(const K& key) const
     {
-        Hash hash = H{}(key);
-        return find_const_ptr(hash);
+        return find_const_ptr(key);
     }
 
     Result<V *> get_or_put(const K& key, V value)
     {
-        Hash hash = H{}(key);
-
-        PairType *pair = TRY(insert(hash));
-        pair->hash = hash;
+        PairType *pair = TRY(insert(key));
         new (&pair->key) K(key);
         new (&pair->value) V(value);
-
         return &pair->value;
     }
 
     bool contains(const K& key) const
     {
-        Hash hash = H{}(key);
         size_t index;
         bool exact;
-        bsearch(hash, index, exact);
+        bsearch(key, index, exact);
         return exact;
     }
 
     void erase(const K& key)
     {
-        Hash hash = H{}(key);
-
         size_t index;
         bool exact;
-        bsearch(hash, index, exact);
+        bsearch(key, index, exact);
 
         // no value for this key.
         if (!exact)
@@ -160,44 +143,44 @@ private:
     size_t m_capacity;
     PairType *m_pairs;
 
-    Option<V> find(Hash hash) const
+    Option<V> find(const K& key) const
     {
         size_t index;
         bool exact;
-        bsearch(hash, index, exact);
+        bsearch(key, index, exact);
 
         if (exact)
             return m_pairs[index].value;
         return None;
     }
 
-    Option<V *> find_ptr(Hash hash)
+    Option<V *> find_ptr(const K& key)
     {
         size_t index;
         bool exact;
-        bsearch(hash, index, exact);
+        bsearch(key, index, exact);
 
         if (exact)
             return &m_pairs[index].value;
         return None;
     }
 
-    Option<const V *> find_const_ptr(Hash hash) const
+    Option<const V *> find_const_ptr(const K& key) const
     {
         size_t index;
         bool exact;
-        bsearch(hash, index, exact);
+        bsearch(key, index, exact);
 
         if (exact)
             return &m_pairs[index].value;
         return None;
     }
 
-    Result<PairType *> insert(Hash hash)
+    Result<PairType *> insert(const K& key)
     {
         size_t index;
         bool exact;
-        bsearch(hash, index, exact);
+        bsearch(key, index, exact);
 
         if (exact)
             return &m_pairs[index];
@@ -241,7 +224,7 @@ private:
         }
     }
 
-    void bsearch(Hash hash, size_t& index, bool& exact) const
+    void bsearch(const K& key, size_t& index, bool& exact) const
     {
         if (m_size == 0)
         {
@@ -260,13 +243,13 @@ private:
             i = start + (end - start) / 2;
             pair = &m_pairs[i];
 
-            if (hash == pair->hash)
+            if (key == pair->key)
             {
                 index = i;
                 exact = true;
                 return;
             }
-            else if (hash > pair->hash)
+            else if (key > pair->key)
             {
                 if (i == m_size - 1)
                     break;
@@ -283,7 +266,7 @@ private:
         index = i;
         exact = false;
 
-        if (hash > pair->hash)
+        if (key > pair->key)
             index += 1;
     }
 };

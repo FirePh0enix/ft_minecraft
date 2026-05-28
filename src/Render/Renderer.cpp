@@ -283,30 +283,30 @@ Result<Ref<Material>> Material::create(const Ref<Shader>& shader, MaterialFlags 
 
 void Material::set_param(const StringView& name, const Ref<Texture>& texture)
 {
-    std::optional<Binding> binding_result = m_shader->get_binding(name);
+    Option<Binding> binding_result = m_shader->get_binding(name);
     ERR_COND_VR(texture.is_null(), "Texture specified for {} is null", name);
     ERR_COND_VR(!binding_result.has_value(), "Invalid parameter name `{}`", name.data());
 
     // TODO: Check dimensions.
 
-    m_caches[name] = MaterialParamCache{.kind = BindingKind::Texture, .texture = texture};
+    EXPECT(m_caches.put(name, MaterialParamCache{.kind = BindingKind::Texture, .texture = texture}));
     m_dirty = true;
 }
 
 void Material::set_param(const StringView& name, const Ref<Buffer>& buffer)
 {
-    std::optional<Binding> binding_result = m_shader->get_binding(name);
+    Option<Binding> binding_result = m_shader->get_binding(name);
     ERR_COND_VR(buffer.is_null(), "Buffer specified for {} is null", name);
     ERR_COND_VR(!binding_result.has_value(), "Invalid parameter name `{}`", name.data());
 
-    m_caches[name] = MaterialParamCache{.kind = BindingKind::UniformBuffer, .buffer = buffer};
+    EXPECT(m_caches.put(name, MaterialParamCache{.kind = BindingKind::UniformBuffer, .buffer = buffer}));
     m_dirty = true;
 }
 
 const MaterialParamCache& Material::get_param(const StringView& name) const
 {
     ASSERT_V(m_caches.contains(name), "Cache missing {}", name);
-    return m_caches.at(name);
+    return *m_caches.get_ptr(name).get();
 }
 
 WGPUBindGroup Material::get_bind_group()
@@ -324,7 +324,7 @@ Result<void> Material::create_bind_group()
     LocalVector<WGPUBindGroupEntry> entries;
     // TRY(entries.reserve(m_shader->get_bindings().size()));
 
-    for (const auto& [name, binding] : m_shader->get_bindings())
+    for (const auto& [_, name, binding] : m_shader->get_bindings())
     {
         switch (binding.kind)
         {
@@ -419,8 +419,9 @@ static WGPUShaderModule create_shader_module(const Ref<Shader>& shader)
 
 Result<WGPURenderPipeline> PipelineCache::get(const Key& key)
 {
-    if (m_pipelines.contains(key))
-        return m_pipelines.at(key);
+    Option<WGPURenderPipeline> pipeline_opt = m_pipelines.get(key);
+    if (pipeline_opt.has_value())
+        return pipeline_opt.get();
 
     LocalVector<WGPUVertexBufferLayout> buffers;
     TRY(buffers.reserve(3 + key.attributes.size()));
@@ -548,7 +549,7 @@ Result<WGPURenderPipeline> PipelineCache::get(const Key& key)
 
     wgpuShaderModuleRelease(module);
 
-    m_pipelines[key] = pipeline;
+    TRY(m_pipelines.put(key, pipeline));
     return pipeline;
 }
 
@@ -560,10 +561,9 @@ void PipelineCache::clear()
 
 WGPUSampler SamplerCache::get(const SamplerDescriptor& desc)
 {
-    if (m_samplers.contains(desc))
-    {
-        return m_samplers.at(desc);
-    }
+    Option<WGPUSampler> sampler_opt = m_samplers.get(desc);
+    if (sampler_opt.has_value())
+        return sampler_opt.get();
 
     WGPUSamplerDescriptor d{};
     d.magFilter = desc.mag_filter;
@@ -574,7 +574,7 @@ WGPUSampler SamplerCache::get(const SamplerDescriptor& desc)
     d.maxAnisotropy = 1;
 
     WGPUSampler sampler = wgpuDeviceCreateSampler(Renderer::get().device(), &d);
-    m_samplers[desc] = sampler;
+    EXPECT(m_samplers.put(desc, sampler));
 
     return sampler;
 }
@@ -706,7 +706,7 @@ static Result<Ref<Mesh>> create_cube_mesh(glm::vec3 size = glm::vec3(1.0), glm::
     const glm::vec3 hs = size / glm::vec3(2.0);
 
     // clang-format off
-    std::array<uint16_t, 36> indices{
+    Array<uint16_t, 36> indices{
         0, 1, 2,
         2, 3, 0, // front
 
@@ -727,7 +727,7 @@ static Result<Ref<Mesh>> create_cube_mesh(glm::vec3 size = glm::vec3(1.0), glm::
     };
     // clang-format on
 
-    std::array<glm::vec3, 24> vertices{
+    Array<glm::vec3, 24> vertices{
         glm::vec3(-hs.x + offset.x, -hs.y + offset.y, hs.z + offset.z), // front
         glm::vec3(hs.x + offset.x, -hs.y + offset.y, hs.z + offset.z),
         glm::vec3(hs.x + offset.x, hs.y + offset.y, hs.z + offset.z),
@@ -759,7 +759,7 @@ static Result<Ref<Mesh>> create_cube_mesh(glm::vec3 size = glm::vec3(1.0), glm::
         glm::vec3(-hs.x + offset.x, -hs.y + offset.y, hs.z + offset.z),
     };
 
-    std::array<glm::vec2, 24> uvs{
+    Array<glm::vec2, 24> uvs{
         glm::vec2(0.0, 0.0),
         glm::vec2(1.0, 0.0),
         glm::vec2(1.0, 1.0),
@@ -791,7 +791,7 @@ static Result<Ref<Mesh>> create_cube_mesh(glm::vec3 size = glm::vec3(1.0), glm::
         glm::vec2(0.0, 1.0),
     };
 
-    std::array<glm::vec3, 24> normals{
+    Array<glm::vec3, 24> normals{
         glm::vec3(0.0, 0.0, 1.0), // front
         glm::vec3(0.0, 0.0, 1.0),
         glm::vec3(0.0, 0.0, 1.0),
@@ -967,14 +967,14 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_item_block_shader->set_sampler("images", {.min_filter = WGPUFilterMode_Nearest, .mag_filter = WGPUFilterMode_Nearest});
     m_item_block_shader->create_bind_group_layout();
 
-    std::array<uint16_t, 6> indices{0, 1, 2, 0, 2, 3};
-    std::array<glm::vec3, 4> vertices{
+    Array<uint16_t, 6> indices{0, 1, 2, 0, 2, 3};
+    Array<glm::vec3, 4> vertices{
         glm::vec3(-0.5, -0.5, 0.1),
         glm::vec3(+0.5, -0.5, 0.1),
         glm::vec3(+0.5, +0.5, 0.1),
         glm::vec3(-0.5, +0.5, 0.1),
     };
-    std::array<glm::vec2, 4> uvs{
+    Array<glm::vec2, 4> uvs{
         glm::vec2(0.0, 0.0),
         glm::vec2(1.0, 0.0),
         glm::vec2(1.0, 1.0),
@@ -1109,7 +1109,7 @@ WGPURenderPipeline Renderer::get_pipeline(Ref<Material> material, const RenderPa
 
 void Renderer::record_world(Renderer& renderer, Ref<World> world, const RenderPassNode& node)
 {
-    const Dimension& dim = world->get_dimension(0);
+    Dimension& dim = world->get_dimension(0);
     const Ref<Camera> camera = world->get_active_camera();
 
     if (camera.is_null())
@@ -1157,7 +1157,6 @@ void Renderer::record_world(Renderer& renderer, Ref<World> world, const RenderPa
             wgpuRenderPassEncoderSetVertexBuffer(encoder, 0, mesh->get_buffer(Mesh::BufferKind::Position)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Position)->size());
             wgpuRenderPassEncoderSetVertexBuffer(encoder, 1, mesh->get_buffer(Mesh::BufferKind::Normal)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Normal)->size());
             wgpuRenderPassEncoderSetVertexBuffer(encoder, 2, mesh->get_buffer(Mesh::BufferKind::UV)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::UV)->size());
-
             wgpuRenderPassEncoderSetVertexBuffer(encoder, 3, chunk->get_chunk_buffer()->handle(), sizeof(glm::vec3) * i, sizeof(glm::vec3));
 
             wgpuRenderPassEncoderDrawIndexed(encoder, mesh->vertex_count(), 1, 0, 0, 0);

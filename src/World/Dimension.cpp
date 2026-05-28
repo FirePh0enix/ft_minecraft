@@ -7,10 +7,7 @@
 
 Option<Ref<Chunk>> Dimension::get_chunk(int64_t x, int64_t z) const
 {
-    // return m_chunks.get(ChunkPos(x, z));
-    if (m_chunks.contains(ChunkPos(x, z)))
-        return m_chunks.at(ChunkPos(x, z));
-    return None;
+    return m_chunks.get(ChunkPos(x, z));
 }
 
 bool Dimension::has_chunk(int64_t x, int64_t z) const
@@ -20,8 +17,8 @@ bool Dimension::has_chunk(int64_t x, int64_t z) const
 
 Result<void> Dimension::add_chunk(int64_t x, int64_t z, const Ref<Chunk>& chunk)
 {
-    // TRY(m_chunks.put(ChunkPos(x, z), chunk));
-    m_chunks[ChunkPos(x, z)] = chunk;
+    std::lock_guard<std::mutex> g(m_chunk_mutex);
+    TRY(m_chunks_to_flush.put(ChunkPos(x, z), chunk));
     return Result<void>();
 }
 

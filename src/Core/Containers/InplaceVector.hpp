@@ -6,7 +6,7 @@
 #include "Core/Format.hpp"
 
 /**
- * @brief A container that provide a similar interface than `std::vector`, except that the data is stored on the stack.
+ * @brief A container that provide a similar interface than `Vector`, except that the data is stored on the stack.
  */
 template <typename T, const size_t capacity>
 class InplaceVector

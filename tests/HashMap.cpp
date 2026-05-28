@@ -1,4 +1,5 @@
 #include "Core/Containers/HashMap.hpp"
+#include "Core/Containers/Map.hpp"
 #include "Core/Result.hpp"
 #include "Core/String.hpp"
 
@@ -80,4 +81,19 @@ TEST_CASE("HashMap big insertion")
     CHECK(map.put("7", Vector<Foo>()));
     CHECK(map.put("8", Vector<Foo>()));
     CHECK(map.put("9", Vector<Foo>()));
+}
+
+TEST_CASE("Map erase")
+{
+    Map<int, int> map;
+    CHECK(map.put(3, 3));
+    CHECK(map.put(8, 8));
+    CHECK(map.put(5, 5));
+    CHECK(map.put(1, 1));
+
+    map.erase(3);
+
+    CHECK(map.pairs()[0].key == 1);
+    CHECK(map.pairs()[1].key == 5);
+    CHECK(map.pairs()[2].key == 8);
 }

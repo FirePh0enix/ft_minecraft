@@ -125,28 +125,6 @@ struct Formatter<bool> : public FormatterBase
     }
 };
 
-template <typename K, typename V>
-struct Formatter<std::map<K, V>> : public FormatterBase
-{
-    void format(const std::map<K, V>& map, FormatContext& ctx) const
-    {
-        ctx.write_str("{ ");
-
-        size_t i = 0;
-
-        for (const auto& iter : map)
-        {
-            format_to(ctx.out(), "{}: {}", iter->first, iter->second);
-
-            if (i + 1 < map.size())
-                ctx.write_str(", ");
-            i++;
-        }
-
-        ctx.write_str(" }");
-    }
-};
-
 template <typename T>
 struct FormatBin
 {

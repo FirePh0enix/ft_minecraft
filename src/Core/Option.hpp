@@ -90,11 +90,11 @@ public:
      * Convert Option<T> to Option<B> by calling `f`.
      */
     template <typename B>
-    Option<B> map(std::function<B(const T&)> f)
+    Option<B> map(std::function<B(const T&)> f) const
     {
         if (!m_has_value)
             return None;
-        return Option<T>(f(get()));
+        return Option<B>(f(get()));
     }
 
 private:

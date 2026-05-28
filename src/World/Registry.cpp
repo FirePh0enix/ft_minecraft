@@ -61,7 +61,7 @@ Result<void> BlockRegistry::register_block(StringView name)
     String s = TRY(file.reader().read_to_string());
 
     BlockManifest block_json = nlohmann::json::parse(std::string(s.data(), s.size()));
-    std::array<String, 6> faces;
+    Array<String, 6> faces;
 
     // println("{} {}", name, block_json.transparent);
 
@@ -72,7 +72,7 @@ Result<void> BlockRegistry::register_block(StringView name)
 
     String names = name;
 
-    std::array<String, 6> textures;
+    Array<String, 6> textures;
     for (size_t i = 0; i < 6; i++)
         textures[i] = String(block_json.faces.get_unchecked(i).data());
 

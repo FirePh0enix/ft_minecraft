@@ -18,7 +18,7 @@ Chunk::Chunk(int64_t x, int64_t z)
     m_slices = alloc_array<Slice>(slice_count);
 
     m_chunk_buffer = EXPECT(Buffer::create(sizeof(glm::vec3) * slice_count, WGPUBufferUsage_Vertex | WGPUBufferUsage_CopyDst));
-    std::array<glm::vec3, slice_count> chunk_data{};
+    Array<glm::vec3, slice_count> chunk_data{};
     for (size_t i = 0; i < slice_count; i++)
         chunk_data[i] = glm::vec3(x * Chunk::width, i * Chunk::width, z * Chunk::width);
     m_chunk_buffer->update(View(chunk_data).as_bytes());
@@ -72,7 +72,7 @@ struct ChunkBlockFace
                    uint32_t texture_index) : x(x), y(y), z(z), axis(axis), positive(positive), texture_index(texture_index) {}
 };
 
-static std::array<glm::vec3, 4> vertex_from_axis(Axis axis, bool positive, glm::vec3 offset)
+static Array<glm::vec3, 4> vertex_from_axis(Axis axis, bool positive, glm::vec3 offset)
 {
     glm::vec3 v[24]{
         glm::vec3(-0.5 + offset.x, -0.5 + offset.y, 0.5 + offset.z), // front 0
@@ -209,7 +209,7 @@ Result<void> Chunk::build_simple_mesh(size_t slice_index)
         TRY(indices.append(i3));
         TRY(indices.append(i0));
 
-        const std::array<glm::vec3, 4> new_vertices = vertex_from_axis(face.axis, face.positive, glm::vec3(face.x, face.y, face.z));
+        const Array<glm::vec3, 4> new_vertices = vertex_from_axis(face.axis, face.positive, glm::vec3(face.x, face.y, face.z));
         TRY(vertices.append(new_vertices[0]));
         TRY(vertices.append(new_vertices[1]));
         TRY(vertices.append(new_vertices[2]));

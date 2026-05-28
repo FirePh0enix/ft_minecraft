@@ -13,7 +13,7 @@ Result<void> EntitySerializer::save(const StringView& path) const
     File file = TRY(Filesystem::open_file(path, true));
     FileWriter writer = file.writer();
 
-    for (auto& [name, value] : m_variants)
+    for (auto& [_, name, value] : m_variants)
     {
         TRY(writer.write_variant(Variant(name)));
         TRY(writer.write_variant(value));
@@ -39,7 +39,7 @@ Result<void> EntitySerializer::load(const StringView& path)
         String s = vname.get_unchecked<String>();
 
         Variant value = TRY(reader.read_variant()).get();
-        m_variants[s] = value;
+        EXPECT(m_variants.put(s, value));
     }
 
     file.close();

@@ -2,12 +2,13 @@
 
 #include "AABB.hpp"
 #include "Core/Containers/LocalVector.hpp"
+#include "Core/Containers/Map.hpp"
+#include "Core/Containers/Set.hpp"
 #include "Entity/Entity.hpp"
 #include "World/Chunk.hpp"
 #include "World/Generator.hpp"
 
 #include <mutex>
-#include <set>
 
 class Dimension
 {
@@ -29,7 +30,7 @@ public:
     Result<void> add_entity(Ref<Entity> entity);
     void remove_entity(Ref<Entity> entity);
 
-    ALWAYS_INLINE const std::map<ChunkPos, Ref<Chunk>>& get_chunks() const { return m_chunks; }
+    ALWAYS_INLINE const Map<ChunkPos, Ref<Chunk>>& get_chunks() const { return m_chunks; }
 
     const LocalVector<Ref<Entity>>& get_entities() const { return m_entities; }
 
@@ -57,13 +58,13 @@ private:
      * Chunks loaded in memory. Could also be called `Simulated chunks`.
      * NOTE: This map is only should only be called from the main thread. For adding chunks from other threads use `m_chunks_to_flush` and `m_chunk_mutex`.
      */
-    std::map<ChunkPos, Ref<Chunk>> m_chunks;
+    Map<ChunkPos, Ref<Chunk>> m_chunks;
 
     std::mutex m_chunk_loading_mutex;
-    std::set<ChunkPos> m_chunk_loading_queue;
+    Set<ChunkPos> m_chunk_loading_queue;
 
-    std::map<ChunkPos, Ref<Chunk>> m_chunks_to_flush;
-    Vector<ChunkPos> m_chunks_to_remove;
+    Map<ChunkPos, Ref<Chunk>> m_chunks_to_flush;
+    LocalVector<ChunkPos> m_chunks_to_remove;
 
-    Vector<Ref<GenerationPass>> m_generation_passes;
+    LocalVector<Ref<GenerationPass>> m_generation_passes;
 };

@@ -6,8 +6,6 @@
 #include "Render/Types.hpp"
 
 #include <filesystem>
-#include <map>
-#include <optional>
 
 enum class ShaderFlagBits
 {
@@ -27,48 +25,45 @@ public:
 
     SamplerDescriptor get_sampler(const String& name) const
     {
-        auto iter = m_samplers.find(name);
-        if (iter != m_samplers.end())
+        auto opt = m_samplers.get(name);
+        if (opt.has_value())
         {
-            return iter->second;
+            return opt.get();
         }
         return SamplerDescriptor{};
     }
 
-    std::optional<Binding> get_binding(const String& name) const
+    Option<Binding> get_binding(const String& name) const
     {
-        const auto& iter = m_bindings.find(name);
-        if (iter == m_bindings.end())
-            return std::nullopt;
-        return iter->second;
+        return m_bindings.get(name);
     }
 
     void set_binding(const String& name, Binding binding)
     {
-        m_bindings[name] = binding;
+        EXPECT(m_bindings.put(name, binding));
     }
 
     bool has_binding(const String& name) const
     {
-        return m_bindings.find(name) != m_bindings.end();
+        return m_bindings.contains(name);
     }
 
-    inline const std::map<String, Binding>& get_bindings() const
+    inline const HashMap<String, Binding>& get_bindings() const
     {
         return m_bindings;
     }
 
     void set_sampler(const String& name, SamplerDescriptor sampler)
     {
-        ERR_COND_V(!has_binding(name) || get_binding(name)->kind != BindingKind::Texture, "binding `{}` is not a texture", name);
-        m_samplers[name] = sampler;
+        ERR_COND_V(!has_binding(name) || get_binding(name).get().kind != BindingKind::Texture, "binding `{}` is not a texture", name);
+        EXPECT(m_samplers.put(name, sampler));
     }
 
     StringView get_source_string() const { return m_source_code; }
 
     String get_entry_point(WGPUShaderStage stage) const
     {
-        return m_entry_point_names.at(stage);
+        return m_entry_point_names.get(stage).get();
     }
 
     WGPUShaderStage get_stage_mask() const
@@ -96,10 +91,10 @@ private:
 
     WGPUShaderStage m_stage_mask;
 
-    std::map<String, Binding> m_bindings;
-    std::map<String, SamplerDescriptor> m_samplers;
+    HashMap<String, Binding> m_bindings;
+    HashMap<String, SamplerDescriptor> m_samplers;
 
-    std::map<WGPUShaderStage, String> m_entry_point_names;
+    HashMap<WGPUShaderStage, String> m_entry_point_names;
 
     WGPUBindGroupLayout m_bind_group_layout = nullptr;
     WGPUPipelineLayout m_pipeline_layout = nullptr;

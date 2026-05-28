@@ -59,21 +59,22 @@ public:
     template <typename T>
     Result<void> set(const StringView& attrib, const T& value)
     {
-        m_variants[attrib] = Variant(value);
+        TRY(m_variants.put(attrib, Variant(value)));
         return Result<void>();
     }
 
     template <typename T>
     Option<T> get(const StringView& attrib) const
     {
-        return m_variants.at(attrib).get_unchecked<T>();
+        return m_variants.get(attrib).template map<T>([](const Variant& v) -> T
+                                                      { return v.get_unchecked<T>(); });
     }
 
     Result<void> save(const StringView& path) const;
     Result<void> load(const StringView& path);
 
 private:
-    std::map<String, Variant> m_variants;
+    HashMap<String, Variant> m_variants;
 };
 
 class Entity : public Object

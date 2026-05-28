@@ -69,7 +69,7 @@ void NetworkConnection::send(ENetPacket *packet)
 
 void NetworkConnection::broadcast(ENetPacket *packet, ENetPeer *peer)
 {
-    for (const auto& [key, value] : m_clients)
+    for (const auto& [_, key, value] : m_clients)
     {
         if (peer == value.peer())
             continue;
@@ -140,7 +140,7 @@ void NetworkConnection::tick_server()
             enet_address_get_host_ip(&event.peer->address, address_buf, sizeof(address_buf));
 
             Client client(String(address_buf), event.peer->address.port, event.peer);
-            m_clients[event.peer] = client;
+            EXPECT(m_clients.put(event.peer, client));
 
             m_connect_handler(m_disconnect_handler_user, *this, client);
 
@@ -149,17 +149,17 @@ void NetworkConnection::tick_server()
         break;
         case ENET_EVENT_TYPE_DISCONNECT:
         {
-            m_disconnect_handler(m_disconnect_handler_user, *this, m_clients[event.peer]);
+            m_disconnect_handler(m_disconnect_handler_user, *this, m_clients.get(event.peer).get());
 
-            const Client& client = m_clients[event.peer];
+            const Client& client = *m_clients.get_ptr(event.peer).get();
             info("Client disconnected from {}:{}", client.ip(), client.port());
 
-            m_clients.erase(m_clients.find(event.peer));
+            m_clients.erase(event.peer);
         };
         break;
         case ENET_EVENT_TYPE_RECEIVE:
         {
-            const Client& client = m_clients[event.peer];
+            const Client& client = *m_clients.get_ptr(event.peer).get();
             m_packet_handler(m_packet_handler_user, *this, event.packet, client);
             enet_packet_destroy(event.packet);
         }
