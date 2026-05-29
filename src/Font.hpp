@@ -34,7 +34,7 @@ public:
     struct Instance
     {
         glm::vec4 bounds;
-        glm::vec3 char_pos;
+        glm::vec2 char_pos;
         glm::vec2 scale;
     };
 

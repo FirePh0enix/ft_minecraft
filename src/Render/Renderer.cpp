@@ -463,17 +463,15 @@ Result<WGPURenderPipeline> PipelineCache::get(const Key& key)
     }
 
     LocalVector<WGPUVertexAttribute> attributes;
-    size_t total_size = 0;
     TRY(attributes.reserve(key.attributes.size()));
     for (uint32_t i = 0; i < key.attributes.size(); i++)
     {
         InstanceAttribute attrib = key.attributes.get_unchecked(i);
-        TRY(attributes.append(WGPUVertexAttribute{.nextInChain = nullptr, .format = attrib.format, .offset = 0, .shaderLocation = attrib_index + i}));
-        total_size += attrib.stride;
+        TRY(attributes.append(WGPUVertexAttribute{.nextInChain = nullptr, .format = attrib.format, .offset = attrib.offset, .shaderLocation = attrib_index + i}));
     }
     if (key.attributes.size() > 0)
     {
-        TRY(buffers.append(WGPUVertexBufferLayout{.nextInChain = nullptr, .stepMode = WGPUVertexStepMode_Instance, .arrayStride = total_size, .attributeCount = attributes.size(), .attributes = attributes.data()}));
+        TRY(buffers.append(WGPUVertexBufferLayout{.nextInChain = nullptr, .stepMode = WGPUVertexStepMode_Instance, .arrayStride = key.instance_stride, .attributeCount = attributes.size(), .attributes = attributes.data()}));
     }
 
     WGPUShaderModule module = create_shader_module(key.shader);
@@ -516,7 +514,7 @@ Result<WGPURenderPipeline> PipelineCache::get(const Key& key)
         TRY(color_states.append(WGPUColorTargetState{.nextInChain = nullptr, .format = Renderer::get().get_surface_format(), .blend = &blend_state, .writeMask = WGPUColorWriteMask_All}));
     }
 
-    const String& fragment_ep = key.shader->get_entry_point(WGPUShaderStage_Fragment);
+    String fragment_ep = key.shader->get_entry_point(WGPUShaderStage_Fragment);
 
     WGPUFragmentState fragment_state{};
     fragment_state.targets = color_states.data();
@@ -871,7 +869,6 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     device_desc.nextInChain = nullptr;
     device_desc.requiredFeatures = required_features;
     device_desc.requiredFeatureCount = sizeof(required_features) / sizeof(WGPUFeatureName);
-    device_desc.requiredLimits = nullptr;
     device_desc.defaultQueue = WGPUQueueDescriptor{.nextInChain = nullptr, .label = WGPU_STRING_VIEW_INIT};
     device_desc.deviceLostCallbackInfo = WGPUDeviceLostCallbackInfo{
         .nextInChain = nullptr,
@@ -949,7 +946,7 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     Engine::get().blocks().create_gpu_resources();
 
     Vector<InstanceAttribute> attributes;
-    TRY(attributes.append(InstanceAttribute{.stride = sizeof(glm::vec3), .format = WGPUVertexFormat_Float32x3}));
+    TRY(attributes.append(InstanceAttribute{.offset = 0, .format = WGPUVertexFormat_Float32x3}));
 
     m_chunk_material = TRY(Material::create(m_voxel_shader, MaterialFlagBits::Transparency, WGPUCullMode_Back, UVType::UVT, Instance(attributes, sizeof(glm::vec3))));
     m_chunk_material->set_param("images", Engine::get().blocks().get_texture_array());

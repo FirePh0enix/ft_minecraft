@@ -26,11 +26,10 @@ struct VertexOutput
 fn vertex_main(
     @builtin(vertex_index) vertex_index: u32,
     @location(0) pos: vec3<f32>,
-    @location(1) uv: vec2<f32>,
 
-    @location(2) bounds: vec4<f32>,
-    @location(3) char_pos: vec3<f32>,
-    @location(4) scale: vec2<f32>
+    @location(1) bounds: vec4<f32>,
+    @location(2) char_pos: vec2<f32>,
+    @location(3) scale: vec2<f32>
 ) -> VertexOutput {
     var uvs: array<vec2<f32>, 4>;
     uvs[0] = vec2<f32>(bounds.x, bounds.z);
@@ -40,9 +39,9 @@ fn vertex_main(
 
     let matrix = mat4x4<f32>(
         scale.x * data.scale.x, 0.0, 0.0, 0.0,
-        0.0, scale.y * data.scale.x, 0.0, 0.0, // FIXME: For some reason `data.scale.y` is always 0.0
+        0.0, scale.y * data.scale.y, 0.0, 0.0,
         0.0, 0.0, 1.0, 0.0,
-        char_pos.x * data.scale.x + data.position.x, char_pos.y * data.scale.x + data.position.y, char_pos.z + data.position.z, 1.0
+        char_pos.x * data.scale.x + data.position.x, char_pos.y * data.scale.x + data.position.y, data.position.z, 1.0
     );
     var out: VertexOutput;
     out.position = env.matrix * matrix * vec4<f32>(pos, 1.0);

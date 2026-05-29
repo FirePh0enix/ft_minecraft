@@ -93,13 +93,8 @@ Result<Ref<Font>> Font::create(const StringView& font_name, uint32_t font_size)
     font->m_width = bmp_width;
     font->m_height = bmp_height;
 
-    // auto texture_result = RenderingDriver::get()->create_texture(bmp_width, bmp_height, TextureFormat::R8Unorm, {.copy_dst = true, .sampled = true});
-    // YEET(texture_result);
     font->m_bitmap = TRY(Texture::create(bmp_width, bmp_height, WGPUTextureFormat_R8Unorm, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding));
     font->m_bitmap->update(buffer);
-
-    // font->m_bitmap->transition_layout(TextureLayout::CopyDst);
-    // font->m_bitmap->transition_layout(TextureLayout::ShaderReadOnly);
 
     return font;
 }
@@ -166,11 +161,11 @@ Text::Text(Ref<Font> font)
     m_uniform_buffer = EXPECT(Buffer::create(sizeof(Font::Uniform), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform));
 
     Vector<InstanceAttribute> attribs;
-    EXPECT(attribs.append(InstanceAttribute(0, WGPUVertexFormat_Float32x4)));
-    EXPECT(attribs.append(InstanceAttribute(sizeof(float) * 4, WGPUVertexFormat_Float32x3)));
-    EXPECT(attribs.append(InstanceAttribute(sizeof(float) * 7, WGPUVertexFormat_Float32x2)));
+    EXPECT(attribs.append(InstanceAttribute(offsetof(Font::Instance, bounds), WGPUVertexFormat_Float32x4)));
+    EXPECT(attribs.append(InstanceAttribute(offsetof(Font::Instance, char_pos), WGPUVertexFormat_Float32x2)));
+    EXPECT(attribs.append(InstanceAttribute(offsetof(Font::Instance, scale), WGPUVertexFormat_Float32x2)));
 
-    m_material = EXPECT(Material::create(g_shader, MaterialFlagBits::Transparency | MaterialFlagBits::NoNormal, WGPUCullMode_None, UVType::UV, Instance(attribs, sizeof(Font::Instance))));
+    m_material = EXPECT(Material::create(g_shader, MaterialFlagBits::Transparency | MaterialFlagBits::NoNormal | MaterialFlagBits::NoUV, WGPUCullMode_None, UVType::UV, Instance(attribs, sizeof(Font::Instance))));
     m_material->set_param("env", Renderer::get().get_env_2d());
     m_material->set_param("data", m_uniform_buffer);
     m_material->set_param("bitmap", font->get_bitmap());
@@ -266,8 +261,7 @@ void Text::draw(const RenderPassNode& node)
 
     wgpuRenderPassEncoderSetIndexBuffer(encoder, mesh->get_buffer(Mesh::BufferKind::Index)->handle(), mesh->index_type(), 0, mesh->get_buffer(Mesh::BufferKind::Index)->size());
     wgpuRenderPassEncoderSetVertexBuffer(encoder, 0, mesh->get_buffer(Mesh::BufferKind::Position)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Position)->size());
-    wgpuRenderPassEncoderSetVertexBuffer(encoder, 1, mesh->get_buffer(Mesh::BufferKind::UV)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::UV)->size());
-    wgpuRenderPassEncoderSetVertexBuffer(encoder, 2, m_instance_buffer->handle(), 0, m_instance_buffer->size());
+    wgpuRenderPassEncoderSetVertexBuffer(encoder, 1, m_instance_buffer->handle(), 0, m_instance_buffer->size());
 
     wgpuRenderPassEncoderDrawIndexed(encoder, mesh->vertex_count(), m_size, 0, 0, 0);
 }

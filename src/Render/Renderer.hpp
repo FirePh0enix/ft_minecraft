@@ -136,7 +136,7 @@ protected:
 
 struct InstanceAttribute
 {
-    uint32_t stride;
+    uint32_t offset;
     WGPUVertexFormat format;
 };
 

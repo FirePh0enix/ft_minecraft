@@ -4,6 +4,9 @@
 #include "UI/Container.hpp"
 #include "UI/ItemSlot.hpp"
 
+constexpr size_t inventory_width = 9;
+constexpr size_t inventory_height = 3;
+
 class Inventory : public Container
 {
     CLASS(Inventory, Container);
@@ -24,11 +27,11 @@ public:
     void add_stack(ItemStack stack);
 
 private:
-    Array<ItemStack, 45> m_data;
-    Array<ItemStack, 9> m_quick_data;
+    Array<ItemStack, inventory_width * inventory_height> m_data;
+    Array<ItemStack, inventory_width> m_quick_data;
 
-    Array<Ref<ItemSlot>, 45> m_slots;
-    Array<Ref<ItemSlot>, 9> m_quick_slots;
+    Array<Ref<ItemSlot>, inventory_width * inventory_height> m_slots;
+    Array<Ref<ItemSlot>, inventory_width> m_quick_slots;
 
     Ref<Container> m_slots_container;
     Ref<Container> m_quick_slots_container;

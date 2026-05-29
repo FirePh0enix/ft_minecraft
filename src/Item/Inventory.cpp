@@ -1,4 +1,5 @@
 #include "Item/Inventory.hpp"
+
 #include "Engine.hpp"
 #include "UI/ColorRect.hpp"
 #include "UI/ItemSlot.hpp"
@@ -13,8 +14,6 @@ Inventory::Inventory()
     background->set_color(Color(0.15));
     EXPECT(m_slots_container->add_child(background));
 
-    constexpr size_t inventory_width = 9;
-    constexpr size_t inventory_height = 5;
     constexpr float slot_size = 0.12f;
     constexpr float slot_margin = 0.04f;
     constexpr float slot_tsize = slot_size + slot_margin;
@@ -28,7 +27,7 @@ Inventory::Inventory()
             item_slot->set_position(glm::vec2(offset_x, offset_y) + glm::vec2(float(x) * slot_tsize, float(y) * slot_tsize));
             EXPECT(m_slots_container->add_child(item_slot));
 
-            m_slots[x + y * 9] = item_slot;
+            m_slots[x + y * inventory_width] = item_slot;
         }
 
     for (size_t x = 0; x < inventory_width; x++)
@@ -43,20 +42,20 @@ Inventory::Inventory()
 
 void Inventory::update(float d)
 {
-    for (size_t x = 0; x < 9; x++)
-        for (size_t y = 0; y < 5; y++)
+    for (size_t x = 0; x < inventory_width; x++)
+        for (size_t y = 0; y < inventory_height; y++)
         {
-            ItemStack stack = m_data[x + y * 9];
+            ItemStack stack = m_data[x + y * inventory_width];
             if (stack.get_block() == 0)
             {
-                m_slots[x + y * 9]->set_empty(true);
+                m_slots[x + y * inventory_width]->set_empty(true);
                 continue;
             }
             Ref<Block> block = Engine::get().blocks().get_block_by_id(stack.get_block());
-            m_slots[x + y * 9]->set_texture(Engine::get().blocks().get_texture(block->get_texture_index(Axis::Z, true)));
-            m_slots[x + y * 9]->set_count(stack.count());
+            m_slots[x + y * inventory_width]->set_texture(Engine::get().blocks().get_texture(block->get_texture_index(Axis::Z, true)));
+            m_slots[x + y * inventory_width]->set_count(stack.count());
         }
-    for (size_t x = 0; x < 9; x++)
+    for (size_t x = 0; x < inventory_width; x++)
     {
         ItemStack stack = m_quick_data[x];
         if (stack.get_block() == 0)
@@ -95,7 +94,7 @@ void Inventory::set_selected_slot(size_t slot)
 
 void Inventory::add_stack(ItemStack stack)
 {
-    for (size_t x = 0; x < 9; x++)
+    for (size_t x = 0; x < inventory_width; x++)
     {
         if (m_quick_data[x].get_block() == stack.get_block())
         {

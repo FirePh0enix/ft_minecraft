@@ -18,6 +18,7 @@ void Label::update(float d)
 {
     (void)d;
     m_text.set_position(glm::vec3(m_position, 0.0));
+    m_text.set_scale(m_scale);
 }
 
 void Label::process_event(Event& event)
