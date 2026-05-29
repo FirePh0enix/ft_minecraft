@@ -132,8 +132,8 @@ inline void from_json(const nlohmann::json& j, Variant& m)
     }
     else if (j.is_string())
     {
-        std::string s = j;
-        m = String(s.data(), s.size());
+        String s = j;
+        m = s;
     }
     else if (j.is_array() && j.size() == 2)
     {

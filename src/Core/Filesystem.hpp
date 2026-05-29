@@ -5,30 +5,6 @@
 #include "Core/IO.hpp"
 #include "Core/Result.hpp"
 
-static inline String get_config_directory()
-{
-    String path;
-
-#ifdef __platform_linux
-    if (char *data_home = std::getenv("XDG_CONFIG_HOME"))
-    {
-        path += data_home;
-    }
-    else
-    {
-        path += std::getenv("HOME");
-        path += "/.config";
-    }
-#else
-    path += std::getenv("HOME");
-    path += "/.config";
-#endif
-
-    path += "/ft_minecraft";
-
-    return path;
-}
-
 class File;
 
 class FileReader : public Reader
@@ -101,5 +77,5 @@ public:
     static Result<File> open_file(const StringView& path, bool rw = false);
     static Result<void> make_dirs(const StringView& path);
 
-    static inline std::optional<String> data_dir;
+    static inline Option<String> data_dir;
 };

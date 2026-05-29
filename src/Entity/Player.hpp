@@ -57,7 +57,7 @@ private:
     float m_speed = 8.0;
     float m_jump_force = 0.24f;
 
-    std::optional<glm::vec3> m_aimed_block = std::nullopt;
+    Option<glm::vec3> m_aimed_block;
     Ref<Material> m_aim_material;
     Ref<Buffer> m_aim_buffer;
 

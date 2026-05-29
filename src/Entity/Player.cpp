@@ -130,7 +130,7 @@ void Player::tick(float delta)
             if (!result.hit_entity)
                 m_aimed_block = glm::vec3(result.block_pos);
             else
-                m_aimed_block = std::nullopt;
+                m_aimed_block = None;
 
             if (Input::is_action_just_pressed("attack"))
             {
@@ -187,7 +187,7 @@ void Player::tick(float delta)
         }
         else
         {
-            m_aimed_block = std::nullopt;
+            m_aimed_block = None;
         }
     }
 
@@ -267,7 +267,7 @@ void Player::draw(const RenderPassNode& node)
 
     if (m_local_player && m_aimed_block.has_value())
     {
-        SimpleUniforms uniforms(glm::translate(glm::identity<glm::mat4>(), glm::vec3(m_aimed_block.value())) * glm::scale(glm::identity<glm::mat4>(), glm::vec3(1.01f)), glm::vec4(aim_color, 0.4));
+        SimpleUniforms uniforms(glm::translate(glm::identity<glm::mat4>(), glm::vec3(m_aimed_block.get())) * glm::scale(glm::identity<glm::mat4>(), glm::vec3(1.01f)), glm::vec4(aim_color, 0.4));
         m_aim_buffer->update(View(uniforms).as_bytes());
         Renderer::get().record_simple_shape(node, m_aim_material);
     }

@@ -9,7 +9,7 @@ Command::Command(const CommandInfo& info, const Vector<StringView>& tokens)
         switch (arg_info.kind)
         {
         case CmdArgKind::Int:
-            EXPECT(m_args.put(arg_info.name, CmdArg{.i = std::stol(tokens.get_unchecked(i).data())})); // TODO: Replace with a `String` implementation of it.
+            EXPECT(m_args.put(arg_info.name, CmdArg{.i = tokens.get_unchecked(i).parse_int<int64_t>()}));
             break;
         case CmdArgKind::String:
             EXPECT(m_args.put(arg_info.name, CmdArg{.s = tokens.get_unchecked(i)}));

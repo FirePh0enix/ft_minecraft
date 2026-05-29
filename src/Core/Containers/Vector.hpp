@@ -2,7 +2,6 @@
 
 #include <cstddef>
 #include <functional>
-#include <optional>
 
 #include "Core/Alloc.hpp"
 #include "Core/Assert.hpp"
@@ -226,12 +225,12 @@ public:
         }
     }
 
-    std::optional<size_t> index_of(const T& value)
+    Option<size_t> index_of(const T& value)
     {
         for (size_t i = 0; i < m_size; i++)
             if (m_data[i] == value)
                 return i;
-        return std::nullopt;
+        return None;
     }
 
     bool contains(const T& value) const

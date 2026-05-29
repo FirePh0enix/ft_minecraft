@@ -9,7 +9,7 @@ struct NoneType
 static constexpr NoneType None;
 
 template <typename T>
-class [[nodiscard]] Option
+class [[nodiscard]] __attribute__((aligned(alignof(T)))) Option
 {
 public:
     Option()

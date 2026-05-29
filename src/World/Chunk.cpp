@@ -8,7 +8,6 @@
 
 #include <bit>
 #include <cstdint>
-#include <optional>
 
 Chunk::Chunk(int64_t x, int64_t z)
     : m_x(x), m_z(z)
@@ -354,7 +353,7 @@ Result<CompressedChunk> Chunk::compress() const
         Vector<Biome> biomes;
         Vector<ChunkBiomeNode> biome_nodes;
 
-        std::optional<Biome> saved_biome;
+        Option<Biome> saved_biome;
 
         for (int64_t xx = 0; xx < 4; xx++)
             for (int64_t yy = 0; yy < 4; yy++)
@@ -410,7 +409,7 @@ Result<CompressedChunk> Chunk::compress() const
         else
         {
             bnode.ptr = cchunk.compressed_biomes.size();
-            TRY(cchunk.compressed_biomes.append(saved_biome.value()));
+            TRY(cchunk.compressed_biomes.append(saved_biome.get()));
         }
 
         cchunk.compressed_biome_nodes.get_unchecked(bnode_index) = bnode;

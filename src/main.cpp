@@ -50,8 +50,9 @@ MAIN(int argc, char *argv[])
 
     if (args.has("data-dir"))
     {
-        Filesystem::data_dir = args.get_arg("data-dir").string;
-        Filesystem::data_dir->append("/");
+        String s(args.get_arg("data-dir").string);
+        s.append("/");
+        Filesystem::data_dir = s;
     }
 
     info("using data directory `{}`", Filesystem::get_data_directory());

@@ -6,8 +6,6 @@
 
 #include <SDL3/SDL.h>
 
-#include <optional>
-
 class Window : public Object
 {
     CLASS(Window, Object);
