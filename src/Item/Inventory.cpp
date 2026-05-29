@@ -36,7 +36,7 @@ Inventory::Inventory()
         item_slot->set_position(glm::vec2(offset_x, offset_y) + glm::vec2(float(x) * slot_tsize, -slot_tsize * 1.5f));
         EXPECT(m_quick_slots_container->add_child(item_slot));
 
-        m_quick_slots[x] = item_slot;
+        m_slots[x + inventory_height * inventory_width] = item_slot;
     }
 }
 
@@ -57,15 +57,15 @@ void Inventory::update(float d)
         }
     for (size_t x = 0; x < inventory_width; x++)
     {
-        ItemStack stack = m_quick_data[x];
+        ItemStack stack = quick_stack(x);
         if (stack.get_block() == 0)
         {
-            m_quick_slots[x]->set_empty(true);
+            m_slots[x + inventory_height * inventory_width]->set_empty(true);
             continue;
         }
         Ref<Block> block = Engine::get().blocks().get_block_by_id(stack.get_block());
-        m_quick_slots[x]->set_texture(Engine::get().blocks().get_texture(block->get_texture_index(Axis::Z, true)));
-        m_quick_slots[x]->set_count(stack.count());
+        m_slots[x + inventory_height * inventory_width]->set_texture(Engine::get().blocks().get_texture(block->get_texture_index(Axis::Z, true)));
+        m_slots[x + inventory_height * inventory_width]->set_count(stack.count());
     }
 
     if (m_open)
@@ -87,8 +87,8 @@ void Inventory::draw(const RenderPassNode& node)
 
 void Inventory::set_selected_slot(size_t slot)
 {
-    m_quick_slots[m_selected_slot]->set_selected(false);
-    m_quick_slots[slot]->set_selected(true);
+    m_slots[m_selected_slot + inventory_height * inventory_width]->set_selected(false);
+    m_slots[slot + inventory_height * inventory_width]->set_selected(true);
     m_selected_slot = slot;
 }
 
@@ -96,14 +96,14 @@ void Inventory::add_stack(ItemStack stack)
 {
     for (size_t x = 0; x < inventory_width; x++)
     {
-        if (m_quick_data[x].get_block() == stack.get_block())
+        if (quick_stack(x).get_block() == stack.get_block())
         {
-            m_quick_data[x].set_count(m_quick_data[x].count() + stack.count());
+            quick_stack(x).set_count(quick_stack(x).count() + stack.count());
             return;
         }
-        else if (m_quick_data[x].get_block() == 0)
+        else if (quick_stack(x).get_block() == 0)
         {
-            m_quick_data[x] = stack;
+            quick_stack(x) = stack;
             return;
         }
     }

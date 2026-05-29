@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Core/Containers/Array.hpp"
+#include "Core/Containers/View.hpp"
 #include "Core/Json.hpp"
 #include "Core/Math.hpp"
 #include "Core/String.hpp"
@@ -43,11 +44,15 @@ enum class VariantType : uint32_t
      * Stack of item.
      */
     ItemStack,
+    /**
+     * Array of variants of one specific type.
+     */
+    Array,
 };
 
 struct __attribute__((aligned(16))) Variant
 {
-    uint8_t data[24]{0};
+    uint8_t data[32]{0};
     VariantType tag;
 
     Variant() : tag(VariantType::Null) {}
@@ -62,6 +67,17 @@ struct __attribute__((aligned(16))) Variant
     Variant(glm::quat q) : tag(VariantType::Quat) { *((glm::quat *)data) = q; }
     Variant(ItemStack is) : tag(VariantType::ItemStack) { *((ItemStack *)data) = is; }
 
+    template <typename T>
+    Variant(const View<T>& values) : tag(VariantType::Array)
+    {
+        Vector<Variant>& s = get_unchecked<Vector<Variant>>();
+        new (data) Vector<Variant>();
+        EXPECT(s.reserve(values.size()));
+
+        for (const auto& value : values)
+            EXPECT(s.append(Variant(value)));
+    }
+
     Variant(const Variant& v)
         : tag(v.tag)
     {
@@ -69,6 +85,11 @@ struct __attribute__((aligned(16))) Variant
         {
             const String& s = v.get_unchecked<String>();
             new (data) String(s);
+        }
+        else if (v.has(VariantType::Array))
+        {
+            const Vector<Variant>& s = v.get_unchecked<Vector<Variant>>();
+            new (data) Vector<Variant>(s);
         }
         else
         {
@@ -80,6 +101,8 @@ struct __attribute__((aligned(16))) Variant
     {
         if (has(VariantType::String))
             ((String *)data)->~String();
+        else if (has(VariantType::Array))
+            ((Vector<Variant> *)data)->~Vector<Variant>();
     }
 
     Variant& operator=(const Variant& v)
@@ -89,12 +112,31 @@ struct __attribute__((aligned(16))) Variant
         return *this;
     }
 
+    template <typename T>
+    Result<Vector<T>> to_array() const
+    {
+        const Vector<Variant>& array = get_unchecked<Vector<Variant>>();
+        Vector<T> v;
+        TRY(v.reserve(array.size()));
+
+        for (size_t i = 0; i < array.size(); i++)
+            TRY(v.append(array.get_unchecked(i).get_unchecked<T>()));
+
+        return v;
+    }
+
     constexpr bool has(VariantType expected) const { return tag == expected; }
 
     template <typename T>
     const T& get_unchecked() const
     {
         return *(const T *)data;
+    }
+
+    template <typename T>
+    T& get_unchecked()
+    {
+        return *(T *)data;
     }
 };
 

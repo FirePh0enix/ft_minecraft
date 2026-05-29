@@ -28,6 +28,9 @@ public:
     virtual void draw(const RenderPassNode& node) override;
     virtual void draw_ui(const RenderPassNode& node) override;
 
+    virtual void save(EntitySerializer& ser) const override;
+    virtual void load(const EntitySerializer& deser) override;
+
     void on_ready() override;
 
     float get_speed() const { return m_speed; }

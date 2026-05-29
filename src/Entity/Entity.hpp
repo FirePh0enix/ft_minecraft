@@ -70,6 +70,13 @@ public:
                                                       { return v.get_unchecked<T>(); });
     }
 
+    template <typename T>
+    Option<Vector<T>> get_array(const StringView& attrib) const
+    {
+        return m_variants.get(attrib).template map<Vector<T>>([](const Variant& v) -> Vector<T>
+                                                              { return EXPECT(v.to_array<T>()); });
+    }
+
     Result<void> save(const StringView& path) const;
     Result<void> load(const StringView& path);
 
@@ -123,7 +130,7 @@ public:
     /**
      * Called when loading the entity from the disk.
      */
-    virtual void load(const EntitySerializer& deser) const
+    virtual void load(const EntitySerializer& deser)
     {
         (void)deser;
     }

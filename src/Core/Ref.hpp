@@ -5,7 +5,6 @@
 #include "Core/Error.hpp"
 #include "Core/Result.hpp"
 
-#include <compare>
 #include <cstddef>
 #include <type_traits>
 #include <utility>
@@ -130,6 +129,8 @@ public:
     ALWAYS_INLINE bool operator<=(const Ref& other) const { return m_ptr <= other.m_ptr; }
     ALWAYS_INLINE bool operator>(const Ref& other) const { return m_ptr > other.m_ptr; }
     ALWAYS_INLINE bool operator>=(const Ref& other) const { return m_ptr >= other.m_ptr; }
+
+    operator int() const = delete;
 
     ALWAYS_INLINE operator bool() const
     {

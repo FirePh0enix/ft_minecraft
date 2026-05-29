@@ -6,6 +6,7 @@
 #include "Entity/Entity.hpp"
 #include "Entity/Item.hpp"
 #include "Input.hpp"
+#include "Item/ItemStack.hpp"
 #include "Model.hpp"
 #include "Network/Packet.hpp"
 #include "Render/Renderer.hpp"
@@ -94,7 +95,7 @@ void Player::tick(float delta)
     {
         if (Ref<ItemEntity> item = entity.cast_to<ItemEntity>())
         {
-            m_inventory->add_stack(ItemStack(item->get_block(), 1));
+            m_inventory->add_stack(ItemStack(item->get_block()->id(), 1));
             m_world->remove_entity(World::overworld, item);
         }
     }
@@ -279,6 +280,20 @@ void Player::draw_ui(const RenderPassNode& node)
     {
         m_inventory->draw(node);
     }
+}
+
+void Player::save(EntitySerializer& ser) const
+{
+    Variant array = m_inventory->data();
+    EXPECT(ser.set("inventory_data", array));
+}
+
+void Player::load(const EntitySerializer& deser)
+{
+    Vector<ItemStack> stacks = deser.get_array<ItemStack>("inventory_data").get();
+
+    for (size_t i = 0; i < std::min(stacks.size(), inventory_slot_count); i++)
+        m_inventory->stack(i) = stacks.get_unchecked(i);
 }
 
 void Player::die()

@@ -78,6 +78,23 @@ Result<Option<Variant>> Reader::read_variant()
 
         return Option(Variant(ItemStack(block_id, size)));
     }
+    else if (type == VariantType::Array)
+    {
+        Vector<Variant> array;
+
+        uint32_t size;
+        TRY(read_raw(&size, sizeof(uint32_t)));
+
+        TRY(array.reserve(size));
+
+        for (size_t i = 0; i < size; i++)
+        {
+            Variant variant = TRY(read_variant()).get();
+            TRY(array.append(variant));
+        }
+
+        return Option(Variant(View(array.data(), array.size())));
+    }
 
     println("{}", type_raw);
     return Error(ErrorKind::ReadFailure);
@@ -164,6 +181,15 @@ Result<void> Writer::write_variant(const Variant& variant)
 
         TRY(write_raw(&size, sizeof(uint32_t)));
         TRY(write_raw(&block_id, sizeof(uint32_t)));
+    }
+    else if (variant.has(VariantType::Array))
+    {
+        const Vector<Variant>& array = variant.get_unchecked<Vector<Variant>>();
+        uint32_t size = array.size();
+
+        TRY(write_raw(&size, sizeof(uint32_t)));
+        for (const auto& value : array)
+            TRY(write_variant(value));
     }
 
     return Result<void>();
