@@ -104,26 +104,6 @@ void from_json(const nlohmann::json& j, ModelJSON& m)
         j.at("texture_path").get_to(m.texture_path);
 }
 
-static Result<Ref<Texture>> load_texture(StringView path)
-{
-    File file = TRY(Filesystem::open_file(path));
-
-    LocalVector<char> buffer;
-    TRY(file.reader().read_to_buffer(buffer));
-    file.close();
-
-    int w, h, channels;
-    stbi_uc *data = stbi_load_from_memory((const stbi_uc *)buffer.data(), (int)buffer.size(), &w, &h, &channels, 4);
-    ERR_COND_V(data == nullptr, "Failed to parse image `{}`", path);
-
-    Ref<Texture> texture = TRY(Texture::create(w, h, WGPUTextureFormat_RGBA8UnormSrgb, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding, TextureDimension::D2D, 1, 1));
-    texture->update(View((uint8_t *)data, w * h * 4));
-
-    stbi_image_free(data);
-
-    return texture;
-}
-
 Result<Ref<Model>> Model::load(const StringView& path)
 {
     File file = TRY(Filesystem::open_file(path));
@@ -134,7 +114,7 @@ Result<Ref<Model>> Model::load(const StringView& path)
     Ref<Model> model = TRY(newref<Model>());
     model->m_name.append(json.name.data(), json.name.size());
     model->m_global_buffer = TRY(Buffer::create(sizeof(Model::Info), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
-    model->m_texture = TRY(load_texture(StringView(json.texture_path.data(), json.texture_path.size())));
+    model->m_texture = TRY(Texture::load(json.texture_path));
 
     for (const auto& object : json.objects)
     {

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Core/Containers/Array.hpp"
 #include "Core/Ref.hpp"
 #include "Entity/Camera.hpp"
 #include "Entity/Entity.hpp"
@@ -71,6 +72,8 @@ private:
 
     Ref<Inventory> m_inventory;
     size_t m_slot = 0;
+
+    Array<Ref<Texture>, 4> m_breaks_textures;
 
     bool m_open_inventory = false;
 

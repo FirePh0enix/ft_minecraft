@@ -1,9 +1,11 @@
 #include "Render/Renderer.hpp"
 
 #include "Core/Error.hpp"
+#include "Core/Filesystem.hpp"
 #include "Core/Format.hpp"
 #include "Core/Math.hpp"
 #include "Core/Ref.hpp"
+#include "Core/Result.hpp"
 #include "Engine.hpp"
 #include "Entity/Entity.hpp"
 #include "Render/Graph.hpp"
@@ -197,6 +199,28 @@ Result<Ref<Texture>> Texture::create(uint32_t width, uint32_t height, WGPUTextur
     tex->m_format = format;
 
     return tex;
+}
+
+Result<Ref<Texture>> Texture::load(const StringView& path)
+{
+    File file = TRY(Filesystem::open_file(path));
+
+    LocalVector<char> buffer;
+    TRY(file.reader().read_to_buffer(buffer));
+    file.close();
+
+    int w, h, channels;
+    stbi_uc *data = stbi_load_from_memory((const stbi_uc *)buffer.data(), (int)buffer.size(), &w, &h, &channels, 4);
+    ERR_COND_V(data == nullptr, "Failed to parse image `{}`", path);
+    if (data == nullptr)
+        return Error(ErrorKind::ReadFailure);
+
+    Ref<Texture> texture = TRY(Texture::create(w, h, WGPUTextureFormat_RGBA8UnormSrgb, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding, TextureDimension::D2D, 1, 1));
+    texture->update(View((uint8_t *)data, w * h * 4));
+
+    stbi_image_free(data);
+
+    return texture;
 }
 
 void Texture::update(View<uint8_t> view, uint32_t layer)

@@ -71,6 +71,7 @@ public:
     ~Texture();
 
     static Result<Ref<Texture>> create(uint32_t width, uint32_t height, WGPUTextureFormat format, WGPUTextureUsage usage = WGPUTextureUsage_None, TextureDimension dimension = TextureDimension::D2D, uint32_t layers = 1, uint32_t mip_level = 1);
+    static Result<Ref<Texture>> load(const StringView& path);
 
     void update(View<uint8_t> view, uint32_t layer = 0);
 

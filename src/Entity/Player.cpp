@@ -36,6 +36,11 @@ void Player::on_ready()
         m_aim_material = EXPECT(Material::create(Renderer::get().get_simple_shader(), MaterialFlagBits::Transparency | MaterialFlagBits::Priority, WGPUCullMode_Back, UVType::UV));
         m_aim_material->set_param("env", Renderer::get().get_world_environment());
         m_aim_material->set_param("model", m_aim_buffer);
+
+        m_breaks_textures[0] = EXPECT(Texture::load("assets/textures/breaks/0.png"));
+        m_breaks_textures[1] = EXPECT(Texture::load("assets/textures/breaks/1.png"));
+        m_breaks_textures[2] = EXPECT(Texture::load("assets/textures/breaks/2.png"));
+        m_breaks_textures[3] = EXPECT(Texture::load("assets/textures/breaks/3.png"));
     }
     else
     {
