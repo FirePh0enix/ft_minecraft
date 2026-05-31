@@ -196,7 +196,8 @@ void Player::tick(float delta)
             {
                 if (result.hit_entity)
                 {
-                    if (Ref<Mob> mob = result.entity)
+
+                    if (auto mob = result.entity.cast_to<Mob>())
                         mob->on_hit_by(*this);
                 }
             }
@@ -445,7 +446,11 @@ void Player::die()
 
 void Player::on_hit_by(Entity& entity)
 {
-    (void)entity;
+    Mob *mob_caller = reinterpret_cast<Mob *>(&entity);
+
+    int damage = mob_caller->get_attack_damage();
+    take_damage(damage);
+    println("Remaining health: {}", m_health);
 }
 
 void Player::open_inventory(Ref<Inventory> inventory)

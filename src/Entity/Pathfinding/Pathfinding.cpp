@@ -8,7 +8,7 @@
 
 constexpr int straight = 10;
 constexpr int diag_xz = 14;
-constexpr int vertical = 12;
+constexpr int vertical = 18;
 
 Result<uint32_t> Pathfinding::node_from_world_point(const glm::vec3& pos)
 {
@@ -50,18 +50,22 @@ Result<InplaceVector<uint32_t, 10>> Pathfinding::get_neighbors(uint32_t current_
     const PathNode& current = m_nodes.get_unchecked(current_index);
 
     static InplaceVector<glm::ivec3, 10> directions = {
+
+        // It's important to explore diagonal first because it can cut corner and access faster.
+        {-1, 0, 1},
+        {1, 0, 1},
+        {-1, 0, -1},
+        {1, 0, -1},
+
+        // Then cardinal.
         {1, 0, 0},
         {-1, 0, 0},
         {0, 0, 1},
         {0, 0, -1},
 
+        // Then jump.
         {0, 1, 0},
         {0, -1, 0},
-
-        {-1, 0, 1},
-        {1, 0, 1},
-        {-1, 0, -1},
-        {1, 0, -1},
 
     };
 
@@ -92,6 +96,7 @@ Result<InplaceVector<uint32_t, 10>> Pathfinding::get_neighbors(uint32_t current_
             // if either side cell is occupied, don't cut the corner.
             if (!m_world->get_block_state(side1.x, side1.y, side1.z).is_air() ||
                 !m_world->get_block_state(side2.x, side2.y, side2.z).is_air())
+
                 continue;
         }
 
@@ -150,15 +155,6 @@ Result<void> Pathfinding::retrace_path(uint32_t start_index, uint32_t end_index)
     for (size_t i = 0, j = m_path.size() - 1; i < j; ++i, --j)
         std::swap(m_path.get_unchecked(i), m_path.get_unchecked(j));
 
-    println("-- Found Path --");
-    for (size_t i = 0; i < m_path.size(); i++)
-    {
-        uint32_t node_index = m_path.get_unchecked(i);
-        const auto pos = m_nodes.get_unchecked(node_index).m_gridPos;
-
-        println("[{} {} {}]", pos.x, pos.y, pos.z);
-    }
-
     return Result<void>();
 }
 
@@ -210,6 +206,7 @@ Result<void> Pathfinding::find_path(const glm::vec3& start_pos, const glm::vec3&
 
         for (uint32_t neighbor_index : get_neighbors(current_index).value())
         {
+
             PathNode& neighbor = m_nodes.get_unchecked(neighbor_index);
             PathNode& current = m_nodes.get_unchecked(current_index);
 
@@ -258,6 +255,13 @@ Result<Vector<glm::vec3>> Pathfinding::simplify_path(const LocalVector<uint32_t>
     }
 
     TRY(waypoints.append(m_nodes.get_unchecked(path.get_unchecked(path.size() - 1)).m_position));
+
+    // println("-- Found Path --");
+    // for (size_t i = 0; i < waypoints.size(); i++)
+    // {
+    //     const auto pos = waypoints.get_unchecked(i);
+    //     println("[{} {} {}]", pos.x, pos.y, pos.z);
+    // }
 
     return waypoints;
 }

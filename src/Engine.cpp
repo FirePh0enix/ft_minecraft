@@ -11,6 +11,7 @@
 #include "Entity/Cow.hpp"
 #include "Entity/Entity.hpp"
 #include "Entity/Player.hpp"
+#include "Entity/Zombie.hpp"
 #include "Input.hpp"
 #include "Inventory/Inventory.hpp"
 #include "Network/Network.hpp"
@@ -75,7 +76,7 @@ void Engine::register_entities()
     Entity::bind_methods();
 
     m_entity_registry.register_entity<Player>();
-    m_entity_registry.register_entity<Cow>();
+    m_entity_registry.register_entity<Zombie>();
 }
 
 void Engine::tick(float delta)
@@ -348,6 +349,10 @@ void Engine::create_world_and_start()
     // Ref<Entity> cow = EXPECT(newref<Cow>());
     // cow->get_transform().position() = glm::vec3(0.0f, 2.0f, 0.0f);
     // m_world->add_entity(World::overworld, cow);
+
+    Ref<Entity> zombie = EXPECT(newref<Zombie>());
+    zombie->get_transform().position() = m_world->get_spawn_position();
+    m_world->add_entity(World::overworld, zombie);
 
     m_scene = EngineScene::World;
     m_authority = RpcTarget::Server;

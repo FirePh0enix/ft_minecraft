@@ -46,6 +46,7 @@ list(APPEND SOURCES
     src/Entity/Item.cpp
     src/Entity/Mob.cpp
     src/Entity/Cow.cpp
+    src/Entity/Zombie.cpp
     src/Entity/Player.cpp
     src/Entity/Pathfinding/Pathfinding.cpp
     src/Inventory/CraftingTable.cpp

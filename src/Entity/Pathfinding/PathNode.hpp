@@ -12,7 +12,7 @@ public:
     glm::vec3 m_position;
     glm::ivec3 m_gridPos;
 
-    int m_g_cost = 0;
+    int m_g_cost = std::numeric_limits<int>::max();
     int m_h_cost = 0;
     size_t m_parent = std::numeric_limits<size_t>::max();
 
