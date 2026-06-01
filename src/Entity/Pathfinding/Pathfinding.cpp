@@ -1,4 +1,5 @@
 #include "Pathfinding.hpp"
+#include "Core/Containers/LocalVector.hpp"
 #include "Core/Print.hpp"
 #include "Core/Result.hpp"
 #include "Entity/Pathfinding/PathNode.hpp"
@@ -8,11 +9,11 @@
 
 constexpr int straight = 10;
 constexpr int diag_xz = 14;
-constexpr int vertical = 18;
+constexpr int vertical = 12;
 
 Result<uint32_t> Pathfinding::node_from_world_point(const glm::vec3& pos)
 {
-    glm::ivec3 key(std::floor(pos.x), std::floor(pos.y), std::floor(pos.z));
+    glm::ivec3 key(std::round(pos.x), std::round(pos.y), std::round(pos.z));
 
     auto it = m_node_lookup.find(key);
     if (it != m_node_lookup.end())
@@ -44,9 +45,9 @@ bool Pathfinding::is_walkable(const glm::ivec3& to, int max_jump_height)
     return false;
 }
 
-Result<InplaceVector<uint32_t, 10>> Pathfinding::get_neighbors(uint32_t current_index)
+Result<Vector<uint32_t>> Pathfinding::get_neighbors(uint32_t current_index)
 {
-    InplaceVector<uint32_t, 10> neighbors;
+    Vector<uint32_t> neighbors;
     const PathNode& current = m_nodes.get_unchecked(current_index);
 
     static InplaceVector<glm::ivec3, 10> directions = {
@@ -73,6 +74,8 @@ Result<InplaceVector<uint32_t, 10>> Pathfinding::get_neighbors(uint32_t current_
     {
 
         glm::ivec3 neighbor_pos = current.m_gridPos + dir;
+
+        println("neighbor_pos: {} {} {}", neighbor_pos.x, neighbor_pos.y, neighbor_pos.z);
 
         // Track air time so A* won't create infinite neighbors and explore only to where Mob can jump.
         int air_time = current.m_air_time;
@@ -116,7 +119,7 @@ Result<InplaceVector<uint32_t, 10>> Pathfinding::get_neighbors(uint32_t current_
             m_node_lookup[neighbor_pos] = neighbor_index;
         }
 
-        neighbors.push_back(neighbor_index);
+        TRY(neighbors.append(neighbor_index));
     }
 
     return neighbors;
@@ -256,12 +259,12 @@ Result<Vector<glm::vec3>> Pathfinding::simplify_path(const LocalVector<uint32_t>
 
     TRY(waypoints.append(m_nodes.get_unchecked(path.get_unchecked(path.size() - 1)).m_position));
 
-    // println("-- Found Path --");
-    // for (size_t i = 0; i < waypoints.size(); i++)
-    // {
-    //     const auto pos = waypoints.get_unchecked(i);
-    //     println("[{} {} {}]", pos.x, pos.y, pos.z);
-    // }
+    println("-- Found Path --");
+    for (size_t i = 0; i < waypoints.size(); i++)
+    {
+        const auto pos = waypoints.get_unchecked(i);
+        println("[{} {} {}]", pos.x, pos.y, pos.z);
+    }
 
     return waypoints;
 }

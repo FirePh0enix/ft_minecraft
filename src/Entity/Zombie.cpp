@@ -4,9 +4,10 @@
 #include "Engine.hpp"
 #include "Entity/Entity.hpp"
 #include "World/World.hpp"
-#include "glm/ext/vector_float3.hpp"
 #include <cstddef>
 #include <memory>
+
+constexpr float PATH_UPDATE_INTERVAL = 1.0f;
 
 void Zombie::start() {};
 
@@ -14,13 +15,14 @@ void Zombie::tick(float delta)
 {
 
     m_attack_timer -= delta;
+    m_path_update_timer -= delta;
     if (m_attack_timer < 0.0f)
         m_attack_timer = 0.0f;
 
     if (!m_on_ground)
         m_velocity.y -= 9.81f * delta;
 
-    const glm::vec3 player_pos = Engine::get().get_player()->get_global_transform().position();
+    const glm::ivec3 player_pos = glm::round(Engine::get().get_player()->get_global_transform().position());
 
     // Tracking.
     // Maybe do the math once and adjust action by comparing result and threshold.
@@ -28,13 +30,14 @@ void Zombie::tick(float delta)
     {
         bool is_target_reachable = m_pathfinding->is_walkable(player_pos, 0);
 
-        if (is_target_reachable && m_last_threat_pos != player_pos)
+        if (m_last_threat_pos != player_pos && is_target_reachable && m_path_update_timer <= 0.0f)
         {
             m_last_threat_pos = player_pos;
+            m_path_update_timer = PATH_UPDATE_INTERVAL;
             flee_to(player_pos);
         }
 
-        const float dist_sq = glm::distance2(player_pos, get_global_transform().position());
+        const float dist_sq = glm::distance2(glm::vec3(player_pos), get_global_transform().position());
         if (dist_sq <= m_attack_range * m_attack_range)
         {
             m_following_path = false;
@@ -42,7 +45,6 @@ void Zombie::tick(float delta)
             m_velocity.z = 0.0f;
             m_can_attack = true;
             m_threat_entity = Engine::get().get_player();
-
             attack();
         }
         else
@@ -116,7 +118,6 @@ bool Zombie::is_player_in_radius(float radius, const glm::vec3& player_pos) cons
 {
     glm::vec3 zombie_pos = get_global_transform().position();
     float distance_sq = glm::distance2(player_pos, zombie_pos);
-
     return distance_sq <= radius * radius;
 }
 

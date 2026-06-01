@@ -1,6 +1,5 @@
 #pragma once
 
-#include "Core/Containers/InplaceVector.hpp"
 #include "Core/Containers/LocalVector.hpp"
 #include "Core/Math.hpp"
 #include "Entity/Entity.hpp"
@@ -42,6 +41,6 @@ private:
 
     Result<void> retrace_path(uint32_t start_index, uint32_t end_index);
     int get_distance(const PathNode& node_a, const PathNode& node_b);
-    Result<InplaceVector<uint32_t, 10>> get_neighbors(uint32_t current_index);
+    Result<Vector<uint32_t>> get_neighbors(uint32_t current_index);
     Result<uint32_t> node_from_world_point(const glm::vec3& world_position);
 };

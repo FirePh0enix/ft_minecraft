@@ -4,6 +4,7 @@
 #include "Core/Ref.hpp"
 #include "Entity/Camera.hpp"
 #include "Entity/Entity.hpp"
+#include "Entity/LivingEntity.hpp"
 #include "Entity/Mob.hpp"
 #include "Inventory/Inventory.hpp"
 #include "Inventory/PlayerInventory.hpp"
@@ -17,13 +18,13 @@ enum class GameMode
     Creative,
 };
 
-class Player : public Mob
+class Player : public LivingEntity
 {
-    CLASS(Player, Mob);
+    CLASS(Player, LivingEntity);
 
 public:
     //  health, attack_damage, speed, jump_force
-    Player() : Mob(1, 1, 8.0f, 0.24f)
+    Player() : LivingEntity(1, 1, 8.0f, 0.24f)
     {
         m_aabb = AABB(-glm::vec3(0.35, 0.9, 0.35), glm::vec3(0.35, 0.9, 0.35));
     }
