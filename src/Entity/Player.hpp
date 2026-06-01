@@ -74,6 +74,8 @@ private:
     size_t m_slot = 0;
 
     Array<Ref<Texture>, 4> m_breaks_textures;
+    Ref<Buffer> m_model_buffer;
+    Ref<Material> m_material;
 
     bool m_open_inventory = false;
 

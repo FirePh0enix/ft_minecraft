@@ -22,6 +22,8 @@ public:
     void set_open(bool v);
     void set_selected_slot(size_t slot);
 
+    size_t selected_slot() const { return m_selected_slot; }
+
     void grab(const ItemStack& itemstack, glm::i64vec2 pos);
     void ungrab();
     Option<ItemStack> get_grabbed();

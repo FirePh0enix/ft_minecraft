@@ -72,6 +72,14 @@ public:
     }
 
     /**
+     * @brief Returns the up (positive Y) vector local to this transform.
+     */
+    inline glm::vec3 up() const
+    {
+        return rotate(glm::vec3(0.0, 1.0, 0.0));
+    }
+
+    /**
      * @brief Returns this transform's rotation as euler angles.
      */
     inline glm::vec3 get_euler_angles() const

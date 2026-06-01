@@ -11,8 +11,15 @@
 #include "Network/Packet.hpp"
 #include "Render/Renderer.hpp"
 #include "World/World.hpp"
+#include "glm/ext/quaternion_float.hpp"
 
 #include <imgui.h>
+
+struct GPU_ATTRIBUTE ItemBlockModel
+{
+    glm::mat4 model_matrix;
+    glm::uvec3 textures;
+};
 
 Player::Player()
 {
@@ -24,6 +31,12 @@ void Player::on_ready()
     m_inventory = EXPECT(newref<Inventory>());
     m_inventory->set_quick_stack(0, ItemStack(Engine::get().blocks().get_block_id("stone"), 16));
     m_inventory->set_quick_stack(1, ItemStack(Engine::get().blocks().get_block_id("dirt"), 16));
+
+    m_model_buffer = EXPECT(Buffer::create(sizeof(ItemBlockModel), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform));
+    m_material = EXPECT(Material::create(Renderer::get().get_item_block_shader(), MaterialFlagBits::None, WGPUCullMode_Back, UVType::UV));
+    m_material->set_param("env", Renderer::get().get_world_environment());
+    m_material->set_param("model", m_model_buffer);
+    m_material->set_param("images", Engine::get().blocks().get_texture_array());
 
     if (m_local_player)
     {
@@ -276,6 +289,23 @@ void Player::draw(const RenderPassNode& node)
         SimpleUniforms uniforms(glm::translate(glm::identity<glm::mat4>(), glm::vec3(m_aimed_block.get())) * glm::scale(glm::identity<glm::mat4>(), glm::vec3(1.01f)), glm::vec4(aim_color, 0.4));
         m_aim_buffer->update(View(uniforms).as_bytes());
         Renderer::get().record_simple_shape(node, m_aim_material);
+    }
+
+    if (m_local_player && m_inventory->get_quick_stack(m_inventory->selected_slot()).get_block() != 0)
+    {
+        Ref<Block> block = Engine::get().blocks().get_block_by_id(m_inventory->get_quick_stack(m_inventory->selected_slot()).get_block());
+
+        Transform3D transform = m_camera->get_global_transform();
+        transform.scale() = glm::vec3(0.2);
+        transform.position() += m_camera->get_global_transform().forward() * 0.5f + m_camera->get_global_transform().right() * 0.35f + m_camera->get_global_transform().up() * -0.3f;
+        transform.set_euler_angles(glm::vec3(0, -m_transform.get_euler_angles().y, 0));
+
+        ItemBlockModel matrix(
+            transform.to_matrix(),
+            glm::uvec3(block->get_texture_ids()[0] | (block->get_texture_ids()[1] << 16), block->get_texture_ids()[2] | (block->get_texture_ids()[3] << 16), block->get_texture_ids()[4] | (block->get_texture_ids()[5] << 16)));
+
+        m_model_buffer->update(View(matrix).as_bytes());
+        Renderer::get().record_simple_shape(node, m_material);
     }
 }
 
