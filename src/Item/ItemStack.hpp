@@ -3,6 +3,8 @@
 #include <cstddef>
 #include <cstdint>
 
+constexpr size_t itemstack_max_size = 64;
+
 class ItemStack
 {
 public:

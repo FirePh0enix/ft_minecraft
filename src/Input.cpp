@@ -67,6 +67,10 @@ void Input::load_config()
 
     Input::add_action("9");
     Input::add_action_mapping("9", ActionMapping(ActionMappingKind::Key, SDLK_9));
+
+    // UI
+    Input::add_action("ui_click");
+    Input::add_action_mapping("ui_click", ActionMapping(ActionMappingKind::MouseButton, 1));
 }
 
 bool Input::is_action_pressed(const StringView& action)
