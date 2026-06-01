@@ -209,6 +209,9 @@ protected:
     bool m_active = true;
     size_t m_dimension = 0;
 
+    bool m_blocked_x = false;
+    bool m_blocked_z = false;
+
     static inline HashMap<ClassHashCode, HashMap<String, RpcTarget>> s_exposed_rpc;
 
     template <typename T>

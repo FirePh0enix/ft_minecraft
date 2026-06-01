@@ -351,7 +351,7 @@ void Engine::create_world_and_start()
     // m_world->add_entity(World::overworld, cow);
 
     Ref<Entity> zombie = EXPECT(newref<Zombie>());
-    zombie->get_transform().position() = m_world->get_spawn_position();
+    zombie->get_transform().position() = m_player->get_position();
     m_world->add_entity(World::overworld, zombie);
 
     m_scene = EngineScene::World;

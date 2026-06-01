@@ -170,6 +170,9 @@ void Entity::move_and_collide()
     if (move_vector.z != original_vector.z)
         m_velocity.z = 0;
 
+    m_blocked_x = move_vector.x != original_vector.x;
+    m_blocked_z = move_vector.z != original_vector.z;
+
     m_on_ground = move_vector.y != original_vector.y && original_vector.y < 0;
 
     glm::vec3 center = (mob_box.max + mob_box.min) / 2.0f;

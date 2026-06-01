@@ -131,13 +131,6 @@ public:
         return value;
     }
 
-    void clear()
-    {
-        for (size_t i = 0; i < m_size; i++)
-            m_data[i].~T();
-        m_size = 0;
-    }
-
     void remove_at(size_t index)
     {
         if (index >= m_size)

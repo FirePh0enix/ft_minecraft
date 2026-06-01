@@ -22,7 +22,11 @@ class Player : public Mob
     CLASS(Player, Mob);
 
 public:
-    Player();
+    //  health, attack_damage, speed, jump_force
+    Player() : Mob(1, 1, 8.0f, 0.24f)
+    {
+        m_aabb = AABB(-glm::vec3(0.35, 0.9, 0.35), glm::vec3(0.35, 0.9, 0.35));
+    }
 
     virtual ~Player() {}
 
@@ -66,8 +70,8 @@ private:
     Ref<Camera> m_camera;
     GameMode m_gamemode = GameMode::Survival;
 
-    float m_speed = 8.0;
-    float m_jump_force = 0.24f;
+    // float m_speed = 8.0;
+    // float m_jump_force = 0.24f;
 
     Option<glm::vec3> m_aimed_block;
     Ref<Material> m_aim_material;

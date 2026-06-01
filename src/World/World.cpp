@@ -1,8 +1,8 @@
 #include "World/World.hpp"
 #include "AABB.hpp"
+#include "Core/Containers/LocalVector.hpp"
 #include "Core/Filesystem.hpp"
 #include "Core/Format.hpp"
-#include "Core/Containers/LocalVector.hpp"
 #include "Core/Print.hpp"
 #include "Core/Ref.hpp"
 #include "Engine.hpp"
@@ -355,7 +355,8 @@ bool World::raycast(const Ray& ray, float range, RaycastResult& result)
     {
         AABB world_aabb = e->get_aabb().translate(e->get_global_transform().position());
         float t = 0.0f;
-        if (ray_intersect_aabb(ray, world_aabb, t) &&
+        glm::vec3 normal;
+        if (ray_intersect_aabb(ray, world_aabb, t, normal) &&
             t >= 0.0f &&
             t <= range &&
             t < t_min)
