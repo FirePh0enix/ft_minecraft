@@ -63,6 +63,7 @@ public:
         return has_value() && value == get();
     }
 
+    operator int() const = delete;
     operator bool() const { return has_value(); }
 
     inline bool has_value() const { return m_has_value; }

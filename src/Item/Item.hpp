@@ -1,8 +1,8 @@
 #pragma once
 
+#include "Block/Block.hpp"
 #include "Core/Class.hpp"
 #include "Id.hpp"
-#include "World/Block.hpp"
 
 class Item : public Object
 {

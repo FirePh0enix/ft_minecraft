@@ -1,7 +1,7 @@
 #include "World/Dimension.hpp"
 
+#include "Block/Block.hpp"
 #include "Profiler.hpp"
-#include "World/Block.hpp"
 #include "World/Chunk.hpp"
 #include "World/World.hpp"
 

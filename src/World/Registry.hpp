@@ -1,11 +1,11 @@
 #pragma once
 
+#include "Block/Block.hpp"
 #include "Core/Containers/HashMap.hpp"
 #include "Core/Ref.hpp"
 #include "Entity/Entity.hpp"
 #include "Item/Item.hpp"
 #include "Render/Renderer.hpp"
-#include "World/Block.hpp"
 
 #include <stb_image.h>
 
@@ -48,12 +48,14 @@ namespace Blocks
 constexpr Id<Block> stone(1);
 constexpr Id<Block> dirt(2);
 constexpr Id<Block> water(3);
+constexpr Id<Block> crafting_table(4);
 } // namespace Blocks
 
 namespace Items
 {
 constexpr Id<Item> stone_block(1);
 constexpr Id<Item> dirt_block(2);
+constexpr Id<Item> crafting_table_block(3);
 }; // namespace Items
 
 namespace Entities

@@ -30,6 +30,13 @@ public:
 
     Id<Item> item() const { return m_item; }
 
+    /**
+     * @brief Merge `stack` into `this` returning excess items if any.
+     *
+     * If `stack` can't merge into `this then stack is returned.
+     */
+    Option<ItemStack> merge(const ItemStack& stack);
+
 private:
     Id<Item> m_item;
     size_t m_count;

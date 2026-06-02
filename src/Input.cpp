@@ -68,6 +68,9 @@ void Input::load_config()
     Input::add_action("9");
     Input::add_action_mapping("9", ActionMapping(ActionMappingKind::Key, SDLK_9));
 
+    Input::add_action("toolbar_wheel");
+    Input::add_action_mapping("toolbar_wheel", ActionMapping(ActionMappingKind::Wheel, 0));
+
     // UI
     Input::add_action("ui_click");
     Input::add_action_mapping("ui_click", ActionMapping(ActionMappingKind::MouseButton, 1));
@@ -149,6 +152,12 @@ void Input::post_events()
     {
         if (status.value > 0)
             status.repeat = true;
+
+        if (s_mappings.get(key).get().get_unchecked(0).kind == ActionMappingKind::Wheel)
+        {
+            status.repeat = false;
+            status.value = 0.0;
+        }
     }
 }
 
@@ -173,6 +182,13 @@ void Input::process_event(SDL_Event event)
             else if (event.type == SDL_EVENT_MOUSE_BUTTON_UP && mapping.kind == ActionMappingKind::MouseButton && event.button.button == mapping.value)
             {
                 set_action_value(mappings.key, 0.0);
+            }
+            else if (event.type == SDL_EVENT_MOUSE_WHEEL && mapping.kind == ActionMappingKind::Wheel)
+            {
+                if (event.wheel.y < 0)
+                    set_action_value(mappings.key, 1.0);
+                else
+                    set_action_value(mappings.key, -1.0);
             }
         }
     }

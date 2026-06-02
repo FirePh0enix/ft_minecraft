@@ -1,8 +1,7 @@
 #pragma once
 
+#include "Block/Block.hpp"
 #include "Core/Class.hpp"
-#include "World/Block.hpp"
-#include "World/Chunk.hpp"
 
 class GenerationPass : public Object
 {

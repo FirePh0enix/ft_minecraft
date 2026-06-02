@@ -79,6 +79,8 @@ public:
         if (m_capacity == 0)
         {
             TRY(grow_to(0, size));
+            for (size_t i = m_size; i < size; i++)
+                new (&m_data[i]) T();
             m_size = size;
         }
 
@@ -92,6 +94,9 @@ public:
             {
                 TRY(grow_to(m_capacity, size));
             }
+
+            for (size_t i = m_size; i < size; i++)
+                new (&m_data[i]) T();
 
             m_size = size;
         }

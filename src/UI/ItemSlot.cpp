@@ -2,10 +2,11 @@
 
 #include "Core/Format.hpp"
 #include "Engine.hpp"
+#include "Inventory/Inventory.hpp"
 #include "Item/ItemStack.hpp"
 
-ItemSlot::ItemSlot(glm::i64vec2 pos, Inventory *inventory)
-    : m_count(0), m_pos(pos), m_inventory(inventory)
+ItemSlot::ItemSlot(uint32_t layer, uint32_t index, Inventory *inventory, InventoryContainer *container)
+    : m_count(0), m_layer(layer), m_index(index), m_container(container), m_inventory(inventory)
 {
     m_background = EXPECT(newref<ColorRect>());
     set_scale(glm::vec2(0.12));
@@ -32,10 +33,6 @@ void ItemSlot::update(float d)
     {
         m_background->set_color(Colors::red);
     }
-    else if (m_selected)
-    {
-        m_background->set_color(Colors::yellow);
-    }
     else
     {
         m_background->set_color(Colors::blue);
@@ -46,29 +43,36 @@ void ItemSlot::update(float d)
         Option<ItemStack> grabbed = m_inventory->get_grabbed();
         if (grabbed.has_value())
         {
-            if (m_item.valid())
+            bool allow_change = m_inventory->on_place(m_layer, m_count, grabbed.get(), m_container);
+
+            if (!m_item.valid() && allow_change)
             {
                 m_inventory->ungrab();
-                m_inventory->stackxy(m_pos) = grabbed.get();
+                m_container->set_stack(m_layer, m_index, grabbed.get());
             }
-            else
+            else if (allow_change)
             {
-                if (grabbed.get().item() == m_inventory->stackxy(m_pos).item())
+                ItemStack stack = m_container->get_stack(m_layer, m_index);
+                if (grabbed.get().item() == stack.item())
                 {
-                    size_t excess = m_inventory->stackxy(m_pos).count() + grabbed.get().count() > itemstack_max_size ? (m_inventory->stackxy(m_pos).count() + grabbed.get().count()) % itemstack_max_size : 0;
-                    m_inventory->stackxy(m_pos).set_count((m_inventory->stackxy(m_pos).count() + grabbed.get().count()) % itemstack_max_size);
+                    Option<ItemStack> excess = stack.merge(grabbed.get());
+                    m_container->set_stack(m_layer, m_index, stack);
 
-                    if (excess > 0)
-                        m_inventory->grab(ItemStack(grabbed.get().item(), excess), glm::i64vec2(-1));
+                    if (excess.has_value())
+                        m_inventory->grab(excess.get());
                     else
                         m_inventory->ungrab();
                 }
             }
         }
-        else if (!m_item.valid())
+        else if (m_item.valid())
         {
-            m_inventory->grab(ItemStack(m_item, m_count), m_pos);
-            m_inventory->stackxy(m_pos) = ItemStack(Id<Item>(), 0);
+            bool allow_pick = m_inventory->on_pick(m_layer, m_index, ItemStack(m_item, m_count), m_container);
+            if (allow_pick)
+            {
+                m_inventory->grab(ItemStack(m_item, m_count), InventoryOrigin(m_layer, m_index, m_container));
+                m_container->set_stack(m_layer, m_index, ItemStack());
+            }
         }
     }
 }

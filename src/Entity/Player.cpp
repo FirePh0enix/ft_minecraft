@@ -1,18 +1,19 @@
 #include "Entity/Player.hpp"
 
 #include "AABB.hpp"
+#include "Block/Inventory.hpp"
 #include "Core/Math.hpp"
 #include "Engine.hpp"
 #include "Entity/Entity.hpp"
 #include "Entity/Item.hpp"
 #include "Input.hpp"
+#include "Inventory/Inventory.hpp"
 #include "Item/ItemStack.hpp"
 #include "Model.hpp"
 #include "Network/Packet.hpp"
 #include "Render/Renderer.hpp"
 #include "World/Registry.hpp"
 #include "World/World.hpp"
-#include "glm/ext/quaternion_float.hpp"
 
 #include <imgui.h>
 
@@ -29,9 +30,15 @@ Player::Player()
 
 void Player::on_ready()
 {
-    m_inventory = EXPECT(newref<Inventory>());
-    m_inventory->set_quick_stack(0, ItemStack(Items::dirt_block, 16));
-    m_inventory->set_quick_stack(1, ItemStack(Items::stone_block, 16));
+    m_inventory_container = EXPECT(newref<InventoryContainer>());
+    EXPECT(m_inventory_container->add_layer(27)); // main inventory
+    EXPECT(m_inventory_container->add_layer(9));  // toolbar
+
+    m_inventory_container->set_stack(1, 0, ItemStack(Items::crafting_table_block, 16));
+    m_inventory_container->set_stack(1, 1, ItemStack(Items::stone_block, 16));
+    m_inventory_container->set_stack(1, 2, ItemStack(Items::dirt_block, 16));
+
+    m_inventory = EXPECT(newref<PlayerInventory>(m_inventory_container));
 
     m_model_buffer = EXPECT(Buffer::create(sizeof(ItemBlockModel), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform));
     m_material = EXPECT(Material::create(Renderer::get().get_item_block_shader(), MaterialFlagBits::None, WGPUCullMode_Back, UVType::UV));
@@ -70,20 +77,26 @@ void Player::on_ready()
 
 void Player::tick(float delta)
 {
-    if (Input::is_action_pressed("attack") && !Input::is_mouse_grabbed() && !m_open_inventory && m_local_player)
+    if (Input::is_action_pressed("attack") && !Input::is_mouse_grabbed() && !m_opened_inventory.has_value() && m_local_player)
     {
         Input::set_mouse_grabbed(true);
     }
-    else if (Input::is_action_pressed("escape") && Input::is_mouse_grabbed() && m_local_player)
+    else if (Input::is_action_pressed("escape") && Input::is_mouse_grabbed() && m_local_player && !m_opened_inventory.has_value())
     {
         Input::set_mouse_grabbed(false);
+    }
+    else if (Input::is_action_pressed("escape") && m_local_player && m_opened_inventory.has_value())
+    {
+        close_inventory();
     }
 
     if (Input::is_action_just_pressed("open_inventory"))
     {
-        m_open_inventory = !m_open_inventory;
-        m_inventory->set_open(m_open_inventory);
-        Input::set_mouse_grabbed(!m_open_inventory);
+        if (!m_opened_inventory.has_value())
+            open_inventory(m_inventory);
+        else
+            close_inventory();
+        Input::set_mouse_grabbed(!m_opened_inventory.has_value());
     }
 
     if (m_local_player)
@@ -106,6 +119,18 @@ void Player::tick(float delta)
             set_slot(7);
         if (Input::is_action_just_pressed("9"))
             set_slot(8);
+
+        if (Input::get_action_value("toolbar_wheel") > 0)
+        {
+            set_slot((m_slot + 1) % 9);
+        }
+        else if (Input::get_action_value("toolbar_wheel") < 0)
+        {
+            if (m_slot == 0)
+                set_slot(8);
+            else
+                set_slot(m_slot - 1);
+        }
     }
 
     AABB item_box = get_aabb().translate(get_position()).grow(glm::vec3(0.5));
@@ -197,12 +222,23 @@ void Player::tick(float delta)
 
             if (Input::is_action_just_pressed("interact"))
             {
-                ItemStack& stack = m_inventory->get_quick_stack(m_slot);
-                if (stack.item().valid() && m_world->get_block_state(result.block_pos.x + int64_t(result.normal.x), result.block_pos.y + int64_t(result.normal.y), result.block_pos.z + int64_t(result.normal.z)).is_air())
+                BlockState state = m_world->get_block_state(result.block_pos.x, result.block_pos.y, result.block_pos.z);
+                Ref<Block> block = Engine::get().registry().get_block(state.id);
+
+                if (Ref<InventoryBlock> ib = block.cast_to<InventoryBlock>())
                 {
-                    m_world->set_block_state(result.block_pos.x + int64_t(result.normal.x), result.block_pos.y + int64_t(result.normal.y), result.block_pos.z + int64_t(result.normal.z),
-                                             BlockState(Engine::get().registry().to_block(stack.item()).get()));
-                    stack.set_count(stack.count() - 1);
+                    ib->open_inventory(result.block_pos, this);
+                }
+                else
+                {
+                    ItemStack stack = m_inventory_container->get_stack(1, m_slot);
+                    if (stack.item().valid() && m_world->get_block_state(result.block_pos.x + int64_t(result.normal.x), result.block_pos.y + int64_t(result.normal.y), result.block_pos.z + int64_t(result.normal.z)).is_air())
+                    {
+                        m_world->set_block_state(result.block_pos.x + int64_t(result.normal.x), result.block_pos.y + int64_t(result.normal.y), result.block_pos.z + int64_t(result.normal.z),
+                                                 BlockState(Engine::get().registry().to_block(stack.item()).get()));
+                        stack.set_count(stack.count() - 1);
+                        m_inventory_container->set_stack(1, m_slot, stack);
+                    }
                 }
             }
         }
@@ -266,7 +302,11 @@ void Player::tick(float delta)
     if (m_local_player)
     {
         m_inventory->set_selected_slot(m_slot);
-        m_inventory->update(delta);
+
+        if (m_opened_inventory.has_value())
+            m_opened_inventory.get()->update(delta);
+        else
+            m_inventory->update(delta);
     }
 
     if (m_local_player && Engine::get().is_online() && !Engine::get().is_server())
@@ -293,9 +333,9 @@ void Player::draw(const RenderPassNode& node)
         Renderer::get().record_simple_shape(node, m_aim_material);
     }
 
-    if (m_local_player && m_inventory->get_quick_stack(m_inventory->selected_slot()).item().valid())
+    if (m_local_player && m_inventory_container->get_stack(1, m_inventory->selected_slot()).item().valid())
     {
-        Ref<Block> block = Engine::get().registry().block_from_item(m_inventory->get_quick_stack(m_inventory->selected_slot()).item());
+        Ref<Block> block = Engine::get().registry().block_from_item(m_inventory_container->get_stack(1, m_inventory->selected_slot()).item());
 
         Transform3D transform = m_camera->get_global_transform();
         transform.scale() = glm::vec3(0.2);
@@ -315,22 +355,27 @@ void Player::draw_ui(const RenderPassNode& node)
 {
     if (m_local_player)
     {
-        m_inventory->draw(node);
+        if (m_opened_inventory.has_value())
+            m_opened_inventory.get()->draw(node);
+        else
+            m_inventory->draw_toolbar(node);
     }
 }
 
 void Player::save(EntitySerializer& ser) const
 {
-    Variant array = m_inventory->data();
-    EXPECT(ser.set("inventory_data", array));
+    (void)ser;
+    // Variant array = m_inventory->data();
+    // EXPECT(ser.set("inventory_data", array));
 }
 
 void Player::load(const EntitySerializer& deser)
 {
-    Vector<ItemStack> stacks = deser.get_array<ItemStack>("inventory_data").get();
+    (void)deser;
+    // Vector<ItemStack> stacks = deser.get_array<ItemStack>("inventory_data").get();
 
-    for (size_t i = 0; i < std::min(stacks.size(), inventory_slot_count); i++)
-        m_inventory->stack(i) = stacks.get_unchecked(i);
+    // for (size_t i = 0; i < std::min(stacks.size(), inventory_slot_count); i++)
+    //     m_inventory->get_stack(Id<ItemSlot>(i)) = stacks.get_unchecked(i);
 }
 
 void Player::die()
@@ -340,4 +385,17 @@ void Player::die()
 void Player::on_hit_by(Entity& entity)
 {
     (void)entity;
+}
+
+void Player::open_inventory(Ref<Inventory> inventory)
+{
+    m_opened_inventory = inventory;
+    Input::set_mouse_grabbed(false);
+}
+
+void Player::close_inventory()
+{
+    m_opened_inventory.get()->grab_cancel();
+    m_opened_inventory = None;
+    Input::set_mouse_grabbed(true);
 }

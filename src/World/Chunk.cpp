@@ -1,9 +1,9 @@
 #include "World/Chunk.hpp"
 
+#include "Block/Block.hpp"
 #include "Core/Alloc.hpp"
 #include "Engine.hpp"
 #include "Render/Types.hpp"
-#include "World/Block.hpp"
 #include "World/Registry.hpp"
 
 #include <bit>

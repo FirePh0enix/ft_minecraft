@@ -1,10 +1,10 @@
 #pragma once
 
+#include "Block/Block.hpp"
 #include "Core/Containers/Vector.hpp"
 #include "Core/Definitions.hpp"
 #include "Render/Renderer.hpp"
 #include "World/Biome.hpp"
-#include "World/Block.hpp"
 
 #include <cstdint>
 

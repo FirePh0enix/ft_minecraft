@@ -5,8 +5,8 @@
 #include "Entity/Camera.hpp"
 #include "Entity/Entity.hpp"
 #include "Entity/Mob.hpp"
-#include "Input.hpp"
-#include "Item/Inventory.hpp"
+#include "Inventory/Inventory.hpp"
+#include "Inventory/PlayerInventory.hpp"
 #include "Model.hpp"
 #include "Render/Graph.hpp"
 
@@ -51,6 +51,12 @@ public:
         m_inventory->set_selected_slot(slot);
     }
 
+    Ref<PlayerInventory> get_inventory() const { return m_inventory; }
+    Ref<InventoryContainer> get_inventory_container() const { return m_inventory_container; }
+
+    void open_inventory(Ref<Inventory> inventory);
+    void close_inventory();
+
 protected:
     void die() override;
 
@@ -70,14 +76,16 @@ private:
     Ref<Model> m_model;
     Animator m_animator;
 
-    Ref<Inventory> m_inventory;
+    Ref<InventoryContainer> m_inventory_container;
+    Ref<PlayerInventory> m_inventory;
     size_t m_slot = 0;
 
     Array<Ref<Texture>, 4> m_breaks_textures;
     Ref<Buffer> m_model_buffer;
     Ref<Material> m_material;
 
-    bool m_open_inventory = false;
+    // bool m_open_inventory = false;
+    Option<Ref<Inventory>> m_opened_inventory;
 
     /**
      * Player class is a little special since its behavor is different if this is the local or remote.
@@ -89,5 +97,5 @@ private:
     glm::i64vec3 m_destroy_block_pos = glm::i64vec3();
     bool m_is_destroing = false;
 
-    bool are_input_available() { return Input::is_mouse_grabbed() && !m_open_inventory; }
+    bool are_input_available() { return Input::is_mouse_grabbed() && !m_opened_inventory.has_value(); }
 };

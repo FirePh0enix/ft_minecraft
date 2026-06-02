@@ -15,11 +15,6 @@ struct Id
     {
     }
 
-    // constexpr Id(const Id& id)
-    //     : value(id.value)
-    // {
-    // }
-
     bool operator==(const Id& k) const { return value == k.value; }
 
     constexpr bool valid() const { return value != 0; }

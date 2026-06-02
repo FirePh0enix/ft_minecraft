@@ -29,6 +29,8 @@ list(APPEND SOURCES
     src/Type.cpp
     src/Variant.cpp
     src/Window.cpp
+    src/Block/Block.cpp
+    src/Block/CraftingTable.cpp
     src/Core/Noise/Simplex.cpp
     src/Core/Alloc.cpp
     src/Core/Class.cpp
@@ -47,7 +49,10 @@ list(APPEND SOURCES
     src/Entity/Player.cpp
     src/Entity/Pathfinding/Node.cpp
     src/Entity/Pathfinding/Pathfinding.cpp
-    src/Item/Inventory.cpp
+    src/Inventory/CraftingTable.cpp
+    src/Inventory/Inventory.cpp
+    src/Inventory/PlayerInventory.cpp
+    src/Item/ItemStack.cpp
     src/Network/Network.cpp
     src/Network/Packet.cpp
     src/Render/Graph.cpp
@@ -59,7 +64,6 @@ list(APPEND SOURCES
     src/UI/TextureRect.cpp
     src/World/Pass/Flat.cpp
     src/World/Pass/Overworld.cpp
-    src/World/Block.cpp
     src/World/Chunk.cpp
     src/World/Dimension.cpp
     src/World/Generator.cpp

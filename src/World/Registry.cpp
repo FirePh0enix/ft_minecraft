@@ -1,8 +1,10 @@
 #include "World/Registry.hpp"
 
+#include "Block/Block.hpp"
+#include "Block/CraftingTable.hpp"
 #include "Core/Filesystem.hpp"
 #include "Core/Format.hpp"
-#include "World/Block.hpp"
+#include "Core/Ref.hpp"
 
 Result<Ref<Entity>> EntityRegistry::create_entity(ClassHashCode class_hash)
 {
@@ -16,9 +18,11 @@ Result<void> GameRegistry::register_all()
     TRY(add_block(Blocks::stone, TRY(newref<Block>(TEX("stone")))));
     TRY(add_block(Blocks::dirt, TRY(newref<Block>(TEX("dirt")))));
     TRY(add_block(Blocks::water, TRY(newref<Block>(TEX("water")))));
+    TRY(add_block(Blocks::crafting_table, TRY(newref<CraftingTableBlock>())));
 
     TRY(add_item(Items::stone_block, TRY(newref<ItemBlock>(Blocks::stone))));
     TRY(add_item(Items::dirt_block, TRY(newref<ItemBlock>(Blocks::dirt))));
+    TRY(add_item(Items::crafting_table_block, TRY(newref<ItemBlock>(Blocks::crafting_table))));
     return Result<void>();
 }
 
@@ -78,6 +82,8 @@ Option<Id<Block>> GameRegistry::to_block(Id<Item> id)
 
 Ref<Texture> GameRegistry::get_texture(Id<Item> id)
 {
+    ASSERT_V(id.valid() && id.value <= m_items.size(), "Trying to get texture for invalid id `{}`", id.value);
+
     Option<Ref<Item>> item = m_items.get(id);
     if (item.has_value())
     {

@@ -2,7 +2,6 @@
 
 #include "Core/Class.hpp"
 #include "Core/Containers/Array.hpp"
-#include "Core/Definitions.hpp"
 #include "Core/String.hpp"
 #include "Id.hpp"
 
@@ -69,6 +68,7 @@ class Block : public Object
     CLASS(Block, Object);
 
 public:
+    Block() : m_transparent(false) {}
     Block(const Array<String, 6>& textures);
     Block(const StringView& texture);
 
@@ -94,6 +94,8 @@ public:
 
         return m_texture_ids[index];
     }
+
+    void set_texture(const StringView& path);
 
     bool is_tranparent() const { return m_transparent; }
 

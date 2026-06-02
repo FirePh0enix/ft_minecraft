@@ -12,6 +12,7 @@ enum class ActionMappingKind
 {
     Key,
     MouseButton,
+    Wheel,
 };
 
 struct ActionMapping

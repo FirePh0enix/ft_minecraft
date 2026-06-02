@@ -1,9 +1,9 @@
 #pragma once
 
+#include "Block/Block.hpp"
 #include "Core/Containers/Vector.hpp"
 #include "Entity/Entity.hpp"
 #include "World/Biome.hpp"
-#include "World/Block.hpp"
 #include "World/Chunk.hpp"
 
 #include <nlohmann/json.hpp>
