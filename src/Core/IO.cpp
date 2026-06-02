@@ -1,5 +1,6 @@
 #include "Core/IO.hpp"
 #include "Core/Error.hpp"
+#include "Engine.hpp"
 #include "Variant.hpp"
 
 Result<Option<Variant>> Reader::read_variant()
@@ -71,12 +72,14 @@ Result<Option<Variant>> Reader::read_variant()
     else if (type == VariantType::ItemStack)
     {
         uint32_t size;
-        uint32_t block_id;
+        uint32_t id;
 
         TRY(read_raw(&size, sizeof(uint32_t)));
-        TRY(read_raw(&block_id, sizeof(uint32_t)));
+        TRY(read_raw(&id, sizeof(uint32_t)));
 
-        return Option(Variant(ItemStack(block_id, size)));
+        Id<Item> item(id);
+
+        return Option(Variant(ItemStack(item, size)));
     }
     else if (type == VariantType::Array)
     {
@@ -177,7 +180,7 @@ Result<void> Writer::write_variant(const Variant& variant)
     {
         ItemStack stack = variant.get_unchecked<ItemStack>();
         uint32_t size = stack.count();
-        uint32_t block_id = stack.get_block();
+        uint32_t block_id = stack.item().value;
 
         TRY(write_raw(&size, sizeof(uint32_t)));
         TRY(write_raw(&block_id, sizeof(uint32_t)));

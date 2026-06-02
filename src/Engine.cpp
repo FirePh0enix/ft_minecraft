@@ -31,7 +31,7 @@ Engine::Engine(const Args& args)
     Input::init(*m_window);
     Input::load_config();
 
-    register_blocks();
+    EXPECT(m_registry.register_all());
     register_entities();
 
     InitFlags flags;
@@ -78,18 +78,6 @@ Engine::Engine(const Args& args)
                                        Engine::get().get_player()->set_gamemode(GameMode::Creative);
                                    }
                                });
-}
-
-void Engine::register_blocks()
-{
-    EXPECT(m_block_registry.register_block("stone"));
-    EXPECT(m_block_registry.register_block("dirt"));
-    EXPECT(m_block_registry.register_block("grass"));
-    EXPECT(m_block_registry.register_block("log"));
-    EXPECT(m_block_registry.register_block("leaves"));
-    EXPECT(m_block_registry.register_block("sand"));
-    EXPECT(m_block_registry.register_block("snow"));
-    EXPECT(m_block_registry.register_block("water"));
 }
 
 void Engine::register_entities()

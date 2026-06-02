@@ -12,7 +12,7 @@
 
 FlatSurfacePass::FlatSurfacePass()
 {
-    m_dirt_id = Engine::get().blocks().get_block_id("dirt");
+    m_dirt_id = Blocks::dirt;
 }
 
 BlockState FlatSurfacePass::generate_block(int64_t x, int64_t y, int64_t z)

@@ -155,12 +155,14 @@ Result<void> Chunk::build_simple_mesh(size_t slice_index)
                 if (m_blocks[index].is_air())
                     continue;
 
-                const Ref<Block>& block = Engine::get().blocks().get_block_by_id(m_blocks[index].id);
+                Ref<Block> block = Engine::get().registry().get_block(m_blocks[index].id);
+                // if (block->get_texture_ids()[0] == 2)
+                //     println("Dwadwadawd");
 
-#define FACE_NEEDS_RENDER(state, block)                                                                \
-    (state.is_air() ||                                                                                 \
-     (block->is_tranparent() && !Engine::get().blocks().get_block_by_id(state.id)->is_tranparent()) || \
-     (!block->is_tranparent() && Engine::get().blocks().get_block_by_id(state.id)->is_tranparent()))
+#define FACE_NEEDS_RENDER(state, block)                                                                       \
+    (state.is_air() ||                                                                                        \
+     (block->is_tranparent() && !Engine::get().registry().get_block(Id<Block>(state.id))->is_tranparent()) || \
+     (!block->is_tranparent() && Engine::get().registry().get_block(Id<Block>(state.id))->is_tranparent()))
 
                 if (x == 0 || FACE_NEEDS_RENDER(m_blocks[linearize(x - 1, y, z)], block))
                     TRY(faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::X, false, block->get_texture_index(Axis::X, false))));

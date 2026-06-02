@@ -1,7 +1,9 @@
 #pragma once
 
+#include "Id.hpp"
+#include "Item/Item.hpp"
+
 #include <cstddef>
-#include <cstdint>
 
 constexpr size_t itemstack_max_size = 64;
 
@@ -9,12 +11,12 @@ class ItemStack
 {
 public:
     ItemStack()
-        : m_block_id(0), m_count(0)
+        : m_item(), m_count(0)
     {
     }
 
-    ItemStack(uint16_t block_id, size_t count = 1)
-        : m_block_id(block_id), m_count(count)
+    ItemStack(Id<Item> item, size_t count = 1)
+        : m_item(item), m_count(count)
     {
     }
 
@@ -23,12 +25,12 @@ public:
     {
         m_count = count;
         if (count == 0)
-            m_block_id = 0;
+            m_item = Id<Item>();
     }
 
-    uint16_t get_block() const { return m_block_id; }
+    Id<Item> item() const { return m_item; }
 
 private:
-    uint16_t m_block_id;
+    Id<Item> m_item;
     size_t m_count;
 };

@@ -967,13 +967,13 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
 
     m_cube_mesh = TRY(create_cube_mesh());
 
-    Engine::get().blocks().create_gpu_resources();
+    EXPECT(Engine::get().registry().post_register());
 
     Vector<InstanceAttribute> attributes;
     TRY(attributes.append(InstanceAttribute{.offset = 0, .format = WGPUVertexFormat_Float32x3}));
 
     m_chunk_material = TRY(Material::create(m_voxel_shader, MaterialFlagBits::Transparency, WGPUCullMode_Back, UVType::UVT, Instance(attributes, sizeof(glm::vec3))));
-    m_chunk_material->set_param("images", Engine::get().blocks().get_texture_array());
+    m_chunk_material->set_param("images", Engine::get().registry().get_texture_array());
     m_chunk_material->set_param("env", Renderer::get().get_world_environment());
 
     m_simple_shader = TRY(Shader::load("assets/shaders/simple_shape.wgsl"));

@@ -1,5 +1,0 @@
-{
-    "name": "leaves",
-    "model": "cube",
-    "faces": [ "Leaves.png", "Leaves.png", "Leaves.png", "Leaves.png", "Leaves.png", "Leaves.png" ]
-}

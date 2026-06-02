@@ -1,23 +1,25 @@
 #pragma once
 
 #include "Entity/Entity.hpp"
-#include "World/Block.hpp"
+#include "Id.hpp"
+#include "Item/Item.hpp"
 
 class ItemEntity : public Entity
 {
     CLASS(ItemEntity, Entity);
 
 public:
-    ItemEntity(Ref<Block> block);
+    ItemEntity(Id<Item> item);
 
     virtual void tick(float delta) override;
     virtual void draw(const RenderPassNode& node) override;
 
-    Ref<Block> get_block() const { return m_block; }
+    Id<Item> item() const { return m_item; }
 
 private:
+    Id<Item> m_item;
+    glm::uvec3 m_textures{};
     Ref<Material> m_material;
-    Ref<Block> m_block;
     Ref<Buffer> m_model_buffer;
 
     float m_time;

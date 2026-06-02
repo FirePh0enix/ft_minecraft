@@ -27,6 +27,7 @@ list(APPEND SOURCES
     src/Model.cpp
     src/stb_image.cpp
     src/Type.cpp
+    src/Variant.cpp
     src/Window.cpp
     src/Core/Noise/Simplex.cpp
     src/Core/Alloc.cpp
@@ -58,6 +59,7 @@ list(APPEND SOURCES
     src/UI/TextureRect.cpp
     src/World/Pass/Flat.cpp
     src/World/Pass/Overworld.cpp
+    src/World/Block.cpp
     src/World/Chunk.cpp
     src/World/Dimension.cpp
     src/World/Generator.cpp

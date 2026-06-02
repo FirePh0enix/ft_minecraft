@@ -46,29 +46,29 @@ void ItemSlot::update(float d)
         Option<ItemStack> grabbed = m_inventory->get_grabbed();
         if (grabbed.has_value())
         {
-            if (m_block.is_null())
+            if (m_item.valid())
             {
                 m_inventory->ungrab();
                 m_inventory->stackxy(m_pos) = grabbed.get();
             }
             else
             {
-                if (grabbed.get().get_block() == m_inventory->stackxy(m_pos).get_block())
+                if (grabbed.get().item() == m_inventory->stackxy(m_pos).item())
                 {
                     size_t excess = m_inventory->stackxy(m_pos).count() + grabbed.get().count() > itemstack_max_size ? (m_inventory->stackxy(m_pos).count() + grabbed.get().count()) % itemstack_max_size : 0;
                     m_inventory->stackxy(m_pos).set_count((m_inventory->stackxy(m_pos).count() + grabbed.get().count()) % itemstack_max_size);
 
                     if (excess > 0)
-                        m_inventory->grab(ItemStack(grabbed.get().get_block(), excess), glm::i64vec2(-1));
+                        m_inventory->grab(ItemStack(grabbed.get().item(), excess), glm::i64vec2(-1));
                     else
                         m_inventory->ungrab();
                 }
             }
         }
-        else if (!m_block.is_null())
+        else if (!m_item.valid())
         {
-            m_inventory->grab(ItemStack(m_block->id(), m_count), m_pos);
-            m_inventory->stackxy(m_pos) = ItemStack(0, 0);
+            m_inventory->grab(ItemStack(m_item, m_count), m_pos);
+            m_inventory->stackxy(m_pos) = ItemStack(Id<Item>(), 0);
         }
     }
 }
@@ -83,23 +83,19 @@ void ItemSlot::draw(const RenderPassNode& node)
 {
     m_background->draw(node);
 
-    if (!m_block.is_null())
+    if (m_item.valid())
     {
         m_item_rect->draw(node);
         m_label->draw(node);
     }
 }
 
-void ItemSlot::set_block(uint16_t block_id)
+void ItemSlot::set_item(Id<Item> item)
 {
-    if (block_id == 0)
-    {
-        m_block = nullptr;
-        return;
-    }
+    m_item = item;
 
-    m_block = Engine::get().blocks().get_block_by_id(block_id);
-    m_item_rect->set_texture(Engine::get().blocks().get_texture(m_block->get_texture_ids()[0]));
+    if (item.valid())
+        m_item_rect->set_texture(Engine::get().registry().get_texture(item));
 }
 
 void ItemSlot::set_count(size_t count)

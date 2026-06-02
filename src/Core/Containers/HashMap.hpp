@@ -114,6 +114,18 @@ public:
         return exact;
     }
 
+    Option<size_t> index_of(const K& key) const
+    {
+        Hash hash = H{}(key);
+        size_t index;
+        bool exact;
+        bsearch(hash, index, exact);
+
+        if (!exact)
+            return None;
+        return index;
+    }
+
     void erase(const K& key)
     {
         Hash hash = H{}(key);

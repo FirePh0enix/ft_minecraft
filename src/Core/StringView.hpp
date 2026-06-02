@@ -49,7 +49,7 @@ public:
     /**
      * Returns a pointer to a NULL terminated c-style string.
      */
-    ALWAYS_INLINE const char *data() const
+    ALWAYS_INLINE constexpr const char *data() const
     {
         return m_data;
     }

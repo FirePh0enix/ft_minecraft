@@ -52,23 +52,23 @@ void Inventory::update(float d)
         for (size_t y = 0; y < inventory_height; y++)
         {
             ItemStack stack = m_data[x + y * inventory_width];
-            if (stack.get_block() == 0)
+            if (!stack.item().valid())
             {
-                m_slots[x + y * inventory_width]->set_block(0);
+                m_slots[x + y * inventory_width]->set_item(Id<Item>());
                 continue;
             }
-            m_slots[x + y * inventory_width]->set_block(stack.get_block());
+            m_slots[x + y * inventory_width]->set_item(stack.item());
             m_slots[x + y * inventory_width]->set_count(stack.count());
         }
     for (size_t x = 0; x < inventory_width; x++)
     {
         ItemStack stack = quick_stack(x);
-        if (stack.get_block() == 0)
+        if (!stack.item().valid())
         {
-            m_slots[x + inventory_height * inventory_width]->set_block(0);
+            m_slots[x + inventory_height * inventory_width]->set_item(Id<Item>());
             continue;
         }
-        m_slots[x + inventory_height * inventory_width]->set_block(stack.get_block());
+        m_slots[x + inventory_height * inventory_width]->set_item(stack.item());
         m_slots[x + inventory_height * inventory_width]->set_count(stack.count());
     }
 
@@ -88,7 +88,7 @@ void Inventory::grab(const ItemStack& itemstack, glm::i64vec2 pos)
     if (pos != glm::i64vec2(-1))
         m_grabbed_from = pos;
 
-    m_grabbed_item_rect->set_texture(Engine::get().blocks().get_texture(Engine::get().blocks().get_block_by_id(itemstack.get_block())->get_texture_ids()[0]));
+    m_grabbed_item_rect->set_texture(Engine::get().registry().get_texture(itemstack.item()));
     m_grabbed_item_label->set_text(format("{}", itemstack.count()));
 }
 
@@ -139,7 +139,7 @@ void Inventory::set_open(bool v)
 
     if (!m_open && m_grabbed_stack.has_value())
     {
-        stackxy(m_grabbed_from) = ItemStack(m_grabbed_stack.get().get_block(), m_grabbed_stack.get().count());
+        stackxy(m_grabbed_from) = ItemStack(m_grabbed_stack.get().item(), m_grabbed_stack.get().count());
         ungrab();
     }
 }
@@ -148,12 +148,12 @@ void Inventory::add_stack(ItemStack stack)
 {
     for (size_t x = 0; x < inventory_width; x++)
     {
-        if (quick_stack(x).get_block() == stack.get_block())
+        if (quick_stack(x).item() == stack.item())
         {
             quick_stack(x).set_count(quick_stack(x).count() + stack.count());
             return;
         }
-        else if (quick_stack(x).get_block() == 0)
+        else if (!quick_stack(x).item().valid())
         {
             quick_stack(x) = stack;
             return;

@@ -1,112 +1,39 @@
 #include "World/Registry.hpp"
+
 #include "Core/Filesystem.hpp"
 #include "Core/Format.hpp"
-#include "Core/Json.hpp"
 #include "World/Block.hpp"
 
-// #include <SDL3/SDL_surface.h>
-#include <nlohmann/json.hpp>
-
-struct BlockManifest
+Result<Ref<Entity>> EntityRegistry::create_entity(ClassHashCode class_hash)
 {
-    enum class Model
-    {
-        Cube,
-    };
-
-    String name;
-    Model model;
-    bool transparent = false;
-    Vector<String> faces;
-    Option<GradientType> gradient;
-};
-
-void from_json(const nlohmann::json& j, BlockManifest& m)
-{
-    j.at("name").get_to(m.name);
-    j.at("model").get_to(m.model);
-    j.at("faces").get_to(m.faces);
-
-    if (j.contains("gradient"))
-        m.gradient = GradientType(j.at("gradient"));
-    if (j.contains("transparent"))
-        m.transparent = j.at("transparent");
+    return m_entries.get(class_hash).get().c();
 }
 
-NLOHMANN_JSON_SERIALIZE_ENUM(BlockManifest::Model, {
-                                                       {BlockManifest::Model::Cube, "cube"},
-                                                   });
+#define TEX(name) ("assets/textures/" name ".png")
 
-NLOHMANN_JSON_SERIALIZE_ENUM(GradientType, {
-                                               {GradientType::None, nullptr},
-                                               {GradientType::Grass, "grass"},
-                                               {GradientType::Water, "water"},
-                                           });
-
-BlockRegistry::BlockRegistry()
+Result<void> GameRegistry::register_all()
 {
-}
+    TRY(add_block(Blocks::stone, TRY(newref<Block>(TEX("stone")))));
+    TRY(add_block(Blocks::dirt, TRY(newref<Block>(TEX("dirt")))));
+    TRY(add_block(Blocks::water, TRY(newref<Block>(TEX("water")))));
 
-BlockRegistry::~BlockRegistry()
-{
-    for (auto& surface : m_textures)
-        stbi_image_free((void *)surface.data);
-}
-
-Result<void> BlockRegistry::register_block(StringView name)
-{
-    String path = format("assets/blocks/{}.json", name);
-
-    File file = TRY(Filesystem::open_file(path));
-    String s = TRY(file.reader().read_to_string());
-
-    BlockManifest block_json = nlohmann::json::parse(std::string(s.data(), s.size()));
-    Array<String, 6> faces;
-
-    // println("{} {}", name, block_json.transparent);
-
-    for (size_t i = 0; i < faces.size(); i++)
-    {
-        faces[i] = StringView(block_json.faces.get_unchecked(i));
-    }
-
-    String names = name;
-
-    Array<String, 6> textures;
-    for (size_t i = 0; i < 6; i++)
-        textures[i] = String(block_json.faces.get_unchecked(i).data());
-
-    const uint16_t id = m_blocks.size() + 1;
-    Ref<Block> block = EXPECT(newref<Block>(names, id, textures, block_json.gradient.value_or(GradientType::None), block_json.transparent));
-
-    TRY(m_blocks.append(block));
-    TRY(m_blocks_by_name.put(block->name(), id));
-
-    block->set_texture_ids({
-        get_or_create(block->get_texture_names()[0]),
-        get_or_create(block->get_texture_names()[1]),
-        get_or_create(block->get_texture_names()[2]),
-        get_or_create(block->get_texture_names()[3]),
-        get_or_create(block->get_texture_names()[4]),
-        get_or_create(block->get_texture_names()[5]),
-    });
-
+    TRY(add_item(Items::stone_block, TRY(newref<ItemBlock>(Blocks::stone))));
+    TRY(add_item(Items::dirt_block, TRY(newref<ItemBlock>(Blocks::dirt))));
     return Result<void>();
 }
 
-void BlockRegistry::create_gpu_resources()
+Result<void> GameRegistry::post_register()
 {
     uint32_t mip_level = 1;
-    m_texture_array = EXPECT(Texture::create(16, 16, WGPUTextureFormat_RGBA8Unorm, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding, TextureDimension::D2DArray, m_textures.size(), mip_level));
+    m_texture_array = EXPECT(Texture::create(16, 16, WGPUTextureFormat_RGBA8Unorm, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding, TextureDimension::D2DArray, m_images.size(), mip_level));
 
     size_t index = 0;
-
-    for (const auto& surface : m_textures)
+    for (const auto& image : m_images)
     {
-        m_texture_array->update(View((uint8_t *)surface.data, surface.w * surface.h * 4), index);
+        m_texture_array->update(View((uint8_t *)image.data, image.w * image.h * 4), index);
 
         Ref<Texture> texture = EXPECT(Texture::create(16, 16, WGPUTextureFormat_RGBA8Unorm, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding, TextureDimension::D2D));
-        texture->update(View((uint8_t *)surface.data, surface.w * surface.h * 4));
+        texture->update(View((uint8_t *)image.data, image.w * image.h * 4));
 
         // TODO: create textureview instead of duplicating data in memory.
         EXPECT(m_texture_handles.append(texture));
@@ -114,40 +41,83 @@ void BlockRegistry::create_gpu_resources()
     }
 
     // s_texture_array->generate_mips();
+    return Result<void>();
 }
 
-uint32_t BlockRegistry::get_or_create(const StringView& name)
+Result<void> GameRegistry::add_block(Id<Block> id, Ref<Block> block)
 {
-    const auto id_pair = m_texture_by_name.get(name);
-
-    if (!id_pair.has_value())
-    {
-        String path = "assets/textures/";
-        path.append(name);
-
-        File file = EXPECT(Filesystem::open_file(path));
-        LocalVector<char> buffer;
-        EXPECT(file.reader().read_to_buffer(buffer));
-        file.close();
-
-        int w, h, channels;
-        stbi_uc *data = stbi_load_from_memory((const stbi_uc *)buffer.data(), (int)buffer.size(), &w, &h, &channels, 4);
-        ERR_COND_V(data == nullptr, "Failed to parse image `{}`", path);
-
-        const uint32_t id = m_textures.size();
-
-        EXPECT(m_textures.append(Image(data, w, h, channels)));
-        EXPECT(m_texture_by_name.put(name, id));
-
-        return id;
-    }
-    else
-    {
-        return id_pair.get();
-    }
+    TRY(m_blocks.put(id, block));
+    return Result<void>();
 }
 
-Result<Ref<Entity>> EntityRegistry::create_entity(ClassHashCode class_hash)
+Result<void> GameRegistry::add_item(Id<Item> id, Ref<Item> item)
 {
-    return m_entries.get(class_hash).get().c();
+    TRY(m_items.put(id, item));
+
+    if (Ref<ItemBlock> ib = item.cast_to<ItemBlock>())
+        TRY(m_block_items.put(ib->block(), id));
+
+    return Result<void>();
+}
+
+Option<Id<Block>> GameRegistry::to_block(Id<Item> id)
+{
+    if (!id.valid())
+        return None;
+
+    Option<Ref<Item>> item_opt = m_items.get(id);
+    if (!item_opt.has_value())
+        return None;
+
+    if (Ref<ItemBlock> ib = item_opt.get().cast_to<ItemBlock>())
+    {
+        return ib->block();
+    }
+    return None;
+}
+
+Ref<Texture> GameRegistry::get_texture(Id<Item> id)
+{
+    Option<Ref<Item>> item = m_items.get(id);
+    if (item.has_value())
+    {
+        Ref<Item> i = item.get();
+        if (Ref<ItemBlock> ib = i.cast_to<ItemBlock>())
+        {
+            Id<Block> block_id = ib->block();
+            Ref<Block> b = m_blocks.get(block_id).get();
+            return m_texture_handles.get_unchecked(b->get_texture_ids()[0]);
+        }
+    }
+    return nullptr;
+}
+
+Result<size_t> GameRegistry::load_texture(const StringView& path)
+{
+    Option<size_t> i = get_image(path);
+    if (i.has_value())
+        return i.get();
+
+    File file = EXPECT(Filesystem::open_file(path));
+    LocalVector<char> buffer;
+    EXPECT(file.reader().read_to_buffer(buffer));
+    file.close();
+
+    int w, h, channels;
+    stbi_uc *data = stbi_load_from_memory((const stbi_uc *)buffer.data(), (int)buffer.size(), &w, &h, &channels, 4);
+    ERR_COND_V(data == nullptr, "Failed to parse image `{}`", path);
+
+    const size_t id = m_images.size();
+    TRY(m_images.append(Image(data, w, h, channels, path)));
+    return id;
+}
+
+Option<size_t> GameRegistry::get_image(const StringView& path)
+{
+    for (size_t i = 0; i < m_images.size(); i++)
+    {
+        if (StringView(m_images.get_unchecked(i).path) == path)
+            return i;
+    }
+    return None;
 }

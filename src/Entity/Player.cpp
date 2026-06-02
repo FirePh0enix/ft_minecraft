@@ -10,6 +10,7 @@
 #include "Model.hpp"
 #include "Network/Packet.hpp"
 #include "Render/Renderer.hpp"
+#include "World/Registry.hpp"
 #include "World/World.hpp"
 #include "glm/ext/quaternion_float.hpp"
 
@@ -29,14 +30,14 @@ Player::Player()
 void Player::on_ready()
 {
     m_inventory = EXPECT(newref<Inventory>());
-    m_inventory->set_quick_stack(0, ItemStack(Engine::get().blocks().get_block_id("stone"), 16));
-    m_inventory->set_quick_stack(1, ItemStack(Engine::get().blocks().get_block_id("dirt"), 16));
+    m_inventory->set_quick_stack(0, ItemStack(Items::dirt_block, 16));
+    m_inventory->set_quick_stack(1, ItemStack(Items::stone_block, 16));
 
     m_model_buffer = EXPECT(Buffer::create(sizeof(ItemBlockModel), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform));
     m_material = EXPECT(Material::create(Renderer::get().get_item_block_shader(), MaterialFlagBits::None, WGPUCullMode_Back, UVType::UV));
     m_material->set_param("env", Renderer::get().get_world_environment());
     m_material->set_param("model", m_model_buffer);
-    m_material->set_param("images", Engine::get().blocks().get_texture_array());
+    m_material->set_param("images", Engine::get().registry().get_texture_array());
 
     if (m_local_player)
     {
@@ -113,7 +114,7 @@ void Player::tick(float delta)
     {
         if (Ref<ItemEntity> item = entity.cast_to<ItemEntity>())
         {
-            m_inventory->add_stack(ItemStack(item->get_block()->id(), 1));
+            m_inventory->add_stack(ItemStack(item->item(), 1));
             m_world->remove_entity(World::overworld, item);
         }
     }
@@ -197,9 +198,10 @@ void Player::tick(float delta)
             if (Input::is_action_just_pressed("interact"))
             {
                 ItemStack& stack = m_inventory->get_quick_stack(m_slot);
-                if (stack.get_block() != 0 && m_world->get_block_state(result.block_pos.x + int64_t(result.normal.x), result.block_pos.y + int64_t(result.normal.y), result.block_pos.z + int64_t(result.normal.z)).is_air())
+                if (stack.item().valid() && m_world->get_block_state(result.block_pos.x + int64_t(result.normal.x), result.block_pos.y + int64_t(result.normal.y), result.block_pos.z + int64_t(result.normal.z)).is_air())
                 {
-                    m_world->set_block_state(result.block_pos.x + int64_t(result.normal.x), result.block_pos.y + int64_t(result.normal.y), result.block_pos.z + int64_t(result.normal.z), BlockState(stack.get_block()));
+                    m_world->set_block_state(result.block_pos.x + int64_t(result.normal.x), result.block_pos.y + int64_t(result.normal.y), result.block_pos.z + int64_t(result.normal.z),
+                                             BlockState(Engine::get().registry().to_block(stack.item()).get()));
                     stack.set_count(stack.count() - 1);
                 }
             }
@@ -291,9 +293,9 @@ void Player::draw(const RenderPassNode& node)
         Renderer::get().record_simple_shape(node, m_aim_material);
     }
 
-    if (m_local_player && m_inventory->get_quick_stack(m_inventory->selected_slot()).get_block() != 0)
+    if (m_local_player && m_inventory->get_quick_stack(m_inventory->selected_slot()).item().valid())
     {
-        Ref<Block> block = Engine::get().blocks().get_block_by_id(m_inventory->get_quick_stack(m_inventory->selected_slot()).get_block());
+        Ref<Block> block = Engine::get().registry().block_from_item(m_inventory->get_quick_stack(m_inventory->selected_slot()).item());
 
         Transform3D transform = m_camera->get_global_transform();
         transform.scale() = glm::vec3(0.2);

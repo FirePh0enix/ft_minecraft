@@ -1,8 +1,9 @@
 #pragma once
 
+#include "Core/Containers/HashMap.hpp"
 #include "Core/Ref.hpp"
-#include "Core/String.hpp"
 #include "Entity/Entity.hpp"
+#include "Item/Item.hpp"
 #include "Render/Renderer.hpp"
 #include "World/Block.hpp"
 
@@ -16,61 +17,7 @@ struct Image
     int w;
     int h;
     int channels;
-};
-
-class BlockRegistry
-{
-public:
-    BlockRegistry();
-    ~BlockRegistry();
-
-    Result<void> register_block(StringView name);
-
-    /**
-     * @brief Returns the block id for `name` or `0`.
-     */
-    uint16_t get_block_id(const StringView& name)
-    {
-        const auto& el = m_blocks_by_name.get(name);
-        if (!el.has_value())
-        {
-            [[unlikely]] return 0;
-        }
-        return el.get();
-    }
-
-    const Ref<Block>& get_block_by_id(uint16_t id)
-    {
-        return m_blocks.get_unchecked(id - 1);
-    }
-
-    const Ref<Block>& get_block_by_name(const StringView& name)
-    {
-        return m_blocks.get_unchecked(get_block_id(name) - 1);
-    }
-
-    void create_gpu_resources();
-
-    inline const Ref<Texture>& get_texture_array()
-    {
-        return m_texture_array;
-    }
-
-    inline const Ref<Texture>& get_texture(size_t index)
-    {
-        return m_texture_handles.get_unchecked(index);
-    }
-
-private:
-    LocalVector<Ref<Block>> m_blocks;
-    HashMap<String, uint16_t> m_blocks_by_name;
-    HashMap<String, uint32_t> m_texture_by_name;
-    Vector<Image> m_textures;
-    LocalVector<Ref<Texture>> m_texture_handles;
-    Ref<Texture> m_texture_array;
-    Ref<Buffer> m_texture_registry_buffer;
-
-    uint32_t get_or_create(const StringView& name);
+    String path;
 };
 
 class EntityRegistry
@@ -94,4 +41,69 @@ public:
 
 private:
     HashMap<ClassHashCode, Entry> m_entries;
+};
+
+namespace Blocks
+{
+constexpr Id<Block> stone(1);
+constexpr Id<Block> dirt(2);
+constexpr Id<Block> water(3);
+} // namespace Blocks
+
+namespace Items
+{
+constexpr Id<Item> stone_block(1);
+constexpr Id<Item> dirt_block(2);
+}; // namespace Items
+
+namespace Entities
+{
+constexpr Id<Entity> player(1);
+constexpr Id<Entity> cow(2);
+}; // namespace Entities
+
+class GameRegistry
+{
+public:
+    Result<void> register_all();
+    Result<void> post_register();
+
+    Result<void> add_block(Id<Block> id, Ref<Block> block);
+    Result<void> add_item(Id<Item> id, Ref<Item> item);
+
+    Ref<Block> get_block(Id<Block> key) const { return m_blocks.get(key).value_or(nullptr); }
+    Ref<Item> get_item(Id<Item> key) const { return m_items.get(key).value_or(nullptr); }
+
+    Option<Id<Block>> to_block(Id<Item> id);
+    Option<Id<Item>> to_item(Id<Block> block) { return m_block_items.get(block); }
+
+    Ref<Block> block_from_item(Id<Item> key)
+    {
+        Ref<Item> item = m_items.get(key).value_or(nullptr);
+        if (Ref<ItemBlock> ib = item.cast_to<ItemBlock>())
+        {
+            return m_blocks.get(ib->block()).value_or(nullptr);
+        }
+        return nullptr;
+    }
+
+    Ref<Texture> get_texture(Id<Item> item);
+
+    Ref<Texture> get_texture_array() const { return m_texture_array; }
+
+    Result<size_t> load_texture(const StringView& path);
+
+private:
+    HashMap<Id<Block>, Ref<Block>> m_blocks;
+    HashMap<Id<Item>, Ref<Item>> m_items;
+
+    HashMap<Id<Block>, Id<Item>> m_block_items;
+
+    HashMap<uint16_t, Id<Block>> m_block_ids;
+
+    LocalVector<Image> m_images;
+    Ref<Texture> m_texture_array;
+    LocalVector<Ref<Texture>> m_texture_handles;
+
+    Option<size_t> get_image(const StringView& path);
 };

@@ -1,7 +1,10 @@
 #pragma once
 
 #include "Core/Class.hpp"
+#include "Core/Containers/Array.hpp"
 #include "Core/Definitions.hpp"
+#include "Core/String.hpp"
+#include "Id.hpp"
 
 enum class GradientType : uint8_t
 {
@@ -14,9 +17,11 @@ struct GenericData
 {
 };
 
+class Block;
+
 struct BlockState
 {
-    uint16_t id;
+    Id<Block> id;
 
     union
     {
@@ -29,19 +34,19 @@ struct BlockState
     {
     }
 
-    explicit BlockState(uint16_t id)
+    explicit BlockState(Id<Block> id)
         : id(id), raw(0)
     {
     }
 
-    BlockState(uint16_t id, GenericData generic)
+    BlockState(Id<Block> id, GenericData generic)
         : id(id), generic(generic)
     {
     }
 
-    ALWAYS_INLINE bool is_air() const
+    constexpr bool is_air() const
     {
-        return id == 0;
+        return !id.valid();
     }
 
     bool operator==(BlockState other) const
@@ -49,6 +54,8 @@ struct BlockState
         return *(uint32_t *)this == *(uint32_t *)&other;
     }
 };
+
+static_assert(sizeof(BlockState) == sizeof(uint32_t));
 
 enum class Axis : uint8_t
 {
@@ -62,22 +69,8 @@ class Block : public Object
     CLASS(Block, Object);
 
 public:
-    Block(String name, uint16_t id, const Array<String, 6>& textures, GradientType gradient_type = GradientType::None, bool transparent = false)
-        : m_name(name), m_id(id), m_textures(textures), m_texture_ids({0, 0, 0, 0, 0, 0}), m_gradient_type(gradient_type), m_transparent(transparent)
-    {
-    }
-
-    inline String name() const
-    {
-        return m_name;
-    }
-
-    uint16_t id() const { return m_id; }
-
-    void set_texture_ids(const Array<uint32_t, 6>& texture_ids)
-    {
-        m_texture_ids = texture_ids;
-    }
+    Block(const Array<String, 6>& textures);
+    Block(const StringView& texture);
 
     Array<String, 6> get_texture_names() const
     {
@@ -102,18 +95,10 @@ public:
         return m_texture_ids[index];
     }
 
-    GradientType get_gradient_type() const
-    {
-        return m_gradient_type;
-    }
-
     bool is_tranparent() const { return m_transparent; }
 
 private:
-    String m_name;
-    uint16_t m_id;
     Array<String, 6> m_textures;
     Array<uint32_t, 6> m_texture_ids; // [+Z, -Z, +X, -X, +Y, -Y]
-    GradientType m_gradient_type;
     bool m_transparent;
 };

@@ -47,9 +47,9 @@ public:
         return m_connection;
     }
 
-    bool is_online() const { return m_connection.state() == ConnectionState::Idle; }
+    bool is_online() const { return m_connection.state() != ConnectionState::Idle; }
 
-    BlockRegistry& blocks() { return m_block_registry; }
+    GameRegistry& registry() { return m_registry; }
     EntityRegistry& entities() { return m_entity_registry; }
 
     Ref<Player> get_player() const { return m_player; }
@@ -66,7 +66,8 @@ private:
     EngineScene m_scene = EngineScene::MainMenu;
     Ref<Window> m_window;
 
-    BlockRegistry m_block_registry;
+    // BlockRegistry m_block_registry;
+    GameRegistry m_registry;
     EntityRegistry m_entity_registry;
 
     RpcTarget m_authority = RpcTarget::Server;
@@ -97,7 +98,6 @@ private:
     bool m_debug_menu = false;
     Console m_console;
 
-    void register_blocks();
     void register_entities();
 
     Result<void> draw_main_menu();

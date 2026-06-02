@@ -5,7 +5,6 @@
 #include "Core/Json.hpp"
 #include "Core/Math.hpp"
 #include "Core/String.hpp"
-#include "Item/ItemStack.hpp"
 
 #include <nlohmann/json.hpp>
 
@@ -50,6 +49,8 @@ enum class VariantType : uint32_t
     Array,
 };
 
+class ItemStack;
+
 struct __attribute__((aligned(16))) Variant
 {
     uint8_t data[32]{0};
@@ -65,7 +66,7 @@ struct __attribute__((aligned(16))) Variant
     Variant(glm::vec2 v) : tag(VariantType::Vec2) { *((glm::vec2 *)data) = v; }
     Variant(glm::vec3 v) : tag(VariantType::Vec3) { *((glm::vec3 *)data) = v; }
     Variant(glm::quat q) : tag(VariantType::Quat) { *((glm::quat *)data) = q; }
-    Variant(ItemStack is) : tag(VariantType::ItemStack) { *((ItemStack *)data) = is; }
+    Variant(ItemStack is);
 
     template <typename T>
     Variant(const View<T>& values) : tag(VariantType::Array)
@@ -158,45 +159,7 @@ inline void from_json(const nlohmann::json& j, glm::quat& m)
     m = glm::quat(array[0], array[1], array[2], array[3]);
 }
 
-inline void from_json(const nlohmann::json& j, Variant& m)
-{
-    if (j.is_boolean())
-    {
-        m = bool(j);
-    }
-    else if (j.is_number_float())
-    {
-        m = double(j);
-    }
-    else if (j.is_number_integer())
-    {
-        m = int64_t(j);
-    }
-    else if (j.is_string())
-    {
-        String s = j;
-        m = s;
-    }
-    else if (j.is_array() && j.size() == 2)
-    {
-        Array<float, 2> a = j;
-        m = glm::vec2(a[0], a[1]);
-    }
-    else if (j.is_array() && j.size() == 3)
-    {
-        Array<float, 3> a = j;
-        m = glm::vec3(a[0], a[1], a[2]);
-    }
-    else if (j.is_array() && j.size() == 4)
-    {
-        Array<float, 4> a = j;
-        m = glm::quat(a[0], a[1], a[2], a[3]);
-    }
-    else if (j.contains("count") && j.contains("id"))
-    {
-        m = ItemStack(j.contains("id"), j.at("count"));
-    }
-}
+void from_json(const nlohmann::json& j, Variant& m);
 
 inline void to_json(nlohmann::json& j, const glm::vec2& m)
 {

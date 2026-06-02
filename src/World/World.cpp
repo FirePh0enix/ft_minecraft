@@ -54,7 +54,6 @@ void World::find_safe_spawn()
 {
     srand(0);
     glm::vec3 water_spawn_position;
-    uint16_t water_id = Engine::get().blocks().get_block_id("water");
     bool found = false;
     size_t i;
 
@@ -72,7 +71,7 @@ void World::find_safe_spawn()
 
             if (state.is_air() && state1.is_air() && state2.is_air() && !state3.is_air())
             {
-                if (state3.id != water_id)
+                if (state3.id != Blocks::water)
                 {
                     m_spawn_position = glm::vec3(x, y - 3, z) + glm::vec3(0, 6.6, 0);
                     found = true;
@@ -348,8 +347,11 @@ void World::break_block(int64_t x, int64_t y, int64_t z)
     BlockState state = get_block_state(x, y, z);
     set_block_state(x, y, z, BlockState());
 
-    Ref<Block> block = Engine::get().blocks().get_block_by_id(state.id);
-    Ref<ItemEntity> item_entity = EXPECT(newref<ItemEntity>(block));
+    Option<Id<Item>> item_opt = Engine::get().registry().to_item(Id<Block>(state.id));
+    if (!item_opt.has_value())
+        return;
+
+    Ref<ItemEntity> item_entity = EXPECT(newref<ItemEntity>(item_opt.get()));
     item_entity->set_position(glm::vec3(x, y, z) + glm::vec3(rand_float(-0.6, 0.6), 0, rand_float(-0.6, 0.6)));
 
     add_entity(World::overworld, item_entity);

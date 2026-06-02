@@ -29,8 +29,4 @@ public:
 private:
     SimplexNoise m_continental_noise = SimplexNoise(0);
     SimplexNoise m_mountain_noise = SimplexNoise(0);
-
-    uint16_t m_dirt_id = 0;
-    uint16_t m_grass_id = 0;
-    uint16_t m_water_id = 0;
 };

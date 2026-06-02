@@ -12,9 +12,6 @@
 
 OverworldSurfacePass::OverworldSurfacePass()
 {
-    m_dirt_id = Engine::get().blocks().get_block_id("dirt");
-    m_grass_id = Engine::get().blocks().get_block_id("grass");
-    m_water_id = Engine::get().blocks().get_block_id("water");
 }
 
 BlockState OverworldSurfacePass::generate_block(int64_t x, int64_t y, int64_t z)
@@ -43,17 +40,17 @@ BlockState OverworldSurfacePass::generate_block(int64_t x, int64_t y, int64_t z)
     // Fill the continent.
     if (y < height)
     {
-        return BlockState(m_dirt_id);
+        return BlockState(Blocks::dirt);
     }
     else if (y == height)
     {
-        return BlockState(m_dirt_id);
+        return BlockState(Blocks::dirt);
     }
 
     // Fill the ocean.
     if (y >= ocean_floor && y <= sea_level)
     {
-        return BlockState(m_water_id);
+        return BlockState(Blocks::water);
     }
 
     return BlockState();

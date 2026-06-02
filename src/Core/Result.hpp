@@ -34,6 +34,8 @@ public:
         return has_value();
     }
 
+    operator int() const = delete;
+
     inline bool has_value() const
     {
         return m_value.has_value();

@@ -1,11 +1,12 @@
 #pragma once
 
 #include "Core/Class.hpp"
+#include "Id.hpp"
+#include "Item/Item.hpp"
 #include "UI/ColorRect.hpp"
 #include "UI/Label.hpp"
 #include "UI/TextureRect.hpp"
 #include "UI/UI.hpp"
-#include "World/Block.hpp"
 
 class Inventory;
 
@@ -17,7 +18,7 @@ public:
     ItemSlot(glm::i64vec2 pos, Inventory *inventory);
     virtual ~ItemSlot() {}
 
-    void set_block(uint16_t block_id);
+    void set_item(Id<Item> item);
     void set_count(size_t count);
     void set_selected(bool b) { m_selected = b; }
 
@@ -29,7 +30,7 @@ private:
     Ref<ColorRect> m_background;
     Ref<TextureRect> m_item_rect;
     Ref<Label> m_label;
-    Ref<Block> m_block;
+    Id<Item> m_item;
     size_t m_count;
     glm::i64vec2 m_pos;
     Inventory *m_inventory;
