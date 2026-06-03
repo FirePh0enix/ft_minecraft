@@ -58,6 +58,8 @@ public:
 
     void encode_debug_menu();
 
+    float time();
+
     static Engine& get() { return *singleton; }
 
     static inline Engine *singleton;

@@ -24,8 +24,8 @@ void QuickSlot::update(float d)
     m_item_rect->set_position(m_position);
     m_item_rect->set_scale(m_scale * 0.9f);
 
-    m_label->set_position(m_position);
-    m_label->set_scale(m_scale * 0.8f);
+    m_label->set_position(m_position + glm::vec2(0.01f, -0.03f));
+    m_label->set_scale(m_scale * 0.5f);
     m_label->update(d);
 
     if (m_selected)

@@ -5,6 +5,12 @@
 #include "Core/Filesystem.hpp"
 #include "Core/Format.hpp"
 #include "Core/Ref.hpp"
+#include "Engine.hpp"
+#include "Render/Renderer.hpp"
+#include "glm/ext/matrix_clip_space.hpp"
+#include "glm/ext/matrix_transform.hpp"
+#include "glm/trigonometric.hpp"
+#include "webgpu/webgpu.h"
 
 Result<Ref<Entity>> EntityRegistry::create_entity(ClassHashCode class_hash)
 {
@@ -45,6 +51,17 @@ Result<void> GameRegistry::post_register()
     }
 
     // s_texture_array->generate_mips();
+
+    for (const auto& [_, id, item] : m_items)
+    {
+        if (Ref<ItemBlock> ib = item.cast_to<ItemBlock>())
+        {
+            Ref<Block> block = get_block(ib->block());
+            Ref<Texture> texture = TRY(create_preview_texture(block));
+            ib->set_texture(texture);
+        }
+    }
+
     return Result<void>();
 }
 
@@ -87,13 +104,14 @@ Ref<Texture> GameRegistry::get_texture(Id<Item> id)
     Option<Ref<Item>> item = m_items.get(id);
     if (item.has_value())
     {
-        Ref<Item> i = item.get();
-        if (Ref<ItemBlock> ib = i.cast_to<ItemBlock>())
-        {
-            Id<Block> block_id = ib->block();
-            Ref<Block> b = m_blocks.get(block_id).get();
-            return m_texture_handles.get_unchecked(b->get_texture_ids()[0]);
-        }
+        // Ref<Item> i = item.get();
+        // if (Ref<ItemBlock> ib = i.cast_to<ItemBlock>())
+        // {
+        //     Id<Block> block_id = ib->block();
+        //     Ref<Block> b = m_blocks.get(block_id).get();
+        //     return m_texture_handles.get_unchecked(b->get_texture_ids()[0]);
+        // }
+        return item.get()->get_texture();
     }
     return nullptr;
 }
@@ -116,6 +134,49 @@ Result<size_t> GameRegistry::load_texture(const StringView& path)
     const size_t id = m_images.size();
     TRY(m_images.append(Image(data, w, h, channels, path)));
     return id;
+}
+
+struct GPU_ATTRIBUTE PreviewBlockModel
+{
+    glm::mat4 model_matrix;
+    glm::uvec3 textures;
+};
+
+Result<Ref<Texture>> GameRegistry::create_preview_texture(Ref<Block> block)
+{
+    constexpr uint32_t preview_size = 64;
+
+    Ref<Buffer> buffer = EXPECT(Buffer::create(sizeof(PreviewBlockModel), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform));
+    Ref<Material> material = EXPECT(Material::create(Renderer::get().get_preview_block_shader(), MaterialFlagBits::None, WGPUCullMode_Back, UVType::UV));
+    material->set_param("model", buffer);
+    material->set_param("images", Engine::get().registry().get_texture_array());
+
+    glm::mat4 matrix = glm::ortho(-1.0f, 1.0f, -1.0f, 1.0f) *
+                       glm::translate(glm::identity<glm::mat4>(), glm::vec3(0.f, 0.f, -0.85f)) *
+                       glm::rotate(glm::identity<glm::mat4>(), glm::radians(35.0f), glm::vec3(1, 0, 0)) *
+                       glm::rotate(glm::identity<glm::mat4>(), glm::radians(45.0f), glm::vec3(0, 1, 0));
+    PreviewBlockModel model(matrix, glm::uvec3(block->get_texture_ids()[0] | (block->get_texture_ids()[1] << 16), block->get_texture_ids()[2] | (block->get_texture_ids()[3] << 16), block->get_texture_ids()[4] | (block->get_texture_ids()[5] << 16)));
+    buffer->update(View(model).as_bytes());
+
+    Ref<Texture> depth_texture = TRY(Texture::create(preview_size, preview_size, WGPUTextureFormat_Depth32Float, WGPUTextureUsage_RenderAttachment));
+    Ref<Texture> color_texture = TRY(Texture::create(preview_size, preview_size, WGPUTextureFormat_RGBA8UnormSrgb, WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_TextureBinding));
+
+    Ref<RenderPassNode> color_pass = EXPECT(newref<RenderPassNode>());
+    color_pass->set_depth_output(depth_texture);
+    color_pass->set_color_output(color_texture);
+    color_pass->set_next(nullptr);
+
+    RenderGraph graph;
+    graph.set_root(color_pass);
+
+    WGPUCommandEncoder encoder = wgpuDeviceCreateCommandEncoder(Renderer::get().device(), nullptr);
+    WGPUCommandBuffer command_buffer = graph.record(encoder, nullptr, [&](const RenderPassNode& node)
+                                                    { Renderer::get().record_simple_shape(node, material); });
+
+    std::lock_guard<std::mutex> guard(Renderer::get().get_queue_mutex());
+    wgpuQueueSubmit(Renderer::get().get_queue(), 1, &command_buffer);
+
+    return color_texture;
 }
 
 Option<size_t> GameRegistry::get_image(const StringView& path)

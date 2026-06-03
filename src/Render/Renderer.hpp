@@ -77,6 +77,7 @@ public:
 
     WGPUTexture handle() const { return m_texture; }
     WGPUTextureView handle_view() const { return m_view; }
+    WGPUTextureFormat format() const { return m_format; }
 
 private:
     WGPUTexture m_texture;
@@ -226,6 +227,9 @@ public:
         Vector<InstanceAttribute> attributes;
         size_t instance_stride;
 
+        WGPUTextureFormat color_format;
+        WGPUTextureFormat depth_format;
+
         bool has_color_attach;
         bool has_depth_attach;
 
@@ -287,6 +291,8 @@ public:
 
     void record_simple_shape(const RenderPassNode& node, Ref<Material> material);
 
+    void wait_queue_done();
+
     WGPURenderPipeline get_pipeline(Ref<Material> material, const RenderPassNode& node);
     WGPUSampler get_sampler(const SamplerDescriptor& desc) { return m_sampler_cache.get(desc); }
 
@@ -294,10 +300,12 @@ public:
     WGPUTextureFormat get_surface_format() const { return m_surface_format; }
     Extent2D get_surface_extent() const { return m_surface_extent; }
 
+    WGPUQueue get_queue() const { return m_queue; }
+
     Ref<Buffer> get_world_environment() const { return m_env_buffer; }
     Ref<Buffer> get_env_2d() const { return m_env_2d_buffer; }
 
-    std::mutex& get_device_queue() { return m_device_queue; }
+    std::mutex& get_device_mutex() { return m_device_mutex; }
     std::mutex& get_queue_mutex() { return m_queue_mutex; }
 
     Ref<Shader> get_voxel_shader() const { return m_voxel_shader; }
@@ -307,6 +315,7 @@ public:
     Ref<Mesh> get_square_mesh() const { return m_square_mesh; }
 
     Ref<Shader> get_simple_shader() const { return m_simple_shader; }
+    Ref<Shader> get_preview_block_shader() const { return m_preview_block_shader; }
     Ref<Shader> get_item_block_shader() const { return m_item_block_shader; }
     Ref<Shader> get_color_rect_shader() const { return m_color_rect_shader; }
     Ref<Shader> get_texture_rect_shader() const { return m_texture_rect_shader; }
@@ -322,7 +331,7 @@ private:
     WGPUSurface m_surface = nullptr;
     WGPUQueue m_queue = nullptr;
 
-    std::mutex m_device_queue;
+    std::mutex m_device_mutex;
     std::mutex m_queue_mutex;
 
     WGPUTextureFormat m_surface_format = WGPUTextureFormat_Undefined;
@@ -334,6 +343,7 @@ private:
     Ref<Shader> m_voxel_shader;
     Ref<Shader> m_model_shader;
     Ref<Shader> m_simple_shader;
+    Ref<Shader> m_preview_block_shader;
     Ref<Shader> m_item_block_shader;
     Ref<Shader> m_color_rect_shader;
     Ref<Shader> m_texture_rect_shader;

@@ -1,4 +1,4 @@
-struct Data
+struct Uniforms
 {
     color: vec4<f32>,
     position: vec3<f32>,
@@ -11,7 +11,7 @@ struct Environment
 }
 
 @group(0) @binding(0) var<uniform> env: Environment;
-@group(0) @binding(1) var<uniform> data: Data;
+@group(0) @binding(1) var<uniform> uniforms: Uniforms;
 @group(0) @binding(2) var bitmap: texture_2d<f32>;
 @group(0) @binding(3) var bitmap_sampler: sampler;
 
@@ -37,16 +37,30 @@ fn vertex_main(
     uvs[2] = vec2<f32>(bounds.y, bounds.w);
     uvs[3] = vec2<f32>(bounds.x, bounds.w);
 
+    // let scale_matrix = mat4x4<f32>(
+    //     scale.x * uniforms.scale.x, 0.0, 0.0, 0.0,
+    //     0.0, scale.y * uniforms.scale.y, 0.0, 0.0,
+    //     0.0, 0.0, 1.0, 0.0,
+    //     0.0, 0.0, 0.0, 1.0,
+    // );
+    // let translation_matrix = mat4x4<f32>(
+    //     1.0, 0.0, 0.0, 0.0,
+    //     0.0, 1.0, 0.0, 0.0,
+    //     0.0, 0.0, 1.0, 0.0,
+    //     char_pos.x + uniforms.position.x, char_pos.y + uniforms.position.y, 0.0, 1.0,
+    // );
+
     let matrix = mat4x4<f32>(
-        scale.x * data.scale.x, 0.0, 0.0, 0.0,
-        0.0, scale.y * data.scale.y, 0.0, 0.0,
+        scale.x * uniforms.scale.x, 0.0, 0.0, 0.0,
+        0.0, scale.y * uniforms.scale.y, 0.0, 0.0,
         0.0, 0.0, 1.0, 0.0,
-        char_pos.x * data.scale.x + data.position.x, char_pos.y * data.scale.x + data.position.y, data.position.z, 1.0
+        char_pos.x * uniforms.scale.x + uniforms.position.x, char_pos.y * uniforms.scale.x + uniforms.position.y, uniforms.position.z, 1.0
     );
+    // let matrix = translation_matrix * scale_matrix;
     var out: VertexOutput;
     out.position = env.matrix * matrix * vec4<f32>(pos, 1.0);
     out.tex_coords = uvs[vertex_index];
-    out.color = data.color;
+    out.color = uniforms.color;
     return out;
 }
 

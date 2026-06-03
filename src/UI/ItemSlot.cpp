@@ -17,16 +17,14 @@ ItemSlot::ItemSlot(uint32_t layer, uint32_t index, Inventory *inventory, Invento
 
 void ItemSlot::update(float d)
 {
-    (void)d;
-
     m_background->set_position(m_position);
     m_background->set_scale(m_scale);
 
     m_item_rect->set_position(m_position);
     m_item_rect->set_scale(m_scale * 0.9f);
 
-    m_label->set_position(m_position);
-    m_label->set_scale(m_scale * 0.8f);
+    m_label->set_position(m_position + glm::vec2(0.01f, -0.03f));
+    m_label->set_scale(m_scale * 0.5f);
     m_label->update(d);
 
     if (is_mouse_hovering())

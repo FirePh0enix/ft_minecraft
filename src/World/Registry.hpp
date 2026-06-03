@@ -95,6 +95,8 @@ public:
 
     Result<size_t> load_texture(const StringView& path);
 
+    Result<Ref<Texture>> create_preview_texture(Ref<Block> block);
+
 private:
     HashMap<Id<Block>, Ref<Block>> m_blocks;
     HashMap<Id<Item>, Ref<Item>> m_items;

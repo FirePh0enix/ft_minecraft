@@ -14,11 +14,13 @@
 #include "World/Dimension.hpp"
 #include "World/Registry.hpp"
 #include "World/World.hpp"
+#include "webgpu/webgpu.h"
 
 #include <backends/imgui_impl_sdl3.h>
 #include <backends/imgui_impl_wgpu.h>
 #include <imgui.h>
 
+#include <thread>
 #include <webgpu/wgpu.h>
 
 #include <mutex>
@@ -128,7 +130,7 @@ Result<Ref<Buffer>> Buffer::create(size_t size, WGPUBufferUsage usage, BufferVis
     }
 
     WGPUBuffer wgpu_buffer = ({
-        std::lock_guard<std::mutex> guard(Renderer::get().get_device_queue());
+        std::lock_guard<std::mutex> guard(Renderer::get().get_device_mutex());
         wgpuDeviceCreateBuffer(Renderer::get().m_device, &desc);
     });
     ERR_COND_VRV(wgpu_buffer == nullptr, Error(ErrorKind::OutOfDeviceMemory), "Failed to create buffer of size {}", size);
@@ -534,7 +536,7 @@ Result<WGPURenderPipeline> PipelineCache::get(const Key& key)
     Vector<WGPUColorTargetState> color_states;
     if (key.has_color_attach)
     {
-        TRY(color_states.append(WGPUColorTargetState{.nextInChain = nullptr, .format = Renderer::get().get_surface_format(), .blend = &blend_state, .writeMask = WGPUColorWriteMask_All}));
+        TRY(color_states.append(WGPUColorTargetState{.nextInChain = nullptr, .format = key.color_format, .blend = &blend_state, .writeMask = WGPUColorWriteMask_All}));
     }
 
     String fragment_ep = key.shader->get_entry_point(WGPUShaderStage_Fragment);
@@ -546,7 +548,7 @@ Result<WGPURenderPipeline> PipelineCache::get(const Key& key)
     fragment_state.module = module;
 
     WGPUDepthStencilState depth_state{};
-    depth_state.format = WGPUTextureFormat_Depth32Float;
+    depth_state.format = key.depth_format;
     depth_state.depthWriteEnabled = WGPUOptionalBool_True;
     depth_state.depthCompare = WGPUCompareFunction_LessEqual;
 
@@ -966,6 +968,19 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
 
     m_cube_mesh = TRY(create_cube_mesh());
 
+    m_preview_block_shader = TRY(Shader::load("assets/shaders/block_preview.wgsl"));
+    m_preview_block_shader->set_binding("model", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
+    m_preview_block_shader->set_binding("images", Binding(BindingKind::Texture, WGPUShaderStage_Fragment, 0, 1, BindingAccess::Read, TextureDimension::D2DArray)); // binding = 3 is the sampler
+    m_preview_block_shader->set_sampler("images", {.min_filter = WGPUFilterMode_Nearest, .mag_filter = WGPUFilterMode_Nearest});
+    m_preview_block_shader->create_bind_group_layout();
+
+    m_item_block_shader = TRY(Shader::load("assets/shaders/block.wgsl"));
+    m_item_block_shader->set_binding("env", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
+    m_item_block_shader->set_binding("model", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 1, BindingAccess::Read));
+    m_item_block_shader->set_binding("images", Binding(BindingKind::Texture, WGPUShaderStage_Fragment, 0, 2, BindingAccess::Read, TextureDimension::D2DArray)); // binding = 3 is the sampler
+    m_item_block_shader->set_sampler("images", {.min_filter = WGPUFilterMode_Nearest, .mag_filter = WGPUFilterMode_Nearest});
+    m_item_block_shader->create_bind_group_layout();
+
     EXPECT(Engine::get().registry().post_register());
 
     Vector<InstanceAttribute> attributes;
@@ -979,13 +994,6 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_simple_shader->set_binding("env", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
     m_simple_shader->set_binding("model", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 1, BindingAccess::Read));
     m_simple_shader->create_bind_group_layout();
-
-    m_item_block_shader = TRY(Shader::load("assets/shaders/item_block.wgsl"));
-    m_item_block_shader->set_binding("env", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
-    m_item_block_shader->set_binding("model", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 1, BindingAccess::Read));
-    m_item_block_shader->set_binding("images", Binding(BindingKind::Texture, WGPUShaderStage_Fragment, 0, 2, BindingAccess::Read, TextureDimension::D2DArray)); // binding = 3 is the sampler
-    m_item_block_shader->set_sampler("images", {.min_filter = WGPUFilterMode_Nearest, .mag_filter = WGPUFilterMode_Nearest});
-    m_item_block_shader->create_bind_group_layout();
 
     Array<uint16_t, 6> indices{0, 1, 2, 0, 2, 3};
     Array<glm::vec3, 4> vertices{
@@ -1122,6 +1130,8 @@ WGPURenderPipeline Renderer::get_pipeline(Ref<Material> material, const RenderPa
         .cull_mode = material->get_cull_mode(),
         .attributes = material->get_attributes(),
         .instance_stride = material->get_instance_stride(),
+        .color_format = node.output_to_surface() ? Renderer::get().m_surface_format : (node.get_color_output().is_null() ? WGPUTextureFormat_Undefined : node.get_color_output()->format()),
+        .depth_format = WGPUTextureFormat_Depth32Float,
         .has_color_attach = !node.get_color_output().is_null(),
         .has_depth_attach = !node.get_depth_output().is_null(),
     }));
@@ -1207,4 +1217,23 @@ void Renderer::record_simple_shape(const RenderPassNode& node, Ref<Material> mat
     wgpuRenderPassEncoderSetVertexBuffer(encoder, 2, mesh->get_buffer(Mesh::BufferKind::UV)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::UV)->size());
 
     wgpuRenderPassEncoderDrawIndexed(encoder, mesh->vertex_count(), 1, 0, 0, 0);
+}
+
+void Renderer::wait_queue_done()
+{
+    std::atomic_bool status = true;
+    wgpuQueueOnSubmittedWorkDone(m_queue, WGPUQueueWorkDoneCallbackInfo{
+                                              .nextInChain = nullptr,
+                                              .mode = WGPUCallbackMode_WaitAnyOnly,
+                                              .callback = [](WGPUQueueWorkDoneStatus status, WGPUStringView message, void *userdata, void *)
+                                              {
+                                                  (void)status;
+                                                  (void)message;
+                                                  *(std::atomic_bool *)userdata = false;
+                                              },
+                                              .userdata1 = &status,
+                                              .userdata2 = nullptr,
+                                          });
+    while (status)
+        std::this_thread::yield();
 }

@@ -3,6 +3,7 @@
 #include "Core/Containers/HashMap.hpp"
 #include "Core/Ref.hpp"
 #include "Core/Result.hpp"
+#include "Core/Types.hpp"
 #include "Render/Renderer.hpp"
 
 class Font : public Object
@@ -24,11 +25,11 @@ public:
         uint32_t advance;
     };
 
-    struct __attribute__((aligned(16))) Uniform
+    struct GPU_ATTRIBUTE Uniform
     {
-        __attribute__((aligned(16))) glm::vec4 color = glm::vec4(0.0);
-        __attribute__((aligned(16))) glm::vec3 position = glm::vec3(0.0);
-        __attribute__((aligned(16))) glm::vec2 scale = glm::vec2(0.1);
+        GPU_ATTRIBUTE glm::vec4 color = glm::vec4(0.0);
+        GPU_ATTRIBUTE glm::vec3 position = glm::vec3(0.0);
+        GPU_ATTRIBUTE glm::vec2 scale = glm::vec2(0.1);
     };
 
     struct Instance

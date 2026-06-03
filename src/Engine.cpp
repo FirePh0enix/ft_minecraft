@@ -21,6 +21,7 @@
 #include "World/World.hpp"
 
 #include <backends/imgui_impl_sdl3.h>
+#include <ctime>
 #include <imgui.h>
 
 Engine::Engine(const Args& args)
@@ -287,6 +288,11 @@ void Engine::encode_debug_menu()
                              return 0; }, this);
     }
     ImGui::End();
+}
+
+float Engine::time()
+{
+    return float(clock()) / float(CLOCKS_PER_SEC);
 }
 
 void Engine::create_world_and_start()

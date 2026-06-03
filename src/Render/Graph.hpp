@@ -42,12 +42,14 @@ public:
     void set_load_depth(bool v) { m_load_depth = v; };
     void set_output_to_surface(bool v) { m_output_to_surface = v; }
 
+    bool output_to_surface() const { return m_output_to_surface; }
+
 private:
     WGPURenderPassEncoder m_encoder = nullptr;
     Ref<Texture> m_color_output;
     Ref<Texture> m_depth_output;
-    bool m_load_depth;
-    bool m_output_to_surface;
+    bool m_load_depth = false;
+    bool m_output_to_surface = false;
 };
 
 class RenderGraph
