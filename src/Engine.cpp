@@ -47,18 +47,7 @@ Engine::Engine(const Args& args)
     m_depth_texture = EXPECT(Texture::create(1280, 720, WGPUTextureFormat_Depth32Float, WGPUTextureUsage_RenderAttachment));
     m_color_texture = EXPECT(Texture::create(1280, 720, WGPUTextureFormat_RGBA8UnormSrgb, WGPUTextureUsage_RenderAttachment));
 
-    Ref<RenderPassNode> depth_pass = EXPECT(newref<RenderPassNode>());
-    depth_pass->set_depth_output(m_depth_texture);
-
-    Ref<RenderPassNode> color_pass = EXPECT(newref<RenderPassNode>());
-    color_pass->set_depth_output(m_depth_texture);
-    color_pass->set_color_output(m_color_texture);
-    color_pass->set_load_depth(true);
-    color_pass->set_output_to_surface(true);
-    color_pass->set_next(nullptr);
-
-    depth_pass->set_next(color_pass);
-    m_graph.set_root(depth_pass);
+    recreate_graph();
 
     EXPECT(Font::init_library());
     m_font = EXPECT(Font::create("assets/fonts/Anonymous.ttf", 32));
@@ -112,11 +101,17 @@ void Engine::tick(float delta)
             break;
             case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
             {
-                Result<void> result = Renderer::get().configure_surface(event.window.data1, event.window.data2, VSync::On);
+                const uint32_t w = event.window.data1;
+                const uint32_t h = event.window.data2;
+                Result<void> result = Renderer::get().configure_surface(w, h, VSync::On);
                 ERR_EXPECT_B(result, "Failed to configure the surface");
 
+                m_depth_texture = EXPECT(Texture::create(w, h, WGPUTextureFormat_Depth32Float, WGPUTextureUsage_RenderAttachment));
+                m_color_texture = EXPECT(Texture::create(w, h, WGPUTextureFormat_RGBA8UnormSrgb, WGPUTextureUsage_RenderAttachment));
+                recreate_graph();
+
                 if (m_scene == EngineScene::World)
-                    m_world->get_active_camera()->update_projection((float)event.window.data1 / (float)event.window.data2);
+                    m_world->get_active_camera()->update_projection((float)w / (float)h);
             }
             break;
             case SDL_EVENT_KEY_DOWN:
@@ -379,6 +374,31 @@ void Engine::exit()
 
     m_renderer.deinit();
     Entity::cleanup();
+}
+
+void Engine::recreate_graph()
+{
+    // #ifndef __platform_macos
+    //     Ref<RenderPassNode> depth_pass = EXPECT(newref<RenderPassNode>());
+    //     depth_pass->set_depth_output(m_depth_texture);
+    // #endif
+
+    Ref<RenderPassNode> color_pass = EXPECT(newref<RenderPassNode>());
+    color_pass->set_depth_output(m_depth_texture);
+    color_pass->set_color_output(m_color_texture);
+    color_pass->set_output_to_surface(true);
+    color_pass->set_next(nullptr);
+
+    // #ifndef __platform_macos
+    //     color_pass->set_load_depth(true);
+    //     depth_pass->set_next(color_pass);
+    // #endif
+
+    // #ifndef __platform_macos
+    //     m_graph.set_root(depth_pass);
+    // #else
+    m_graph.set_root(color_pass);
+    // #endif
 }
 
 void Engine::receive_client(void *user, NetworkConnection& conn, ENetPacket *packet, const Client& client)

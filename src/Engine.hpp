@@ -108,6 +108,8 @@ private:
     void create_world_and_start();
     void connect_to_remote_world();
 
+    void recreate_graph();
+
     static void receive_client(void *, NetworkConnection& conn, ENetPacket *packet, const Client& client);
     static void connect_client(void *, NetworkConnection& conn, const Client& client);
     static void disconnect_client(void *, NetworkConnection& conn, const Client& client);

@@ -41,7 +41,7 @@ fn vertex_main(vertex: VertexInput) -> VertexOutput {
     }
 
     out.normal = vertex.normal;
-    out.light_vec = normalize(vec3<f32>(-1.0, -1.0, -1.0));
+    out.light_vec = normalize(vec3<f32>(-1.0, 0.0, 0.0));
     out.texture = (model.textures[vertex.index / 8] >> offset) & 0xFFFF;
 
     return out;

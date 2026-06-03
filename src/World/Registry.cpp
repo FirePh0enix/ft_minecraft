@@ -144,7 +144,7 @@ struct GPU_ATTRIBUTE PreviewBlockModel
 
 Result<Ref<Texture>> GameRegistry::create_preview_texture(Ref<Block> block)
 {
-    constexpr uint32_t preview_size = 64;
+    constexpr uint32_t preview_size = 128;
 
     Ref<Buffer> buffer = EXPECT(Buffer::create(sizeof(PreviewBlockModel), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform));
     Ref<Material> material = EXPECT(Material::create(Renderer::get().get_preview_block_shader(), MaterialFlagBits::None, WGPUCullMode_Back, UVType::UV));
@@ -152,7 +152,7 @@ Result<Ref<Texture>> GameRegistry::create_preview_texture(Ref<Block> block)
     material->set_param("images", Engine::get().registry().get_texture_array());
 
     glm::mat4 matrix = glm::ortho(-1.0f, 1.0f, -1.0f, 1.0f) *
-                       glm::translate(glm::identity<glm::mat4>(), glm::vec3(0.f, 0.f, -0.85f)) *
+                       glm::translate(glm::identity<glm::mat4>(), glm::vec3(0.f, 0.f, -0.86f)) *
                        glm::rotate(glm::identity<glm::mat4>(), glm::radians(35.0f), glm::vec3(1, 0, 0)) *
                        glm::rotate(glm::identity<glm::mat4>(), glm::radians(45.0f), glm::vec3(0, 1, 0));
     PreviewBlockModel model(matrix, glm::uvec3(block->get_texture_ids()[0] | (block->get_texture_ids()[1] << 16), block->get_texture_ids()[2] | (block->get_texture_ids()[3] << 16), block->get_texture_ids()[4] | (block->get_texture_ids()[5] << 16)));
@@ -164,6 +164,7 @@ Result<Ref<Texture>> GameRegistry::create_preview_texture(Ref<Block> block)
     Ref<RenderPassNode> color_pass = EXPECT(newref<RenderPassNode>());
     color_pass->set_depth_output(depth_texture);
     color_pass->set_color_output(color_texture);
+    color_pass->set_transparent(true);
     color_pass->set_next(nullptr);
 
     RenderGraph graph;

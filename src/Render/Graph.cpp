@@ -15,7 +15,7 @@ void RenderPassNode::begin(WGPUCommandEncoder encoder, WGPUTextureView surface_v
     if (!m_color_output.is_null())
     {
         WGPURenderPassColorAttachment attach{};
-        attach.clearValue = WGPUColor(0.0, 0.0, 0.0, 1.0);
+        attach.clearValue = m_transparent ? WGPUColor(0.0, 0.0, 0.0, 0.0) : WGPUColor(0.0, 0.0, 0.0, 1.0);
         attach.depthSlice = WGPU_DEPTH_SLICE_UNDEFINED;
         attach.loadOp = WGPULoadOp_Clear;
         attach.storeOp = WGPUStoreOp_Store;
