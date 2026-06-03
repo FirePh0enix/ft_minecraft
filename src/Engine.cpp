@@ -12,6 +12,7 @@
 #include "Entity/Entity.hpp"
 #include "Entity/Player.hpp"
 #include "Input.hpp"
+#include "Inventory/Inventory.hpp"
 #include "Network/Network.hpp"
 #include "Network/Packet.hpp"
 #include "Profiler.hpp"

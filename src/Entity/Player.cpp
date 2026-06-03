@@ -2,6 +2,7 @@
 
 #include "AABB.hpp"
 #include "Block/Inventory.hpp"
+#include "Core/Containers/LocalVector.hpp"
 #include "Core/Math.hpp"
 #include "Engine.hpp"
 #include "Entity/Entity.hpp"
@@ -367,15 +368,34 @@ void Player::save(EntitySerializer& ser) const
     (void)ser;
     // Variant array = m_inventory->data();
     // EXPECT(ser.set("inventory_data", array));
+
+    LocalVector<ItemStack> stacks;
+    EXPECT(stacks.resize(27 + 9));
+
+    const InventoryContainer::Layer& layer = m_inventory_container->get_layer(0);
+    for (size_t i = 0; i < 27; i++)
+        stacks.get_unchecked(i) = layer.stacks.get_unchecked(i);
+
+    const InventoryContainer::Layer& toolbar_layer = m_inventory_container->get_layer(1);
+    for (size_t i = 0; i < 9; i++)
+        stacks.get_unchecked(i + 27) = toolbar_layer.stacks.get_unchecked(i);
+
+    Variant array = View(stacks);
+    EXPECT(ser.set("inventory_data", array));
 }
 
 void Player::load(const EntitySerializer& deser)
 {
     (void)deser;
-    // Vector<ItemStack> stacks = deser.get_array<ItemStack>("inventory_data").get();
+    Vector<ItemStack> stacks = deser.get_array<ItemStack>("inventory_data").get();
 
-    // for (size_t i = 0; i < std::min(stacks.size(), inventory_slot_count); i++)
-    //     m_inventory->get_stack(Id<ItemSlot>(i)) = stacks.get_unchecked(i);
+    InventoryContainer::Layer& layer = m_inventory_container->get_layer(0);
+    for (size_t i = 0; i < 27; i++)
+        layer.stacks.get_unchecked(i) = stacks.get_unchecked(i);
+
+    InventoryContainer::Layer& toolbar_layer = m_inventory_container->get_layer(1);
+    for (size_t i = 0; i < 9; i++)
+        toolbar_layer.stacks.get_unchecked(i) = stacks.get_unchecked(i + 27);
 }
 
 void Player::die()

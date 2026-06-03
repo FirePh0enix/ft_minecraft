@@ -23,6 +23,8 @@ public:
     void set_stack(uint32_t layer, uint32_t i, ItemStack stack);
 
     ItemStack get_stack(uint32_t layer, uint32_t i) { return m_layers.get_unchecked(layer).stacks.get_unchecked(i); }
+    const Layer& get_layer(uint32_t layer) const { return m_layers.get_unchecked(layer); }
+    Layer& get_layer(uint32_t layer) { return m_layers.get_unchecked(layer); }
 
 private:
     LocalVector<Layer> m_layers;
