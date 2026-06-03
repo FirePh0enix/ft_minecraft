@@ -1,10 +1,8 @@
 
 #pragma once
 
-#include "Core/Containers/LocalVector.hpp"
 #include "Core/Containers/Vector.hpp"
 #include "Core/Math.hpp"
-#include <vector>
 
 struct Path
 {

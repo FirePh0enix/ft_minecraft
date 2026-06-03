@@ -207,19 +207,7 @@ public:
         }
     }
 
-    void erase_swap(const T& value)
-    {
-        for (size_t i = 0; i < m_size; i++)
-        {
-            if (m_data[i] == value)
-            {
-                m_data[i] = std::move(m_data[m_size - 1]);
-                (m_data + (m_size - 1))->~T();
-                m_size--;
-                return;
-            }
-        }
-    }
+ 
 
 private:
     T *m_data;

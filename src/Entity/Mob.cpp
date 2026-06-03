@@ -1,4 +1,5 @@
 #include "Entity/Mob.hpp"
+#include <cstddef>
 
 constexpr int attempts = 16;
 
@@ -32,8 +33,8 @@ void Mob::follow_path(float delta_time)
     if (m_path_index >= m_path->slow_down_index && m_stopping_dst > 0.0f)
     {
         const size_t size = m_path->look_points.size();
+        glm::vec2 end_2d(m_path->look_points.get_unchecked(size - 1).x, m_path->look_points.get_unchecked(size - 1).z);
 
-        glm::vec2 end_2d = glm::vec2(m_path->look_points.get_unchecked(size - 1).x, m_path->look_points.get_unchecked(size - 1).z);
         float dist_to_end = glm::distance(glm::vec2(pos.x, pos.z), end_2d);
         speed_percent = glm::clamp(dist_to_end / m_stopping_dst, 0.0f, 1.0f);
 
@@ -112,25 +113,23 @@ void Mob::flee_to(const glm::ivec3& to)
 
     glm::ivec3 cow_grid = glm::ivec3(glm::round(m_transform.position()));
 
-    auto value = m_pathfinding->find_path(cow_grid, to).has_value();
-    if (m_pathfinding->m_path.empty() || !value)
+    m_pathfinding->find_path(cow_grid, to);
+    if (m_pathfinding->m_path.empty())
     {
         m_following_path = false;
         return;
     }
 
-    Result<Vector<glm::vec3>> waypoints = m_pathfinding->simplify_path(m_pathfinding->m_path);
-    m_path.emplace(waypoints.value(), m_stopping_dst);
+    Vector<glm::vec3> waypoints = m_pathfinding->simplify_path(m_pathfinding->m_path);
+    m_path.emplace(waypoints, m_stopping_dst);
     m_following_path = true;
     m_path_index = 1;
 }
 
 bool Mob::verify_if_path_still_valid()
 {
-    const LocalVector<uint32_t>& full_path = m_pathfinding->m_path;
+    const auto full_path = m_pathfinding->m_path;
     const size_t path_size = full_path.size();
-
-    const LocalVector<PathNode>& nodes = m_pathfinding->m_nodes;
 
     glm::ivec3 grid_pos = glm::ivec3(glm::round(m_path->look_points.get_unchecked(m_path_index)));
     size_t start_index = path_size;
@@ -138,7 +137,7 @@ bool Mob::verify_if_path_still_valid()
     // Find which node is actually targeting, since it's unnecessary to check nodes that has been already reached.
     for (size_t i = 0; i < path_size; ++i)
     {
-        if (nodes.get_unchecked(full_path.get_unchecked(i)).m_gridPos == grid_pos)
+        if (full_path.get_unchecked(i)->m_gridPos == grid_pos)
         {
             start_index = i;
             break;
@@ -147,7 +146,7 @@ bool Mob::verify_if_path_still_valid()
 
     for (; start_index < path_size; ++start_index)
     {
-        if (!m_pathfinding->is_walkable(nodes.get_unchecked(full_path.get_unchecked(start_index)).m_gridPos, 1))
+        if (!m_pathfinding->is_walkable(full_path.get_unchecked(start_index)->m_gridPos, 1))
             return false;
     }
 

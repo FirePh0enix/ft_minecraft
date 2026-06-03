@@ -96,16 +96,16 @@ void Cow::flee_from(int radius)
     glm::vec3 flee_dir = safe_normalize(glm::vec3(cow_grid - threat_grid));
     glm::ivec3 flee_position = find_random_walkable_position(radius, flee_dir);
 
-    auto result = m_pathfinding->find_path(cow_grid, flee_position);
+    m_pathfinding->find_path(cow_grid, flee_position);
 
-    if (m_pathfinding->m_path.empty() || !result)
+    if (m_pathfinding->m_path.empty())
     {
         m_following_path = false;
         return;
     }
 
-    Result<Vector<glm::vec3>> waypoints = m_pathfinding->simplify_path(m_pathfinding->m_path);
-    m_path.emplace(waypoints.value(), m_stopping_dst);
+    auto waypoints = m_pathfinding->simplify_path(m_pathfinding->m_path);
+    m_path.emplace(waypoints, m_stopping_dst);
     m_following_path = true;
     // Cow is already at waypoint 0.
     m_path_index = 1;
