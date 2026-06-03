@@ -7,6 +7,7 @@
 #include "Core/Definitions.hpp"
 #include "Core/Ref.hpp"
 #include "Core/String.hpp"
+#include "Event.hpp"
 #include "Render/Renderer.hpp"
 #include "Transform3D.hpp"
 
@@ -117,6 +118,11 @@ public:
 
     virtual void on_ready()
     {
+    }
+
+    virtual void process_event(Event& event)
+    {
+        (void)event;
     }
 
     /**

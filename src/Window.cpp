@@ -1,6 +1,6 @@
 #include "Window.hpp"
 #include "Core/Logger.hpp"
-#include "SDL3/SDL_video.h"
+#include "SDL3/SDL_keyboard.h"
 
 #ifdef __platform_web
 #include <emscripten/html5.h>
@@ -37,6 +37,8 @@ Window::Window(const String& title, uint32_t width, uint32_t height, bool resiza
         error("SDL_CreateWindow() failed: {}", SDL_GetError());
         return;
     }
+
+    SDL_StartTextInput(m_window);
 #else
     if (!SDL_Init(SDL_INIT_EVENTS))
     {
@@ -48,6 +50,7 @@ Window::Window(const String& title, uint32_t width, uint32_t height, bool resiza
 
 Window::~Window()
 {
+    SDL_StopTextInput(m_window);
 #ifndef __platform_web
     SDL_DestroyWindow(m_window);
 #endif

@@ -58,6 +58,7 @@ list(APPEND SOURCES
     src/Render/Graph.cpp
     src/Render/Shader.cpp
     src/Render/Renderer.cpp
+    src/UI/Chat.cpp
     src/UI/ColorRect.cpp
     src/UI/ItemSlot.cpp
     src/UI/Label.cpp

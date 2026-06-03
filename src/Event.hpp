@@ -4,8 +4,13 @@
 
 struct Event
 {
+    Event(SDL_Event event)
+        : event(event)
+    {
+    }
+
     SDL_Event event;
-    bool handled;
+    bool handled = false;
 
     void handle() { handled = false; }
 };

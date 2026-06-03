@@ -38,11 +38,17 @@ String::~String()
 
 void String::resize(size_t new_size)
 {
-    // TODO: if `new_size` < string_small_capacity then stay/go back to a small string.
-
     if (is_small() && new_size + 1 <= string_small_capacity)
     {
-        memset(data(), 0, new_size + 1);
+        if (new_size < small.size)
+        {
+            memset(data() + new_size, 0, small.size - new_size);
+        }
+        else
+        {
+            memset(data() + small.size, 0, new_size - small.size);
+        }
+
         small.size = new_size;
     }
     else
@@ -57,21 +63,6 @@ void String::resize(size_t new_size)
         large.capacity = new_size + 1;
         large.size = new_size;
     }
-
-    // if (is_small())
-    // {
-    //     small.small_flag = 0;
-    //     large.ptr = new_ptr;
-    //     large.capacity = new_size + 1;
-    //     large.size = new_size;
-    // }
-    // else
-    // {
-    //     destroy_array(large.ptr, large.size);
-    //     large.ptr = new_ptr;
-    //     large.capacity = new_size + 1;
-    //     large.size = new_size;
-    // }
 }
 
 void String::append(const char *str, size_t size)

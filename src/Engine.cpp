@@ -123,6 +123,17 @@ void Engine::tick(float delta)
             {
                 if (event.key.key == SDLK_F3)
                     m_debug_menu = !m_debug_menu;
+
+                Event event2(event);
+                if (m_scene == EngineScene::World)
+                    m_player->process_event(event2);
+            }
+            break;
+            case SDL_EVENT_TEXT_INPUT:
+            {
+                Event event2(event);
+                if (m_scene == EngineScene::World)
+                    m_player->process_event(event2);
             }
             break;
             default:

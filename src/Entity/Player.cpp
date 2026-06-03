@@ -31,6 +31,8 @@ Player::Player()
 
 void Player::on_ready()
 {
+    m_chat = EXPECT(newref<Chat>());
+
     m_inventory_container = EXPECT(newref<InventoryContainer>());
     EXPECT(m_inventory_container->add_layer(27)); // main inventory
     EXPECT(m_inventory_container->add_layer(9));  // toolbar
@@ -78,11 +80,11 @@ void Player::on_ready()
 
 void Player::tick(float delta)
 {
-    if (Input::is_action_pressed("attack") && !Input::is_mouse_grabbed() && !m_opened_inventory.has_value() && m_local_player)
+    if (Input::is_action_pressed("attack") && !Input::is_mouse_grabbed() && !m_opened_inventory.has_value() && m_local_player && !m_open_chat)
     {
         Input::set_mouse_grabbed(true);
     }
-    else if (Input::is_action_pressed("escape") && Input::is_mouse_grabbed() && m_local_player && !m_opened_inventory.has_value())
+    else if (Input::is_action_pressed("escape") && Input::is_mouse_grabbed() && !m_opened_inventory.has_value() && m_local_player && !m_open_chat)
     {
         Input::set_mouse_grabbed(false);
     }
@@ -90,8 +92,19 @@ void Player::tick(float delta)
     {
         close_inventory();
     }
+    else if (Input::is_action_pressed("escape") && m_local_player && m_open_chat)
+    {
+        m_open_chat = false;
+        Input::set_mouse_grabbed(true);
+    }
 
-    if (Input::is_action_just_pressed("open_inventory"))
+    if (Input::is_action_just_pressed("toggle_chat") && m_local_player && !m_open_chat)
+    {
+        m_open_chat = true;
+        Input::set_mouse_grabbed(false);
+    }
+
+    if (Input::is_action_just_pressed("open_inventory") && !m_open_chat)
     {
         if (!m_opened_inventory.has_value())
             open_inventory(m_inventory);
@@ -308,6 +321,9 @@ void Player::tick(float delta)
             m_opened_inventory.get()->update(delta);
         else
             m_inventory->update(delta);
+
+        if (m_open_chat)
+            m_chat->update(delta);
     }
 
     if (m_local_player && Engine::get().is_online() && !Engine::get().is_server())
@@ -360,7 +376,16 @@ void Player::draw_ui(const RenderPassNode& node)
             m_opened_inventory.get()->draw(node);
         else
             m_inventory->draw_toolbar(node);
+
+        if (m_open_chat)
+            m_chat->draw(node);
     }
+}
+
+void Player::process_event(Event& event)
+{
+    if (m_open_chat)
+        m_chat->process_event(event);
 }
 
 void Player::save(EntitySerializer& ser) const

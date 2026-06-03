@@ -1,4 +1,5 @@
 #include "Input.hpp"
+#include "SDL3/SDL_keyboard.h"
 #include "SDL3/SDL_mouse.h"
 #include "SDL3/SDL_video.h"
 
@@ -40,6 +41,9 @@ void Input::load_config()
 
     Input::add_action("open_inventory");
     Input::add_action_mapping("open_inventory", ActionMapping(ActionMappingKind::Key, SDLK_E));
+
+    Input::add_action("toggle_chat");
+    Input::add_action_mapping("toggle_chat", ActionMapping(ActionMappingKind::Key, SDLK_T));
 
     Input::add_action("1");
     Input::add_action_mapping("1", ActionMapping(ActionMappingKind::Key, SDLK_1));
