@@ -1,5 +1,4 @@
 #include "Cow.hpp"
-#include "Core/Containers/LocalVector.hpp"
 #include "Core/Print.hpp"
 #include "Core/Result.hpp"
 #include "Entity/Entity.hpp"

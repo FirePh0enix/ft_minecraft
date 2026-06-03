@@ -137,16 +137,22 @@ bool Mob::verify_if_path_still_valid()
     // Find which node is actually targeting, since it's unnecessary to check nodes that has been already reached.
     for (size_t i = 0; i < path_size; ++i)
     {
-        if (full_path.get_unchecked(i)->m_gridPos == grid_pos)
+        size_t node_index = full_path.get_unchecked(i);
+        const auto& node = m_pathfinding->m_node_pool.get_unchecked(node_index);
+
+        if (node.m_gridPos == grid_pos)
         {
             start_index = i;
             break;
         }
     }
 
-    for (; start_index < path_size; ++start_index)
+    for (size_t i = start_index; start_index < path_size; ++start_index)
     {
-        if (!m_pathfinding->is_walkable(full_path.get_unchecked(start_index)->m_gridPos, 1))
+        size_t node_index = full_path.get_unchecked(i);
+        const auto& node = m_pathfinding->m_node_pool.get_unchecked(node_index);
+
+        if (!m_pathfinding->is_walkable(node.m_gridPos, 1))
             return false;
     }
 
