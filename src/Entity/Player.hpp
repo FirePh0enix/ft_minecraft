@@ -27,6 +27,7 @@ public:
     Player() : LivingEntity(1, 1, 8.0f, 0.24f)
     {
         m_aabb = AABB(-glm::vec3(0.35, 0.9, 0.35), glm::vec3(0.35, 0.9, 0.35));
+        m_previous_frame_in_water = 0;
     }
 
     virtual ~Player() {}
