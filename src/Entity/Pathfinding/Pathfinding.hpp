@@ -1,13 +1,11 @@
 #pragma once
 
-#include "Core/Containers/LocalVector.hpp"
+#include "Core/Containers/Map.hpp"
 #include "Core/Math.hpp"
 #include "Entity/Entity.hpp"
 #include "Entity/Pathfinding/PathNode.hpp"
 #include "World/World.hpp"
 #include <cstddef>
-#include <cstdint>
-#include <unordered_set>
 
 struct Ivec3Hash
 {
@@ -34,9 +32,9 @@ public:
 
     Vector<PathNode> m_node_pool;
 
-    std::unordered_map<glm::ivec3, size_t, Ivec3Hash> m_nodes;
+    Map<glm::ivec3, size_t> m_nodes;
 
-    std::unordered_set<glm::ivec3, Ivec3Hash> m_close_set;
+    Set<glm::ivec3> m_close_set;
 
 private:
     World *m_world = nullptr;

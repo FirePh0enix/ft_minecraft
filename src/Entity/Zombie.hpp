@@ -18,7 +18,6 @@ public:
     void draw(const RenderPassNode& node) override;
     void on_ready() override;
     void on_hit_by(Entity& entity) override;
-    bool is_player_in_radius(float radius, const glm::vec3& player_pos) const;
     void attack();
 
 protected:
@@ -27,10 +26,8 @@ protected:
     float m_stopping_dst = 0.1f;
 
     Ref<Entity> m_threat_entity;
-    glm::ivec3 m_last_threat_pos = glm::ivec3();
 
     float m_attack_range = 1.0f;
-    bool m_can_attack = false;
     float m_attack_cooldown = 1.5f;
     float m_attack_timer = 0.0f;
     float m_path_update_timer = 0.0f;

@@ -1,5 +1,6 @@
 #include "Pathfinding.hpp"
 #include "Core/Containers/InplaceVector.hpp"
+#include "Core/Print.hpp"
 #include "Core/Result.hpp"
 #include "Entity/Pathfinding/PathNode.hpp"
 #include <algorithm>
@@ -11,11 +12,9 @@ constexpr int vertical = 12;
 
 size_t Pathfinding::node_from_world_point(const glm::ivec3& pos)
 {
-    glm::ivec3 key(std::floor(pos.x), std::floor(pos.y), std::floor(pos.z));
-
-    auto it = m_nodes.find(key);
-    if (it != m_nodes.end())
-        return it->second;
+    auto it = m_nodes.get(pos);
+    if (it.has_value())
+        return it.get();
 
     bool walkable = m_world->get_block_state(pos.x, pos.y, pos.z).is_air();
 
@@ -28,7 +27,7 @@ size_t Pathfinding::node_from_world_point(const glm::ivec3& pos)
 
     size_t index = m_node_pool.size() - 1;
 
-    m_nodes[key] = index;
+    EXPECT(m_nodes.put(pos, index));
 
     return index;
 }
@@ -52,10 +51,10 @@ bool Pathfinding::is_walkable(const glm::ivec3& to, int max_jump_height)
 
 Vector<size_t> Pathfinding::get_neighbors(size_t node_index)
 {
+
     Vector<size_t> neighbors;
 
-    const PathNode& node = m_node_pool.get_unchecked(node_index);
-
+    PathNode node = m_node_pool.get_unchecked(node_index);
     static InplaceVector<glm::ivec3, 10> directions = {
 
         {-1, 0, 1},
@@ -76,14 +75,12 @@ Vector<size_t> Pathfinding::get_neighbors(size_t node_index)
     {
         glm::ivec3 neighbor_pos = node.m_gridPos + dir;
 
-        int air_time = node.m_air_time;
-
         bool on_ground = !m_world->get_block_state(node.m_gridPos.x, node.m_gridPos.y - 1, node.m_gridPos.z).is_air();
+        int air_time = on_ground ? 0 : 1;
 
-        if (on_ground)
-            air_time = 0;
+        int remaining_jump = 1 - air_time;
 
-        if (!is_walkable(neighbor_pos, air_time))
+        if (!is_walkable(neighbor_pos, remaining_jump))
             continue;
 
         glm::ivec3 d = neighbor_pos - node.m_gridPos;
@@ -100,7 +97,6 @@ Vector<size_t> Pathfinding::get_neighbors(size_t node_index)
         }
 
         size_t neighbor_index = node_from_world_point(neighbor_pos);
-
         EXPECT(neighbors.append(neighbor_index));
     }
 
@@ -122,8 +118,6 @@ int Pathfinding::get_distance(const PathNode& a, const PathNode& b)
 
 void Pathfinding::retrace_path(size_t start_index, size_t end_index)
 {
-    m_path.clear();
-
     size_t current = end_index;
     size_t max = std::numeric_limits<size_t>::max();
 
@@ -137,7 +131,7 @@ void Pathfinding::retrace_path(size_t start_index, size_t end_index)
         current = m_node_pool.get_unchecked(current).m_parent;
     }
 
-    // reverse path
+    // Reverse path.
     for (size_t i = 0, j = m_path.size() - 1; i < j; ++i, --j)
     {
         auto tmp = m_path.get_unchecked(i);
@@ -152,6 +146,7 @@ void Pathfinding::find_path(const glm::vec3& start_pos, const glm::vec3& target_
     m_close_set.clear();
     m_nodes.clear();
     m_path.clear();
+    m_node_pool.clear();
 
     size_t start_index = node_from_world_point(start_pos);
     size_t target_index = node_from_world_point(target_pos);
@@ -164,10 +159,11 @@ void Pathfinding::find_path(const glm::vec3& start_pos, const glm::vec3& target_
 
     while (!m_open_set.empty())
     {
+
         size_t current_index = m_open_set.get_unchecked(0);
         size_t best_index = 0;
 
-        const auto& target = m_node_pool.get_unchecked(target_index);
+        const PathNode target = m_node_pool.get_unchecked(target_index);
 
         for (size_t i = 1; i < m_open_set.size(); ++i)
         {
@@ -187,8 +183,8 @@ void Pathfinding::find_path(const glm::vec3& start_pos, const glm::vec3& target_
 
         EXPECT(m_open_set.remove_at(best_index));
 
-        auto& current = m_node_pool.get_unchecked(current_index);
-        m_close_set.insert(current.m_gridPos);
+        auto current = m_node_pool.get_unchecked(current_index);
+        EXPECT(m_close_set.put(current.m_gridPos));
 
         if (current.m_gridPos == target.m_gridPos)
         {
@@ -216,6 +212,8 @@ void Pathfinding::find_path(const glm::vec3& start_pos, const glm::vec3& target_
             }
         }
     }
+
+    println("Cannot find path. Start_pos: [{} {} {}], target_pos: [{} {} {}]", start_pos.x, start_pos.y, start_pos.z, target_pos.x, target_pos.y, target_pos.z);
 }
 
 Vector<glm::vec3> Pathfinding::simplify_path(const Vector<size_t>& path)
@@ -244,6 +242,13 @@ Vector<glm::vec3> Pathfinding::simplify_path(const Vector<size_t>& path)
     }
 
     EXPECT(waypoints.append(m_node_pool.get_unchecked(path.get_unchecked(path.size() - 1)).m_position));
+
+    // println("-- Final path --");
+    // for (size_t i = 0; i < waypoints.size(); i++)
+    // {
+    //     const auto pos = waypoints.get_unchecked(i);
+    //     println("{} {} {}", pos.x, pos.y, pos.z);
+    // }
 
     return waypoints;
 }

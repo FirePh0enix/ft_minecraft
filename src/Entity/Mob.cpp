@@ -111,9 +111,9 @@ void Mob::follow_path(float delta_time)
 void Mob::flee_to(const glm::ivec3& to)
 {
 
-    glm::ivec3 cow_grid = glm::ivec3(glm::round(m_transform.position()));
+    glm::ivec3 grid_pos = glm::ivec3(glm::round(m_transform.position()));
 
-    m_pathfinding->find_path(cow_grid, to);
+    m_pathfinding->find_path(grid_pos, to);
     if (m_pathfinding->m_path.empty())
     {
         m_following_path = false;

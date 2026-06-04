@@ -5,9 +5,11 @@
 #include "Entity/Entity.hpp"
 #include "World/World.hpp"
 #include <cstddef>
+#include <limits>
 #include <memory>
 
 constexpr float PATH_UPDATE_INTERVAL = 1.0f;
+constexpr float DETECTION_RADIUS = 20.0f;
 
 void Zombie::start() {};
 
@@ -16,39 +18,67 @@ void Zombie::tick(float delta)
 
     m_attack_timer -= delta;
     m_path_update_timer -= delta;
-    if (m_attack_timer < 0.0f)
-        m_attack_timer = 0.0f;
 
     if (!m_on_ground)
         m_velocity.y -= 9.81f * delta;
 
-    const glm::ivec3 player_pos = glm::round(Engine::get().get_player()->get_global_transform().position());
-
     // Tracking.
-    // Maybe do the math once and adjust action by comparing result and threshold.
-    if (is_player_in_radius(20, player_pos))
-    {
-        bool is_target_reachable = m_pathfinding->is_walkable(player_pos, 0);
+    AABB search_box = AABB::from_center_extent(get_global_transform().position(), glm::vec3(DETECTION_RADIUS));
+    const auto entities = m_world->get_dimension(m_dimension).cast_box(search_box);
 
-        if (m_last_threat_pos != player_pos && is_target_reachable && m_path_update_timer <= 0.0f)
+    Ref<Player> target;
+    float best_dist_sq = std::numeric_limits<float>::max();
+
+    for (Ref<Entity>& entity : entities)
+    {
+        Ref<Player> player = entity.cast_to<Player>();
+        if (!player)
+            continue;
+
+        float d2 = glm::distance2(glm::vec3(player->get_global_transform().position()), get_global_transform().position());
+        if (d2 > DETECTION_RADIUS * DETECTION_RADIUS)
+            continue;
+
+        if (d2 < best_dist_sq)
         {
-            m_last_threat_pos = player_pos;
+            best_dist_sq = d2;
+            target = player;
+        }
+    }
+
+    m_threat_entity = target;
+
+    if (m_threat_entity)
+    {
+        const glm::ivec3 target_rounded_pos = glm::round(m_threat_entity->get_global_transform().position());
+
+        bool is_target_reachable = m_pathfinding->is_walkable(target_rounded_pos, 0);
+
+        if (is_target_reachable && m_path_update_timer <= 0.0f)
+        {
             m_path_update_timer = PATH_UPDATE_INTERVAL;
-            flee_to(player_pos);
+            flee_to(target_rounded_pos);
+            // println("Tracking...");
         }
 
-        const float dist_sq = glm::distance2(glm::vec3(player_pos), get_global_transform().position());
-        if (dist_sq <= m_attack_range * m_attack_range)
+        if (best_dist_sq < m_attack_range * m_attack_range)
         {
             m_following_path = false;
             m_velocity.x = 0.0f;
             m_velocity.z = 0.0f;
-            m_can_attack = true;
-            m_threat_entity = Engine::get().get_player();
             attack();
+            // println("Attacking...");
         }
-        else
-            m_can_attack = false;
+    }
+    else
+    {
+        // Patrol.
+        if (m_on_ground && !m_following_path)
+        {
+            const glm::ivec3 to = find_random_walkable_position(DETECTION_RADIUS);
+            flee_to(to);
+            // println("Patrolling...");
+        }
     }
 
     if (m_following_path)
@@ -64,12 +94,6 @@ void Zombie::tick(float delta)
             else
                 m_following_path = false;
         }
-    }
-    // Patrol.
-    if (m_on_ground && !m_following_path && !m_can_attack)
-    {
-        const glm::ivec3 to = find_random_walkable_position(20);
-        flee_to(to);
     }
 
     follow_path(delta);
@@ -112,13 +136,6 @@ void Zombie::on_hit_by(Entity& entity)
         die();
         return;
     }
-}
-
-bool Zombie::is_player_in_radius(float radius, const glm::vec3& player_pos) const
-{
-    glm::vec3 zombie_pos = get_global_transform().position();
-    float distance_sq = glm::distance2(player_pos, zombie_pos);
-    return distance_sq <= radius * radius;
 }
 
 void Zombie::attack()
