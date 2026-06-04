@@ -42,6 +42,7 @@ public:
 
     static float get_action_value(const StringView& action);
 
+    static float get_axis(const StringView& negative, const StringView& positive);
     static glm::vec2 get_vector(const StringView& x_negative, const StringView& x_positive, const StringView& y_negative, const StringView& y_positive);
 
     static void set_mouse_grabbed(bool value);

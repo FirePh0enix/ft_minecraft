@@ -266,27 +266,37 @@ void Player::tick(float delta)
     const glm::vec3 right = get_global_transform().right();
 
     const glm::vec2 dir = Input::get_vector("left", "right", "backward", "forward");
+    const bool in_water = is_in_water();
+    const bool chunk_loaded = chunk_is_loaded();
 
     float updown_dir = 0.0;
-    if (are_input_available() && !has_gravity() && m_local_player)
+    if (are_input_available() && m_local_player && (!has_gravity() || in_water))
     {
-        updown_dir = Input::get_action_value("jump") - Input::get_action_value("down");
+        updown_dir = Input::get_axis("down", "jump");
     }
 
-    if (are_input_available() && (glm::length2(dir) != 0.0 || updown_dir != 0.0) && m_local_player)
+    float movement_damp = in_water ? 1.0f : 1.0f;
+    float vertical_movement_damp = in_water ? 1.0f : 1.0f;
+
+    if (are_input_available() && (glm::length2(dir) != 0.0 || updown_dir != 0.0) && m_local_player && chunk_loaded)
     {
-        glm::vec3 move = glm::normalize(forward * dir.y + right * dir.x + up * updown_dir) * m_speed;
+        glm::vec3 move = glm::normalize(forward * dir.y + right * dir.x + up * updown_dir) * glm::vec3(movement_damp, vertical_movement_damp, movement_damp) * m_speed;
         m_velocity += move * delta;
     }
 
-    if (are_input_available() && m_on_ground && Input::is_action_just_pressed("jump"))
+    if (are_input_available() && m_on_ground && Input::is_action_just_pressed("jump") && !in_water && chunk_loaded)
+    {
+        m_velocity += glm::vec3(0, 1, 0) * m_jump_force;
+    }
+    else if (are_input_available() && Input::is_action_pressed("jump") && !in_water && m_previous_frame_in_water && chunk_loaded)
     {
         m_velocity += glm::vec3(0, 1, 0) * m_jump_force;
     }
 
-    if (has_gravity())
+    if (has_gravity() && chunk_loaded)
     {
-        m_velocity += glm::vec3(0, -1, 0) * m_gravity_value * delta;
+        float value = in_water ? 3.7f : 1.0f;
+        m_velocity += glm::vec3(0, -1, 0) * m_gravity_value * delta * value;
     }
 
     if (has_gravity())
@@ -302,7 +312,7 @@ void Player::tick(float delta)
     m_velocity.x = 0.0;
     m_velocity.z = 0.0;
 
-    if (has_gravity())
+    if (has_gravity() && !in_water)
         m_velocity.y = std::clamp(m_velocity.y, -25.0f, 25.0f);
     else
         m_velocity.y = 0.0;
@@ -326,14 +336,16 @@ void Player::tick(float delta)
             m_chat->update(delta);
     }
 
-    if (m_local_player && Engine::get().is_online() && !Engine::get().is_server())
-    {
-        SendPlayerTransformPacket p{};
-        p.id = m_id;
-        p.position = get_global_transform().position();
-        p.rotation = get_global_transform().rotation();
-        Engine::get().connection().send(Engine::get().connection().create_packet(p));
-    }
+    m_previous_frame_in_water = in_water;
+
+    // if (m_local_player && Engine::get().is_online() && !Engine::get().is_server())
+    // {
+    //     SendPlayerTransformPacket p{};
+    //     p.id = m_id;
+    //     p.position = get_global_transform().position();
+    //     p.rotation = get_global_transform().rotation();
+    //     Engine::get().connection().send(Engine::get().connection().create_packet(p));
+    // }
 }
 
 void Player::draw(const RenderPassNode& node)

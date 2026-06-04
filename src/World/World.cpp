@@ -527,13 +527,6 @@ void World::load_one_chunk(ChunkPos pos)
         memcpy(chunk->get_blocks(), data.data() + wb.blocks_offset, sizeof(BlockState) * Chunk::block_count);
         memcpy(chunk->get_biomes(), data.data() + wb.biomes_offset, sizeof(BlockState) * Chunk::block_count);
 
-        for (size_t i = 0; i < Chunk::slice_count; i++)
-        {
-            chunk->get_slices()[i].empty = false;
-            EXPECT(chunk->build_simple_mesh(i));
-            EXPECT(chunk->build_water_mesh(i));
-        }
-
         String path = format("{}saves/{}/DIM0/{}${}/tags.dat", Filesystem::get_data_directory(), m_name, pos.x, pos.z);
         if (Filesystem::exists(path))
         {
@@ -555,6 +548,13 @@ void World::load_one_chunk(ChunkPos pos)
 
                 file.close();
             }
+        }
+
+        for (size_t i = 0; i < Chunk::slice_count; i++)
+        {
+            chunk->get_slices()[i].empty = false;
+            EXPECT(chunk->build_simple_mesh(i));
+            EXPECT(chunk->build_water_mesh(i));
         }
 
         // memset(chunk->get_blocks(), 0, sizeof(BlockState) * Chunk::block_count);

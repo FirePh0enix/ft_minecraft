@@ -185,6 +185,8 @@ public:
     Option<RpcTarget> get_rpc(StringView name);
 
     void move_and_collide();
+    bool is_in_water() const;
+    bool chunk_is_loaded() const;
 
     static void cleanup()
     {

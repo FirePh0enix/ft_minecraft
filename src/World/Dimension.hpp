@@ -44,6 +44,7 @@ public:
 
     void set_tag(glm::i64vec3 pos, const StringView& name, Variant v);
     void remove_tag(glm::i64vec3 pos, const StringView& name);
+    Option<Variant> get_tag(glm::i64vec3 pos, const StringView& name) const;
 
     bool has_solid_block(int64_t x, int64_t y, int64_t z) const;
 

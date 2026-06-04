@@ -175,3 +175,13 @@ void Entity::move_and_collide()
     glm::vec3 center = (mob_box.max + mob_box.min) / 2.0f;
     set_position(center);
 }
+
+bool Entity::is_in_water() const
+{
+    return m_world->get_dimension(m_dimension).get_tag(get_position(), "water").has_value();
+}
+
+bool Entity::chunk_is_loaded() const
+{
+    return m_world->get_dimension(m_dimension).has_chunk(chunk_index(int64_t(std::round(get_position().x))), chunk_index(int64_t(std::round(get_position().z))));
+}

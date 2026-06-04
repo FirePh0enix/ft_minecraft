@@ -199,6 +199,28 @@ void Dimension::remove_tag(glm::i64vec3 pos, const StringView& name)
     chunk->remove_tag({local_x, pos.y, local_z}, name);
 }
 
+Option<Variant> Dimension::get_tag(glm::i64vec3 pos, const StringView& name) const
+{
+    if (pos.y < 0 || pos.y >= Chunk::height)
+        return None;
+
+    int64_t chunk_x = chunk_index(pos.x);
+    int64_t chunk_z = chunk_index(pos.z);
+
+    Option<Ref<Chunk>> chunk_value = get_chunk(chunk_x, chunk_z);
+
+    if (!chunk_value.has_value())
+    {
+        return None;
+    }
+
+    Ref<Chunk> chunk = chunk_value.get();
+    int64_t local_x = local_coords(pos.x);
+    int64_t local_z = local_coords(pos.z);
+
+    return chunk->get_tag({local_x, pos.y, local_z}, name);
+}
+
 bool Dimension::has_solid_block(int64_t x, int64_t y, int64_t z) const
 {
     return !get_block(x, y, z).is_air();

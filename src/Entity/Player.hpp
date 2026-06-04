@@ -73,6 +73,8 @@ private:
     Ref<Material> m_aim_material;
     Ref<Buffer> m_aim_buffer;
 
+    bool m_previous_frame_in_water;
+
     static constexpr glm::vec3 aim_color = glm::vec3(0.94, 0.63, 0.1);
 
     Ref<Model> m_model;

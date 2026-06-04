@@ -118,6 +118,11 @@ glm::vec2 Input::get_vector(const StringView& x_negative, const StringView& x_po
     return glm::vec2(get_action_value(x_positive) - get_action_value(x_negative), get_action_value(y_positive) - get_action_value(y_negative));
 }
 
+float Input::get_axis(const StringView& negative, const StringView& positive)
+{
+    return get_action_value(positive) - get_action_value(negative);
+}
+
 void Input::set_mouse_grabbed(bool value)
 {
     s_mouse_grabbed = value;
