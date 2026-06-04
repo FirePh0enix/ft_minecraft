@@ -215,7 +215,7 @@ private:
 
     // Thread pool used for chunk loading/unloading.
     ThreadPool m_generation_thread_pool;
-    int32_t m_load_distance = 8;
+    int32_t m_load_distance = 4;
 
     Ref<Camera> m_camera;
     bool m_proxy = false;

@@ -4,6 +4,7 @@
 #include "Profiler.hpp"
 #include "World/Chunk.hpp"
 #include "World/World.hpp"
+#include <limits>
 
 Option<Ref<Chunk>> Dimension::get_chunk(int64_t x, int64_t z) const
 {
@@ -226,11 +227,40 @@ bool Dimension::has_solid_block(int64_t x, int64_t y, int64_t z) const
     return !get_block(x, y, z).is_air();
 }
 
+Result<void> Dimension::rebuild_neighbor_chunks_water(int64_t cx, int64_t cz, size_t slice_index)
+{
+    const Array<glm::i64vec2, 4> array{
+        glm::i64vec2(1, 0),
+        glm::i64vec2(-1, 0),
+        glm::i64vec2(0, 1),
+        glm::i64vec2(0, -1),
+    };
+
+    for (const glm::i64vec2 dir : array)
+    {
+        Option<Ref<Chunk>> chunk = get_chunk(cx + dir.x, cz + dir.y);
+        if (chunk.has_value())
+        {
+            if (slice_index == std::numeric_limits<size_t>::max())
+            {
+                for (size_t i = 0; i < Chunk::slice_count; i++)
+                    TRY(chunk.get()->build_water_mesh(i));
+            }
+            else
+            {
+                TRY(chunk.get()->build_water_mesh(slice_index));
+            }
+        }
+    }
+
+    return Result<void>();
+}
+
 Result<Ref<Chunk>> Dimension::generate_chunk(int64_t cx, int64_t cz)
 {
     ZoneScoped;
 
-    Ref<Chunk> chunk = TRY(newref<Chunk>(cx, cz));
+    Ref<Chunk> chunk = TRY(newref<Chunk>(this, cx, cz));
     memset(chunk->get_biomes(), 0, sizeof(Biome) * Chunk::block_count);
 
     for (int64_t x = 0; x < Chunk::width; x++)

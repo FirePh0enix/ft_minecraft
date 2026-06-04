@@ -13,6 +13,7 @@
 #include <cstdint>
 
 class World;
+class Dimension;
 
 struct ChunkPos
 {
@@ -94,6 +95,7 @@ class Chunk : public Object
 
 public:
     friend class World;
+    friend class Dimension;
 
     struct Slice
     {
@@ -107,7 +109,7 @@ public:
     static constexpr int64_t block_count = width * height * width;
     static constexpr int64_t slice_count = height / width;
 
-    Chunk(int64_t x, int64_t z);
+    Chunk(Dimension *dim, int64_t x, int64_t z);
     ~Chunk();
 
     ALWAYS_INLINE BlockState get_block(int64_t x, int64_t y, int64_t z) const { return m_blocks[linearize(x, y, z)]; }
@@ -150,8 +152,9 @@ private:
     Biome *m_biomes;
     Slice *m_slices;
 
-    Map<int64_t, BlockTags> m_tags;
+    Dimension *m_dim;
 
+    Map<int64_t, BlockTags> m_tags;
     Ref<Buffer> m_chunk_buffer;
 
     int64_t m_x;

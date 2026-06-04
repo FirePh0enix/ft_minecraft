@@ -236,18 +236,30 @@ void World::tick(float delta)
         load_around_player();
 
         // Flush all new chunks.
-        std::lock_guard<std::mutex> lock(m_dims[0].mutex());
-        for (auto& [pos, chunk] : m_dims[0].m_chunks_to_flush)
-        {
-            EXPECT(m_dims[0].m_chunks.put(pos, chunk));
-        }
-        m_dims[0].m_chunks_to_flush.clear();
+        Vector<ChunkPos> chunk_modified;
 
-        for (auto pos : m_dims[0].m_chunks_to_remove)
         {
-            m_dims[0].m_chunks.erase(pos);
+            std::lock_guard<std::mutex> lock(m_dims[0].mutex());
+            for (auto& [pos, chunk] : m_dims[0].m_chunks_to_flush)
+            {
+                EXPECT(m_dims[0].m_chunks.put(pos, chunk));
+                EXPECT(chunk_modified.append(pos));
+            }
+            m_dims[0].m_chunks_to_flush.clear();
+
+            for (auto pos : m_dims[0].m_chunks_to_remove)
+            {
+                m_dims[0].m_chunks.erase(pos);
+                EXPECT(chunk_modified.append(pos));
+            }
+            m_dims[0].m_chunks_to_remove.clear();
         }
-        m_dims[0].m_chunks_to_remove.clear();
+
+        for (const ChunkPos& pos : chunk_modified)
+        {
+            EXPECT(m_generation_thread_pool.async([&]
+                                                  { EXPECT(m_dims[0].rebuild_neighbor_chunks_water(pos.x, pos.z)); }));
+        }
     }
 }
 
@@ -499,7 +511,7 @@ void World::load_one_chunk(ChunkPos pos)
     String path = format("{}saves/{}/DIM0/{}${}/blocks.dat", Filesystem::get_data_directory(), m_name, pos.x, pos.z);
     if (Filesystem::exists(path))
     {
-        chunk = EXPECT(newref<Chunk>(pos.x, pos.z));
+        chunk = EXPECT(newref<Chunk>(&m_dims[0], pos.x, pos.z));
 
         LocalVector<char> data;
         // TODO: how to handle errors from loading chunks ?

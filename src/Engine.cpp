@@ -512,7 +512,7 @@ void Engine::receive_client(void *user, NetworkConnection& conn, ENetPacket *pac
         }
         else
         {
-            Ref<Chunk> chunk = EXPECT(newref<Chunk>(p.x, p.z));
+            Ref<Chunk> chunk = EXPECT(newref<Chunk>(&self->m_world->get_dimension(0), p.x, p.z));
             std::memcpy(chunk->get_blocks(), p.blocks.data(), sizeof(BlockState) * p.blocks.size());
             std::memcpy(chunk->get_biomes(), p.biomes.data(), sizeof(Biome) * p.biomes.size());
 
