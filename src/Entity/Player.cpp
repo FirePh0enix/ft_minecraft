@@ -24,11 +24,6 @@ struct GPU_ATTRIBUTE ItemBlockModel
     glm::uvec3 textures;
 };
 
-Player::Player()
-{
-    m_aabb = AABB(-glm::vec3(0.35, 0.9, 0.35), glm::vec3(0.35, 0.9, 0.35));
-}
-
 void Player::on_ready()
 {
     m_chat = EXPECT(newref<Chat>());
