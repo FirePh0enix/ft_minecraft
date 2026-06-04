@@ -600,14 +600,18 @@ void Chunk::set_tag(glm::i64vec3 pos, const StringView& name, Variant v, bool re
 void Chunk::remove_tag(glm::i64vec3 pos, const StringView& name, bool rebuild)
 {
     uint16_t key = linearize(pos.x, pos.y, pos.z);
-    BlockTags *tags = EXPECT(m_tags.get_or_put(key, BlockTags()));
-    tags->tags.erase(name);
+    Option<BlockTags *> tags = m_tags.get_ptr(key);
 
-    if (tags->tags.size() == 0)
+    if (tags.has_value())
     {
-        m_tags.erase(key);
-        if (rebuild)
-            EXPECT(build_water_mesh(pos.y / Chunk::width));
+        tags.get()->tags.erase(name);
+
+        if (tags.get()->tags.size() == 0)
+        {
+            m_tags.erase(key);
+            if (rebuild)
+                EXPECT(build_water_mesh(pos.y / Chunk::width));
+        }
     }
 }
 

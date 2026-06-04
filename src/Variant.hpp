@@ -1,11 +1,13 @@
 #pragma once
 
 #include "Core/Containers/Array.hpp"
+#include "Core/Containers/Map.hpp"
 #include "Core/Containers/View.hpp"
 #include "Core/Json.hpp"
 #include "Core/Math.hpp"
 #include "Core/String.hpp"
 
+#include <compare>
 #include <nlohmann/json.hpp>
 
 enum class VariantType : uint32_t
@@ -47,6 +49,10 @@ enum class VariantType : uint32_t
      * Array of variants of one specific type.
      */
     Array,
+    /**
+     * Key value storage.
+     */
+    Map,
 };
 
 class ItemStack;
@@ -69,14 +75,37 @@ struct __attribute__((aligned(16))) Variant
     Variant(ItemStack is);
 
     template <typename T>
-    Variant(const View<T>& values) : tag(VariantType::Array)
+    Variant(const View<T>& values)
+        : tag(VariantType::Array)
     {
-        Vector<Variant>& s = get_unchecked<Vector<Variant>>();
         new (data) Vector<Variant>();
+        Vector<Variant>& s = get_unchecked<Vector<Variant>>();
         EXPECT(s.reserve(values.size()));
 
         for (const auto& value : values)
             EXPECT(s.append(Variant(value)));
+    }
+
+    Variant(const Vector<Variant>& values)
+        : tag(VariantType::Array)
+    {
+        new (data) Vector<Variant>(values);
+    }
+
+    template <typename K, typename V>
+    Variant(const Map<K, V>& map)
+        : tag(VariantType::Map)
+    {
+        new (data) Map<Variant, Variant>();
+        Map<Variant, Variant>& m = get_unchecked<Map<Variant, Variant>>();
+        for (const auto& [key, value] : map)
+            EXPECT(m.put(Variant(key), Variant(value)));
+    }
+
+    Variant(const Map<Variant, Variant>& map)
+        : tag(VariantType::Map)
+    {
+        new (data) Map<Variant, Variant>(map);
     }
 
     Variant(const Variant& v)
@@ -92,6 +121,11 @@ struct __attribute__((aligned(16))) Variant
             const Vector<Variant>& s = v.get_unchecked<Vector<Variant>>();
             new (data) Vector<Variant>(s);
         }
+        else if (v.has(VariantType::Map))
+        {
+            const Map<Variant, Variant>& m = v.get_unchecked<Map<Variant, Variant>>();
+            new (data) Map<Variant, Variant>(m);
+        }
         else
         {
             memcpy(data, v.data, 24);
@@ -104,6 +138,8 @@ struct __attribute__((aligned(16))) Variant
             ((String *)data)->~String();
         else if (has(VariantType::Array))
             ((Vector<Variant> *)data)->~Vector<Variant>();
+        else if (has(VariantType::Map))
+            ((Map<Variant, Variant> *)data)->~Map<Variant, Variant>();
     }
 
     Variant& operator=(const Variant& v)
@@ -126,6 +162,18 @@ struct __attribute__((aligned(16))) Variant
         return v;
     }
 
+    template <typename K, typename V>
+    Result<Map<K, V>> to_map() const
+    {
+        const Map<Variant, Variant>& map = get_unchecked<Map<Variant, Variant>>();
+        Map<K, V> v;
+
+        for (const auto& [key, value] : map)
+            TRY(v.put(key.get_unchecked<int64_t>(), value.get_unchecked<V>()));
+
+        return v;
+    }
+
     constexpr bool has(VariantType expected) const { return tag == expected; }
 
     template <typename T>
@@ -139,6 +187,12 @@ struct __attribute__((aligned(16))) Variant
     {
         return *(T *)data;
     }
+
+    std::strong_ordering operator<=>(const Variant& variant) const;
+    bool operator==(const Variant& variant) const { return *this <=> variant == std::strong_ordering::equal; }
+    bool operator!=(const Variant& variant) const { return !(*this == variant); }
+    bool operator<(const Variant& variant) const { return *this <=> variant == std::strong_ordering::less; }
+    bool operator>(const Variant& variant) const { return *this <=> variant == std::strong_ordering::greater; }
 };
 
 inline void from_json(const nlohmann::json& j, glm::vec2& m)

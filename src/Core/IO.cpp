@@ -1,6 +1,7 @@
 #include "Core/IO.hpp"
+
 #include "Core/Error.hpp"
-#include "Engine.hpp"
+#include "Item/ItemStack.hpp"
 #include "Variant.hpp"
 
 Result<Option<Variant>> Reader::read_variant()
@@ -96,7 +97,24 @@ Result<Option<Variant>> Reader::read_variant()
             TRY(array.append(variant));
         }
 
-        return Option(Variant(View(array.data(), array.size())));
+        return Option(Variant(array));
+    }
+    else if (type == VariantType::Map)
+    {
+        Map<Variant, Variant> array;
+
+        uint32_t size;
+        TRY(read_raw(&size, sizeof(uint32_t)));
+
+        for (size_t i = 0; i < size; i++)
+        {
+            Variant key = TRY(read_variant()).get();
+            Variant value = TRY(read_variant()).get();
+
+            TRY(array.put(key, value));
+        }
+
+        return Option(Variant(array));
     }
 
     println("{}", type_raw);
@@ -193,6 +211,18 @@ Result<void> Writer::write_variant(const Variant& variant)
         TRY(write_raw(&size, sizeof(uint32_t)));
         for (const auto& value : array)
             TRY(write_variant(value));
+    }
+    else if (variant.has(VariantType::Map))
+    {
+        const Map<Variant, Variant>& map = variant.get_unchecked<Map<Variant, Variant>>();
+        uint32_t size = map.size();
+
+        TRY(write_raw(&size, sizeof(uint32_t)));
+        for (const auto& [key, value] : map)
+        {
+            TRY(write_variant(key));
+            TRY(write_variant(value));
+        }
     }
 
     return Result<void>();

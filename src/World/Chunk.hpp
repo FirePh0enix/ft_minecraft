@@ -93,6 +93,8 @@ class Chunk : public Object
     CLASS(Chunk, Object);
 
 public:
+    friend class World;
+
     struct Slice
     {
         bool empty = true;
@@ -148,7 +150,7 @@ private:
     Biome *m_biomes;
     Slice *m_slices;
 
-    Map<uint16_t, BlockTags> m_tags;
+    Map<int64_t, BlockTags> m_tags;
 
     Ref<Buffer> m_chunk_buffer;
 

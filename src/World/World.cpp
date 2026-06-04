@@ -394,7 +394,7 @@ void World::break_block(int64_t x, int64_t y, int64_t z)
 
 Result<void> World::save_chunk(Ref<Chunk> chunk)
 {
-    CompressedChunk cchunk = TRY(chunk->compress());
+    // CompressedChunk cchunk = TRY(chunk->compress());
 
     String path = format("{}/saves/{}/DIM0/{}${}/", Filesystem::get_data_directory(), m_name, chunk->x(), chunk->z());
     TRY(Filesystem::make_dirs(path));
@@ -404,7 +404,7 @@ Result<void> World::save_chunk(Ref<Chunk> chunk)
 
     WorldBlocks wb{};
     wb.padding0 = 0;
-    wb.chunk_slice_mask = cchunk.compressed_slice_mask;
+    // wb.chunk_slice_mask = cchunk.compressed_slice_mask;
     wb.blocks_offset = sizeof(WorldBlocks);
     // wb.blocks_len = cchunk.compressed_blocks.size();
     // wb.blocks_tree_offset = wb.blocks_offset + cchunk.compressed_blocks.size() * sizeof(BlockState);
@@ -422,6 +422,22 @@ Result<void> World::save_chunk(Ref<Chunk> chunk)
     // TRY(file.write_raw(cchunk.compressed_nodes.data(), cchunk.compressed_nodes.size() * sizeof(ChunkNode)));
     // TRY(file.write_raw(cchunk.compressed_biomes.data(), cchunk.compressed_biomes.size() * sizeof(Biome)));
     // TRY(file.write_raw(cchunk.compressed_biome_nodes.data(), cchunk.compressed_biome_nodes.size() * sizeof(ChunkBiomeNode)));
+
+    file.close();
+
+    path = format("{}/saves/{}/DIM0/{}${}/tags.dat", Filesystem::get_data_directory(), m_name, chunk->x(), chunk->z());
+    file = TRY(Filesystem::open_file(path, true));
+
+    Map<int64_t, Map<String, Variant>> tags;
+    for (const auto& [key, value] : chunk->m_tags)
+    {
+        Map<String, Variant> tags2;
+        for (const auto& [_, key2, value2] : value.tags)
+            TRY(tags2.put(key2, value2));
+        TRY(tags.put(key, tags2));
+    }
+
+    TRY(file.writer().write_variant(Variant(tags)));
 
     file.close();
 
@@ -515,6 +531,30 @@ void World::load_one_chunk(ChunkPos pos)
         {
             chunk->get_slices()[i].empty = false;
             EXPECT(chunk->build_simple_mesh(i));
+            EXPECT(chunk->build_water_mesh(i));
+        }
+
+        String path = format("{}saves/{}/DIM0/{}${}/tags.dat", Filesystem::get_data_directory(), m_name, pos.x, pos.z);
+        if (Filesystem::exists(path))
+        {
+            File file = EXPECT(Filesystem::open_file(path));
+            FileReader reader = file.reader();
+
+            Option<Variant> variant = EXPECT(reader.read_variant());
+            if (variant.has_value())
+            {
+                Map<int64_t, Map<String, Variant>> tags = variant.get().to_map<int64_t, Map<String, Variant>>().value(); // TODO: weird EXPECT doesnt not compiles here.
+
+                for (const auto& [key, value] : tags)
+                {
+                    BlockTags btags;
+                    for (const auto& [key2, value2] : value)
+                        EXPECT(btags.tags.put(key2, value2));
+                    EXPECT(chunk->m_tags.put(key, btags));
+                }
+
+                file.close();
+            }
         }
 
         // memset(chunk->get_blocks(), 0, sizeof(BlockState) * Chunk::block_count);
