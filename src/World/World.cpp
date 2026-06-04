@@ -29,19 +29,54 @@ static bool ray_intersect_aabb(const Ray& ray, const AABB& aabb, float& t_min, g
     glm::vec3 tsmaller = glm::min(t0s, t1s);
     glm::vec3 tbigger = glm::max(t0s, t1s);
 
-    t_min = std::max(tsmaller.x, std::max(tsmaller.y, tsmaller.z));
-    float t_max = std::min(tbigger.x, std::min(tbigger.y, tbigger.z));
+    float t_near = std::max(tsmaller.x, std::max(tsmaller.y, tsmaller.z));
+    float t_far = std::min(tbigger.x, std::min(tbigger.y, tbigger.z));
 
-    if (t_min > t_max)
+    if (t_near > t_far)
         return false;
 
+    if (t_far < 0.0f)
+        return false;
+
+    t_min = (t_near >= 0.0f) ? t_near : t_far;
+
     const float eps = 1e-6f;
-    if (t_min == tsmaller.x || std::abs(t_min - tsmaller.x) < eps)
-        normal = (inv_dir.x >= 0.0f) ? glm::vec3(-1.0f, 0.0f, 0.0f) : glm::vec3(1.0f, 0.0f, 0.0f);
-    else if (t_min == tsmaller.y || std::abs(t_min - tsmaller.y) < eps)
-        normal = (inv_dir.y >= 0.0f) ? glm::vec3(0.0f, -1.0f, 0.0f) : glm::vec3(0.0f, 1.0f, 0.0f);
+    normal = glm::vec3(0.0f);
+
+    if (std::abs(t_min - t0s.x) < eps || std::abs(t_min - t1s.x) < eps)
+    {
+        normal.x = (t_min == t0s.x) ? -glm::sign(inv_dir.x) : glm::sign(inv_dir.x);
+        return true;
+    }
+    if (std::abs(t_min - t0s.y) < eps || std::abs(t_min - t1s.y) < eps)
+    {
+        normal.y = (t_min == t0s.y) ? glm::sign(inv_dir.y) : -glm::sign(inv_dir.y);
+        return true;
+    }
+    if (std::abs(t_min - t0s.z) < eps || std::abs(t_min - t1s.z) < eps)
+    {
+        normal.z = (t_min == t0s.z) ? -glm::sign(inv_dir.z) : glm::sign(inv_dir.z);
+        return true;
+    }
+
+    if (t_near == t_min)
+    {
+        if (t_near == tsmaller.x)
+            normal = glm::vec3(-glm::sign(inv_dir.x), 0.0f, 0.0f);
+        else if (t_near == tsmaller.y)
+            normal = glm::vec3(0.0f, -glm::sign(inv_dir.y), 0.0f);
+        else
+            normal = glm::vec3(0.0f, 0.0f, -glm::sign(inv_dir.z));
+    }
     else
-        normal = (inv_dir.z >= 0.0f) ? glm::vec3(0.0f, 0.0f, -1.0f) : glm::vec3(0.0f, 0.0f, 1.0f);
+    {
+        if (t_min == tbigger.x)
+            normal = glm::vec3(glm::sign(inv_dir.x), 0.0f, 0.0f);
+        else if (t_min == tbigger.y)
+            normal = glm::vec3(0.0f, -glm::sign(inv_dir.y), 0.0f);
+        else
+            normal = glm::vec3(0.0f, 0.0f, glm::sign(inv_dir.z));
+    }
 
     return true;
 }

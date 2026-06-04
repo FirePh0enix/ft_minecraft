@@ -246,11 +246,10 @@ void Player::tick(float delta)
                 else
                 {
                     ItemStack stack = m_inventory_container->get_stack(1, m_slot);
-                    if (stack.item().valid() && m_world->get_block_state(result.block_pos.x + int64_t(result.normal.x), result.block_pos.y + int64_t(result.normal.y), result.block_pos.z + int64_t(result.normal.z)).is_air())
+                    if (stack.item().valid())
                     {
-                        m_world->set_block_state(result.block_pos.x + int64_t(result.normal.x), result.block_pos.y + int64_t(result.normal.y), result.block_pos.z + int64_t(result.normal.z),
-                                                 BlockState(Engine::get().registry().to_block(stack.item()).get()));
-                        stack.set_count(stack.count() - 1);
+                        Ref<Item> item = Engine::get().registry().get_item(stack.item());
+                        item->interact(*m_world, m_dimension, stack, result.block_pos, result.normal);
                         m_inventory_container->set_stack(1, m_slot, stack);
                     }
                 }

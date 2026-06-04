@@ -42,12 +42,6 @@ MAIN(int argc, char *argv[])
 
     engine = EXPECT(newref<Engine>(args));
 
-    if (args.has("disable-save"))
-    {
-        // TODO
-        info("World won't be saved, `--disable-save` is present.");
-    }
-
     if (args.has("data-dir"))
     {
         String s(args.get_arg("data-dir").string);
