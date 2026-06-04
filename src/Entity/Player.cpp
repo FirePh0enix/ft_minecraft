@@ -38,8 +38,9 @@ void Player::on_ready()
     EXPECT(m_inventory_container->add_layer(9));  // toolbar
 
     m_inventory_container->set_stack(1, 0, ItemStack(Items::crafting_table_block, 16));
-    m_inventory_container->set_stack(1, 1, ItemStack(Items::stone_block, 16));
-    m_inventory_container->set_stack(1, 2, ItemStack(Items::dirt_block, 16));
+    m_inventory_container->set_stack(1, 1, ItemStack(Items::water_bucket, 1));
+    m_inventory_container->set_stack(1, 2, ItemStack(Items::stone_block, 16));
+    m_inventory_container->set_stack(1, 3, ItemStack(Items::dirt_block, 16));
 
     m_inventory = EXPECT(newref<PlayerInventory>(m_inventory_container));
 
@@ -351,19 +352,28 @@ void Player::draw(const RenderPassNode& node)
 
     if (m_local_player && m_inventory_container->get_stack(1, m_inventory->selected_slot()).item().valid())
     {
-        Ref<Block> block = Engine::get().registry().block_from_item(m_inventory_container->get_stack(1, m_inventory->selected_slot()).item());
+        Id<Item> id = m_inventory_container->get_stack(1, m_inventory->selected_slot()).item();
+        Ref<Item> item = Engine::get().registry().get_item(id);
+        if (Ref<ItemBlock> ib = item.cast_to<ItemBlock>())
+        {
+            Ref<Block> block = Engine::get().registry().block_from_item(m_inventory_container->get_stack(1, m_inventory->selected_slot()).item());
 
-        Transform3D transform = m_camera->get_global_transform();
-        transform.scale() = glm::vec3(0.2);
-        transform.position() += m_camera->get_global_transform().forward() * 0.5f + m_camera->get_global_transform().right() * 0.35f + m_camera->get_global_transform().up() * -0.3f;
-        transform.set_euler_angles(glm::vec3(0, -m_transform.get_euler_angles().y, 0));
+            Transform3D transform = m_camera->get_global_transform();
+            transform.scale() = glm::vec3(0.2);
+            transform.position() += m_camera->get_global_transform().forward() * 0.5f + m_camera->get_global_transform().right() * 0.35f + m_camera->get_global_transform().up() * -0.3f;
+            transform.set_euler_angles(glm::vec3(0, -m_transform.get_euler_angles().y, 0));
 
-        ItemBlockModel matrix(
-            transform.to_matrix(),
-            glm::uvec3(block->get_texture_ids()[0] | (block->get_texture_ids()[1] << 16), block->get_texture_ids()[2] | (block->get_texture_ids()[3] << 16), block->get_texture_ids()[4] | (block->get_texture_ids()[5] << 16)));
+            ItemBlockModel matrix(
+                transform.to_matrix(),
+                glm::uvec3(block->get_texture_ids()[0] | (block->get_texture_ids()[1] << 16), block->get_texture_ids()[2] | (block->get_texture_ids()[3] << 16), block->get_texture_ids()[4] | (block->get_texture_ids()[5] << 16)));
 
-        m_model_buffer->update(View(matrix).as_bytes());
-        Renderer::get().record_simple_shape(node, m_material);
+            m_model_buffer->update(View(matrix).as_bytes());
+            Renderer::get().record_simple_shape(node, m_material);
+        }
+        else
+        {
+            // TODO: 3d model for other sprites.
+        }
     }
 }
 
@@ -389,10 +399,6 @@ void Player::process_event(Event& event)
 
 void Player::save(EntitySerializer& ser) const
 {
-    (void)ser;
-    // Variant array = m_inventory->data();
-    // EXPECT(ser.set("inventory_data", array));
-
     LocalVector<ItemStack> stacks;
     EXPECT(stacks.resize(27 + 9));
 
@@ -410,7 +416,6 @@ void Player::save(EntitySerializer& ser) const
 
 void Player::load(const EntitySerializer& deser)
 {
-    (void)deser;
     Vector<ItemStack> stacks = deser.get_array<ItemStack>("inventory_data").get();
 
     InventoryContainer::Layer& layer = m_inventory_container->get_layer(0);

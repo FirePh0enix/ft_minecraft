@@ -1,5 +1,6 @@
 #include "Render/Renderer.hpp"
 
+#include "Core/Assert.hpp"
 #include "Core/Error.hpp"
 #include "Core/Filesystem.hpp"
 #include "Core/Format.hpp"
@@ -309,8 +310,8 @@ Result<Ref<Material>> Material::create(const Ref<Shader>& shader, MaterialFlags 
 void Material::set_param(const StringView& name, const Ref<Texture>& texture)
 {
     Option<Binding> binding_result = m_shader->get_binding(name);
-    ERR_COND_VR(texture.is_null(), "Texture specified for {} is null", name);
-    ERR_COND_VR(!binding_result.has_value(), "Invalid parameter name `{}`", name.data());
+    ASSERT_V(binding_result.has_value(), "Invalid parameter name `{}`", name.data());
+    ASSERT_V(!texture.is_null(), "Texture specified for {} is null", name);
 
     // TODO: Check dimensions.
 
@@ -981,14 +982,25 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_item_block_shader->set_sampler("images", {.min_filter = WGPUFilterMode_Nearest, .mag_filter = WGPUFilterMode_Nearest});
     m_item_block_shader->create_bind_group_layout();
 
-    EXPECT(Engine::get().registry().post_register());
+    EXPECT(Engine::get().registry().register_all());  // TODO: I dont really like having this here but it needs to be before calling `get_texture_array` and after initializing WebGPU.
+    EXPECT(Engine::get().registry().post_register()); //       Maybe split this function in two (initializing/creating resources).
 
     Vector<InstanceAttribute> attributes;
     TRY(attributes.append(InstanceAttribute{.offset = 0, .format = WGPUVertexFormat_Float32x3}));
 
-    m_chunk_material = TRY(Material::create(m_voxel_shader, MaterialFlagBits::Transparency, WGPUCullMode_Back, UVType::UVT, Instance(attributes, sizeof(glm::vec3))));
+    m_chunk_material = TRY(Material::create(m_voxel_shader, MaterialFlagBits::None, WGPUCullMode_Back, UVType::UVT, Instance(attributes, sizeof(glm::vec3))));
     m_chunk_material->set_param("images", Engine::get().registry().get_texture_array());
     m_chunk_material->set_param("env", Renderer::get().get_world_environment());
+
+    m_water_shader = TRY(Shader::load("assets/shaders/water.wgsl"));
+    m_water_shader->set_binding("image", Binding(BindingKind::Texture, WGPUShaderStage_Fragment, 0, 0, BindingAccess::Read, TextureDimension::D2D)); // binding = 1 is the sampler
+    m_water_shader->set_binding("env", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 2, BindingAccess::Read));
+    m_water_shader->set_sampler("image", {.min_filter = WGPUFilterMode_Nearest, .mag_filter = WGPUFilterMode_Nearest});
+    m_water_shader->create_bind_group_layout();
+
+    m_water_material = TRY(Material::create(m_water_shader, MaterialFlagBits::Transparency, WGPUCullMode_Back, UVType::UV, Instance(attributes, sizeof(glm::vec3))));
+    m_water_material->set_param("image", EXPECT(Engine::get().registry().create_texture("assets/textures/water.png")));
+    m_water_material->set_param("env", Renderer::get().get_world_environment());
 
     m_simple_shader = TRY(Shader::load("assets/shaders/simple_shape.wgsl"));
     m_simple_shader->set_binding("env", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
@@ -1178,11 +1190,44 @@ void Renderer::record_world(Renderer& renderer, Ref<World> world, const RenderPa
         {
             const Chunk::Slice& slice = slices[i];
 
-            // Skip draw calls if the chunk is not visible.
-            if (!slice.is_visible())
+            if (slice.mesh.is_null())
                 continue;
 
             const Ref<Mesh>& mesh = slice.mesh;
+            wgpuRenderPassEncoderSetIndexBuffer(encoder, mesh->get_buffer(Mesh::BufferKind::Index)->handle(), mesh->index_type(), 0, mesh->get_buffer(Mesh::BufferKind::Index)->size());
+            wgpuRenderPassEncoderSetVertexBuffer(encoder, 0, mesh->get_buffer(Mesh::BufferKind::Position)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Position)->size());
+            wgpuRenderPassEncoderSetVertexBuffer(encoder, 1, mesh->get_buffer(Mesh::BufferKind::Normal)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Normal)->size());
+            wgpuRenderPassEncoderSetVertexBuffer(encoder, 2, mesh->get_buffer(Mesh::BufferKind::UV)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::UV)->size());
+            wgpuRenderPassEncoderSetVertexBuffer(encoder, 3, chunk->get_chunk_buffer()->handle(), sizeof(glm::vec3) * i, sizeof(glm::vec3));
+
+            wgpuRenderPassEncoderDrawIndexed(encoder, mesh->vertex_count(), 1, 0, 0, 0);
+        }
+    }
+
+    pipeline = renderer.get_pipeline(renderer.m_water_material, node);
+    wgpuRenderPassEncoderSetPipeline(encoder, pipeline);
+    wgpuRenderPassEncoderSetBindGroup(encoder, 0, renderer.m_water_material->get_bind_group(), 0, nullptr);
+
+    for (const auto& [key, chunk] : dim.get_chunks())
+    {
+        ChunkPos pos = chunk->pos();
+        AABB aabb = AABB(-glm::vec3(Chunk::width / 2.0, Chunk::height, Chunk::width / 2), glm::vec3(Chunk::width / 2.0, Chunk::height, Chunk::width / 2))
+                        .translate(glm::vec3((float)pos.x * Chunk::width + Chunk::width / 2.0, float(Chunk::height) / 2.0, (float)pos.z * Chunk::width + Chunk::width / 2.0));
+
+        if (!camera->frustum().contains(aabb))
+            continue;
+
+        const Chunk::Slice *slices = chunk->get_slices();
+
+        // TODO: do the frustum check per slice.
+        for (size_t i = 0; i < Chunk::slice_count; i++)
+        {
+            const Chunk::Slice& slice = slices[i];
+
+            if (slice.water_mesh.is_null())
+                continue;
+
+            const Ref<Mesh>& mesh = slice.water_mesh;
             wgpuRenderPassEncoderSetIndexBuffer(encoder, mesh->get_buffer(Mesh::BufferKind::Index)->handle(), mesh->index_type(), 0, mesh->get_buffer(Mesh::BufferKind::Index)->size());
             wgpuRenderPassEncoderSetVertexBuffer(encoder, 0, mesh->get_buffer(Mesh::BufferKind::Position)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Position)->size());
             wgpuRenderPassEncoderSetVertexBuffer(encoder, 1, mesh->get_buffer(Mesh::BufferKind::Normal)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Normal)->size());

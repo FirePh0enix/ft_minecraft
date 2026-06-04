@@ -26,8 +26,6 @@ void ItemBlock::interact(World& world, size_t dimension, ItemStack& stack, glm::
         return;
     }
 
-    println("[ {} {} {} ]", normal.x, normal.y, normal.z);
-
     BlockState state = world.get_block_state(pos.x + int64_t(normal.x), pos.y + int64_t(normal.y), pos.z + int64_t(normal.z));
     if (!state.is_air())
     {

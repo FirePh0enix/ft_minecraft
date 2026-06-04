@@ -2,6 +2,9 @@
 
 #include "Block/Block.hpp"
 #include "Core/Class.hpp"
+#include "Core/Ref.hpp"
+
+class Chunk;
 
 class GenerationPass : public Object
 {
@@ -17,7 +20,7 @@ public:
      */
     // virtual void generate(int64_t x, int64_t y, int64_t z, size_t block_index, Ref<Chunk>& chunk) = 0;
 
-    virtual BlockState generate_block(int64_t x, int64_t y, int64_t z) = 0;
+    virtual BlockState generate_block(int64_t x, int64_t y, int64_t z, Ref<Chunk>& chunk) = 0;
 
     /**
      * Optional callback to initialize things which need a seed.

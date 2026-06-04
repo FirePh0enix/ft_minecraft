@@ -1,9 +1,13 @@
 #pragma once
 
 #include "Block/Block.hpp"
+#include "Core/Containers/HashMap.hpp"
+#include "Core/Containers/Map.hpp"
 #include "Core/Containers/Vector.hpp"
 #include "Core/Definitions.hpp"
+#include "Core/String.hpp"
 #include "Render/Renderer.hpp"
+#include "Variant.hpp"
 #include "World/Biome.hpp"
 
 #include <cstdint>
@@ -79,6 +83,11 @@ public:
     Vector<ChunkBiomeNode> compressed_biome_nodes;
 };
 
+struct BlockTags
+{
+    HashMap<String, Variant> tags;
+};
+
 class Chunk : public Object
 {
     CLASS(Chunk, Object);
@@ -86,15 +95,9 @@ class Chunk : public Object
 public:
     struct Slice
     {
-        Ref<Mesh> mesh = nullptr;
         bool empty = true;
-
-        bool is_visible() const
-        {
-            // `empty` means the slice is only air blocks.
-            // `mesh.is_null()` means the mesh was not created because no faces were visible.
-            return !empty && !mesh.is_null();
-        }
+        Ref<Mesh> mesh = nullptr;
+        Ref<Mesh> water_mesh = nullptr;
     };
 
     static constexpr int64_t width = 16;
@@ -125,6 +128,7 @@ public:
     Ref<Buffer> get_chunk_buffer() const { return m_chunk_buffer; }
 
     Result<void> build_simple_mesh(size_t slice);
+    Result<void> build_water_mesh(size_t slice);
 
     Result<CompressedChunk> compress() const;
     Result<void> uncompress(View<BlockState> compressed_blocks, View<ChunkNode> compressed_nodes, uint16_t compressed_slice_mask, View<Biome> compressed_biomes, View<ChunkBiomeNode> compressed_biome_nodes);
@@ -132,12 +136,19 @@ public:
     bool is_modified() const { return m_modified; }
     void clear_modified() { m_modified = false; }
 
+    void set_tag(glm::i64vec3 pos, const StringView& name, Variant v, bool rebuild = true);
+    void remove_tag(glm::i64vec3 pos, const StringView& name, bool rebuild = true);
+    Option<Variant> get_tag(glm::i64vec3 pos, const StringView& name) const;
+    Option<Variant> get_tag(uint16_t index, const StringView& name) const;
+
     static ALWAYS_INLINE size_t linearize(int64_t x, int64_t y, int64_t z) { return z * width * height + y * width + x; }
 
 private:
     BlockState *m_blocks;
     Biome *m_biomes;
     Slice *m_slices;
+
+    Map<uint16_t, BlockTags> m_tags;
 
     Ref<Buffer> m_chunk_buffer;
 

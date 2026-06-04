@@ -347,11 +347,13 @@ private:
     Ref<Shader> m_item_block_shader;
     Ref<Shader> m_color_rect_shader;
     Ref<Shader> m_texture_rect_shader;
+    Ref<Shader> m_water_shader;
 
     Ref<Mesh> m_cube_mesh;
     Ref<Mesh> m_square_mesh;
 
     Ref<Material> m_chunk_material;
+    Ref<Material> m_water_material;
     Ref<Buffer> m_env_buffer;
     Ref<Buffer> m_env_2d_buffer;
 

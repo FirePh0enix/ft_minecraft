@@ -47,8 +47,7 @@ namespace Blocks
 {
 constexpr Id<Block> stone(1);
 constexpr Id<Block> dirt(2);
-constexpr Id<Block> water(3);
-constexpr Id<Block> crafting_table(4);
+constexpr Id<Block> crafting_table(3);
 } // namespace Blocks
 
 namespace Items
@@ -56,6 +55,7 @@ namespace Items
 constexpr Id<Item> stone_block(1);
 constexpr Id<Item> dirt_block(2);
 constexpr Id<Item> crafting_table_block(3);
+constexpr Id<Item> water_bucket(4);
 }; // namespace Items
 
 namespace Entities
@@ -83,9 +83,7 @@ public:
     {
         Ref<Item> item = m_items.get(key).value_or(nullptr);
         if (Ref<ItemBlock> ib = item.cast_to<ItemBlock>())
-        {
             return m_blocks.get(ib->block()).value_or(nullptr);
-        }
         return nullptr;
     }
 
@@ -95,6 +93,7 @@ public:
 
     Result<size_t> load_texture(const StringView& path);
 
+    Result<Ref<Texture>> create_texture(const StringView& path);
     Result<Ref<Texture>> create_preview_texture(Ref<Block> block);
 
 private:

@@ -18,7 +18,7 @@ class OverworldSurfacePass : public SurfaceGenerationPass
 public:
     OverworldSurfacePass();
 
-    virtual BlockState generate_block(int64_t x, int64_t y, int64_t z) override;
+    virtual BlockState generate_block(int64_t x, int64_t y, int64_t z, Ref<Chunk>& chunk) override;
 
     virtual void update_seed(uint64_t seed) override
     {

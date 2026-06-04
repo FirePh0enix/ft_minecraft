@@ -42,10 +42,13 @@ public:
     BlockState get_block(int64_t x, int64_t y, int64_t z) const;
     void set_block(int64_t x, int64_t y, int64_t z, BlockState state);
 
+    void set_tag(glm::i64vec3 pos, const StringView& name, Variant v);
+    void remove_tag(glm::i64vec3 pos, const StringView& name);
+
     bool has_solid_block(int64_t x, int64_t y, int64_t z) const;
 
     Result<Ref<Chunk>> generate_chunk(int64_t cx, int64_t cz);
-    BlockState generate_block(int64_t x, int64_t y, int64_t z);
+    BlockState generate_block(int64_t x, int64_t y, int64_t z, Ref<Chunk>& chunk);
 
 private:
     std::mutex m_chunk_mutex;

@@ -31,7 +31,7 @@ private:
 
 class ItemBlock : public Item
 {
-    CLASS(Item, Object);
+    CLASS(ItemBlock, Item);
 
 public:
     ItemBlock(Id<Block> block)

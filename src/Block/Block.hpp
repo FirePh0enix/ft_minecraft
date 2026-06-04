@@ -12,10 +12,6 @@ enum class GradientType : uint8_t
     Water,
 };
 
-struct GenericData
-{
-};
-
 class Block;
 
 struct BlockState
@@ -25,7 +21,6 @@ struct BlockState
     union
     {
         uint16_t raw;
-        GenericData generic;
     };
 
     constexpr BlockState()
@@ -35,11 +30,6 @@ struct BlockState
 
     explicit BlockState(Id<Block> id)
         : id(id), raw(0)
-    {
-    }
-
-    BlockState(Id<Block> id, GenericData generic)
-        : id(id), generic(generic)
     {
     }
 

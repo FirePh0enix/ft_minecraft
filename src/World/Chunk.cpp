@@ -178,6 +178,8 @@ Result<void> Chunk::build_simple_mesh(size_t slice_index)
                     TRY(faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Z, false, block->get_texture_index(Axis::Z, false))));
                 if (z == Chunk::width - 1 || FACE_NEEDS_RENDER(m_blocks[linearize(x, y, z + 1)], block))
                     TRY(faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Z, true, block->get_texture_index(Axis::Z, true))));
+
+#undef FACE_NEEDS_RENDER
             }
         }
     }
@@ -229,6 +231,100 @@ Result<void> Chunk::build_simple_mesh(size_t slice_index)
     }
 
     slice.mesh = EXPECT(Mesh::create_from_data(View(indices).as_bytes(), vertices, normals, View(uvs).as_bytes(), WGPUIndexFormat_Uint16, UVType::UVT));
+
+    return Result<void>();
+}
+
+Result<void> Chunk::build_water_mesh(size_t slice_index)
+{
+    Slice& slice = m_slices[slice_index];
+    int64_t slice_y_offset = int64_t(slice_index) * width;
+
+    // Chunk is empty, nothing to generate.
+    if (slice.empty)
+    {
+        return Result<void>();
+    }
+
+    // Let's detect which faces are not hidden.
+    Vector<ChunkBlockFace> faces;
+
+    for (int64_t x = 0; x < Chunk::width; x++)
+    {
+        for (int64_t y = slice_y_offset; y < slice_y_offset + Chunk::width; y++)
+        {
+            for (int64_t z = 0; z < Chunk::width; z++)
+            {
+                const uint32_t index = linearize(x, y, z);
+
+                if (!get_tag(index, "water").has_value())
+                    continue;
+
+                if (x == 0 || (get_block(x - 1, y, z).is_air() && !get_tag(glm::i64vec3(x - 1, y, z), "water").has_value()))
+                    TRY(faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::X, false, 0)));
+                if (x == Chunk::width - 1 || (get_block(x + 1, y, z).is_air() && !get_tag(glm::i64vec3(x + 1, y, z), "water").has_value()))
+                    TRY(faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::X, true, 0)));
+
+                if (y == 0 || (get_block(x, y - 1, z).is_air() && !get_tag(glm::i64vec3(x, y - 1, z), "water").has_value()))
+                    TRY(faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Y, false, 0)));
+                if (y == height - 1 || (get_block(x, y + 1, z).is_air() && !get_tag(glm::i64vec3(x, y + 1, z), "water").has_value()))
+                    TRY(faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Y, true, 0)));
+
+                if (z == 0 || (get_block(x, y, z - 1).is_air() && !get_tag(glm::i64vec3(x, y, z - 1), "water").has_value()))
+                    TRY(faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Z, false, 0)));
+                if (z == Chunk::width - 1 || (get_block(x, y, z + 1).is_air() && !get_tag(glm::i64vec3(x, y, z + 1), "water").has_value()))
+                    TRY(faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Z, true, 0)));
+            }
+        }
+    }
+
+    // No faces are visible, let's skip mesh generation.
+    if (faces.empty())
+    {
+        slice.water_mesh = nullptr;
+        return Result<void>();
+    }
+
+    // Now we build a mesh from the faces.
+    Vector<uint16_t> indices;
+    Vector<glm::vec3> vertices;
+    Vector<glm::vec2> uvs;
+    Vector<glm::vec3> normals;
+
+    for (const ChunkBlockFace& face : faces)
+    {
+        uint16_t i0 = vertices.size() + 0;
+        uint16_t i1 = vertices.size() + 1;
+        uint16_t i2 = vertices.size() + 2;
+        uint16_t i3 = vertices.size() + 3;
+
+        TRY(indices.append(i0));
+        TRY(indices.append(i1));
+        TRY(indices.append(i2));
+
+        TRY(indices.append(i2));
+        TRY(indices.append(i3));
+        TRY(indices.append(i0));
+
+        const Array<glm::vec3, 4> new_vertices = vertex_from_axis(face.axis, face.positive, glm::vec3(face.x, face.y, face.z));
+        TRY(vertices.append(new_vertices[0]));
+        TRY(vertices.append(new_vertices[1]));
+        TRY(vertices.append(new_vertices[2]));
+        TRY(vertices.append(new_vertices[3]));
+
+        TRY(uvs.append(glm::vec2(0.0, 0.0)));
+        TRY(uvs.append(glm::vec2(1.0, 0.0)));
+        TRY(uvs.append(glm::vec2(1.0, 1.0)));
+        TRY(uvs.append(glm::vec2(0.0, 1.0)));
+
+        const glm::vec3 normal = normal_from_axis(face.axis, face.positive);
+        TRY(normals.append(normal));
+        TRY(normals.append(normal));
+        TRY(normals.append(normal));
+        TRY(normals.append(normal));
+    }
+
+    slice.water_mesh = EXPECT(Mesh::create_from_data(View(indices).as_bytes(), vertices, normals, View(uvs).as_bytes(), WGPUIndexFormat_Uint16, UVType::UV));
 
     return Result<void>();
 }
@@ -490,4 +586,40 @@ Result<void> Chunk::uncompress(View<BlockState> compressed_blocks, View<ChunkNod
     }
 
     return Result<void>();
+}
+
+void Chunk::set_tag(glm::i64vec3 pos, const StringView& name, Variant v, bool rebuild)
+{
+    uint16_t key = linearize(pos.x, pos.y, pos.z);
+    BlockTags *tags = EXPECT(m_tags.get_or_put(key, BlockTags()));
+    EXPECT(tags->tags.put(name, v));
+    if (rebuild)
+        EXPECT(build_water_mesh(pos.y / Chunk::width));
+}
+
+void Chunk::remove_tag(glm::i64vec3 pos, const StringView& name, bool rebuild)
+{
+    uint16_t key = linearize(pos.x, pos.y, pos.z);
+    BlockTags *tags = EXPECT(m_tags.get_or_put(key, BlockTags()));
+    tags->tags.erase(name);
+
+    if (tags->tags.size() == 0)
+    {
+        m_tags.erase(key);
+        if (rebuild)
+            EXPECT(build_water_mesh(pos.y / Chunk::width));
+    }
+}
+
+Option<Variant> Chunk::get_tag(uint16_t index, const StringView& name) const
+{
+    Option<const BlockTags *> tags = m_tags.get_ptr(index);
+    if (tags.has_value())
+        return tags.get()->tags.get(name);
+    return None;
+}
+
+Option<Variant> Chunk::get_tag(glm::i64vec3 pos, const StringView& name) const
+{
+    return get_tag(linearize(pos.x, pos.y, pos.z), name);
 }

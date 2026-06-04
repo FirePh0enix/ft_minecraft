@@ -99,24 +99,24 @@ void World::find_safe_spawn()
 
         for (int64_t y = Chunk::height - 1; y > 3; y -= 4)
         {
-            BlockState state = m_dims[overworld].generate_block(x, y, z);
-            BlockState state1 = m_dims[overworld].generate_block(x, y - 1, z);
-            BlockState state2 = m_dims[overworld].generate_block(x, y - 2, z);
-            BlockState state3 = m_dims[overworld].generate_block(x, y - 3, z);
+            // BlockState state = m_dims[overworld].generate_block(x, y, z);
+            // BlockState state1 = m_dims[overworld].generate_block(x, y - 1, z);
+            // BlockState state2 = m_dims[overworld].generate_block(x, y - 2, z);
+            // BlockState state3 = m_dims[overworld].generate_block(x, y - 3, z);
 
-            if (state.is_air() && state1.is_air() && state2.is_air() && !state3.is_air())
-            {
-                if (state3.id != Blocks::water)
-                {
-                    m_spawn_position = glm::vec3(x, y - 3, z) + glm::vec3(0, 6.6, 0);
-                    found = true;
-                    break;
-                }
-                else
-                {
-                    water_spawn_position = glm::vec3(x, y - 3, z) + glm::vec3(0, 6.6, 0);
-                }
-            }
+            // if (state.is_air() && state1.is_air() && state2.is_air() && !state3.is_air())
+            // {
+            // if (state3.id != Blocks::water)
+            // {
+            m_spawn_position = glm::vec3(x, y - 3, z) + glm::vec3(0, 6.6, 0);
+            found = true;
+            break;
+            // }
+            // else
+            // {
+            //     water_spawn_position = glm::vec3(x, y - 3, z) + glm::vec3(0, 6.6, 0);
+            // }
+            // }
         }
     }
 

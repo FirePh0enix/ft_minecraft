@@ -21,6 +21,14 @@ inline int64_t chunk_index(int64_t global)
     return c;
 }
 
+inline int64_t local_coords(int64_t g)
+{
+    int64_t loc = g % 16;
+    if (loc < 0)
+        loc += 16;
+    return loc;
+}
+
 enum WorldPresetType : uint32_t
 {
     WorldPresetFlat,

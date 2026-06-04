@@ -89,14 +89,6 @@ Vector<Ref<Entity>> Dimension::cast_box(const AABB& box) const
     return entities;
 }
 
-static int64_t local_coords(int64_t g)
-{
-    int64_t loc = g % 16;
-    if (loc < 0)
-        loc += 16;
-    return loc;
-}
-
 BlockState Dimension::get_block(int64_t x, int64_t y, int64_t z) const
 {
     if (y < 0 || y >= Chunk::height)
@@ -163,6 +155,50 @@ void Dimension::set_block(int64_t x, int64_t y, int64_t z, BlockState state)
     }
 }
 
+void Dimension::set_tag(glm::i64vec3 pos, const StringView& name, Variant v)
+{
+    if (pos.y < 0 || pos.y >= Chunk::height)
+        return;
+
+    int64_t chunk_x = chunk_index(pos.x);
+    int64_t chunk_z = chunk_index(pos.z);
+
+    Option<Ref<Chunk>> chunk_value = get_chunk(chunk_x, chunk_z);
+
+    if (!chunk_value.has_value())
+    {
+        return;
+    }
+
+    Ref<Chunk> chunk = chunk_value.get();
+    int64_t local_x = local_coords(pos.x);
+    int64_t local_z = local_coords(pos.z);
+
+    chunk->set_tag({local_x, pos.y, local_z}, name, v);
+}
+
+void Dimension::remove_tag(glm::i64vec3 pos, const StringView& name)
+{
+    if (pos.y < 0 || pos.y >= Chunk::height)
+        return;
+
+    int64_t chunk_x = chunk_index(pos.x);
+    int64_t chunk_z = chunk_index(pos.z);
+
+    Option<Ref<Chunk>> chunk_value = get_chunk(chunk_x, chunk_z);
+
+    if (!chunk_value.has_value())
+    {
+        return;
+    }
+
+    Ref<Chunk> chunk = chunk_value.get();
+    int64_t local_x = local_coords(pos.x);
+    int64_t local_z = local_coords(pos.z);
+
+    chunk->remove_tag({local_x, pos.y, local_z}, name);
+}
+
 bool Dimension::has_solid_block(int64_t x, int64_t y, int64_t z) const
 {
     return !get_block(x, y, z).is_air();
@@ -184,7 +220,7 @@ Result<Ref<Chunk>> Dimension::generate_chunk(int64_t cx, int64_t cz)
                 int64_t gx = cx * 16 + x;
                 int64_t gz = cz * 16 + z;
 
-                BlockState state = generate_block(gx, y, gz);
+                BlockState state = generate_block(gx, y, gz, chunk);
                 chunk->get_blocks()[Chunk::linearize(x, y, z)] = state;
 
                 // there is at least one non-empty block.
@@ -195,18 +231,21 @@ Result<Ref<Chunk>> Dimension::generate_chunk(int64_t cx, int64_t cz)
     }
 
     for (size_t i = 0; i < Chunk::slice_count; i++)
+    {
         TRY(chunk->build_simple_mesh(i));
+        TRY(chunk->build_water_mesh(i));
+    }
 
     return chunk;
 }
 
-BlockState Dimension::generate_block(int64_t x, int64_t y, int64_t z)
+BlockState Dimension::generate_block(int64_t x, int64_t y, int64_t z, Ref<Chunk>& chunk)
 {
     BlockState state;
     for (size_t index = 0; index < m_generation_passes.size(); index++)
     {
         Ref<GenerationPass>& pass = m_generation_passes.get_unchecked(index);
-        state = pass->generate_block(x, y, z);
+        state = pass->generate_block(x, y, z, chunk);
     }
     return state;
 }

@@ -1,5 +1,4 @@
 #include "World/Pass/Flat.hpp"
-#include "Engine.hpp"
 #include "World/Registry.hpp"
 
 // Biome FlatBiomePass::generate_biome(int64_t x, int64_t y, int64_t z)
@@ -15,10 +14,11 @@ FlatSurfacePass::FlatSurfacePass()
     m_dirt_id = Blocks::dirt;
 }
 
-BlockState FlatSurfacePass::generate_block(int64_t x, int64_t y, int64_t z)
+BlockState FlatSurfacePass::generate_block(int64_t x, int64_t y, int64_t z, Ref<Chunk>& chunk)
 {
     (void)x;
     (void)z;
+    (void)chunk;
 
     if (y <= 10)
         return BlockState(m_dirt_id);

@@ -1,6 +1,8 @@
 #include "World/Pass/Overworld.hpp"
-#include "Engine.hpp"
+
+#include "World/Chunk.hpp"
 #include "World/Registry.hpp"
+#include "World/World.hpp"
 
 // Biome OverworldBiomePass::generate_biome(int64_t x, int64_t y, int64_t z)
 // {
@@ -14,7 +16,7 @@ OverworldSurfacePass::OverworldSurfacePass()
 {
 }
 
-BlockState OverworldSurfacePass::generate_block(int64_t x, int64_t y, int64_t z)
+BlockState OverworldSurfacePass::generate_block(int64_t x, int64_t y, int64_t z, Ref<Chunk>& chunk)
 {
     static constexpr int64_t ocean_floor = 50;
     static constexpr int64_t sea_level = 70;
@@ -50,7 +52,7 @@ BlockState OverworldSurfacePass::generate_block(int64_t x, int64_t y, int64_t z)
     // Fill the ocean.
     if (y >= ocean_floor && y <= sea_level)
     {
-        return BlockState(Blocks::water);
+        chunk->set_tag({local_coords(x), y, local_coords(z)}, "water", int64_t(0), false);
     }
 
     return BlockState();

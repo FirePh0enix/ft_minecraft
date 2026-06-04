@@ -33,14 +33,13 @@ Engine::Engine(const Args& args)
     Input::init(*m_window);
     Input::load_config();
 
-    EXPECT(m_registry.register_all());
-    register_entities();
-
     InitFlags flags;
     if (args.has("enable-gpu-validation"))
     {
         flags |= InitFlagBits::Validation;
     }
+
+    register_entities(); // TODO: put this in GameRegistry
 
     EXPECT(m_renderer.init(*m_window, flags));
 

@@ -6,10 +6,8 @@
 #include "Core/Format.hpp"
 #include "Core/Ref.hpp"
 #include "Engine.hpp"
+#include "Item/Bucket.hpp"
 #include "Render/Renderer.hpp"
-#include "glm/ext/matrix_clip_space.hpp"
-#include "glm/ext/matrix_transform.hpp"
-#include "glm/trigonometric.hpp"
 #include "webgpu/webgpu.h"
 
 Result<Ref<Entity>> EntityRegistry::create_entity(ClassHashCode class_hash)
@@ -23,12 +21,12 @@ Result<void> GameRegistry::register_all()
 {
     TRY(add_block(Blocks::stone, TRY(newref<Block>(TEX("stone")))));
     TRY(add_block(Blocks::dirt, TRY(newref<Block>(TEX("dirt")))));
-    TRY(add_block(Blocks::water, TRY(newref<Block>(TEX("water")))));
     TRY(add_block(Blocks::crafting_table, TRY(newref<CraftingTableBlock>())));
 
     TRY(add_item(Items::stone_block, TRY(newref<ItemBlock>(Blocks::stone))));
     TRY(add_item(Items::dirt_block, TRY(newref<ItemBlock>(Blocks::dirt))));
     TRY(add_item(Items::crafting_table_block, TRY(newref<ItemBlock>(Blocks::crafting_table))));
+    TRY(add_item(Items::water_bucket, TRY(newref<BucketItem>())));
     return Result<void>();
 }
 
@@ -124,16 +122,34 @@ Result<size_t> GameRegistry::load_texture(const StringView& path)
 
     File file = EXPECT(Filesystem::open_file(path));
     LocalVector<char> buffer;
-    EXPECT(file.reader().read_to_buffer(buffer));
+    TRY(file.reader().read_to_buffer(buffer));
+    file.close();
+
+    int w, h, channels;
+    stbi_uc *data = stbi_load_from_memory((const stbi_uc *)buffer.data(), (int)buffer.size(), &w, &h, &channels, 4);
+    ERR_COND_R(data == nullptr, format("Failed to parse image `{}`", path), 0);
+
+    const size_t id = m_images.size();
+    TRY(m_images.append(Image(data, w, h, channels, path)));
+    return id;
+}
+
+Result<Ref<Texture>> GameRegistry::create_texture(const StringView& path)
+{
+    File file = EXPECT(Filesystem::open_file(path));
+    LocalVector<char> buffer;
+    TRY(file.reader().read_to_buffer(buffer));
     file.close();
 
     int w, h, channels;
     stbi_uc *data = stbi_load_from_memory((const stbi_uc *)buffer.data(), (int)buffer.size(), &w, &h, &channels, 4);
     ERR_COND_V(data == nullptr, "Failed to parse image `{}`", path);
 
-    const size_t id = m_images.size();
-    TRY(m_images.append(Image(data, w, h, channels, path)));
-    return id;
+    Ref<Texture> texture = TRY(Texture::create(w, h, WGPUTextureFormat_RGBA8UnormSrgb, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding));
+    if (data)
+        texture->update(View(data, w * h * 4).as_bytes());
+
+    return texture;
 }
 
 struct GPU_ATTRIBUTE PreviewBlockModel
