@@ -20,3 +20,4 @@ config.ini
 *.spv
 /appdata
 /config
+*.log

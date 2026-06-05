@@ -78,12 +78,11 @@ struct __attribute__((aligned(16))) Variant
     Variant(const View<T>& values)
         : tag(VariantType::Array)
     {
-        new (data) Vector<Variant>();
-        Vector<Variant>& s = get_unchecked<Vector<Variant>>();
-        EXPECT(s.reserve(values.size()));
+        auto v = new (data) Vector<Variant>();
+        EXPECT(v->reserve(values.size()));
 
         for (const auto& value : values)
-            EXPECT(s.append(Variant(value)));
+            EXPECT(v->append(Variant(value)));
     }
 
     Variant(const Vector<Variant>& values)
@@ -135,11 +134,17 @@ struct __attribute__((aligned(16))) Variant
     ~Variant()
     {
         if (has(VariantType::String))
+        {
             ((String *)data)->~String();
+        }
         else if (has(VariantType::Array))
+        {
             ((Vector<Variant> *)data)->~Vector<Variant>();
+        }
         else if (has(VariantType::Map))
+        {
             ((Map<Variant, Variant> *)data)->~Map<Variant, Variant>();
+        }
     }
 
     Variant& operator=(const Variant& v)

@@ -212,7 +212,7 @@ protected:
     bool m_blocked_x = false;
     bool m_blocked_z = false;
 
-    static inline HashMap<ClassHashCode, HashMap<String, RpcTarget>> s_exposed_rpc;
+    static inline HashMap<ClassHashCode, HashMap<String, RpcTarget>> s_exposed_rpc; // FIXME: leaks: put this in registry
 
     template <typename T>
     static ALWAYS_INLINE void expose_rpc(String name, RpcTarget target = RpcTarget::Both)

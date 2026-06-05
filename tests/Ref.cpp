@@ -1,4 +1,5 @@
 #include "Core/Ref.hpp"
+#include "Core/Alloc.hpp"
 #include "Core/Class.hpp"
 
 #include <doctest/doctest.h>
@@ -117,4 +118,29 @@ TEST_CASE("Ref casting")
 
     Ref<Object> obj = make_and_cast();
     CHECK(obj.references() == 1);
+}
+
+class ComplexClass : public Object
+{
+    CLASS(ComplexClass, Object);
+
+public:
+    ComplexClass()
+        : m_ptr(alloc<int>(0))
+    {
+    }
+
+    ~ComplexClass()
+    {
+        destroy(m_ptr);
+    }
+
+private:
+    int *m_ptr;
+};
+
+TEST_CASE("Ref with complex class")
+{
+    Ref<ComplexClass> cc = EXPECT(newref<ComplexClass>());
+    Ref<ComplexClass> cc2 = cc;
 }

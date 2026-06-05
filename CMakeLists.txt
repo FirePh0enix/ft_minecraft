@@ -79,7 +79,7 @@ list(APPEND SOURCES_TEST
     tests/HashMap.cpp
     tests/main.cpp
     tests/Option.cpp
-    tests/ref.cpp
+    tests/Ref.cpp
     tests/Result.cpp
     tests/Variant.cpp
     tests/Vector.cpp

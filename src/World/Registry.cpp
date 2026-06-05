@@ -46,6 +46,8 @@ Result<void> GameRegistry::post_register()
         // TODO: create textureview instead of duplicating data in memory.
         EXPECT(m_texture_handles.append(texture));
         index++;
+
+        stbi_image_free((stbi_uc *)image.data);
     }
 
     // s_texture_array->generate_mips();
@@ -55,8 +57,7 @@ Result<void> GameRegistry::post_register()
         if (Ref<ItemBlock> ib = item.cast_to<ItemBlock>())
         {
             Ref<Block> block = get_block(ib->block());
-            Ref<Texture> texture = TRY(create_preview_texture(block));
-            ib->set_texture(texture);
+            ib->set_texture(TRY(create_preview_texture(block)));
         }
     }
 
@@ -149,6 +150,7 @@ Result<Ref<Texture>> GameRegistry::create_texture(const StringView& path)
     if (data)
         texture->update(View(data, w * h * 4).as_bytes());
 
+    stbi_image_free(data);
     return texture;
 }
 

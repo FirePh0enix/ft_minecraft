@@ -1,4 +1,5 @@
 #include "Core/Containers/HashMap.hpp"
+#include "Core/Alloc.hpp"
 #include "Core/Containers/Map.hpp"
 #include "Core/Result.hpp"
 #include "Core/String.hpp"
@@ -81,6 +82,27 @@ TEST_CASE("HashMap big insertion")
     CHECK(map.put("7", Vector<Foo>()));
     CHECK(map.put("8", Vector<Foo>()));
     CHECK(map.put("9", Vector<Foo>()));
+}
+
+struct Bar
+{
+    int *ptr;
+
+    Bar()
+        : ptr(alloc<int>(0))
+    {
+    }
+
+    ~Bar()
+    {
+        destroy(ptr);
+    }
+};
+
+TEST_CASE("HashMap with allocating values")
+{
+    HashMap<int, Bar> bars;
+    CHECK(bars.put(33, Bar()));
 }
 
 TEST_CASE("Map erase")

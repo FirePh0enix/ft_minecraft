@@ -370,6 +370,9 @@ private:
         m_data = new_data;
         m_capacity = new_capacity;
 
+        if (!m_references)
+            m_references = alloc<uint32_t>(1);
+
         return Result<void>();
     }
 

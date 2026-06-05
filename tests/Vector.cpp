@@ -19,3 +19,10 @@ TEST_CASE("Vector strings")
     CHECK(strings.append("hello world everyone, this is long string"));
     CHECK(strings.append("hello world everyone, this is long string"));
 }
+
+TEST_CASE("Vector reserve()")
+{
+    Vector<String> strings;
+    EXPECT(strings.reserve(1));
+    CHECK_EQ(strings.references(), 1);
+}
