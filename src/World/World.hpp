@@ -181,7 +181,7 @@ public:
      * @param range Size of the ray
      * @return true if the ray hit something
      */
-    bool raycast(const Ray& ray, float range, RaycastResult& result);
+    bool raycast(const Ray& ray, float range, RaycastResult& result, const Entity *ignore = nullptr);
 
     /**
      * Break the block and drop an item corresponding to it.
@@ -215,7 +215,7 @@ private:
 
     // Thread pool used for chunk loading/unloading.
     ThreadPool m_generation_thread_pool;
-    int32_t m_load_distance = 4;
+    int32_t m_load_distance = 8;
 
     Ref<Camera> m_camera;
     bool m_proxy = false;

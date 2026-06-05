@@ -180,7 +180,7 @@ void Player::tick(float delta)
     if (m_local_player && are_input_available())
     {
         RaycastResult result;
-        if (m_world->raycast(Ray(m_camera->get_global_transform().position(), m_camera->get_global_transform().forward()), 4.0f, result))
+        if (m_world->raycast(Ray(m_camera->get_global_transform().position(), m_camera->get_global_transform().forward()), 4.0f, result, this))
         {
             if (!result.hit_entity)
                 m_aimed_block = glm::vec3(result.block_pos);
@@ -197,11 +197,11 @@ void Player::tick(float delta)
                 }
             }
 
-            if (m_gamemode == GameMode::Creative && !result.entity && Input::is_action_just_pressed("attack"))
+            if (m_gamemode == GameMode::Creative && !result.hit_entity && Input::is_action_just_pressed("attack"))
             {
                 m_world->set_block_state(result.block_pos.x, result.block_pos.y, result.block_pos.z, BlockState());
             }
-            else if (m_gamemode == GameMode::Survival && !result.entity)
+            else if (m_gamemode == GameMode::Survival && !result.hit_entity)
             {
                 if (Input::is_action_pressed("attack"))
                 {

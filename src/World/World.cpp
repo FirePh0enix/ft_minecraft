@@ -342,7 +342,7 @@ inline void adjust_on_boundary(double rcomp, int64_t& vcomp, double dcomp, doubl
     }
 }
 
-bool World::raycast(const Ray& ray, float range, RaycastResult& result)
+bool World::raycast(const Ray& ray, float range, RaycastResult& result, const Entity *ignore)
 {
     bool hit = false;
     bool is_entiy = false;
@@ -353,6 +353,9 @@ bool World::raycast(const Ray& ray, float range, RaycastResult& result)
 
     for (const Ref<Entity>& e : m_dims[overworld].get_entities())
     {
+        if (e.ptr() == ignore)
+            continue;
+
         AABB world_aabb = e->get_aabb().translate(e->get_global_transform().position());
         float t = 0.0f;
         glm::vec3 normal;

@@ -18,18 +18,13 @@ struct BlockState
 {
     Id<Block> id;
 
-    union
-    {
-        uint16_t raw;
-    };
-
     constexpr BlockState()
-        : id(0), raw(0)
+        : id(0)
     {
     }
 
     explicit BlockState(Id<Block> id)
-        : id(id), raw(0)
+        : id(id)
     {
     }
 
@@ -44,7 +39,7 @@ struct BlockState
     }
 };
 
-static_assert(sizeof(BlockState) == sizeof(uint32_t));
+static_assert(sizeof(BlockState) == sizeof(uint16_t));
 
 enum class Axis : uint8_t
 {

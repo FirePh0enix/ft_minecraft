@@ -15,7 +15,6 @@ void Zombie::start() {};
 
 void Zombie::tick(float delta)
 {
-
     m_attack_timer -= delta;
     m_path_update_timer -= delta;
 
@@ -113,7 +112,6 @@ void Zombie::draw(const RenderPassNode& node)
 
 void Zombie::on_ready()
 {
-
     m_model = EXPECT(Model::load("assets/models/player.json"));
     m_id = World::next_id();
     m_pathfinding = std::make_unique<Pathfinding>(m_world);
@@ -122,7 +120,7 @@ void Zombie::on_ready()
 void Zombie::die()
 {
     m_active = false;
-    println("Zombie died !");
+    // println("Zombie died !");
 }
 
 void Zombie::on_hit_by(Entity& entity)
@@ -149,6 +147,4 @@ void Zombie::attack()
 
     mob->on_hit_by(*this);
     m_attack_timer = m_attack_cooldown;
-
-    println("zombie attacked !");
 }

@@ -1,8 +1,8 @@
 #pragma once
 
-#include "Core/Ref.hpp"
+#include <cstdint>
 
-enum class Biome
+enum class Biome : uint16_t
 {
     Plain,
 };

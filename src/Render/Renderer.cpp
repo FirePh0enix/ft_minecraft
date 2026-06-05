@@ -664,7 +664,7 @@ static WGPUSurface create_surface(WGPUInstance instance, SDL_Window *window)
     WGPUSurface surface = {};
 #if defined(__platform_macos)
     {
-       auto m_metal_view = SDL_Metal_CreateView(window);
+        auto m_metal_view = SDL_Metal_CreateView(window);
 
         WGPUSurfaceSourceMetalLayer surface_src_metal = {};
         surface_src_metal.chain.sType = WGPUSType_SurfaceSourceMetalLayer;
@@ -1207,6 +1207,8 @@ void Renderer::record_world(Renderer& renderer, Ref<World> world, const RenderPa
     pipeline = renderer.get_pipeline(renderer.m_water_material, node);
     wgpuRenderPassEncoderSetPipeline(encoder, pipeline);
     wgpuRenderPassEncoderSetBindGroup(encoder, 0, renderer.m_water_material->get_bind_group(), 0, nullptr);
+
+    // TODO: sort back to front.
 
     for (const auto& [key, chunk] : dim.get_chunks())
     {

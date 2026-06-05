@@ -62,8 +62,7 @@ Vector<AABB> Dimension::get_boxes_that_may_collide(const AABB& box) const
 
     for (int64_t x = min_x; x <= max_x; x++)
     {
-        // ! On mac we need to use 0ll and not 0l.
-        for (int64_t y = std::max(min_y, 0ll); y <= std::min(max_y, Chunk::height - 1); y++)
+        for (int64_t y = std::max(min_y, int64_t(0)); y <= std::min(max_y, Chunk::height - 1); y++)
         {
             for (int64_t z = min_z; z <= max_z; z++)
             {
