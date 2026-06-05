@@ -42,9 +42,16 @@ public:
     Map(const Map& o)
         : m_size(o.m_size), m_capacity(o.m_size)
     {
-        m_pairs = alloc_array_uninitialized<PairType>(o.m_size);
-        for (size_t i = 0; i < m_size; i++)
-            new (&m_pairs[i]) PairType(o.m_pairs[i]);
+        if (o.m_size > 0)
+        {
+            m_pairs = alloc_array_uninitialized<PairType>(o.m_size);
+            for (size_t i = 0; i < m_size; i++)
+                new (&m_pairs[i]) PairType(o.m_pairs[i]);
+        }
+        else
+        {
+            m_pairs = nullptr;
+        }
     }
 
     ~Map()
@@ -80,9 +87,17 @@ public:
 
     Result<void> put(const K& key, V value)
     {
-        PairType *pair = TRY(insert(key));
-        new (&pair->key) K(key);
-        new (&pair->value) V(value);
+        bool exist;
+        PairType *pair = TRY(insert(key, exist));
+        if (!exist)
+        {
+            new (&pair->key) K(key);
+            new (&pair->value) V(value);
+        }
+        else
+        {
+            new (&pair->value) V(value);
+        }
         return Result<void>();
     }
 
@@ -103,9 +118,13 @@ public:
 
     Result<V *> get_or_put(const K& key, V value)
     {
-        PairType *pair = TRY(insert(key));
-        new (&pair->key) K(key);
-        new (&pair->value) V(value);
+        bool exist;
+        PairType *pair = TRY(insert(key, exist));
+        if (!exist)
+        {
+            new (&pair->key) K(key);
+            new (&pair->value) V(value);
+        }
         return &pair->value;
     }
 
@@ -194,12 +213,13 @@ private:
         return None;
     }
 
-    Result<PairType *> insert(const K& key)
+    Result<PairType *> insert(const K& key, bool& exist)
     {
         size_t index;
         bool exact;
         bsearch(key, index, exact);
 
+        exist = exact;
         if (exact)
             return &m_pairs[index];
 

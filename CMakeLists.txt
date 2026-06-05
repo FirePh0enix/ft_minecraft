@@ -208,13 +208,12 @@ if (TARGET_IS_LINUX OR TARGET_IS_MACOS)
     target_compile_options(${TARGET_NAME} PRIVATE -fdiagnostics-color)
 endif()
 
-
-# Dont build shared libraries
-set(BUILD_SHARED_LIBS 0)
-
 #
 # Fetch dependencies
 #
+
+# Dont build shared libraries
+set(BUILD_SHARED_LIBS 0)
 
 # doctest for unit tests.
 FetchContent_Declare(
@@ -224,6 +223,16 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(doctest)
 target_link_libraries(${TARGET_NAME}_test PRIVATE doctest)
+
+# set(WGVK_WGSL_SUPPORT "SIMPLE_WGSL")
+# FetchContent_Declare(
+#     wgvk
+#     GIT_REPOSITORY https://github.com/manuel5975p/WGVK
+#     GIT_TAG 76a6b7760cdf5acfeb2d1593982990045199565a # master
+# )
+# FetchContent_MakeAvailable(wgvk)
+# target_link_libraries(${TARGET_NAME} PRIVATE wgvk)
+# target_link_libraries(${TARGET_NAME}_test PRIVATE wgvk)
 
 if(TARGET_IS_LINUX OR TARGET_IS_MACOS OR TARGET_IS_WINDOWS)
     if (TARGET_IS_LINUX)
@@ -281,16 +290,6 @@ FetchContent_MakeAvailable(SDL)
 target_link_libraries(${TARGET_NAME} PUBLIC SDL3::SDL3)
 target_link_libraries(${TARGET_NAME}_test PUBLIC SDL3::SDL3)
 
-# SDL_image
-# FetchContent_Declare(
-#     SDL_image
-#     GIT_REPOSITORY https://github.com/libsdl-org/SDL_image
-#     GIT_TAG 1c23b06a13161314f6f33e7ab35a2e5c601f1bc3
-# )
-# FetchContent_MakeAvailable(SDL_image)
-# target_link_libraries(${TARGET_NAME} PUBLIC SDL3_image::SDL3_image)
-# target_link_libraries(${TARGET_NAME}_test PUBLIC SDL3_image::SDL3_image)
-
 # ImGui
 # FetchContent_Declare(
 #     ImGui
@@ -324,14 +323,14 @@ target_include_directories(${TARGET_NAME} PRIVATE ${imgui_SOURCE_DIR})
 target_include_directories(${TARGET_NAME}_test PRIVATE ${imgui_SOURCE_DIR})
 
 if (TARGET_IS_MACOS)
-    set_source_files_properties(${imgui_SOURCE_DIR}/backends/imgui_impl_wgpu.cpp PROPERTIES COMPILE_FLAGS "-x objective-c++")
+    set_source_files_properties(${imgui_SOURCE_DIR}/backends/imgui_impl_wgvk.cpp PROPERTIES COMPILE_FLAGS "-x objective-c++")
 endif()
 
 if(TARGET_IS_WEB)
     target_compile_definitions(${TARGET_NAME} PRIVATE IMGUI_IMPL_WEBGPU_BACKEND_DAWN=1)
 else()
-    target_compile_definitions(${TARGET_NAME} PRIVATE IMGUI_IMPL_WEBGPU_BACKEND_WGPU=1)
-    target_compile_definitions(${TARGET_NAME}_test PRIVATE IMGUI_IMPL_WEBGPU_BACKEND_WGPU=1)
+    target_compile_definitions(${TARGET_NAME} PRIVATE IMGUI_IMPL_WEBGPU_BACKEND_WGVK=1)
+    target_compile_definitions(${TARGET_NAME}_test PRIVATE IMGUI_IMPL_WEBGPU_BACKEND_WGVK=1)
 endif()
 
 # stb

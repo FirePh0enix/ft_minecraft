@@ -13,6 +13,19 @@
 
 #include <webgpu/webgpu.h>
 
+#ifdef __platform_web
+#define WGPU_STRING_VIEW_INIT nullptr
+#define WGPU_STRING_VIEW(NAME) (NAME)
+#define WGPUOptionalBool_True true
+#else
+
+#ifndef WGPU_STRING_VIEW_INIT
+#define WGPU_STRING_VIEW_INIT {nullptr, 0}
+#endif
+
+#define WGPU_STRING_VIEW(NAME) {NAME, WGPU_STRLEN}
+#endif
+
 #include <atomic>
 #include <mutex>
 
@@ -268,6 +281,27 @@ private:
     Map<SamplerDescriptor, WGPUSampler> m_samplers;
 };
 
+#define DEFINE_WGPU_HANDLE(name, handle_name, addref_func, release_func) \
+    struct name                                                          \
+    {                                                                    \
+        name() : handle(nullptr) {}                                      \
+        name(handle_name handle) : handle(handle) {}                     \
+        name(const name& o) : handle(o.handle) {}                        \
+        ~name() { release_func(handle); }                                \
+        operator handle_name() const { return handle; }                  \
+        void operator=(const handle_name& o) { handle = o; }             \
+                                                                         \
+        handle_name handle;                                              \
+    }
+
+namespace wgpu
+{
+DEFINE_WGPU_HANDLE(Instance, WGPUInstance, wgpuInstanceAddRef, wgpuInstanceRelease);
+DEFINE_WGPU_HANDLE(Device, WGPUDevice, wgpuDeviceAddRef, wgpuDeviceRelease);
+DEFINE_WGPU_HANDLE(Adapter, WGPUAdapter, wgpuAdapterAddRef, wgpuAdapterRelease);
+DEFINE_WGPU_HANDLE(Surface, WGPUSurface, wgpuSurfaceAddRef, wgpuSurfaceRelease);
+}; // namespace wgpu
+
 struct GPU_ATTRIBUTE WorldEnvironment
 {
     glm::mat4 view_matrix = glm::identity<glm::mat4>();
@@ -282,7 +316,7 @@ public:
     Renderer();
 
     Result<void> init(const Window& window, InitFlags flags);
-    void deinit();
+    // void deinit();
 
     Result<void> configure_surface(size_t width, size_t height, VSync vsync);
 
@@ -325,10 +359,10 @@ public:
     static ALWAYS_INLINE Renderer& get() { return *singleton; }
 
 private:
-    WGPUInstance m_instance = nullptr;
-    WGPUAdapter m_adapter = nullptr;
-    WGPUDevice m_device = nullptr;
-    WGPUSurface m_surface = nullptr;
+    wgpu::Instance m_instance = nullptr;
+    wgpu::Adapter m_adapter = nullptr;
+    wgpu::Device m_device = nullptr;
+    wgpu::Surface m_surface = nullptr;
     WGPUQueue m_queue = nullptr;
 
     std::mutex m_device_mutex;

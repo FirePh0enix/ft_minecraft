@@ -188,11 +188,6 @@ public:
     bool is_in_water() const;
     bool chunk_is_loaded() const;
 
-    static void cleanup()
-    {
-        s_exposed_rpc.clear();
-    }
-
 protected:
     EntityId m_id;
     Entity *m_parent = nullptr; // FIXME: This must be changed by either a Ref<Entity> or a EntityId.
@@ -212,15 +207,9 @@ protected:
     bool m_blocked_x = false;
     bool m_blocked_z = false;
 
-    static inline HashMap<ClassHashCode, HashMap<String, RpcTarget>> s_exposed_rpc; // FIXME: leaks: put this in registry
-
     template <typename T>
-    static ALWAYS_INLINE void expose_rpc(String name, RpcTarget target = RpcTarget::Both)
-    {
-        if (!s_exposed_rpc.contains(T::get_static_hash_code()))
-            EXPECT(s_exposed_rpc.put(T::get_static_hash_code(), {}));
-        EXPECT(s_exposed_rpc.get_ptr(T::get_static_hash_code()).get()->put(name, target));
-    }
+    static void expose_rpc(String name, RpcTarget target = RpcTarget::Both) { expose_rpc(T::get_static_hash_code(), name, target); }
+    static void expose_rpc(ClassHashCode cls, String name, RpcTarget target = RpcTarget::Both);
 
     void call_rpc(StringView name, View<Variant> args);
 };

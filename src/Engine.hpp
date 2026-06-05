@@ -25,13 +25,12 @@ class Engine : public Object
 
 public:
     Engine(const Args& args);
+    ~Engine();
 
     bool is_running() const { return m_window->is_running(); }
 
     void tick(float delta);
     void draw();
-
-    void exit();
 
     bool is_server() const { return m_authority == RpcTarget::Server; }
 

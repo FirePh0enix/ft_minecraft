@@ -15,24 +15,14 @@
 #include "World/Dimension.hpp"
 #include "World/Registry.hpp"
 #include "World/World.hpp"
-#include "webgpu/webgpu.h"
 
 #include <backends/imgui_impl_sdl3.h>
 #include <backends/imgui_impl_wgpu.h>
 #include <imgui.h>
 
 #include <thread>
-#include <webgpu/wgpu.h>
 
 #include <mutex>
-
-#ifdef __platform_web
-#define WGPU_STRING_VIEW_INIT nullptr
-#define WGPU_STRING_VIEW(NAME) (NAME)
-#define WGPUOptionalBool_True true
-#else
-#define WGPU_STRING_VIEW(NAME) {NAME, WGPU_STRLEN}
-#endif
 
 static WGPUTextureViewDimension convert_texture_view_dimension(TextureDimension dimension)
 {
@@ -619,6 +609,9 @@ WGPUAdapter request_adapter_sync(WGPUInstance instance)
 {
     WGPUAdapter adapter;
 
+    WGPURequestAdapterOptions adapter_options{};
+    adapter_options.featureLevel = WGPUFeatureLevel_Core;
+
     WGPURequestAdapterCallbackInfo callback_info{
         .nextInChain = nullptr,
         .mode = WGPUCallbackMode_WaitAnyOnly,
@@ -631,12 +624,14 @@ WGPUAdapter request_adapter_sync(WGPUInstance instance)
         .userdata1 = (void *)&adapter,
         .userdata2 = nullptr,
     };
-    WGPUFuture future = wgpuInstanceRequestAdapter(instance, nullptr, callback_info);
+    WGPUFuture future = wgpuInstanceRequestAdapter(instance, &adapter_options, callback_info);
+    // WGPUFutureWaitInfo info(future, false);
+    // wgpuInstanceWaitAny(instance, 1, &info, 100000);
     (void)future;
     return adapter;
 }
 
-WGPUDevice request_device_sync(WGPUAdapter adapter, const WGPUDeviceDescriptor& options)
+WGPUDevice request_device_sync(WGPUInstance instance, WGPUAdapter adapter, const WGPUDeviceDescriptor& options)
 {
     WGPUDevice device;
 
@@ -653,6 +648,8 @@ WGPUDevice request_device_sync(WGPUAdapter adapter, const WGPUDeviceDescriptor& 
         .userdata2 = nullptr,
     };
     WGPUFuture future = wgpuAdapterRequestDevice(adapter, &options, callback_info);
+    // WGPUFutureWaitInfo info(future, false);
+    // wgpuInstanceWaitAny(instance, 1, &info, 100000);
     (void)future;
     return device;
 }
@@ -857,14 +854,30 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
 #ifndef __platform_web
     WGPUInstanceDescriptor instance_desc{};
 
-    WGPUInstanceExtras extras{};
-    extras.chain = {.next = nullptr, .sType = (WGPUSType)WGPUSType_InstanceExtras};
-    extras.backends = WGPUInstanceBackend_Primary;
+    // WGPUInstanceLayerSelection lsel{.chain = {.next = nullptr, .sType = WGPUSType_InstanceLayerSelection}, .instanceLayers = nullptr, .instanceLayerCount = 0};
+    // const char *instance_layer[]{"VK_LAYER_KHRONOS_validation"};
+    // lsel.instanceLayerCount = 1;
+    // lsel.instanceLayers = instance_layer;
 
-    if (flags.has_any(InitFlagBits::Validation))
-        extras.flags |= WGPUInstanceFlag_Validation;
+    // if (flags.has_any(InitFlagBits::Validation))
+    // {
+    //     instance_desc.nextInChain = &lsel.chain;
+    // }
 
-    instance_desc.nextInChain = &extras.chain;
+    const WGPUInstanceFeatureName features[]{
+        WGPUInstanceFeatureName_TimedWaitAny,
+    };
+    instance_desc.requiredFeatureCount = sizeof(features) / sizeof(WGPUInstanceFeatureName);
+    instance_desc.requiredFeatures = features;
+
+    // WGPUInstanceExtras extras{};
+    // extras.chain = {.next = nullptr, .sType = (WGPUSType)WGPUSType_InstanceExtras};
+    // extras.backends = WGPUInstanceBackend_Primary;
+
+    // if (flags.has_any(InitFlagBits::Validation))
+    //     extras.flags |= WGPUInstanceFlag_Validation;
+
+    // instance_desc.nextInChain = &extras.chain;
 
     m_instance = wgpuCreateInstance(&instance_desc);
 #else
@@ -885,6 +898,7 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
         return Error(ErrorKind::BadDriver);
 #else
     m_adapter = request_adapter_sync(m_instance);
+    ASSERT_V(m_adapter != nullptr, "");
 
     // TODO: Use this maybe ?
     // wgpuInstanceEnumerateAdapters(WGPUInstance instance, const WGPUInstanceEnumerateAdapterOptions *options, WGPUAdapter *adapters);
@@ -920,7 +934,7 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
 
     device_desc.requiredLimits = &limits;
 
-    m_device = request_device_sync(m_adapter, device_desc);
+    m_device = request_device_sync(m_instance, m_adapter, device_desc);
     if (!m_device)
     {
         return Error(ErrorKind::NoSuitableDevice);
@@ -1037,13 +1051,16 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     return Result<void>();
 }
 
-void Renderer::deinit()
-{
-    m_sampler_cache.clear();
-    m_pipeline_cache.clear();
+// void Renderer::deinit()
+// {
+// m_sampler_cache.clear();
+// m_pipeline_cache.clear();
 
-    wgpuSurfaceRelease(m_surface);
-}
+// wgpuSurfaceRelease(m_surface);
+// wgpuDeviceRelease(m_device);
+// wgpuAdapterRelease(m_adapter);
+// wgpuInstanceRelease(m_instance);
+// }
 
 Result<void> Renderer::configure_surface(size_t width, size_t height, VSync vsync)
 {

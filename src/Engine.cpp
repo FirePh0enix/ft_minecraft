@@ -71,6 +71,12 @@ Engine::Engine(const Args& args)
                                });
 }
 
+Engine::~Engine()
+{
+    m_connection.close();
+    Font::deinit_library();
+}
+
 void Engine::register_entities()
 {
     Entity::bind_methods();
@@ -369,15 +375,6 @@ void Engine::connect_to_remote_world()
     EXPECT(m_connection.connect_to(m_connect_ip, m_connect_port));
 
     // After this point we are waiting for the server to send us information about the world.
-}
-
-void Engine::exit()
-{
-    m_connection.close();
-    Font::deinit_library();
-
-    m_renderer.deinit();
-    Entity::cleanup();
 }
 
 void Engine::recreate_graph()

@@ -105,6 +105,19 @@ TEST_CASE("HashMap with allocating values")
     CHECK(bars.put(33, Bar()));
 }
 
+TEST_CASE("HashMap with reallocation")
+{
+    HashMap<int, HashMap<String, String>> bars;
+    // CHECK(bars.put(33, Bar()));
+    // CHECK(bars.put(34, Bar()));
+    // CHECK(bars.put(35, Bar()));
+    // CHECK(bars.put(36, Bar()));
+
+    for (size_t i = 0; i < 5; i++)
+        for (size_t j = 0; j < 1; j++)
+            EXPECT(EXPECT(bars.get_or_put(i, {}))->put(format("{}", j), "aaa"));
+}
+
 TEST_CASE("Map erase")
 {
     Map<int, int> map;

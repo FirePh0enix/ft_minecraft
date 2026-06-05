@@ -20,11 +20,9 @@
 static constexpr double fixed_update_time = 1.0 / 60.0;
 static clock_t last_update_time;
 
-static void shutdown_callback();
-static void loop_update();
-static void update_callback();
-
-Ref<Engine> engine;
+// static void shutdown_callback();
+// static void loop_update();
+// static void update_callback();
 
 MAIN(int argc, char *argv[])
 {
@@ -40,7 +38,7 @@ MAIN(int argc, char *argv[])
 
     TracySetThreadName("Main");
 
-    engine = EXPECT(newref<Engine>(args));
+    Ref<Engine> engine = EXPECT(newref<Engine>(args));
 
     if (args.has("data-dir"))
     {
@@ -51,47 +49,60 @@ MAIN(int argc, char *argv[])
 
     info("using data directory `{}`", Filesystem::get_data_directory());
 
-#ifdef __platform_web
-    emscripten_set_main_loop_arg([](void *engine)
-                                 { ((Engine *)engine)->update_callback(); }, nullptr, 0, true);
-#else
+    // #ifdef __platform_web
+    //     emscripten_set_main_loop_arg([](void *engine)
+    //                                  { ((Engine *)engine)->update_callback(); }, nullptr, 0, true);
+    // #else
+    //     while (engine->is_running())
+    //     {
+    //         loop_update();
+    //     }
+
+    //     shutdown_callback();
+    // #endif
+
     while (engine->is_running())
     {
-        loop_update();
+        const float elapsed_time = (float)(clock() - last_update_time) / CLOCKS_PER_SEC;
+        if (elapsed_time > fixed_update_time)
+        {
+            last_update_time = clock();
+
+            engine->tick(float(fixed_update_time));
+            engine->draw();
+            Input::post_events();
+        }
     }
 
-    shutdown_callback();
-#endif
+    engine = nullptr;
 
     return 0;
 }
 
-static void loop_update()
-{
-    const float elapsed_time = (float)(clock() - last_update_time) / CLOCKS_PER_SEC;
-    if (elapsed_time > fixed_update_time)
-    {
-        last_update_time = clock();
-        update_callback();
-    }
-}
+// static void loop_update()
+// {
+//     const float elapsed_time = (float)(clock() - last_update_time) / CLOCKS_PER_SEC;
+//     if (elapsed_time > fixed_update_time)
+//     {
+//         last_update_time = clock();
+//         update_callback();
+//     }
+// }
 
-static void update_callback()
-{
-    FrameMark;
-    ZoneScoped;
+// static void update_callback()
+// {
+//     FrameMark;
+//     ZoneScoped;
 
-    // TODO: Differentiate between rendering ticks and physics ticks.
-    engine->tick(float(fixed_update_time));
-    engine->draw();
+//     // TODO: Differentiate between rendering ticks and physics ticks.
+//     engine->tick(float(fixed_update_time));
+//     engine->draw();
 
-    Input::post_events();
-}
+//     Input::post_events();
+// }
 
-static void shutdown_callback()
-{
-    info("Shutting down");
-
-    engine->exit();
-    engine = nullptr;
-}
+// static void shutdown_callback()
+// {
+//     info("Shutting down");
+//     engine = nullptr;
+// }

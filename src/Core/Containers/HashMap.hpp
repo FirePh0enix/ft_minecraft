@@ -29,9 +29,16 @@ public:
     HashMap(const HashMap& o)
         : m_size(o.m_size), m_capacity(o.m_size)
     {
-        m_pairs = alloc_array_uninitialized<PairType>(o.m_size);
-        for (size_t i = 0; i < m_size; i++)
-            new (&m_pairs[i]) PairType(o.m_pairs[i]);
+        if (o.m_size > 0)
+        {
+            m_pairs = alloc_array_uninitialized<PairType>(o.m_size);
+            for (size_t i = 0; i < m_size; i++)
+                new (&m_pairs[i]) PairType(o.m_pairs[i]);
+        }
+        else
+        {
+            m_pairs = nullptr;
+        }
     }
 
     ~HashMap()
@@ -66,11 +73,20 @@ public:
     Result<void> put(const K& key, V value)
     {
         Hash hash = H{}(key);
+        bool exist;
 
-        PairType *pair = TRY(insert(hash));
+        PairType *pair = TRY(insert(hash, exist));
         pair->hash = hash;
-        new (&pair->key) K(key);
-        new (&pair->value) V(value);
+
+        if (!exist)
+        {
+            new (&pair->key) K(key);
+            new (&pair->value) V(value);
+        }
+        else
+        {
+            pair->value = value;
+        }
 
         return Result<void>();
     }
@@ -96,11 +112,16 @@ public:
     Result<V *> get_or_put(const K& key, V value)
     {
         Hash hash = H{}(key);
+        bool exist;
 
-        PairType *pair = TRY(insert(hash));
+        PairType *pair = TRY(insert(hash, exist));
         pair->hash = hash;
-        new (&pair->key) K(key);
-        new (&pair->value) V(value);
+
+        if (!exist)
+        {
+            new (&pair->key) K(key);
+            new (&pair->value) V(value);
+        }
 
         return &pair->value;
     }
@@ -205,12 +226,13 @@ private:
         return None;
     }
 
-    Result<PairType *> insert(Hash hash)
+    Result<PairType *> insert(Hash hash, bool& exist)
     {
         size_t index;
         bool exact;
         bsearch(hash, index, exact);
 
+        exist = exact;
         if (exact)
             return &m_pairs[index];
 

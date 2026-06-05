@@ -92,17 +92,12 @@ void Entity::recurse_tick(float delta)
 
 Option<RpcTarget> Entity::get_rpc(StringView name)
 {
-    for (ssize_t i = (ssize_t)get_classes().size(); i >= 0; i--)
-    {
-        ClassHashCode class_hash = get_classes()[i];
-        if (s_exposed_rpc.contains(class_hash))
-        {
-            const auto rpcs = s_exposed_rpc.get(class_hash).get();
-            if (rpcs.contains(name))
-                return rpcs.get(name);
-        }
-    }
-    return None;
+    return Engine::get().registry().get_rpc(this, name);
+}
+
+void Entity::expose_rpc(ClassHashCode cls, String name, RpcTarget target)
+{
+    Engine::get().registry().register_rpc(cls, name, target);
 }
 
 void Entity::call_rpc(StringView name, View<Variant> args)

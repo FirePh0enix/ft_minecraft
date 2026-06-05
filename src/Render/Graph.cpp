@@ -1,5 +1,7 @@
 #include "Render/Graph.hpp"
+
 #include "Core/Assert.hpp"
+#include "Render/Renderer.hpp"
 
 void RenderPassNode::begin(WGPUCommandEncoder encoder, WGPUTextureView surface_view)
 {

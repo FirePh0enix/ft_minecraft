@@ -364,19 +364,19 @@ void Player::draw(const RenderPassNode& node)
         Ref<Item> item = Engine::get().registry().get_item(id);
         if (Ref<ItemBlock> ib = item.cast_to<ItemBlock>())
         {
-            Ref<Block> block = Engine::get().registry().block_from_item(m_inventory_container->get_stack(1, m_inventory->selected_slot()).item());
+            // Ref<Block> block = Engine::get().registry().block_from_item(m_inventory_container->get_stack(1, m_inventory->selected_slot()).item());
 
-            Transform3D transform = m_camera->get_global_transform();
-            transform.scale() = glm::vec3(0.2);
-            transform.position() += m_camera->get_global_transform().forward() * 0.5f + m_camera->get_global_transform().right() * 0.35f + m_camera->get_global_transform().up() * -0.3f;
-            transform.set_euler_angles(glm::vec3(0, -m_transform.get_euler_angles().y, 0));
+            // Transform3D transform = m_camera->get_global_transform();
+            // transform.scale() = glm::vec3(0.2);
+            // transform.position() += m_camera->get_global_transform().forward() * 0.5f + m_camera->get_global_transform().right() * 0.35f + m_camera->get_global_transform().up() * -0.3f;
+            // transform.set_euler_angles(glm::vec3(0, -m_transform.get_euler_angles().y, 0));
 
-            ItemBlockModel matrix(
-                transform.to_matrix(),
-                glm::uvec3(block->get_texture_ids()[0] | (block->get_texture_ids()[1] << 16), block->get_texture_ids()[2] | (block->get_texture_ids()[3] << 16), block->get_texture_ids()[4] | (block->get_texture_ids()[5] << 16)));
+            // ItemBlockModel matrix(
+            //     transform.to_matrix(),
+            //     glm::uvec3(block->get_texture_ids()[0] | (block->get_texture_ids()[1] << 16), block->get_texture_ids()[2] | (block->get_texture_ids()[3] << 16), block->get_texture_ids()[4] | (block->get_texture_ids()[5] << 16)));
 
-            m_model_buffer->update(View(matrix).as_bytes());
-            Renderer::get().record_simple_shape(node, m_material);
+            // m_model_buffer->update(View(matrix).as_bytes());
+            // Renderer::get().record_simple_shape(node, m_material);
         }
         else
         {

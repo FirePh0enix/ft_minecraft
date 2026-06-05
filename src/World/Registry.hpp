@@ -96,6 +96,26 @@ public:
     Result<Ref<Texture>> create_texture(const StringView& path);
     Result<Ref<Texture>> create_preview_texture(Ref<Block> block);
 
+    void register_rpc(ClassHashCode cls, String name, RpcTarget target)
+    {
+        EXPECT(EXPECT(m_exposed_rpc.get_or_put(cls, {}))->put(name, target));
+    }
+
+    Option<RpcTarget> get_rpc(Entity *entity, const StringView& name) const
+    {
+        for (ssize_t i = (ssize_t)entity->get_classes().size(); i >= 0; i--)
+        {
+            ClassHashCode class_hash = entity->get_classes()[i];
+            if (m_exposed_rpc.contains(class_hash))
+            {
+                const auto rpcs = m_exposed_rpc.get(class_hash).get();
+                if (rpcs.contains(name))
+                    return rpcs.get(name);
+            }
+        }
+        return None;
+    }
+
 private:
     HashMap<Id<Block>, Ref<Block>> m_blocks;
     HashMap<Id<Item>, Ref<Item>> m_items;
@@ -107,6 +127,8 @@ private:
     LocalVector<Image> m_images;
     Ref<Texture> m_texture_array;
     LocalVector<Ref<Texture>> m_texture_handles;
+
+    HashMap<ClassHashCode, HashMap<String, RpcTarget>> m_exposed_rpc;
 
     Option<size_t> get_image(const StringView& path);
 };
