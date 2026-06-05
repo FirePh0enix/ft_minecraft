@@ -57,33 +57,30 @@ public:
     }
 
     template <typename T>
-    Result<void> write(T value)
+    void write(T value)
     {
-        TRY(m_data.resize(m_data.size() + sizeof(T)));
+        m_data.resize(m_data.size() + sizeof(T));
         std::memcpy(m_data.data() + m_data.size() - sizeof(T), &value, sizeof(T));
-        return Result<void>();
     }
 
-    Result<void> write(String value)
+    void write(String value)
     {
-        TRY(m_data.resize(m_data.size() + value.size()));
+        m_data.resize(m_data.size() + value.size());
         std::memcpy(m_data.data() + m_data.size() - value.size(), value.data(), value.size());
-        TRY(m_data.append(0));
-        return Result<void>();
+        m_data.append(0);
     }
 
     template <typename T>
-    Result<void> write_array(Vector<T> vec)
+    void write_array(Vector<T> vec)
     {
         const size_t byte_len = vec.size() * sizeof(T);
 
-        TRY(m_data.resize(m_data.size() + byte_len));
+        m_data.resize(m_data.size() + byte_len);
         std::memcpy(m_data.data() + m_data.size() - byte_len, vec.data(), byte_len);
-        return Result<void>();
     }
 
     template <typename T>
-    Result<T> read()
+    T read()
     {
         T value;
         std::memcpy(&value, m_ro_data + m_cursor, sizeof(T));
@@ -91,7 +88,7 @@ public:
         return value;
     }
 
-    Result<String> read()
+    String read()
     {
         size_t len = 0;
         while (len < m_ro_data_size && m_ro_data[m_cursor + len] != 0)
@@ -105,10 +102,10 @@ public:
     }
 
     template <typename T>
-    Result<Vector<T>> read_array(size_t len)
+    Vector<T> read_array(size_t len)
     {
         Vector<T> values;
-        TRY(values.resize(len));
+        values.resize(len);
 
         const size_t byte_len = len / sizeof(T);
 
@@ -138,18 +135,18 @@ struct InitPacket
 };
 inline Result<void> serialize(DataBuffer& buffer, const InitPacket& p)
 {
-    TRY(buffer.write(p.seed));
-    TRY(buffer.write(p.id));
-    TRY(buffer.write(p.position.x));
-    TRY(buffer.write(p.position.y));
-    TRY(buffer.write(p.position.z));
+    buffer.write(p.seed);
+    buffer.write(p.id);
+    buffer.write(p.position.x);
+    buffer.write(p.position.y);
+    buffer.write(p.position.z);
     return Result<void>();
 }
 inline Result<void> deserialize(DataBuffer& buffer, InitPacket& p)
 {
-    p.seed = TRY(buffer.read<uint64_t>());
-    p.id = TRY(buffer.read<EntityId>());
-    p.position = glm::vec3(TRY(buffer.read<float>()), TRY(buffer.read<float>()), TRY(buffer.read<float>()));
+    p.seed = buffer.read<uint64_t>();
+    p.id = buffer.read<EntityId>();
+    p.position = glm::vec3(buffer.read<float>(), buffer.read<float>(), buffer.read<float>());
     return Result<void>();
 }
 
@@ -163,21 +160,21 @@ struct SendPlayerTransformPacket
 };
 inline Result<void> serialize(DataBuffer& buffer, const SendPlayerTransformPacket& p)
 {
-    TRY(buffer.write(p.id));
-    TRY(buffer.write(p.position.x));
-    TRY(buffer.write(p.position.y));
-    TRY(buffer.write(p.position.z));
-    TRY(buffer.write(p.rotation.x));
-    TRY(buffer.write(p.rotation.y));
-    TRY(buffer.write(p.rotation.z));
-    TRY(buffer.write(p.rotation.w));
+    buffer.write(p.id);
+    buffer.write(p.position.x);
+    buffer.write(p.position.y);
+    buffer.write(p.position.z);
+    buffer.write(p.rotation.x);
+    buffer.write(p.rotation.y);
+    buffer.write(p.rotation.z);
+    buffer.write(p.rotation.w);
     return Result<void>();
 }
 inline Result<void> deserialize(DataBuffer& buffer, SendPlayerTransformPacket& p)
 {
-    p.id = TRY(buffer.read<EntityId>());
-    p.position = glm::vec3(TRY(buffer.read<float>()), TRY(buffer.read<float>()), TRY(buffer.read<float>()));
-    p.rotation = glm::quat(TRY(buffer.read<float>()), TRY(buffer.read<float>()), TRY(buffer.read<float>()), TRY(buffer.read<float>()));
+    p.id = buffer.read<EntityId>();
+    p.position = glm::vec3(buffer.read<float>(), buffer.read<float>(), buffer.read<float>());
+    p.rotation = glm::quat(buffer.read<float>(), buffer.read<float>(), buffer.read<float>(), buffer.read<float>());
     return Result<void>();
 }
 
@@ -192,23 +189,23 @@ struct AddEntityPacket
 };
 inline Result<void> serialize(DataBuffer& buffer, const AddEntityPacket& p)
 {
-    TRY(buffer.write(p.position.x));
-    TRY(buffer.write(p.position.y));
-    TRY(buffer.write(p.position.z));
-    TRY(buffer.write(p.rotation.x));
-    TRY(buffer.write(p.rotation.y));
-    TRY(buffer.write(p.rotation.z));
-    TRY(buffer.write(p.rotation.w));
-    TRY(buffer.write(p.id));
-    TRY(buffer.write(p.class_id));
+    buffer.write(p.position.x);
+    buffer.write(p.position.y);
+    buffer.write(p.position.z);
+    buffer.write(p.rotation.x);
+    buffer.write(p.rotation.y);
+    buffer.write(p.rotation.z);
+    buffer.write(p.rotation.w);
+    buffer.write(p.id);
+    buffer.write(p.class_id);
     return Result<void>();
 }
 inline Result<void> deserialize(DataBuffer& buffer, AddEntityPacket& p)
 {
-    p.position = glm::vec3(TRY(buffer.read<float>()), TRY(buffer.read<float>()), TRY(buffer.read<float>()));
-    p.rotation = glm::quat(TRY(buffer.read<float>()), TRY(buffer.read<float>()), TRY(buffer.read<float>()), TRY(buffer.read<float>()));
-    p.id = TRY(buffer.read<EntityId>());
-    p.class_id = TRY(buffer.read<ClassHashCode>());
+    p.position = glm::vec3(buffer.read<float>(), buffer.read<float>(), buffer.read<float>());
+    p.rotation = glm::quat(buffer.read<float>(), buffer.read<float>(), buffer.read<float>(), buffer.read<float>());
+    p.id = buffer.read<EntityId>();
+    p.class_id = buffer.read<ClassHashCode>();
     return Result<void>();
 }
 
@@ -220,12 +217,12 @@ struct RemoveEntityPacket
 };
 inline Result<void> serialize(DataBuffer& buffer, const RemoveEntityPacket& p)
 {
-    TRY(buffer.write(p.id));
+    buffer.write(p.id);
     return Result<void>();
 }
 inline Result<void> deserialize(DataBuffer& buffer, RemoveEntityPacket& p)
 {
-    p.id = TRY(buffer.read<EntityId>());
+    p.id = buffer.read<EntityId>();
     return Result<void>();
 }
 
@@ -239,21 +236,21 @@ struct UpdateEntityPacket
 };
 inline Result<void> serialize(DataBuffer& buffer, const UpdateEntityPacket& p)
 {
-    TRY(buffer.write(p.id));
-    TRY(buffer.write(p.position.x));
-    TRY(buffer.write(p.position.y));
-    TRY(buffer.write(p.position.z));
-    TRY(buffer.write(p.rotation.x));
-    TRY(buffer.write(p.rotation.y));
-    TRY(buffer.write(p.rotation.z));
-    TRY(buffer.write(p.rotation.w));
+    buffer.write(p.id);
+    buffer.write(p.position.x);
+    buffer.write(p.position.y);
+    buffer.write(p.position.z);
+    buffer.write(p.rotation.x);
+    buffer.write(p.rotation.y);
+    buffer.write(p.rotation.z);
+    buffer.write(p.rotation.w);
     return Result<void>();
 }
 inline Result<void> deserialize(DataBuffer& buffer, UpdateEntityPacket& p)
 {
-    p.id = TRY(buffer.read<EntityId>());
-    p.position = glm::vec3(TRY(buffer.read<float>()), TRY(buffer.read<float>()), TRY(buffer.read<float>()));
-    p.rotation = glm::quat(TRY(buffer.read<float>()), TRY(buffer.read<float>()), TRY(buffer.read<float>()), TRY(buffer.read<float>()));
+    p.id = buffer.read<EntityId>();
+    p.position = glm::vec3(buffer.read<float>(), buffer.read<float>(), buffer.read<float>());
+    p.rotation = glm::quat(buffer.read<float>(), buffer.read<float>(), buffer.read<float>(), buffer.read<float>());
     return Result<void>();
 }
 
@@ -267,21 +264,21 @@ struct RpcCallPacket
 };
 inline Result<void> serialize(DataBuffer& buffer, const RpcCallPacket& p)
 {
-    TRY(buffer.write(p.id));
-    TRY(buffer.write(p.name));
+    buffer.write(p.id);
+    buffer.write(p.name);
 
     nlohmann::json j = p.args;
     std::string s = j.dump();
-    TRY(buffer.write(s));
+    buffer.write(s);
 
     return Result<void>();
 }
 inline Result<void> deserialize(DataBuffer& buffer, RpcCallPacket& p)
 {
-    p.id = TRY(buffer.read<EntityId>());
-    p.name = TRY(buffer.read());
+    p.id = buffer.read<EntityId>();
+    p.name = buffer.read();
 
-    String s = TRY(buffer.read());
+    String s = buffer.read();
     println("`{}`", s);
     // FIXME
     // p.args = nlohmann::json::parse(std::string(s.data(), s.size()));
@@ -300,17 +297,17 @@ struct ChunkDataPacket
 };
 inline Result<void> serialize(DataBuffer& buffer, const ChunkDataPacket& p)
 {
-    TRY(buffer.write(p.x));
-    TRY(buffer.write(p.z));
-    TRY(buffer.write_array(p.blocks));
-    TRY(buffer.write_array(p.biomes));
+    buffer.write(p.x);
+    buffer.write(p.z);
+    buffer.write_array(p.blocks);
+    buffer.write_array(p.biomes);
     return Result<void>();
 }
 inline Result<void> deserialize(DataBuffer& buffer, ChunkDataPacket& p)
 {
-    p.x = TRY(buffer.read<int64_t>());
-    p.z = TRY(buffer.read<int64_t>());
-    p.blocks = TRY(buffer.read_array<BlockState>(Chunk::block_count));
-    p.biomes = TRY(buffer.read_array<Biome>(Chunk::block_count));
+    p.x = buffer.read<int64_t>();
+    p.z = buffer.read<int64_t>();
+    p.blocks = buffer.read_array<BlockState>(Chunk::block_count);
+    p.biomes = buffer.read_array<Biome>(Chunk::block_count);
     return Result<void>();
 }

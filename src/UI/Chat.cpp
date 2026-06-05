@@ -12,13 +12,13 @@ ChatInput::ChatInput(Chat *chat)
     m_scale = glm::vec2(1.5, 0.08);
     m_position = glm::vec2(-0.95, -0.92);
 
-    m_background = EXPECT(newref<ColorRect>());
+    m_background = newref<ColorRect>();
     m_background->set_scale(m_scale);
     m_background->set_color(Color(0.01, 1.0));
     m_background->set_position(m_position);
 
     constexpr float scale = 0.05f;
-    m_label = EXPECT(newref<Label>(Engine::get().get_font()));
+    m_label = newref<Label>(Engine::get().get_font());
     m_label->set_scale(glm::vec2(scale));
     m_label->set_position(glm::vec2(-1.6, -0.925));
 }
@@ -72,19 +72,19 @@ Chat::Chat()
 {
     m_scale = glm::vec2(1.5, 1.0);
 
-    Ref<ColorRect> background = EXPECT(newref<ColorRect>());
+    Ref<ColorRect> background = newref<ColorRect>();
     background->set_scale(m_scale);
     background->set_color(Color(0.02, 0.6));
     background->set_position(glm::vec2(-0.95, -0.45));
-    EXPECT(add_child(background));
+    add_child(background);
 
-    Ref<ChatInput> input = EXPECT(newref<ChatInput>(this));
-    EXPECT(add_child(input));
+    Ref<ChatInput> input = newref<ChatInput>(this);
+    add_child(input);
 }
 
 Result<void> Chat::add_line(const String& line)
 {
-    TRY(m_lines.append(line));
+    m_lines.append(line);
 
     Ref<Font> font = Engine::get().get_font();
     constexpr float scale = 0.05f;
@@ -94,13 +94,13 @@ Result<void> Chat::add_line(const String& line)
         label->set_position(label->get_position() + glm::vec2(0, scale));
     }
 
-    Ref<Label> label = TRY(newref<Label>(font));
+    Ref<Label> label = newref<Label>(font);
     label->set_text(line);
     label->set_scale(glm::vec2(scale));
     label->set_position(glm::vec2(-1.6, -0.80));
 
-    TRY(m_labels.append(label));
-    TRY(add_child(label));
+    m_labels.append(label);
+    add_child(label);
 
     return Result<void>();
 }

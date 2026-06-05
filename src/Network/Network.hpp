@@ -71,7 +71,7 @@ public:
     ENetPacket *create_packet(const T& p)
     {
         DataBuffer buffer;
-        EXPECT(buffer.write(T::type));
+        buffer.write(T::type);
         EXPECT(serialize(buffer, p));
         return enet_packet_create(buffer.data().data(), buffer.data().size(), 0);
     }

@@ -111,7 +111,7 @@ Result<Ref<Model>> Model::load(const StringView& path)
 
     ModelJSON json = nlohmann::json::parse(std::string(source.data(), source.size()));
 
-    Ref<Model> model = TRY(newref<Model>());
+    Ref<Model> model = newref<Model>();
     model->m_name.append(json.name.data(), json.name.size());
     model->m_global_buffer = TRY(Buffer::create(sizeof(Model::Info), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
     model->m_texture = TRY(Texture::load(json.texture_path));
@@ -128,7 +128,7 @@ Result<Ref<Model>> Model::load(const StringView& path)
 
         Vector<glm::vec2> uvs;
         for (uint32_t i = 0; i < 24; i++)
-            TRY(uvs.append(glm::vec2(float(object.uvs[i][0]) / float(json.texture_size[0]), float(object.uvs[i][1]) / float(json.texture_size[1]))));
+            uvs.append(glm::vec2(float(object.uvs[i][0]) / float(json.texture_size[0]), float(object.uvs[i][1]) / float(json.texture_size[1])));
         obj.uv_buffer = TRY(Buffer::create(sizeof(glm::vec2) * 24, WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
         obj.uv_buffer->update(View(uvs).as_bytes());
 
@@ -144,7 +144,7 @@ Result<Ref<Model>> Model::load(const StringView& path)
         obj.material->set_param("uvs", obj.uv_buffer);
         obj.material->set_param("texture", model->m_texture);
 
-        TRY(model->m_objects.append(obj));
+        model->m_objects.append(obj);
     }
 
     for (const auto& animation : json.animations)
@@ -166,13 +166,13 @@ Result<Ref<Model>> Model::load(const StringView& path)
                 tran.position = glm::vec3(transform.position[0], transform.position[1], transform.position[2]);
                 tran.rotation = glm::vec3(transform.rotation[0], transform.rotation[1], transform.rotation[2]);
 
-                TRY(act.transforms.append(tran));
+                act.transforms.append(tran);
             }
 
-            TRY(anim.keyframes.append(act));
+            anim.keyframes.append(act);
         }
 
-        TRY(model->m_animation.append(anim));
+        model->m_animation.append(anim);
     }
 
     return model;

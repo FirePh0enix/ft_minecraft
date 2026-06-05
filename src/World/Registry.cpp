@@ -17,17 +17,16 @@ Result<Ref<Entity>> EntityRegistry::create_entity(ClassHashCode class_hash)
 
 #define TEX(name) ("assets/textures/" name ".png")
 
-Result<void> GameRegistry::register_all()
+void GameRegistry::register_all()
 {
-    TRY(add_block(Blocks::stone, TRY(newref<Block>(TEX("stone")))));
-    TRY(add_block(Blocks::dirt, TRY(newref<Block>(TEX("dirt")))));
-    TRY(add_block(Blocks::crafting_table, TRY(newref<CraftingTableBlock>())));
+    add_block(Blocks::stone, newref<Block>(TEX("stone")));
+    add_block(Blocks::dirt, newref<Block>(TEX("dirt")));
+    add_block(Blocks::crafting_table, newref<CraftingTableBlock>());
 
-    TRY(add_item(Items::stone_block, TRY(newref<ItemBlock>(Blocks::stone))));
-    TRY(add_item(Items::dirt_block, TRY(newref<ItemBlock>(Blocks::dirt))));
-    TRY(add_item(Items::crafting_table_block, TRY(newref<ItemBlock>(Blocks::crafting_table))));
-    TRY(add_item(Items::water_bucket, TRY(newref<BucketItem>())));
-    return Result<void>();
+    add_item(Items::stone_block, newref<ItemBlock>(Blocks::stone));
+    add_item(Items::dirt_block, newref<ItemBlock>(Blocks::dirt));
+    add_item(Items::crafting_table_block, newref<ItemBlock>(Blocks::crafting_table));
+    add_item(Items::water_bucket, newref<BucketItem>());
 }
 
 Result<void> GameRegistry::post_register()
@@ -44,7 +43,7 @@ Result<void> GameRegistry::post_register()
         texture->update(View((uint8_t *)image.data, image.w * image.h * 4));
 
         // TODO: create textureview instead of duplicating data in memory.
-        EXPECT(m_texture_handles.append(texture));
+        m_texture_handles.append(texture);
         index++;
 
         stbi_image_free((stbi_uc *)image.data);
@@ -64,20 +63,17 @@ Result<void> GameRegistry::post_register()
     return Result<void>();
 }
 
-Result<void> GameRegistry::add_block(Id<Block> id, Ref<Block> block)
+void GameRegistry::add_block(Id<Block> id, Ref<Block> block)
 {
-    TRY(m_blocks.put(id, block));
-    return Result<void>();
+    m_blocks.put(id, block);
 }
 
-Result<void> GameRegistry::add_item(Id<Item> id, Ref<Item> item)
+void GameRegistry::add_item(Id<Item> id, Ref<Item> item)
 {
-    TRY(m_items.put(id, item));
+    m_items.put(id, item);
 
     if (Ref<ItemBlock> ib = item.cast_to<ItemBlock>())
-        TRY(m_block_items.put(ib->block(), id));
-
-    return Result<void>();
+        m_block_items.put(ib->block(), id);
 }
 
 Option<Id<Block>> GameRegistry::to_block(Id<Item> id)
@@ -131,7 +127,7 @@ Result<size_t> GameRegistry::load_texture(const StringView& path)
     ERR_COND_R(data == nullptr, format("Failed to parse image `{}`", path), 0);
 
     const size_t id = m_images.size();
-    TRY(m_images.append(Image(data, w, h, channels, path)));
+    m_images.append(Image(data, w, h, channels, path));
     return id;
 }
 
@@ -179,7 +175,7 @@ Result<Ref<Texture>> GameRegistry::create_preview_texture(Ref<Block> block)
     Ref<Texture> depth_texture = TRY(Texture::create(preview_size, preview_size, WGPUTextureFormat_Depth32Float, WGPUTextureUsage_RenderAttachment));
     Ref<Texture> color_texture = TRY(Texture::create(preview_size, preview_size, WGPUTextureFormat_RGBA8UnormSrgb, WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_TextureBinding));
 
-    Ref<RenderPassNode> color_pass = EXPECT(newref<RenderPassNode>());
+    Ref<RenderPassNode> color_pass = newref<RenderPassNode>();
     color_pass->set_depth_output(depth_texture);
     color_pass->set_color_output(color_texture);
     color_pass->set_transparent(true);

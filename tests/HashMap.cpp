@@ -1,7 +1,6 @@
 #include "Core/Containers/HashMap.hpp"
 #include "Core/Alloc.hpp"
 #include "Core/Containers/Map.hpp"
-#include "Core/Result.hpp"
 #include "Core/String.hpp"
 
 #include <doctest/doctest.h>
@@ -9,13 +8,13 @@
 TEST_CASE("HashMap ordering")
 {
     HashMap<int, int> maps;
-    CHECK(maps.put(1, 1).has_value());
+    maps.put(1, 1);
     CHECK(maps.get(1) == 1);
 
-    CHECK(maps.put(1, 2).has_value());
+    maps.put(1, 2);
     CHECK(maps.get(1) == 2);
 
-    CHECK(maps.put(2, 3).has_value());
+    maps.put(2, 3);
     CHECK(maps.get(2) == 3);
     CHECK(maps.get(1) == 2);
 
@@ -25,8 +24,8 @@ TEST_CASE("HashMap ordering")
 TEST_CASE("HashMap with String")
 {
     HashMap<String, String> maps;
-    CHECK(maps.put("hello", "hello world").has_value());
-    CHECK(maps.put("bar", "foo").has_value());
+    maps.put("hello", "hello world");
+    maps.put("bar", "foo");
 
     CHECK(maps.get("hello") == "hello world");
     CHECK(maps.get("bar") == "foo");
@@ -35,8 +34,8 @@ TEST_CASE("HashMap with String")
 TEST_CASE("HashMap copy with complex types")
 {
     HashMap<String, String> maps;
-    CHECK(maps.put("hello", "hello world").has_value());
-    CHECK(maps.put("bar", "foo").has_value());
+    maps.put("hello", "hello world");
+    maps.put("bar", "foo");
     CHECK_EQ(maps.get("hello"), "hello world");
     CHECK_EQ(maps.get("bar"), "foo");
 
@@ -47,10 +46,10 @@ TEST_CASE("HashMap copy with complex types")
 TEST_CASE("HashMap insertion out of order")
 {
     HashMap<uint32_t, int> map;
-    CHECK(map.put(0x8d17a2cc, 0).has_value());
+    map.put(0x8d17a2cc, 0);
     CHECK_EQ(map.pairs()[0].key, 0x8d17a2cc);
 
-    CHECK(map.put(0x1e826268, 0).has_value());
+    map.put(0x1e826268, 0);
     CHECK_EQ(map.pairs()[0].key, 0x1e826268);
     CHECK_EQ(map.pairs()[1].key, 0x8d17a2cc);
 }
@@ -63,25 +62,25 @@ struct Foo
 TEST_CASE("HashMap big insertion")
 {
     HashMap<String, Vector<Foo>> map;
-    CHECK(map.put("forward", Vector<Foo>()));
-    CHECK(map.put("backward", Vector<Foo>()));
-    CHECK(map.put("left", Vector<Foo>()));
-    CHECK(map.put("right", Vector<Foo>()));
-    CHECK(map.put("jump", Vector<Foo>()));
-    CHECK(map.put("down", Vector<Foo>()));
-    CHECK(map.put("attack", Vector<Foo>()));
-    CHECK(map.put("interact", Vector<Foo>()));
-    CHECK(map.put("escape", Vector<Foo>()));
-    CHECK(map.put("open_inventory", Vector<Foo>()));
-    CHECK(map.put("1", Vector<Foo>()));
-    CHECK(map.put("2", Vector<Foo>()));
-    CHECK(map.put("3", Vector<Foo>()));
-    CHECK(map.put("4", Vector<Foo>()));
-    CHECK(map.put("5", Vector<Foo>()));
-    CHECK(map.put("6", Vector<Foo>()));
-    CHECK(map.put("7", Vector<Foo>()));
-    CHECK(map.put("8", Vector<Foo>()));
-    CHECK(map.put("9", Vector<Foo>()));
+    map.put("forward", Vector<Foo>());
+    map.put("backward", Vector<Foo>());
+    map.put("left", Vector<Foo>());
+    map.put("right", Vector<Foo>());
+    map.put("jump", Vector<Foo>());
+    map.put("down", Vector<Foo>());
+    map.put("attack", Vector<Foo>());
+    map.put("interact", Vector<Foo>());
+    map.put("escape", Vector<Foo>());
+    map.put("open_inventory", Vector<Foo>());
+    map.put("1", Vector<Foo>());
+    map.put("2", Vector<Foo>());
+    map.put("3", Vector<Foo>());
+    map.put("4", Vector<Foo>());
+    map.put("5", Vector<Foo>());
+    map.put("6", Vector<Foo>());
+    map.put("7", Vector<Foo>());
+    map.put("8", Vector<Foo>());
+    map.put("9", Vector<Foo>());
 }
 
 struct Bar
@@ -102,33 +101,28 @@ struct Bar
 TEST_CASE("HashMap with allocating values")
 {
     HashMap<int, Bar> bars;
-    CHECK(bars.put(33, Bar()));
+    bars.put(33, Bar());
 }
 
 TEST_CASE("HashMap with reallocation")
 {
     HashMap<int, HashMap<String, String>> bars;
-    // CHECK(bars.put(33, Bar()));
-    // CHECK(bars.put(34, Bar()));
-    // CHECK(bars.put(35, Bar()));
-    // CHECK(bars.put(36, Bar()));
-
-    for (size_t i = 0; i < 5; i++)
+    for (int i = 0; i < 5; i++)
         for (size_t j = 0; j < 1; j++)
-            EXPECT(EXPECT(bars.get_or_put(i, {}))->put(format("{}", j), "aaa"));
+            bars.get_or_put(i, {})->put(format("{}", j), "aaa");
 }
 
 TEST_CASE("Map erase")
 {
     Map<int, int> map;
-    CHECK(map.put(3, 3));
-    CHECK(map.put(8, 8));
-    CHECK(map.put(5, 5));
-    CHECK(map.put(1, 1));
+    map.put(3, 3);
+    map.put(8, 8);
+    map.put(5, 5);
+    map.put(1, 1);
 
     map.erase(3);
 
-    CHECK(map.pairs()[0].key == 1);
-    CHECK(map.pairs()[1].key == 5);
-    CHECK(map.pairs()[2].key == 8);
+    CHECK_EQ(map.pairs()[0].key, 1);
+    CHECK_EQ(map.pairs()[1].key, 5);
+    CHECK_EQ(map.pairs()[2].key, 8);
 }

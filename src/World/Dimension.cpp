@@ -16,27 +16,26 @@ bool Dimension::has_chunk(int64_t x, int64_t z) const
     return m_chunks.contains(ChunkPos(x, z));
 }
 
-Result<void> Dimension::add_chunk(int64_t x, int64_t z, const Ref<Chunk>& chunk)
+void Dimension::add_chunk(int64_t x, int64_t z, const Ref<Chunk>& chunk)
 {
     std::lock_guard<std::mutex> g(m_chunk_mutex);
-    TRY(m_chunks_to_flush.put(ChunkPos(x, z), chunk));
-    return Result<void>();
+    m_chunks_to_flush.put(ChunkPos(x, z), chunk);
 }
 
 void Dimension::remove_chunk(int64_t x, int64_t z)
 {
     std::lock_guard<std::mutex> g(m_chunk_mutex);
-    EXPECT(m_chunks_to_remove.append(ChunkPos(x, z)));
+    m_chunks_to_remove.append(ChunkPos(x, z));
 }
 
-Result<void> Dimension::add_entity(Ref<Entity> entity)
+void Dimension::add_entity(Ref<Entity> entity)
 {
-    return m_entities_to_add.append(entity);
+    m_entities_to_add.append(entity);
 }
 
 void Dimension::remove_entity(Ref<Entity> entity)
 {
-    EXPECT(m_entities_to_remove.append(entity));
+    m_entities_to_remove.append(entity);
 }
 
 Ref<Entity> Dimension::get_entity(EntityId id) const
@@ -70,7 +69,7 @@ Vector<AABB> Dimension::get_boxes_that_may_collide(const AABB& box) const
                     continue;
 
                 AABB block_box = AABB(-glm::vec3(0.5), glm::vec3(0.5)).translate(glm::vec3(x, y, z));
-                EXPECT(boxes.append(block_box)); // TODO: change to `TRY`
+                boxes.append(block_box); // TODO: change to `TRY`
             }
         }
     }
@@ -85,7 +84,7 @@ Vector<Ref<Entity>> Dimension::cast_box(const AABB& box) const
     for (Ref<Entity>& entity : m_entities)
     {
         if (entity->get_aabb().translate(entity->get_position()).intersect(box))
-            EXPECT(entities.append(entity));
+            entities.append(entity);
     }
 
     return entities;
@@ -261,7 +260,7 @@ Result<Ref<Chunk>> Dimension::generate_chunk(int64_t cx, int64_t cz)
 {
     ZoneScoped;
 
-    Ref<Chunk> chunk = TRY(newref<Chunk>(this, cx, cz));
+    Ref<Chunk> chunk = newref<Chunk>(this, cx, cz);
     memset(chunk->get_biomes(), 0, sizeof(Biome) * Chunk::block_count);
 
     for (int64_t x = 0; x < Chunk::width; x++)

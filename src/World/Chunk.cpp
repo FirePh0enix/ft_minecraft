@@ -166,19 +166,19 @@ Result<void> Chunk::build_simple_mesh(size_t slice_index)
      (!block->is_tranparent() && Engine::get().registry().get_block(Id<Block>(state.id))->is_tranparent()))
 
                 if (x == 0 || FACE_NEEDS_RENDER(m_blocks[linearize(x - 1, y, z)], block))
-                    TRY(faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::X, false, block->get_texture_index(Axis::X, false))));
+                    faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::X, false, block->get_texture_index(Axis::X, false)));
                 if (x == Chunk::width - 1 || FACE_NEEDS_RENDER(m_blocks[linearize(x + 1, y, z)], block))
-                    TRY(faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::X, true, block->get_texture_index(Axis::X, true))));
+                    faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::X, true, block->get_texture_index(Axis::X, true)));
 
                 if (y == 0 || FACE_NEEDS_RENDER(m_blocks[linearize(x, y - 1, z)], block))
-                    TRY(faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Y, false, block->get_texture_index(Axis::Y, false))));
+                    faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Y, false, block->get_texture_index(Axis::Y, false)));
                 if (y == height - 1 || FACE_NEEDS_RENDER(m_blocks[linearize(x, y + 1, z)], block))
-                    TRY(faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Y, true, block->get_texture_index(Axis::Y, true))));
+                    faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Y, true, block->get_texture_index(Axis::Y, true)));
 
                 if (z == 0 || FACE_NEEDS_RENDER(m_blocks[linearize(x, y, z - 1)], block))
-                    TRY(faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Z, false, block->get_texture_index(Axis::Z, false))));
+                    faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Z, false, block->get_texture_index(Axis::Z, false)));
                 if (z == Chunk::width - 1 || FACE_NEEDS_RENDER(m_blocks[linearize(x, y, z + 1)], block))
-                    TRY(faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Z, true, block->get_texture_index(Axis::Z, true))));
+                    faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Z, true, block->get_texture_index(Axis::Z, true)));
 
 #undef FACE_NEEDS_RENDER
             }
@@ -205,30 +205,30 @@ Result<void> Chunk::build_simple_mesh(size_t slice_index)
         uint16_t i2 = vertices.size() + 2;
         uint16_t i3 = vertices.size() + 3;
 
-        TRY(indices.append(i0));
-        TRY(indices.append(i1));
-        TRY(indices.append(i2));
+        indices.append(i0);
+        indices.append(i1);
+        indices.append(i2);
 
-        TRY(indices.append(i2));
-        TRY(indices.append(i3));
-        TRY(indices.append(i0));
+        indices.append(i2);
+        indices.append(i3);
+        indices.append(i0);
 
         const Array<glm::vec3, 4> new_vertices = vertex_from_axis(face.axis, face.positive, glm::vec3(face.x, face.y, face.z));
-        TRY(vertices.append(new_vertices[0]));
-        TRY(vertices.append(new_vertices[1]));
-        TRY(vertices.append(new_vertices[2]));
-        TRY(vertices.append(new_vertices[3]));
+        vertices.append(new_vertices[0]);
+        vertices.append(new_vertices[1]);
+        vertices.append(new_vertices[2]);
+        vertices.append(new_vertices[3]);
 
-        TRY(uvs.append(glm::vec3(0.0, 0.0, (double)face.texture_index)));
-        TRY(uvs.append(glm::vec3(1.0, 0.0, (double)face.texture_index)));
-        TRY(uvs.append(glm::vec3(1.0, 1.0, (double)face.texture_index)));
-        TRY(uvs.append(glm::vec3(0.0, 1.0, (double)face.texture_index)));
+        uvs.append(glm::vec3(0.0, 0.0, (double)face.texture_index));
+        uvs.append(glm::vec3(1.0, 0.0, (double)face.texture_index));
+        uvs.append(glm::vec3(1.0, 1.0, (double)face.texture_index));
+        uvs.append(glm::vec3(0.0, 1.0, (double)face.texture_index));
 
         const glm::vec3 normal = normal_from_axis(face.axis, face.positive);
-        TRY(normals.append(normal));
-        TRY(normals.append(normal));
-        TRY(normals.append(normal));
-        TRY(normals.append(normal));
+        normals.append(normal);
+        normals.append(normal);
+        normals.append(normal);
+        normals.append(normal);
     }
 
     slice.mesh = EXPECT(Mesh::create_from_data(View(indices).as_bytes(), vertices, normals, View(uvs).as_bytes(), WGPUIndexFormat_Uint16, UVType::UVT));
@@ -263,19 +263,19 @@ Result<void> Chunk::build_water_mesh(size_t slice_index)
                         continue;
 
                     if ((x == 0 && (!m_dim->has_chunk(m_x - 1, m_z) || (m_dim->get_chunk(m_x - 1, m_z).get()->get_block(width - 1, y, z).is_air() && !m_dim->get_chunk(m_x - 1, m_z).get()->get_tag(glm::i64vec3(width - 1, y, z), "water")))) || (x > 0 && get_block(x - 1, y, z).is_air() && !get_tag(glm::i64vec3(x - 1, y, z), "water").has_value()))
-                        TRY(faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::X, false, 0)));
+                        faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::X, false, 0));
                     if ((x == width - 1 && (!m_dim->has_chunk(m_x + 1, m_z) || (m_dim->get_chunk(m_x + 1, m_z).get()->get_block(0, y, z).is_air() && !m_dim->get_chunk(m_x + 1, m_z).get()->get_tag(glm::i64vec3(0, y, z), "water")))) || (x < width - 1 && get_block(x + 1, y, z).is_air() && !get_tag(glm::i64vec3(x + 1, y, z), "water").has_value()))
-                        TRY(faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::X, true, 0)));
+                        faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::X, true, 0));
 
                     if (y == 0 || (get_block(x, y - 1, z).is_air() && !get_tag(glm::i64vec3(x, y - 1, z), "water").has_value()))
-                        TRY(faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Y, false, 0)));
+                        faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Y, false, 0));
                     if (y == height - 1 || (get_block(x, y + 1, z).is_air() && !get_tag(glm::i64vec3(x, y + 1, z), "water").has_value()))
-                        TRY(faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Y, true, 0)));
+                        faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Y, true, 0));
 
                     if ((z == 0 && (!m_dim->has_chunk(m_x, m_z - 1) || (m_dim->get_chunk(m_x, m_z - 1).get()->get_block(x, y, width - 1).is_air() && !m_dim->get_chunk(m_x, m_z - 1).get()->get_tag(glm::i64vec3(x, y, width - 1), "water")))) || (z > 0 && get_block(x, y, z - 1).is_air() && !get_tag(glm::i64vec3(x, y, z - 1), "water").has_value()))
-                        TRY(faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Z, false, 0)));
+                        faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Z, false, 0));
                     if ((z == width - 1 && (!m_dim->has_chunk(m_x, m_z + 1) || (m_dim->get_chunk(m_x, m_z + 1).get()->get_block(x, y, 0).is_air() && !m_dim->get_chunk(m_x, m_z + 1).get()->get_tag(glm::i64vec3(x, y, 0), "water")))) || (z < width - 1 && get_block(x, y, z + 1).is_air() && !get_tag(glm::i64vec3(x, y, z + 1), "water").has_value()))
-                        TRY(faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Z, true, 0)));
+                        faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Z, true, 0));
                 }
             }
         }
@@ -301,30 +301,30 @@ Result<void> Chunk::build_water_mesh(size_t slice_index)
         uint16_t i2 = vertices.size() + 2;
         uint16_t i3 = vertices.size() + 3;
 
-        TRY(indices.append(i0));
-        TRY(indices.append(i1));
-        TRY(indices.append(i2));
+        indices.append(i0);
+        indices.append(i1);
+        indices.append(i2);
 
-        TRY(indices.append(i2));
-        TRY(indices.append(i3));
-        TRY(indices.append(i0));
+        indices.append(i2);
+        indices.append(i3);
+        indices.append(i0);
 
         const Array<glm::vec3, 4> new_vertices = vertex_from_axis(face.axis, face.positive, glm::vec3(face.x, face.y, face.z));
-        TRY(vertices.append(new_vertices[0]));
-        TRY(vertices.append(new_vertices[1]));
-        TRY(vertices.append(new_vertices[2]));
-        TRY(vertices.append(new_vertices[3]));
+        vertices.append(new_vertices[0]);
+        vertices.append(new_vertices[1]);
+        vertices.append(new_vertices[2]);
+        vertices.append(new_vertices[3]);
 
-        TRY(uvs.append(glm::vec2(0.0, 0.0)));
-        TRY(uvs.append(glm::vec2(1.0, 0.0)));
-        TRY(uvs.append(glm::vec2(1.0, 1.0)));
-        TRY(uvs.append(glm::vec2(0.0, 1.0)));
+        uvs.append(glm::vec2(0.0, 0.0));
+        uvs.append(glm::vec2(1.0, 0.0));
+        uvs.append(glm::vec2(1.0, 1.0));
+        uvs.append(glm::vec2(0.0, 1.0));
 
         const glm::vec3 normal = normal_from_axis(face.axis, face.positive);
-        TRY(normals.append(normal));
-        TRY(normals.append(normal));
-        TRY(normals.append(normal));
-        TRY(normals.append(normal));
+        normals.append(normal);
+        normals.append(normal);
+        normals.append(normal);
+        normals.append(normal);
     }
 
     slice.water_mesh = EXPECT(Mesh::create_from_data(View(indices).as_bytes(), vertices, normals, View(uvs).as_bytes(), WGPUIndexFormat_Uint16, UVType::UV));
@@ -346,7 +346,7 @@ Result<CompressedChunk> Chunk::compress() const
         ChunkNode node;
         node.same = 0;
 
-        TRY(cchunk.compressed_nodes.append(node));
+        cchunk.compressed_nodes.append(node);
 
         BlockState saved_block = m_blocks[(i * 16 + 0) + 0];
 
@@ -364,7 +364,7 @@ Result<CompressedChunk> Chunk::compress() const
                     node2.leaf = 1;
                     node2.same = 0;
 
-                    TRY(nodes.append(node2));
+                    nodes.append(node2);
                     node2.ptr = cchunk.compressed_blocks.size() + blocks.size();
 
                     BlockState saved_block2 = chunk_blocks[Chunk::linearize(0, i * 16, 0)];
@@ -384,7 +384,7 @@ Result<CompressedChunk> Chunk::compress() const
                                 if (block.is_air())
                                     continue;
 
-                                TRY(blocks2.append(block));
+                                blocks2.append(block);
                                 node2.child_mask |= 1 << index2;
                             }
 
@@ -396,13 +396,13 @@ Result<CompressedChunk> Chunk::compress() const
                         if (!node2.same)
                         {
                             for (BlockState block : blocks2)
-                                TRY(blocks.append(block));
+                                blocks.append(block);
 
                             node.same = 0;
                         }
                         else
                         {
-                            TRY(blocks.append(saved_block2));
+                            blocks.append(saved_block2);
 
                             if (saved_block.is_air())
                                 saved_block = saved_block2;
@@ -413,7 +413,7 @@ Result<CompressedChunk> Chunk::compress() const
                     }
                     else
                     {
-                        TRY(nodes.remove_one());
+                        nodes.remove_one();
                     }
                 }
 
@@ -424,21 +424,21 @@ Result<CompressedChunk> Chunk::compress() const
             if (!node.same)
             {
                 for (BlockState block : blocks)
-                    TRY(cchunk.compressed_blocks.append(block));
+                    cchunk.compressed_blocks.append(block);
                 for (ChunkNode node : nodes)
-                    TRY(cchunk.compressed_nodes.append(node));
+                    cchunk.compressed_nodes.append(node);
             }
             else
             {
                 node.ptr = cchunk.compressed_blocks.size();
-                TRY(cchunk.compressed_blocks.append(saved_block));
+                cchunk.compressed_blocks.append(saved_block);
             }
 
             cchunk.compressed_nodes.get_unchecked(node_index) = node;
         }
         else
         {
-            TRY(cchunk.compressed_nodes.remove_one());
+            cchunk.compressed_nodes.remove_one();
         }
 
         // Compress the biome data. Each block has a biome values so the only case available is
@@ -449,7 +449,7 @@ Result<CompressedChunk> Chunk::compress() const
         ChunkBiomeNode bnode;
         bnode.same = 1;
 
-        TRY(cchunk.compressed_biome_nodes.append(bnode));
+        cchunk.compressed_biome_nodes.append(bnode);
 
         Vector<Biome> biomes;
         Vector<ChunkBiomeNode> biome_nodes;
@@ -463,7 +463,7 @@ Result<CompressedChunk> Chunk::compress() const
                     ChunkBiomeNode bnode2;
                     bnode2.same = 1;
 
-                    TRY(biome_nodes.append(bnode2));
+                    biome_nodes.append(bnode2);
 
                     Biome saved_biome2 = chunk_biomes[Chunk::linearize(0, i * 16, 0)];
                     Vector<Biome> biomes2;
@@ -477,20 +477,20 @@ Result<CompressedChunk> Chunk::compress() const
                                 if (biome != saved_biome2)
                                     bnode2.same = 0;
 
-                                TRY(biomes2.append(biome));
+                                biomes2.append(biome);
                             }
 
                     if (!bnode2.same)
                     {
                         for (Biome biome : biomes2)
-                            TRY(biomes.append(biome));
+                            biomes.append(biome);
 
                         bnode.same = 0;
                     }
                     else
                     {
                         bnode2.ptr = biomes.size();
-                        TRY(biomes.append(saved_biome2));
+                        biomes.append(saved_biome2);
 
                         if (!saved_biome.has_value())
                             saved_biome = saved_biome2;
@@ -503,14 +503,14 @@ Result<CompressedChunk> Chunk::compress() const
         if (!bnode.same)
         {
             for (Biome biome : biomes)
-                TRY(cchunk.compressed_biomes.append(biome));
+                cchunk.compressed_biomes.append(biome);
             for (ChunkBiomeNode node : biome_nodes)
-                TRY(cchunk.compressed_biome_nodes.append(node));
+                cchunk.compressed_biome_nodes.append(node);
         }
         else
         {
             bnode.ptr = cchunk.compressed_biomes.size();
-            TRY(cchunk.compressed_biomes.append(saved_biome.get()));
+            cchunk.compressed_biomes.append(saved_biome.get());
         }
 
         cchunk.compressed_biome_nodes.get_unchecked(bnode_index) = bnode;
@@ -594,8 +594,8 @@ Result<void> Chunk::uncompress(View<BlockState> compressed_blocks, View<ChunkNod
 void Chunk::set_tag(glm::i64vec3 pos, const StringView& name, Variant v, bool rebuild)
 {
     uint16_t key = linearize(pos.x, pos.y, pos.z);
-    BlockTags *tags = EXPECT(m_tags.get_or_put(key, BlockTags()));
-    EXPECT(tags->tags.put(name, v));
+    BlockTags *tags = m_tags.get_or_put(key, BlockTags());
+    tags->tags.put(name, v);
     if (rebuild)
         EXPECT(build_water_mesh(pos.y / Chunk::width));
 }

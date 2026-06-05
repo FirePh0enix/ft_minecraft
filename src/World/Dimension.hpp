@@ -23,11 +23,11 @@ public:
 
     bool has_chunk(int64_t x, int64_t z) const;
 
-    Result<void> add_chunk(int64_t x, int64_t z, const Ref<Chunk>& chunk);
+    void add_chunk(int64_t x, int64_t z, const Ref<Chunk>& chunk);
     void remove_chunk(int64_t x, int64_t z);
 
     Ref<Entity> get_entity(EntityId id) const;
-    Result<void> add_entity(Ref<Entity> entity);
+    void add_entity(Ref<Entity> entity);
     void remove_entity(Ref<Entity> entity);
 
     ALWAYS_INLINE const Map<ChunkPos, Ref<Chunk>>& get_chunks() const { return m_chunks; }

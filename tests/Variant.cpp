@@ -18,7 +18,7 @@ TEST_CASE("Copy constructor when tag is String")
 TEST_CASE("Variant with Array")
 {
     LocalVector<String> strings;
-    EXPECT(strings.append("hello world with allocation"));
+    strings.append("hello world with allocation");
 
     Variant v = View(strings);
 }

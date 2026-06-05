@@ -84,10 +84,10 @@ public:
         return View<uint8_t>((const uint8_t *)m_data, m_size * sizeof(T));
     }
 
-    Result<Vector<T>> to_vector() const
+    Vector<T> to_vector() const
     {
         Vector<T> vec;
-        TRY(vec.append_iter(begin(), end()));
+        vec.append_iter(begin(), end());
         return vec;
     }
 

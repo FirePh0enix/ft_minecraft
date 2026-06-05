@@ -199,10 +199,7 @@ private:
  *  Create a reference counted object.
  */
 template <typename T, typename... Args>
-Result<Ref<T>> newref(Args&&...args)
+Ref<T> newref(Args&&...args)
 {
-    T *r = alloc<T>(std::forward<Args>(args)...);
-    if (r == nullptr)
-        return Error(ErrorKind::OutOfMemory);
-    return Ref<T>(r);
+    return Ref<T>(alloc<T>(std::forward<Args>(args)...));
 }

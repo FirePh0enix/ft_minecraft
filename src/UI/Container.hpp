@@ -10,10 +10,9 @@ class Container : public UI
 public:
     virtual ~Container() {}
 
-    Result<void> add_child(Ref<UI> ui)
+    void add_child(Ref<UI> ui)
     {
-        TRY(m_children.append(ui));
-        return Result<void>();
+        m_children.append(ui);
     }
 
     View<Ref<UI>> get_children() const { return m_children; }

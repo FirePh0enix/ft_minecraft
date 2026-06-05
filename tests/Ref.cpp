@@ -35,7 +35,7 @@ TEST_CASE("Ref sanity checks")
     CHECK(foo_null.ptr() == nullptr);
     CHECK(foo_null.references() == 0);
 
-    Ref<Foo> foo = EXPECT(newref<Foo>());
+    Ref<Foo> foo = newref<Foo>();
     CHECK(foo.references() == 1);
 
     {
@@ -48,8 +48,8 @@ TEST_CASE("Ref sanity checks")
     foo = nullptr;
     CHECK(foo.is_null());
 
-    Ref<Foo> foo3 = EXPECT(newref<Foo>());
-    Ref<Foo> foo4 = EXPECT(newref<Foo>());
+    Ref<Foo> foo3 = newref<Foo>();
+    Ref<Foo> foo4 = newref<Foo>();
     foo3 = foo4;
     foo4 = nullptr;
 
@@ -63,7 +63,7 @@ TEST_CASE("Ref sanity checks")
 
     foo3 = nullptr;
 
-    Ref<Foo> foo5 = EXPECT(newref<Foo>());
+    Ref<Foo> foo5 = newref<Foo>();
     {
         Ref<Foo> foo5_1 = foo5;
         Ref<Foo> foo5_2 = foo5;
@@ -87,7 +87,7 @@ TEST_CASE("Ref sanity checks")
     foo5 = nullptr;
 
     // Self assignment
-    Ref<Foo> foo6 = EXPECT(newref<Foo>());
+    Ref<Foo> foo6 = newref<Foo>();
     Ref<Foo> foo7 = foo6;
 
     foo6 = foo7;
@@ -97,13 +97,13 @@ TEST_CASE("Ref sanity checks")
 
 static Ref<Object> make_and_cast()
 {
-    return EXPECT(newref<Foo>()).cast_to<Object>();
+    return newref<Foo>().cast_to<Object>();
 }
 
 TEST_CASE("Ref casting")
 {
     // Downcasting
-    Ref<Bleep> bleep = EXPECT(newref<Bleep>());
+    Ref<Bleep> bleep = newref<Bleep>();
     Ref<Object> object = bleep.cast_to<Object>();
     CHECK(!object.is_null());
 
@@ -141,6 +141,6 @@ private:
 
 TEST_CASE("Ref with complex class")
 {
-    Ref<ComplexClass> cc = EXPECT(newref<ComplexClass>());
+    Ref<ComplexClass> cc = newref<ComplexClass>();
     Ref<ComplexClass> cc2 = cc;
 }

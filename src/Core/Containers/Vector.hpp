@@ -4,8 +4,7 @@
 #include "Core/Assert.hpp"
 #include "Core/Containers/Iterator.hpp"
 #include "Core/Definitions.hpp"
-#include "Core/Error.hpp"
-#include "Core/Result.hpp"
+#include "Core/Option.hpp"
 
 #include <cstddef>
 #include <functional>
@@ -21,11 +20,11 @@ public:
      *  @brief Create a new `Vector` filled with a variable number of arguments.
      */
     template <typename... Args>
-    static Result<Vector> create(Args&&...args)
+    static Vector create(Args&&...args)
     {
         Vector v;
-        TRY(v.reserve(sizeof...(args)));
-        ((void)v.append(args), ...); // TODO: check errors
+        v.reserve(sizeof...(args));
+        (v.append(args), ...);
         return v;
     }
 
@@ -49,6 +48,17 @@ public:
         unref();
     }
 
+    const T& operator[](size_t index) const
+    {
+        ASSERT_V(index < m_size, "index out of bounds");
+        return get_unchecked(index);
+    }
+    T& operator[](size_t index)
+    {
+        ASSERT_V(index < m_size, "index out of bounds");
+        return get_unchecked(index);
+    }
+
     ALWAYS_INLINE T *data() { return m_data; }
     ALWAYS_INLINE const T *data() const { return m_data; }
 
@@ -57,34 +67,30 @@ public:
 
     bool empty() const { return m_size == 0; }
 
-    Result<void> append(const T& value)
+    void append(const T& value)
     {
-        TRY(copy_on_write());
-        TRY(grow_if_needed());
+        copy_on_write();
+        grow_if_needed();
 
         new (m_data + m_size) T(value);
         m_size += 1;
-
-        return Result<void>();
     }
 
-    Result<void> append(T&& value)
+    void append(T&& value)
     {
-        TRY(copy_on_write());
-        TRY(grow_if_needed());
+        copy_on_write();
+        grow_if_needed();
 
         new (m_data + m_size) T(value);
         m_size += 1;
-
-        return Result<void>();
     }
 
-    Result<void> append_iter(ForwardIterator<T> begin, ForwardIterator<T> end)
+    void append_iter(ForwardIterator<T> begin, ForwardIterator<T> end)
     {
-        TRY(copy_on_write());
+        copy_on_write();
 
         size_t additonal_size = end - begin;
-        TRY(ensure_at_least(additonal_size));
+        ensure_at_least(additonal_size);
 
         size_t i = m_size;
         for (auto iter = begin; iter != end; iter++)
@@ -92,13 +98,11 @@ public:
             new (m_data + i) T(*iter);
             i += 1;
         }
-
-        return Result<void>();
     }
 
-    Result<T> pop_unchecked()
+    T pop_one_unchecked()
     {
-        TRY(copy_on_write());
+        copy_on_write();
 
         T value = m_data[m_size - 1];
         m_size -= 1;
@@ -106,15 +110,13 @@ public:
         return value;
     }
 
-    Result<void> remove_one()
+    void remove_one()
     {
-        TRY(copy_on_write());
+        copy_on_write();
 
         ASSERT(m_size >= 1, "");
         m_size -= 1;
         m_data[m_size].~T();
-
-        return Result<void>();
     }
 
     /**
@@ -130,20 +132,20 @@ public:
         unref();
     }
 
-    Result<void> clear_keep_capacity()
+    void clear_keep_capacity()
     {
-        TRY(copy_on_write());
+        copy_on_write();
 
         for (size_t i = 0; i < m_size; i++)
             m_data[i].~T();
         m_size = 0;
     }
 
-    Result<void> resize(size_t size)
+    void resize(size_t size)
     {
         if (m_capacity == 0)
         {
-            TRY(grow_to(0, size));
+            grow_to(0, size);
             for (size_t i = m_size; i < size; i++)
                 new (&m_data[i]) T();
             m_size = size;
@@ -151,7 +153,7 @@ public:
 
         if (size > m_size)
         {
-            TRY(copy_on_write());
+            copy_on_write();
 
             if (size <= m_capacity)
             {
@@ -159,7 +161,7 @@ public:
             }
             else
             {
-                TRY(grow_to(m_capacity, size));
+                grow_to(m_capacity, size);
             }
 
             for (size_t i = m_size; i < size; i++)
@@ -169,53 +171,48 @@ public:
         }
         else if (size < m_size)
         {
-            TRY(copy_on_write());
+            copy_on_write();
             for (size_t i = size; i < m_size; i++)
                 (m_data + i)->~T();
             m_size = size;
 
             // keep the capacity
         }
-
-        return Result<void>();
     }
 
-    Result<void> reserve(size_t capacity)
+    void reserve(size_t capacity)
     {
         if (m_capacity >= capacity)
-            return Result<void>();
+            return;
 
-        TRY(copy_on_write());
-        TRY(grow_to(m_capacity, capacity));
-        return Result<void>();
+        copy_on_write();
+        grow_to(m_capacity, capacity);
     }
 
-    Result<void> remove_at(size_t index)
+    void remove_at(size_t index)
     {
         if (index >= m_size)
-            return Result<void>();
+            return;
 
-        TRY(copy_on_write());
+        copy_on_write();
 
         // TODO: do some testing.
 
         (m_data + index)->~T();
         m_size -= 1;
         memmove((void *)(m_data + index), (void *)(m_data + index + 1), sizeof(T) * (m_size - index));
-
-        return Result<void>();
     }
 
-    Result<void> remove_if(std::function<bool(const T&)> f)
+    void remove_if(std::function<bool(const T&)> f)
     {
-        TRY(copy_on_write());
+        copy_on_write();
 
         for (size_t i = 0; i < m_size; i++)
         {
             if (f(m_data[i]))
             {
                 remove_at(i);
-                return Result<void>();
+                return;
             }
         }
     }
@@ -275,91 +272,67 @@ private:
     size_t m_size;
     size_t m_capacity;
 
-    Result<void> copy_on_write()
+    void copy_on_write()
     {
         if (!m_references)
         {
-            return Result<void>();
+            return;
         }
 
         if (*m_references > 1)
         {
             *m_references -= 1;
             m_references = alloc<uint32_t>(1);
-            if (!m_references)
-                return Error(ErrorKind::OutOfMemory);
-
             T *new_data = alloc_array_uninitialized<T>(m_capacity);
-            if (!new_data)
-            {
-                destroy(m_references);
-                return Error(ErrorKind::OutOfMemory);
-            }
 
             for (size_t i = 0; i < m_size; i++)
                 new (new_data + i) T(m_data[i]);
             m_data = new_data;
         }
-
-        return Result<void>();
     }
 
-    Result<void> grow_if_needed()
+    void grow_if_needed()
     {
         if (m_capacity == 0)
         {
             m_references = alloc<uint32_t>(1);
-            if (!m_references)
-                return Error(ErrorKind::OutOfMemory);
-
             m_capacity = initial_capacity;
             m_data = alloc_array_uninitialized<T>(m_capacity);
             if (!m_data)
             {
                 destroy(m_references);
-                return Error(ErrorKind::OutOfMemory);
             }
         }
         else if (m_size == m_capacity)
         {
             size_t new_capacity = growth_factor(m_capacity);
-            TRY(grow_to(m_capacity, new_capacity));
+            grow_to(m_capacity, new_capacity);
         }
-
-        return Result<void>();
     }
 
-    Result<void> ensure_at_least(size_t aditional_size)
+    void ensure_at_least(size_t aditional_size)
     {
         if (m_capacity == 0)
         {
             m_references = alloc<uint32_t>(1);
-            if (!m_references)
-                return Error(ErrorKind::OutOfMemory);
-
             m_capacity = aditional_size;
             m_data = alloc_array_uninitialized<T>(m_capacity);
             if (!m_data)
             {
                 destroy(m_references);
-                return Error(ErrorKind::OutOfMemory);
             }
         }
         else if (m_size == m_capacity)
         {
             size_t new_capacity = m_size + aditional_size;
-            TRY(grow_to(m_capacity, new_capacity));
+            grow_to(m_capacity, new_capacity);
         }
-
-        return Result<void>();
     }
 
-    Result<void> grow_to(size_t old_capacity, size_t new_capacity)
+    void grow_to(size_t old_capacity, size_t new_capacity)
     {
         (void)old_capacity;
         T *new_data = alloc_array_uninitialized<T>(new_capacity);
-        if (!new_data)
-            return Error(ErrorKind::OutOfMemory);
 
         // perform a deep copy.
         // TODO: uncessary, elements are moved not copied. memcpy should be enough.
@@ -372,8 +345,6 @@ private:
 
         if (!m_references)
             m_references = alloc<uint32_t>(1);
-
-        return Result<void>();
     }
 
     void unref()

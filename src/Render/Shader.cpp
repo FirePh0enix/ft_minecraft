@@ -15,12 +15,12 @@ Result<Ref<Shader>> Shader::load(const std::filesystem::path& path)
     String source_code = TRY(file.reader().read_to_string());
     file.close();
 
-    Ref<Shader> shader = TRY(newref<Shader>());
+    Ref<Shader> shader = newref<Shader>();
     shader->m_source_code = source_code;
     shader->m_hash = hash_fnv32(source_code);
 
-    TRY(shader->m_entry_point_names.put(WGPUShaderStage_Vertex, "vertex_main"));
-    TRY(shader->m_entry_point_names.put(WGPUShaderStage_Fragment, "fragment_main"));
+    shader->m_entry_point_names.put(WGPUShaderStage_Vertex, "vertex_main");
+    shader->m_entry_point_names.put(WGPUShaderStage_Fragment, "fragment_main");
 
     return shader;
 }
@@ -48,7 +48,7 @@ static WGPUTextureViewDimension convert_texture_view_dimension(TextureDimension 
 static LocalVector<WGPUBindGroupLayoutEntry> convert_bindings(Shader *shader)
 {
     LocalVector<WGPUBindGroupLayoutEntry> entries;
-    EXPECT(entries.reserve(shader->get_bindings().size()));
+    entries.reserve(shader->get_bindings().size());
 
     for (const auto& [_, key, binding] : shader->get_bindings())
     {
@@ -63,7 +63,7 @@ static LocalVector<WGPUBindGroupLayoutEntry> convert_bindings(Shader *shader)
             entry.texture.multisampled = false;
             entry.texture.viewDimension = convert_texture_view_dimension(binding.dimension);
 
-            EXPECT(entries.append(entry));
+            entries.append(entry);
 
             WGPUBindGroupLayoutEntry sampler_entry{};
             sampler_entry.binding = binding.binding + 1;
@@ -71,7 +71,7 @@ static LocalVector<WGPUBindGroupLayoutEntry> convert_bindings(Shader *shader)
             sampler_entry.sampler.nextInChain = nullptr;
             sampler_entry.sampler.type = WGPUSamplerBindingType_Filtering;
 
-            EXPECT(entries.append(sampler_entry));
+            entries.append(sampler_entry);
         }
         break;
         case BindingKind::UniformBuffer:
@@ -81,7 +81,7 @@ static LocalVector<WGPUBindGroupLayoutEntry> convert_bindings(Shader *shader)
             entry.visibility = binding.shader_stage;
             entry.buffer.type = WGPUBufferBindingType_Uniform;
 
-            EXPECT(entries.append(entry));
+            entries.append(entry);
         }
         break;
         case BindingKind::StorageBuffer:
@@ -91,7 +91,7 @@ static LocalVector<WGPUBindGroupLayoutEntry> convert_bindings(Shader *shader)
             entry.visibility = binding.shader_stage;
             entry.buffer.type = binding.access == BindingAccess::Read ? WGPUBufferBindingType_ReadOnlyStorage : WGPUBufferBindingType_Storage;
 
-            EXPECT(entries.append(entry));
+            entries.append(entry);
         }
         break;
         default:

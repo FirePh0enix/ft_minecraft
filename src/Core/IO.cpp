@@ -89,12 +89,12 @@ Result<Option<Variant>> Reader::read_variant()
         uint32_t size;
         TRY(read_raw(&size, sizeof(uint32_t)));
 
-        TRY(array.reserve(size));
+        array.reserve(size);
 
         for (size_t i = 0; i < size; i++)
         {
             Variant variant = TRY(read_variant()).get();
-            TRY(array.append(variant));
+            array.append(variant);
         }
 
         return Option(Variant(array));
@@ -111,7 +111,7 @@ Result<Option<Variant>> Reader::read_variant()
             Variant key = TRY(read_variant()).get();
             Variant value = TRY(read_variant()).get();
 
-            TRY(array.put(key, value));
+            array.put(key, value);
         }
 
         return Option(Variant(array));
@@ -123,7 +123,7 @@ Result<Option<Variant>> Reader::read_variant()
 
 Result<void> Reader::read_to_buffer(LocalVector<char>& buffer)
 {
-    TRY(buffer.resize(size()));
+    buffer.resize(size());
     TRY(read_raw(buffer.data(), buffer.size()));
     return Result<void>();
 }

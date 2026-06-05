@@ -17,7 +17,7 @@ public:
      * Starts an asynchronous task.
      * TODO: Should returns a future that can be canceled.
      */
-    Result<void> async(std::function<void()> task);
+    void async(std::function<void()> task);
 
 private:
     LocalVector<std::thread> m_threads;

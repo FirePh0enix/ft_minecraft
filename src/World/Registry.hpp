@@ -33,8 +33,8 @@ public:
     template <typename T>
     void register_entity()
     {
-        EXPECT(m_entries.put(T::get_static_hash_code(), Entry{.c = []() -> Result<Ref<Entity>>
-                                                              { return TRY(newref<T>()).template cast_to<Entity>(); }}));
+        m_entries.put(T::get_static_hash_code(), Entry{.c = []() -> Result<Ref<Entity>>
+                                                       { return newref<T>().template cast_to<Entity>(); }});
     }
 
     Result<Ref<Entity>> create_entity(ClassHashCode class_hash);
@@ -67,11 +67,11 @@ constexpr Id<Entity> cow(2);
 class GameRegistry
 {
 public:
-    Result<void> register_all();
+    void register_all();
     Result<void> post_register();
 
-    Result<void> add_block(Id<Block> id, Ref<Block> block);
-    Result<void> add_item(Id<Item> id, Ref<Item> item);
+    void add_block(Id<Block> id, Ref<Block> block);
+    void add_item(Id<Item> id, Ref<Item> item);
 
     Ref<Block> get_block(Id<Block> key) const { return m_blocks.get(key).value_or(nullptr); }
     Ref<Item> get_item(Id<Item> key) const { return m_items.get(key).value_or(nullptr); }
@@ -98,7 +98,7 @@ public:
 
     void register_rpc(ClassHashCode cls, String name, RpcTarget target)
     {
-        EXPECT(EXPECT(m_exposed_rpc.get_or_put(cls, {}))->put(name, target));
+        m_exposed_rpc.get_or_put(cls, {})->put(name, target);
     }
 
     Option<RpcTarget> get_rpc(Entity *entity, const StringView& name) const

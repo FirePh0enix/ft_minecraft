@@ -58,10 +58,9 @@ class EntitySerializer
 {
 public:
     template <typename T>
-    Result<void> set(const StringView& attrib, const T& value)
+    void set(const StringView& attrib, const T& value)
     {
-        TRY(m_variants.put(attrib, Variant(value)));
-        return Result<void>();
+        m_variants.put(attrib, Variant(value));
     }
 
     template <typename T>
@@ -75,7 +74,7 @@ public:
     Option<Vector<T>> get_array(const StringView& attrib) const
     {
         return m_variants.get(attrib).template map<Vector<T>>([](const Variant& v) -> Vector<T>
-                                                              { return EXPECT(v.to_array<T>()); });
+                                                              { return v.to_array<T>(); });
     }
 
     Result<void> save(const StringView& path) const;

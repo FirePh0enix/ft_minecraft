@@ -7,11 +7,11 @@
 #include "Engine.hpp"
 #include "Entity/Entity.hpp"
 #include "Entity/Item.hpp"
+#include "Entity/Mob.hpp"
 #include "Input.hpp"
 #include "Inventory/Inventory.hpp"
 #include "Item/ItemStack.hpp"
 #include "Model.hpp"
-#include "Network/Packet.hpp"
 #include "Render/Renderer.hpp"
 #include "World/Registry.hpp"
 #include "World/World.hpp"
@@ -26,9 +26,9 @@ struct GPU_ATTRIBUTE ItemBlockModel
 
 void Player::on_ready()
 {
-    m_chat = EXPECT(newref<Chat>());
+    m_chat = newref<Chat>();
 
-    m_inventory_container = EXPECT(newref<InventoryContainer>());
+    m_inventory_container = newref<InventoryContainer>();
     EXPECT(m_inventory_container->add_layer(27)); // main inventory
     EXPECT(m_inventory_container->add_layer(9));  // toolbar
 
@@ -37,7 +37,7 @@ void Player::on_ready()
     m_inventory_container->set_stack(1, 2, ItemStack(Items::stone_block, 16));
     m_inventory_container->set_stack(1, 3, ItemStack(Items::dirt_block, 16));
 
-    m_inventory = EXPECT(newref<PlayerInventory>(m_inventory_container));
+    m_inventory = newref<PlayerInventory>(m_inventory_container);
 
     m_model_buffer = EXPECT(Buffer::create(sizeof(ItemBlockModel), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform));
     m_material = EXPECT(Material::create(Renderer::get().get_item_block_shader(), MaterialFlagBits::None, WGPUCullMode_Back, UVType::UV));
@@ -47,7 +47,7 @@ void Player::on_ready()
 
     if (m_local_player)
     {
-        m_camera = EXPECT(newref<Camera>());
+        m_camera = newref<Camera>();
         m_camera->get_transform().position() = glm::vec3(0, 0.85, 0);
         add_child(m_camera);
         m_world->set_active_camera(m_camera);
@@ -191,7 +191,6 @@ void Player::tick(float delta)
             {
                 if (result.hit_entity)
                 {
-
                     if (auto mob = result.entity.cast_to<Mob>())
                         mob->on_hit_by(*this);
                 }
@@ -408,7 +407,7 @@ void Player::process_event(Event& event)
 void Player::save(EntitySerializer& ser) const
 {
     LocalVector<ItemStack> stacks;
-    EXPECT(stacks.resize(27 + 9));
+    stacks.resize(27 + 9);
 
     const InventoryContainer::Layer& layer = m_inventory_container->get_layer(0);
     for (size_t i = 0; i < 27; i++)
@@ -419,7 +418,7 @@ void Player::save(EntitySerializer& ser) const
         stacks.get_unchecked(i + 27) = toolbar_layer.stacks.get_unchecked(i);
 
     Variant array = View(stacks);
-    EXPECT(ser.set("inventory_data", array));
+    ser.set("inventory_data", array);
 }
 
 void Player::load(const EntitySerializer& deser)

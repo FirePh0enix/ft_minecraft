@@ -12,11 +12,11 @@ void CraftingTableBlock::open_inventory(glm::ivec3 pos, Player *player)
     (void)pos;
     (void)player;
 
-    Ref<InventoryContainer> container = EXPECT(newref<InventoryContainer>());
+    Ref<InventoryContainer> container = newref<InventoryContainer>();
     EXPECT(container->add_layer(9));
     EXPECT(container->add_layer(1));
 
-    Ref<CraftingTableInventory> inv = EXPECT(newref<CraftingTableInventory>(container, player->get_inventory_container()));
+    Ref<CraftingTableInventory> inv = newref<CraftingTableInventory>(container, player->get_inventory_container());
     player->open_inventory(inv);
 }
 

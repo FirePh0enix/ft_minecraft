@@ -79,10 +79,10 @@ struct __attribute__((aligned(16))) Variant
         : tag(VariantType::Array)
     {
         auto v = new (data) Vector<Variant>();
-        EXPECT(v->reserve(values.size()));
+        v->reserve(values.size());
 
         for (const auto& value : values)
-            EXPECT(v->append(Variant(value)));
+            v->append(Variant(value));
     }
 
     Variant(const Vector<Variant>& values)
@@ -98,7 +98,7 @@ struct __attribute__((aligned(16))) Variant
         new (data) Map<Variant, Variant>();
         Map<Variant, Variant>& m = get_unchecked<Map<Variant, Variant>>();
         for (const auto& [key, value] : map)
-            EXPECT(m.put(Variant(key), Variant(value)));
+            m.put(Variant(key), Variant(value));
     }
 
     Variant(const Map<Variant, Variant>& map)
@@ -155,26 +155,26 @@ struct __attribute__((aligned(16))) Variant
     }
 
     template <typename T>
-    Result<Vector<T>> to_array() const
+    Vector<T> to_array() const
     {
         const Vector<Variant>& array = get_unchecked<Vector<Variant>>();
         Vector<T> v;
-        TRY(v.reserve(array.size()));
+        v.reserve(array.size());
 
         for (size_t i = 0; i < array.size(); i++)
-            TRY(v.append(array.get_unchecked(i).get_unchecked<T>()));
+            v.append(array.get_unchecked(i).get_unchecked<T>());
 
         return v;
     }
 
     template <typename K, typename V>
-    Result<Map<K, V>> to_map() const
+    Map<K, V> to_map() const
     {
         const Map<Variant, Variant>& map = get_unchecked<Map<Variant, Variant>>();
         Map<K, V> v;
 
         for (const auto& [key, value] : map)
-            TRY(v.put(key.get_unchecked<int64_t>(), value.get_unchecked<V>()));
+            v.put(key.get_unchecked<int64_t>(), value.get_unchecked<V>());
 
         return v;
     }

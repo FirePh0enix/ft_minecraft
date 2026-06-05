@@ -8,11 +8,11 @@ typedef void (*FreeHook)(void *);
 
 namespace core
 {
-extern MallocHook malloc_func;
-extern FreeHook free_func;
-
 extern std::atomic_size_t memory_allocated_bytes;
 extern std::atomic_size_t memory_freed_bytes;
+
+extern void *alloc(size_t);
+extern void free(void *p);
 
 size_t get_memory_usage();
 }; // namespace core
@@ -23,9 +23,7 @@ size_t get_memory_usage();
 template <typename T, typename... Args>
 T *alloc(Args&&...args)
 {
-    T *obj = static_cast<T *>(core::malloc_func(sizeof(T)));
-    if (obj == nullptr)
-        return nullptr;
+    T *obj = static_cast<T *>(core::alloc(sizeof(T)));
 
 #ifndef NDEBUG
     core::memory_allocated_bytes += sizeof(T);
@@ -41,15 +39,13 @@ T *alloc_array_uninitialized(size_t n)
 #ifndef NDEBUG
     core::memory_allocated_bytes += sizeof(T) * n;
 #endif
-    return static_cast<T *>(core::malloc_func(sizeof(T) * n));
+    return static_cast<T *>(core::alloc(sizeof(T) * n));
 }
 
 template <typename T>
 T *alloc_array(size_t n)
 {
     T *ptr = alloc_array_uninitialized<T>(n);
-    if (!ptr)
-        return nullptr;
 
 #ifndef NDEBUG
     core::memory_allocated_bytes += sizeof(T) * n;
@@ -64,7 +60,7 @@ template <typename T>
 void destroy(T *obj)
 {
     obj->~T();
-    core::free_func(obj);
+    core::free(obj);
 
 #ifndef NDEBUG
     core::memory_freed_bytes += sizeof(T);
@@ -75,7 +71,7 @@ template <typename T>
 void destroy_array_nodestruct(T *array, size_t n)
 {
     (void)n;
-    core::free_func(array);
+    core::free(array);
 
 #ifndef NDEBUG
     core::memory_freed_bytes += sizeof(T) * n;

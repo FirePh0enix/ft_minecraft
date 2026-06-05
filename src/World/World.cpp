@@ -128,17 +128,17 @@ void World::find_safe_spawn()
 
 Result<Ref<World>> World::create(String name, uint64_t seed, int type)
 {
-    Ref<World> world = TRY(newref<World>());
+    Ref<World> world = newref<World>();
     world->m_seed = seed;
     world->m_name = name;
 
     if (type == WorldPresetFlat)
     {
-        EXPECT(world->m_dims[overworld].m_generation_passes.append(EXPECT(newref<FlatSurfacePass>())));
+        world->m_dims[overworld].m_generation_passes.append(newref<FlatSurfacePass>());
     }
     else if (type == WorldPresetNormal)
     {
-        EXPECT(world->m_dims[overworld].m_generation_passes.append(EXPECT(newref<OverworldSurfacePass>())));
+        world->m_dims[overworld].m_generation_passes.append(newref<OverworldSurfacePass>());
     }
 
     world->find_safe_spawn();
@@ -160,7 +160,7 @@ Result<Ref<World>> World::create(String name, uint64_t seed, int type)
 
 Result<Ref<World>> World::create_proxy(uint64_t seed)
 {
-    Ref<World> world = EXPECT(newref<World>());
+    Ref<World> world = newref<World>();
     world->m_seed = seed;
     world->m_proxy = true;
     return world;
@@ -168,7 +168,7 @@ Result<Ref<World>> World::create_proxy(uint64_t seed)
 
 Result<Ref<World>> World::load(StringView name)
 {
-    Ref<World> world = TRY(newref<World>());
+    Ref<World> world = newref<World>();
 
     String path = format("{}saves/{}/info.dat", Filesystem::get_data_directory(), name);
     File file = TRY(Filesystem::open_file(path));
@@ -183,11 +183,11 @@ Result<Ref<World>> World::load(StringView name)
 
     if (wi.type == WorldPresetFlat)
     {
-        EXPECT(world->m_dims[overworld].m_generation_passes.append(EXPECT(newref<FlatSurfacePass>())));
+        world->m_dims[overworld].m_generation_passes.append(newref<FlatSurfacePass>());
     }
     else if (wi.type == WorldPresetNormal)
     {
-        EXPECT(world->m_dims[overworld].m_generation_passes.append(EXPECT(newref<OverworldSurfacePass>())));
+        world->m_dims[overworld].m_generation_passes.append(newref<OverworldSurfacePass>());
     }
 
     return world;
@@ -216,7 +216,7 @@ void World::tick(float delta)
     m_dims[0].m_entities_to_remove.clear();
     for (Ref<Entity> entity : m_dims[0].m_entities_to_add)
     {
-        EXPECT(m_dims[0].m_entities.append(entity));
+        m_dims[0].m_entities.append(entity);
     }
     m_dims[0].m_entities_to_add.clear();
 
@@ -244,24 +244,24 @@ void World::tick(float delta)
             std::lock_guard<std::mutex> lock(m_dims[0].mutex());
             for (auto& [pos, chunk] : m_dims[0].m_chunks_to_flush)
             {
-                EXPECT(m_dims[0].m_chunks.put(pos, chunk));
-                EXPECT(chunk_modified.append(pos));
+                m_dims[0].m_chunks.put(pos, chunk);
+                chunk_modified.append(pos);
             }
             m_dims[0].m_chunks_to_flush.clear();
 
             for (auto pos : m_dims[0].m_chunks_to_remove)
             {
                 m_dims[0].m_chunks.erase(pos);
-                EXPECT(chunk_modified.append(pos));
+                chunk_modified.append(pos);
             }
             m_dims[0].m_chunks_to_remove.clear();
         }
 
-        for (ChunkPos pos : chunk_modified)
-        {
-            EXPECT(m_generation_thread_pool.async([this, pos]
-                                                  { EXPECT(m_dims[0].rebuild_neighbor_chunks_water(pos.x, pos.z)); }));
-        }
+        // for (ChunkPos pos : chunk_modified)
+        // {
+        //     EXPECT(m_generation_thread_pool.async([this, pos]
+        //                                           { EXPECT(m_dims[0].rebuild_neighbor_chunks_water(pos.x, pos.z)); }));
+        // }
     }
 }
 
@@ -314,11 +314,11 @@ void World::load_around_player()
                 if (m_dims[0].m_chunk_loading_queue.contains(pos))
                     continue;
 
-                EXPECT(m_dims[0].m_chunk_loading_queue.put(pos));
+                m_dims[0].m_chunk_loading_queue.put(pos);
             }
 
-            EXPECT(m_generation_thread_pool.async([this, pos]
-                                                  { load_one_chunk(pos); }));
+            m_generation_thread_pool.async([this, pos]
+                                           { load_one_chunk(pos); });
         }
 
     std::lock_guard<std::mutex> lock(m_dims[0].mutex());
@@ -329,8 +329,8 @@ void World::load_around_player()
             continue;
         }
 
-        EXPECT(m_generation_thread_pool.async([this, pos]
-                                              { unload_one_chunk(pos); }));
+        m_generation_thread_pool.async([this, pos]
+                                       { unload_one_chunk(pos); });
     }
 }
 
@@ -409,7 +409,7 @@ void World::break_block(int64_t x, int64_t y, int64_t z)
     if (!item_opt.has_value())
         return;
 
-    Ref<ItemEntity> item_entity = EXPECT(newref<ItemEntity>(item_opt.get()));
+    Ref<ItemEntity> item_entity = newref<ItemEntity>(item_opt.get());
     item_entity->set_position(glm::vec3(x, y, z) + glm::vec3(rand_float(-0.6, 0.6), 0, rand_float(-0.6, 0.6)));
 
     add_entity(World::overworld, item_entity);
@@ -456,8 +456,8 @@ Result<void> World::save_chunk(Ref<Chunk> chunk)
     {
         Map<String, Variant> tags2;
         for (const auto& [_, key2, value2] : value.tags)
-            TRY(tags2.put(key2, value2));
-        TRY(tags.put(key, tags2));
+            tags2.put(key2, value2);
+        tags.put(key, tags2);
     }
 
     TRY(file.writer().write_variant(Variant(tags)));
@@ -476,8 +476,8 @@ Result<void> World::save_entity(const Ref<Entity>& entity)
     TRY(Filesystem::make_dirs(path));
 
     EntitySerializer serializer;
-    TRY(serializer.set("position", entity->get_position()));
-    TRY(serializer.set("rotation", entity->get_rotation()));
+    serializer.set("position", entity->get_position());
+    serializer.set("rotation", entity->get_rotation());
     entity->save(serializer);
 
     path.append("");
@@ -493,8 +493,8 @@ Result<void> World::save_player(const Ref<Player>& player)
     path.append("player.dat");
 
     EntitySerializer serializer;
-    TRY(serializer.set("position", player->get_position()));
-    TRY(serializer.set("rotation", player->get_rotation()));
+    serializer.set("position", player->get_position());
+    serializer.set("rotation", player->get_rotation());
     player->save(serializer);
 
     TRY(serializer.save(path));
@@ -522,7 +522,7 @@ void World::load_one_chunk(ChunkPos pos)
     String path = format("{}saves/{}/DIM0/{}${}/blocks.dat", Filesystem::get_data_directory(), m_name, pos.x, pos.z);
     if (Filesystem::exists(path))
     {
-        chunk = EXPECT(newref<Chunk>(&m_dims[0], pos.x, pos.z));
+        chunk = newref<Chunk>(&m_dims[0], pos.x, pos.z);
 
         LocalVector<char> data;
         // TODO: how to handle errors from loading chunks ?
@@ -559,14 +559,14 @@ void World::load_one_chunk(ChunkPos pos)
             Option<Variant> variant = EXPECT(reader.read_variant());
             if (variant.has_value())
             {
-                Map<int64_t, Map<String, Variant>> tags = variant.get().to_map<int64_t, Map<String, Variant>>().value(); // TODO: weird EXPECT doesnt not compiles here.
+                Map<int64_t, Map<String, Variant>> tags = variant.get().to_map<int64_t, Map<String, Variant>>();
 
                 for (const auto& [key, value] : tags)
                 {
                     BlockTags btags;
                     for (const auto& [key2, value2] : value)
-                        EXPECT(btags.tags.put(key2, value2));
-                    EXPECT(chunk->m_tags.put(key, btags));
+                        btags.tags.put(key2, value2);
+                    chunk->m_tags.put(key, btags);
                 }
 
                 file.close();
@@ -600,7 +600,7 @@ void World::load_one_chunk(ChunkPos pos)
         EXPECT(save_chunk(chunk));
     }
 
-    EXPECT(m_dims[0].add_chunk(pos.x, pos.z, chunk));
+    m_dims[0].add_chunk(pos.x, pos.z, chunk);
 
     {
         std::lock_guard<std::mutex> lock(m_dims[0].m_chunk_loading_mutex);

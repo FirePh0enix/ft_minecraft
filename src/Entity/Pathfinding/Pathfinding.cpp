@@ -1,8 +1,8 @@
 #include "Pathfinding.hpp"
+
 #include "Core/Containers/InplaceVector.hpp"
-#include "Core/Print.hpp"
-#include "Core/Result.hpp"
 #include "Entity/Pathfinding/PathNode.hpp"
+
 #include <algorithm>
 #include <cstddef>
 
@@ -23,11 +23,11 @@ size_t Pathfinding::node_from_world_point(const glm::ivec3& pos)
     node.m_position = glm::vec3(pos);
     node.m_walkable = walkable;
 
-    EXPECT(m_node_pool.append(node));
+    m_node_pool.append(node);
 
     size_t index = m_node_pool.size() - 1;
 
-    EXPECT(m_nodes.put(pos, index));
+    m_nodes.put(pos, index);
 
     return index;
 }
@@ -54,7 +54,7 @@ Vector<size_t> Pathfinding::get_neighbors(size_t node_index)
 
     Vector<size_t> neighbors;
 
-    PathNode node = m_node_pool.get_unchecked(node_index);
+    PathNode node = m_node_pool[node_index];
     static InplaceVector<glm::ivec3, 10> directions = {
 
         {-1, 0, 1},
@@ -97,7 +97,7 @@ Vector<size_t> Pathfinding::get_neighbors(size_t node_index)
         }
 
         size_t neighbor_index = node_from_world_point(neighbor_pos);
-        EXPECT(neighbors.append(neighbor_index));
+        neighbors.append(neighbor_index);
     }
 
     return neighbors;
@@ -123,20 +123,20 @@ void Pathfinding::retrace_path(size_t start_index, size_t end_index)
 
     while (current != max)
     {
-        EXPECT(m_path.append(current));
+        m_path.append(current);
 
         if (current == start_index)
             break;
 
-        current = m_node_pool.get_unchecked(current).m_parent;
+        current = m_node_pool[current].m_parent;
     }
 
     // Reverse path.
     for (size_t i = 0, j = m_path.size() - 1; i < j; ++i, --j)
     {
-        auto tmp = m_path.get_unchecked(i);
-        m_path.get_unchecked(i) = m_path.get_unchecked(j);
-        m_path.get_unchecked(j) = tmp;
+        auto tmp = m_path[i];
+        m_path[i] = m_path[j];
+        m_path[j] = tmp;
     }
 }
 
@@ -151,26 +151,26 @@ void Pathfinding::find_path(const glm::vec3& start_pos, const glm::vec3& target_
     size_t start_index = node_from_world_point(start_pos);
     size_t target_index = node_from_world_point(target_pos);
 
-    auto& start = m_node_pool.get_unchecked(start_index);
+    auto& start = m_node_pool[start_index];
     start.m_g_cost = 0;
-    start.m_h_cost = get_distance(start, m_node_pool.get_unchecked(target_index));
+    start.m_h_cost = get_distance(start, m_node_pool[target_index]);
 
-    EXPECT(m_open_set.append(start_index));
+    m_open_set.append(start_index);
 
     while (!m_open_set.empty())
     {
 
-        size_t current_index = m_open_set.get_unchecked(0);
+        size_t current_index = m_open_set[0];
         size_t best_index = 0;
 
-        const PathNode target = m_node_pool.get_unchecked(target_index);
+        const PathNode target = m_node_pool[target_index];
 
         for (size_t i = 1; i < m_open_set.size(); ++i)
         {
-            size_t idx = m_open_set.get_unchecked(i);
+            size_t idx = m_open_set[i];
 
-            const auto& node = m_node_pool.get_unchecked(idx);
-            const auto& best = m_node_pool.get_unchecked(current_index);
+            const auto& node = m_node_pool[idx];
+            const auto& best = m_node_pool[current_index];
 
             if (node.get_f_cost() < best.get_f_cost() ||
                 (node.get_f_cost() == best.get_f_cost() &&
@@ -181,10 +181,10 @@ void Pathfinding::find_path(const glm::vec3& start_pos, const glm::vec3& target_
             }
         }
 
-        EXPECT(m_open_set.remove_at(best_index));
+        m_open_set.remove_at(best_index);
 
-        auto current = m_node_pool.get_unchecked(current_index);
-        EXPECT(m_close_set.put(current.m_gridPos));
+        auto current = m_node_pool[current_index];
+        m_close_set.put(current.m_gridPos);
 
         if (current.m_gridPos == target.m_gridPos)
         {
@@ -194,7 +194,7 @@ void Pathfinding::find_path(const glm::vec3& start_pos, const glm::vec3& target_
 
         for (size_t neighbor_index : get_neighbors(current_index))
         {
-            auto& neighbor = m_node_pool.get_unchecked(neighbor_index);
+            auto& neighbor = m_node_pool[neighbor_index];
 
             if (!neighbor.m_walkable || m_close_set.contains(neighbor.m_gridPos))
                 continue;
@@ -208,12 +208,12 @@ void Pathfinding::find_path(const glm::vec3& start_pos, const glm::vec3& target_
                 neighbor.m_parent = current_index;
 
                 if (!m_open_set.contains(neighbor_index))
-                    EXPECT(m_open_set.append(neighbor_index));
+                    m_open_set.append(neighbor_index);
             }
         }
     }
 
-    println("Cannot find path. Start_pos: [{} {} {}], target_pos: [{} {} {}]", start_pos.x, start_pos.y, start_pos.z, target_pos.x, target_pos.y, target_pos.z);
+    // println("Cannot find path. Start_pos: [{} {} {}], target_pos: [{} {} {}]", start_pos.x, start_pos.y, start_pos.z, target_pos.x, target_pos.y, target_pos.z);
 }
 
 Vector<glm::vec3> Pathfinding::simplify_path(const Vector<size_t>& path)
@@ -223,30 +223,30 @@ Vector<glm::vec3> Pathfinding::simplify_path(const Vector<size_t>& path)
     if (path.empty())
         return waypoints;
 
-    EXPECT(waypoints.append(m_node_pool.get_unchecked(path.get_unchecked(0)).m_position));
+    waypoints.append(m_node_pool[path[0]].m_position);
 
     if (path.size() < 2)
         return waypoints;
 
-    glm::ivec3 last_dir = m_node_pool.get_unchecked(path.get_unchecked(1)).m_gridPos - m_node_pool.get_unchecked(path.get_unchecked(0)).m_gridPos;
+    glm::ivec3 last_dir = m_node_pool[path[1]].m_gridPos - m_node_pool[path[0]].m_gridPos;
 
     for (size_t i = 2; i < path.size(); i++)
     {
-        glm::ivec3 curr = m_node_pool.get_unchecked(path.get_unchecked(i)).m_gridPos - m_node_pool.get_unchecked(path.get_unchecked(i - 1)).m_gridPos;
+        glm::ivec3 curr = m_node_pool[path[i]].m_gridPos - m_node_pool[path[i - 1]].m_gridPos;
 
         if (curr != last_dir)
         {
-            EXPECT(waypoints.append(m_node_pool.get_unchecked(path.get_unchecked(i - 1)).m_position));
+            waypoints.append(m_node_pool[path[i - 1]].m_position);
             last_dir = curr;
         }
     }
 
-    EXPECT(waypoints.append(m_node_pool.get_unchecked(path.get_unchecked(path.size() - 1)).m_position));
+    waypoints.append(m_node_pool[path[path.size() - 1]].m_position);
 
     // println("-- Final path --");
     // for (size_t i = 0; i < waypoints.size(); i++)
     // {
-    //     const auto pos = waypoints.get_unchecked(i);
+    //     const auto pos = waypoints[i];
     //     println("{} {} {}", pos.x, pos.y, pos.z);
     // }
 

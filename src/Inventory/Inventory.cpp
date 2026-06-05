@@ -5,8 +5,8 @@
 Result<void> InventoryContainer::add_layer(size_t size)
 {
     Vector<ItemStack> stacks;
-    TRY(stacks.resize(size));
-    TRY(m_layers.append(Layer(stacks)));
+    stacks.resize(size);
+    m_layers.append(Layer(stacks));
     return Result<void>();
 }
 
@@ -18,10 +18,10 @@ void InventoryContainer::set_stack(uint32_t layer, uint32_t i, ItemStack stack)
 Inventory::Inventory(Ref<InventoryContainer> container)
     : m_container(container)
 {
-    m_grabbed_item_rect = EXPECT(newref<TextureRect>());
+    m_grabbed_item_rect = newref<TextureRect>();
     m_grabbed_item_rect->set_scale(glm::vec2(0.12) * 0.9f);
 
-    m_grabbed_item_label = EXPECT(newref<Label>(Engine::get().get_font()));
+    m_grabbed_item_label = newref<Label>(Engine::get().get_font());
     m_grabbed_item_label->set_scale(glm::vec2(0.12) * 0.8f);
 }
 
@@ -103,7 +103,7 @@ void Inventory::add_grid(uint32_t w, uint32_t h, uint32_t layer, glm::vec2 pos, 
     }
 
     Vector<Ref<ItemSlot>> slots;
-    EXPECT(slots.reserve(w * h));
+    slots.reserve(w * h);
 
     constexpr float slot_size = 0.12f;
     constexpr float slot_margin = 0.04f;
@@ -114,19 +114,19 @@ void Inventory::add_grid(uint32_t w, uint32_t h, uint32_t layer, glm::vec2 pos, 
     for (size_t x = 0; x < w; x++)
         for (size_t y = 0; y < h; y++)
         {
-            Ref<ItemSlot> item_slot = EXPECT(newref<ItemSlot>(layer, x + y * w, this, container));
+            Ref<ItemSlot> item_slot = newref<ItemSlot>(layer, x + y * w, this, container);
             item_slot->set_position(glm::vec2(offset_x, offset_y) + glm::vec2(float(x) * slot_tsize, float(y) * slot_tsize));
-            EXPECT(add_child(item_slot));
-            EXPECT(slots.append(item_slot));
+            add_child(item_slot);
+            slots.append(item_slot);
         }
 
-    EXPECT(m_grids.append(slots));
+    m_grids.append(slots);
 }
 
 void Inventory::add_background()
 {
-    Ref<ColorRect> background = EXPECT(newref<ColorRect>());
+    Ref<ColorRect> background = newref<ColorRect>();
     background->set_scale(glm::vec2(2.5, 1.5));
     background->set_color(Color(0.15));
-    EXPECT(add_child(background));
+    add_child(background);
 }

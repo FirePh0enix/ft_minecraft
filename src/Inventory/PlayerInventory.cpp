@@ -9,11 +9,11 @@
 QuickSlot::QuickSlot()
     : m_count(0)
 {
-    m_background = EXPECT(newref<ColorRect>());
+    m_background = newref<ColorRect>();
     set_scale(glm::vec2(0.12));
 
-    m_item_rect = EXPECT(newref<TextureRect>());
-    m_label = EXPECT(newref<Label>(Engine::get().get_font()));
+    m_item_rect = newref<TextureRect>();
+    m_label = newref<Label>(Engine::get().get_font());
 }
 
 void QuickSlot::update(float d)
@@ -81,12 +81,12 @@ PlayerInventory::PlayerInventory(Ref<InventoryContainer> container)
     float offset_x = -(slot_tsize * inventory_width) / 2.0f + slot_tsize / 2.0f;
     float offset_y = -(slot_tsize * inventory_height) / 2.0f + slot_tsize / 2.0f;
 
-    m_quick_slots_container = EXPECT(newref<Container>());
+    m_quick_slots_container = newref<Container>();
     for (size_t x = 0; x < inventory_width; x++)
     {
-        Ref<QuickSlot> quick_slot = EXPECT(newref<QuickSlot>());
+        Ref<QuickSlot> quick_slot = newref<QuickSlot>();
         quick_slot->set_position(glm::vec2(offset_x, offset_y) + glm::vec2(float(x) * slot_tsize, -slot_tsize * 4.0f));
-        EXPECT(m_quick_slots_container->add_child(quick_slot));
+        m_quick_slots_container->add_child(quick_slot);
         m_quick_slots[x] = quick_slot;
     }
 }

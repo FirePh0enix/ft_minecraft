@@ -126,7 +126,7 @@ Result<Ref<Buffer>> Buffer::create(size_t size, WGPUBufferUsage usage, BufferVis
     });
     ERR_COND_VRV(wgpu_buffer == nullptr, Error(ErrorKind::OutOfDeviceMemory), "Failed to create buffer of size {}", size);
 
-    Ref<Buffer> buffer = TRY(newref<Buffer>());
+    Ref<Buffer> buffer = newref<Buffer>();
     buffer->m_buffer = wgpu_buffer;
     buffer->m_usage = usage;
     buffer->m_size = size;
@@ -181,7 +181,7 @@ Result<Ref<Texture>> Texture::create(uint32_t width, uint32_t height, WGPUTextur
     if (!view)
         return Error(ErrorKind::OutOfDeviceMemory);
 
-    Ref<Texture> tex = TRY(newref<Texture>());
+    Ref<Texture> tex = newref<Texture>();
     tex->m_texture = texture;
     tex->m_view = view;
     tex->m_width = width;
@@ -287,7 +287,7 @@ Material::~Material()
 
 Result<Ref<Material>> Material::create(const Ref<Shader>& shader, MaterialFlags flags, WGPUCullMode cull_mode, UVType uv_type, Instance instance)
 {
-    Ref<Material> material = TRY(newref<Material>());
+    Ref<Material> material = newref<Material>();
     material->m_shader = shader;
     material->m_flags = flags;
     material->m_cull_mode = cull_mode;
@@ -305,7 +305,7 @@ void Material::set_param(const StringView& name, const Ref<Texture>& texture)
 
     // TODO: Check dimensions.
 
-    EXPECT(m_caches.put(name, MaterialParamCache{.kind = BindingKind::Texture, .texture = texture}));
+    m_caches.put(name, MaterialParamCache{.kind = BindingKind::Texture, .texture = texture});
     m_dirty = true;
 }
 
@@ -315,7 +315,7 @@ void Material::set_param(const StringView& name, const Ref<Buffer>& buffer)
     ERR_COND_VR(buffer.is_null(), "Buffer specified for {} is null", name);
     ERR_COND_VR(!binding_result.has_value(), "Invalid parameter name `{}`", name.data());
 
-    EXPECT(m_caches.put(name, MaterialParamCache{.kind = BindingKind::UniformBuffer, .buffer = buffer}));
+    m_caches.put(name, MaterialParamCache{.kind = BindingKind::UniformBuffer, .buffer = buffer});
     m_dirty = true;
 }
 
@@ -352,7 +352,7 @@ Result<void> Material::create_bind_group()
             entry.binding = binding.binding;
             entry.textureView = cache.texture->handle_view();
 
-            TRY(entries.append(entry));
+            entries.append(entry);
 
             SamplerDescriptor sampler = m_shader->get_sampler(name);
 
@@ -363,7 +363,7 @@ Result<void> Material::create_bind_group()
             sampler_entry.binding = binding.binding + 1;
             sampler_entry.sampler = sampler_result;
 
-            TRY(entries.append(sampler_entry));
+            entries.append(sampler_entry);
         }
         break;
         case BindingKind::UniformBuffer:
@@ -377,7 +377,7 @@ Result<void> Material::create_bind_group()
             entry.offset = 0;
             entry.size = cache.buffer->size();
 
-            TRY(entries.append(entry));
+            entries.append(entry);
         }
         break;
         case BindingKind::StorageBuffer:
@@ -391,7 +391,7 @@ Result<void> Material::create_bind_group()
             entry.offset = 0;
             entry.size = cache.buffer->size();
 
-            TRY(entries.append(entry));
+            entries.append(entry);
         }
         break;
         }
@@ -440,7 +440,7 @@ Result<WGPURenderPipeline> PipelineCache::get(const Key& key)
         return pipeline_opt.get();
 
     LocalVector<WGPUVertexBufferLayout> buffers;
-    TRY(buffers.reserve(3 + key.attributes.size()));
+    buffers.reserve(3 + key.attributes.size());
 
     uint32_t attrib_index = 0;
 
@@ -448,7 +448,7 @@ Result<WGPURenderPipeline> PipelineCache::get(const Key& key)
     vertex_attrib.format = WGPUVertexFormat_Float32x3;
     vertex_attrib.offset = 0;
     vertex_attrib.shaderLocation = attrib_index++;
-    TRY(buffers.append(WGPUVertexBufferLayout{.nextInChain = nullptr, .stepMode = WGPUVertexStepMode_Vertex, .arrayStride = sizeof(glm::vec3), .attributeCount = 1, .attributes = &vertex_attrib}));
+    buffers.append(WGPUVertexBufferLayout{.nextInChain = nullptr, .stepMode = WGPUVertexStepMode_Vertex, .arrayStride = sizeof(glm::vec3), .attributeCount = 1, .attributes = &vertex_attrib});
 
     WGPUVertexAttribute normal_attrib{};
     if (!key.flags.has_any(MaterialFlagBits::NoNormal))
@@ -456,7 +456,7 @@ Result<WGPURenderPipeline> PipelineCache::get(const Key& key)
         normal_attrib.format = WGPUVertexFormat_Float32x3;
         normal_attrib.offset = 0;
         normal_attrib.shaderLocation = attrib_index++;
-        TRY(buffers.append(WGPUVertexBufferLayout{.nextInChain = nullptr, .stepMode = WGPUVertexStepMode_Vertex, .arrayStride = sizeof(glm::vec3), .attributeCount = 1, .attributes = &normal_attrib}));
+        buffers.append(WGPUVertexBufferLayout{.nextInChain = nullptr, .stepMode = WGPUVertexStepMode_Vertex, .arrayStride = sizeof(glm::vec3), .attributeCount = 1, .attributes = &normal_attrib});
     }
 
     WGPUVertexAttribute uv_attrib{};
@@ -467,27 +467,27 @@ Result<WGPURenderPipeline> PipelineCache::get(const Key& key)
             uv_attrib.format = WGPUVertexFormat_Float32x2;
             uv_attrib.offset = 0;
             uv_attrib.shaderLocation = attrib_index++;
-            TRY(buffers.append(WGPUVertexBufferLayout{.nextInChain = nullptr, .stepMode = WGPUVertexStepMode_Vertex, .arrayStride = sizeof(glm::vec2), .attributeCount = 1, .attributes = &uv_attrib}));
+            buffers.append(WGPUVertexBufferLayout{.nextInChain = nullptr, .stepMode = WGPUVertexStepMode_Vertex, .arrayStride = sizeof(glm::vec2), .attributeCount = 1, .attributes = &uv_attrib});
         }
         else if (key.uv_type == UVType::UVT)
         {
             uv_attrib.format = WGPUVertexFormat_Float32x3;
             uv_attrib.offset = 0;
             uv_attrib.shaderLocation = attrib_index++;
-            TRY(buffers.append(WGPUVertexBufferLayout{.nextInChain = nullptr, .stepMode = WGPUVertexStepMode_Vertex, .arrayStride = sizeof(glm::vec3), .attributeCount = 1, .attributes = &uv_attrib}));
+            buffers.append(WGPUVertexBufferLayout{.nextInChain = nullptr, .stepMode = WGPUVertexStepMode_Vertex, .arrayStride = sizeof(glm::vec3), .attributeCount = 1, .attributes = &uv_attrib});
         }
     }
 
     LocalVector<WGPUVertexAttribute> attributes;
-    TRY(attributes.reserve(key.attributes.size()));
+    attributes.reserve(key.attributes.size());
     for (uint32_t i = 0; i < key.attributes.size(); i++)
     {
         InstanceAttribute attrib = key.attributes.get_unchecked(i);
-        TRY(attributes.append(WGPUVertexAttribute{.nextInChain = nullptr, .format = attrib.format, .offset = attrib.offset, .shaderLocation = attrib_index + i}));
+        attributes.append(WGPUVertexAttribute{.nextInChain = nullptr, .format = attrib.format, .offset = attrib.offset, .shaderLocation = attrib_index + i});
     }
     if (key.attributes.size() > 0)
     {
-        TRY(buffers.append(WGPUVertexBufferLayout{.nextInChain = nullptr, .stepMode = WGPUVertexStepMode_Instance, .arrayStride = key.instance_stride, .attributeCount = attributes.size(), .attributes = attributes.data()}));
+        buffers.append(WGPUVertexBufferLayout{.nextInChain = nullptr, .stepMode = WGPUVertexStepMode_Instance, .arrayStride = key.instance_stride, .attributeCount = attributes.size(), .attributes = attributes.data()});
     }
 
     WGPUShaderModule module = create_shader_module(key.shader);
@@ -527,7 +527,7 @@ Result<WGPURenderPipeline> PipelineCache::get(const Key& key)
     Vector<WGPUColorTargetState> color_states;
     if (key.has_color_attach)
     {
-        TRY(color_states.append(WGPUColorTargetState{.nextInChain = nullptr, .format = key.color_format, .blend = &blend_state, .writeMask = WGPUColorWriteMask_All}));
+        color_states.append(WGPUColorTargetState{.nextInChain = nullptr, .format = key.color_format, .blend = &blend_state, .writeMask = WGPUColorWriteMask_All});
     }
 
     String fragment_ep = key.shader->get_entry_point(WGPUShaderStage_Fragment);
@@ -563,7 +563,7 @@ Result<WGPURenderPipeline> PipelineCache::get(const Key& key)
 
     wgpuShaderModuleRelease(module);
 
-    TRY(m_pipelines.put(key, pipeline));
+    m_pipelines.put(key, pipeline);
     return pipeline;
 }
 
@@ -588,7 +588,7 @@ WGPUSampler SamplerCache::get(const SamplerDescriptor& desc)
     d.maxAnisotropy = 1;
 
     WGPUSampler sampler = wgpuDeviceCreateSampler(Renderer::get().device(), &d);
-    EXPECT(m_samplers.put(desc, sampler));
+    m_samplers.put(desc, sampler);
 
     return sampler;
 }
@@ -996,11 +996,11 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_item_block_shader->set_sampler("images", {.min_filter = WGPUFilterMode_Nearest, .mag_filter = WGPUFilterMode_Nearest});
     m_item_block_shader->create_bind_group_layout();
 
-    EXPECT(Engine::get().registry().register_all());  // TODO: I dont really like having this here but it needs to be before calling `get_texture_array` and after initializing WebGPU.
+    Engine::get().registry().register_all();          // TODO: I dont really like having this here but it needs to be before calling `get_texture_array` and after initializing WebGPU.
     EXPECT(Engine::get().registry().post_register()); //       Maybe split this function in two (initializing/creating resources).
 
     Vector<InstanceAttribute> attributes;
-    TRY(attributes.append(InstanceAttribute{.offset = 0, .format = WGPUVertexFormat_Float32x3}));
+    attributes.append(InstanceAttribute{.offset = 0, .format = WGPUVertexFormat_Float32x3});
 
     m_chunk_material = TRY(Material::create(m_voxel_shader, MaterialFlagBits::None, WGPUCullMode_Back, UVType::UVT, Instance(attributes, sizeof(glm::vec3))));
     m_chunk_material->set_param("images", Engine::get().registry().get_texture_array());

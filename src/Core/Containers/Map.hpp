@@ -85,10 +85,10 @@ public:
         }
     }
 
-    Result<void> put(const K& key, V value)
+    void put(const K& key, V value)
     {
         bool exist;
-        PairType *pair = TRY(insert(key, exist));
+        PairType *pair = insert(key, exist);
         if (!exist)
         {
             new (&pair->key) K(key);
@@ -98,7 +98,6 @@ public:
         {
             new (&pair->value) V(value);
         }
-        return Result<void>();
     }
 
     Option<V> get(const K& key) const
@@ -116,10 +115,10 @@ public:
         return find_const_ptr(key);
     }
 
-    Result<V *> get_or_put(const K& key, V value)
+    V *get_or_put(const K& key, V value)
     {
         bool exist;
-        PairType *pair = TRY(insert(key, exist));
+        PairType *pair = insert(key, exist);
         if (!exist)
         {
             new (&pair->key) K(key);
@@ -213,7 +212,7 @@ private:
         return None;
     }
 
-    Result<PairType *> insert(const K& key, bool& exist)
+    PairType *insert(const K& key, bool& exist)
     {
         size_t index;
         bool exact;
@@ -245,8 +244,6 @@ private:
         {
             size_t capacity = growth_factor(m_capacity);
             PairType *pairs = alloc_array_uninitialized<PairType>(capacity);
-            if (!pairs)
-                return Error(ErrorKind::OutOfMemory);
 
             if (index > 0)
                 std::memmove((void *)pairs, (void *)m_pairs, index * sizeof(PairType));

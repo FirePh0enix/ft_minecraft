@@ -5,7 +5,6 @@
 #include "Entity/Camera.hpp"
 #include "Entity/Entity.hpp"
 #include "Entity/LivingEntity.hpp"
-#include "Entity/Mob.hpp"
 #include "Inventory/Inventory.hpp"
 #include "Inventory/PlayerInventory.hpp"
 #include "Model.hpp"

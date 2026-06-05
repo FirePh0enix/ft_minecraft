@@ -29,7 +29,7 @@ Result<Ref<Font>> Font::create(const StringView& font_name, uint32_t font_size)
 
     FT_Set_Pixel_Sizes(face, 0, font_size);
 
-    Ref<Font> font = TRY(newref<Font>());
+    Ref<Font> font = newref<Font>();
 
     for (uint8_t c = 0; c < 128; c++)
     {
@@ -47,22 +47,22 @@ Result<Ref<Font>> Font::create(const StringView& font_name, uint32_t font_size)
             .advance = (uint32_t)face->glyph->advance.x,
         };
 
-        TRY(font->m_characters.put(c, character));
+        font->m_characters.put(c, character);
 
         if (face->glyph->bitmap.width > 0)
         {
             Vector<char> char_data;
-            EXPECT(char_data.resize(face->glyph->bitmap.width * face->glyph->bitmap.rows));
+            char_data.resize(face->glyph->bitmap.width * face->glyph->bitmap.rows);
             auto glyph_buffer = face->glyph->bitmap.buffer;
 
             memcpy(char_data.data(), glyph_buffer, face->glyph->bitmap.width * face->glyph->bitmap.rows);
-            TRY(data.put(c, char_data));
+            data.put(c, char_data);
         }
         bmp_width += face->glyph->bitmap.width;
     }
 
     LocalVector<uint8_t> buffer;
-    TRY(buffer.resize(bmp_height * bmp_width));
+    buffer.resize(bmp_height * bmp_width);
 
     uint32_t xpos = 0;
 
@@ -161,9 +161,10 @@ Text::Text(Ref<Font> font)
     m_uniform_buffer = EXPECT(Buffer::create(sizeof(Font::Uniform), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform));
 
     Vector<InstanceAttribute> attribs;
-    EXPECT(attribs.append(InstanceAttribute(offsetof(Font::Instance, bounds), WGPUVertexFormat_Float32x4)));
-    EXPECT(attribs.append(InstanceAttribute(offsetof(Font::Instance, char_pos), WGPUVertexFormat_Float32x2)));
-    EXPECT(attribs.append(InstanceAttribute(offsetof(Font::Instance, scale), WGPUVertexFormat_Float32x2)));
+    attribs.reserve(3);
+    attribs.append(InstanceAttribute(offsetof(Font::Instance, bounds), WGPUVertexFormat_Float32x4));
+    attribs.append(InstanceAttribute(offsetof(Font::Instance, char_pos), WGPUVertexFormat_Float32x2));
+    attribs.append(InstanceAttribute(offsetof(Font::Instance, scale), WGPUVertexFormat_Float32x2));
 
     m_material = EXPECT(Material::create(g_shader, MaterialFlagBits::Transparency | MaterialFlagBits::NoNormal | MaterialFlagBits::NoUV, WGPUCullMode_None, UVType::UV, Instance(attribs, sizeof(Font::Instance))));
     m_material->set_param("env", Renderer::get().get_env_2d());

@@ -40,7 +40,7 @@ public:
 
     void set_binding(const String& name, Binding binding)
     {
-        EXPECT(m_bindings.put(name, binding));
+        m_bindings.put(name, binding);
     }
 
     bool has_binding(const String& name) const
@@ -56,7 +56,7 @@ public:
     void set_sampler(const String& name, SamplerDescriptor sampler)
     {
         ERR_COND_V(!has_binding(name) || get_binding(name).get().kind != BindingKind::Texture, "binding `{}` is not a texture", name);
-        EXPECT(m_samplers.put(name, sampler));
+        m_samplers.put(name, sampler);
     }
 
     StringView get_source_string() const { return m_source_code; }

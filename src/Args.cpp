@@ -1,10 +1,9 @@
 #include "Args.hpp"
 #include "Core/Logger.hpp"
-#include "Core/Result.hpp"
 
 void Args::add_arg(const String& name, const ArgInfo& info)
 {
-    EXPECT(m_infos.put(name, info));
+    m_infos.put(name, info);
 }
 
 void Args::parse(char **argv, int argc)
@@ -32,17 +31,17 @@ void Args::parse(char **argv, int argc)
             }
             else if (info.type == ArgType::Bool)
             {
-                EXPECT(m_values.put(name, {.boolean = true}));
+                m_values.put(name, {.boolean = true});
             }
             else
             {
                 char *next_argv = argv[i + 1];
-                EXPECT(m_values.put(name, {.string = next_argv}));
+                m_values.put(name, {.string = next_argv});
             }
         }
         else
         {
-            EXPECT(m_args.append(arg));
+            m_args.append(arg);
         }
     }
 }

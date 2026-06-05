@@ -8,11 +8,11 @@
 ItemSlot::ItemSlot(uint32_t layer, uint32_t index, Inventory *inventory, InventoryContainer *container)
     : m_count(0), m_layer(layer), m_index(index), m_container(container), m_inventory(inventory)
 {
-    m_background = EXPECT(newref<ColorRect>());
+    m_background = newref<ColorRect>();
     set_scale(glm::vec2(0.12));
 
-    m_item_rect = EXPECT(newref<TextureRect>());
-    m_label = EXPECT(newref<Label>(Engine::get().get_font()));
+    m_item_rect = newref<TextureRect>();
+    m_label = newref<Label>(Engine::get().get_font());
 }
 
 void ItemSlot::update(float d)

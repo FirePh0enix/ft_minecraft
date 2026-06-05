@@ -136,7 +136,7 @@ public:
 
     void add_chunk(int64_t x, int64_t z, Ref<Chunk> chunk)
     {
-        EXPECT(m_dims[0].add_chunk(x, z, chunk));
+        m_dims[0].add_chunk(x, z, chunk);
     }
 
     bool is_chunk_loaded(int64_t x, int64_t z) const
@@ -163,8 +163,9 @@ public:
     {
         entity->m_world = this;
         entity->m_dimension = dimension;
+        entity->m_id = World::next_id();
         entity->on_ready();
-        EXPECT(m_dims[dimension].add_entity(entity));
+        m_dims[dimension].add_entity(entity);
     }
 
     Ref<Entity> get_entity(EntityId id) const

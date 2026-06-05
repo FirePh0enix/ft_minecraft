@@ -39,7 +39,7 @@ Result<void> EntitySerializer::load(const StringView& path)
         String s = vname.get_unchecked<String>();
 
         Variant value = TRY(reader.read_variant()).get();
-        EXPECT(m_variants.put(s, value));
+        m_variants.put(s, value);
     }
 
     file.close();
@@ -48,10 +48,10 @@ Result<void> EntitySerializer::load(const StringView& path)
 
 void Entity::bind_methods()
 {
-    EXPECT(type.add_property("position", &Entity::get_position, &Entity::set_position));
+    type.add_property("position", &Entity::get_position, &Entity::set_position);
     expose_rpc<Entity>("set/position");
 
-    EXPECT(type.add_property("rotation", &Entity::get_rotation, &Entity::set_rotation));
+    type.add_property("rotation", &Entity::get_rotation, &Entity::set_rotation);
     expose_rpc<Entity>("set/rotation");
 }
 
@@ -127,7 +127,7 @@ void Entity::call_rpc(StringView name, View<Variant> args)
         RpcCallPacket p;
         p.id = id();
         p.name = name;
-        p.args = EXPECT(args.to_vector());
+        p.args = args.to_vector();
 
         if (Engine::singleton->is_server())
             Engine::singleton->connection().broadcast(Engine::singleton->connection().create_packet(p));

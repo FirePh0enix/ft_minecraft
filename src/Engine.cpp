@@ -29,7 +29,7 @@
 Engine::Engine(const Args& args)
 {
     singleton = this;
-    m_window = EXPECT(newref<Window>("ft_minecraft", 1280, 720));
+    m_window = newref<Window>("ft_minecraft", 1280, 720);
 
     Input::init(*m_window);
     Input::load_config();
@@ -52,11 +52,11 @@ Engine::Engine(const Args& args)
     EXPECT(Font::init_library());
     m_font = EXPECT(Font::create("assets/fonts/Anonymous.ttf", 32));
 
-    m_console.register_command("tp", EXPECT(Vector<CmdArgInfo>::create(CmdArgInfo(CmdArgKind::Int, "x"), CmdArgInfo(CmdArgKind::Int, "y"), CmdArgInfo(CmdArgKind::Int, "z"))),
+    m_console.register_command("tp", Vector<CmdArgInfo>::create(CmdArgInfo(CmdArgKind::Int, "x"), CmdArgInfo(CmdArgKind::Int, "y"), CmdArgInfo(CmdArgKind::Int, "z")),
                                [](const Command& cmd)
                                { Engine::get().get_player()->set_position(glm::vec3(cmd.get_arg_int("x"), cmd.get_arg_int("y"), cmd.get_arg_int("z"))); });
 
-    m_console.register_command("gamemode", EXPECT(Vector<CmdArgInfo>::create(CmdArgInfo(CmdArgKind::String, "gamemode"))),
+    m_console.register_command("gamemode", Vector<CmdArgInfo>::create(CmdArgInfo(CmdArgKind::String, "gamemode")),
                                [](const Command& cmd)
                                {
                                    String mode = cmd.get_arg_string("gamemode");
@@ -328,7 +328,7 @@ void Engine::create_world_and_start()
         m_world = EXPECT(World::create(name, seed, m_main_menu_world_type));
     }
 
-    m_player = EXPECT(newref<Player>());
+    m_player = newref<Player>();
     m_world->add_entity(World::overworld, m_player);
 
     if (m_world->is_player_saved("player"))
@@ -356,7 +356,7 @@ void Engine::create_world_and_start()
     // cow->get_transform().position() = m_player->get_position();
     // m_world->add_entity(World::overworld, cow);
 
-    Ref<Entity> zombie = EXPECT(newref<Zombie>());
+    Ref<Entity> zombie = newref<Zombie>();
     zombie->get_transform().position() = m_player->get_position();
     m_world->add_entity(World::overworld, zombie);
 
@@ -384,7 +384,7 @@ void Engine::recreate_graph()
     //     depth_pass->set_depth_output(m_depth_texture);
     // #endif
 
-    Ref<RenderPassNode> color_pass = EXPECT(newref<RenderPassNode>());
+    Ref<RenderPassNode> color_pass = newref<RenderPassNode>();
     color_pass->set_depth_output(m_depth_texture);
     color_pass->set_color_output(m_color_texture);
     color_pass->set_output_to_surface(true);
@@ -412,7 +412,7 @@ void Engine::receive_client(void *user, NetworkConnection& conn, ENetPacket *pac
     const size_t data_size = packet->dataLength;
 
     DataBuffer buffer((char *)data, data_size);
-    PacketType type = EXPECT(buffer.read<PacketType>());
+    PacketType type = buffer.read<PacketType>();
 
     switch (type)
     {
@@ -424,7 +424,7 @@ void Engine::receive_client(void *user, NetworkConnection& conn, ENetPacket *pac
         self->m_world = EXPECT(World::create_proxy(p.seed));
         self->m_scene = EngineScene::World;
 
-        self->m_player = EXPECT(newref<Player>());
+        self->m_player = newref<Player>();
         self->m_player->set_id(p.id);
         self->m_player->get_transform().position() = p.position;
 
@@ -486,9 +486,9 @@ void Engine::receive_client(void *user, NetworkConnection& conn, ENetPacket *pac
             break;
 
         Vector<Variant> variants;
-        EXPECT(variants.reserve(p.args.size()));
+        variants.reserve(p.args.size());
         for (const Variant& v : p.args)
-            EXPECT(variants.append(v));
+            variants.append(v);
 
         Option<RpcTarget> rpc = entity->get_rpc(p.name);
         if (!rpc.has_value())
@@ -514,7 +514,7 @@ void Engine::receive_client(void *user, NetworkConnection& conn, ENetPacket *pac
         }
         else
         {
-            Ref<Chunk> chunk = EXPECT(newref<Chunk>(&self->m_world->get_dimension(0), p.x, p.z));
+            Ref<Chunk> chunk = newref<Chunk>(&self->m_world->get_dimension(0), p.x, p.z);
             std::memcpy(chunk->get_blocks(), p.blocks.data(), sizeof(BlockState) * p.blocks.size());
             std::memcpy(chunk->get_biomes(), p.biomes.data(), sizeof(Biome) * p.biomes.size());
 
@@ -555,7 +555,7 @@ void Engine::receive_server(void *user, NetworkConnection& conn, ENetPacket *pac
     const size_t data_size = packet->dataLength;
 
     DataBuffer buffer((char *)data, data_size);
-    PacketType type = EXPECT(buffer.read<PacketType>());
+    PacketType type = buffer.read<PacketType>();
 
     switch (type)
     {
@@ -582,9 +582,9 @@ void Engine::receive_server(void *user, NetworkConnection& conn, ENetPacket *pac
             break;
 
         Vector<Variant> variants;
-        EXPECT(variants.reserve(p.args.size()));
+        variants.reserve(p.args.size());
         for (const Variant& v : p.args)
-            EXPECT(variants.append(v));
+            variants.append(v);
 
         Option<RpcTarget> rpc = entity->get_rpc(p.name);
         if (!rpc.has_value())
@@ -627,10 +627,10 @@ void Engine::connect_server(void *user, NetworkConnection& conn, const Client& c
         chunk_packet.x = pos.x;
         chunk_packet.z = pos.z;
 
-        EXPECT(chunk_packet.blocks.resize(Chunk::block_count));
+        chunk_packet.blocks.resize(Chunk::block_count);
         std::memcpy(chunk_packet.blocks.data(), chunk->get_blocks(), sizeof(BlockState) * chunk_packet.blocks.size());
 
-        EXPECT(chunk_packet.biomes.resize(Chunk::block_count));
+        chunk_packet.biomes.resize(Chunk::block_count);
         std::memcpy(chunk_packet.biomes.data(), chunk->get_biomes(), sizeof(Biome) * chunk_packet.biomes.size());
 
         conn.send(client.peer(), conn.create_packet(chunk_packet));
@@ -638,13 +638,13 @@ void Engine::connect_server(void *user, NetworkConnection& conn, const Client& c
 
     Engine::singleton->connection().broadcast(Engine::singleton->connection().create_packet(p));
 
-    Ref<Player> player = EXPECT(newref<Player>());
+    Ref<Player> player = newref<Player>();
     player->set_remote();
     player->set_id(id);
     player->get_transform().position() = spawn_position;
 
     self->m_world->add_entity(0, player);
-    EXPECT(self->m_players.put(client.peer(), player));
+    self->m_players.put(client.peer(), player);
 
     AddEntityPacket p2(player->get_transform().position(), player->get_transform().rotation(), id, player->get_class_hash_code());
     conn.broadcast(conn.create_packet(p2), client.peer());

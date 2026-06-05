@@ -140,7 +140,7 @@ void NetworkConnection::tick_server()
             enet_address_get_host_ip(&event.peer->address, address_buf, sizeof(address_buf));
 
             Client client(String(address_buf), event.peer->address.port, event.peer);
-            EXPECT(m_clients.put(event.peer, client));
+            m_clients.put(event.peer, client);
 
             m_connect_handler(m_disconnect_handler_user, *this, client);
 

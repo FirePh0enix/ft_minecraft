@@ -38,7 +38,7 @@ MAIN(int argc, char *argv[])
 
     TracySetThreadName("Main");
 
-    Ref<Engine> engine = EXPECT(newref<Engine>(args));
+    Ref<Engine> engine = newref<Engine>(args);
 
     if (args.has("data-dir"))
     {

@@ -1,5 +1,4 @@
 #include "Input.hpp"
-#include "SDL3/SDL_keyboard.h"
 #include "SDL3/SDL_mouse.h"
 #include "SDL3/SDL_video.h"
 
@@ -106,7 +105,7 @@ float Input::get_action_value(const StringView& action)
 
 void Input::set_action_value(const StringView& action, float value)
 {
-    Status *status = EXPECT(s_actions.get_or_put(action, {}));
+    Status *status = s_actions.get_or_put(action, {});
     status->value = value;
 
     if (value == 0.0)
@@ -211,11 +210,11 @@ void Input::process_event(SDL_Event event)
 
 void Input::add_action(const StringView& name)
 {
-    EXPECT(s_mappings.put(name, {}));
+    s_mappings.put(name, {});
 }
 
 void Input::add_action_mapping(const StringView& name, ActionMapping mapping)
 {
     Vector<ActionMapping>& mappings = *s_mappings.get_ptr(name).get();
-    EXPECT(mappings.append(mapping));
+    mappings.append(mapping);
 }

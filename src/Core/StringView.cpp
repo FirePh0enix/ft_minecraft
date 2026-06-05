@@ -36,7 +36,7 @@ Vector<StringView> StringView::split(StringView delim) const
     {
         if (std::memcmp(m_data, delim.data(), delim.size()) == 0)
         {
-            EXPECT(views.append(slice(prev_index, index - prev_index)));
+            views.append(slice(prev_index, index - prev_index));
             prev_index = index;
             index += delim.size();
         }
@@ -46,6 +46,6 @@ Vector<StringView> StringView::split(StringView delim) const
         }
     }
 
-    EXPECT(views.append(slice(prev_index)));
+    views.append(slice(prev_index));
     return views;
 }

@@ -52,11 +52,10 @@ public:
         }
     }
 
-    Result<void> put(const T& key)
+    void put(const T& key)
     {
-        T *p = TRY(insert(key));
+        T *p = insert(key);
         new (p) T(key);
-        return Result<void>();
     }
 
     bool contains(const T& key) const
@@ -107,7 +106,7 @@ private:
     size_t m_size;
     size_t m_capacity;
 
-    Result<T *> insert(const T& key)
+    T *insert(const T& key)
     {
         size_t index;
         bool exact;
@@ -138,8 +137,6 @@ private:
         {
             size_t capacity = growth_factor(m_capacity);
             T *pairs = alloc_array_uninitialized<T>(capacity);
-            if (!pairs)
-                return Error(ErrorKind::OutOfMemory);
 
             if (index > 0)
                 std::memmove((void *)pairs, (void *)m_data, index * sizeof(T));

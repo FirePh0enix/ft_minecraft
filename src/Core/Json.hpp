@@ -19,9 +19,9 @@ inline void from_json(const nlohmann::json& j, Vector<T>& m)
 {
     const auto s = j.get_ptr<const nlohmann::json::array_t *>();
 
-    EXPECT(m.reserve(s->size()));
+    m.reserve(s->size());
     for (size_t i = 0; i < s->size(); i++)
-        EXPECT(m.append(s->at(i)));
+        m.append(s->at(i));
 }
 
 template <typename T>
