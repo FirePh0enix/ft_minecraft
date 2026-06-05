@@ -1,14 +1,14 @@
 #pragma once
 
-#include <cstddef>
-#include <functional>
-
 #include "Core/Alloc.hpp"
 #include "Core/Assert.hpp"
 #include "Core/Containers/Iterator.hpp"
 #include "Core/Definitions.hpp"
 #include "Core/Error.hpp"
 #include "Core/Result.hpp"
+
+#include <cstddef>
+#include <functional>
 
 /**
  *  @brief Dynamic array with fallible memory allocation.
@@ -127,17 +127,7 @@ public:
             return;
         }
 
-        if (*m_references == 1)
-        {
-            for (size_t i = 0; i < m_size; i++)
-                m_data[i].~T();
-        }
-
-        *m_references -= 1;
-        m_size = 0;
-        m_capacity = 0;
-        m_data = nullptr;
-        m_references = nullptr;
+        unref();
     }
 
     Result<void> clear_keep_capacity()
@@ -309,8 +299,6 @@ private:
             for (size_t i = 0; i < m_size; i++)
                 new (new_data + i) T(m_data[i]);
             m_data = new_data;
-
-            println("m_references = {}", m_references);
         }
 
         return Result<void>();
@@ -368,6 +356,7 @@ private:
 
     Result<void> grow_to(size_t old_capacity, size_t new_capacity)
     {
+        (void)old_capacity;
         T *new_data = alloc_array_uninitialized<T>(new_capacity);
         if (!new_data)
             return Error(ErrorKind::OutOfMemory);
@@ -377,7 +366,7 @@ private:
         for (size_t i = 0; i < m_size; i++)
             new (new_data + i) T(m_data[i]);
 
-        destroy_array_nodestruct(m_data, old_capacity);
+        destroy_array(m_data, m_size);
         m_data = new_data;
         m_capacity = new_capacity;
 

@@ -238,7 +238,7 @@ void World::tick(float delta)
         load_around_player();
 
         // Flush all new chunks.
-        Vector<ChunkPos> chunk_modified;
+        LocalVector<ChunkPos> chunk_modified;
 
         {
             std::lock_guard<std::mutex> lock(m_dims[0].mutex());
@@ -257,9 +257,9 @@ void World::tick(float delta)
             m_dims[0].m_chunks_to_remove.clear();
         }
 
-        for (const ChunkPos& pos : chunk_modified)
+        for (ChunkPos pos : chunk_modified)
         {
-            EXPECT(m_generation_thread_pool.async([&]
+            EXPECT(m_generation_thread_pool.async([this, pos]
                                                   { EXPECT(m_dims[0].rebuild_neighbor_chunks_water(pos.x, pos.z)); }));
         }
     }

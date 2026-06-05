@@ -82,6 +82,7 @@ list(APPEND SOURCES_TEST
     tests/ref.cpp
     tests/Result.cpp
     tests/Variant.cpp
+    tests/Vector.cpp
 )
 
 if (EMSCRIPTEN)

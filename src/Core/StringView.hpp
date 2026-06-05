@@ -40,7 +40,8 @@ public:
 
     std::strong_ordering operator<=>(const StringView& other) const
     {
-        int value = std::memcmp(m_data, other.m_data, m_size);
+        // This assume that both strings are null terminated.
+        int value = std::strcmp(m_data, other.m_data);
         return value == 0 ? std::strong_ordering::equal : (value < 0 ? std::strong_ordering::less : std::strong_ordering::greater);
     }
 
