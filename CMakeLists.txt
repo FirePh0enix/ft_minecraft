@@ -44,6 +44,7 @@ list(APPEND SOURCES
     src/Entity/Camera.cpp
     src/Entity/Entity.cpp
     src/Entity/Item.cpp
+    src/Entity/LivingEntity.cpp
     src/Entity/Mob.cpp
     src/Entity/Cow.cpp
     src/Entity/Zombie.cpp

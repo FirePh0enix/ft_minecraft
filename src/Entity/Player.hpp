@@ -23,7 +23,8 @@ class Player : public LivingEntity
 
 public:
     //  health, attack_damage, speed, jump_force
-    Player() : LivingEntity(1, 1, 8.0f, 0.24f)
+    Player()
+        : LivingEntity(20)
     {
         m_aabb = AABB(-glm::vec3(0.35, 0.9, 0.35), glm::vec3(0.35, 0.9, 0.35));
     }
@@ -38,6 +39,8 @@ public:
     virtual void save(EntitySerializer& ser) const override;
     virtual void load(const EntitySerializer& deser) override;
 
+    virtual void die() override;
+
     void on_ready() override;
 
     float get_speed() const { return m_speed; }
@@ -46,8 +49,6 @@ public:
     void set_remote() { m_local_player = false; }
 
     void set_gamemode(GameMode gamemode) { m_gamemode = gamemode; }
-
-    virtual void on_hit_by(Entity& entity) override;
 
     bool has_gravity() const { return m_gamemode == GameMode::Survival; }
 
@@ -63,15 +64,12 @@ public:
     void open_inventory(Ref<Inventory> inventory);
     void close_inventory();
 
-protected:
-    void die() override;
-
 private:
     Ref<Camera> m_camera;
     GameMode m_gamemode = GameMode::Survival;
 
-    // float m_speed = 8.0;
-    // float m_jump_force = 0.24f;
+    float m_speed = 8.0;
+    float m_jump_force = 0.24f;
 
     Option<glm::vec3> m_aimed_block;
     Ref<Material> m_aim_material;

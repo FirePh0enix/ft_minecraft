@@ -1,10 +1,11 @@
 #include "Zombie.hpp"
-#include "Core/Print.hpp"
+
 #include "Core/Result.hpp"
-#include "Engine.hpp"
 #include "Entity/Entity.hpp"
+#include "Entity/LivingEntity.hpp"
+#include "Entity/Player.hpp"
 #include "World/World.hpp"
-#include <cstddef>
+
 #include <limits>
 #include <memory>
 
@@ -84,12 +85,12 @@ void Zombie::tick(float delta)
     {
         if (!verify_if_path_still_valid())
         {
-            const glm::ivec3& to = m_path->look_points.get_unchecked(m_path->finish_line_index);
+            const glm::ivec3& to = m_path.value().look_points.get_unchecked(m_path.value().finish_line_index);
             const int remaining_jump = m_on_ground ? 1 : 0;
             const bool is_final_pos_reachable = m_pathfinding->is_walkable(to, remaining_jump);
 
             if (is_final_pos_reachable)
-                flee_to(m_path->look_points.get_unchecked(m_path->finish_line_index));
+                flee_to(m_path.value().look_points.get_unchecked(m_path.value().finish_line_index));
             else
                 m_following_path = false;
         }
@@ -117,34 +118,15 @@ void Zombie::on_ready()
     m_pathfinding = std::make_unique<Pathfinding>(m_world);
 }
 
-void Zombie::die()
-{
-    m_active = false;
-    // println("Zombie died !");
-}
-
-void Zombie::on_hit_by(Entity& entity)
-{
-    Mob *mob_caller = reinterpret_cast<Mob *>(&entity);
-    int damage = mob_caller->get_attack_damage();
-    take_damage(damage);
-
-    if (m_health <= 0)
-    {
-        die();
-        return;
-    }
-}
-
 void Zombie::attack()
 {
     if (!m_threat_entity || m_attack_timer > 0.0f)
         return;
 
-    Ref<Mob> mob = m_threat_entity.cast_to<Mob>();
+    Ref<LivingEntity> mob = m_threat_entity.cast_to<LivingEntity>();
     if (!mob)
         return;
 
-    mob->on_hit_by(*this);
+    mob->damage(1, id());
     m_attack_timer = m_attack_cooldown;
 }

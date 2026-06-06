@@ -29,11 +29,8 @@ public:
 
     Vector<size_t> m_path;
     Vector<size_t> m_open_set;
-
     Vector<PathNode> m_node_pool;
-
     Map<glm::ivec3, size_t> m_nodes;
-
     Set<glm::ivec3> m_close_set;
 
 private:

@@ -38,6 +38,12 @@ void Dimension::remove_entity(Ref<Entity> entity)
     m_entities_to_remove.append(entity);
 }
 
+void Dimension::remove_entity(EntityId id)
+{
+    Ref<Entity> entity = get_entity(id);
+    m_entities_to_remove.append(entity);
+}
+
 Ref<Entity> Dimension::get_entity(EntityId id) const
 {
     for (const auto& entity : m_entities)

@@ -5,16 +5,19 @@
 #include "Entity/Pathfinding/Pathfinding.hpp"
 
 /**
- * @brief An entity controlled by inputs or AI.
+ * @brief An entity controlled by AI.
  */
 class Mob : public LivingEntity
 {
     CLASS(Mob, LivingEntity);
 
 public:
-    Mob(int health, int attack_damage, float speed, float jump_force) : LivingEntity(health, attack_damage, speed, jump_force)
+    Mob(int health)
+        : LivingEntity(health)
     {
     }
+
+    virtual void die() override;
 
     void follow_path(float delta_time);
     void flee_to(const glm::ivec3& to);
@@ -25,8 +28,11 @@ public:
 protected:
     std::unique_ptr<Pathfinding> m_pathfinding;
     bool m_following_path = false;
-    std::optional<Path> m_path;
+    Option<Path> m_path;
     size_t m_path_index = 0;
     float m_turn_speed = 10;
     float m_stopping_dst = 2;
+
+    float m_speed = 1.0f;
+    float m_jump_force = 1.0f;
 };

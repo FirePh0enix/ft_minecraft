@@ -29,6 +29,7 @@ public:
     Ref<Entity> get_entity(EntityId id) const;
     void add_entity(Ref<Entity> entity);
     void remove_entity(Ref<Entity> entity);
+    void remove_entity(EntityId id);
 
     ALWAYS_INLINE const Map<ChunkPos, Ref<Chunk>>& get_chunks() const { return m_chunks; }
 

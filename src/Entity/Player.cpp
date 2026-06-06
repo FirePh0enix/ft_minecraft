@@ -70,8 +70,6 @@ void Player::on_ready()
         Model::Info info{.model_matrix = glm::translate(glm::identity<glm::mat4>(), glm::vec3(0.0, 100.0, 0.0))};
         m_model->get_global_buffer()->update(View(info).as_bytes());
     }
-
-    m_attack_damage = 1;
 }
 
 void Player::tick(float delta)
@@ -192,7 +190,7 @@ void Player::tick(float delta)
                 if (result.hit_entity)
                 {
                     if (auto mob = result.entity.cast_to<Mob>())
-                        mob->on_hit_by(*this);
+                        mob->damage(1, id()); // TODO: different tool deals different damages.
                 }
             }
 
@@ -436,15 +434,6 @@ void Player::load(const EntitySerializer& deser)
 
 void Player::die()
 {
-}
-
-void Player::on_hit_by(Entity& entity)
-{
-    Mob *mob_caller = reinterpret_cast<Mob *>(&entity);
-
-    int damage = mob_caller->get_attack_damage();
-    take_damage(damage);
-    println("Remaining health: {}", m_health);
 }
 
 void Player::open_inventory(Ref<Inventory> inventory)

@@ -3,6 +3,11 @@
 
 constexpr int attempts = 16;
 
+void Mob::die()
+{
+    m_world->remove_entity(World::overworld, id());
+}
+
 glm::vec3 Mob::safe_normalize(const glm::vec3& v)
 {
     float len2 = glm::length2(v);
@@ -13,10 +18,10 @@ glm::vec3 Mob::safe_normalize(const glm::vec3& v)
 
 void Mob::follow_path(float delta_time)
 {
-    if (!m_following_path || !m_path || m_path->look_points.empty())
+    if (!m_following_path || !m_path || m_path.value().look_points.empty())
         return;
 
-    if (m_path_index >= m_path->look_points.size())
+    if (m_path_index >= m_path.value().look_points.size())
     {
         m_following_path = false;
         m_velocity = glm::vec3(0.0f);
@@ -24,16 +29,16 @@ void Mob::follow_path(float delta_time)
     }
 
     glm::vec3 pos = m_transform.position();
-    glm::vec3 target = m_path->look_points.get_unchecked(m_path_index);
+    glm::vec3 target = m_path.value().look_points.get_unchecked(m_path_index);
     glm::vec3 to_target = target - pos;
     to_target.y = 0.0f;
 
     // Slow down when reaching last waypoint.
     float speed_percent = 1.0f;
-    if (m_path_index >= m_path->slow_down_index && m_stopping_dst > 0.0f)
+    if (m_path_index >= m_path.value().slow_down_index && m_stopping_dst > 0.0f)
     {
-        const size_t size = m_path->look_points.size();
-        glm::vec2 end_2d(m_path->look_points.get_unchecked(size - 1).x, m_path->look_points.get_unchecked(size - 1).z);
+        const size_t size = m_path.value().look_points.size();
+        glm::vec2 end_2d(m_path.value().look_points.get_unchecked(size - 1).x, m_path.value().look_points.get_unchecked(size - 1).z);
 
         float dist_to_end = glm::distance(glm::vec2(pos.x, pos.z), end_2d);
         speed_percent = glm::clamp(dist_to_end / m_stopping_dst, 0.0f, 1.0f);
@@ -71,9 +76,9 @@ void Mob::follow_path(float delta_time)
         target_dir_norm = glm::normalize(target_dir_norm + right * steer * 0.35f);
     }
 
-    if (m_path_index + 1 < m_path->look_points.size())
+    if (m_path_index + 1 < m_path.value().look_points.size())
     {
-        glm::vec3 b = m_path->look_points.get_unchecked(m_path_index + 1);
+        glm::vec3 b = m_path.value().look_points.get_unchecked(m_path_index + 1);
         glm::vec3 seg = b - target;
         seg.y = 0.0f;
 
@@ -93,7 +98,7 @@ void Mob::follow_path(float delta_time)
     m_velocity.z = move.z;
 
     // Jump.
-    float dy = m_path->look_points.get_unchecked(m_path_index).y - pos.y;
+    float dy = m_path.value().look_points.get_unchecked(m_path_index).y - pos.y;
 
     if (m_on_ground && m_velocity.y <= 0.0f && dy >= 0.4f)
         m_velocity.y = m_jump_force;
@@ -121,7 +126,7 @@ void Mob::flee_to(const glm::ivec3& to)
     }
 
     Vector<glm::vec3> waypoints = m_pathfinding->simplify_path(m_pathfinding->m_path);
-    m_path.emplace(waypoints, m_stopping_dst);
+    m_path = Path(waypoints, m_stopping_dst);
     m_following_path = true;
     m_path_index = 1;
 }
@@ -131,7 +136,7 @@ bool Mob::verify_if_path_still_valid()
     const auto full_path = m_pathfinding->m_path;
     const size_t path_size = full_path.size();
 
-    glm::ivec3 grid_pos = glm::ivec3(glm::round(m_path->look_points.get_unchecked(m_path_index)));
+    glm::ivec3 grid_pos = glm::ivec3(glm::round(m_path.value().look_points.get_unchecked(m_path_index)));
     size_t start_index = path_size;
 
     // Find which node is actually targeting, since it's unnecessary to check nodes that has been already reached.

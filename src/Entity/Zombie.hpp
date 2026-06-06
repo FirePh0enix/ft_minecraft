@@ -2,27 +2,23 @@
 
 #include "Entity/Entity.hpp"
 #include "Mob.hpp"
-#include <cstddef>
 
 class Zombie : public Mob
 {
 public:
-    Zombie() : Mob(3, 0, 3.0f, 1.0f)
+    Zombie()
+        : Mob(3)
     {
         m_aabb = AABB(-glm::vec3(0.35, 0.9, 0.35), glm::vec3(0.35, 0.9, 0.35));
-        m_attack_damage = 1;
     }
 
     void start() override;
     void tick(float delta) override;
     void draw(const RenderPassNode& node) override;
     void on_ready() override;
-    void on_hit_by(Entity& entity) override;
     void attack();
 
 protected:
-    void die() override;
-
     float m_stopping_dst = 0.1f;
 
     Ref<Entity> m_threat_entity;
