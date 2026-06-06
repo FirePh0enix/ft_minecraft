@@ -93,7 +93,7 @@ Result<Option<Variant>> Reader::read_variant()
 
         for (size_t i = 0; i < size; i++)
         {
-            Variant variant = TRY(read_variant()).get();
+            Variant variant = TRY(read_variant()).value();
             array.append(variant);
         }
 
@@ -108,8 +108,8 @@ Result<Option<Variant>> Reader::read_variant()
 
         for (size_t i = 0; i < size; i++)
         {
-            Variant key = TRY(read_variant()).get();
-            Variant value = TRY(read_variant()).get();
+            Variant key = TRY(read_variant()).value();
+            Variant value = TRY(read_variant()).value();
 
             array.put(key, value);
         }

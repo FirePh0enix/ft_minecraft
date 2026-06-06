@@ -22,7 +22,7 @@ void Args::parse(char **argv, int argc)
                 continue;
             }
 
-            ArgInfo info = m_infos.get(name).get();
+            ArgInfo info = m_infos.get(name).value();
 
             if (info.type != ArgType::Bool && i + 1 >= argc)
             {

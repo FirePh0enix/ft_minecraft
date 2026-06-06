@@ -15,14 +15,34 @@
 #include "World/Dimension.hpp"
 #include "World/Registry.hpp"
 #include "World/World.hpp"
+#include "webgpu/webgpu.h"
 
 #include <backends/imgui_impl_sdl3.h>
 #include <backends/imgui_impl_wgpu.h>
 #include <imgui.h>
 
-#include <thread>
-
 #include <mutex>
+
+// clang-format off
+static const uint32_t missing_texture_data[16 * 16]{
+    0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,
+    0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,
+    0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,
+    0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,
+    0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,
+    0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,
+    0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,
+    0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,
+    0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF,
+    0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF,
+    0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF,
+    0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF,
+    0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF,
+    0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF,
+    0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF,
+    0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF,
+};
+// clang-format on
 
 static WGPUTextureViewDimension convert_texture_view_dimension(TextureDimension dimension)
 {
@@ -322,13 +342,14 @@ void Material::set_param(const StringView& name, const Ref<Buffer>& buffer)
 const MaterialParamCache& Material::get_param(const StringView& name) const
 {
     ASSERT_V(m_caches.contains(name), "Cache missing {}", name);
-    return *m_caches.get_ptr(name).get();
+    return *m_caches.get_ptr(name).value();
 }
 
 WGPUBindGroup Material::get_bind_group()
 {
     if (m_dirty)
-        EXPECT(create_bind_group());
+        if (create_bind_group().has_error())
+            m_bind_group = nullptr;
     return m_bind_group;
 }
 
@@ -437,7 +458,7 @@ Result<WGPURenderPipeline> PipelineCache::get(const Key& key)
 {
     Option<WGPURenderPipeline> pipeline_opt = m_pipelines.get(key);
     if (pipeline_opt.has_value())
-        return pipeline_opt.get();
+        return pipeline_opt.value();
 
     LocalVector<WGPUVertexBufferLayout> buffers;
     buffers.reserve(3 + key.attributes.size());
@@ -577,7 +598,7 @@ WGPUSampler SamplerCache::get(const SamplerDescriptor& desc)
 {
     Option<WGPUSampler> sampler_opt = m_samplers.get(desc);
     if (sampler_opt.has_value())
-        return sampler_opt.get();
+        return sampler_opt.value();
 
     WGPUSamplerDescriptor d{};
     d.magFilter = desc.mag_filter;
@@ -633,6 +654,7 @@ WGPUAdapter request_adapter_sync(WGPUInstance instance)
 
 WGPUDevice request_device_sync(WGPUInstance instance, WGPUAdapter adapter, const WGPUDeviceDescriptor& options)
 {
+    (void)instance;
     WGPUDevice device;
 
     WGPURequestDeviceCallbackInfo callback_info{
@@ -864,6 +886,8 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     //     instance_desc.nextInChain = &lsel.chain;
     // }
 
+    (void)flags;
+
     const WGPUInstanceFeatureName features[]{
         WGPUInstanceFeatureName_TimedWaitAny,
     };
@@ -947,7 +971,7 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
 
     m_env_2d_buffer = TRY(Buffer::create(sizeof(glm::mat4), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform));
 
-    TRY(configure_surface(window.size().width, window.size().height, VSync::On));
+    configure_surface(window.size().width, window.size().height, VSync::On);
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -963,6 +987,9 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     init_info.RenderTargetFormat = m_surface_format;
     init_info.DepthStencilFormat = WGPUTextureFormat_Depth32Float;
     ImGui_ImplWGPU_Init(&init_info);
+
+    m_missing_texture = TRY(Texture::create(16, 16, WGPUTextureFormat_RGBA8UnormSrgb, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding));
+    m_missing_texture->update(View(missing_texture_data, 16 * 16).as_bytes());
 
     m_env_buffer = TRY(Buffer::create(sizeof(WorldEnvironment), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform));
 
@@ -1013,7 +1040,7 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_water_shader->create_bind_group_layout();
 
     m_water_material = TRY(Material::create(m_water_shader, MaterialFlagBits::Transparency, WGPUCullMode_Back, UVType::UV, Instance(attributes, sizeof(glm::vec3))));
-    m_water_material->set_param("image", EXPECT(Engine::get().registry().create_texture("assets/textures/water.png")));
+    m_water_material->set_param("image", Engine::get().registry().create_texture("assets/textures/water.png"));
     m_water_material->set_param("env", Renderer::get().get_world_environment());
 
     m_simple_shader = TRY(Shader::load("assets/shaders/simple_shape.wgsl"));
@@ -1051,18 +1078,7 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     return Result<void>();
 }
 
-// void Renderer::deinit()
-// {
-// m_sampler_cache.clear();
-// m_pipeline_cache.clear();
-
-// wgpuSurfaceRelease(m_surface);
-// wgpuDeviceRelease(m_device);
-// wgpuAdapterRelease(m_adapter);
-// wgpuInstanceRelease(m_instance);
-// }
-
-Result<void> Renderer::configure_surface(size_t width, size_t height, VSync vsync)
+void Renderer::configure_surface(size_t width, size_t height, VSync vsync)
 {
     Extent2D surface_extent(width, height);
 
@@ -1096,8 +1112,6 @@ Result<void> Renderer::configure_surface(size_t width, size_t height, VSync vsyn
     float ratio = float(width) / float(height);
     glm::mat4 ortho_matrix = glm::ortho(-1.0f * ratio, 1.0f * ratio, -1.0f, 1.0f, -1.0f, 1.0f);
     m_env_2d_buffer->update(View(ortho_matrix).as_bytes());
-
-    return Result<void>();
 }
 
 void Renderer::draw(RenderGraph& graph, std::function<void(const RenderPassNode& node)> f)
@@ -1283,21 +1297,7 @@ void Renderer::record_simple_shape(const RenderPassNode& node, Ref<Material> mat
     wgpuRenderPassEncoderDrawIndexed(encoder, mesh->vertex_count(), 1, 0, 0, 0);
 }
 
-void Renderer::wait_queue_done()
+View<uint8_t> Renderer::get_missing_texture_data() const
 {
-    std::atomic_bool status = true;
-    wgpuQueueOnSubmittedWorkDone(m_queue, WGPUQueueWorkDoneCallbackInfo{
-                                              .nextInChain = nullptr,
-                                              .mode = WGPUCallbackMode_WaitAnyOnly,
-                                              .callback = [](WGPUQueueWorkDoneStatus status, WGPUStringView message, void *userdata, void *)
-                                              {
-                                                  (void)status;
-                                                  (void)message;
-                                                  *(std::atomic_bool *)userdata = false;
-                                              },
-                                              .userdata1 = &status,
-                                              .userdata2 = nullptr,
-                                          });
-    while (status)
-        std::this_thread::yield();
+    return View(missing_texture_data, 16 * 16).as_bytes();
 }

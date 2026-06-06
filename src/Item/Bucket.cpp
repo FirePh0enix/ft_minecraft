@@ -5,7 +5,7 @@
 
 BucketItem::BucketItem()
 {
-    set_texture(EXPECT(Engine::get().registry().create_texture("assets/textures/water.png")));
+    set_texture(Engine::get().registry().create_texture("assets/textures/water.png"));
 }
 
 void BucketItem::interact(World& world, size_t dimension, ItemStack& stack, glm::i64vec3 pos, glm::i64vec3 normal)

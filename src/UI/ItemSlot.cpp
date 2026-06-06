@@ -41,23 +41,23 @@ void ItemSlot::update(float d)
         Option<ItemStack> grabbed = m_inventory->get_grabbed();
         if (grabbed.has_value())
         {
-            bool allow_change = m_inventory->on_place(m_layer, m_count, grabbed.get(), m_container);
+            bool allow_change = m_inventory->on_place(m_layer, m_count, grabbed.value(), m_container);
 
             if (!m_item.valid() && allow_change)
             {
                 m_inventory->ungrab();
-                m_container->set_stack(m_layer, m_index, grabbed.get());
+                m_container->set_stack(m_layer, m_index, grabbed.value());
             }
             else if (allow_change)
             {
                 ItemStack stack = m_container->get_stack(m_layer, m_index);
-                if (grabbed.get().item() == stack.item())
+                if (grabbed.value().item() == stack.item())
                 {
-                    Option<ItemStack> excess = stack.merge(grabbed.get());
+                    Option<ItemStack> excess = stack.merge(grabbed.value());
                     m_container->set_stack(m_layer, m_index, stack);
 
                     if (excess.has_value())
-                        m_inventory->grab(excess.get());
+                        m_inventory->grab(excess.value());
                     else
                         m_inventory->ungrab();
                 }

@@ -31,7 +31,7 @@ void Console::register_command(const String& name, Vector<CmdArgInfo> args, Comm
 void Console::exec()
 {
     Vector<StringView> tokens = StringView(m_buffer, std::strlen(m_buffer)).split(" ");
-    CommandInfo info = m_commands.get(tokens.get_unchecked(0)).get();
+    CommandInfo info = m_commands.get(tokens.get_unchecked(0)).value();
     Command command(info, tokens);
     info.callback(command);
 

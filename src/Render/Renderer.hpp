@@ -318,14 +318,12 @@ public:
     Result<void> init(const Window& window, InitFlags flags);
     // void deinit();
 
-    Result<void> configure_surface(size_t width, size_t height, VSync vsync);
+    void configure_surface(size_t width, size_t height, VSync vsync);
 
     void draw(RenderGraph& graph, std::function<void(const RenderPassNode& node)> f);
     void draw(RenderGraph& graph, Ref<World> world);
 
     void record_simple_shape(const RenderPassNode& node, Ref<Material> material);
-
-    void wait_queue_done();
 
     WGPURenderPipeline get_pipeline(Ref<Material> material, const RenderPassNode& node);
     WGPUSampler get_sampler(const SamplerDescriptor& desc) { return m_sampler_cache.get(desc); }
@@ -353,6 +351,9 @@ public:
     Ref<Shader> get_item_block_shader() const { return m_item_block_shader; }
     Ref<Shader> get_color_rect_shader() const { return m_color_rect_shader; }
     Ref<Shader> get_texture_rect_shader() const { return m_texture_rect_shader; }
+
+    Ref<Texture> get_missing_texture() const { return m_missing_texture; }
+    View<uint8_t> get_missing_texture_data() const;
 
     size_t get_device_memory_usage() const { return m_device_memory_allocated - m_device_memory_freed; }
 
@@ -390,6 +391,8 @@ private:
     Ref<Material> m_water_material;
     Ref<Buffer> m_env_buffer;
     Ref<Buffer> m_env_2d_buffer;
+
+    Ref<Texture> m_missing_texture;
 
     std::atomic_size_t m_device_memory_allocated = 0;
     std::atomic_size_t m_device_memory_freed = 0;

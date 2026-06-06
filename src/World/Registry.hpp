@@ -9,8 +9,6 @@
 
 #include <stb_image.h>
 
-#include <functional>
-
 struct Image
 {
     const stbi_uc *data;
@@ -23,7 +21,7 @@ struct Image
 class EntityRegistry
 {
 public:
-    using Constructor = std::function<Result<Ref<Entity>>()>;
+    using Constructor = Ref<Entity> (*)();
 
     struct Entry
     {
@@ -33,7 +31,7 @@ public:
     template <typename T>
     void register_entity()
     {
-        m_entries.put(T::get_static_hash_code(), Entry{.c = []() -> Result<Ref<Entity>>
+        m_entries.put(T::get_static_hash_code(), Entry{.c = []() -> Ref<Entity>
                                                        { return newref<T>().template cast_to<Entity>(); }});
     }
 
@@ -91,10 +89,17 @@ public:
 
     Ref<Texture> get_texture_array() const { return m_texture_array; }
 
-    Result<size_t> load_texture(const StringView& path);
+    size_t load_texture(const StringView& path);
 
-    Result<Ref<Texture>> create_texture(const StringView& path);
-    Result<Ref<Texture>> create_preview_texture(Ref<Block> block);
+    /**
+     * Create a texture from a file path. If an error occurs the missing texture is returned.
+     */
+    Ref<Texture> create_texture(const StringView& path);
+
+    /**
+     * Render a 3D preview of the block. If an error occurs the missing texture is returned.
+     */
+    Ref<Texture> create_preview_texture(Ref<Block> block);
 
     void register_rpc(ClassHashCode cls, String name, RpcTarget target)
     {
@@ -108,7 +113,7 @@ public:
             ClassHashCode class_hash = entity->get_classes()[i];
             if (m_exposed_rpc.contains(class_hash))
             {
-                const auto rpcs = m_exposed_rpc.get(class_hash).get();
+                const auto rpcs = m_exposed_rpc.get(class_hash).value();
                 if (rpcs.contains(name))
                     return rpcs.get(name);
             }

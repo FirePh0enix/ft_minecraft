@@ -34,7 +34,7 @@ public:
 
     ArgValue get_arg(const String& name)
     {
-        return m_values.get(name).get();
+        return m_values.get(name).value();
     }
 
     bool has(const String& name) const

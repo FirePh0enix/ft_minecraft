@@ -262,9 +262,9 @@ Result<void> Chunk::build_water_mesh(size_t slice_index)
                     if (!get_tag(index, "water").has_value())
                         continue;
 
-                    if ((x == 0 && (!m_dim->has_chunk(m_x - 1, m_z) || (m_dim->get_chunk(m_x - 1, m_z).get()->get_block(width - 1, y, z).is_air() && !m_dim->get_chunk(m_x - 1, m_z).get()->get_tag(glm::i64vec3(width - 1, y, z), "water")))) || (x > 0 && get_block(x - 1, y, z).is_air() && !get_tag(glm::i64vec3(x - 1, y, z), "water").has_value()))
+                    if ((x == 0 && (!m_dim->has_chunk(m_x - 1, m_z) || (m_dim->get_chunk(m_x - 1, m_z).value()->get_block(width - 1, y, z).is_air() && !m_dim->get_chunk(m_x - 1, m_z).value()->get_tag(glm::i64vec3(width - 1, y, z), "water")))) || (x > 0 && get_block(x - 1, y, z).is_air() && !get_tag(glm::i64vec3(x - 1, y, z), "water").has_value()))
                         faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::X, false, 0));
-                    if ((x == width - 1 && (!m_dim->has_chunk(m_x + 1, m_z) || (m_dim->get_chunk(m_x + 1, m_z).get()->get_block(0, y, z).is_air() && !m_dim->get_chunk(m_x + 1, m_z).get()->get_tag(glm::i64vec3(0, y, z), "water")))) || (x < width - 1 && get_block(x + 1, y, z).is_air() && !get_tag(glm::i64vec3(x + 1, y, z), "water").has_value()))
+                    if ((x == width - 1 && (!m_dim->has_chunk(m_x + 1, m_z) || (m_dim->get_chunk(m_x + 1, m_z).value()->get_block(0, y, z).is_air() && !m_dim->get_chunk(m_x + 1, m_z).value()->get_tag(glm::i64vec3(0, y, z), "water")))) || (x < width - 1 && get_block(x + 1, y, z).is_air() && !get_tag(glm::i64vec3(x + 1, y, z), "water").has_value()))
                         faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::X, true, 0));
 
                     if (y == 0 || (get_block(x, y - 1, z).is_air() && !get_tag(glm::i64vec3(x, y - 1, z), "water").has_value()))
@@ -272,9 +272,9 @@ Result<void> Chunk::build_water_mesh(size_t slice_index)
                     if (y == height - 1 || (get_block(x, y + 1, z).is_air() && !get_tag(glm::i64vec3(x, y + 1, z), "water").has_value()))
                         faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Y, true, 0));
 
-                    if ((z == 0 && (!m_dim->has_chunk(m_x, m_z - 1) || (m_dim->get_chunk(m_x, m_z - 1).get()->get_block(x, y, width - 1).is_air() && !m_dim->get_chunk(m_x, m_z - 1).get()->get_tag(glm::i64vec3(x, y, width - 1), "water")))) || (z > 0 && get_block(x, y, z - 1).is_air() && !get_tag(glm::i64vec3(x, y, z - 1), "water").has_value()))
+                    if ((z == 0 && (!m_dim->has_chunk(m_x, m_z - 1) || (m_dim->get_chunk(m_x, m_z - 1).value()->get_block(x, y, width - 1).is_air() && !m_dim->get_chunk(m_x, m_z - 1).value()->get_tag(glm::i64vec3(x, y, width - 1), "water")))) || (z > 0 && get_block(x, y, z - 1).is_air() && !get_tag(glm::i64vec3(x, y, z - 1), "water").has_value()))
                         faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Z, false, 0));
-                    if ((z == width - 1 && (!m_dim->has_chunk(m_x, m_z + 1) || (m_dim->get_chunk(m_x, m_z + 1).get()->get_block(x, y, 0).is_air() && !m_dim->get_chunk(m_x, m_z + 1).get()->get_tag(glm::i64vec3(x, y, 0), "water")))) || (z < width - 1 && get_block(x, y, z + 1).is_air() && !get_tag(glm::i64vec3(x, y, z + 1), "water").has_value()))
+                    if ((z == width - 1 && (!m_dim->has_chunk(m_x, m_z + 1) || (m_dim->get_chunk(m_x, m_z + 1).value()->get_block(x, y, 0).is_air() && !m_dim->get_chunk(m_x, m_z + 1).value()->get_tag(glm::i64vec3(x, y, 0), "water")))) || (z < width - 1 && get_block(x, y, z + 1).is_air() && !get_tag(glm::i64vec3(x, y, z + 1), "water").has_value()))
                         faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Z, true, 0));
                 }
             }
@@ -510,7 +510,7 @@ Result<CompressedChunk> Chunk::compress() const
         else
         {
             bnode.ptr = cchunk.compressed_biomes.size();
-            cchunk.compressed_biomes.append(saved_biome.get());
+            cchunk.compressed_biomes.append(saved_biome.value());
         }
 
         cchunk.compressed_biome_nodes.get_unchecked(bnode_index) = bnode;
@@ -607,9 +607,9 @@ void Chunk::remove_tag(glm::i64vec3 pos, const StringView& name, bool rebuild)
 
     if (tags.has_value())
     {
-        tags.get()->tags.erase(name);
+        tags.value()->tags.erase(name);
 
-        if (tags.get()->tags.size() == 0)
+        if (tags.value()->tags.size() == 0)
         {
             m_tags.erase(key);
             if (rebuild)
@@ -622,7 +622,7 @@ Option<Variant> Chunk::get_tag(uint16_t index, const StringView& name) const
 {
     Option<const BlockTags *> tags = m_tags.get_ptr(index);
     if (tags.has_value())
-        return tags.get()->tags.get(name);
+        return tags.value()->tags.get(name);
     return None;
 }
 

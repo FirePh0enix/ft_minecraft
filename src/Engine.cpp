@@ -96,7 +96,7 @@ void Engine::tick(float delta)
 
         while ((event_opt = m_window->poll_event()))
         {
-            SDL_Event event = event_opt.get();
+            SDL_Event event = event_opt.value();
 
             switch (event.type)
             {
@@ -109,8 +109,7 @@ void Engine::tick(float delta)
             {
                 const uint32_t w = event.window.data1;
                 const uint32_t h = event.window.data2;
-                Result<void> result = Renderer::get().configure_surface(w, h, VSync::On);
-                ERR_EXPECT_B(result, "Failed to configure the surface");
+                Renderer::get().configure_surface(w, h, VSync::On);
 
                 m_depth_texture = EXPECT(Texture::create(w, h, WGPUTextureFormat_Depth32Float, WGPUTextureUsage_RenderAttachment));
                 m_color_texture = EXPECT(Texture::create(w, h, WGPUTextureFormat_RGBA8UnormSrgb, WGPUTextureUsage_RenderAttachment));
@@ -338,8 +337,8 @@ void Engine::create_world_and_start()
         EntitySerializer serializer;
         EXPECT(serializer.load(path));
 
-        glm::vec3 position = serializer.get<glm::vec3>("position").get();
-        glm::quat rotation = serializer.get<glm::quat>("rotation").get();
+        glm::vec3 position = serializer.get<glm::vec3>("position").value_or(m_world->get_spawn_position());
+        glm::quat rotation = serializer.get<glm::quat>("rotation").value_or({});
 
         m_player->set_position(position);
         m_player->set_rotation(rotation);
@@ -508,7 +507,7 @@ void Engine::receive_client(void *user, NetworkConnection& conn, ENetPacket *pac
         if (self->m_world->get_dimension(0).has_chunk(p.x, p.z))
         {
             // SAFETY: we already checked if the chunk exists, there is no multithreading to mess things up.
-            Ref<Chunk> chunk = self->m_world->get_dimension(0).get_chunk(p.x, p.z).get();
+            Ref<Chunk> chunk = self->m_world->get_dimension(0).get_chunk(p.x, p.z).value();
             std::memcpy(chunk->get_blocks(), p.blocks.data(), sizeof(BlockState) * p.blocks.size());
             std::memcpy(chunk->get_biomes(), p.biomes.data(), sizeof(Biome) * p.biomes.size());
         }
@@ -656,11 +655,10 @@ void Engine::disconnect_server(void *user, NetworkConnection& conn, const Client
     (void)client;
     Engine *self = (Engine *)user;
 
-    Ref<Player> player = self->m_players.get(client.peer()).get();
+    Ref<Player> player = self->m_players.get(client.peer()).value();
 
     RemoveEntityPacket p(player->id());
     conn.broadcast(conn.create_packet(p), client.peer());
 
-    // FIXME
-    // self->m_world->remove_entity(0, player->id());
+    self->m_world->remove_entity(World::overworld, player);
 }

@@ -102,7 +102,7 @@ BlockState Dimension::get_block(int64_t x, int64_t y, int64_t z) const
     if (!chunk_maybe)
         return BlockState();
 
-    Ref<Chunk> chunk = chunk_maybe.get();
+    Ref<Chunk> chunk = chunk_maybe.value();
     int64_t local_x = local_coords(x);
     int64_t local_z = local_coords(z);
 
@@ -124,7 +124,7 @@ void Dimension::set_block(int64_t x, int64_t y, int64_t z, BlockState state)
         return;
     }
 
-    Ref<Chunk> chunk = chunk_value.get();
+    Ref<Chunk> chunk = chunk_value.value();
     int64_t local_x = local_coords(x);
     int64_t local_z = local_coords(z);
 
@@ -134,25 +134,25 @@ void Dimension::set_block(int64_t x, int64_t y, int64_t z, BlockState state)
     {
         chunk_value = get_chunk(chunk_x - 1, chunk_z);
         if (chunk_value.has_value())
-            EXPECT(chunk_value.get()->build_simple_mesh(y / 16));
+            EXPECT(chunk_value.value()->build_simple_mesh(y / 16));
     }
     else if (local_x == 15)
     {
         chunk_value = get_chunk(chunk_x + 1, chunk_z);
         if (chunk_value.has_value())
-            EXPECT(chunk_value.get()->build_simple_mesh(y / 16));
+            EXPECT(chunk_value.value()->build_simple_mesh(y / 16));
     }
     if (local_z == 0)
     {
         chunk_value = get_chunk(chunk_x, chunk_z - 1);
         if (chunk_value.has_value())
-            EXPECT(chunk_value.get()->build_simple_mesh(y / 16));
+            EXPECT(chunk_value.value()->build_simple_mesh(y / 16));
     }
     else if (local_z == 15)
     {
         chunk_value = get_chunk(chunk_x, chunk_z + 1);
         if (chunk_value.has_value())
-            EXPECT(chunk_value.get()->build_simple_mesh(y / 16));
+            EXPECT(chunk_value.value()->build_simple_mesh(y / 16));
     }
 }
 
@@ -171,7 +171,7 @@ void Dimension::set_tag(glm::i64vec3 pos, const StringView& name, Variant v)
         return;
     }
 
-    Ref<Chunk> chunk = chunk_value.get();
+    Ref<Chunk> chunk = chunk_value.value();
     int64_t local_x = local_coords(pos.x);
     int64_t local_z = local_coords(pos.z);
 
@@ -193,7 +193,7 @@ void Dimension::remove_tag(glm::i64vec3 pos, const StringView& name)
         return;
     }
 
-    Ref<Chunk> chunk = chunk_value.get();
+    Ref<Chunk> chunk = chunk_value.value();
     int64_t local_x = local_coords(pos.x);
     int64_t local_z = local_coords(pos.z);
 
@@ -215,7 +215,7 @@ Option<Variant> Dimension::get_tag(glm::i64vec3 pos, const StringView& name) con
         return None;
     }
 
-    Ref<Chunk> chunk = chunk_value.get();
+    Ref<Chunk> chunk = chunk_value.value();
     int64_t local_x = local_coords(pos.x);
     int64_t local_z = local_coords(pos.z);
 
@@ -244,11 +244,11 @@ Result<void> Dimension::rebuild_neighbor_chunks_water(int64_t cx, int64_t cz, si
             if (slice_index == std::numeric_limits<size_t>::max())
             {
                 for (size_t i = 0; i < Chunk::slice_count; i++)
-                    TRY(chunk.get()->build_water_mesh(i));
+                    TRY(chunk.value()->build_water_mesh(i));
             }
             else
             {
-                TRY(chunk.get()->build_water_mesh(slice_index));
+                TRY(chunk.value()->build_water_mesh(slice_index));
             }
         }
     }

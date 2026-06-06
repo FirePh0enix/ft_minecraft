@@ -47,7 +47,7 @@ std::filesystem::path Filesystem::current_executable_directory()
 String Filesystem::get_data_directory()
 {
     if (data_dir.has_value())
-        return data_dir.get();
+        return data_dir.value();
 
 #ifdef __platform_linux
     const char *xdg_data_home = getenv("XDG_DATA_HOME");

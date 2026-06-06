@@ -14,7 +14,7 @@ size_t Pathfinding::node_from_world_point(const glm::ivec3& pos)
 {
     auto it = m_nodes.get(pos);
     if (it.has_value())
-        return it.get();
+        return it.value();
 
     bool walkable = m_world->get_block_state(pos.x, pos.y, pos.z).is_air();
 

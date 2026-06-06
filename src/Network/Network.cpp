@@ -149,9 +149,9 @@ void NetworkConnection::tick_server()
         break;
         case ENET_EVENT_TYPE_DISCONNECT:
         {
-            m_disconnect_handler(m_disconnect_handler_user, *this, m_clients.get(event.peer).get());
+            m_disconnect_handler(m_disconnect_handler_user, *this, m_clients.get(event.peer).value());
 
-            const Client& client = *m_clients.get_ptr(event.peer).get();
+            const Client& client = *m_clients.get_ptr(event.peer).value();
             info("Client disconnected from {}:{}", client.ip(), client.port());
 
             m_clients.erase(event.peer);
@@ -159,7 +159,7 @@ void NetworkConnection::tick_server()
         break;
         case ENET_EVENT_TYPE_RECEIVE:
         {
-            const Client& client = *m_clients.get_ptr(event.peer).get();
+            const Client& client = *m_clients.get_ptr(event.peer).value();
             m_packet_handler(m_packet_handler_user, *this, event.packet, client);
             enet_packet_destroy(event.packet);
         }

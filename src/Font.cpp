@@ -73,8 +73,8 @@ Result<Ref<Font>> Font::create(const StringView& font_name, uint32_t font_size)
             continue;
         }
 
-        const Font::Character character = font->m_characters.get(i).get();
-        const Vector<char>& char_data = *data.get_ptr(i).get();
+        const Font::Character character = font->m_characters.get(i).value();
+        const Vector<char>& char_data = *data.get_ptr(i).value();
 
         const int width = character.size.x;
         const int height = character.size.y;

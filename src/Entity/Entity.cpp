@@ -34,11 +34,11 @@ Result<void> EntitySerializer::load(const StringView& path)
         if (!vname_opt.has_value())
             break;
 
-        Variant vname = vname_opt.get();
+        Variant vname = vname_opt.value();
         ASSERT_V(vname.has(VariantType::String), "");
         String s = vname.get_unchecked<String>();
 
-        Variant value = TRY(reader.read_variant()).get();
+        Variant value = TRY(reader.read_variant()).value();
         m_variants.put(s, value);
     }
 
@@ -106,7 +106,7 @@ void Entity::call_rpc(StringView name, View<Variant> args)
     if (!rpc_target_maybe.has_value())
         return;
 
-    RpcTarget rpc_target = rpc_target_maybe.get();
+    RpcTarget rpc_target = rpc_target_maybe.value();
 
     if (Engine::get().is_online() || rpc_target == RpcTarget::Both || (Engine::singleton->is_server() && rpc_target == RpcTarget::Server) || (!Engine::singleton->is_server() && rpc_target == RpcTarget::Client))
     {

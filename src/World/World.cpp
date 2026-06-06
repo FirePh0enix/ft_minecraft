@@ -409,7 +409,7 @@ void World::break_block(int64_t x, int64_t y, int64_t z)
     if (!item_opt.has_value())
         return;
 
-    Ref<ItemEntity> item_entity = newref<ItemEntity>(item_opt.get());
+    Ref<ItemEntity> item_entity = newref<ItemEntity>(item_opt.value());
     item_entity->set_position(glm::vec3(x, y, z) + glm::vec3(rand_float(-0.6, 0.6), 0, rand_float(-0.6, 0.6)));
 
     add_entity(World::overworld, item_entity);
@@ -559,7 +559,7 @@ void World::load_one_chunk(ChunkPos pos)
             Option<Variant> variant = EXPECT(reader.read_variant());
             if (variant.has_value())
             {
-                Map<int64_t, Map<String, Variant>> tags = variant.get().to_map<int64_t, Map<String, Variant>>();
+                Map<int64_t, Map<String, Variant>> tags = variant.value().to_map<int64_t, Map<String, Variant>>();
 
                 for (const auto& [key, value] : tags)
                 {

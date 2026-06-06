@@ -138,7 +138,7 @@ void PlayerInventory::add_stack(ItemStack stack)
             m_container->set_stack(1, x, current_stack);
 
             if (excess.has_value())
-                add_stack(excess.get());
+                add_stack(excess.value());
             return;
         }
         else if (!current_stack.item().valid())
@@ -157,7 +157,7 @@ void PlayerInventory::add_stack(ItemStack stack)
             m_container->set_stack(0, i, current_stack);
 
             if (excess.has_value())
-                add_stack(excess.get());
+                add_stack(excess.value());
             return;
         }
         else if (!current_stack.item().valid())

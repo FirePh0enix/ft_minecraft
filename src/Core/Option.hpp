@@ -55,12 +55,12 @@ public:
 
     bool operator==(const Option& o) const
     {
-        return (has_value() == o.has_value()) && (has_value() ? get() == o.get() : true);
+        return (has_value() == o.has_value()) && (has_value() ? value() == o.value() : true);
     }
 
-    bool operator==(const T& value) const
+    bool operator==(const T& v) const
     {
-        return has_value() && value == get();
+        return has_value() && v == value();
     }
 
     operator int() const = delete;
@@ -68,13 +68,13 @@ public:
 
     inline bool has_value() const { return m_has_value; }
 
-    const T& get() const
+    const T& value() const
     {
         ASSERT_V(has_value(), "Trying to access Option");
         return *(const T *)m_data;
     }
 
-    T& get()
+    T& value()
     {
         ASSERT_V(has_value(), "Trying to access Option");
         return *(T *)m_data;
@@ -83,7 +83,7 @@ public:
     T value_or(const T& other) const
     {
         if (m_has_value)
-            return get();
+            return value();
         return other;
     }
 
@@ -95,7 +95,7 @@ public:
     {
         if (!m_has_value)
             return None;
-        return Option<B>(f(get()));
+        return Option<B>(f(value()));
     }
 
 private:
@@ -128,25 +128,25 @@ public:
 
     bool operator==(const Option& o) const
     {
-        return (has_value() == o.has_value()) && (has_value() ? get() == o.get() : true);
+        return (has_value() == o.has_value()) && (has_value() ? value() == o.value() : true);
     }
 
-    bool operator==(const T *& value) const
+    bool operator==(const T *& v) const
     {
-        return has_value() && value == get();
+        return has_value() && v == value();
     }
 
     operator bool() const { return has_value(); }
 
     inline bool has_value() const { return m_value != nullptr; }
 
-    const T *& get() const
+    const T *& value() const
     {
         ASSERT_V(has_value(), "");
         return m_value;
     }
 
-    T *& get()
+    T *& value()
     {
         ASSERT_V(has_value(), "");
         return m_value;
@@ -160,7 +160,7 @@ public:
     {
         if (!has_value())
             return None;
-        return Option<T>(f(get()));
+        return Option<T>(f(value()));
     }
 
 private:

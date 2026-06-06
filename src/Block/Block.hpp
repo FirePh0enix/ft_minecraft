@@ -5,13 +5,6 @@
 #include "Core/String.hpp"
 #include "Id.hpp"
 
-enum class GradientType : uint8_t
-{
-    None,
-    Grass,
-    Water,
-};
-
 class Block;
 
 struct BlockState

@@ -12,7 +12,7 @@ Result<void> InventoryContainer::add_layer(size_t size)
 
 void InventoryContainer::set_stack(uint32_t layer, uint32_t i, ItemStack stack)
 {
-    m_layers.get_unchecked(layer).stacks.get_unchecked(i) = stack;
+    m_layers[layer].stacks[i] = stack;
 }
 
 Inventory::Inventory(Ref<InventoryContainer> container)
@@ -92,7 +92,7 @@ InventoryOrigin Inventory::get_grabbed_origin()
 void Inventory::grab_cancel()
 {
     if (m_grabbed_stack.has_value())
-        m_grabbed_from.container->set_stack(m_grabbed_from.layer, m_grabbed_from.i, m_grabbed_stack.get());
+        m_grabbed_from.container->set_stack(m_grabbed_from.layer, m_grabbed_from.i, m_grabbed_stack.value());
 }
 
 void Inventory::add_grid(uint32_t w, uint32_t h, uint32_t layer, glm::vec2 pos, InventoryContainer *container)

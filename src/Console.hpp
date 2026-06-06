@@ -32,12 +32,12 @@ public:
 
     int64_t get_arg_int(const StringView& name) const
     {
-        return m_args.get(name).get().i;
+        return m_args.get(name).value().i;
     }
 
     String get_arg_string(const StringView& name) const
     {
-        return m_args.get(name).get().s;
+        return m_args.get(name).value().s;
     }
 
 private:

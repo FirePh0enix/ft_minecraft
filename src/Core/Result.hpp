@@ -46,16 +46,16 @@ public:
         return m_error.has_value();
     }
 
-    inline const T& value() const { return m_value.get(); }
-    inline T& value() { return m_value.get(); }
+    inline const T& value() const { return m_value.value(); }
+    inline T& value() { return m_value.value(); }
 
     inline T value_or(const T& default_value)
     {
         return has_value() ? value() : default_value;
     }
 
-    inline const E& error() const { return m_error.get(); }
-    inline E& error() { return m_error.get(); }
+    inline const E& error() const { return m_error.value(); }
+    inline E& error() { return m_error.value(); }
 
 private:
     Option<T> m_value;
@@ -96,12 +96,12 @@ public:
 
     inline const E& error() const
     {
-        return m_error.get();
+        return m_error.value();
     }
 
     inline E& error()
     {
-        return m_error.get();
+        return m_error.value();
     }
 
 private:
@@ -121,13 +121,22 @@ private:
         _tmp.value();                \
     })
 
-#define EXPECT(EXPECTED)              \
-    ({                                \
-        auto __result = EXPECTED;     \
-        if (!__result.has_value())    \
-        {                             \
-            __result.error().print(); \
-            std::abort();             \
-        }                             \
-        __result.value();             \
+#define THROW(EXPR, RET)       \
+    ({                         \
+        auto&& _tmp = (EXPR);  \
+        (void)_tmp;            \
+        if (!_tmp.has_value()) \
+            return RET;        \
+        _tmp.value();          \
+    })
+
+#define EXPECT(...)                    \
+    ({                                 \
+        auto __result = (__VA_ARGS__); \
+        if (!__result.has_value())     \
+        {                              \
+            __result.error().print();  \
+            std::abort();              \
+        }                              \
+        __result.value();              \
     })

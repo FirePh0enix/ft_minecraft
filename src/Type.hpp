@@ -2,7 +2,6 @@
 
 #include "Core/Containers/HashMap.hpp"
 #include "Core/Containers/View.hpp"
-#include "Core/Result.hpp"
 #include "Core/String.hpp"
 #include "Variant.hpp"
 
@@ -86,7 +85,7 @@ public:
     const Method& get_method(StringView name) const
     {
         if (m_methods.contains(name))
-            return *m_methods.get_ptr(name).get();
+            return *m_methods.get_ptr(name).value();
         ASSERT_V(m_parent != nullptr, "");
         return m_parent->get_method(name);
     }
@@ -94,7 +93,7 @@ public:
     const Property& get_property(StringView name) const
     {
         if (m_properties.contains(name))
-            return *m_properties.get_ptr(name).get();
+            return *m_properties.get_ptr(name).value();
         ASSERT_V(m_parent != nullptr, "");
         return m_parent->get_property(name);
     }

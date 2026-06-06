@@ -28,7 +28,7 @@ public:
         auto opt = m_samplers.get(name);
         if (opt.has_value())
         {
-            return opt.get();
+            return opt.value();
         }
         return SamplerDescriptor{};
     }
@@ -55,7 +55,7 @@ public:
 
     void set_sampler(const String& name, SamplerDescriptor sampler)
     {
-        ERR_COND_V(!has_binding(name) || get_binding(name).get().kind != BindingKind::Texture, "binding `{}` is not a texture", name);
+        ERR_COND_V(!has_binding(name) || get_binding(name).value().kind != BindingKind::Texture, "binding `{}` is not a texture", name);
         m_samplers.put(name, sampler);
     }
 
@@ -63,7 +63,7 @@ public:
 
     String get_entry_point(WGPUShaderStage stage) const
     {
-        return m_entry_point_names.get(stage).get();
+        return m_entry_point_names.get(stage).value();
     }
 
     WGPUShaderStage get_stage_mask() const

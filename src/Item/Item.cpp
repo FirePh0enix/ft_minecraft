@@ -35,6 +35,6 @@ void ItemBlock::interact(World& world, size_t dimension, ItemStack& stack, glm::
     world.get_dimension(dimension).remove_tag(pos + normal, "water");
 
     world.set_block_state(pos.x + int64_t(normal.x), pos.y + int64_t(normal.y), pos.z + int64_t(normal.z),
-                          BlockState(Engine::get().registry().to_block(stack.item()).get()));
+                          BlockState(Engine::get().registry().to_block(stack.item()).value()));
     stack.set_count(stack.count() - 1);
 }

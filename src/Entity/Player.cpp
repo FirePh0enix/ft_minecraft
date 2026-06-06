@@ -323,7 +323,7 @@ void Player::tick(float delta)
         m_inventory->set_selected_slot(m_slot);
 
         if (m_opened_inventory.has_value())
-            m_opened_inventory.get()->update(delta);
+            m_opened_inventory.value()->update(delta);
         else
             m_inventory->update(delta);
 
@@ -352,7 +352,7 @@ void Player::draw(const RenderPassNode& node)
 
     if (m_local_player && m_aimed_block.has_value())
     {
-        SimpleUniforms uniforms(glm::translate(glm::identity<glm::mat4>(), glm::vec3(m_aimed_block.get())) * glm::scale(glm::identity<glm::mat4>(), glm::vec3(1.01f)), glm::vec4(aim_color, 0.4));
+        SimpleUniforms uniforms(glm::translate(glm::identity<glm::mat4>(), glm::vec3(m_aimed_block.value())) * glm::scale(glm::identity<glm::mat4>(), glm::vec3(1.01f)), glm::vec4(aim_color, 0.4));
         m_aim_buffer->update(View(uniforms).as_bytes());
         Renderer::get().record_simple_shape(node, m_aim_material);
     }
@@ -363,19 +363,19 @@ void Player::draw(const RenderPassNode& node)
         Ref<Item> item = Engine::get().registry().get_item(id);
         if (Ref<ItemBlock> ib = item.cast_to<ItemBlock>())
         {
-            // Ref<Block> block = Engine::get().registry().block_from_item(m_inventory_container->get_stack(1, m_inventory->selected_slot()).item());
+            Ref<Block> block = Engine::get().registry().block_from_item(m_inventory_container->get_stack(1, m_inventory->selected_slot()).item());
 
-            // Transform3D transform = m_camera->get_global_transform();
-            // transform.scale() = glm::vec3(0.2);
-            // transform.position() += m_camera->get_global_transform().forward() * 0.5f + m_camera->get_global_transform().right() * 0.35f + m_camera->get_global_transform().up() * -0.3f;
-            // transform.set_euler_angles(glm::vec3(0, -m_transform.get_euler_angles().y, 0));
+            Transform3D transform = m_camera->get_global_transform();
+            transform.scale() = glm::vec3(0.2);
+            transform.position() += m_camera->get_global_transform().forward() * 0.5f + m_camera->get_global_transform().right() * 0.35f + m_camera->get_global_transform().up() * -0.3f;
+            transform.set_euler_angles(glm::vec3(0, -m_transform.get_euler_angles().y, 0));
 
-            // ItemBlockModel matrix(
-            //     transform.to_matrix(),
-            //     glm::uvec3(block->get_texture_ids()[0] | (block->get_texture_ids()[1] << 16), block->get_texture_ids()[2] | (block->get_texture_ids()[3] << 16), block->get_texture_ids()[4] | (block->get_texture_ids()[5] << 16)));
+            ItemBlockModel matrix(
+                transform.to_matrix(),
+                glm::uvec3(block->get_texture_ids()[0] | (block->get_texture_ids()[1] << 16), block->get_texture_ids()[2] | (block->get_texture_ids()[3] << 16), block->get_texture_ids()[4] | (block->get_texture_ids()[5] << 16)));
 
-            // m_model_buffer->update(View(matrix).as_bytes());
-            // Renderer::get().record_simple_shape(node, m_material);
+            m_model_buffer->update(View(matrix).as_bytes());
+            Renderer::get().record_simple_shape(node, m_material);
         }
         else
         {
@@ -389,7 +389,7 @@ void Player::draw_ui(const RenderPassNode& node)
     if (m_local_player)
     {
         if (m_opened_inventory.has_value())
-            m_opened_inventory.get()->draw(node);
+            m_opened_inventory.value()->draw(node);
         else
             m_inventory->draw_toolbar(node);
 
@@ -423,7 +423,7 @@ void Player::save(EntitySerializer& ser) const
 
 void Player::load(const EntitySerializer& deser)
 {
-    Vector<ItemStack> stacks = deser.get_array<ItemStack>("inventory_data").get();
+    Vector<ItemStack> stacks = deser.get_array<ItemStack>("inventory_data").value();
 
     InventoryContainer::Layer& layer = m_inventory_container->get_layer(0);
     for (size_t i = 0; i < 27; i++)
@@ -455,7 +455,7 @@ void Player::open_inventory(Ref<Inventory> inventory)
 
 void Player::close_inventory()
 {
-    m_opened_inventory.get()->grab_cancel();
+    m_opened_inventory.value()->grab_cancel();
     m_opened_inventory = None;
     Input::set_mouse_grabbed(true);
 }

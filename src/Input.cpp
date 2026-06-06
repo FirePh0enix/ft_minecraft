@@ -84,7 +84,7 @@ bool Input::is_action_pressed(const StringView& action)
     Option<Status> status_opt = s_actions.get(action);
     if (!status_opt.has_value())
         return false;
-    return status_opt.get().value > 0.0;
+    return status_opt.value().value > 0.0;
 }
 
 bool Input::is_action_just_pressed(const StringView& action)
@@ -92,7 +92,7 @@ bool Input::is_action_just_pressed(const StringView& action)
     Option<Status> status_opt = s_actions.get(action);
     if (!status_opt.has_value())
         return false;
-    return status_opt.get().value > 0.0 && !status_opt.get().repeat;
+    return status_opt.value().value > 0.0 && !status_opt.value().repeat;
 }
 
 float Input::get_action_value(const StringView& action)
@@ -100,7 +100,7 @@ float Input::get_action_value(const StringView& action)
     Option<Status> status_opt = s_actions.get(action);
     if (!status_opt.has_value())
         return false;
-    return status_opt.get().value;
+    return status_opt.value().value;
 }
 
 void Input::set_action_value(const StringView& action, float value)
@@ -161,7 +161,7 @@ void Input::post_events()
         if (status.value > 0)
             status.repeat = true;
 
-        if (s_mappings.get(key).get().get_unchecked(0).kind == ActionMappingKind::Wheel)
+        if (s_mappings.get(key).value().get_unchecked(0).kind == ActionMappingKind::Wheel)
         {
             status.repeat = false;
             status.value = 0.0;
@@ -215,6 +215,6 @@ void Input::add_action(const StringView& name)
 
 void Input::add_action_mapping(const StringView& name, ActionMapping mapping)
 {
-    Vector<ActionMapping>& mappings = *s_mappings.get_ptr(name).get();
+    Vector<ActionMapping>& mappings = *s_mappings.get_ptr(name).value();
     mappings.append(mapping);
 }
