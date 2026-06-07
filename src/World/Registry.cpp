@@ -177,7 +177,7 @@ Ref<Texture> GameRegistry::create_preview_texture(Ref<Block> block)
     buffer->update(View(model).as_bytes());
 
     Ref<Texture> depth_texture = THROW(Texture::create(preview_size, preview_size, WGPUTextureFormat_Depth32Float, WGPUTextureUsage_RenderAttachment), Renderer::get().get_missing_texture());
-    Ref<Texture> color_texture = THROW(Texture::create(preview_size, preview_size, WGPUTextureFormat_RGBA8UnormSrgb, WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_TextureBinding), Renderer::get().get_missing_texture());
+    Ref<Texture> color_texture = THROW(Texture::create(preview_size, preview_size, WGPUTextureFormat_RGBA8Unorm, WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_TextureBinding), Renderer::get().get_missing_texture());
 
     WGPUCommandEncoder encoder = wgpuDeviceCreateCommandEncoder(Renderer::get().device(), nullptr);
 
@@ -202,7 +202,7 @@ Ref<Texture> GameRegistry::create_preview_texture(Ref<Block> block)
     rp.depthStencilAttachment = &depth_attach;
 
     WGPURenderPassEncoder render_encoder = wgpuCommandEncoderBeginRenderPass(encoder, &rp);
-    Renderer::get().record_simple_shape(render_encoder, material, WGPUTextureFormat_RGBA8UnormSrgb);
+    Renderer::get().record_simple_shape(render_encoder, material, WGPUTextureFormat_RGBA8Unorm);
     wgpuRenderPassEncoderEnd(render_encoder);
     wgpuRenderPassEncoderRelease(render_encoder);
 

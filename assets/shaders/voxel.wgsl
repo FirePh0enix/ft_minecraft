@@ -67,7 +67,7 @@ fn fragment_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
     var color = textureSample(images, images_sampler, uv2, in.texture_index);
     // FIXME: since mipmaps are generated for block textures, SRGB cannot be used so we convert here.
-    color = vec4(srgb2physical(color.xyz), color.a);
+    // color = vec4(srgb2physical(color.xyz), color.a);
 
     // color *= vec4<f32>(in.gradient_color, 1.0) * f32(in.has_gradient);
 
@@ -75,7 +75,7 @@ fn fragment_main(in: VertexOutput) -> @location(0) vec4<f32> {
     //     color *= vec4<f32>(in.gradient_color, 1.0);
     // }
 
-    const minimum_brightness = 0.1;
+    const minimum_brightness = 0.3;
 
     let N = in.normal;
     let L = in.light_vec;

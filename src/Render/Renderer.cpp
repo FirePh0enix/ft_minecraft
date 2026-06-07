@@ -41,6 +41,18 @@ static const uint32_t missing_texture_data[16 * 16]{
 };
 // clang-format on
 
+static const StringView sky_shader_source = R"(
+@group(0) @binding(0) var image: texture_storage_2d<rgba8unorm, read_write>;
+
+@compute
+@workgroup_size(8, 8)
+fn main(
+    @builtin(global_invocation_id) id: vec3<u32>
+) {
+    textureStore(image, vec2<u32>(id.xy), vec4<f32>(135.0 / 255.0, 206.0 / 255.0, 235.0 / 255.0, 1.0));
+}
+)";
+
 static WGPUTextureViewDimension convert_texture_view_dimension(TextureDimension dimension)
 {
     switch (dimension)
@@ -161,8 +173,11 @@ void Buffer::update(View<uint8_t> view, size_t offset)
 
 Texture::~Texture()
 {
-    wgpuTextureViewRelease(m_view);
-    wgpuTextureRelease(m_texture);
+    if (!m_external)
+    {
+        wgpuTextureViewRelease(m_view);
+        wgpuTextureRelease(m_texture);
+    }
 }
 
 Result<Ref<Texture>> Texture::create(uint32_t width, uint32_t height, WGPUTextureFormat format, WGPUTextureUsage usage, TextureDimension dimension, uint32_t layers, uint32_t mip_level)
@@ -207,6 +222,20 @@ Result<Ref<Texture>> Texture::create(uint32_t width, uint32_t height, WGPUTextur
     tex->m_mip_level = mip_level;
     tex->m_format = format;
 
+    return tex;
+}
+
+Ref<Texture> Texture::create_from_view(WGPUTextureView view)
+{
+    Ref<Texture> tex = newref<Texture>();
+    tex->m_texture = nullptr;
+    tex->m_view = view;
+    tex->m_width = 0;
+    tex->m_height = 0;
+    tex->m_layers = 0;
+    tex->m_mip_level = 0;
+    tex->m_format = WGPUTextureFormat_Undefined;
+    tex->m_external = true;
     return tex;
 }
 
@@ -322,7 +351,7 @@ void Material::set_param(const StringView& name, const Ref<Texture>& texture)
 
     // TODO: Check dimensions.
 
-    m_caches.put(name, MaterialParamCache{.kind = BindingKind::Texture, .texture = texture});
+    m_caches.put(name, MaterialParamCache{.kind = binding_result.value().kind, .texture = texture});
     m_dirty = true;
 }
 
@@ -345,18 +374,17 @@ const MaterialParamCache& Material::get_param(const StringView& name) const
 WGPUBindGroup Material::get_bind_group()
 {
     if (m_dirty)
-        if (create_bind_group().has_error())
-            m_bind_group = nullptr;
+        create_bind_group();
     return m_bind_group;
 }
 
-Result<void> Material::create_bind_group()
+void Material::create_bind_group()
 {
     if (m_bind_group != nullptr)
         wgpuBindGroupRelease(m_bind_group);
 
     LocalVector<WGPUBindGroupEntry> entries;
-    // TRY(entries.reserve(m_shader->get_bindings().size()));
+    entries.reserve(m_shader->get_bindings().size());
 
     for (const auto& [_, name, binding] : m_shader->get_bindings())
     {
@@ -382,6 +410,17 @@ Result<void> Material::create_bind_group()
             sampler_entry.sampler = sampler_result;
 
             entries.append(sampler_entry);
+        }
+        break;
+        case BindingKind::StorageTexture:
+        {
+            const MaterialParamCache& cache = get_param(name);
+
+            WGPUBindGroupEntry entry{};
+            entry.binding = binding.binding;
+            entry.textureView = cache.texture->handle_view();
+
+            entries.append(entry);
         }
         break;
         case BindingKind::UniformBuffer:
@@ -422,11 +461,9 @@ Result<void> Material::create_bind_group()
     desc.entryCount = entries.size();
 
     m_bind_group = wgpuDeviceCreateBindGroup(Renderer::get().device(), &desc);
-    ERR_COND_R(m_bind_group == nullptr, "Invalid bind group", Result<void>());
+    ERR_COND_R(m_bind_group == nullptr, "Invalid bind group");
 
     m_dirty = false;
-
-    return Result<void>();
 }
 
 static WGPUShaderModule create_shader_module(const Ref<Shader>& shader)
@@ -585,10 +622,35 @@ Result<WGPURenderPipeline> PipelineCache::get(const Key& key)
     return pipeline;
 }
 
+Result<WGPUComputePipeline> PipelineCache::get_compute(const ComputeKey& key)
+{
+    Option<WGPUComputePipeline> pipeline_opt = m_compute_pipelines.get(key);
+    if (pipeline_opt.has_value())
+        return pipeline_opt.value();
+
+    WGPUShaderModule module = create_shader_module(key.shader);
+
+    WGPUComputePipelineDescriptor desc{};
+    desc.layout = key.shader->get_pipeline_layout();
+    desc.compute.module = module;
+    desc.compute.entryPoint = WGPU_STRING_VIEW("main");
+
+    WGPUComputePipeline pipeline = wgpuDeviceCreateComputePipeline(Renderer::get().device(), &desc);
+    if (!pipeline)
+        return Error(ErrorKind::BadDriver);
+
+    wgpuShaderModuleRelease(module);
+
+    m_compute_pipelines.put(key, pipeline);
+    return pipeline;
+}
+
 void PipelineCache::clear()
 {
     for (auto [_, pipeline] : m_pipelines)
         wgpuRenderPipelineRelease(pipeline);
+    for (auto [_, pipeline] : m_compute_pipelines)
+        wgpuComputePipelineRelease(pipeline);
 }
 
 WGPUSampler SamplerCache::get(const SamplerDescriptor& desc)
@@ -924,7 +986,10 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     // TODO: Use this maybe ?
     // wgpuInstanceEnumerateAdapters(WGPUInstance instance, const WGPUInstanceEnumerateAdapterOptions *options, WGPUAdapter *adapters);
 
-    const WGPUFeatureName required_features[] = {};
+    const WGPUFeatureName required_features[] = {
+        WGPUFeatureName_TextureFormatsTier1,
+        WGPUFeatureName_TextureFormatsTier2,
+    };
 
     WGPUDeviceDescriptor device_desc{};
     device_desc.nextInChain = nullptr;
@@ -1072,6 +1137,12 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_texture_rect_shader->set_sampler("image", {.min_filter = WGPUFilterMode_Nearest, .mag_filter = WGPUFilterMode_Nearest});
     m_texture_rect_shader->create_bind_group_layout();
 
+    m_sky_shader = TRY(Shader::load_compute(sky_shader_source));
+    m_sky_shader->set_binding("image", Binding(BindingKind::StorageTexture, WGPUShaderStage_Compute, 0, 0, BindingAccess::Read, TextureDimension::D2D));
+    m_sky_shader->create_bind_group_layout();
+
+    m_sky_material = TRY(Material::create(m_sky_shader, MaterialFlagBits::None, WGPUCullMode_None, UVType::UV));
+
     return Result<void>();
 }
 
@@ -1087,7 +1158,7 @@ void Renderer::configure_surface(size_t width, size_t height, VSync vsync)
 
     WGPUSurfaceConfiguration config{};
     config.device = m_device;
-    config.format = capabilities.formats[0];
+    config.format = WGPUTextureFormat_RGBA8Unorm; // capabilities.formats[0];
     config.usage = capabilities.usages;
     config.width = surface_extent.width;
     config.height = surface_extent.height;
@@ -1096,7 +1167,7 @@ void Renderer::configure_surface(size_t width, size_t height, VSync vsync)
 #else
     WGPUSurfaceConfiguration config{};
     config.device = m_device;
-    config.format = WGPUTextureFormat_RGBA8UnormSrgb;
+    config.format = WGPUTextureFormat_RGBA8Unorm;
     config.usage = WGPUTextureUsage_RenderAttachment;
     config.width = surface_extent.width;
     config.height = surface_extent.height;
@@ -1116,7 +1187,7 @@ void Renderer::configure_surface(size_t width, size_t height, VSync vsync)
     m_env_2d_buffer->update(View(ortho_matrix).as_bytes());
 }
 
-void Renderer::draw(std::function<void()> f)
+void Renderer::draw_legacy(std::function<void()> f)
 {
     WGPUSurfaceTexture surface_texture{};
     wgpuSurfaceGetCurrentTexture(m_surface, &surface_texture);
@@ -1178,7 +1249,7 @@ void Renderer::draw(std::function<void()> f)
     wgpuTextureViewRelease(surface_view);
 }
 
-void Renderer::draw2(const Ref<World>& world)
+void Renderer::draw(const Ref<World>& world)
 {
     WGPUSurfaceTexture surface_texture{};
     wgpuSurfaceGetCurrentTexture(m_surface, &surface_texture);
@@ -1188,15 +1259,31 @@ void Renderer::draw2(const Ref<World>& world)
 
     WGPUTextureView surface_view = wgpuTextureCreateView(surface_texture.texture, nullptr);
     ERR_COND_R(surface_view == nullptr, "Cannot acquire a swapchain image view");
+    Ref<Texture> surface_tex = Texture::create_from_view(surface_view);
 
     WGPUCommandEncoder encoder = wgpuDeviceCreateCommandEncoder(m_device, nullptr);
 
+    // Sky compute shader
+    // m_sky_material->set_param("image", surface_tex);
+
+    // WGPUComputePassDescriptor sky_pass{};
+    // sky_pass.nextInChain = nullptr;
+    // sky_pass.label = WGPU_STRING_VIEW_INIT;
+    // sky_pass.timestampWrites = nullptr;
+
+    // WGPUComputePassEncoder sky_encoder = wgpuCommandEncoderBeginComputePass(encoder, &sky_pass);
+    // wgpuComputePassEncoderSetPipeline(sky_encoder, get_compute_pipeline(m_sky_shader));
+    // wgpuComputePassEncoderSetBindGroup(sky_encoder, 0, m_sky_material->get_bind_group(), 0, nullptr);
+    // wgpuComputePassEncoderDispatchWorkgroups(sky_encoder, m_surface_extent.width / 8, m_surface_extent.height / 8, 1);
+    // wgpuComputePassEncoderEnd(sky_encoder);
+    // wgpuComputePassEncoderRelease(sky_encoder);
+
     // Main color pass
-    WGPURenderPassDescriptor rp{};
-    rp.nextInChain = nullptr;
-    rp.label = WGPU_STRING_VIEW_INIT;
-    rp.timestampWrites = nullptr;
-    rp.occlusionQuerySet = nullptr;
+    WGPURenderPassDescriptor main_pass{};
+    main_pass.nextInChain = nullptr;
+    main_pass.label = WGPU_STRING_VIEW_INIT;
+    main_pass.timestampWrites = nullptr;
+    main_pass.occlusionQuerySet = nullptr;
 
     WGPURenderPassColorAttachment color_attach{};
     color_attach.clearValue = WGPUColor(0.0, 0.0, 0.0, 1.0);
@@ -1205,17 +1292,17 @@ void Renderer::draw2(const Ref<World>& world)
     color_attach.storeOp = WGPUStoreOp_Store;
     color_attach.view = surface_view;
 
-    rp.colorAttachmentCount = 1;
-    rp.colorAttachments = &color_attach;
+    main_pass.colorAttachmentCount = 1;
+    main_pass.colorAttachments = &color_attach;
 
     WGPURenderPassDepthStencilAttachment depth_attach{};
     depth_attach.depthClearValue = 1.0;
     depth_attach.depthLoadOp = WGPULoadOp_Clear;
     depth_attach.depthStoreOp = WGPUStoreOp_Store;
     depth_attach.view = m_depth_texture->handle_view();
-    rp.depthStencilAttachment = &depth_attach;
+    main_pass.depthStencilAttachment = &depth_attach;
 
-    WGPURenderPassEncoder render_encoder = wgpuCommandEncoderBeginRenderPass(encoder, &rp);
+    WGPURenderPassEncoder render_encoder = wgpuCommandEncoderBeginRenderPass(encoder, &main_pass);
     record_world(world, render_encoder);
     wgpuRenderPassEncoderEnd(render_encoder);
     wgpuRenderPassEncoderRelease(render_encoder);
@@ -1348,6 +1435,11 @@ WGPURenderPipeline Renderer::get_pipeline(Ref<Material> material, WGPUTextureFor
         .has_color_attach = color_format != WGPUTextureFormat_Undefined,
         .has_depth_attach = depth_format != WGPUTextureFormat_Undefined,
     }));
+}
+
+WGPUComputePipeline Renderer::get_compute_pipeline(Ref<Shader> shader)
+{
+    return EXPECT(m_pipeline_cache.get_compute(PipelineCache::ComputeKey(shader)));
 }
 
 void Renderer::record_simple_shape(WGPURenderPassEncoder encoder, Ref<Material> material, WGPUTextureFormat color_format)

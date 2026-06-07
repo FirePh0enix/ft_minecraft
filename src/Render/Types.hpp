@@ -59,6 +59,7 @@ struct SamplerDescriptor
 enum class BindingKind : uint8_t
 {
     Texture,
+    StorageTexture,
     UniformBuffer,
     StorageBuffer,
 };

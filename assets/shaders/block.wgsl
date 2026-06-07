@@ -57,6 +57,6 @@ fn fragment_main(in: VertexOutput) -> @location(0) vec4<f32> {
     var uv2 = in.uv;
     uv2.y = 1.0 - uv2.y;
     var color = textureSample(images, images_sampler, uv2, in.texture);
-    color = vec4(srgb2physical(color.xyz), color.a);
+    // color = vec4(srgb2physical(color.xyz), color.a);
     return color;
 }

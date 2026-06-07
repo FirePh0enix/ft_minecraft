@@ -11,6 +11,7 @@
 #include "Render/Types.hpp"
 #include "Window.hpp"
 
+#include <tuple>
 #include <webgpu/webgpu.h>
 
 #ifdef __platform_web
@@ -84,6 +85,7 @@ public:
     ~Texture();
 
     static Result<Ref<Texture>> create(uint32_t width, uint32_t height, WGPUTextureFormat format, WGPUTextureUsage usage = WGPUTextureUsage_None, TextureDimension dimension = TextureDimension::D2D, uint32_t layers = 1, uint32_t mip_level = 1);
+    static Ref<Texture> create_from_view(WGPUTextureView view);
     static Result<Ref<Texture>> load(const StringView& path);
 
     void update(View<uint8_t> view, uint32_t layer = 0);
@@ -100,6 +102,7 @@ private:
     uint32_t m_height;
     uint32_t m_layers;
     uint32_t m_mip_level;
+    bool m_external = false;
 };
 
 class Mesh : public Object
@@ -224,7 +227,7 @@ private:
 
     bool m_dirty = true;
 
-    Result<void> create_bind_group();
+    void create_bind_group();
 };
 
 class PipelineCache
@@ -264,11 +267,33 @@ public:
         }
     };
 
+    struct ComputeKey
+    {
+        Ref<Shader> shader;
+
+        bool operator<(const ComputeKey& key) const
+        {
+            return std::tie(shader) < std::tie(key.shader);
+        }
+
+        bool operator>(const ComputeKey& key) const
+        {
+            return std::tie(shader) > std::tie(key.shader);
+        }
+
+        bool operator==(const ComputeKey& key) const
+        {
+            return std::tie(shader) == std::tie(key.shader);
+        }
+    };
+
     Result<WGPURenderPipeline> get(const Key& key);
+    Result<WGPUComputePipeline> get_compute(const ComputeKey& key);
     void clear();
 
 private:
     Map<Key, WGPURenderPipeline> m_pipelines;
+    Map<ComputeKey, WGPUComputePipeline> m_compute_pipelines;
 };
 
 class SamplerCache
@@ -319,14 +344,16 @@ public:
 
     void configure_surface(size_t width, size_t height, VSync vsync);
 
-    void draw(std::function<void()> f);
+    void draw_legacy(std::function<void()> f);
 
-    void draw2(const Ref<World>& world);
+    void draw(const Ref<World>& world);
     void record_world(const Ref<World>& world, WGPURenderPassEncoder encoder);
 
     void record_simple_shape(WGPURenderPassEncoder encoder, Ref<Material> material, WGPUTextureFormat color_format = WGPUTextureFormat_Undefined);
 
     WGPURenderPipeline get_pipeline(Ref<Material> material, WGPUTextureFormat color_format = WGPUTextureFormat_Undefined, WGPUTextureFormat depth_format = WGPUTextureFormat_Depth32Float);
+    WGPUComputePipeline get_compute_pipeline(Ref<Shader> shader);
+
     WGPUSampler get_sampler(const SamplerDescriptor& desc) { return m_sampler_cache.get(desc); }
 
     WGPUDevice device() const { return m_device; }
@@ -388,6 +415,9 @@ private:
     Ref<Shader> m_color_rect_shader;
     Ref<Shader> m_texture_rect_shader;
     Ref<Shader> m_water_shader;
+
+    Ref<Shader> m_sky_shader;
+    Ref<Material> m_sky_material;
 
     Ref<Mesh> m_cube_mesh;
     Ref<Mesh> m_square_mesh;

@@ -62,7 +62,7 @@ fn fragment_main(in: VertexOutput) -> @location(0) vec4<f32> {
     uv2.y = 1.0 - uv2.y;
 
     var color = textureSample(image, image_sampler, uv2);
-    color = vec4(srgb2physical(color.xyz), color.a);
+    // color = vec4(srgb2physical(color.xyz), color.a);
 
     // color *= vec4<f32>(in.gradient_color, 1.0) * f32(in.has_gradient);
 
@@ -70,7 +70,7 @@ fn fragment_main(in: VertexOutput) -> @location(0) vec4<f32> {
     //     color *= vec4<f32>(in.gradient_color, 1.0);
     // }
 
-    const minimum_brightness = 0.1;
+    const minimum_brightness = 0.3;
 
     let N = in.normal;
     let L = in.light_vec;

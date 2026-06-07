@@ -4,6 +4,8 @@
 #include "Core/Filesystem.hpp"
 #include "Core/Hash.hpp"
 #include "Render/Renderer.hpp"
+#include "Render/Types.hpp"
+#include "webgpu/webgpu.h"
 
 Shader::~Shader()
 {
@@ -21,6 +23,17 @@ Result<Ref<Shader>> Shader::load(const std::filesystem::path& path)
 
     shader->m_entry_point_names.put(WGPUShaderStage_Vertex, "vertex_main");
     shader->m_entry_point_names.put(WGPUShaderStage_Fragment, "fragment_main");
+
+    return shader;
+}
+
+Result<Ref<Shader>> Shader::load_compute(const StringView& source)
+{
+    Ref<Shader> shader = newref<Shader>();
+    shader->m_source_code = source.data();
+    shader->m_hash = hash_fnv32(source.data());
+
+    shader->m_entry_point_names.put(WGPUShaderStage_Compute, "main");
 
     return shader;
 }
@@ -45,9 +58,9 @@ static WGPUTextureViewDimension convert_texture_view_dimension(TextureDimension 
     return {};
 }
 
-static LocalVector<WGPUBindGroupLayoutEntry> convert_bindings(Shader *shader)
+static Vector<WGPUBindGroupLayoutEntry> convert_bindings(Shader *shader)
 {
-    LocalVector<WGPUBindGroupLayoutEntry> entries;
+    Vector<WGPUBindGroupLayoutEntry> entries;
     entries.reserve(shader->get_bindings().size());
 
     for (const auto& [_, key, binding] : shader->get_bindings())
@@ -72,6 +85,18 @@ static LocalVector<WGPUBindGroupLayoutEntry> convert_bindings(Shader *shader)
             sampler_entry.sampler.type = WGPUSamplerBindingType_Filtering;
 
             entries.append(sampler_entry);
+        }
+        break;
+        case BindingKind::StorageTexture:
+        {
+            WGPUBindGroupLayoutEntry entry{};
+            entry.binding = binding.binding;
+            entry.visibility = binding.shader_stage;
+            entry.storageTexture.access = WGPUStorageTextureAccess_ReadWrite; // TODO ?
+            entry.storageTexture.format = WGPUTextureFormat_RGBA8Unorm;       // TODO: this is the surface format.
+            entry.storageTexture.viewDimension = convert_texture_view_dimension(binding.dimension);
+
+            entries.append(entry);
         }
         break;
         case BindingKind::UniformBuffer:
@@ -105,7 +130,7 @@ static LocalVector<WGPUBindGroupLayoutEntry> convert_bindings(Shader *shader)
 
 void Shader::create_bind_group_layout()
 {
-    LocalVector<WGPUBindGroupLayoutEntry> entries = convert_bindings(this);
+    Vector<WGPUBindGroupLayoutEntry> entries = convert_bindings(this);
 
     WGPUBindGroupLayoutDescriptor bind_group_desc{};
     bind_group_desc.entryCount = entries.size();

@@ -20,6 +20,7 @@ class Shader : public Object
 
 public:
     static Result<Ref<Shader>> load(const std::filesystem::path& path);
+    static Result<Ref<Shader>> load_compute(const StringView& source);
 
     ~Shader();
 

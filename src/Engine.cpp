@@ -206,8 +206,8 @@ void Engine::draw_main_menu()
 {
     const Extent2D window_size = m_window->size();
 
-    m_renderer.draw([this, window_size]()
-                    {
+    m_renderer.draw_legacy([this, window_size]()
+                           {
             const float size_x = (float)window_size.width * 0.4f;
             const float size_y = (float)window_size.height * 0.6f;
 
@@ -257,7 +257,7 @@ void Engine::draw_main_menu()
 
 void Engine::draw_world_scene()
 {
-    Renderer::get().draw2(m_world);
+    Renderer::get().draw(m_world);
 }
 
 float Engine::time()
