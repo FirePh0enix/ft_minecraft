@@ -10,7 +10,7 @@ public:
     CraftingTableInventory(Ref<InventoryContainer> inventory, Ref<InventoryContainer> player_inventory);
 
     virtual void update(float d) override;
-    virtual void draw(const RenderPassNode& node) override;
+    virtual void draw(WGPURenderPassEncoder encoder) override;
     virtual void process_event(Event& event) override { (void)event; }
 
     virtual bool on_place(uint32_t layer, uint32_t index, ItemStack stack, InventoryContainer *container) override;

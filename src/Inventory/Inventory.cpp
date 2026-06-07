@@ -50,17 +50,17 @@ void Inventory::update(float d)
     }
 }
 
-void Inventory::draw(const RenderPassNode& node)
+void Inventory::draw(WGPURenderPassEncoder encoder)
 {
-    Container::draw(node);
+    Container::draw(encoder);
 
     if (m_grabbed_stack.has_value())
     {
         m_grabbed_item_rect->set_position(Input::get_mouse_absolute());
         m_grabbed_item_label->set_position(Input::get_mouse_absolute());
 
-        m_grabbed_item_rect->draw(node);
-        m_grabbed_item_label->draw(node);
+        m_grabbed_item_rect->draw(encoder);
+        m_grabbed_item_label->draw(encoder);
     }
 }
 

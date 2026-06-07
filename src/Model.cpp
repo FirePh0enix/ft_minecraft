@@ -5,7 +5,6 @@
 #include "Core/Json.hpp"
 #include "Core/Ref.hpp"
 #include "Core/String.hpp"
-#include "Render/Graph.hpp"
 #include "Render/Renderer.hpp"
 #include "Render/Types.hpp"
 
@@ -178,9 +177,8 @@ Result<Ref<Model>> Model::load(const StringView& path)
     return model;
 }
 
-void Model::encode(const RenderPassNode& node, const Transform3D& transform)
+void Model::encode(WGPURenderPassEncoder encoder, const Transform3D& transform)
 {
-    WGPURenderPassEncoder encoder = node.encoder();
     const Ref<Mesh>& mesh = Renderer::get().get_cube_mesh();
 
     Info info{.model_matrix = transform.to_matrix()};
@@ -191,7 +189,7 @@ void Model::encode(const RenderPassNode& node, const Transform3D& transform)
     {
         Ref<Material> material = obj.material;
 
-        WGPURenderPipeline pipeline = Renderer::get().get_pipeline(material, node);
+        WGPURenderPipeline pipeline = Renderer::get().get_pipeline(material, Renderer::get().get_surface_format());
         wgpuRenderPassEncoderSetPipeline(encoder, pipeline);
         wgpuRenderPassEncoderSetBindGroup(encoder, 0, material->get_bind_group(), 0, nullptr);
 

@@ -38,14 +38,14 @@ void QuickSlot::update(float d)
     }
 }
 
-void QuickSlot::draw(const RenderPassNode& node)
+void QuickSlot::draw(WGPURenderPassEncoder encoder)
 {
-    m_background->draw(node);
+    m_background->draw(encoder);
 
     if (m_item.valid())
     {
-        m_item_rect->draw(node);
-        m_label->draw(node);
+        m_item_rect->draw(encoder);
+        m_label->draw(encoder);
     }
 }
 
@@ -110,14 +110,14 @@ void PlayerInventory::update(float d)
     m_quick_slots_container->update(d);
 }
 
-void PlayerInventory::draw(const RenderPassNode& node)
+void PlayerInventory::draw(WGPURenderPassEncoder encoder)
 {
-    Inventory::draw(node);
+    Inventory::draw(encoder);
 }
 
-void PlayerInventory::draw_toolbar(const RenderPassNode& node)
+void PlayerInventory::draw_toolbar(WGPURenderPassEncoder encoder)
 {
-    m_quick_slots_container->draw(node);
+    m_quick_slots_container->draw(encoder);
 }
 
 void PlayerInventory::set_selected_slot(size_t slot)

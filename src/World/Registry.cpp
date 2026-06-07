@@ -8,6 +8,7 @@
 #include "Engine.hpp"
 #include "Item/Bucket.hpp"
 #include "Render/Renderer.hpp"
+#include "webgpu/webgpu.h"
 
 Result<Ref<Entity>> EntityRegistry::create_entity(ClassHashCode class_hash)
 {
@@ -178,21 +179,40 @@ Ref<Texture> GameRegistry::create_preview_texture(Ref<Block> block)
     Ref<Texture> depth_texture = THROW(Texture::create(preview_size, preview_size, WGPUTextureFormat_Depth32Float, WGPUTextureUsage_RenderAttachment), Renderer::get().get_missing_texture());
     Ref<Texture> color_texture = THROW(Texture::create(preview_size, preview_size, WGPUTextureFormat_RGBA8UnormSrgb, WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_TextureBinding), Renderer::get().get_missing_texture());
 
-    Ref<RenderPassNode> color_pass = newref<RenderPassNode>();
-    color_pass->set_depth_output(depth_texture);
-    color_pass->set_color_output(color_texture);
-    color_pass->set_transparent(true);
-    color_pass->set_next(nullptr);
-
-    RenderGraph graph;
-    graph.set_root(color_pass);
-
     WGPUCommandEncoder encoder = wgpuDeviceCreateCommandEncoder(Renderer::get().device(), nullptr);
-    WGPUCommandBuffer command_buffer = graph.record(encoder, nullptr, [&](const RenderPassNode& node)
-                                                    { Renderer::get().record_simple_shape(node, material); });
+
+    WGPURenderPassDescriptor rp{};
+    rp.occlusionQuerySet = nullptr;
+    rp.timestampWrites = nullptr;
+
+    WGPURenderPassColorAttachment color_attach{};
+    color_attach.clearValue = WGPUColor(0.0, 0.0, 0.0, 0.0);
+    color_attach.depthSlice = WGPU_DEPTH_SLICE_UNDEFINED;
+    color_attach.loadOp = WGPULoadOp_Clear;
+    color_attach.storeOp = WGPUStoreOp_Store;
+    color_attach.view = color_texture->handle_view();
+    rp.colorAttachmentCount = 1;
+    rp.colorAttachments = &color_attach;
+
+    WGPURenderPassDepthStencilAttachment depth_attach{};
+    depth_attach.depthClearValue = 1.0;
+    depth_attach.depthLoadOp = WGPULoadOp_Clear;
+    depth_attach.depthStoreOp = WGPUStoreOp_Store;
+    depth_attach.view = depth_texture->handle_view();
+    rp.depthStencilAttachment = &depth_attach;
+
+    WGPURenderPassEncoder render_encoder = wgpuCommandEncoderBeginRenderPass(encoder, &rp);
+    Renderer::get().record_simple_shape(render_encoder, material, WGPUTextureFormat_RGBA8UnormSrgb);
+    wgpuRenderPassEncoderEnd(render_encoder);
+    wgpuRenderPassEncoderRelease(render_encoder);
+
+    WGPUCommandBuffer command_buffer = wgpuCommandEncoderFinish(encoder, nullptr);
+    wgpuCommandEncoderRelease(encoder);
 
     std::lock_guard<std::mutex> guard(Renderer::get().get_queue_mutex());
     wgpuQueueSubmit(Renderer::get().get_queue(), 1, &command_buffer);
+
+    wgpuCommandBufferRelease(command_buffer);
 
     return color_texture;
 }

@@ -17,6 +17,7 @@ public:
     {
     }
 
+    virtual void draw(WGPURenderPassEncoder encoder) override;
     virtual void die() override;
 
     void follow_path(float delta_time);

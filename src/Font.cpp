@@ -1,7 +1,6 @@
 #include "Font.hpp"
 #include "Core/Containers/Array.hpp"
 #include "Core/Containers/Vector.hpp"
-#include "Render/Graph.hpp"
 #include "Render/Renderer.hpp"
 #include "Render/Shader.hpp"
 #include "Render/Types.hpp"
@@ -251,12 +250,11 @@ void Text::set_color(glm::vec4 color)
     update_uniform_buffer();
 }
 
-void Text::draw(const RenderPassNode& node)
+void Text::draw(WGPURenderPassEncoder encoder)
 {
-    WGPURenderPassEncoder encoder = node.encoder();
     const Ref<Mesh>& mesh = Renderer::get().get_square_mesh();
 
-    WGPURenderPipeline pipeline = Renderer::get().get_pipeline(m_material, node);
+    WGPURenderPipeline pipeline = Renderer::get().get_pipeline(m_material, Renderer::get().get_surface_format());
     wgpuRenderPassEncoderSetPipeline(encoder, pipeline);
     wgpuRenderPassEncoderSetBindGroup(encoder, 0, m_material->get_bind_group(), 0, nullptr);
 

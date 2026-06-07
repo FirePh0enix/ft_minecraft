@@ -45,7 +45,7 @@ public:
     Inventory(Ref<InventoryContainer> container);
 
     virtual void update(float d) override;
-    virtual void draw(const RenderPassNode& node) override;
+    virtual void draw(WGPURenderPassEncoder encoder) override;
 
     /**
      * Callback for when a itemstack is placed into a slot. This functions is called before modifying the content of the

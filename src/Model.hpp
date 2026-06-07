@@ -80,7 +80,7 @@ public:
         return None;
     }
 
-    void encode(const RenderPassNode& node, const Transform3D& transform = Transform3D());
+    void encode(WGPURenderPassEncoder encoder, const Transform3D& transform);
 
 private:
     String m_name;

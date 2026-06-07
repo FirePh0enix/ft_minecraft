@@ -9,7 +9,6 @@
 #include "Core/Result.hpp"
 #include "Engine.hpp"
 #include "Entity/Entity.hpp"
-#include "Render/Graph.hpp"
 #include "Render/Shader.hpp"
 #include "Render/Types.hpp"
 #include "World/Dimension.hpp"
@@ -20,8 +19,6 @@
 #include <backends/imgui_impl_sdl3.h>
 #include <backends/imgui_impl_wgpu.h>
 #include <imgui.h>
-
-#include <mutex>
 
 // clang-format off
 static const uint32_t missing_texture_data[16 * 16]{
@@ -1086,6 +1083,8 @@ void Renderer::configure_surface(size_t width, size_t height, VSync vsync)
     WGPUSurfaceCapabilities capabilities;
     wgpuSurfaceGetCapabilities(m_surface, m_adapter, &capabilities);
 
+    ASSERT_V((capabilities.usages & WGPUTextureUsage_TextureBinding) != 0, "Surface must support TextureBinding");
+
     WGPUSurfaceConfiguration config{};
     config.device = m_device;
     config.format = capabilities.formats[0];
@@ -1109,12 +1108,15 @@ void Renderer::configure_surface(size_t width, size_t height, VSync vsync)
     m_surface_extent = surface_extent;
     m_surface_format = config.format;
 
+    m_depth_texture = EXPECT(Texture::create(m_surface_extent.width, m_surface_extent.height, WGPUTextureFormat_Depth32Float, WGPUTextureUsage_RenderAttachment));
+    // m_color_texture = EXPECT(Texture::create(m_surface_extent.width, m_surface_extent.height, WGPUTextureFormat_RGBA8UnormSrgb));
+
     float ratio = float(width) / float(height);
     glm::mat4 ortho_matrix = glm::ortho(-1.0f * ratio, 1.0f * ratio, -1.0f, 1.0f, -1.0f, 1.0f);
     m_env_2d_buffer->update(View(ortho_matrix).as_bytes());
 }
 
-void Renderer::draw(RenderGraph& graph, std::function<void(const RenderPassNode& node)> f)
+void Renderer::draw(std::function<void()> f)
 {
     WGPUSurfaceTexture surface_texture{};
     wgpuSurfaceGetCurrentTexture(m_surface, &surface_texture);
@@ -1122,24 +1124,43 @@ void Renderer::draw(RenderGraph& graph, std::function<void(const RenderPassNode&
     ERR_COND_VR(surface_texture.texture == nullptr, "Cannot acquire a swapchain image (status = {})", surface_texture.status);
     // TODO: if status is WGPUSurfaceGetCurrentTextureStatus_Outdated or WGPUSurfaceGetCurrentTextureStatus_Timeout
 
-    WGPUTextureView view = wgpuTextureCreateView(surface_texture.texture, nullptr);
-    ERR_COND_R(view == nullptr, "Cannot acquire a swapchain image view");
+    WGPUTextureView surface_view = wgpuTextureCreateView(surface_texture.texture, nullptr);
+    ERR_COND_R(surface_view == nullptr, "Cannot acquire a swapchain image view");
 
+    WGPUCommandEncoder encoder = wgpuDeviceCreateCommandEncoder(m_device, nullptr);
+
+    WGPURenderPassDescriptor rp{};
+    rp.occlusionQuerySet = nullptr;
+    rp.timestampWrites = nullptr;
+
+    WGPURenderPassColorAttachment color_attach{};
+    color_attach.clearValue = WGPUColor(0.0, 0.0, 0.0, 1.0);
+    color_attach.depthSlice = WGPU_DEPTH_SLICE_UNDEFINED;
+    color_attach.loadOp = WGPULoadOp_Clear;
+    color_attach.storeOp = WGPUStoreOp_Store;
+    color_attach.view = surface_view;
+    rp.colorAttachmentCount = 1;
+    rp.colorAttachments = &color_attach;
+
+    WGPURenderPassDepthStencilAttachment depth_attach{};
+    depth_attach.depthClearValue = 1.0;
+    depth_attach.depthLoadOp = WGPULoadOp_Clear;
+    depth_attach.depthStoreOp = WGPUStoreOp_Store;
+    depth_attach.view = m_depth_texture->handle_view();
+    rp.depthStencilAttachment = &depth_attach;
+
+    WGPURenderPassEncoder render_encoder = wgpuCommandEncoderBeginRenderPass(encoder, &rp);
     ImGui_ImplWGPU_NewFrame();
     ImGui_ImplSDL3_NewFrame();
     ImGui::NewFrame();
+    f();
 
-    WGPUCommandEncoder encoder = wgpuDeviceCreateCommandEncoder(m_device, nullptr);
-    WGPUCommandBuffer command_buffer = graph.record(encoder, view, [f](const RenderPassNode& node)
-                                                    {
-                                                        f(node);
-                                                        // Draw ImGui only on the main color pass.
-                        if (node.is_final_pass())
-                        {
-                            std::lock_guard<std::mutex> guard(Renderer::get().get_queue_mutex());
-                            ImGui::Render();
-                            ImGui_ImplWGPU_RenderDrawData(ImGui::GetDrawData(), node.encoder());
-                        } });
+    ImGui::Render();
+    ImGui_ImplWGPU_RenderDrawData(ImGui::GetDrawData(), render_encoder);
+    wgpuRenderPassEncoderEnd(render_encoder);
+    wgpuRenderPassEncoderRelease(render_encoder);
+
+    WGPUCommandBuffer command_buffer = wgpuCommandEncoderFinish(encoder, nullptr);
 
     std::lock_guard<std::mutex> guard(Renderer::get().get_queue_mutex());
     wgpuQueueSubmit(m_queue, 1, &command_buffer);
@@ -1154,35 +1175,74 @@ void Renderer::draw(RenderGraph& graph, std::function<void(const RenderPassNode&
     wgpuCommandBufferRelease(command_buffer);
     wgpuCommandEncoderRelease(encoder);
 
-    wgpuTextureViewRelease(view);
+    wgpuTextureViewRelease(surface_view);
 }
 
-void Renderer::draw(RenderGraph& graph, Ref<World> world)
+void Renderer::draw2(const Ref<World>& world)
 {
-    draw(graph, [this, world](const RenderPassNode& node)
-         { record_world(*this, world, node); });
+    WGPUSurfaceTexture surface_texture{};
+    wgpuSurfaceGetCurrentTexture(m_surface, &surface_texture);
+
+    ERR_COND_VR(surface_texture.texture == nullptr, "Cannot acquire a swapchain image (status = {})", surface_texture.status);
+    // TODO: if status is WGPUSurfaceGetCurrentTextureStatus_Outdated or WGPUSurfaceGetCurrentTextureStatus_Timeout
+
+    WGPUTextureView surface_view = wgpuTextureCreateView(surface_texture.texture, nullptr);
+    ERR_COND_R(surface_view == nullptr, "Cannot acquire a swapchain image view");
+
+    WGPUCommandEncoder encoder = wgpuDeviceCreateCommandEncoder(m_device, nullptr);
+
+    // Main color pass
+    WGPURenderPassDescriptor rp{};
+    rp.nextInChain = nullptr;
+    rp.label = WGPU_STRING_VIEW_INIT;
+    rp.timestampWrites = nullptr;
+    rp.occlusionQuerySet = nullptr;
+
+    WGPURenderPassColorAttachment color_attach{};
+    color_attach.clearValue = WGPUColor(0.0, 0.0, 0.0, 1.0);
+    color_attach.depthSlice = WGPU_DEPTH_SLICE_UNDEFINED;
+    color_attach.loadOp = WGPULoadOp_Clear;
+    color_attach.storeOp = WGPUStoreOp_Store;
+    color_attach.view = surface_view;
+
+    rp.colorAttachmentCount = 1;
+    rp.colorAttachments = &color_attach;
+
+    WGPURenderPassDepthStencilAttachment depth_attach{};
+    depth_attach.depthClearValue = 1.0;
+    depth_attach.depthLoadOp = WGPULoadOp_Clear;
+    depth_attach.depthStoreOp = WGPUStoreOp_Store;
+    depth_attach.view = m_depth_texture->handle_view();
+    rp.depthStencilAttachment = &depth_attach;
+
+    WGPURenderPassEncoder render_encoder = wgpuCommandEncoderBeginRenderPass(encoder, &rp);
+    record_world(world, render_encoder);
+    wgpuRenderPassEncoderEnd(render_encoder);
+    wgpuRenderPassEncoderRelease(render_encoder);
+
+    WGPUCommandBuffer command_buffer = wgpuCommandEncoderFinish(encoder, nullptr);
+
+    {
+        std::lock_guard<std::mutex> guard(Renderer::get().get_queue_mutex());
+        wgpuQueueSubmit(m_queue, 1, &command_buffer);
+    }
+
+#ifdef __platform_web
+    emscripten_request_animation_frame([](double, void *)
+                                       { return true; }, nullptr);
+#else
+    wgpuSurfacePresent(m_surface);
+#endif
+
+    wgpuCommandBufferRelease(command_buffer);
+    wgpuCommandEncoderRelease(encoder);
+
+    wgpuTextureViewRelease(surface_view);
 }
 
-WGPURenderPipeline Renderer::get_pipeline(Ref<Material> material, const RenderPassNode& node)
+void Renderer::record_world(const Ref<World>& world, WGPURenderPassEncoder encoder)
 {
-    return EXPECT(m_pipeline_cache.get({
-        .shader = material->get_shader(),
-        .bind_group_layout = material->get_shader()->get_bind_group_layout(),
-        .uv_type = material->get_uv_type(),
-        .flags = material->flags(),
-        .cull_mode = material->get_cull_mode(),
-        .attributes = material->get_attributes(),
-        .instance_stride = material->get_instance_stride(),
-        .color_format = node.output_to_surface() ? Renderer::get().m_surface_format : (node.get_color_output().is_null() ? WGPUTextureFormat_Undefined : node.get_color_output()->format()),
-        .depth_format = WGPUTextureFormat_Depth32Float,
-        .has_color_attach = !node.get_color_output().is_null(),
-        .has_depth_attach = !node.get_depth_output().is_null(),
-    }));
-}
-
-void Renderer::record_world(Renderer& renderer, Ref<World> world, const RenderPassNode& node)
-{
-    Dimension& dim = world->get_dimension(0);
+    const Dimension& dim = world->get_dimension(0);
     const Ref<Camera> camera = world->get_active_camera();
 
     if (camera.is_null())
@@ -1191,17 +1251,15 @@ void Renderer::record_world(Renderer& renderer, Ref<World> world, const RenderPa
     }
 
     WorldEnvironment env(camera->get_view_proj_matrix());
-    renderer.m_env_buffer->update(View(env).as_bytes());
+    m_env_buffer->update(View(env).as_bytes());
 
-    Ref<Material> material = renderer.m_chunk_material;
+    Ref<Material> material = m_chunk_material;
 
     for (Ref<Entity> entity : dim.get_entities())
         if (!entity.is_null())
-            entity->draw(node);
+            entity->draw(encoder);
 
-    WGPURenderPassEncoder encoder = node.encoder();
-
-    WGPURenderPipeline pipeline = renderer.get_pipeline(material, node);
+    WGPURenderPipeline pipeline = get_pipeline(material, m_surface_format);
     wgpuRenderPassEncoderSetPipeline(encoder, pipeline);
     wgpuRenderPassEncoderSetBindGroup(encoder, 0, material->get_bind_group(), 0, nullptr);
 
@@ -1235,9 +1293,9 @@ void Renderer::record_world(Renderer& renderer, Ref<World> world, const RenderPa
         }
     }
 
-    pipeline = renderer.get_pipeline(renderer.m_water_material, node);
+    pipeline = get_pipeline(m_water_material, m_surface_format);
     wgpuRenderPassEncoderSetPipeline(encoder, pipeline);
-    wgpuRenderPassEncoderSetBindGroup(encoder, 0, renderer.m_water_material->get_bind_group(), 0, nullptr);
+    wgpuRenderPassEncoderSetBindGroup(encoder, 0, m_water_material->get_bind_group(), 0, nullptr);
 
     // TODO: sort back to front.
 
@@ -1271,20 +1329,35 @@ void Renderer::record_world(Renderer& renderer, Ref<World> world, const RenderPa
         }
     }
 
-    // TODO: separate UI pass ?
-    if (node.is_final_pass())
-    {
-        for (Ref<Entity> entity : dim.get_entities())
-            entity->draw_ui(node);
-    }
+    for (Ref<Entity> entity : dim.get_entities())
+        entity->draw_ui(encoder);
 }
 
-void Renderer::record_simple_shape(const RenderPassNode& node, Ref<Material> material)
+WGPURenderPipeline Renderer::get_pipeline(Ref<Material> material, WGPUTextureFormat color_format, WGPUTextureFormat depth_format)
 {
-    WGPURenderPassEncoder encoder = node.encoder();
+    return EXPECT(m_pipeline_cache.get({
+        .shader = material->get_shader(),
+        .bind_group_layout = material->get_shader()->get_bind_group_layout(),
+        .uv_type = material->get_uv_type(),
+        .flags = material->flags(),
+        .cull_mode = material->get_cull_mode(),
+        .attributes = material->get_attributes(),
+        .instance_stride = material->get_instance_stride(),
+        .color_format = color_format,
+        .depth_format = depth_format,
+        .has_color_attach = color_format != WGPUTextureFormat_Undefined,
+        .has_depth_attach = depth_format != WGPUTextureFormat_Undefined,
+    }));
+}
+
+void Renderer::record_simple_shape(WGPURenderPassEncoder encoder, Ref<Material> material, WGPUTextureFormat color_format)
+{
+    if (color_format == WGPUTextureFormat_Undefined)
+        color_format = m_surface_format;
+
     const Ref<Mesh>& mesh = m_cube_mesh;
 
-    WGPURenderPipeline pipeline = get_pipeline(material, node);
+    WGPURenderPipeline pipeline = get_pipeline(material, color_format);
     wgpuRenderPassEncoderSetPipeline(encoder, pipeline);
     wgpuRenderPassEncoderSetBindGroup(encoder, 0, material->get_bind_group(), 0, nullptr);
 

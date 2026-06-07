@@ -17,7 +17,7 @@ public:
     ChatInput(Chat *chat);
 
     virtual void update(float d) override;
-    virtual void draw(const RenderPassNode& node) override;
+    virtual void draw(WGPURenderPassEncoder encoder) override;
     virtual void process_event(Event& event) override;
 
 private:

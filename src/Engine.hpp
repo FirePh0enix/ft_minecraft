@@ -7,18 +7,20 @@
 #include "Entity/Player.hpp"
 #include "Font.hpp"
 #include "Network/Network.hpp"
-#include "Render/Graph.hpp"
 #include "Render/Renderer.hpp"
 #include "World/Registry.hpp"
 #include "World/World.hpp"
 
-enum class EngineScene
+enum class GameScene
 {
     MainMenu,
     World,
     WaitingForWorld,
 };
 
+/**
+ * Number of ticks per in-game day.
+ */
 constexpr int64_t ticks_per_day = 60 * 60 * 24;
 
 class Engine : public Object
@@ -69,7 +71,7 @@ public:
     static inline Engine *singleton;
 
 private:
-    EngineScene m_scene = EngineScene::MainMenu;
+    GameScene m_scene = GameScene::MainMenu;
     Ref<Window> m_window;
 
     GameRegistry m_registry;
@@ -80,13 +82,12 @@ private:
     HashMap<ENetPeer *, Ref<Player>> m_players;
 
     Renderer m_renderer;
-    RenderGraph m_graph;
 
     Ref<World> m_world;
     Ref<Entity> m_player;
 
-    Ref<Texture> m_depth_texture;
-    Ref<Texture> m_color_texture;
+    // Ref<Texture> m_depth_texture;
+    // Ref<Texture> m_color_texture;
 
     Ref<Font> m_font;
 
@@ -106,8 +107,8 @@ private:
 
     void register_entities();
 
-    Result<void> draw_main_menu();
-    Result<void> draw_world_scene();
+    void draw_main_menu();
+    void draw_world_scene();
 
     void create_world_and_start();
     void connect_to_remote_world();

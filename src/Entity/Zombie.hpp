@@ -14,7 +14,6 @@ public:
 
     void start() override;
     void tick(float delta) override;
-    void draw(const RenderPassNode& node) override;
     void on_ready() override;
     void attack();
 

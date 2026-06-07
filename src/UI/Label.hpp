@@ -14,7 +14,7 @@ public:
 
     virtual void update(float d) override;
     virtual void process_event(Event& event) override;
-    virtual void draw(const RenderPassNode& node) override;
+    virtual void draw(WGPURenderPassEncoder encoder) override;
 
 private:
     Text m_text;

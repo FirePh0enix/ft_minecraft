@@ -8,7 +8,6 @@
 #include "Inventory/Inventory.hpp"
 #include "Inventory/PlayerInventory.hpp"
 #include "Model.hpp"
-#include "Render/Graph.hpp"
 #include "UI/Chat.hpp"
 #include "UI/Container.hpp"
 
@@ -52,8 +51,8 @@ public:
     virtual ~Player() {}
 
     virtual void tick(float delta) override;
-    virtual void draw(const RenderPassNode& node) override;
-    virtual void draw_ui(const RenderPassNode& node) override;
+    virtual void draw(WGPURenderPassEncoder encoder) override;
+    virtual void draw_ui(WGPURenderPassEncoder encoder) override;
     virtual void process_event(Event& event) override;
 
     virtual void save(EntitySerializer& ser) const override;

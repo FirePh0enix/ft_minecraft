@@ -106,11 +106,6 @@ void Zombie::tick(float delta)
         m_velocity.y = 0.0f;
 }
 
-void Zombie::draw(const RenderPassNode& node)
-{
-    m_model->encode(node, get_global_transform());
-}
-
 void Zombie::on_ready()
 {
     m_model = EXPECT(Model::load("assets/models/player.json"));

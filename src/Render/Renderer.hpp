@@ -319,12 +319,14 @@ public:
 
     void configure_surface(size_t width, size_t height, VSync vsync);
 
-    void draw(RenderGraph& graph, std::function<void(const RenderPassNode& node)> f);
-    void draw(RenderGraph& graph, Ref<World> world);
+    void draw(std::function<void()> f);
 
-    void record_simple_shape(const RenderPassNode& node, Ref<Material> material);
+    void draw2(const Ref<World>& world);
+    void record_world(const Ref<World>& world, WGPURenderPassEncoder encoder);
 
-    WGPURenderPipeline get_pipeline(Ref<Material> material, const RenderPassNode& node);
+    void record_simple_shape(WGPURenderPassEncoder encoder, Ref<Material> material, WGPUTextureFormat color_format = WGPUTextureFormat_Undefined);
+
+    WGPURenderPipeline get_pipeline(Ref<Material> material, WGPUTextureFormat color_format = WGPUTextureFormat_Undefined, WGPUTextureFormat depth_format = WGPUTextureFormat_Depth32Float);
     WGPUSampler get_sampler(const SamplerDescriptor& desc) { return m_sampler_cache.get(desc); }
 
     WGPUDevice device() const { return m_device; }
@@ -368,6 +370,10 @@ private:
     std::mutex m_device_mutex;
     std::mutex m_queue_mutex;
 
+    // Rendering stuff
+    Ref<Texture> m_depth_texture;
+    // Ref<Texture> m_color_texture;
+
     WGPUTextureFormat m_surface_format = WGPUTextureFormat_Undefined;
     Extent2D m_surface_extent;
 
@@ -397,6 +403,4 @@ private:
     std::atomic_size_t m_device_memory_freed = 0;
 
     static inline Renderer *singleton;
-
-    static void record_world(Renderer& renderer, Ref<World> world, const RenderPassNode& node);
 };

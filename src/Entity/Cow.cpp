@@ -48,11 +48,6 @@ void Cow::tick(float delta)
         m_velocity.y = 0.0f;
 }
 
-void Cow::draw(const RenderPassNode& node)
-{
-    m_model->encode(node, get_global_transform());
-}
-
 void Cow::on_ready()
 {
     m_model = EXPECT(Model::load("assets/models/player.json"));

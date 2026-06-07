@@ -29,10 +29,10 @@ public:
             child->process_event(event);
     }
 
-    virtual void draw(const RenderPassNode& node) override
+    virtual void draw(WGPURenderPassEncoder encoder) override
     {
         for (Ref<UI> child : m_children)
-            child->draw(node);
+            child->draw(encoder);
     }
 
 private:

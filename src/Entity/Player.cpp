@@ -388,18 +388,18 @@ void Player::tick(float delta)
     // }
 }
 
-void Player::draw(const RenderPassNode& node)
+void Player::draw(WGPURenderPassEncoder encoder)
 {
     if (!m_local_player)
     {
-        m_model->encode(node, get_global_transform());
+        m_model->encode(encoder, get_global_transform());
     }
 
     if (m_local_player && m_aimed_block.has_value())
     {
         SimpleUniforms uniforms(glm::translate(glm::identity<glm::mat4>(), glm::vec3(m_aimed_block.value())) * glm::scale(glm::identity<glm::mat4>(), glm::vec3(1.01f)), glm::vec4(aim_color, 0.4));
         m_aim_buffer->update(View(uniforms).as_bytes());
-        Renderer::get().record_simple_shape(node, m_aim_material);
+        Renderer::get().record_simple_shape(encoder, m_aim_material);
     }
 
     if (m_local_player && m_inventory_container->get_stack(1, m_inventory->selected_slot()).item().valid())
@@ -420,7 +420,7 @@ void Player::draw(const RenderPassNode& node)
                 glm::uvec3(block->get_texture_ids()[0] | (block->get_texture_ids()[1] << 16), block->get_texture_ids()[2] | (block->get_texture_ids()[3] << 16), block->get_texture_ids()[4] | (block->get_texture_ids()[5] << 16)));
 
             m_model_buffer->update(View(matrix).as_bytes());
-            Renderer::get().record_simple_shape(node, m_material);
+            Renderer::get().record_simple_shape(encoder, m_material);
         }
         else
         {
@@ -429,20 +429,20 @@ void Player::draw(const RenderPassNode& node)
     }
 }
 
-void Player::draw_ui(const RenderPassNode& node)
+void Player::draw_ui(WGPURenderPassEncoder encoder)
 {
     if (m_local_player)
     {
         if (m_opened_inventory.has_value())
-            m_opened_inventory.value()->draw(node);
+            m_opened_inventory.value()->draw(encoder);
         else
-            m_inventory->draw_toolbar(node);
+            m_inventory->draw_toolbar(encoder);
 
         if (m_open_chat)
-            m_chat->draw(node);
+            m_chat->draw(encoder);
 
         if (m_open_debug_menu)
-            m_debug_menu->draw(node);
+            m_debug_menu->draw(encoder);
     }
 }
 

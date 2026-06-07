@@ -15,7 +15,6 @@
 #include "Network/Network.hpp"
 #include "Network/Packet.hpp"
 #include "Profiler.hpp"
-#include "Render/Graph.hpp"
 #include "Render/ImGUIToolKit.hpp"
 #include "World/Registry.hpp"
 #include "World/World.hpp"
@@ -42,8 +41,8 @@ Engine::Engine(const Args& args)
 
     EXPECT(m_renderer.init(*m_window, flags));
 
-    m_depth_texture = EXPECT(Texture::create(1280, 720, WGPUTextureFormat_Depth32Float, WGPUTextureUsage_RenderAttachment));
-    m_color_texture = EXPECT(Texture::create(1280, 720, WGPUTextureFormat_RGBA8UnormSrgb, WGPUTextureUsage_RenderAttachment));
+    // m_depth_texture = EXPECT(Texture::create(1280, 720, WGPUTextureFormat_Depth32Float, WGPUTextureUsage_RenderAttachment));
+    // m_color_texture = EXPECT(Texture::create(1280, 720, WGPUTextureFormat_RGBA8UnormSrgb, WGPUTextureUsage_RenderAttachment));
 
     recreate_graph();
 
@@ -109,25 +108,25 @@ void Engine::tick(float delta)
                 const uint32_t h = event.window.data2;
                 Renderer::get().configure_surface(w, h, VSync::On);
 
-                m_depth_texture = EXPECT(Texture::create(w, h, WGPUTextureFormat_Depth32Float, WGPUTextureUsage_RenderAttachment));
-                m_color_texture = EXPECT(Texture::create(w, h, WGPUTextureFormat_RGBA8UnormSrgb, WGPUTextureUsage_RenderAttachment));
-                recreate_graph();
+                // m_depth_texture = EXPECT(Texture::create(w, h, WGPUTextureFormat_Depth32Float, WGPUTextureUsage_RenderAttachment));
+                // m_color_texture = EXPECT(Texture::create(w, h, WGPUTextureFormat_RGBA8UnormSrgb, WGPUTextureUsage_RenderAttachment));
+                // recreate_graph();
 
-                if (m_scene == EngineScene::World)
+                if (m_scene == GameScene::World)
                     m_world->get_active_camera()->update_projection((float)w / (float)h);
             }
             break;
             case SDL_EVENT_KEY_DOWN:
             {
                 Event event2(event);
-                if (m_scene == EngineScene::World)
+                if (m_scene == GameScene::World)
                     m_player->process_event(event2);
             }
             break;
             case SDL_EVENT_TEXT_INPUT:
             {
                 Event event2(event);
-                if (m_scene == EngineScene::World)
+                if (m_scene == GameScene::World)
                     m_player->process_event(event2);
             }
             break;
@@ -135,12 +134,16 @@ void Engine::tick(float delta)
                 break;
             }
 
-            ImGui_ImplSDL3_ProcessEvent(&event);
-            ImGuiIO& imgui_io = ImGui::GetIO();
-
-            if (imgui_io.WantCaptureMouse || imgui_io.WantCaptureKeyboard)
+            // TODO: remove ImGui
+            if (m_scene != GameScene::World)
             {
-                continue;
+                ImGui_ImplSDL3_ProcessEvent(&event);
+                ImGuiIO& imgui_io = ImGui::GetIO();
+
+                if (imgui_io.WantCaptureMouse || imgui_io.WantCaptureKeyboard)
+                {
+                    continue;
+                }
             }
 
             Input::process_event(event);
@@ -151,7 +154,6 @@ void Engine::tick(float delta)
     {
         m_current_memory_usage = core::get_memory_usage();
         m_last_second_timer_time -= 1.0;
-        // println("{}", Chunk::instances);
     }
     m_last_second_timer_time += delta;
 
@@ -159,11 +161,11 @@ void Engine::tick(float delta)
 
     switch (m_scene)
     {
-    case EngineScene::MainMenu:
+    case GameScene::MainMenu:
         break;
-    case EngineScene::WaitingForWorld:
+    case GameScene::WaitingForWorld:
         break;
-    case EngineScene::World:
+    case GameScene::World:
     {
         m_world->tick(delta);
 
@@ -187,35 +189,25 @@ void Engine::tick(float delta)
 
 void Engine::draw()
 {
-    Result<void> res;
-
     switch (m_scene)
     {
-    case EngineScene::MainMenu:
-        res = draw_main_menu();
+    case GameScene::MainMenu:
+        draw_main_menu();
         break;
-    case EngineScene::World:
-        res = draw_world_scene();
+    case GameScene::World:
+        draw_world_scene();
         break;
     default:
         break;
     }
-
-    if (res.has_error())
-    {
-        println(stderr, "Draw operation failed with error:");
-        res.error().print();
-    }
 }
 
-Result<void> Engine::draw_main_menu()
+void Engine::draw_main_menu()
 {
     const Extent2D window_size = m_window->size();
 
-    m_renderer.draw(m_graph, [this, window_size](const RenderPassNode& node)
+    m_renderer.draw([this, window_size]()
                     {
-        if (node.is_final_pass())
-        {
             const float size_x = (float)window_size.width * 0.4f;
             const float size_y = (float)window_size.height * 0.6f;
 
@@ -260,16 +252,12 @@ Result<void> Engine::draw_main_menu()
                     connect_to_remote_world();
                 }
             }
-            ImGui::End();
-        } });
-
-    return Result<void>();
+            ImGui::End(); });
 }
 
-Result<void> Engine::draw_world_scene()
+void Engine::draw_world_scene()
 {
-    Renderer::get().draw(m_graph, m_world);
-    return Result<void>();
+    Renderer::get().draw2(m_world);
 }
 
 float Engine::time()
@@ -329,7 +317,7 @@ void Engine::create_world_and_start()
     zombie->get_transform().position() = m_player->get_position();
     m_world->add_entity(World::overworld, zombie);
 
-    m_scene = EngineScene::World;
+    m_scene = GameScene::World;
     m_authority = RpcTarget::Server;
 }
 
@@ -339,7 +327,7 @@ void Engine::connect_to_remote_world()
     m_connection.set_disconnect_handler(&Engine::disconnect_client, this);
     m_connection.set_packet_handler(&Engine::receive_client, this);
 
-    m_scene = EngineScene::WaitingForWorld;
+    m_scene = GameScene::WaitingForWorld;
     m_authority = RpcTarget::Client;
     EXPECT(m_connection.connect_to(m_connect_ip, m_connect_port));
 
@@ -353,11 +341,11 @@ void Engine::recreate_graph()
     //     depth_pass->set_depth_output(m_depth_texture);
     // #endif
 
-    Ref<RenderPassNode> color_pass = newref<RenderPassNode>();
-    color_pass->set_depth_output(m_depth_texture);
-    color_pass->set_color_output(m_color_texture);
-    color_pass->set_output_to_surface(true);
-    color_pass->set_next(nullptr);
+    // Ref<RenderPassNode> color_pass = newref<RenderPassNode>();
+    // color_pass->set_depth_output(m_depth_texture);
+    // color_pass->set_color_output(m_color_texture);
+    // color_pass->set_output_to_surface(true);
+    // color_pass->set_next(nullptr);
 
     // #ifndef __platform_macos
     //     color_pass->set_load_depth(true);
@@ -367,7 +355,7 @@ void Engine::recreate_graph()
     // #ifndef __platform_macos
     //     m_graph.set_root(depth_pass);
     // #else
-    m_graph.set_root(color_pass);
+    // m_graph.set_root(color_pass);
     // #endif
 }
 
@@ -391,7 +379,7 @@ void Engine::receive_client(void *user, NetworkConnection& conn, ENetPacket *pac
         EXPECT(deserialize(buffer, p));
 
         self->m_world = EXPECT(World::create_proxy(p.seed));
-        self->m_scene = EngineScene::World;
+        self->m_scene = GameScene::World;
 
         self->m_player = newref<Player>();
         self->m_player->set_id(p.id);
@@ -511,7 +499,7 @@ void Engine::disconnect_client(void *user, NetworkConnection& conn, const Client
     (void)client;
     Engine *self = (Engine *)user;
 
-    self->m_scene = EngineScene::MainMenu;
+    self->m_scene = GameScene::MainMenu;
     self->m_world = nullptr;
 }
 

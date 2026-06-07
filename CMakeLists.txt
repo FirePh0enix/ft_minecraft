@@ -58,7 +58,6 @@ list(APPEND SOURCES
     src/Item/ItemStack.cpp
     src/Network/Network.cpp
     src/Network/Packet.cpp
-    src/Render/Graph.cpp
     src/Render/Shader.cpp
     src/Render/Renderer.cpp
     src/UI/Chat.cpp

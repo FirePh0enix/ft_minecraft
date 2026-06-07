@@ -23,14 +23,13 @@ void ColorRect::process_event(Event& event)
         return;
 }
 
-void ColorRect::draw(const RenderPassNode& node)
+void ColorRect::draw(WGPURenderPassEncoder encoder)
 {
     m_uniforms->update(View(ColorRectUniforms(matrix(), m_color)).as_bytes());
 
-    WGPURenderPassEncoder encoder = node.encoder();
     const Ref<Mesh>& mesh = Renderer::get().get_square_mesh();
 
-    WGPURenderPipeline pipeline = Renderer::get().get_pipeline(m_material, node);
+    WGPURenderPipeline pipeline = Renderer::get().get_pipeline(m_material, Renderer::get().get_surface_format());
     wgpuRenderPassEncoderSetPipeline(encoder, pipeline);
     wgpuRenderPassEncoderSetBindGroup(encoder, 0, m_material->get_bind_group(), 0, nullptr);
 

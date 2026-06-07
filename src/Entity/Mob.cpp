@@ -3,6 +3,11 @@
 
 constexpr int attempts = 16;
 
+void Mob::draw(WGPURenderPassEncoder encoder)
+{
+    m_model->encode(encoder, get_global_transform());
+}
+
 void Mob::die()
 {
     m_world->remove_entity(World::overworld, id());

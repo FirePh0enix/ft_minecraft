@@ -81,14 +81,14 @@ void ItemSlot::process_event(Event& event)
         return;
 }
 
-void ItemSlot::draw(const RenderPassNode& node)
+void ItemSlot::draw(WGPURenderPassEncoder encoder)
 {
-    m_background->draw(node);
+    m_background->draw(encoder);
 
     if (m_item.valid())
     {
-        m_item_rect->draw(node);
-        m_label->draw(node);
+        m_item_rect->draw(encoder);
+        m_label->draw(encoder);
     }
 }
 

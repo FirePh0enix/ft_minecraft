@@ -18,9 +18,9 @@ void CraftingTableInventory::update(float d)
     Inventory::update(d);
 }
 
-void CraftingTableInventory::draw(const RenderPassNode& node)
+void CraftingTableInventory::draw(WGPURenderPassEncoder encoder)
 {
-    Inventory::draw(node);
+    Inventory::draw(encoder);
 }
 
 bool CraftingTableInventory::on_place(uint32_t layer, uint32_t index, ItemStack stack, InventoryContainer *container)

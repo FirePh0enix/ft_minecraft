@@ -162,7 +162,7 @@ public:
     }
 
     void set_active_camera(Ref<Camera> camera);
-    ALWAYS_INLINE Ref<Camera> get_active_camera() { return m_camera; }
+    ALWAYS_INLINE Ref<Camera> get_active_camera() const { return m_camera; }
 
     void add_entity(size_t dimension, Ref<Entity> entity)
     {
