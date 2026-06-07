@@ -8,12 +8,10 @@
 #include "Core/Ref.hpp"
 #include "Core/Result.hpp"
 #include "Core/Types.hpp"
-#include "Entity/Cow.hpp"
 #include "Entity/Entity.hpp"
 #include "Entity/Player.hpp"
 #include "Entity/Zombie.hpp"
 #include "Input.hpp"
-#include "Inventory/Inventory.hpp"
 #include "Network/Network.hpp"
 #include "Network/Packet.hpp"
 #include "Profiler.hpp"
@@ -121,9 +119,6 @@ void Engine::tick(float delta)
             break;
             case SDL_EVENT_KEY_DOWN:
             {
-                if (event.key.key == SDLK_F3)
-                    m_debug_menu = !m_debug_menu;
-
                 Event event2(event);
                 if (m_scene == EngineScene::World)
                     m_player->process_event(event2);
@@ -185,6 +180,9 @@ void Engine::tick(float delta)
     }
 
     Input::post_events();
+
+    if (++m_ticks_since_start_of_day > ticks_per_day)
+        m_ticks_since_start_of_day = 0;
 }
 
 void Engine::draw()
@@ -272,34 +270,6 @@ Result<void> Engine::draw_world_scene()
 {
     Renderer::get().draw(m_graph, m_world);
     return Result<void>();
-}
-
-void Engine::encode_debug_menu()
-{
-    if (!m_debug_menu)
-        return;
-
-    if (ImGui::Begin("Debug"))
-    {
-        String s = format("{}", FormatBin(Engine::singleton->get_memory_usage()));
-        ImGui::Text("RAM  = %s", s.data());
-
-        String s2 = format("{}", FormatBin(Renderer::get().get_device_memory_usage()));
-        ImGui::Text("VRAM = %s", s2.data());
-
-        Transform3D transform = m_player->get_global_transform();
-        ImGui::Text("Position: %.2f %.2f %.2f", transform.position().x, transform.position().y, transform.position().z);
-
-        ImGui::InputText("Cmd", m_console.get_buffer(), m_console.get_buffer_size(), ImGuiInputTextFlags_CallbackCompletion, [](ImGuiInputTextCallbackData *data) -> int
-                         {
-                             Engine *self = (Engine *)data->UserData;
-                             if (data->EventFlag == ImGuiInputTextFlags_CallbackCompletion)
-                             {
-                                self->m_console.exec();
-                             }
-                             return 0; }, this);
-    }
-    ImGui::End();
 }
 
 float Engine::time()

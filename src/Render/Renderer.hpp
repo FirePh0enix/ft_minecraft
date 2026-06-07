@@ -316,7 +316,6 @@ public:
     Renderer();
 
     Result<void> init(const Window& window, InitFlags flags);
-    // void deinit();
 
     void configure_surface(size_t width, size_t height, VSync vsync);
 

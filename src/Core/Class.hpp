@@ -8,7 +8,6 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
-#include <type_traits>
 
 struct ClassHashCode
 {
@@ -16,17 +15,10 @@ struct ClassHashCode
 
     constexpr ClassHashCode() : value(0) {}
     constexpr ClassHashCode(uint32_t v) : value(v) {}
+
+    bool operator==(const ClassHashCode& code) const { return value == code.value; }
+    bool operator>(const ClassHashCode& code) const { return value > code.value; }
 };
-
-inline std::strong_ordering operator<=>(ClassHashCode lhs, ClassHashCode rhs)
-{
-    return lhs.value <=> rhs.value;
-}
-
-inline bool operator==(ClassHashCode lhs, ClassHashCode rhs)
-{
-    return (lhs <=> rhs) == std::strong_ordering::equal;
-}
 
 template <>
 struct Hasher<ClassHashCode>

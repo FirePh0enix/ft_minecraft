@@ -1276,7 +1276,6 @@ void Renderer::record_world(Renderer& renderer, Ref<World> world, const RenderPa
     {
         for (Ref<Entity> entity : dim.get_entities())
             entity->draw_ui(node);
-        Engine::get().encode_debug_menu();
     }
 }
 

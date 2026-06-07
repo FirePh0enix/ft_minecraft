@@ -10,11 +10,31 @@
 #include "Model.hpp"
 #include "Render/Graph.hpp"
 #include "UI/Chat.hpp"
+#include "UI/Container.hpp"
 
 enum class GameMode
 {
     Survival,
     Creative,
+};
+
+class Player;
+
+class DebugMenuContainer : public Container
+{
+    CLASS(DebugMenuContainer, Container);
+
+public:
+    DebugMenuContainer(Player *player);
+
+    virtual void update(float d) override;
+
+private:
+    Player *m_player;
+
+    Ref<Label> m_memory_label;
+    Ref<Label> m_time_label;
+    Ref<Label> m_position_label;
 };
 
 class Player : public LivingEntity
@@ -92,8 +112,11 @@ private:
 
     Option<Ref<Inventory>> m_opened_inventory;
 
-    Ref<Chat> m_chat;
     bool m_open_chat = false;
+    Ref<Chat> m_chat;
+
+    bool m_open_debug_menu = false;
+    Ref<DebugMenuContainer> m_debug_menu;
 
     /**
      * Player class is a little special since its behavor is different if this is the local or remote.

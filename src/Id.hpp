@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Core/Hasher.hpp"
+#include <cstdint>
 
 template <typename T>
 struct Id
@@ -16,17 +16,9 @@ struct Id
     }
 
     bool operator==(const Id& k) const { return value == k.value; }
+    bool operator>(const Id& k) const { return value > k.value; }
 
     constexpr bool valid() const { return value != 0; }
 
     uint16_t value;
-};
-
-template <typename T>
-struct Hasher<Id<T>>
-{
-    uint64_t operator()(const Id<T>& i)
-    {
-        return i.value;
-    }
 };

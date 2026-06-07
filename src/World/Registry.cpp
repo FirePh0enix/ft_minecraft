@@ -51,7 +51,7 @@ Result<void> GameRegistry::post_register()
 
     // s_texture_array->generate_mips();
 
-    for (const auto& [_, id, item] : m_items)
+    for (const auto& [id, item] : m_items)
     {
         if (Ref<ItemBlock> ib = item.cast_to<ItemBlock>())
         {

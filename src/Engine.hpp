@@ -19,6 +19,8 @@ enum class EngineScene
     WaitingForWorld,
 };
 
+constexpr int64_t ticks_per_day = 60 * 60 * 24;
+
 class Engine : public Object
 {
     CLASS(Engine, Object);
@@ -55,9 +57,12 @@ public:
 
     Ref<Font> get_font() const { return m_font; }
 
-    void encode_debug_menu();
-
     float time();
+
+    /**
+     * Time of day in ticks since the start of the day.
+     */
+    int64_t time_of_day() const { return m_ticks_since_start_of_day; }
 
     static Engine& get() { return *singleton; }
 
@@ -67,7 +72,6 @@ private:
     EngineScene m_scene = EngineScene::MainMenu;
     Ref<Window> m_window;
 
-    // BlockRegistry m_block_registry;
     GameRegistry m_registry;
     EntityRegistry m_entity_registry;
 
@@ -86,6 +90,8 @@ private:
 
     Ref<Font> m_font;
 
+    int64_t m_ticks_since_start_of_day = 0;
+
     float m_last_second_timer_time = 0.0;
     size_t m_current_memory_usage = 0;
 
@@ -96,7 +102,6 @@ private:
     int m_connect_port = NetworkConnection::default_port;
 
     // Debug Menu
-    bool m_debug_menu = false;
     Console m_console;
 
     void register_entities();

@@ -74,6 +74,9 @@ void Input::load_config()
     Input::add_action("toolbar_wheel");
     Input::add_action_mapping("toolbar_wheel", ActionMapping(ActionMappingKind::Wheel, 0));
 
+    Input::add_action("toggle_debug_menu");
+    Input::add_action_mapping("toggle_debug_menu", ActionMapping(ActionMappingKind::Key, SDLK_GRAVE));
+
     // UI
     Input::add_action("ui_click");
     Input::add_action_mapping("ui_click", ActionMapping(ActionMappingKind::MouseButton, 1));

@@ -122,18 +122,18 @@ public:
     }
 
 private:
-    HashMap<Id<Block>, Ref<Block>> m_blocks;
-    HashMap<Id<Item>, Ref<Item>> m_items;
+    Map<Id<Block>, Ref<Block>> m_blocks;
+    Map<Id<Item>, Ref<Item>> m_items;
 
-    HashMap<Id<Block>, Id<Item>> m_block_items;
+    Map<Id<Block>, Id<Item>> m_block_items;
 
-    HashMap<uint16_t, Id<Block>> m_block_ids;
+    Map<uint16_t, Id<Block>> m_block_ids;
 
     LocalVector<Image> m_images;
     Ref<Texture> m_texture_array;
     LocalVector<Ref<Texture>> m_texture_handles;
 
-    HashMap<ClassHashCode, HashMap<String, RpcTarget>> m_exposed_rpc;
+    Map<ClassHashCode, HashMap<String, RpcTarget>> m_exposed_rpc;
 
     Option<size_t> get_image(const StringView& path);
 };
