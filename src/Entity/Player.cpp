@@ -27,14 +27,19 @@ DebugMenuContainer::DebugMenuContainer(Player *player)
     m_memory_label->set_position(glm::vec2(-1.7f, 0.9f));
     add_child(m_memory_label);
 
+    m_perfomance_label = newref<Label>(Engine::get().get_font());
+    m_perfomance_label->set_scale(glm::vec2(0.06f));
+    m_perfomance_label->set_position(glm::vec2(-1.7f, 0.84f));
+    add_child(m_perfomance_label);
+
     m_position_label = newref<Label>(Engine::get().get_font());
     m_position_label->set_scale(glm::vec2(0.06f));
-    m_position_label->set_position(glm::vec2(-1.7f, 0.84f));
+    m_position_label->set_position(glm::vec2(-1.7f, 0.79f));
     add_child(m_position_label);
 
     m_time_label = newref<Label>(Engine::get().get_font());
     m_time_label->set_scale(glm::vec2(0.06f));
-    m_time_label->set_position(glm::vec2(-1.7f, 0.79f));
+    m_time_label->set_position(glm::vec2(-1.7f, 0.74f));
     add_child(m_time_label);
 }
 
@@ -42,6 +47,8 @@ void DebugMenuContainer::update(float d)
 {
     (void)d;
     m_memory_label->set_text(format("Memory: cpu: {} | device: {}", FormatBin(Engine::get().get_memory_usage()), FormatBin(Renderer::get().get_device_memory_usage())));
+
+    m_memory_label->set_text(format("Per: {} TPS | {} FPS | {} ms", Engine::get().get_fps(), Engine::get().get_tps(), d));
 
     glm::vec3 position = m_player->get_position();
     m_position_label->set_text(format("XYZ: {} | {} | {}", position.x, position.y, position.z));

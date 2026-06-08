@@ -61,6 +61,9 @@ public:
 
     float time();
 
+    int64_t get_fps() const { return m_fps; }
+    int64_t get_tps() const { return m_tps; }
+
     /**
      * Time of day in ticks since the start of the day.
      */
@@ -92,6 +95,8 @@ private:
     Ref<Font> m_font;
 
     int64_t m_ticks_since_start_of_day = 0;
+    int64_t m_fps = 0;
+    int64_t m_tps = 0;
 
     float m_last_second_timer_time = 0.0;
     size_t m_current_memory_usage = 0;

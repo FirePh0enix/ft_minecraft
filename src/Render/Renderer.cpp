@@ -1158,7 +1158,7 @@ void Renderer::configure_surface(size_t width, size_t height, VSync vsync)
 
     WGPUSurfaceConfiguration config{};
     config.device = m_device;
-    config.format = WGPUTextureFormat_RGBA8Unorm; // capabilities.formats[0];
+    config.format = WGPUTextureFormat_BGRA8Unorm; // capabilities.formats[0];
     config.usage = capabilities.usages;
     config.width = surface_extent.width;
     config.height = surface_extent.height;
