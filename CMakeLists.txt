@@ -323,7 +323,7 @@ target_include_directories(${TARGET_NAME} PRIVATE ${imgui_SOURCE_DIR})
 target_include_directories(${TARGET_NAME}_test PRIVATE ${imgui_SOURCE_DIR})
 
 if (TARGET_IS_MACOS)
-    set_source_files_properties(${imgui_SOURCE_DIR}/backends/imgui_impl_wgvk.cpp PROPERTIES COMPILE_FLAGS "-x objective-c++")
+    set_source_files_properties(${imgui_SOURCE_DIR}/backends/imgui_impl_wgpu.cpp PROPERTIES COMPILE_FLAGS "-x objective-c++")
 endif()
 
 if(TARGET_IS_WEB)

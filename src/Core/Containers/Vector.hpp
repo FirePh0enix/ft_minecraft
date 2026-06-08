@@ -298,10 +298,6 @@ private:
             m_references = alloc<uint32_t>(1);
             m_capacity = initial_capacity;
             m_data = alloc_array_uninitialized<T>(m_capacity);
-            if (!m_data)
-            {
-                destroy(m_references);
-            }
         }
         else if (m_size == m_capacity)
         {
