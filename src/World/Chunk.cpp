@@ -160,24 +160,24 @@ Result<void> Chunk::build_simple_mesh(size_t slice_index)
                 // if (block->get_texture_ids()[0] == 2)
                 //     println("Dwadwadawd");
 
-#define FACE_NEEDS_RENDER(state, block)                                                                       \
-    (state.is_air() ||                                                                                        \
-     (block->is_tranparent() && !Engine::get().registry().get_block(Id<Block>(state.id))->is_tranparent()) || \
-     (!block->is_tranparent() && Engine::get().registry().get_block(Id<Block>(state.id))->is_tranparent()))
+                // #define FACE_NEEDS_RENDER(state, block)                                                                       \
+                //     (state.is_air() ||                                                                                        \
+                //      (block->is_tranparent() && !Engine::get().registry().get_block(Id<Block>(state.id))->is_tranparent()) || \
+                //      (!block->is_tranparent() && Engine::get().registry().get_block(Id<Block>(state.id))->is_tranparent()))
 
-                if (x == 0 || FACE_NEEDS_RENDER(m_blocks[linearize(x - 1, y, z)], block))
+                if (x == 0 || m_blocks[linearize(x - 1, y, z)].is_air())
                     faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::X, false, block->get_texture_index(Axis::X, false)));
-                if (x == Chunk::width - 1 || FACE_NEEDS_RENDER(m_blocks[linearize(x + 1, y, z)], block))
+                if (x == Chunk::width - 1 || m_blocks[linearize(x + 1, y, z)].is_air())
                     faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::X, true, block->get_texture_index(Axis::X, true)));
 
-                if (y == 0 || FACE_NEEDS_RENDER(m_blocks[linearize(x, y - 1, z)], block))
+                if (y == 0 || m_blocks[linearize(x, y - 1, z)].is_air())
                     faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Y, false, block->get_texture_index(Axis::Y, false)));
-                if (y == height - 1 || FACE_NEEDS_RENDER(m_blocks[linearize(x, y + 1, z)], block))
+                if (y == height - 1 || m_blocks[linearize(x, y + 1, z)].is_air())
                     faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Y, true, block->get_texture_index(Axis::Y, true)));
 
-                if (z == 0 || FACE_NEEDS_RENDER(m_blocks[linearize(x, y, z - 1)], block))
+                if (z == 0 || m_blocks[linearize(x, y, z - 1)].is_air())
                     faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Z, false, block->get_texture_index(Axis::Z, false)));
-                if (z == Chunk::width - 1 || FACE_NEEDS_RENDER(m_blocks[linearize(x, y, z + 1)], block))
+                if (z == Chunk::width - 1 || m_blocks[linearize(x, y, z + 1)].is_air())
                     faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Z, true, block->get_texture_index(Axis::Z, true)));
 
 #undef FACE_NEEDS_RENDER
@@ -247,10 +247,38 @@ Result<void> Chunk::build_water_mesh(size_t slice_index)
         return Result<void>();
     }
 
+    Map<ChunkPos, Ref<Chunk>> chunks;
+    {
+        std::lock_guard<std::mutex> lock(m_dim->mutex());
+        Array<ChunkPos, 4> array{
+            ChunkPos(m_x - 1, m_z),
+            ChunkPos(m_x + 1, m_z),
+            ChunkPos(m_x, m_z - 1),
+            ChunkPos(m_x, m_z + 1),
+        };
+
+        for (const auto& pos : array)
+        {
+            Option<Ref<Chunk>> chunk_opt = m_dim->get_chunk(pos.x, pos.z);
+            if (chunk_opt.has_value())
+                chunks.put(pos, chunk_opt.value());
+        }
+    }
+
+    auto check_neighbour_block = [chunks](int64_t cx, int64_t cz, int64_t x, int64_t y, int64_t z)
+    {
+        Option<Ref<Chunk>> chunk_opt = chunks.get(ChunkPos(cx, cz));
+        if (chunk_opt.has_value())
+        {
+            Ref<Chunk> chunk = chunk_opt.value();
+            return chunk->get_block(x, y, z).is_air() && !chunk->get_tag(glm::i64vec3(width - 1, y, z), "water");
+        }
+        return true;
+    };
+
     // Let's detect which faces are not hidden.
     Vector<ChunkBlockFace> faces;
     {
-        std::lock_guard<std::mutex> lock(m_dim->mutex()); // TODO: kinda janky but working
         for (int64_t x = 0; x < Chunk::width; x++)
         {
             for (int64_t y = slice_y_offset; y < slice_y_offset + Chunk::width; y++)
@@ -262,9 +290,9 @@ Result<void> Chunk::build_water_mesh(size_t slice_index)
                     if (!get_tag(index, "water").has_value())
                         continue;
 
-                    if ((x == 0 && (!m_dim->has_chunk(m_x - 1, m_z) || (m_dim->get_chunk(m_x - 1, m_z).value()->get_block(width - 1, y, z).is_air() && !m_dim->get_chunk(m_x - 1, m_z).value()->get_tag(glm::i64vec3(width - 1, y, z), "water")))) || (x > 0 && get_block(x - 1, y, z).is_air() && !get_tag(glm::i64vec3(x - 1, y, z), "water").has_value()))
+                    if ((x == 0 && check_neighbour_block(m_x - 1, m_z, width - 1, y, z)) || (x > 0 && get_block(x - 1, y, z).is_air() && !get_tag(glm::i64vec3(x - 1, y, z), "water").has_value()))
                         faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::X, false, 0));
-                    if ((x == width - 1 && (!m_dim->has_chunk(m_x + 1, m_z) || (m_dim->get_chunk(m_x + 1, m_z).value()->get_block(0, y, z).is_air() && !m_dim->get_chunk(m_x + 1, m_z).value()->get_tag(glm::i64vec3(0, y, z), "water")))) || (x < width - 1 && get_block(x + 1, y, z).is_air() && !get_tag(glm::i64vec3(x + 1, y, z), "water").has_value()))
+                    if ((x == width - 1 && check_neighbour_block(m_x + 1, m_z, 0, y, z)) || (x < width - 1 && get_block(x + 1, y, z).is_air() && !get_tag(glm::i64vec3(x + 1, y, z), "water").has_value()))
                         faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::X, true, 0));
 
                     if (y == 0 || (get_block(x, y - 1, z).is_air() && !get_tag(glm::i64vec3(x, y - 1, z), "water").has_value()))
@@ -272,9 +300,9 @@ Result<void> Chunk::build_water_mesh(size_t slice_index)
                     if (y == height - 1 || (get_block(x, y + 1, z).is_air() && !get_tag(glm::i64vec3(x, y + 1, z), "water").has_value()))
                         faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Y, true, 0));
 
-                    if ((z == 0 && (!m_dim->has_chunk(m_x, m_z - 1) || (m_dim->get_chunk(m_x, m_z - 1).value()->get_block(x, y, width - 1).is_air() && !m_dim->get_chunk(m_x, m_z - 1).value()->get_tag(glm::i64vec3(x, y, width - 1), "water")))) || (z > 0 && get_block(x, y, z - 1).is_air() && !get_tag(glm::i64vec3(x, y, z - 1), "water").has_value()))
+                    if ((z == 0 && check_neighbour_block(m_x, m_z - 1, x, y, width - 1)) || (z > 0 && get_block(x, y, z - 1).is_air() && !get_tag(glm::i64vec3(x, y, z - 1), "water").has_value()))
                         faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Z, false, 0));
-                    if ((z == width - 1 && (!m_dim->has_chunk(m_x, m_z + 1) || (m_dim->get_chunk(m_x, m_z + 1).value()->get_block(x, y, 0).is_air() && !m_dim->get_chunk(m_x, m_z + 1).value()->get_tag(glm::i64vec3(x, y, 0), "water")))) || (z < width - 1 && get_block(x, y, z + 1).is_air() && !get_tag(glm::i64vec3(x, y, z + 1), "water").has_value()))
+                    if ((z == width - 1 && check_neighbour_block(m_x, m_z, x, y, 0)) || (z < width - 1 && get_block(x, y, z + 1).is_air() && !get_tag(glm::i64vec3(x, y, z + 1), "water").has_value()))
                         faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Z, true, 0));
                 }
             }

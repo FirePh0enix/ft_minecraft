@@ -11,13 +11,13 @@ template <typename T, const size_t _S>
 class Array
 {
 public:
-    Array()
+    constexpr Array()
         : m_data{}
     {
     }
 
     template <typename... Args>
-    Array(const std::initializer_list<T>& list)
+    constexpr Array(const std::initializer_list<T>& list)
     {
         for (size_t i = 0; i < list.size(); i++)
             m_data[i] = *(list.begin() + i);
