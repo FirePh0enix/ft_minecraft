@@ -42,9 +42,6 @@ Engine::Engine(const Args& args)
 
     EXPECT(m_renderer.init(*m_window, flags));
 
-    // m_depth_texture = EXPECT(Texture::create(1280, 720, WGPUTextureFormat_Depth32Float, WGPUTextureUsage_RenderAttachment));
-    // m_color_texture = EXPECT(Texture::create(1280, 720, WGPUTextureFormat_RGBA8UnormSrgb, WGPUTextureUsage_RenderAttachment));
-
     EXPECT(Font::init_library());
     m_font = EXPECT(Font::create("assets/fonts/Anonymous.ttf", 32));
 
@@ -173,7 +170,8 @@ void Engine::tick(float delta)
 
     Input::post_events();
 
-    if (++m_ticks_since_start_of_day > ticks_per_day)
+    m_ticks_since_start_of_day += 1 * m_tick_scale;
+    if (m_ticks_since_start_of_day > ticks_per_day)
         m_ticks_since_start_of_day = 0;
 }
 
@@ -275,6 +273,8 @@ void Engine::create_world_and_start()
     uint64_t seed = StringView(m_world_seed_buf).parse_int<uint64_t>();
     String name = "unamed";
 
+    m_ticks_since_start_of_day = ticks_per_day / 2;
+
     if (Filesystem::exists(format("{}saves/{}", Filesystem::get_data_directory(), name)))
     {
         info("loading existing world `{}`", name);
@@ -314,9 +314,9 @@ void Engine::create_world_and_start()
     // cow->get_transform().position() = m_player->get_position();
     // m_world->add_entity(World::overworld, cow);
 
-    Ref<Entity> zombie = newref<Zombie>();
-    zombie->get_transform().position() = m_player->get_position();
-    m_world->add_entity(World::overworld, zombie);
+    // Ref<Entity> zombie = newref<Zombie>();
+    // zombie->get_transform().position() = m_player->get_position();
+    // m_world->add_entity(World::overworld, zombie);
 
     m_scene = GameScene::World;
     m_authority = RpcTarget::Server;

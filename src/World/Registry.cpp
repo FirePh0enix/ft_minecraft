@@ -32,7 +32,7 @@ void GameRegistry::register_all()
 Result<void> GameRegistry::post_register()
 {
     uint32_t mip_level = 1;
-    m_texture_array = TRY(Texture::create(16, 16, WGPUTextureFormat_RGBA8Unorm, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding, TextureDimension::D2DArray, m_images.size() + 1, mip_level));
+    m_texture_array = TRY(Texture::create(16, 16, WGPUTextureFormat_RGBA8Unorm, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding, WGPUTextureViewDimension_2DArray, m_images.size() + 1, mip_level));
     m_texture_array->update(Renderer::get().get_missing_texture_data(), 0);
 
     size_t index = 1;
@@ -40,7 +40,7 @@ Result<void> GameRegistry::post_register()
     {
         m_texture_array->update(View((uint8_t *)image.data, image.w * image.h * 4), index);
 
-        Ref<Texture> texture = TRY(Texture::create(16, 16, WGPUTextureFormat_RGBA8Unorm, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding, TextureDimension::D2D));
+        Ref<Texture> texture = TRY(Texture::create(16, 16, WGPUTextureFormat_RGBA8Unorm, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding, WGPUTextureViewDimension_2D));
         texture->update(View((uint8_t *)image.data, image.w * image.h * 4));
 
         // TODO: create textureview instead of duplicating data in memory.

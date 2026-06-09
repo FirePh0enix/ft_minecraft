@@ -15,6 +15,7 @@
 #include "World/Dimension.hpp"
 #include "World/Registry.hpp"
 #include "World/World.hpp"
+#include "webgpu/webgpu.h"
 
 #include <backends/imgui_impl_sdl3.h>
 #include <backends/imgui_impl_wgpu.h>
@@ -43,39 +44,21 @@ static const uint32_t missing_texture_data[16 * 16]{
 
 #include "Shaders.cpp"
 
-static WGPUTextureViewDimension convert_texture_view_dimension(TextureDimension dimension)
+static WGPUTextureDimension convert_texture_dimension(WGPUTextureViewDimension dimension)
 {
     switch (dimension)
     {
-    case TextureDimension::D1D:
-        return WGPUTextureViewDimension_1D;
-    case TextureDimension::D2D:
-        return WGPUTextureViewDimension_2D;
-    case TextureDimension::D2DArray:
-        return WGPUTextureViewDimension_2DArray;
-    case TextureDimension::D3D:
-        return WGPUTextureViewDimension_3D;
-    case TextureDimension::Cube:
-        return WGPUTextureViewDimension_Cube;
-    case TextureDimension::CubeArray:
-        return WGPUTextureViewDimension_CubeArray;
-    }
-    return {};
-}
-
-static WGPUTextureDimension convert_texture_dimension(TextureDimension dimension)
-{
-    switch (dimension)
-    {
-    case TextureDimension::D1D:
+    case WGPUTextureViewDimension_1D:
         return WGPUTextureDimension_1D;
-    case TextureDimension::D2D:
-    case TextureDimension::D2DArray:
-    case TextureDimension::Cube:
-    case TextureDimension::CubeArray:
+    case WGPUTextureViewDimension_2D:
+    case WGPUTextureViewDimension_2DArray:
+    case WGPUTextureViewDimension_Cube:
+    case WGPUTextureViewDimension_CubeArray:
         return WGPUTextureDimension_2D;
-    case TextureDimension::D3D:
+    case WGPUTextureViewDimension_3D:
         return WGPUTextureDimension_3D;
+    default:
+        break;
     }
     return {};
 }
@@ -170,7 +153,7 @@ Texture::~Texture()
     }
 }
 
-Result<Ref<Texture>> Texture::create(uint32_t width, uint32_t height, WGPUTextureFormat format, WGPUTextureUsage usage, TextureDimension dimension, uint32_t layers, uint32_t mip_level)
+Result<Ref<Texture>> Texture::create(uint32_t width, uint32_t height, WGPUTextureFormat format, WGPUTextureUsage usage, WGPUTextureViewDimension dimension, uint32_t layers, uint32_t mip_level)
 {
     WGPUTextureDescriptor desc{};
     desc.usage = usage;
@@ -193,7 +176,7 @@ Result<Ref<Texture>> Texture::create(uint32_t width, uint32_t height, WGPUTextur
 
     WGPUTextureViewDescriptor view_desc{};
     view_desc.format = format;
-    view_desc.dimension = convert_texture_view_dimension(dimension);
+    view_desc.dimension = dimension;
     view_desc.baseMipLevel = 0;
     view_desc.mipLevelCount = mip_level;
     view_desc.baseArrayLayer = 0;
@@ -243,7 +226,7 @@ Result<Ref<Texture>> Texture::load(const StringView& path)
     if (data == nullptr)
         return Error(ErrorKind::ReadFailure);
 
-    Ref<Texture> texture = TRY(Texture::create(w, h, WGPUTextureFormat_RGBA8UnormSrgb, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding, TextureDimension::D2D, 1, 1));
+    Ref<Texture> texture = TRY(Texture::create(w, h, WGPUTextureFormat_RGBA8UnormSrgb, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding, WGPUTextureViewDimension_2D, 1, 1));
     texture->update(View((uint8_t *)data, w * h * 4));
 
     stbi_image_free(data);
@@ -599,7 +582,7 @@ Result<WGPURenderPipeline> PipelineCache::get(const Key& key)
     desc.primitive = primitive_state;
     desc.vertex = vertex_state;
     desc.fragment = color_states.size() == 0 ? nullptr : &fragment_state;
-    desc.depthStencil = &depth_state;
+    desc.depthStencil = key.has_depth_attach ? &depth_state : nullptr;
     desc.multisample = WGPUMultisampleState{.nextInChain = nullptr, .count = 1, .mask = 0xFFFFFFFF, .alphaToCoverageEnabled = false};
 
     WGPURenderPipeline pipeline = wgpuDeviceCreateRenderPipeline(Renderer::get().device(), &desc);
@@ -744,7 +727,7 @@ static WGPUSurface create_surface(WGPUInstance instance, SDL_Window *window)
     const char *video_driver = SDL_GetCurrentVideoDriver();
 
     if (!video_driver)
-        video_driver = "wayland";
+        video_driver = "x11";
 
     if (SDL_strcmp(video_driver, "wayland") == 0)
     {
@@ -1023,6 +1006,15 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
 
     m_env_2d_buffer = TRY(Buffer::create(sizeof(glm::mat4), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform));
 
+    m_sky_shader = TRY(Shader::load(sky_shader_source));
+    m_sky_shader->set_binding("uniforms", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
+    m_sky_shader->create_bind_group_layout();
+
+    m_sky_uniform_buffer = TRY(Buffer::create(sizeof(SkyUniforms), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform));
+
+    m_sky_material = TRY(Material::create(m_sky_shader, MaterialFlagBits::NoUV | MaterialFlagBits::NoNormal, WGPUCullMode_None, UVType::UV));
+    m_sky_material->set_param("uniforms", m_sky_uniform_buffer);
+
     configure_surface(window.size().width, window.size().height, VSync::On);
 
     IMGUI_CHECKVERSION();
@@ -1046,13 +1038,13 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_env_buffer = TRY(Buffer::create(sizeof(WorldEnvironment), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform));
 
     m_voxel_shader = TRY(Shader::load(chunk_mesh_shader_source));
-    m_voxel_shader->set_binding("images", Binding(BindingKind::Texture, WGPUShaderStage_Fragment, 0, 0, BindingAccess::Read, TextureDimension::D2DArray)); // binding = 1 is the sampler
+    m_voxel_shader->set_binding("images", Binding(BindingKind::Texture, WGPUShaderStage_Fragment, 0, 0, BindingAccess::Read, WGPUTextureViewDimension_2DArray)); // binding = 1 is the sampler
     m_voxel_shader->set_binding("env", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 2, BindingAccess::Read));
     m_voxel_shader->set_sampler("images", {.min_filter = WGPUFilterMode_Nearest, .mag_filter = WGPUFilterMode_Nearest});
     m_voxel_shader->create_bind_group_layout();
 
     m_water_shader = TRY(Shader::load(water_mesh_shader_source));
-    m_water_shader->set_binding("image", Binding(BindingKind::Texture, WGPUShaderStage_Fragment, 0, 0, BindingAccess::Read, TextureDimension::D2D)); // binding = 1 is the sampler
+    m_water_shader->set_binding("image", Binding(BindingKind::Texture, WGPUShaderStage_Fragment, 0, 0, BindingAccess::Read, WGPUTextureViewDimension_2D)); // binding = 1 is the sampler
     m_water_shader->set_binding("env", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 2, BindingAccess::Read));
     m_water_shader->set_sampler("image", {.min_filter = WGPUFilterMode_Nearest, .mag_filter = WGPUFilterMode_Nearest});
     m_water_shader->create_bind_group_layout();
@@ -1062,7 +1054,7 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_model_shader->set_binding("model", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 1, BindingAccess::Read));
     m_model_shader->set_binding("global_model", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 2, BindingAccess::Read));
     m_model_shader->set_binding("uvs", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 3, BindingAccess::Read));
-    m_model_shader->set_binding("texture", Binding(BindingKind::Texture, WGPUShaderStage_Fragment, 0, 4, BindingAccess::Read, TextureDimension::D2D));
+    m_model_shader->set_binding("texture", Binding(BindingKind::Texture, WGPUShaderStage_Fragment, 0, 4, BindingAccess::Read, WGPUTextureViewDimension_2D));
     m_model_shader->set_sampler("texture", SamplerDescriptor(WGPUFilterMode_Nearest, WGPUFilterMode_Nearest));
     m_model_shader->create_bind_group_layout();
 
@@ -1070,14 +1062,14 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
 
     m_preview_block_shader = TRY(Shader::load(block_preview_shader_source));
     m_preview_block_shader->set_binding("model", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
-    m_preview_block_shader->set_binding("images", Binding(BindingKind::Texture, WGPUShaderStage_Fragment, 0, 1, BindingAccess::Read, TextureDimension::D2DArray)); // binding = 3 is the sampler
+    m_preview_block_shader->set_binding("images", Binding(BindingKind::Texture, WGPUShaderStage_Fragment, 0, 1, BindingAccess::Read, WGPUTextureViewDimension_2DArray)); // binding = 3 is the sampler
     m_preview_block_shader->set_sampler("images", {.min_filter = WGPUFilterMode_Nearest, .mag_filter = WGPUFilterMode_Nearest});
     m_preview_block_shader->create_bind_group_layout();
 
     m_item_block_shader = TRY(Shader::load(item_block_shader_source));
     m_item_block_shader->set_binding("env", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
     m_item_block_shader->set_binding("model", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 1, BindingAccess::Read));
-    m_item_block_shader->set_binding("images", Binding(BindingKind::Texture, WGPUShaderStage_Fragment, 0, 2, BindingAccess::Read, TextureDimension::D2DArray)); // binding = 3 is the sampler
+    m_item_block_shader->set_binding("images", Binding(BindingKind::Texture, WGPUShaderStage_Fragment, 0, 2, BindingAccess::Read, WGPUTextureViewDimension_2DArray)); // binding = 3 is the sampler
     m_item_block_shader->set_sampler("images", {.min_filter = WGPUFilterMode_Nearest, .mag_filter = WGPUFilterMode_Nearest});
     m_item_block_shader->create_bind_group_layout();
 
@@ -1123,15 +1115,9 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_texture_rect_shader = TRY(Shader::load(texture_rect_shader_source));
     m_texture_rect_shader->set_binding("env", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
     m_texture_rect_shader->set_binding("uniforms", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 1, BindingAccess::Read));
-    m_texture_rect_shader->set_binding("image", Binding(BindingKind::Texture, WGPUShaderStage_Fragment, 0, 2, BindingAccess::Read, TextureDimension::D2D)); // binding = 3 is the sampler
+    m_texture_rect_shader->set_binding("image", Binding(BindingKind::Texture, WGPUShaderStage_Fragment, 0, 2, BindingAccess::Read, WGPUTextureViewDimension_2D)); // binding = 3 is the sampler
     m_texture_rect_shader->set_sampler("image", {.min_filter = WGPUFilterMode_Nearest, .mag_filter = WGPUFilterMode_Nearest});
     m_texture_rect_shader->create_bind_group_layout();
-
-    m_sky_shader = TRY(Shader::load_compute(sky_shader_source));
-    m_sky_shader->set_binding("image", Binding(BindingKind::StorageTexture, WGPUShaderStage_Compute, 0, 0, BindingAccess::Read, TextureDimension::D2D));
-    m_sky_shader->create_bind_group_layout();
-
-    m_sky_material = TRY(Material::create(m_sky_shader, MaterialFlagBits::None, WGPUCullMode_None, UVType::UV));
 
     return Result<void>();
 }
@@ -1175,6 +1161,9 @@ void Renderer::configure_surface(size_t width, size_t height, VSync vsync)
     float ratio = float(width) / float(height);
     glm::mat4 ortho_matrix = glm::ortho(-1.0f * ratio, 1.0f * ratio, -1.0f, 1.0f, -1.0f, 1.0f);
     m_env_2d_buffer->update(View(ortho_matrix).as_bytes());
+
+    m_sky_uniforms.aspect_ratio = ratio;
+    m_sky_uniform_buffer->update(View(m_sky_uniforms).as_bytes());
 }
 
 void Renderer::draw_legacy(std::function<void()> f)
@@ -1255,20 +1244,31 @@ void Renderer::draw(const Ref<World>& world)
 
     WGPUCommandEncoder encoder = wgpuDeviceCreateCommandEncoder(m_device, nullptr);
 
-    // Sky compute shader
-    // m_sky_material->set_param("image", surface_tex);
+    // Sky shader
+    WGPURenderPassDescriptor sky_pass{};
+    sky_pass.nextInChain = nullptr;
+    sky_pass.label = WGPU_STRING_VIEW_INIT;
+    sky_pass.timestampWrites = nullptr;
+    sky_pass.occlusionQuerySet = nullptr;
 
-    // WGPUComputePassDescriptor sky_pass{};
-    // sky_pass.nextInChain = nullptr;
-    // sky_pass.label = WGPU_STRING_VIEW_INIT;
-    // sky_pass.timestampWrites = nullptr;
+    WGPURenderPassColorAttachment sky_color_attach{};
+    sky_color_attach.clearValue = WGPUColor(0.0, 0.0, 0.0, 1.0);
+    sky_color_attach.depthSlice = WGPU_DEPTH_SLICE_UNDEFINED;
+    sky_color_attach.loadOp = WGPULoadOp_Clear;
+    sky_color_attach.storeOp = WGPUStoreOp_Store;
+    sky_color_attach.view = surface_view;
 
-    // WGPUComputePassEncoder sky_encoder = wgpuCommandEncoderBeginComputePass(encoder, &sky_pass);
-    // wgpuComputePassEncoderSetPipeline(sky_encoder, get_compute_pipeline(m_sky_shader));
-    // wgpuComputePassEncoderSetBindGroup(sky_encoder, 0, m_sky_material->get_bind_group(), 0, nullptr);
-    // wgpuComputePassEncoderDispatchWorkgroups(sky_encoder, m_surface_extent.width / 8, m_surface_extent.height / 8, 1);
-    // wgpuComputePassEncoderEnd(sky_encoder);
-    // wgpuComputePassEncoderRelease(sky_encoder);
+    sky_pass.colorAttachmentCount = 1;
+    sky_pass.colorAttachments = &sky_color_attach;
+
+    WGPURenderPassEncoder sky_encoder = wgpuCommandEncoderBeginRenderPass(encoder, &sky_pass);
+    wgpuRenderPassEncoderSetPipeline(sky_encoder, get_pipeline(m_sky_material, m_surface_format, WGPUTextureFormat_Undefined));
+    wgpuRenderPassEncoderSetBindGroup(sky_encoder, 0, m_sky_material->get_bind_group(), 0, nullptr);
+    wgpuRenderPassEncoderSetIndexBuffer(sky_encoder, m_square_mesh->get_buffer(Mesh::BufferKind::Index)->handle(), m_square_mesh->index_type(), 0, m_square_mesh->get_buffer(Mesh::BufferKind::Index)->size());
+    wgpuRenderPassEncoderSetVertexBuffer(sky_encoder, 0, m_square_mesh->get_buffer(Mesh::BufferKind::Position)->handle(), 0, m_square_mesh->get_buffer(Mesh::BufferKind::Position)->size());
+    wgpuRenderPassEncoderDrawIndexed(sky_encoder, m_square_mesh->vertex_count(), 1, 0, 0, 0);
+    wgpuRenderPassEncoderEnd(sky_encoder);
+    wgpuRenderPassEncoderRelease(sky_encoder);
 
     // Main color pass
     WGPURenderPassDescriptor main_pass{};
@@ -1280,7 +1280,7 @@ void Renderer::draw(const Ref<World>& world)
     WGPURenderPassColorAttachment color_attach{};
     color_attach.clearValue = WGPUColor(0.0, 0.0, 0.0, 1.0);
     color_attach.depthSlice = WGPU_DEPTH_SLICE_UNDEFINED;
-    color_attach.loadOp = WGPULoadOp_Clear;
+    color_attach.loadOp = WGPULoadOp_Load;
     color_attach.storeOp = WGPUStoreOp_Store;
     color_attach.view = surface_view;
 
@@ -1321,6 +1321,51 @@ void Renderer::draw(const Ref<World>& world)
     wgpuTextureViewRelease(surface_view);
 }
 
+const glm::vec3 daylight_color(1.0, 1.0, 1.0);
+const glm::vec3 sunset_color(247.0 / 255.0, 152.0 / 255.0, 2.0 / 255.0);
+
+glm::vec3 lerp(const glm::vec3& x, const glm::vec3& y, float t)
+{
+    return x * (1.0f - t) + y * t;
+}
+
+glm::vec3 three_color_gradient(const glm::vec3& c0, const glm::vec3& c1, const glm::vec3& c2, float t, float half = 0.5)
+{
+    if (t <= 0.0f)
+        return c0;
+    if (t >= 1.0f)
+        return c2;
+
+    if (t < half)
+    {
+        float localT = t / half;
+        return lerp(c0, c1, localT);
+    }
+    else
+    {
+        float localT = (t - half) / half;
+        return lerp(c1, c2, localT);
+    }
+}
+
+// TODO:
+// To improve sky color gradient, sunset/sunrise should be very short, and night/day should be the same length.
+template <const size_t _S>
+glm::vec3 color_gradient(const Array<glm::vec3, _S>& colors, float t)
+{
+    t = std::clamp(t, 0.0f, 1.0f);
+    if (t <= 0.0f)
+        return colors[0];
+    if (t >= 1.0f)
+        return colors[6];
+
+    const int segments = 6;
+    const float segLen = 1.0f / float(segments);
+    int si = std::min(int(std::floor(t / segLen)), segments - 1);
+    float localT = (t - float(si) * segLen) / segLen;
+    return lerp(colors[si], colors[si + 1], localT);
+}
+
 void Renderer::record_world(const Ref<World>& world, WGPURenderPassEncoder encoder)
 {
     ZoneScoped;
@@ -1333,10 +1378,16 @@ void Renderer::record_world(const Ref<World>& world, WGPURenderPassEncoder encod
         return;
     }
 
-    WorldEnvironment env(camera->get_view_proj_matrix());
-    m_env_buffer->update(View(env).as_bytes());
+    float time_uniform = float(Engine::get().time_of_day()) / float(ticks_per_day);
+    set_time(time_uniform);
 
-    Ref<Material> material = m_chunk_material;
+    const Array<glm::vec3, 7> sky_color_array{daylight_color, sunset_color, daylight_color, daylight_color, daylight_color, sunset_color, daylight_color};
+
+    m_environment.view_matrix = camera->get_view_proj_matrix();
+    m_environment.sun_color = color_gradient(sky_color_array, time_uniform);
+    m_environment.sun_direction = glm::normalize(glm::vec3(glm::rotate(glm::mat4(1.0), float(M_PI) * time_uniform, glm::vec3(0, 0, -1.0)) * glm::vec4(1, 0, 0, 1.0)));
+    m_environment.sun_intensity = 1.0;
+    m_env_buffer->update(View(m_environment).as_bytes());
 
     {
         ZoneScopedN("draw entities");
@@ -1349,9 +1400,9 @@ void Renderer::record_world(const Ref<World>& world, WGPURenderPassEncoder encod
     {
         ZoneScopedN("draw opaque");
 
-        WGPURenderPipeline pipeline = get_pipeline(material, m_surface_format);
+        WGPURenderPipeline pipeline = get_pipeline(m_chunk_material, m_surface_format);
         wgpuRenderPassEncoderSetPipeline(encoder, pipeline);
-        wgpuRenderPassEncoderSetBindGroup(encoder, 0, material->get_bind_group(), 0, nullptr);
+        wgpuRenderPassEncoderSetBindGroup(encoder, 0, m_chunk_material->get_bind_group(), 0, nullptr);
 
         for (const auto& [key, chunk] : dim.get_chunks())
         {
@@ -1364,12 +1415,18 @@ void Renderer::record_world(const Ref<World>& world, WGPURenderPassEncoder encod
 
             const Chunk::Slice *slices = chunk->get_slices();
 
-            // TODO: do the frustum check per slice.
             for (size_t i = 0; i < Chunk::slice_count; i++)
             {
                 const Chunk::Slice& slice = slices[i];
 
                 if (slice.mesh.is_null())
+                    continue;
+
+                ChunkPos pos = chunk->pos();
+                AABB aabb = AABB(-glm::vec3(Chunk::width / 2.0, Chunk::height, Chunk::width / 2), glm::vec3(Chunk::width / 2.0, Chunk::height, Chunk::width / 2))
+                                .translate(glm::vec3((float)pos.x * Chunk::width + Chunk::width / 2.0, (float)i * Chunk::width + Chunk::width / 2.0, (float)pos.z * Chunk::width + Chunk::width / 2.0));
+
+                if (!camera->frustum().contains(aabb))
                     continue;
 
                 const Ref<Mesh>& mesh = slice.mesh;
@@ -1429,6 +1486,12 @@ void Renderer::record_world(const Ref<World>& world, WGPURenderPassEncoder encod
         for (Ref<Entity> entity : dim.get_entities())
             entity->draw_ui(encoder);
     }
+}
+
+void Renderer::set_time(float time)
+{
+    m_sky_uniforms.time = time;
+    m_sky_uniform_buffer->update(View(m_sky_uniforms).as_bytes());
 }
 
 WGPURenderPipeline Renderer::get_pipeline(Ref<Material> material, WGPUTextureFormat color_format, WGPUTextureFormat depth_format)

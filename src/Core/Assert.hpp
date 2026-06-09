@@ -15,7 +15,7 @@ static inline void assert_internal(bool condition, const char *expression_string
         Stacktrace::record();
         Stacktrace::current().print(stderr);
 
-        std::abort();
+        exit(1);
     }
 }
 

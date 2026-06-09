@@ -1,11 +1,12 @@
 #include "Core/StringView.hpp"
 
-#pragma region 3D shaders
-
 static const StringView chunk_mesh_shader_source = R"(
-struct Enviromnent
+struct Environment
 {
     view_matrix: mat4x4<f32>,
+    sun_direction: vec3<f32>,
+    sun_color: vec3<f32>,
+    sun_intensity: f32,
 };
 
 struct VertexOutput
@@ -16,13 +17,14 @@ struct VertexOutput
     @location(1) uv: vec2<f32>,
     @location(2) normal: vec3<f32>,
     @location(3) light_vec: vec3<f32>,
-    @location(4) texture_index: u32,
-    @location(5) gradient_color: vec3<f32>,
+    @location(4) light_color: vec3<f32>,
+    @location(5) texture_index: u32,
+    @location(6) gradient_color: vec3<f32>,
 };
 
 @group(0) @binding(0) var images: texture_2d_array<f32>;
 @group(0) @binding(1) var images_sampler: sampler;
-@group(0) @binding(2) var<uniform> env: Enviromnent;
+@group(0) @binding(2) var<uniform> env: Environment;
 
 @vertex
 fn vertex_main(
@@ -39,20 +41,11 @@ fn vertex_main(
 
     out.uv = uvt.xy;
     out.normal = normal;
-    out.light_vec = normalize(vec3<f32>(-1.0, -1.0, 0.0));
+    out.light_vec = env.sun_direction;
+    out.light_color = env.sun_color;
     out.texture_index = u32(uvt.z);
 
     return out;
-}
-
-fn is_grayscale(color: vec4<f32>) -> bool {
-    return color.r == color.g && color.g == color.b;
-}
-
-fn srgb2physical(color: vec3<f32>) -> vec3<f32> {
-    let f = pow((color + 0.055) / 1.055, vec3<f32>(2.4));
-    let t = color / 12.92;
-    return select(f, t, color <= vec3<f32>(0.04045));
 }
 
 @fragment
@@ -61,14 +54,6 @@ fn fragment_main(in: VertexOutput) -> @location(0) vec4<f32> {
     uv2.y = 1.0 - uv2.y;
 
     var color = textureSample(images, images_sampler, uv2, in.texture_index);
-    // FIXME: since mipmaps are generated for block textures, SRGB cannot be used so we convert here.
-    // color = vec4(srgb2physical(color.xyz), color.a);
-
-    // color *= vec4<f32>(in.gradient_color, 1.0) * f32(in.has_gradient);
-
-    // if (is_grayscale(color)) {
-    //     color *= vec4<f32>(in.gradient_color, 1.0);
-    // }
 
     const minimum_brightness = 0.3;
 
@@ -76,7 +61,7 @@ fn fragment_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let L = in.light_vec;
     let V = normalize(in.world_position.xyz);
     let R = normalize(-reflect(L, N));
-    let diffuse = max(dot(N, -L), minimum_brightness) * color.rgb;
+    let diffuse = max(dot(N, -L), minimum_brightness) * in.light_color * color.rgb;
 
     return vec4<f32>(diffuse, color.a);
 }
@@ -392,18 +377,76 @@ fn fragment_main(in: VertexOutput) -> @location(0) vec4<f32> {
 )";
 
 static const StringView sky_shader_source = R"(
+struct Uniforms
+{
+    aspect_ratio: f32,
+    time: f32,
+}
+
+struct VertexOutput
+{
+    @builtin(position) position: vec4<f32>,
+    @location(0) color: vec3<f32>,
+}
+
+@group(0) @binding(0) var<uniform> uniforms: Uniforms;
+
+const night = vec3<f32>(2.0 / 255.0, 7.0 / 255.0, 26.0 / 255.0);
+const daylight = vec3<f32>(135.0 / 255.0, 206.0 / 255.0, 235.0 / 255.0);
+const sunset = vec3<f32>(247.0 / 255.0, 152.0 / 255.0, 2.0 / 255.0);
+
+fn lerp(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
+    return vec3<f32>(
+        a.r + (b.r - a.r) * t,
+        a.g + (b.g - a.g) * t,
+        a.b + (b.b - a.b) * t
+    );
+}
+
+fn seven_color_gradient(
+    c0: vec3<f32>, c1: vec3<f32>, c2: vec3<f32>, c3: vec3<f32>, c4: vec3<f32>, c5: vec3<f32>, c6: vec3<f32>,
+    t: f32
+) -> vec3<f32> {
+    if (t <= 0.0) { return c0; }
+    if (t >= 1.0) { return c6; }
+
+    let segments: f32 = 6.0;
+    let seg_len: f32 = 1.0 / segments;
+    let s: f32 = floor(t / seg_len);
+    let si: i32 = i32(s);
+    let local_t: f32 = (t - s * seg_len) / seg_len;
+
+    if (si == 0) {
+        return lerp(c0, c1, local_t);
+    } else if (si == 1) {
+        return lerp(c1, c2, local_t);
+    } else if (si == 2) {
+        return lerp(c2, c3, local_t);
+    } else if (si == 3) {
+        return lerp(c3, c4, local_t);
+    } else if (si == 4) {
+        return lerp(c4, c5, local_t);
+    } else {
+        // si == 5
+        return lerp(c5, c6, local_t);
+    }
+}
+
 @vertex
-fn vertex_main() {
+fn vertex_main(
+    @location(0) position: vec3<f32>,
+) -> VertexOutput {
+    var out: VertexOutput;
+    out.position = vec4(position * vec3(uniforms.aspect_ratio * 2.0, 2.0, 1.0), 1.0);
+    out.color = seven_color_gradient(night, sunset, daylight, daylight, daylight, sunset, night, uniforms.time);
+    return out;
 }
 
 @fragment
-fn fragment_main() -> @location(0) vec4<f32> {
+fn fragment_main(vertex: VertexOutput) -> @location(0) vec4<f32> {
+    return vec4(vertex.color, 1.0);
 }
 )";
-
-#pragma endregion
-
-#pragma region UI shaders
 
 static const StringView color_rect_shader_source = R"(
 struct Env
@@ -491,5 +534,3 @@ fn fragment_main(in: VertexOutput) -> @location(0) vec4<f32> {
     return color;
 }
 )";
-
-#pragma endregion

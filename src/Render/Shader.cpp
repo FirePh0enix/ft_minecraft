@@ -33,26 +33,6 @@ Result<Ref<Shader>> Shader::load_compute(const StringView& source)
     return shader;
 }
 
-static WGPUTextureViewDimension convert_texture_view_dimension(TextureDimension dimension)
-{
-    switch (dimension)
-    {
-    case TextureDimension::D1D:
-        return WGPUTextureViewDimension_1D;
-    case TextureDimension::D2D:
-        return WGPUTextureViewDimension_2D;
-    case TextureDimension::D2DArray:
-        return WGPUTextureViewDimension_2DArray;
-    case TextureDimension::D3D:
-        return WGPUTextureViewDimension_3D;
-    case TextureDimension::Cube:
-        return WGPUTextureViewDimension_Cube;
-    case TextureDimension::CubeArray:
-        return WGPUTextureViewDimension_CubeArray;
-    }
-    return {};
-}
-
 static Vector<WGPUBindGroupLayoutEntry> convert_bindings(Shader *shader)
 {
     Vector<WGPUBindGroupLayoutEntry> entries;
@@ -69,7 +49,7 @@ static Vector<WGPUBindGroupLayoutEntry> convert_bindings(Shader *shader)
             entry.visibility = binding.shader_stage;
             entry.texture.sampleType = WGPUTextureSampleType_Float;
             entry.texture.multisampled = false;
-            entry.texture.viewDimension = convert_texture_view_dimension(binding.dimension);
+            entry.texture.viewDimension = binding.dimension;
 
             entries.append(entry);
 
@@ -89,7 +69,7 @@ static Vector<WGPUBindGroupLayoutEntry> convert_bindings(Shader *shader)
             entry.visibility = binding.shader_stage;
             entry.storageTexture.access = WGPUStorageTextureAccess_ReadWrite; // TODO ?
             entry.storageTexture.format = WGPUTextureFormat_RGBA8Unorm;       // TODO: this is the surface format.
-            entry.storageTexture.viewDimension = convert_texture_view_dimension(binding.dimension);
+            entry.storageTexture.viewDimension = binding.dimension;
 
             entries.append(entry);
         }

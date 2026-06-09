@@ -23,6 +23,9 @@ enum class GameScene
  * Number of ticks per in-game day.
  */
 constexpr int64_t ticks_per_day = 60 * 60 * 24;
+constexpr int64_t ticks_noon = ticks_per_day / 2;
+constexpr int64_t ticks_sunrise = ticks_per_day / 4;
+constexpr int64_t ticks_sunset = ticks_noon + ticks_per_day / 4;
 
 class Engine : public Object
 {
@@ -91,6 +94,7 @@ private:
     Ref<Entity> m_player;
     Ref<Font> m_font;
 
+    int64_t m_tick_scale = 15;
     int64_t m_ticks_since_start_of_day = 0;
     int64_t m_fps = 0;
     int64_t m_tps = 0;

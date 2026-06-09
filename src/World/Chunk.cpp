@@ -157,13 +157,6 @@ Result<void> Chunk::build_simple_mesh(size_t slice_index)
                     continue;
 
                 Ref<Block> block = Engine::get().registry().get_block(m_blocks[index].id);
-                // if (block->get_texture_ids()[0] == 2)
-                //     println("Dwadwadawd");
-
-                // #define FACE_NEEDS_RENDER(state, block)                                                                       \
-                //     (state.is_air() ||                                                                                        \
-                //      (block->is_tranparent() && !Engine::get().registry().get_block(Id<Block>(state.id))->is_tranparent()) || \
-                //      (!block->is_tranparent() && Engine::get().registry().get_block(Id<Block>(state.id))->is_tranparent()))
 
                 if (x == 0 || m_blocks[linearize(x - 1, y, z)].is_air())
                     faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::X, false, block->get_texture_index(Axis::X, false)));
@@ -179,8 +172,6 @@ Result<void> Chunk::build_simple_mesh(size_t slice_index)
                     faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Z, false, block->get_texture_index(Axis::Z, false)));
                 if (z == Chunk::width - 1 || m_blocks[linearize(x, y, z + 1)].is_air())
                     faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Z, true, block->get_texture_index(Axis::Z, true)));
-
-#undef FACE_NEEDS_RENDER
             }
         }
     }

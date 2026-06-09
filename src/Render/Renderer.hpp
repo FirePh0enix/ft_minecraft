@@ -84,7 +84,7 @@ class Texture : public Object
 public:
     ~Texture();
 
-    static Result<Ref<Texture>> create(uint32_t width, uint32_t height, WGPUTextureFormat format, WGPUTextureUsage usage = WGPUTextureUsage_None, TextureDimension dimension = TextureDimension::D2D, uint32_t layers = 1, uint32_t mip_level = 1);
+    static Result<Ref<Texture>> create(uint32_t width, uint32_t height, WGPUTextureFormat format, WGPUTextureUsage usage = WGPUTextureUsage_None, WGPUTextureViewDimension dimension = WGPUTextureViewDimension_2D, uint32_t layers = 1, uint32_t mip_level = 1);
     static Ref<Texture> create_from_view(WGPUTextureView view);
     static Result<Ref<Texture>> load(const StringView& path);
 
@@ -182,12 +182,6 @@ enum class MaterialFlagBits
 };
 using MaterialFlags = Flags<MaterialFlagBits>;
 DEFINE_FLAG_TRAITS(MaterialFlagBits);
-
-struct GPU_ATTRIBUTE SimpleUniforms
-{
-    glm::mat4 model_matrix;
-    glm::vec4 color;
-};
 
 class Material : public Object
 {
@@ -332,6 +326,21 @@ DEFINE_WGPU_HANDLE(Surface, WGPUSurface, wgpuSurfaceAddRef, wgpuSurfaceRelease);
 struct GPU_ATTRIBUTE WorldEnvironment
 {
     glm::mat4 view_matrix = glm::identity<glm::mat4>();
+    glm::vec3 sun_direction = glm::vec3();
+    glm::vec3 sun_color = glm::vec3(1.0, 1.0, 1.0);
+    float sun_intensity = 1.0f;
+};
+
+struct GPU_ATTRIBUTE SimpleUniforms
+{
+    glm::mat4 model_matrix;
+    glm::vec4 color;
+};
+
+struct GPU_ATTRIBUTE SkyUniforms
+{
+    float aspect_ratio;
+    float time;
 };
 
 class Renderer
@@ -346,12 +355,18 @@ public:
 
     void configure_surface(size_t width, size_t height, VSync vsync);
 
+    // TODO: Only used by imgui, which will be removed.
     void draw_legacy(std::function<void()> f);
 
     void draw(const Ref<World>& world);
-    void record_world(const Ref<World>& world, WGPURenderPassEncoder encoder);
 
+    void record_world(const Ref<World>& world, WGPURenderPassEncoder encoder);
     void record_simple_shape(WGPURenderPassEncoder encoder, Ref<Material> material, WGPUTextureFormat color_format = WGPUTextureFormat_Undefined);
+
+    /**
+     * Set time in a 0.0-1.0 range for the sky shader.
+     */
+    void set_time(float time);
 
     WGPURenderPipeline get_pipeline(Ref<Material> material, WGPUTextureFormat color_format = WGPUTextureFormat_Undefined, WGPUTextureFormat depth_format = WGPUTextureFormat_Depth32Float);
     WGPUComputePipeline get_compute_pipeline(Ref<Shader> shader);
@@ -402,7 +417,6 @@ private:
 
     // Rendering stuff
     Ref<Texture> m_depth_texture;
-    // Ref<Texture> m_color_texture;
 
     WGPUTextureFormat m_surface_format = WGPUTextureFormat_Undefined;
     Extent2D m_surface_extent;
@@ -421,14 +435,18 @@ private:
 
     Ref<Shader> m_sky_shader;
     Ref<Material> m_sky_material;
+    SkyUniforms m_sky_uniforms;
+    Ref<Buffer> m_sky_uniform_buffer;
 
     Ref<Mesh> m_cube_mesh;
     Ref<Mesh> m_square_mesh;
 
     Ref<Material> m_chunk_material;
     Ref<Material> m_water_material;
-    Ref<Buffer> m_env_buffer;
     Ref<Buffer> m_env_2d_buffer;
+
+    WorldEnvironment m_environment;
+    Ref<Buffer> m_env_buffer;
 
     Ref<Texture> m_missing_texture;
 

@@ -5,15 +5,15 @@
 #include <cstdint>
 #include <tuple>
 
-enum class TextureDimension : uint8_t
-{
-    D1D,
-    D2D,
-    D2DArray,
-    D3D,
-    Cube,
-    CubeArray,
-};
+// enum class TextureDimension : uint8_t
+// {
+//     D1D,
+//     D2D,
+//     D2DArray,
+//     D3D,
+//     Cube,
+//     CubeArray,
+// };
 
 enum class UVType : uint8_t
 {
@@ -82,7 +82,7 @@ struct Binding
     {
     }
 
-    Binding(BindingKind kind, WGPUShaderStage shader_stage, uint32_t group, uint32_t binding, BindingAccess access, TextureDimension dimension)
+    Binding(BindingKind kind, WGPUShaderStage shader_stage, uint32_t group, uint32_t binding, BindingAccess access, WGPUTextureViewDimension dimension)
         : kind(kind), shader_stage(shader_stage), group(group), binding(binding), access(access), dimension(dimension)
     {
     }
@@ -97,6 +97,7 @@ struct Binding
         /**
          * Available only when binding is a `Texture`.
          */
-        TextureDimension dimension = {};
+        WGPUTextureViewDimension dimension = WGPUTextureViewDimension_Undefined;
     };
 };
+
