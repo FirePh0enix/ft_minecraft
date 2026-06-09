@@ -1,7 +1,6 @@
 #include "Render/Shader.hpp"
 
 #include "Core/Assert.hpp"
-#include "Core/Filesystem.hpp"
 #include "Core/Hash.hpp"
 #include "Render/Renderer.hpp"
 #include "Render/Types.hpp"
@@ -11,15 +10,11 @@ Shader::~Shader()
 {
 }
 
-Result<Ref<Shader>> Shader::load(const std::filesystem::path& path)
+Result<Ref<Shader>> Shader::load(const StringView& source)
 {
-    File file = TRY(Filesystem::open_file(path));
-    String source_code = TRY(file.reader().read_to_string());
-    file.close();
-
     Ref<Shader> shader = newref<Shader>();
-    shader->m_source_code = source_code;
-    shader->m_hash = hash_fnv32(source_code);
+    shader->m_source_code = source;
+    shader->m_hash = hash_fnv32(source);
 
     shader->m_entry_point_names.put(WGPUShaderStage_Vertex, "vertex_main");
     shader->m_entry_point_names.put(WGPUShaderStage_Fragment, "fragment_main");
@@ -30,8 +25,8 @@ Result<Ref<Shader>> Shader::load(const std::filesystem::path& path)
 Result<Ref<Shader>> Shader::load_compute(const StringView& source)
 {
     Ref<Shader> shader = newref<Shader>();
-    shader->m_source_code = source.data();
-    shader->m_hash = hash_fnv32(source.data());
+    shader->m_source_code = source;
+    shader->m_hash = hash_fnv32(source);
 
     shader->m_entry_point_names.put(WGPUShaderStage_Compute, "main");
 

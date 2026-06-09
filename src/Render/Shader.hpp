@@ -5,8 +5,6 @@
 #include "Core/Ref.hpp"
 #include "Render/Types.hpp"
 
-#include <filesystem>
-
 enum class ShaderFlagBits
 {
     DepthPass = 1 << 0,
@@ -19,7 +17,7 @@ class Shader : public Object
     CLASS(Shader, Object);
 
 public:
-    static Result<Ref<Shader>> load(const std::filesystem::path& path);
+    static Result<Ref<Shader>> load(const StringView& source);
     static Result<Ref<Shader>> load_compute(const StringView& source);
 
     ~Shader();

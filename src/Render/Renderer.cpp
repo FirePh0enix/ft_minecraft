@@ -41,17 +41,7 @@ static const uint32_t missing_texture_data[16 * 16]{
 };
 // clang-format on
 
-static const StringView sky_shader_source = R"(
-@group(0) @binding(0) var image: texture_storage_2d<rgba8unorm, read_write>;
-
-@compute
-@workgroup_size(8, 8)
-fn main(
-    @builtin(global_invocation_id) id: vec3<u32>
-) {
-    textureStore(image, vec2<u32>(id.xy), vec4<f32>(135.0 / 255.0, 206.0 / 255.0, 235.0 / 255.0, 1.0));
-}
-)";
+#include "Shaders.cpp"
 
 static WGPUTextureViewDimension convert_texture_view_dimension(TextureDimension dimension)
 {
@@ -1055,13 +1045,19 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
 
     m_env_buffer = TRY(Buffer::create(sizeof(WorldEnvironment), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform));
 
-    m_voxel_shader = TRY(Shader::load("assets/shaders/voxel.wgsl"));
+    m_voxel_shader = TRY(Shader::load(chunk_mesh_shader_source));
     m_voxel_shader->set_binding("images", Binding(BindingKind::Texture, WGPUShaderStage_Fragment, 0, 0, BindingAccess::Read, TextureDimension::D2DArray)); // binding = 1 is the sampler
     m_voxel_shader->set_binding("env", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 2, BindingAccess::Read));
     m_voxel_shader->set_sampler("images", {.min_filter = WGPUFilterMode_Nearest, .mag_filter = WGPUFilterMode_Nearest});
     m_voxel_shader->create_bind_group_layout();
 
-    m_model_shader = TRY(Shader::load("assets/shaders/model.wgsl"));
+    m_water_shader = TRY(Shader::load(water_mesh_shader_source));
+    m_water_shader->set_binding("image", Binding(BindingKind::Texture, WGPUShaderStage_Fragment, 0, 0, BindingAccess::Read, TextureDimension::D2D)); // binding = 1 is the sampler
+    m_water_shader->set_binding("env", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 2, BindingAccess::Read));
+    m_water_shader->set_sampler("image", {.min_filter = WGPUFilterMode_Nearest, .mag_filter = WGPUFilterMode_Nearest});
+    m_water_shader->create_bind_group_layout();
+
+    m_model_shader = TRY(Shader::load(model_shader_source));
     m_model_shader->set_binding("env", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
     m_model_shader->set_binding("model", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 1, BindingAccess::Read));
     m_model_shader->set_binding("global_model", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 2, BindingAccess::Read));
@@ -1072,13 +1068,13 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
 
     m_cube_mesh = TRY(create_cube_mesh());
 
-    m_preview_block_shader = TRY(Shader::load("assets/shaders/block_preview.wgsl"));
+    m_preview_block_shader = TRY(Shader::load(block_preview_shader_source));
     m_preview_block_shader->set_binding("model", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
     m_preview_block_shader->set_binding("images", Binding(BindingKind::Texture, WGPUShaderStage_Fragment, 0, 1, BindingAccess::Read, TextureDimension::D2DArray)); // binding = 3 is the sampler
     m_preview_block_shader->set_sampler("images", {.min_filter = WGPUFilterMode_Nearest, .mag_filter = WGPUFilterMode_Nearest});
     m_preview_block_shader->create_bind_group_layout();
 
-    m_item_block_shader = TRY(Shader::load("assets/shaders/block.wgsl"));
+    m_item_block_shader = TRY(Shader::load(item_block_shader_source));
     m_item_block_shader->set_binding("env", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
     m_item_block_shader->set_binding("model", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 1, BindingAccess::Read));
     m_item_block_shader->set_binding("images", Binding(BindingKind::Texture, WGPUShaderStage_Fragment, 0, 2, BindingAccess::Read, TextureDimension::D2DArray)); // binding = 3 is the sampler
@@ -1095,17 +1091,11 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_chunk_material->set_param("images", Engine::get().registry().get_texture_array());
     m_chunk_material->set_param("env", Renderer::get().get_world_environment());
 
-    m_water_shader = TRY(Shader::load("assets/shaders/water.wgsl"));
-    m_water_shader->set_binding("image", Binding(BindingKind::Texture, WGPUShaderStage_Fragment, 0, 0, BindingAccess::Read, TextureDimension::D2D)); // binding = 1 is the sampler
-    m_water_shader->set_binding("env", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 2, BindingAccess::Read));
-    m_water_shader->set_sampler("image", {.min_filter = WGPUFilterMode_Nearest, .mag_filter = WGPUFilterMode_Nearest});
-    m_water_shader->create_bind_group_layout();
-
     m_water_material = TRY(Material::create(m_water_shader, MaterialFlagBits::Transparency, WGPUCullMode_Back, UVType::UV, Instance(attributes, sizeof(glm::vec3))));
     m_water_material->set_param("image", Engine::get().registry().create_texture("assets/textures/water.png"));
     m_water_material->set_param("env", Renderer::get().get_world_environment());
 
-    m_simple_shader = TRY(Shader::load("assets/shaders/simple_shape.wgsl"));
+    m_simple_shader = TRY(Shader::load(simple_shape_source));
     m_simple_shader->set_binding("env", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
     m_simple_shader->set_binding("model", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 1, BindingAccess::Read));
     m_simple_shader->create_bind_group_layout();
@@ -1125,12 +1115,12 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     };
     m_square_mesh = TRY(Mesh::create_from_data(View(indices).as_bytes(), vertices, {}, View(uvs).as_bytes(), WGPUIndexFormat_Uint16));
 
-    m_color_rect_shader = TRY(Shader::load("assets/shaders/ui/color_rect.wgsl"));
+    m_color_rect_shader = TRY(Shader::load(color_rect_shader_source));
     m_color_rect_shader->set_binding("env", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
     m_color_rect_shader->set_binding("uniforms", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 1, BindingAccess::Read));
     m_color_rect_shader->create_bind_group_layout();
 
-    m_texture_rect_shader = TRY(Shader::load("assets/shaders/ui/tex_rect.wgsl"));
+    m_texture_rect_shader = TRY(Shader::load(texture_rect_shader_source));
     m_texture_rect_shader->set_binding("env", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
     m_texture_rect_shader->set_binding("uniforms", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 1, BindingAccess::Read));
     m_texture_rect_shader->set_binding("image", Binding(BindingKind::Texture, WGPUShaderStage_Fragment, 0, 2, BindingAccess::Read, TextureDimension::D2D)); // binding = 3 is the sampler
