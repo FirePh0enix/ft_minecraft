@@ -3,6 +3,7 @@
 #include "Args.hpp"
 #include "Console.hpp"
 #include "Core/Class.hpp"
+#include "Core/Definitions.hpp"
 #include "Entity/Entity.hpp"
 #include "Entity/Player.hpp"
 #include "Font.hpp"
@@ -34,7 +35,7 @@ public:
     bool is_running() const { return m_window->is_running(); }
 
     void tick(float delta);
-    void draw();
+    void draw(float delta);
 
     bool is_server() const { return m_authority == RpcTarget::Server; }
 
@@ -61,8 +62,8 @@ public:
 
     float time();
 
-    int64_t get_fps() const { return m_fps; }
-    int64_t get_tps() const { return m_tps; }
+    ALWAYS_INLINE int64_t get_fps() const { return m_fps; }
+    ALWAYS_INLINE int64_t get_tps() const { return m_tps; }
 
     /**
      * Time of day in ticks since the start of the day.
@@ -88,17 +89,16 @@ private:
 
     Ref<World> m_world;
     Ref<Entity> m_player;
-
-    // Ref<Texture> m_depth_texture;
-    // Ref<Texture> m_color_texture;
-
     Ref<Font> m_font;
 
     int64_t m_ticks_since_start_of_day = 0;
     int64_t m_fps = 0;
     int64_t m_tps = 0;
+    int64_t m_current_fps = 0;
+    int64_t m_current_tps = 0;
 
     float m_last_second_timer_time = 0.0;
+    float m_last_second_frame_time = 0.0;
     size_t m_current_memory_usage = 0;
 
     // main menu stuff
@@ -117,8 +117,6 @@ private:
 
     void create_world_and_start();
     void connect_to_remote_world();
-
-    void recreate_graph();
 
     static void receive_client(void *, NetworkConnection& conn, ENetPacket *packet, const Client& client);
     static void connect_client(void *, NetworkConnection& conn, const Client& client);

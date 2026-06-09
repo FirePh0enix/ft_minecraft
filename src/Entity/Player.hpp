@@ -32,6 +32,7 @@ private:
     Player *m_player;
 
     Ref<Label> m_memory_label;
+    Ref<Label> m_gpu_objects_label;
     Ref<Label> m_perfomance_label;
     Ref<Label> m_time_label;
     Ref<Label> m_position_label;

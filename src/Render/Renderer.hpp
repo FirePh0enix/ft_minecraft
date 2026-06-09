@@ -291,6 +291,8 @@ public:
     Result<WGPUComputePipeline> get_compute(const ComputeKey& key);
     void clear();
 
+    size_t count() const { return m_pipelines.size() + m_compute_pipelines.size(); }
+
 private:
     Map<Key, WGPURenderPipeline> m_pipelines;
     Map<ComputeKey, WGPUComputePipeline> m_compute_pipelines;
@@ -384,6 +386,7 @@ public:
     View<uint8_t> get_missing_texture_data() const;
 
     size_t get_device_memory_usage() const { return m_device_memory_allocated - m_device_memory_freed; }
+    size_t get_pipeline_count() const { return m_pipeline_cache.count(); }
 
     static ALWAYS_INLINE Renderer& get() { return *singleton; }
 

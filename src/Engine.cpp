@@ -8,6 +8,7 @@
 #include "Core/Ref.hpp"
 #include "Core/Result.hpp"
 #include "Core/Types.hpp"
+#include "Entity/Cow.hpp"
 #include "Entity/Entity.hpp"
 #include "Entity/Player.hpp"
 #include "Entity/Zombie.hpp"
@@ -44,8 +45,6 @@ Engine::Engine(const Args& args)
     // m_depth_texture = EXPECT(Texture::create(1280, 720, WGPUTextureFormat_Depth32Float, WGPUTextureUsage_RenderAttachment));
     // m_color_texture = EXPECT(Texture::create(1280, 720, WGPUTextureFormat_RGBA8UnormSrgb, WGPUTextureUsage_RenderAttachment));
 
-    recreate_graph();
-
     EXPECT(Font::init_library());
     m_font = EXPECT(Font::create("assets/fonts/Anonymous.ttf", 32));
 
@@ -79,6 +78,7 @@ void Engine::register_entities()
     Entity::bind_methods();
 
     m_entity_registry.register_entity<Player>();
+    m_entity_registry.register_entity<Cow>();
     m_entity_registry.register_entity<Zombie>();
 }
 
@@ -107,10 +107,6 @@ void Engine::tick(float delta)
                 const uint32_t w = event.window.data1;
                 const uint32_t h = event.window.data2;
                 Renderer::get().configure_surface(w, h, VSync::On);
-
-                // m_depth_texture = EXPECT(Texture::create(w, h, WGPUTextureFormat_Depth32Float, WGPUTextureUsage_RenderAttachment));
-                // m_color_texture = EXPECT(Texture::create(w, h, WGPUTextureFormat_RGBA8UnormSrgb, WGPUTextureUsage_RenderAttachment));
-                // recreate_graph();
 
                 if (m_scene == GameScene::World)
                     m_world->get_active_camera()->update_projection((float)w / (float)h);
@@ -150,9 +146,12 @@ void Engine::tick(float delta)
         }
     }
 
+    m_current_tps++;
     if (m_last_second_timer_time >= 1.0)
     {
         m_current_memory_usage = core::get_memory_usage();
+        m_tps = m_current_tps;
+        m_current_tps = 0;
         m_last_second_timer_time -= 1.0;
     }
     m_last_second_timer_time += delta;
@@ -168,15 +167,6 @@ void Engine::tick(float delta)
     case GameScene::World:
     {
         m_world->tick(delta);
-
-        // if (is_server() && is_online())
-        // {
-        //     for (Ref<Entity> entity : m_world->get_dimension(0).get_entities())
-        //     {
-        //         UpdateEntityPacket p(entity->id(), entity->get_transform().position(), entity->get_transform().rotation());
-        //         m_connection.broadcast(m_connection.create_packet(p));
-        //     }
-        // }
     }
     break;
     }
@@ -187,8 +177,10 @@ void Engine::tick(float delta)
         m_ticks_since_start_of_day = 0;
 }
 
-void Engine::draw()
+void Engine::draw(float delta)
 {
+    ZoneScoped;
+
     switch (m_scene)
     {
     case GameScene::MainMenu:
@@ -200,6 +192,15 @@ void Engine::draw()
     default:
         break;
     }
+
+    m_current_fps++;
+    if (m_last_second_frame_time >= 1.0)
+    {
+        m_fps = m_current_fps;
+        m_current_fps = 0;
+        m_last_second_frame_time -= 1.0;
+    }
+    m_last_second_frame_time += delta;
 }
 
 void Engine::draw_main_menu()
@@ -332,31 +333,6 @@ void Engine::connect_to_remote_world()
     EXPECT(m_connection.connect_to(m_connect_ip, m_connect_port));
 
     // After this point we are waiting for the server to send us information about the world.
-}
-
-void Engine::recreate_graph()
-{
-    // #ifndef __platform_macos
-    //     Ref<RenderPassNode> depth_pass = EXPECT(newref<RenderPassNode>());
-    //     depth_pass->set_depth_output(m_depth_texture);
-    // #endif
-
-    // Ref<RenderPassNode> color_pass = newref<RenderPassNode>();
-    // color_pass->set_depth_output(m_depth_texture);
-    // color_pass->set_color_output(m_color_texture);
-    // color_pass->set_output_to_surface(true);
-    // color_pass->set_next(nullptr);
-
-    // #ifndef __platform_macos
-    //     color_pass->set_load_depth(true);
-    //     depth_pass->set_next(color_pass);
-    // #endif
-
-    // #ifndef __platform_macos
-    //     m_graph.set_root(depth_pass);
-    // #else
-    // m_graph.set_root(color_pass);
-    // #endif
 }
 
 void Engine::receive_client(void *user, NetworkConnection& conn, ENetPacket *packet, const Client& client)

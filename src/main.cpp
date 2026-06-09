@@ -64,12 +64,14 @@ MAIN(int argc, char *argv[])
     while (engine->is_running())
     {
         const float elapsed_time = (float)(clock() - last_update_time) / CLOCKS_PER_SEC;
-        if (elapsed_time > fixed_update_time)
+        if (elapsed_time >= fixed_update_time)
         {
+            FrameMark;
+
             last_update_time = clock();
 
-            engine->tick(float(fixed_update_time));
-            engine->draw();
+            engine->tick(float(fixed_update_time)); // TODO: change to elapsed time or something
+            engine->draw(float(fixed_update_time));
             Input::post_events();
         }
     }

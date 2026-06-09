@@ -246,10 +246,12 @@ if(TARGET_IS_LINUX OR TARGET_IS_MACOS OR TARGET_IS_WINDOWS)
         set(WGPU_ARCH "x86_64")
     endif()
 
+    set(WGPU_BUILD "release")
+
     # wgpu-native
     FetchContent_Declare(
         wgpu-native
-        URL https://github.com/gfx-rs/wgpu-native/releases/download/v29.0.0.0/wgpu-${WGPU_PLATFORM}-${WGPU_ARCH}-debug.zip
+        URL https://github.com/gfx-rs/wgpu-native/releases/download/v29.0.0.0/wgpu-${WGPU_PLATFORM}-${WGPU_ARCH}-${WGPU_BUILD}.zip
     )
     FetchContent_MakeAvailable(wgpu-native)
 

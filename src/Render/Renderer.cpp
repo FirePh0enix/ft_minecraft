@@ -9,12 +9,12 @@
 #include "Core/Result.hpp"
 #include "Engine.hpp"
 #include "Entity/Entity.hpp"
+#include "Profiler.hpp"
 #include "Render/Shader.hpp"
 #include "Render/Types.hpp"
 #include "World/Dimension.hpp"
 #include "World/Registry.hpp"
 #include "World/World.hpp"
-#include "webgpu/webgpu.h"
 
 #include <backends/imgui_impl_sdl3.h>
 #include <backends/imgui_impl_wgpu.h>
@@ -1251,6 +1251,8 @@ void Renderer::draw_legacy(std::function<void()> f)
 
 void Renderer::draw(const Ref<World>& world)
 {
+    ZoneScoped;
+
     WGPUSurfaceTexture surface_texture{};
     wgpuSurfaceGetCurrentTexture(m_surface, &surface_texture);
 
@@ -1310,6 +1312,8 @@ void Renderer::draw(const Ref<World>& world)
     WGPUCommandBuffer command_buffer = wgpuCommandEncoderFinish(encoder, nullptr);
 
     {
+        ZoneScopedN("submit");
+
         std::lock_guard<std::mutex> guard(Renderer::get().get_queue_mutex());
         wgpuQueueSubmit(m_queue, 1, &command_buffer);
     }
@@ -1329,6 +1333,8 @@ void Renderer::draw(const Ref<World>& world)
 
 void Renderer::record_world(const Ref<World>& world, WGPURenderPassEncoder encoder)
 {
+    ZoneScoped;
+
     const Dimension& dim = world->get_dimension(0);
     const Ref<Camera> camera = world->get_active_camera();
 
@@ -1342,82 +1348,97 @@ void Renderer::record_world(const Ref<World>& world, WGPURenderPassEncoder encod
 
     Ref<Material> material = m_chunk_material;
 
-    for (Ref<Entity> entity : dim.get_entities())
-        if (!entity.is_null())
-            entity->draw(encoder);
-
-    WGPURenderPipeline pipeline = get_pipeline(material, m_surface_format);
-    wgpuRenderPassEncoderSetPipeline(encoder, pipeline);
-    wgpuRenderPassEncoderSetBindGroup(encoder, 0, material->get_bind_group(), 0, nullptr);
-
-    for (const auto& [key, chunk] : dim.get_chunks())
     {
-        ChunkPos pos = chunk->pos();
-        AABB aabb = AABB(-glm::vec3(Chunk::width / 2.0, Chunk::height, Chunk::width / 2), glm::vec3(Chunk::width / 2.0, Chunk::height, Chunk::width / 2))
-                        .translate(glm::vec3((float)pos.x * Chunk::width + Chunk::width / 2.0, float(Chunk::height) / 2.0, (float)pos.z * Chunk::width + Chunk::width / 2.0));
+        ZoneScopedN("draw entities");
 
-        if (!camera->frustum().contains(aabb))
-            continue;
+        for (Ref<Entity> entity : dim.get_entities())
+            if (!entity.is_null())
+                entity->draw(encoder);
+    }
 
-        const Chunk::Slice *slices = chunk->get_slices();
+    {
+        ZoneScopedN("draw opaque");
 
-        // TODO: do the frustum check per slice.
-        for (size_t i = 0; i < Chunk::slice_count; i++)
+        WGPURenderPipeline pipeline = get_pipeline(material, m_surface_format);
+        wgpuRenderPassEncoderSetPipeline(encoder, pipeline);
+        wgpuRenderPassEncoderSetBindGroup(encoder, 0, material->get_bind_group(), 0, nullptr);
+
+        for (const auto& [key, chunk] : dim.get_chunks())
         {
-            const Chunk::Slice& slice = slices[i];
+            ChunkPos pos = chunk->pos();
+            AABB aabb = AABB(-glm::vec3(Chunk::width / 2.0, Chunk::height, Chunk::width / 2), glm::vec3(Chunk::width / 2.0, Chunk::height, Chunk::width / 2))
+                            .translate(glm::vec3((float)pos.x * Chunk::width + Chunk::width / 2.0, float(Chunk::height) / 2.0, (float)pos.z * Chunk::width + Chunk::width / 2.0));
 
-            if (slice.mesh.is_null())
+            if (!camera->frustum().contains(aabb))
                 continue;
 
-            const Ref<Mesh>& mesh = slice.mesh;
-            wgpuRenderPassEncoderSetIndexBuffer(encoder, mesh->get_buffer(Mesh::BufferKind::Index)->handle(), mesh->index_type(), 0, mesh->get_buffer(Mesh::BufferKind::Index)->size());
-            wgpuRenderPassEncoderSetVertexBuffer(encoder, 0, mesh->get_buffer(Mesh::BufferKind::Position)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Position)->size());
-            wgpuRenderPassEncoderSetVertexBuffer(encoder, 1, mesh->get_buffer(Mesh::BufferKind::Normal)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Normal)->size());
-            wgpuRenderPassEncoderSetVertexBuffer(encoder, 2, mesh->get_buffer(Mesh::BufferKind::UV)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::UV)->size());
-            wgpuRenderPassEncoderSetVertexBuffer(encoder, 3, chunk->get_chunk_buffer()->handle(), sizeof(glm::vec3) * i, sizeof(glm::vec3));
+            const Chunk::Slice *slices = chunk->get_slices();
 
-            wgpuRenderPassEncoderDrawIndexed(encoder, mesh->vertex_count(), 1, 0, 0, 0);
+            // TODO: do the frustum check per slice.
+            for (size_t i = 0; i < Chunk::slice_count; i++)
+            {
+                const Chunk::Slice& slice = slices[i];
+
+                if (slice.mesh.is_null())
+                    continue;
+
+                const Ref<Mesh>& mesh = slice.mesh;
+                wgpuRenderPassEncoderSetIndexBuffer(encoder, mesh->get_buffer(Mesh::BufferKind::Index)->handle(), mesh->index_type(), 0, mesh->get_buffer(Mesh::BufferKind::Index)->size());
+                wgpuRenderPassEncoderSetVertexBuffer(encoder, 0, mesh->get_buffer(Mesh::BufferKind::Position)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Position)->size());
+                wgpuRenderPassEncoderSetVertexBuffer(encoder, 1, mesh->get_buffer(Mesh::BufferKind::Normal)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Normal)->size());
+                wgpuRenderPassEncoderSetVertexBuffer(encoder, 2, mesh->get_buffer(Mesh::BufferKind::UV)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::UV)->size());
+                wgpuRenderPassEncoderSetVertexBuffer(encoder, 3, chunk->get_chunk_buffer()->handle(), sizeof(glm::vec3) * i, sizeof(glm::vec3));
+
+                wgpuRenderPassEncoderDrawIndexed(encoder, mesh->vertex_count(), 1, 0, 0, 0);
+            }
         }
     }
 
-    pipeline = get_pipeline(m_water_material, m_surface_format);
-    wgpuRenderPassEncoderSetPipeline(encoder, pipeline);
-    wgpuRenderPassEncoderSetBindGroup(encoder, 0, m_water_material->get_bind_group(), 0, nullptr);
-
-    // TODO: sort back to front.
-
-    for (const auto& [key, chunk] : dim.get_chunks())
     {
-        ChunkPos pos = chunk->pos();
-        AABB aabb = AABB(-glm::vec3(Chunk::width / 2.0, Chunk::height, Chunk::width / 2), glm::vec3(Chunk::width / 2.0, Chunk::height, Chunk::width / 2))
-                        .translate(glm::vec3((float)pos.x * Chunk::width + Chunk::width / 2.0, float(Chunk::height) / 2.0, (float)pos.z * Chunk::width + Chunk::width / 2.0));
+        ZoneScopedN("draw transparent");
 
-        if (!camera->frustum().contains(aabb))
-            continue;
+        WGPURenderPipeline pipeline = get_pipeline(m_water_material, m_surface_format);
+        wgpuRenderPassEncoderSetPipeline(encoder, pipeline);
+        wgpuRenderPassEncoderSetBindGroup(encoder, 0, m_water_material->get_bind_group(), 0, nullptr);
 
-        const Chunk::Slice *slices = chunk->get_slices();
+        // TODO: sort back to front.
 
-        // TODO: do the frustum check per slice.
-        for (size_t i = 0; i < Chunk::slice_count; i++)
+        for (const auto& [key, chunk] : dim.get_chunks())
         {
-            const Chunk::Slice& slice = slices[i];
+            ChunkPos pos = chunk->pos();
+            AABB aabb = AABB(-glm::vec3(Chunk::width / 2.0, Chunk::height, Chunk::width / 2), glm::vec3(Chunk::width / 2.0, Chunk::height, Chunk::width / 2))
+                            .translate(glm::vec3((float)pos.x * Chunk::width + Chunk::width / 2.0, float(Chunk::height) / 2.0, (float)pos.z * Chunk::width + Chunk::width / 2.0));
 
-            if (slice.water_mesh.is_null())
+            if (!camera->frustum().contains(aabb))
                 continue;
 
-            const Ref<Mesh>& mesh = slice.water_mesh;
-            wgpuRenderPassEncoderSetIndexBuffer(encoder, mesh->get_buffer(Mesh::BufferKind::Index)->handle(), mesh->index_type(), 0, mesh->get_buffer(Mesh::BufferKind::Index)->size());
-            wgpuRenderPassEncoderSetVertexBuffer(encoder, 0, mesh->get_buffer(Mesh::BufferKind::Position)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Position)->size());
-            wgpuRenderPassEncoderSetVertexBuffer(encoder, 1, mesh->get_buffer(Mesh::BufferKind::Normal)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Normal)->size());
-            wgpuRenderPassEncoderSetVertexBuffer(encoder, 2, mesh->get_buffer(Mesh::BufferKind::UV)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::UV)->size());
-            wgpuRenderPassEncoderSetVertexBuffer(encoder, 3, chunk->get_chunk_buffer()->handle(), sizeof(glm::vec3) * i, sizeof(glm::vec3));
+            const Chunk::Slice *slices = chunk->get_slices();
 
-            wgpuRenderPassEncoderDrawIndexed(encoder, mesh->vertex_count(), 1, 0, 0, 0);
+            // TODO: do the frustum check per slice.
+            for (size_t i = 0; i < Chunk::slice_count; i++)
+            {
+                const Chunk::Slice& slice = slices[i];
+
+                if (slice.water_mesh.is_null())
+                    continue;
+
+                const Ref<Mesh>& mesh = slice.water_mesh;
+                wgpuRenderPassEncoderSetIndexBuffer(encoder, mesh->get_buffer(Mesh::BufferKind::Index)->handle(), mesh->index_type(), 0, mesh->get_buffer(Mesh::BufferKind::Index)->size());
+                wgpuRenderPassEncoderSetVertexBuffer(encoder, 0, mesh->get_buffer(Mesh::BufferKind::Position)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Position)->size());
+                wgpuRenderPassEncoderSetVertexBuffer(encoder, 1, mesh->get_buffer(Mesh::BufferKind::Normal)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Normal)->size());
+                wgpuRenderPassEncoderSetVertexBuffer(encoder, 2, mesh->get_buffer(Mesh::BufferKind::UV)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::UV)->size());
+                wgpuRenderPassEncoderSetVertexBuffer(encoder, 3, chunk->get_chunk_buffer()->handle(), sizeof(glm::vec3) * i, sizeof(glm::vec3));
+
+                wgpuRenderPassEncoderDrawIndexed(encoder, mesh->vertex_count(), 1, 0, 0, 0);
+            }
         }
     }
 
-    for (Ref<Entity> entity : dim.get_entities())
-        entity->draw_ui(encoder);
+    {
+        ZoneScopedN("draw ui");
+        for (Ref<Entity> entity : dim.get_entities())
+            entity->draw_ui(encoder);
+    }
 }
 
 WGPURenderPipeline Renderer::get_pipeline(Ref<Material> material, WGPUTextureFormat color_format, WGPUTextureFormat depth_format)
