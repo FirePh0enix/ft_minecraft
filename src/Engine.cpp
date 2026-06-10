@@ -170,9 +170,12 @@ void Engine::tick(float delta)
 
     Input::post_events();
 
-    m_ticks_since_start_of_day += 1 * m_tick_scale;
-    if (m_ticks_since_start_of_day > ticks_per_day)
-        m_ticks_since_start_of_day = 0;
+    if (m_time_pass)
+    {
+        m_ticks_since_start_of_day += 1 * m_tick_scale;
+        if (m_ticks_since_start_of_day > ticks_per_day)
+            m_ticks_since_start_of_day = 0;
+    }
 }
 
 void Engine::draw(float delta)

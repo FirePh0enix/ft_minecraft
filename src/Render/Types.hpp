@@ -5,16 +5,6 @@
 #include <cstdint>
 #include <tuple>
 
-// enum class TextureDimension : uint8_t
-// {
-//     D1D,
-//     D2D,
-//     D2DArray,
-//     D3D,
-//     Cube,
-//     CubeArray,
-// };
-
 enum class UVType : uint8_t
 {
     /**
@@ -100,4 +90,3 @@ struct Binding
         WGPUTextureViewDimension dimension = WGPUTextureViewDimension_Undefined;
     };
 };
-

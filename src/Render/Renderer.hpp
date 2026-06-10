@@ -32,9 +32,6 @@
 
 class World;
 
-class RenderGraph;
-class RenderPassNode;
-
 enum class InitFlagBits
 {
     None = 0,
@@ -327,8 +324,7 @@ struct GPU_ATTRIBUTE WorldEnvironment
 {
     glm::mat4 view_matrix = glm::identity<glm::mat4>();
     glm::vec3 sun_direction = glm::vec3();
-    glm::vec3 sun_color = glm::vec3(1.0, 1.0, 1.0);
-    float sun_intensity = 1.0f;
+    glm::vec3 sun_color = glm::vec4(1.0, 1.0, 1.0, 1.0);
 };
 
 struct GPU_ATTRIBUTE SimpleUniforms
@@ -339,7 +335,7 @@ struct GPU_ATTRIBUTE SimpleUniforms
 
 struct GPU_ATTRIBUTE SkyUniforms
 {
-    float aspect_ratio;
+    glm::mat4 model_matrix;
     float time;
 };
 
@@ -355,7 +351,7 @@ public:
 
     void configure_surface(size_t width, size_t height, VSync vsync);
 
-    // TODO: Only used by imgui, which will be removed.
+    // TODO: Only used by imgui for the main menu, which will be removed.
     void draw_legacy(std::function<void()> f);
 
     void draw(const Ref<World>& world);
@@ -368,7 +364,12 @@ public:
      */
     void set_time(float time);
 
-    WGPURenderPipeline get_pipeline(Ref<Material> material, WGPUTextureFormat color_format = WGPUTextureFormat_Undefined, WGPUTextureFormat depth_format = WGPUTextureFormat_Depth32Float);
+    void set_underwater(bool v) { m_underwater_effect = v; }
+
+    /**
+     * @param color_format If None then the default render target format is used.
+     */
+    WGPURenderPipeline get_pipeline(Ref<Material> material, Option<WGPUTextureFormat> color_format = None, WGPUTextureFormat depth_format = WGPUTextureFormat_Depth32Float);
     WGPUComputePipeline get_compute_pipeline(Ref<Shader> shader);
 
     WGPUSampler get_sampler(const SamplerDescriptor& desc) { return m_sampler_cache.get(desc); }
@@ -417,12 +418,17 @@ private:
 
     // Rendering stuff
     Ref<Texture> m_depth_texture;
+    Ref<Texture> m_color_texture;
+    WGPUTextureFormat m_color_format = WGPUTextureFormat_RGBA8Unorm;
 
     WGPUTextureFormat m_surface_format = WGPUTextureFormat_Undefined;
     Extent2D m_surface_extent;
 
     PipelineCache m_pipeline_cache;
     SamplerCache m_sampler_cache;
+
+    Ref<Shader> m_surface_shader;
+    Ref<Material> m_surface_material;
 
     Ref<Shader> m_voxel_shader;
     Ref<Shader> m_model_shader;
@@ -433,9 +439,12 @@ private:
     Ref<Shader> m_texture_rect_shader;
     Ref<Shader> m_water_shader;
 
+    Ref<Shader> m_underwater_shader;
+    Ref<Material> m_underwater_material;
+
     Ref<Shader> m_sky_shader;
     Ref<Material> m_sky_material;
-    SkyUniforms m_sky_uniforms;
+    SkyUniforms m_sky_uniforms{};
     Ref<Buffer> m_sky_uniform_buffer;
 
     Ref<Mesh> m_cube_mesh;
@@ -452,6 +461,8 @@ private:
 
     std::atomic_size_t m_device_memory_allocated = 0;
     std::atomic_size_t m_device_memory_freed = 0;
+
+    bool m_underwater_effect = false;
 
     static inline Renderer *singleton;
 };

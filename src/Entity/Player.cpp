@@ -316,6 +316,8 @@ void Player::tick(float delta)
     const bool in_water = is_in_water();
     const bool chunk_loaded = chunk_is_loaded();
 
+    Renderer::get().set_underwater(m_world->get_dimension(m_dimension).get_tag(get_position() + glm::vec3(0, 1.2, 0.0), "water").has_value());
+
     float updown_dir = 0.0;
     if (are_input_available() && m_local_player && (!has_gravity() || in_water))
     {

@@ -5,8 +5,7 @@ struct Environment
 {
     view_matrix: mat4x4<f32>,
     sun_direction: vec3<f32>,
-    sun_color: vec3<f32>,
-    sun_intensity: f32,
+    sun_color: vec4<f32>,
 };
 
 struct VertexOutput
@@ -17,10 +16,14 @@ struct VertexOutput
     @location(1) uv: vec2<f32>,
     @location(2) normal: vec3<f32>,
     @location(3) light_vec: vec3<f32>,
-    @location(4) light_color: vec3<f32>,
+    @location(4) light_color: vec4<f32>,
     @location(5) texture_index: u32,
     @location(6) gradient_color: vec3<f32>,
 };
+
+fn mix(a: vec4<f32>, b: vec4<f32>, t: f32) -> vec4<f32> {
+    return a * (1.0 - t) + b * t;
+}
 
 @group(0) @binding(0) var images: texture_2d_array<f32>;
 @group(0) @binding(1) var images_sampler: sampler;
@@ -61,9 +64,9 @@ fn fragment_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let L = in.light_vec;
     let V = normalize(in.world_position.xyz);
     let R = normalize(-reflect(L, N));
-    let diffuse = max(dot(N, -L), minimum_brightness) * in.light_color * color.rgb;
+    let diffuse = mix(max(dot(N, -L), minimum_brightness) * color, max(dot(N, -L), minimum_brightness) * in.light_color, in.light_color.a);
 
-    return vec4<f32>(diffuse, color.a);
+    return diffuse;
 }
 )";
 
@@ -376,10 +379,57 @@ fn fragment_main(in: VertexOutput) -> @location(0) vec4<f32> {
 }
 )";
 
-static const StringView sky_shader_source = R"(
+static const StringView surface_shader_source = R"(
+struct Env
+{
+    matrix: mat4x4<f32>,
+}
+
 struct Uniforms
 {
-    aspect_ratio: f32,
+    model_matrix: mat4x4<f32>,
+    time: f32,
+}
+
+struct VertexOutput
+{
+    @builtin(position) position: vec4<f32>,
+    @location(0) uv: vec2<f32>,
+}
+
+@group(0) @binding(0) var<uniform> uniforms: Uniforms;
+@group(0) @binding(1) var<uniform> env: Env;
+@group(0) @binding(2) var render_target: texture_2d<f32>;
+@group(0) @binding(3) var render_target_sampler: sampler;
+
+@vertex
+fn vertex_main(
+    @location(0) position: vec3<f32>,
+    @location(1) uv: vec2<f32>,
+) -> VertexOutput {
+    var out: VertexOutput;
+    out.position = env.matrix * uniforms.model_matrix * vec4(position, 1.0);
+    out.uv = uv;
+    return out;
+}
+
+@fragment
+fn fragment_main(vertex: VertexOutput) -> @location(0) vec4<f32> {
+    var uv2 = vertex.uv;
+    uv2.y = 1.0 - uv2.y;
+    return textureSample(render_target, render_target_sampler, uv2);
+}
+)";
+
+static const StringView sky_shader_source = R"(
+struct Env
+{
+    matrix: mat4x4<f32>,
+}
+
+struct Uniforms
+{
+    model_matrix: mat4x4<f32>,
     time: f32,
 }
 
@@ -390,6 +440,7 @@ struct VertexOutput
 }
 
 @group(0) @binding(0) var<uniform> uniforms: Uniforms;
+@group(0) @binding(1) var<uniform> env: Env;
 
 const night = vec3<f32>(2.0 / 255.0, 7.0 / 255.0, 26.0 / 255.0);
 const daylight = vec3<f32>(135.0 / 255.0, 206.0 / 255.0, 235.0 / 255.0);
@@ -437,7 +488,7 @@ fn vertex_main(
     @location(0) position: vec3<f32>,
 ) -> VertexOutput {
     var out: VertexOutput;
-    out.position = vec4(position * vec3(uniforms.aspect_ratio * 2.0, 2.0, 1.0), 1.0);
+    out.position = env.matrix * uniforms.model_matrix * vec4(position, 1.0);
     out.color = seven_color_gradient(night, sunset, daylight, daylight, daylight, sunset, night, uniforms.time);
     return out;
 }
@@ -482,6 +533,52 @@ fn vertex_main(
 @fragment
 fn fragment_main(in: VertexOutput) -> @location(0) vec4<f32> {
     return in.color;
+}
+)";
+
+static const StringView underwater_shader_source = R"(
+struct Env
+{
+    matrix: mat4x4<f32>,
+}
+
+struct Uniforms
+{
+    model_matrix: mat4x4<f32>,
+    time: f32,
+}
+
+struct VertexOutput
+{
+    @builtin(position) position: vec4<f32>,
+    @location(0) uv: vec2<f32>,
+}
+
+fn mix(a: vec4<f32>, b: vec4<f32>, t: f32) -> vec4<f32> {
+    return a * (1.0 - t) + b * t;
+}
+
+@group(0) @binding(0) var<uniform> uniforms: Uniforms;
+@group(0) @binding(1) var<uniform> env: Env;
+@group(0) @binding(2) var render_target: texture_2d<f32>;
+@group(0) @binding(3) var render_target_sampler: sampler;
+
+@vertex
+fn vertex_main(
+    @location(0) position: vec3<f32>,
+    @location(1) uv: vec2<f32>,
+) -> VertexOutput {
+    var out: VertexOutput;
+    out.position = env.matrix * uniforms.model_matrix * vec4(position, 1.0);
+    out.uv = uv;
+    return out;
+}
+
+@fragment
+fn fragment_main(vertex: VertexOutput) -> @location(0) vec4<f32> {
+    var uv2 = vertex.uv;
+    uv2.y = 1.0 - uv2.y;
+    return mix(textureSample(render_target, render_target_sampler, uv2), vec4(0.0, 0.0, 1.0, 1.0), 0.5);
 }
 )";
 

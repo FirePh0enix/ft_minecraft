@@ -189,7 +189,7 @@ void Model::encode(WGPURenderPassEncoder encoder, const Transform3D& transform)
     {
         Ref<Material> material = obj.material;
 
-        WGPURenderPipeline pipeline = Renderer::get().get_pipeline(material, Renderer::get().get_surface_format());
+        WGPURenderPipeline pipeline = Renderer::get().get_pipeline(material);
         wgpuRenderPassEncoderSetPipeline(encoder, pipeline);
         wgpuRenderPassEncoderSetBindGroup(encoder, 0, material->get_bind_group(), 0, nullptr);
 
