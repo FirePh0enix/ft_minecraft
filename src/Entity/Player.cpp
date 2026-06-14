@@ -83,6 +83,11 @@ void Player::on_ready()
     m_inventory_container->set_stack(1, 2, ItemStack(Items::stone_block, 16));
     m_inventory_container->set_stack(1, 3, ItemStack(Items::dirt_block, 16));
 
+    m_inventory_container->set_stack(1, 4, ItemStack(Items::stone_block, 16));
+    m_inventory_container->set_stack(1, 5, ItemStack(Items::stone_block, 16));
+    m_inventory_container->set_stack(1, 6, ItemStack(Items::stone_block, 16));
+    m_inventory_container->set_stack(1, 7, ItemStack(Items::stone_block, 16));
+
     // m_model_buffer = EXPECT(Buffer::create(sizeof(ItemBlockModel), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform));
     // m_material = EXPECT(Material::create(Renderer::get().get_item_block_shader(), MaterialFlagBits::None, WGPUCullMode_Back, UVType::UV));
     // m_material->set_param("env", Renderer::get().get_world_environment());

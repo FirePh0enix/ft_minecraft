@@ -18,3 +18,16 @@ Option<ItemStack> ItemStack::merge(const ItemStack& stack)
         return None;
     }
 }
+
+void ItemStack::sub(size_t count)
+{
+    if (count >= m_count)
+    {
+        m_item = Id<Item>();
+        m_count = 0;
+    }
+    else
+    {
+        m_count -= count;
+    }
+}

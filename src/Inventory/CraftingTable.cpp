@@ -1,6 +1,9 @@
 #include "Inventory/CraftingTable.hpp"
 
+#include "Core/Print.hpp"
+#include "Engine.hpp"
 #include "Inventory/Inventory.hpp"
+#include "World/Registry.hpp"
 
 CraftingTableInventory::CraftingTableInventory(Ref<InventoryContainer> inventory, Ref<InventoryContainer> player_inventory)
     : Inventory(inventory), m_player_inventory(player_inventory)
@@ -30,6 +33,7 @@ bool CraftingTableInventory::on_place(uint32_t layer, uint32_t index, ItemStack 
 
     if (layer == 1 && container == m_container.ptr())
         return false;
+
     return true;
 }
 

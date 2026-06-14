@@ -1175,6 +1175,8 @@ void Renderer::configure_surface(size_t width, size_t height, VSync vsync)
     WGPUSurfaceCapabilities capabilities;
     wgpuSurfaceGetCapabilities(m_surface, m_adapter, &capabilities);
 
+    // ASSERT_V((capabilities.usages & WGPUTextureUsage_TextureBinding) != 0, "Surface must support TextureBinding");
+
     WGPUSurfaceConfiguration config{};
     config.device = m_device;
     config.format = WGPUTextureFormat_BGRA8Unorm; // capabilities.formats[0];
