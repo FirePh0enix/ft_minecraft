@@ -63,6 +63,24 @@ public:
         return has_value() && v == value();
     }
 
+    bool operator>(const Option& o) const
+    {
+        if (has_value() && !o.has_value())
+            return true;
+        else if (!has_value() && !o.has_value())
+            return false;
+        return value() > o.value();
+    }
+
+    // bool operator>(const Option& o) const
+    // {
+    //     if (has_value() && !o.has_value())
+    //         return true;
+    //     else if (!has_value() && !o.has_value())
+    //         return false;
+    //     return value() > o.value();
+    // }
+
     operator int() const = delete;
     operator bool() const { return has_value(); }
 

@@ -21,7 +21,7 @@ public:
 
     virtual void update(float d) override;
     virtual void process_event(Event& event) override;
-    virtual void draw(WGPURenderPassEncoder encoder) override;
+    virtual void draw(const RenderPass& pass) override;
 
     void set_color(Color color) { m_color = color; }
     Color get_color() const { return m_color; }

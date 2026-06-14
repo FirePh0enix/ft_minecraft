@@ -72,8 +72,8 @@ struct Binding
     {
     }
 
-    Binding(BindingKind kind, WGPUShaderStage shader_stage, uint32_t group, uint32_t binding, BindingAccess access, WGPUTextureViewDimension dimension)
-        : kind(kind), shader_stage(shader_stage), group(group), binding(binding), access(access), dimension(dimension)
+    Binding(BindingKind kind, WGPUShaderStage shader_stage, uint32_t group, uint32_t binding, BindingAccess access, WGPUTextureViewDimension dimension, WGPUSamplerBindingType sampler_binding = WGPUSamplerBindingType_Filtering)
+        : kind(kind), shader_stage(shader_stage), group(group), binding(binding), access(access), dimension(dimension), sampler_binding(sampler_binding)
     {
     }
 
@@ -84,9 +84,13 @@ struct Binding
 
     union
     {
-        /**
-         * Available only when binding is a `Texture`.
-         */
-        WGPUTextureViewDimension dimension = WGPUTextureViewDimension_Undefined;
+        struct
+        {
+            /**
+             * Available only when binding is a `Texture`.
+             */
+            WGPUTextureViewDimension dimension = WGPUTextureViewDimension_Undefined;
+            WGPUSamplerBindingType sampler_binding = WGPUSamplerBindingType_Filtering;
+        };
     };
 };

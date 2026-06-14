@@ -33,12 +33,12 @@ void ItemEntity::tick(float delta)
     m_time += delta;
 }
 
-void ItemEntity::draw(WGPURenderPassEncoder encoder)
+void ItemEntity::draw(const RenderPass& pass)
 {
     m_transform.rotation() = glm::rotate(glm::identity<glm::quat>(), m_time, glm::vec3(0.0, 1.0, 0.0));
 
     ItemBlockModel matrix(get_transform().to_matrix(), m_textures);
 
     m_model_buffer->update(View(matrix).as_bytes());
-    Renderer::get().record_simple_shape(encoder, m_material);
+    Renderer::get().draw(pass, Renderer::get().get_cube_mesh(), m_material);
 }

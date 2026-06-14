@@ -3,9 +3,9 @@
 
 constexpr int attempts = 16;
 
-void Mob::draw(WGPURenderPassEncoder encoder)
+void Mob::draw(const RenderPass& pass)
 {
-    m_model->encode(encoder, get_global_transform());
+    m_model->encode(pass, get_global_transform());
 }
 
 void Mob::die()

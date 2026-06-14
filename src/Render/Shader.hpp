@@ -1,16 +1,8 @@
 #pragma once
 
 #include "Core/Class.hpp"
-#include "Core/Flags.hpp"
 #include "Core/Ref.hpp"
 #include "Render/Types.hpp"
-
-enum class ShaderFlagBits
-{
-    DepthPass = 1 << 0,
-};
-using ShaderFlags = Flags<ShaderFlagBits>;
-DEFINE_FLAG_TRAITS(ShaderFlagBits);
 
 class Shader : public Object
 {
@@ -18,7 +10,7 @@ class Shader : public Object
 
 public:
     static Result<Ref<Shader>> load(const StringView& source);
-    static Result<Ref<Shader>> load_compute(const StringView& source);
+    static Result<Ref<Shader>> load_from_path(const StringView& path);
 
     ~Shader();
 
@@ -60,16 +52,6 @@ public:
 
     StringView get_source_string() const { return m_source_code; }
 
-    String get_entry_point(WGPUShaderStage stage) const
-    {
-        return m_entry_point_names.get(stage).value();
-    }
-
-    WGPUShaderStage get_stage_mask() const
-    {
-        return m_stage_mask;
-    }
-
     String path() const
     {
         return m_path;
@@ -88,13 +70,10 @@ private:
 
     uint32_t m_hash;
 
-    WGPUShaderStage m_stage_mask;
-
     HashMap<String, Binding> m_bindings;
     HashMap<String, SamplerDescriptor> m_samplers;
-
-    HashMap<WGPUShaderStage, String> m_entry_point_names;
 
     WGPUBindGroupLayout m_bind_group_layout = nullptr;
     WGPUPipelineLayout m_pipeline_layout = nullptr;
 };
+

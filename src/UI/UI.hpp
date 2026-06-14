@@ -3,6 +3,7 @@
 #include "Core/Class.hpp"
 #include "Event.hpp"
 #include "Input.hpp"
+#include "Render/Renderer.hpp"
 
 struct Rect
 {
@@ -20,7 +21,7 @@ public:
     virtual ~UI() {}
 
     virtual void update(float d) = 0;
-    virtual void draw(WGPURenderPassEncoder encoder) = 0;
+    virtual void draw(const RenderPass& pass) = 0;
 
     virtual void process_event(Event& event)
     {

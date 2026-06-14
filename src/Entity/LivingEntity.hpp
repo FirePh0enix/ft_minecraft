@@ -30,6 +30,5 @@ protected:
     int m_max_health = 20;
     int m_health = 20;
 
-    Ref<Model> m_model;
     EntityId m_last_damaged_source;
 };

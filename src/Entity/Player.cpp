@@ -83,33 +83,33 @@ void Player::on_ready()
     m_inventory_container->set_stack(1, 2, ItemStack(Items::stone_block, 16));
     m_inventory_container->set_stack(1, 3, ItemStack(Items::dirt_block, 16));
 
-    m_inventory = newref<PlayerInventory>(m_inventory_container);
+    // m_inventory = newref<PlayerInventory>(m_inventory_container);
 
-    m_model_buffer = EXPECT(Buffer::create(sizeof(ItemBlockModel), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform));
-    m_material = EXPECT(Material::create(Renderer::get().get_item_block_shader(), MaterialFlagBits::None, WGPUCullMode_Back, UVType::UV));
-    m_material->set_param("env", Renderer::get().get_world_environment());
-    m_material->set_param("model", m_model_buffer);
-    m_material->set_param("images", Engine::get().registry().get_texture_array());
+    // m_model_buffer = EXPECT(Buffer::create(sizeof(ItemBlockModel), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform));
+    // m_material = EXPECT(Material::create(Renderer::get().get_item_block_shader(), MaterialFlagBits::None, WGPUCullMode_Back, UVType::UV));
+    // m_material->set_param("env", Renderer::get().get_world_environment());
+    // m_material->set_param("model", m_model_buffer);
+    // m_material->set_param("images", Engine::get().registry().get_texture_array());
 
     if (m_local_player)
     {
-        m_chat = newref<Chat>();
-        m_debug_menu = newref<DebugMenuContainer>(this);
+        // m_chat = newref<Chat>();
+        // m_debug_menu = newref<DebugMenuContainer>(this);
 
         m_camera = newref<Camera>();
         m_camera->get_transform().position() = glm::vec3(0, 0.85, 0);
         add_child(m_camera);
         m_world->set_active_camera(m_camera);
 
-        m_aim_buffer = EXPECT(Buffer::create(sizeof(SimpleUniforms), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform));
-        m_aim_material = EXPECT(Material::create(Renderer::get().get_simple_shader(), MaterialFlagBits::Transparency | MaterialFlagBits::Priority, WGPUCullMode_Back, UVType::UV));
-        m_aim_material->set_param("env", Renderer::get().get_world_environment());
-        m_aim_material->set_param("model", m_aim_buffer);
+        // m_aim_buffer = EXPECT(Buffer::create(sizeof(SimpleUniforms), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform));
+        // m_aim_material = EXPECT(Material::create(Renderer::get().get_simple_shader(), MaterialFlagBits::Transparency | MaterialFlagBits::Priority, WGPUCullMode_Back, UVType::UV));
+        // m_aim_material->set_param("env", Renderer::get().get_world_environment());
+        // m_aim_material->set_param("model", m_aim_buffer);
 
-        m_breaks_textures[0] = EXPECT(Texture::load("assets/textures/breaks/0.png"));
-        m_breaks_textures[1] = EXPECT(Texture::load("assets/textures/breaks/1.png"));
-        m_breaks_textures[2] = EXPECT(Texture::load("assets/textures/breaks/2.png"));
-        m_breaks_textures[3] = EXPECT(Texture::load("assets/textures/breaks/3.png"));
+        // m_breaks_textures[0] = EXPECT(Texture::load("assets/textures/breaks/0.png"));
+        // m_breaks_textures[1] = EXPECT(Texture::load("assets/textures/breaks/1.png"));
+        // m_breaks_textures[2] = EXPECT(Texture::load("assets/textures/breaks/2.png"));
+        // m_breaks_textures[3] = EXPECT(Texture::load("assets/textures/breaks/3.png"));
     }
     else
     {
@@ -372,18 +372,18 @@ void Player::tick(float delta)
         m_animator.tick(delta);
     }
 
-    if (m_local_player)
-    {
-        m_inventory->set_selected_slot(m_slot);
+    // if (m_local_player)
+    // {
+    //     m_inventory->set_selected_slot(m_slot);
 
-        if (m_opened_inventory.has_value())
-            m_opened_inventory.value()->update(delta);
-        else
-            m_inventory->update(delta);
+    //     if (m_opened_inventory.has_value())
+    //         m_opened_inventory.value()->update(delta);
+    //     else
+    //         m_inventory->update(delta);
 
-        if (m_open_chat)
-            m_chat->update(delta);
-    }
+    //     if (m_open_chat)
+    //         m_chat->update(delta);
+    // }
 
     m_previous_frame_in_water = in_water;
 
@@ -402,18 +402,18 @@ void Player::tick(float delta)
     // }
 }
 
-void Player::draw(WGPURenderPassEncoder encoder)
+void Player::draw(const RenderPass& pass)
 {
     if (!m_local_player)
     {
-        m_model->encode(encoder, get_global_transform());
+        m_model->encode(pass, get_global_transform());
     }
 
     if (m_local_player && m_aimed_block.has_value())
     {
         SimpleUniforms uniforms(glm::translate(glm::identity<glm::mat4>(), glm::vec3(m_aimed_block.value())) * glm::scale(glm::identity<glm::mat4>(), glm::vec3(1.01f)), glm::vec4(aim_color, 0.4));
         m_aim_buffer->update(View(uniforms).as_bytes());
-        Renderer::get().record_simple_shape(encoder, m_aim_material);
+        Renderer::get().draw(pass, Renderer::get().get_cube_mesh(), m_aim_material);
     }
 
     if (m_local_player && m_inventory_container->get_stack(1, m_inventory->selected_slot()).item().valid())
@@ -434,7 +434,7 @@ void Player::draw(WGPURenderPassEncoder encoder)
                 glm::uvec3(block->get_texture_ids()[0] | (block->get_texture_ids()[1] << 16), block->get_texture_ids()[2] | (block->get_texture_ids()[3] << 16), block->get_texture_ids()[4] | (block->get_texture_ids()[5] << 16)));
 
             m_model_buffer->update(View(matrix).as_bytes());
-            Renderer::get().record_simple_shape(encoder, m_material);
+            Renderer::get().draw(pass, Renderer::get().get_cube_mesh(), m_material);
         }
         else
         {
@@ -443,20 +443,20 @@ void Player::draw(WGPURenderPassEncoder encoder)
     }
 }
 
-void Player::draw_ui(WGPURenderPassEncoder encoder)
+void Player::draw_ui(const RenderPass& pass)
 {
     if (m_local_player)
     {
         if (m_opened_inventory.has_value())
-            m_opened_inventory.value()->draw(encoder);
+            m_opened_inventory.value()->draw(pass);
         else
-            m_inventory->draw_toolbar(encoder);
+            m_inventory->draw_toolbar(pass);
 
         if (m_open_chat)
-            m_chat->draw(encoder);
+            m_chat->draw(pass);
 
         if (m_open_debug_menu)
-            m_debug_menu->draw(encoder);
+            m_debug_menu->draw(pass);
     }
 }
 

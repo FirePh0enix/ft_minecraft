@@ -27,6 +27,11 @@ inline bool is_zero_e(const glm::vec3& vec)
     return glm::length2(vec) <= glm::epsilon<float>() * glm::epsilon<float>();
 }
 
+inline float lerp(float a, float b, float t)
+{
+    return a + t * (b - a);
+}
+
 } // namespace math
 
 inline float rand_float(float min, float max)

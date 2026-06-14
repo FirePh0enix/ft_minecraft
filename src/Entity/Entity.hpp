@@ -105,14 +105,14 @@ public:
         (void)delta;
     }
 
-    virtual void draw(WGPURenderPassEncoder encoder)
+    virtual void draw(const RenderPass& pass)
     {
-        (void)encoder;
+        (void)pass;
     }
 
-    virtual void draw_ui(WGPURenderPassEncoder encoder)
+    virtual void draw_ui(const RenderPass& pass)
     {
-        (void)encoder;
+        (void)pass;
     }
 
     virtual void on_ready()

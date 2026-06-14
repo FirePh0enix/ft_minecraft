@@ -62,10 +62,10 @@ void ChatInput::process_event(Event& event)
     }
 }
 
-void ChatInput::draw(WGPURenderPassEncoder encoder)
+void ChatInput::draw(const RenderPass& pass)
 {
-    m_background->draw(encoder);
-    m_label->draw(encoder);
+    m_background->draw(pass);
+    m_label->draw(pass);
 }
 
 Chat::Chat()

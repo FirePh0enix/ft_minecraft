@@ -1,10 +1,10 @@
 #include "Render/Shader.hpp"
 
 #include "Core/Assert.hpp"
+#include "Core/Filesystem.hpp"
 #include "Core/Hash.hpp"
 #include "Render/Renderer.hpp"
 #include "Render/Types.hpp"
-#include "webgpu/webgpu.h"
 
 Shader::~Shader()
 {
@@ -15,22 +15,14 @@ Result<Ref<Shader>> Shader::load(const StringView& source)
     Ref<Shader> shader = newref<Shader>();
     shader->m_source_code = source;
     shader->m_hash = hash_fnv32(source);
-
-    shader->m_entry_point_names.put(WGPUShaderStage_Vertex, "vertex_main");
-    shader->m_entry_point_names.put(WGPUShaderStage_Fragment, "fragment_main");
-
     return shader;
 }
 
-Result<Ref<Shader>> Shader::load_compute(const StringView& source)
+Result<Ref<Shader>> Shader::load_from_path(const StringView& path)
 {
-    Ref<Shader> shader = newref<Shader>();
-    shader->m_source_code = source;
-    shader->m_hash = hash_fnv32(source);
-
-    shader->m_entry_point_names.put(WGPUShaderStage_Compute, "main");
-
-    return shader;
+    File file = TRY(Filesystem::open_file(path));
+    String s = TRY(file.reader().read_to_string());
+    return load(s);
 }
 
 static Vector<WGPUBindGroupLayoutEntry> convert_bindings(Shader *shader)
@@ -47,7 +39,7 @@ static Vector<WGPUBindGroupLayoutEntry> convert_bindings(Shader *shader)
             WGPUBindGroupLayoutEntry entry{};
             entry.binding = binding.binding;
             entry.visibility = binding.shader_stage;
-            entry.texture.sampleType = WGPUTextureSampleType_Float;
+            entry.texture.sampleType = binding.sampler_binding == WGPUSamplerBindingType_NonFiltering ? WGPUTextureSampleType_UnfilterableFloat : WGPUTextureSampleType_Float;
             entry.texture.multisampled = false;
             entry.texture.viewDimension = binding.dimension;
 
@@ -57,7 +49,7 @@ static Vector<WGPUBindGroupLayoutEntry> convert_bindings(Shader *shader)
             sampler_entry.binding = binding.binding + 1;
             sampler_entry.visibility = binding.shader_stage;
             sampler_entry.sampler.nextInChain = nullptr;
-            sampler_entry.sampler.type = WGPUSamplerBindingType_Filtering;
+            sampler_entry.sampler.type = binding.sampler_binding;
 
             entries.append(sampler_entry);
         }
