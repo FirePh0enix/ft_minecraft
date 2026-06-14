@@ -53,8 +53,8 @@ public:
     virtual ~Player() {}
 
     virtual void tick(float delta) override;
-    virtual void draw(WGPURenderPassEncoder encoder) override;
-    virtual void draw_ui(WGPURenderPassEncoder encoder) override;
+    virtual void draw(const RenderPass& pass) override;
+    virtual void draw_ui(const RenderPass& pass) override;
     virtual void process_event(Event& event) override;
 
     virtual void save(EntitySerializer& ser) const override;

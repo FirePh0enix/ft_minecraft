@@ -177,28 +177,17 @@ Result<Ref<Model>> Model::load(const StringView& path)
     return model;
 }
 
-void Model::encode(WGPURenderPassEncoder encoder, const Transform3D& transform)
+void Model::encode(const RenderPass& pass, const Transform3D& transform)
 {
     const Ref<Mesh>& mesh = Renderer::get().get_cube_mesh();
 
     Info info{.model_matrix = transform.to_matrix()};
     m_global_buffer->update(View(info).as_bytes());
 
-    // TODO: could use some instancing.
     for (const auto& obj : m_objects)
     {
         Ref<Material> material = obj.material;
-
-        WGPURenderPipeline pipeline = Renderer::get().get_pipeline(material);
-        wgpuRenderPassEncoderSetPipeline(encoder, pipeline);
-        wgpuRenderPassEncoderSetBindGroup(encoder, 0, material->get_bind_group(), 0, nullptr);
-
-        wgpuRenderPassEncoderSetIndexBuffer(encoder, mesh->get_buffer(Mesh::BufferKind::Index)->handle(), mesh->index_type(), 0, mesh->get_buffer(Mesh::BufferKind::Index)->size());
-        wgpuRenderPassEncoderSetVertexBuffer(encoder, 0, mesh->get_buffer(Mesh::BufferKind::Position)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Position)->size());
-        wgpuRenderPassEncoderSetVertexBuffer(encoder, 1, mesh->get_buffer(Mesh::BufferKind::Normal)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Normal)->size());
-        wgpuRenderPassEncoderSetVertexBuffer(encoder, 2, mesh->get_buffer(Mesh::BufferKind::UV)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::UV)->size());
-
-        wgpuRenderPassEncoderDrawIndexed(encoder, mesh->vertex_count(), 1, 0, 0, 0);
+        Renderer::get().draw(pass, mesh, material);
     }
 }
 

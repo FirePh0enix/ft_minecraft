@@ -6,6 +6,7 @@
 #include "Core/Definitions.hpp"
 #include "Core/Option.hpp"
 
+#include <compare>
 #include <cstddef>
 #include <functional>
 
@@ -57,6 +58,44 @@ public:
     {
         ASSERT_V(index < m_size, "index out of bounds");
         return get_unchecked(index);
+    }
+
+    // bool operator==(const Vector& o) const
+    // {
+    //     if (size() != o.size())
+    //         return false;
+    //     for (size_t i = 0; i < m_size; i++)
+    //     {
+    //         if (m_data[i] != o.m_data[i])
+    //             return false;
+    //     }
+    //     return true;
+    // }
+
+    bool operator==(const Vector& o) const
+    {
+        size_t i = 0;
+        for (; i < m_size && i < o.m_size; i++)
+        {
+            if (!(m_data[i] == o.m_data[i]))
+                return false;
+        }
+        return true;
+    }
+
+    bool operator>(const Vector& o) const
+    {
+        size_t i = 0;
+        for (; i < m_size && i < o.m_size; i++)
+        {
+            if (!(m_data[i] > o.m_data[i]))
+                return false;
+        }
+        if (i < m_size)
+            return true;
+        else if (i < o.m_size)
+            return false;
+        return false;
     }
 
     ALWAYS_INLINE T *data() { return m_data; }

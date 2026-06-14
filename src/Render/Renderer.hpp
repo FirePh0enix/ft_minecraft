@@ -82,7 +82,7 @@ public:
     ~Texture();
 
     static Result<Ref<Texture>> create(uint32_t width, uint32_t height, WGPUTextureFormat format, WGPUTextureUsage usage = WGPUTextureUsage_None, WGPUTextureViewDimension dimension = WGPUTextureViewDimension_2D, uint32_t layers = 1, uint32_t mip_level = 1);
-    static Ref<Texture> create_from_view(WGPUTextureView view);
+    static Ref<Texture> create_from_handle(WGPUTexture texture, WGPUTextureView view);
     static Result<Ref<Texture>> load(const StringView& path);
 
     void update(View<uint8_t> view, uint32_t layer = 0);
@@ -149,6 +149,39 @@ protected:
     Ref<Buffer> m_buffers[(size_t)BufferKind::Max];
 };
 
+struct RenderTarget
+{
+    RenderTarget(WGPUTextureFormat format)
+        : format(format)
+    {
+    }
+
+    RenderTarget(WGPUTextureFormat format, bool blending)
+        : format(format), blending(blending)
+    {
+    }
+
+    WGPUTextureFormat format = WGPUTextureFormat_Undefined;
+    bool blending = true;
+
+    bool operator==(const RenderTarget& r) const
+    {
+        return std::tie(format, blending) == std::tie(r.format, r.blending);
+    }
+
+    bool operator>(const RenderTarget& r) const
+    {
+        return std::tie(format, blending) > std::tie(r.format, r.blending);
+    }
+};
+
+struct RenderPass
+{
+    WGPURenderPassEncoder encoder;
+    Option<RenderTarget> depth;
+    Vector<RenderTarget> textures;
+};
+
 struct InstanceAttribute
 {
     uint32_t offset;
@@ -185,6 +218,26 @@ class Material : public Object
     CLASS(Material, Object);
 
 public:
+    struct PipelineKey
+    {
+        Vector<RenderTarget> color_formats;
+        Option<RenderTarget> depth_format;
+
+        bool operator>(const PipelineKey& k) const
+        {
+            if (depth_format > k.depth_format)
+                return true;
+            else if (k.depth_format > depth_format)
+                return false;
+            return color_formats > k.color_formats;
+        }
+
+        bool operator==(const PipelineKey& k) const
+        {
+            return depth_format == k.depth_format && color_formats == k.color_formats;
+        }
+    };
+
     ~Material();
 
     static Result<Ref<Material>> create(const Ref<Shader>& shader, MaterialFlags flags, WGPUCullMode cull_mode, UVType uv_type, Instance instance = {});
@@ -195,6 +248,8 @@ public:
     const MaterialParamCache& get_param(const StringView& name) const;
 
     WGPUBindGroup get_bind_group();
+    WGPURenderPipeline get_pipeline(const RenderPass& pass);
+
     Ref<Shader> get_shader() const { return m_shader; }
     UVType get_uv_type() const { return m_uv_type; }
     MaterialFlags flags() const { return m_flags; }
@@ -216,77 +271,12 @@ private:
     Vector<InstanceAttribute> m_attributes;
     size_t m_instance_stride;
 
+    Map<PipelineKey, WGPURenderPipeline> m_pipelines;
+
     bool m_dirty = true;
 
     void create_bind_group();
-};
-
-class PipelineCache
-{
-public:
-    struct Key
-    {
-        Ref<Shader> shader;
-        WGPUBindGroupLayout bind_group_layout;
-        UVType uv_type;
-        MaterialFlags flags;
-        WGPUCullMode cull_mode;
-        Vector<InstanceAttribute> attributes;
-        size_t instance_stride;
-
-        WGPUTextureFormat color_format;
-        WGPUTextureFormat depth_format;
-
-        bool has_color_attach;
-        bool has_depth_attach;
-
-        bool operator<(const Key& k) const
-        {
-            return std::tie(shader, bind_group_layout, uv_type, flags, cull_mode, has_color_attach, has_depth_attach, instance_stride) < std::tie(k.shader, k.bind_group_layout, k.uv_type, k.flags, k.cull_mode, k.has_color_attach, k.has_depth_attach, k.instance_stride);
-        }
-
-        bool operator>(const Key& k) const
-        {
-            return std::tie(shader, bind_group_layout, uv_type, flags, cull_mode, has_color_attach, has_depth_attach, instance_stride) > std::tie(k.shader, k.bind_group_layout, k.uv_type, k.flags, k.cull_mode, k.has_color_attach, k.has_depth_attach, k.instance_stride);
-        }
-
-        bool operator==(const Key& k) const
-        {
-            uint32_t flags = (uint32_t)this->flags;
-            uint32_t k_flags = (uint32_t)k.flags;
-            return std::tie(shader, bind_group_layout, uv_type, flags, cull_mode, has_color_attach, has_depth_attach, instance_stride) == std::tie(k.shader, k.bind_group_layout, k.uv_type, k_flags, k.cull_mode, k.has_color_attach, k.has_depth_attach, k.instance_stride);
-        }
-    };
-
-    struct ComputeKey
-    {
-        Ref<Shader> shader;
-
-        bool operator<(const ComputeKey& key) const
-        {
-            return std::tie(shader) < std::tie(key.shader);
-        }
-
-        bool operator>(const ComputeKey& key) const
-        {
-            return std::tie(shader) > std::tie(key.shader);
-        }
-
-        bool operator==(const ComputeKey& key) const
-        {
-            return std::tie(shader) == std::tie(key.shader);
-        }
-    };
-
-    Result<WGPURenderPipeline> get(const Key& key);
-    Result<WGPUComputePipeline> get_compute(const ComputeKey& key);
-    void clear();
-
-    size_t count() const { return m_pipelines.size() + m_compute_pipelines.size(); }
-
-private:
-    Map<Key, WGPURenderPipeline> m_pipelines;
-    Map<ComputeKey, WGPUComputePipeline> m_compute_pipelines;
+    WGPURenderPipeline create_pipeline(const RenderPass& pass);
 };
 
 class SamplerCache
@@ -320,6 +310,12 @@ DEFINE_WGPU_HANDLE(Adapter, WGPUAdapter, wgpuAdapterAddRef, wgpuAdapterRelease);
 DEFINE_WGPU_HANDLE(Surface, WGPUSurface, wgpuSurfaceAddRef, wgpuSurfaceRelease);
 }; // namespace wgpu
 
+struct GPU_ATTRIBUTE CameraUniforms
+{
+    glm::mat4 view_matrix;
+    glm::mat4 projection_matrix;
+};
+
 struct GPU_ATTRIBUTE WorldEnvironment
 {
     glm::mat4 view_matrix = glm::identity<glm::mat4>();
@@ -339,6 +335,17 @@ struct GPU_ATTRIBUTE SkyUniforms
     float time;
 };
 
+struct GPU_ATTRIBUTE FullscreenUniforms
+{
+    glm::mat4 projection_matrix;
+    glm::mat4 model_matrix;
+};
+
+struct GPU_ATTRIBUTE SSAOUniforms
+{
+    Array<glm::vec4, 64> samples;
+};
+
 class Renderer
 {
     friend class Buffer;
@@ -355,22 +362,10 @@ public:
     void draw_legacy(std::function<void()> f);
 
     void draw(const Ref<World>& world);
-
-    void record_world(const Ref<World>& world, WGPURenderPassEncoder encoder);
-    void record_simple_shape(WGPURenderPassEncoder encoder, Ref<Material> material, WGPUTextureFormat color_format = WGPUTextureFormat_Undefined);
-
-    /**
-     * Set time in a 0.0-1.0 range for the sky shader.
-     */
-    void set_time(float time);
+    void draw(const RenderPass& pass, Ref<Mesh> mesh, Ref<Material> material);
+    void draw_world(const Ref<World>& world, const RenderPass& pass);
 
     void set_underwater(bool v) { m_underwater_effect = v; }
-
-    /**
-     * @param color_format If None then the default render target format is used.
-     */
-    WGPURenderPipeline get_pipeline(Ref<Material> material, Option<WGPUTextureFormat> color_format = None, WGPUTextureFormat depth_format = WGPUTextureFormat_Depth32Float);
-    WGPUComputePipeline get_compute_pipeline(Ref<Shader> shader);
 
     WGPUSampler get_sampler(const SamplerDescriptor& desc) { return m_sampler_cache.get(desc); }
 
@@ -386,7 +381,6 @@ public:
     std::mutex& get_device_mutex() { return m_device_mutex; }
     std::mutex& get_queue_mutex() { return m_queue_mutex; }
 
-    Ref<Shader> get_voxel_shader() const { return m_voxel_shader; }
     Ref<Shader> get_model_shader() const { return m_model_shader; }
 
     Ref<Mesh> get_cube_mesh() const { return m_cube_mesh; }
@@ -402,7 +396,7 @@ public:
     View<uint8_t> get_missing_texture_data() const;
 
     size_t get_device_memory_usage() const { return m_device_memory_allocated - m_device_memory_freed; }
-    size_t get_pipeline_count() const { return m_pipeline_cache.count(); }
+    size_t get_pipeline_count() const { return 0; }
 
     static ALWAYS_INLINE Renderer& get() { return *singleton; }
 
@@ -416,21 +410,33 @@ private:
     std::mutex m_device_mutex;
     std::mutex m_queue_mutex;
 
-    // Rendering stuff
-    Ref<Texture> m_depth_texture;
-    Ref<Texture> m_color_texture;
-    WGPUTextureFormat m_color_format = WGPUTextureFormat_RGBA8Unorm;
+    // Rendering 2.0 stuff
+    Ref<Texture> m_albedo_buffer;
+    Ref<Texture> m_position_buffer;
+    Ref<Texture> m_normal_buffer;
+    Ref<Texture> m_depth_buffer;
 
+    Ref<Buffer> m_camera_buffer;
+
+    Ref<Shader> m_chunk_shader;
+    Ref<Material> m_chunk_material;
+
+    Ref<Shader> m_shading_shader;
+    Ref<Material> m_shading_material;
+
+    // SSAO
+    Ref<Texture> m_ssao_buffer;
+    Ref<Buffer> m_ssao_uniform_buffer;
+    Ref<Shader> m_ssao_shader;
+    Ref<Material> m_ssao_material;
+    Ref<Texture> m_ssao_noise_texture;
+
+    // Rendering stuff
     WGPUTextureFormat m_surface_format = WGPUTextureFormat_Undefined;
     Extent2D m_surface_extent;
 
-    PipelineCache m_pipeline_cache;
     SamplerCache m_sampler_cache;
 
-    Ref<Shader> m_surface_shader;
-    Ref<Material> m_surface_material;
-
-    Ref<Shader> m_voxel_shader;
     Ref<Shader> m_model_shader;
     Ref<Shader> m_simple_shader;
     Ref<Shader> m_preview_block_shader;
@@ -450,7 +456,7 @@ private:
     Ref<Mesh> m_cube_mesh;
     Ref<Mesh> m_square_mesh;
 
-    Ref<Material> m_chunk_material;
+    // Ref<Material> m_chunk_material;
     Ref<Material> m_water_material;
     Ref<Buffer> m_env_2d_buffer;
 

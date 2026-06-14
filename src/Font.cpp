@@ -323,19 +323,9 @@ void Text::set_color(glm::vec4 color)
     update_uniform_buffer();
 }
 
-void Text::draw(WGPURenderPassEncoder encoder)
+void Text::draw(const RenderPass& pass)
 {
-    const Ref<Mesh>& mesh = Renderer::get().get_square_mesh();
-
-    WGPURenderPipeline pipeline = Renderer::get().get_pipeline(m_material, Renderer::get().get_surface_format());
-    wgpuRenderPassEncoderSetPipeline(encoder, pipeline);
-    wgpuRenderPassEncoderSetBindGroup(encoder, 0, m_material->get_bind_group(), 0, nullptr);
-
-    wgpuRenderPassEncoderSetIndexBuffer(encoder, mesh->get_buffer(Mesh::BufferKind::Index)->handle(), mesh->index_type(), 0, mesh->get_buffer(Mesh::BufferKind::Index)->size());
-    wgpuRenderPassEncoderSetVertexBuffer(encoder, 0, mesh->get_buffer(Mesh::BufferKind::Position)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Position)->size());
-    wgpuRenderPassEncoderSetVertexBuffer(encoder, 1, m_instance_buffer->handle(), 0, m_instance_buffer->size());
-
-    wgpuRenderPassEncoderDrawIndexed(encoder, mesh->vertex_count(), m_size, 0, 0, 0);
+    Renderer::get().draw(pass, Renderer::get().get_square_mesh(), m_material);
 }
 
 void Text::update_uniform_buffer()

@@ -17,7 +17,7 @@ public:
     {
     }
 
-    virtual void draw(WGPURenderPassEncoder encoder) override;
+    virtual void draw(const RenderPass& pass) override;
     virtual void die() override;
 
     void follow_path(float delta_time);
@@ -27,6 +27,7 @@ public:
     glm::vec3 safe_normalize(const glm::vec3& v);
 
 protected:
+    Ref<Model> m_model;
     std::unique_ptr<Pathfinding> m_pathfinding;
     bool m_following_path = false;
     Option<Path> m_path;

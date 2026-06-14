@@ -12,7 +12,7 @@ public:
     ItemEntity(Id<Item> item);
 
     virtual void tick(float delta) override;
-    virtual void draw(WGPURenderPassEncoder encoder) override;
+    virtual void draw(const RenderPass& pass) override;
 
     Id<Item> item() const { return m_item; }
 

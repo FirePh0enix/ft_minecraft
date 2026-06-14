@@ -96,7 +96,7 @@ public:
     void set_scale(glm::vec2 scale);
     void set_color(glm::vec4 color);
 
-    void draw(WGPURenderPassEncoder encoder);
+    void draw(const RenderPass& pass);
 
 private:
     Ref<Font> m_font;

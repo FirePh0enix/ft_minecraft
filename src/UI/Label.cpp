@@ -26,7 +26,7 @@ void Label::process_event(Event& event)
     (void)event;
 }
 
-void Label::draw(WGPURenderPassEncoder encoder)
+void Label::draw(const RenderPass& pass)
 {
-    m_text.draw(encoder);
+    m_text.draw(pass);
 }

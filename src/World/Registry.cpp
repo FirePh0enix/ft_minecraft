@@ -52,14 +52,14 @@ Result<void> GameRegistry::post_register()
 
     // s_texture_array->generate_mips();
 
-    for (const auto& [id, item] : m_items)
-    {
-        if (Ref<ItemBlock> ib = item.cast_to<ItemBlock>())
-        {
-            Ref<Block> block = get_block(ib->block());
-            ib->set_texture(create_preview_texture(block));
-        }
-    }
+    // for (const auto& [id, item] : m_items)
+    // {
+    //     if (Ref<ItemBlock> ib = item.cast_to<ItemBlock>())
+    //     {
+    //         Ref<Block> block = get_block(ib->block());
+    //         ib->set_texture(create_preview_texture(block));
+    //     }
+    // }
 
     return Result<void>();
 }
@@ -202,7 +202,7 @@ Ref<Texture> GameRegistry::create_preview_texture(Ref<Block> block)
     rp.depthStencilAttachment = &depth_attach;
 
     WGPURenderPassEncoder render_encoder = wgpuCommandEncoderBeginRenderPass(encoder, &rp);
-    Renderer::get().record_simple_shape(render_encoder, material, WGPUTextureFormat_RGBA8Unorm);
+    Renderer::get().draw(RenderPass(render_encoder, RenderTarget(depth_texture->format()), Vector<RenderTarget>::create(color_texture->format())), Renderer::get().get_cube_mesh(), material);
     wgpuRenderPassEncoderEnd(render_encoder);
     wgpuRenderPassEncoderRelease(render_encoder);
 

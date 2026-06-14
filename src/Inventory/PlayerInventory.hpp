@@ -18,7 +18,7 @@ public:
 
     virtual void update(float d) override;
     virtual void process_event(Event& event) override { (void)event; }
-    virtual void draw(WGPURenderPassEncoder encoder) override;
+    virtual void draw(const RenderPass& pass) override;
 
     void set_item(Id<Item> item);
     void set_count(size_t count);
@@ -43,9 +43,9 @@ public:
 
     virtual void update(float d) override;
     virtual void process_event(Event& event) override { (void)event; }
-    virtual void draw(WGPURenderPassEncoder encoder) override;
+    virtual void draw(const RenderPass& pass) override;
 
-    void draw_toolbar(WGPURenderPassEncoder encoder);
+    void draw_toolbar(const RenderPass& pass);
 
     void set_selected_slot(size_t slot);
 
