@@ -2,9 +2,11 @@
 
 #include "Core/Containers/InplaceVector.hpp"
 #include "Core/Format.hpp"
+#include "Core/Print.hpp"
 #include "Engine.hpp"
 #include "Inventory/Inventory.hpp"
 #include "Item/ItemStack.hpp"
+#include "World/Registry.hpp"
 #include <cstddef>
 
 ItemSlot::ItemSlot(uint32_t layer, uint32_t index, Inventory *inventory, InventoryContainer *container)
@@ -75,17 +77,7 @@ void ItemSlot::update(float d)
             }
         }
 
-        InplaceVector<Id<Item>, 9> grid;
-        for (size_t i = 0; i < 9; i++)
-        {
-            ItemStack s = m_container->get_stack(0, i);
-            auto value = s.item().value > 0 ? s.item() : Items::none;
-            grid.push_back(value);
-        }
-
-        Option<ItemStack> result = Engine::get().crafting().match(grid, 3, 3);
-        if (result.has_value())
-            println("Matched !");
+     
     }
 }
 

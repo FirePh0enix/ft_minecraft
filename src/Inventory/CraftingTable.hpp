@@ -16,6 +16,10 @@ public:
     virtual bool on_place(uint32_t layer, uint32_t index, ItemStack stack, InventoryContainer *container) override;
     virtual bool on_pick(uint32_t layer, uint32_t index, ItemStack stack, InventoryContainer *container) override;
 
+    void update_recipe();
+    void consume_ingredients();
+
 private:
     Ref<InventoryContainer> m_player_inventory;
+    bool m_dirty = false;
 };
