@@ -20,6 +20,7 @@
 #include "World/World.hpp"
 
 #include <backends/imgui_impl_sdl3.h>
+#include <cstddef>
 #include <ctime>
 #include <imgui.h>
 
@@ -34,6 +35,7 @@ Engine::Engine()
     InitFlags flags = InitFlagBits::Validation;
 
     register_entities(); // TODO: put this in GameRegistry
+    register_recipes();
 
     EXPECT(m_renderer.init(*m_window, flags));
 
@@ -72,6 +74,31 @@ void Engine::register_entities()
     m_entity_registry.register_entity<Player>();
     m_entity_registry.register_entity<Cow>();
     m_entity_registry.register_entity<Zombie>();
+}
+
+constexpr int two_d_to_1d(int x, int y)
+{
+    return y * 3 + x;
+}
+
+void Engine::register_recipes()
+{
+    Recipe crafting_table;
+
+    crafting_table.width = 2;
+    crafting_table.height = 2;
+
+    for (size_t i = 0; i < 9; i++)
+        crafting_table.pattern.push_back(Items::none);
+
+    crafting_table.pattern[two_d_to_1d(0, 0)] = Items::stone_block;
+    crafting_table.pattern[two_d_to_1d(1, 0)] = Items::stone_block;
+    crafting_table.pattern[two_d_to_1d(0, 1)] = Items::stone_block;
+    crafting_table.pattern[two_d_to_1d(1, 1)] = Items::stone_block;
+
+    crafting_table.result = ItemStack(Items::crafting_table_block, 1);
+
+    m_crafting.add_recipe(crafting_table);
 }
 
 void Engine::tick(float delta)

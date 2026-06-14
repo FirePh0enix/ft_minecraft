@@ -37,6 +37,8 @@ public:
      */
     Option<ItemStack> merge(const ItemStack& stack);
 
+    void sub(size_t count);
+
 private:
     Id<Item> m_item;
     size_t m_count;
