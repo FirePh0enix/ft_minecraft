@@ -49,7 +49,6 @@ constexpr Id<Block> crafting_table(3);
 
 namespace Items
 {
-constexpr Id<Item> none(0);
 constexpr Id<Item> stone_block(1);
 constexpr Id<Item> dirt_block(2);
 constexpr Id<Item> crafting_table_block(3);

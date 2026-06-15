@@ -1,13 +1,12 @@
 #include "CraftingManager.hpp"
 #include "Id.hpp"
-#include "World/Registry.hpp"
 
 constexpr int two_d_to_1d(int x, int y, int w)
 {
     return y * w + x;
 }
 
-Option<ItemStack> CraftingManager::match(const InplaceVector<Id<Item>, 9>& grid, int width, int height) 
+Option<ItemStack> CraftingManager::match(const InplaceVector<Id<Item>, 9>& grid, int width, int height)
 {
     for (const auto& r : m_recipes)
     {
@@ -46,7 +45,7 @@ Option<ItemStack> CraftingManager::match(const InplaceVector<Id<Item>, 9>& grid,
                     {
                         bool inside = y >= off_y && y < off_y + r.height && x >= off_x && x < off_x + r.width;
 
-                        if (!inside && grid[two_d_to_1d(x, y, width)] != Items::none)
+                        if (!inside && grid[two_d_to_1d(x, y, width)] != Id<Item>())
                         {
                             ok = false;
                             break;

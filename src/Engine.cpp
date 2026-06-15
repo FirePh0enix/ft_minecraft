@@ -89,7 +89,7 @@ void Engine::register_recipes()
     crafting_table.height = 2;
 
     for (size_t i = 0; i < 9; i++)
-        crafting_table.pattern.push_back(Items::none);
+        crafting_table.pattern.push_back(Id<Item>());
 
     crafting_table.pattern[two_d_to_1d(0, 0)] = Items::stone_block;
     crafting_table.pattern[two_d_to_1d(1, 0)] = Items::stone_block;
