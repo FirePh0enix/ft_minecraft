@@ -4,7 +4,6 @@
 #include "Engine.hpp"
 #include "Inventory/Inventory.hpp"
 #include "Item/Item.hpp"
-#include "World/Registry.hpp"
 
 CraftingTableInventory::CraftingTableInventory(Ref<InventoryContainer> inventory, Ref<InventoryContainer> player_inventory)
     : Inventory(inventory), m_player_inventory(player_inventory)
@@ -55,7 +54,7 @@ bool CraftingTableInventory::on_pick(uint32_t layer, uint32_t index, ItemStack s
     {
         ItemStack result = m_container->get_stack(1, 0);
 
-        if (result.item() != Items::none)
+        if (result.item().valid())
         {
             consume_ingredients();
             m_dirty = true;
@@ -74,7 +73,7 @@ void CraftingTableInventory::update_recipe()
     for (size_t i = 0; i < 9; i++)
     {
         ItemStack s = m_container->get_stack(0, i);
-        auto value = s.item().value > 0 ? s.item() : Items::none;
+        auto value = s.item().value > 0 ? s.item() : Id<Item>();
         grid.push_back(value);
     }
 
@@ -86,8 +85,8 @@ void CraftingTableInventory::update_recipe()
     }
     else
     {
-        m_container->set_stack(1, 0, Items::none);
         println("Not matching !");
+        m_container->set_stack(1, 0, Id<Item>());
     }
 }
 
@@ -97,7 +96,7 @@ void CraftingTableInventory::consume_ingredients()
     {
         ItemStack stack = m_container->get_stack(0, i);
 
-        if (stack.item() == Items::none)
+        if (!stack.item().valid())
             continue;
 
         stack.set_count(stack.count() - 1);
