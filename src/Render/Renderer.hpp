@@ -207,8 +207,11 @@ enum class MaterialFlagBits
     Transparency = 1 << 0,
     Priority = 1 << 1,
 
-    NoNormal = 1 << 2,
-    NoUV = 1 << 3,
+    NoPosition = 1 << 2,
+    NoNormal = 1 << 3,
+    NoUV = 1 << 4,
+
+    NoData = NoPosition | NoNormal | NoUV,
 };
 using MaterialFlags = Flags<MaterialFlagBits>;
 DEFINE_FLAG_TRAITS(MaterialFlagBits);
@@ -363,6 +366,7 @@ public:
 
     void draw(const Ref<World>& world);
     void draw(const RenderPass& pass, Ref<Mesh> mesh, Ref<Material> material);
+    void draw_fullscreen(const RenderPass& pass, Ref<Material> material);
     void draw_world(const Ref<World>& world, const RenderPass& pass);
 
     void set_underwater(bool v) { m_underwater_effect = v; }
@@ -375,7 +379,7 @@ public:
 
     WGPUQueue get_queue() const { return m_queue; }
 
-    Ref<Buffer> get_world_environment() const { return m_env_buffer; }
+    // Ref<Buffer> get_world_environment() const { return m_env_buffer; }
     Ref<Buffer> get_env_2d() const { return m_env_2d_buffer; }
 
     std::mutex& get_device_mutex() { return m_device_mutex; }
@@ -386,9 +390,9 @@ public:
     Ref<Mesh> get_cube_mesh() const { return m_cube_mesh; }
     Ref<Mesh> get_square_mesh() const { return m_square_mesh; }
 
-    Ref<Shader> get_simple_shader() const { return m_simple_shader; }
+    // Ref<Shader> get_simple_shader() const { return m_simple_shader; }
     Ref<Shader> get_preview_block_shader() const { return m_preview_block_shader; }
-    Ref<Shader> get_item_block_shader() const { return m_item_block_shader; }
+    // Ref<Shader> get_item_block_shader() const { return m_item_block_shader; }
     Ref<Shader> get_color_rect_shader() const { return m_color_rect_shader; }
     Ref<Shader> get_texture_rect_shader() const { return m_texture_rect_shader; }
 
@@ -460,8 +464,8 @@ private:
     Ref<Material> m_water_material;
     Ref<Buffer> m_env_2d_buffer;
 
-    WorldEnvironment m_environment;
-    Ref<Buffer> m_env_buffer;
+    // WorldEnvironment m_environment;
+    // Ref<Buffer> m_env_buffer;
 
     Ref<Texture> m_missing_texture;
 

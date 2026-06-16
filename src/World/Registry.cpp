@@ -52,14 +52,14 @@ Result<void> GameRegistry::post_register()
 
     // s_texture_array->generate_mips();
 
-    // for (const auto& [id, item] : m_items)
-    // {
-    //     if (Ref<ItemBlock> ib = item.cast_to<ItemBlock>())
-    //     {
-    //         Ref<Block> block = get_block(ib->block());
-    //         ib->set_texture(create_preview_texture(block));
-    //     }
-    // }
+    for (const auto& [id, item] : m_items)
+    {
+        if (Ref<ItemBlock> ib = item.cast_to<ItemBlock>())
+        {
+            Ref<Block> block = get_block(ib->block());
+            ib->set_texture(create_preview_texture(block));
+        }
+    }
 
     return Result<void>();
 }

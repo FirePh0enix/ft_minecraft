@@ -83,8 +83,6 @@ void Player::on_ready()
     m_inventory_container->set_stack(1, 2, ItemStack(Items::stone_block, 16));
     m_inventory_container->set_stack(1, 3, ItemStack(Items::dirt_block, 16));
 
-    // m_inventory = newref<PlayerInventory>(m_inventory_container);
-
     // m_model_buffer = EXPECT(Buffer::create(sizeof(ItemBlockModel), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform));
     // m_material = EXPECT(Material::create(Renderer::get().get_item_block_shader(), MaterialFlagBits::None, WGPUCullMode_Back, UVType::UV));
     // m_material->set_param("env", Renderer::get().get_world_environment());
@@ -93,8 +91,10 @@ void Player::on_ready()
 
     if (m_local_player)
     {
-        // m_chat = newref<Chat>();
-        // m_debug_menu = newref<DebugMenuContainer>(this);
+        m_inventory = newref<PlayerInventory>(m_inventory_container);
+
+        m_chat = newref<Chat>();
+        m_debug_menu = newref<DebugMenuContainer>(this);
 
         m_camera = newref<Camera>();
         m_camera->get_transform().position() = glm::vec3(0, 0.85, 0);
@@ -372,18 +372,18 @@ void Player::tick(float delta)
         m_animator.tick(delta);
     }
 
-    // if (m_local_player)
-    // {
-    //     m_inventory->set_selected_slot(m_slot);
+    if (m_local_player)
+    {
+        m_inventory->set_selected_slot(m_slot);
 
-    //     if (m_opened_inventory.has_value())
-    //         m_opened_inventory.value()->update(delta);
-    //     else
-    //         m_inventory->update(delta);
+        if (m_opened_inventory.has_value())
+            m_opened_inventory.value()->update(delta);
+        else
+            m_inventory->update(delta);
 
-    //     if (m_open_chat)
-    //         m_chat->update(delta);
-    // }
+        if (m_open_chat)
+            m_chat->update(delta);
+    }
 
     m_previous_frame_in_water = in_water;
 
@@ -409,38 +409,38 @@ void Player::draw(const RenderPass& pass)
         m_model->encode(pass, get_global_transform());
     }
 
-    if (m_local_player && m_aimed_block.has_value())
-    {
-        SimpleUniforms uniforms(glm::translate(glm::identity<glm::mat4>(), glm::vec3(m_aimed_block.value())) * glm::scale(glm::identity<glm::mat4>(), glm::vec3(1.01f)), glm::vec4(aim_color, 0.4));
-        m_aim_buffer->update(View(uniforms).as_bytes());
-        Renderer::get().draw(pass, Renderer::get().get_cube_mesh(), m_aim_material);
-    }
+    // if (m_local_player && m_aimed_block.has_value())
+    // {
+    //     SimpleUniforms uniforms(glm::translate(glm::identity<glm::mat4>(), glm::vec3(m_aimed_block.value())) * glm::scale(glm::identity<glm::mat4>(), glm::vec3(1.01f)), glm::vec4(aim_color, 0.4));
+    //     m_aim_buffer->update(View(uniforms).as_bytes());
+    //     Renderer::get().draw(pass, Renderer::get().get_cube_mesh(), m_aim_material);
+    // }
 
-    if (m_local_player && m_inventory_container->get_stack(1, m_inventory->selected_slot()).item().valid())
-    {
-        Id<Item> id = m_inventory_container->get_stack(1, m_inventory->selected_slot()).item();
-        Ref<Item> item = Engine::get().registry().get_item(id);
-        if (Ref<ItemBlock> ib = item.cast_to<ItemBlock>())
-        {
-            Ref<Block> block = Engine::get().registry().block_from_item(m_inventory_container->get_stack(1, m_inventory->selected_slot()).item());
+    // if (m_local_player && m_inventory_container->get_stack(1, m_inventory->selected_slot()).item().valid())
+    // {
+    //     Id<Item> id = m_inventory_container->get_stack(1, m_inventory->selected_slot()).item();
+    //     Ref<Item> item = Engine::get().registry().get_item(id);
+    //     if (Ref<ItemBlock> ib = item.cast_to<ItemBlock>())
+    //     {
+    //         Ref<Block> block = Engine::get().registry().block_from_item(m_inventory_container->get_stack(1, m_inventory->selected_slot()).item());
 
-            Transform3D transform = m_camera->get_global_transform();
-            transform.scale() = glm::vec3(0.2);
-            transform.position() += m_camera->get_global_transform().forward() * 0.5f + m_camera->get_global_transform().right() * 0.35f + m_camera->get_global_transform().up() * -0.3f;
-            transform.set_euler_angles(glm::vec3(0, -m_transform.get_euler_angles().y, 0));
+    //         Transform3D transform = m_camera->get_global_transform();
+    //         transform.scale() = glm::vec3(0.2);
+    //         transform.position() += m_camera->get_global_transform().forward() * 0.5f + m_camera->get_global_transform().right() * 0.35f + m_camera->get_global_transform().up() * -0.3f;
+    //         transform.set_euler_angles(glm::vec3(0, -m_transform.get_euler_angles().y, 0));
 
-            ItemBlockModel matrix(
-                transform.to_matrix(),
-                glm::uvec3(block->get_texture_ids()[0] | (block->get_texture_ids()[1] << 16), block->get_texture_ids()[2] | (block->get_texture_ids()[3] << 16), block->get_texture_ids()[4] | (block->get_texture_ids()[5] << 16)));
+    //         ItemBlockModel matrix(
+    //             transform.to_matrix(),
+    //             glm::uvec3(block->get_texture_ids()[0] | (block->get_texture_ids()[1] << 16), block->get_texture_ids()[2] | (block->get_texture_ids()[3] << 16), block->get_texture_ids()[4] | (block->get_texture_ids()[5] << 16)));
 
-            m_model_buffer->update(View(matrix).as_bytes());
-            Renderer::get().draw(pass, Renderer::get().get_cube_mesh(), m_material);
-        }
-        else
-        {
-            // TODO: 3d model for other sprites.
-        }
-    }
+    //         m_model_buffer->update(View(matrix).as_bytes());
+    //         Renderer::get().draw(pass, Renderer::get().get_cube_mesh(), m_material);
+    //     }
+    //     else
+    //     {
+    //         // TODO: 3d model for other sprites.
+    //     }
+    // }
 }
 
 void Player::draw_ui(const RenderPass& pass)

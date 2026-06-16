@@ -131,17 +131,18 @@ Result<Ref<Model>> Model::load(const StringView& path)
         obj.uv_buffer = TRY(Buffer::create(sizeof(glm::vec2) * 24, WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
         obj.uv_buffer->update(View(uvs).as_bytes());
 
-        Model::Info info{
-            // TODO: add rotation.
-            .model_matrix = glm::translate(glm::identity<glm::mat4>(), obj.position) * glm::scale(glm::identity<glm::mat4>(), obj.size),
-        };
-        obj.model_buffer->update(View(info).as_bytes());
+        // FIXME: use deferred rendering here.
+        // Model::Info info{
+        //     // TODO: add rotation.
+        //     .model_matrix = glm::translate(glm::identity<glm::mat4>(), obj.position) * glm::scale(glm::identity<glm::mat4>(), obj.size),
+        // };
+        // obj.model_buffer->update(View(info).as_bytes());
 
-        obj.material->set_param("env", Renderer::get().get_world_environment());
-        obj.material->set_param("model", obj.model_buffer);
-        obj.material->set_param("global_model", model->m_global_buffer);
-        obj.material->set_param("uvs", obj.uv_buffer);
-        obj.material->set_param("texture", model->m_texture);
+        // obj.material->set_param("env", Renderer::get().get_world_environment());
+        // obj.material->set_param("model", obj.model_buffer);
+        // obj.material->set_param("global_model", model->m_global_buffer);
+        // obj.material->set_param("uvs", obj.uv_buffer);
+        // obj.material->set_param("texture", model->m_texture);
 
         model->m_objects.append(obj);
     }

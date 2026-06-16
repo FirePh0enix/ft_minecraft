@@ -1,7 +1,3 @@
-struct Env {
-    matrix: mat4x4f,
-}
-
 struct Camera {
     view_matrix: mat4x4f,
     projection_matrix: mat4x4f,
@@ -11,14 +7,8 @@ struct Uniforms {
     samples: array<vec4f, 64>,
 }
 
-struct Model {
-    matrix: mat4x4f,
-    time: f32,
-}
-
 struct VertexInput {
-    @location(0) position: vec3f,
-    @location(1) uv: vec2f,
+    @builtin(vertex_index) vertex_index: u32,
 }
 
 struct VertexOutput {
@@ -26,43 +16,39 @@ struct VertexOutput {
     @location(0) uv: vec2f,
 }
 
-@group(0) @binding(0) var<uniform> env: Env;
-@group(0) @binding(1) var<uniform> uniforms: Uniforms;
-@group(0) @binding(2) var<uniform> model: Model;
-@group(0) @binding(3) var<uniform> camera: Camera;
+@group(0) @binding(0) var<uniform> uniforms: Uniforms;
+@group(0) @binding(1) var<uniform> camera: Camera;
 
-@group(0) @binding(4) var position_buffer: texture_2d<f32>;
-@group(0) @binding(5) var position_buffer_sampler: sampler;
+@group(0) @binding(2) var position_buffer: texture_2d<f32>;
+@group(0) @binding(3) var position_buffer_sampler: sampler;
 
-@group(0) @binding(6) var normal_buffer: texture_2d<f32>;
-@group(0) @binding(7) var normal_buffer_sampler: sampler;
+@group(0) @binding(4) var normal_buffer: texture_2d<f32>;
+@group(0) @binding(5) var normal_buffer_sampler: sampler;
 
-@group(0) @binding(8) var noise_texture: texture_2d<f32>;
-@group(0) @binding(9) var noise_texture_sampler: sampler;
-
-const noise_scale = vec2<f32>(1280.0 / 4.0, 720.0 / 4.0);
+@group(0) @binding(6) var noise_texture: texture_2d<f32>;
+@group(0) @binding(7) var noise_texture_sampler: sampler;
 
 @vertex
 fn vertex_main(in: VertexInput) -> VertexOutput {
+    let u = f32((in.vertex_index << 1u) & 2u);
+    let v = f32(in.vertex_index & 2u);
+
     var out: VertexOutput;
-    out.position = env.matrix * model.matrix * vec4f(in.position, 1.0);
-    out.uv = in.uv;
+    out.uv = vec2f(u, 1.0 - v);
+    out.position = vec4f(u * 2.0 - 1.0, v * 2.0 - 1.0, 0.0, 1.0);
     return out;
 }
 
 const kernel_size = 64;
 
 @fragment
-fn fragment_main(vertex: VertexOutput) -> @location(0) f32 {
-    var uv2 = vertex.uv;
-    uv2.y = 1.0 - uv2.y;
-
-    let frag_pos = textureSample(position_buffer, position_buffer_sampler, uv2).xyz;
-    let normal = textureSample(normal_buffer, normal_buffer_sampler, uv2).xyz;
+fn fragment_main(in: VertexOutput) -> @location(0) f32 {
+    let frag_pos = textureSample(position_buffer, position_buffer_sampler, in.uv).xyz;
+    let normal = textureSample(normal_buffer, normal_buffer_sampler, in.uv).xyz;
 
     let tex_dim = textureDimensions(position_buffer);
     let noise_dim = textureDimensions(noise_texture);
-    let noise_uv = vec2f(f32(tex_dim.x) / f32(noise_dim.x), f32(tex_dim.y) / f32(noise_dim.y)) * uv2;
+    let noise_uv = vec2f(f32(tex_dim.x) / f32(noise_dim.x), f32(tex_dim.y) / f32(noise_dim.y)) * in.uv;
     let random_vec = textureSample(noise_texture, noise_texture_sampler, noise_uv).xyz * 2.0 - 1.0;
 
     let tangent = normalize(random_vec - normal * dot(random_vec, normal));
