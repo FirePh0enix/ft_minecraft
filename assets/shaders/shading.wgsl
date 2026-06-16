@@ -60,6 +60,6 @@ fn fragment_main(vertex: VertexOutput) -> @location(0) vec4f {
        }
     }
     // return albedo;
-    // return albedo * (ssao_value / 25.0);
-    return vec4f(1, 1, 1, 1.0) * (ssao_value / 25.0);
+    return albedo * (ssao_value / 25.0);
+    // return vec4f(1, 1, 1, 1.0) * (ssao_value / 25.0);
 }
