@@ -1,6 +1,5 @@
 #include "Engine.hpp"
 
-#include "Args.hpp"
 #include "Console.hpp"
 #include "Core/Alloc.hpp"
 #include "Core/Filesystem.hpp"
@@ -24,7 +23,7 @@
 #include <ctime>
 #include <imgui.h>
 
-Engine::Engine(const Args& args)
+Engine::Engine()
 {
     singleton = this;
     m_window = newref<Window>("ft_minecraft", 1280, 720);
@@ -32,11 +31,7 @@ Engine::Engine(const Args& args)
     Input::init(*m_window);
     Input::load_config();
 
-    InitFlags flags;
-    if (args.has("enable-gpu-validation"))
-    {
-        flags |= InitFlagBits::Validation;
-    }
+    InitFlags flags = InitFlagBits::Validation;
 
     register_entities(); // TODO: put this in GameRegistry
 

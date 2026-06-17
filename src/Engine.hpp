@@ -1,6 +1,5 @@
 #pragma once
 
-#include "Args.hpp"
 #include "Console.hpp"
 #include "Core/Class.hpp"
 #include "Core/Definitions.hpp"
@@ -32,7 +31,7 @@ class Engine : public Object
     CLASS(Engine, Object);
 
 public:
-    Engine(const Args& args);
+    Engine();
     ~Engine();
 
     bool is_running() const { return m_window->is_running(); }

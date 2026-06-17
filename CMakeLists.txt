@@ -19,7 +19,6 @@ option(SANITIZE_THREAD "Enable ThreadSanitizer" OFF)
 option(DETERMINISTIC "Try to guaranty deterministic maths" OFF)
 
 list(APPEND SOURCES
-    src/Args.cpp
     src/Console.cpp
     src/Engine.cpp
     src/Font.cpp
