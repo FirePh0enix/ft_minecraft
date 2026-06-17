@@ -888,16 +888,6 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
 #ifndef __platform_web
     WGPUInstanceDescriptor instance_desc{};
 
-    // WGPUInstanceLayerSelection lsel{.chain = {.next = nullptr, .sType = WGPUSType_InstanceLayerSelection}, .instanceLayers = nullptr, .instanceLayerCount = 0};
-    // const char *instance_layer[]{"VK_LAYER_KHRONOS_validation"};
-    // lsel.instanceLayerCount = 1;
-    // lsel.instanceLayers = instance_layer;
-
-    // if (flags.has_any(InitFlagBits::Validation))
-    // {
-    //     instance_desc.nextInChain = &lsel.chain;
-    // }
-
     (void)flags;
 
     const WGPUInstanceFeatureName features[]{
@@ -905,15 +895,6 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     };
     instance_desc.requiredFeatureCount = sizeof(features) / sizeof(WGPUInstanceFeatureName);
     instance_desc.requiredFeatures = features;
-
-    // WGPUInstanceExtras extras{};
-    // extras.chain = {.next = nullptr, .sType = (WGPUSType)WGPUSType_InstanceExtras};
-    // extras.backends = WGPUInstanceBackend_Primary;
-
-    // if (flags.has_any(InitFlagBits::Validation))
-    //     extras.flags |= WGPUInstanceFlag_Validation;
-
-    // instance_desc.nextInChain = &extras.chain;
 
     m_instance = wgpuCreateInstance(&instance_desc);
 #else
@@ -999,6 +980,12 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_texture_rect_shader->set_binding("image", Binding(BindingKind::Texture, WGPUShaderStage_Fragment, 0, 2, BindingAccess::Read, WGPUTextureViewDimension_2D)); // binding = 3 is the sampler
     m_texture_rect_shader->set_sampler("image", {.min_filter = WGPUFilterMode_Nearest, .mag_filter = WGPUFilterMode_Nearest});
     m_texture_rect_shader->create_bind_group_layout();
+
+    m_text_shader = TRY(Shader::load_from_path("assets/shaders/ui/text.wgsl"));
+    m_text_shader->set_binding("env", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
+    m_text_shader->set_binding("uniforms", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 1, BindingAccess::Read));
+    m_text_shader->set_binding("bitmap", Binding(BindingKind::Texture, WGPUShaderStage_Fragment, 0, 2, BindingAccess::Read, WGPUTextureViewDimension_2D));
+    m_text_shader->create_bind_group_layout();
 
     m_chunk_shader = TRY(Shader::load_from_path("assets/shaders/chunk.wgsl"));
     m_chunk_shader->set_binding("camera", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
@@ -1115,8 +1102,6 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_ssao_material->set_param("noise_texture", m_ssao_noise_texture);
 
     m_shading_material = TRY(Material::create(m_shading_shader, MaterialFlagBits::NoData, WGPUCullMode_None, UVType::UV));
-    // m_shading_material->set_param("env", m_env_2d_buffer);
-    // m_shading_material->set_param("uniforms", m_sky_uniform_buffer);
 
     // Vector<InstanceAttribute> attributes;
     // attributes.append(InstanceAttribute{.offset = 0, .format = WGPUVertexFormat_Float32x3});
@@ -1421,7 +1406,7 @@ void Renderer::draw(const Ref<World>& world)
     wgpuTextureViewRelease(surface_view);
 }
 
-void Renderer::draw(const RenderPass& pass, Ref<Mesh> mesh, Ref<Material> material)
+void Renderer::draw(const RenderPass& pass, Ref<Mesh> mesh, Ref<Material> material, const Ref<Buffer>& instance_buffer, size_t instance_count)
 {
     wgpuRenderPassEncoderSetPipeline(pass.encoder, material->get_pipeline(pass));
     wgpuRenderPassEncoderSetBindGroup(pass.encoder, 0, material->get_bind_group(), 0, nullptr);
@@ -1434,7 +1419,10 @@ void Renderer::draw(const RenderPass& pass, Ref<Mesh> mesh, Ref<Material> materi
     if (!material->flags().has_any(MaterialFlagBits::NoUV))
         wgpuRenderPassEncoderSetVertexBuffer(pass.encoder, buffer_index++, mesh->get_buffer(Mesh::BufferKind::UV)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::UV)->size());
 
-    wgpuRenderPassEncoderDrawIndexed(pass.encoder, mesh->vertex_count(), 1, 0, 0, 0);
+    if (!instance_buffer.is_null())
+        wgpuRenderPassEncoderSetVertexBuffer(pass.encoder, buffer_index++, instance_buffer->handle(), 0, instance_buffer->size());
+
+    wgpuRenderPassEncoderDrawIndexed(pass.encoder, mesh->vertex_count(), instance_count, 0, 0, 0);
 }
 
 void Renderer::draw_fullscreen(const RenderPass& pass, Ref<Material> material)

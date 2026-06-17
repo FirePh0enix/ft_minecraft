@@ -365,7 +365,7 @@ public:
     void draw_legacy(std::function<void()> f);
 
     void draw(const Ref<World>& world);
-    void draw(const RenderPass& pass, Ref<Mesh> mesh, Ref<Material> material);
+    void draw(const RenderPass& pass, Ref<Mesh> mesh, Ref<Material> material, const Ref<Buffer>& instance_buffer = nullptr, size_t instance_count = 1);
     void draw_fullscreen(const RenderPass& pass, Ref<Material> material);
     void draw_world(const Ref<World>& world, const RenderPass& pass);
 
@@ -395,6 +395,8 @@ public:
     // Ref<Shader> get_item_block_shader() const { return m_item_block_shader; }
     Ref<Shader> get_color_rect_shader() const { return m_color_rect_shader; }
     Ref<Shader> get_texture_rect_shader() const { return m_texture_rect_shader; }
+
+    Ref<Shader> get_text_shader() const { return m_text_shader; }
 
     Ref<Texture> get_missing_texture() const { return m_missing_texture; }
     View<uint8_t> get_missing_texture_data() const;
@@ -434,6 +436,8 @@ private:
     Ref<Shader> m_ssao_shader;
     Ref<Material> m_ssao_material;
     Ref<Texture> m_ssao_noise_texture;
+
+    Ref<Shader> m_text_shader;
 
     // Rendering stuff
     WGPUTextureFormat m_surface_format = WGPUTextureFormat_Undefined;

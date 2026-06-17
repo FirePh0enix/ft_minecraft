@@ -2,89 +2,14 @@
 #include "Core/Containers/Array.hpp"
 #include "Core/Containers/Vector.hpp"
 #include "Render/Renderer.hpp"
-#include "Render/Shader.hpp"
 #include "Render/Types.hpp"
-#include "webgpu/webgpu.h"
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
 
-static const StringView font_shader_source = R"(
-struct Uniforms
-{
-    color: vec4<f32>,
-    position: vec3<f32>,
-    scale: vec2<f32>,
-}
-
-struct Environment
-{
-    matrix: mat4x4<f32>,
-}
-
-@group(0) @binding(0) var<uniform> env: Environment;
-@group(0) @binding(1) var<uniform> uniforms: Uniforms;
-@group(0) @binding(2) var bitmap: texture_2d<f32>;
-@group(0) @binding(3) var bitmap_sampler: sampler;
-
-struct VertexOutput
-{
-    @builtin(position) position: vec4<f32>,
-    @location(0) tex_coords: vec2<f32>,
-    @location(1) color: vec4<f32>,
-}
-
-@vertex
-fn vertex_main(
-    @builtin(vertex_index) vertex_index: u32,
-    @location(0) pos: vec3<f32>,
-
-    @location(1) bounds: vec4<f32>,
-    @location(2) char_pos: vec2<f32>,
-    @location(3) scale: vec2<f32>
-) -> VertexOutput {
-    var uvs: array<vec2<f32>, 4>;
-    uvs[0] = vec2<f32>(bounds.x, bounds.z);
-    uvs[1] = vec2<f32>(bounds.y, bounds.z);
-    uvs[2] = vec2<f32>(bounds.y, bounds.w);
-    uvs[3] = vec2<f32>(bounds.x, bounds.w);
-
-    // let scale_matrix = mat4x4<f32>(
-    //     scale.x * uniforms.scale.x, 0.0, 0.0, 0.0,
-    //     0.0, scale.y * uniforms.scale.y, 0.0, 0.0,
-    //     0.0, 0.0, 1.0, 0.0,
-    //     0.0, 0.0, 0.0, 1.0,
-    // );
-    // let translation_matrix = mat4x4<f32>(
-    //     1.0, 0.0, 0.0, 0.0,
-    //     0.0, 1.0, 0.0, 0.0,
-    //     0.0, 0.0, 1.0, 0.0,
-    //     char_pos.x + uniforms.position.x, char_pos.y + uniforms.position.y, 0.0, 1.0,
-    // );
-
-    let matrix = mat4x4<f32>(
-        scale.x * uniforms.scale.x, 0.0, 0.0, 0.0,
-        0.0, scale.y * uniforms.scale.y, 0.0, 0.0,
-        0.0, 0.0, 1.0, 0.0,
-        char_pos.x * uniforms.scale.x + uniforms.position.x, char_pos.y * uniforms.scale.x + uniforms.position.y, uniforms.position.z, 1.0
-    );
-    // let matrix = translation_matrix * scale_matrix;
-    var out: VertexOutput;
-    out.position = env.matrix * matrix * vec4<f32>(pos, 1.0);
-    out.tex_coords = uvs[vertex_index];
-    out.color = uniforms.color;
-    return out;
-}
-
-@fragment
-fn fragment_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    return in.color * vec4f(1.0, 1.0, 1.0, textureSample(bitmap, bitmap_sampler, in.tex_coords).r);
-}
-)";
-
 static FT_Library g_lib;
 static Ref<Mesh> g_mesh;
-static Ref<Shader> g_shader;
+// static Ref<Shader> g_shader;
 
 Result<Ref<Font>> Font::create(const StringView& font_name, uint32_t font_size)
 {
@@ -180,9 +105,7 @@ Result<void> Font::init_library()
     const FT_Error res = FT_Init_FreeType(&g_lib);
 
     if (res != 0)
-    {
         return Error(ErrorKind::FileNotFound);
-    }
 
     Array<uint16_t, 6> indices = {0, 1, 2, 0, 2, 3};
     Array<glm::vec3, 4> vertices = {
@@ -205,21 +128,12 @@ Result<void> Font::init_library()
     };
 
     g_mesh = EXPECT(Mesh::create_from_data(View(indices).as_bytes(), vertices, normals, View(uvs).as_bytes(), WGPUIndexFormat_Uint16));
-
-    g_shader = TRY(Shader::load(font_shader_source));
-    g_shader->set_binding("env", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
-    g_shader->set_binding("uniforms", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 1, BindingAccess::Read));
-    g_shader->set_binding("bitmap", Binding(BindingKind::Texture, WGPUShaderStage_Fragment, 0, 2, BindingAccess::Read, WGPUTextureViewDimension_2D));
-    g_shader->create_bind_group_layout();
-
     return Result<void>();
 }
 
 void Font::deinit_library()
 {
-    g_shader = nullptr;
     g_mesh = nullptr;
-
     FT_Done_FreeType(g_lib);
 }
 
@@ -238,7 +152,7 @@ Text::Text(Ref<Font> font)
     attribs.append(InstanceAttribute(offsetof(Font::Instance, char_pos), WGPUVertexFormat_Float32x2));
     attribs.append(InstanceAttribute(offsetof(Font::Instance, scale), WGPUVertexFormat_Float32x2));
 
-    m_material = EXPECT(Material::create(g_shader, MaterialFlagBits::Transparency | MaterialFlagBits::NoNormal | MaterialFlagBits::NoUV, WGPUCullMode_None, UVType::UV, Instance(attribs, sizeof(Font::Instance))));
+    m_material = EXPECT(Material::create(Renderer::get().get_text_shader(), MaterialFlagBits::Transparency | MaterialFlagBits::NoNormal | MaterialFlagBits::NoUV, WGPUCullMode_None, UVType::UV, Instance(attribs, sizeof(Font::Instance))));
     m_material->set_param("env", Renderer::get().get_env_2d());
     m_material->set_param("uniforms", m_uniform_buffer);
     m_material->set_param("bitmap", font->get_bitmap());
@@ -325,7 +239,7 @@ void Text::set_color(glm::vec4 color)
 
 void Text::draw(const RenderPass& pass)
 {
-    Renderer::get().draw(pass, Renderer::get().get_square_mesh(), m_material);
+    Renderer::get().draw(pass, Renderer::get().get_square_mesh(), m_material, m_instance_buffer, m_size);
 }
 
 void Text::update_uniform_buffer()
