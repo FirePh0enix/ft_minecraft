@@ -1373,12 +1373,25 @@ void Renderer::draw(const Ref<World>& world)
     for (ssize_t i = (ssize_t)world->get_dimension(0).get_chunks().size() - 1; i >= 0; i--)
     {
         const Ref<Chunk>& chunk = world->get_dimension(0).get_chunks().pairs()[i].value;
+        ChunkPos pos = chunk->pos();
+        AABB aabb = AABB(-glm::vec3(Chunk::width / 2.0, Chunk::height / 2.0, Chunk::width / 2), glm::vec3(Chunk::width / 2.0, Chunk::height / 2.0, Chunk::width / 2))
+                        .translate(glm::vec3((float)pos.x * Chunk::width + Chunk::width / 2.0, float(Chunk::height) / 2.0, (float)pos.z * Chunk::width + Chunk::width / 2.0));
+
+        if (!world->get_active_camera()->frustum().contains(aabb))
+            continue;
+
         for (size_t slice_index = 0; slice_index < Chunk::slice_count; slice_index++)
         {
             const Chunk::Slice& slice = chunk->get_slices()[slice_index];
             const Ref<Mesh>& mesh = slice.water_mesh;
 
             if (mesh.is_null())
+                continue;
+
+            AABB aabb = AABB(-glm::vec3(Chunk::width / 2.0, Chunk::width / 2.0, Chunk::width / 2), glm::vec3(Chunk::width / 2.0, Chunk::width / 2.0, Chunk::width / 2))
+                            .translate(glm::vec3((float)pos.x * Chunk::width + Chunk::width / 2.0, (float)slice_index * Chunk::width + Chunk::width / 2.0, (float)pos.z * Chunk::width + Chunk::width / 2.0));
+
+            if (!world->get_active_camera()->frustum().contains(aabb))
                 continue;
 
             wgpuRenderPassEncoderSetIndexBuffer(transparent_pass_encoder, mesh->get_buffer(Mesh::BufferKind::Index)->handle(), mesh->index_type(), 0, mesh->get_buffer(Mesh::BufferKind::Index)->size());
