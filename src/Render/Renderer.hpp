@@ -367,6 +367,7 @@ public:
     void draw(const Ref<World>& world);
     void draw(const RenderPass& pass, Ref<Mesh> mesh, Ref<Material> material, const Ref<Buffer>& instance_buffer = nullptr, size_t instance_count = 1);
     void draw_fullscreen(const RenderPass& pass, Ref<Material> material);
+
     void draw_world(const Ref<World>& world, const RenderPass& pass);
 
     void set_underwater(bool v) { m_underwater_effect = v; }
@@ -430,6 +431,8 @@ private:
     Ref<Shader> m_shading_shader;
     Ref<Material> m_shading_material;
 
+    Ref<Shader> m_text_shader;
+
     // SSAO
     Ref<Texture> m_ssao_buffer;
     Ref<Buffer> m_ssao_uniform_buffer;
@@ -437,7 +440,8 @@ private:
     Ref<Material> m_ssao_material;
     Ref<Texture> m_ssao_noise_texture;
 
-    Ref<Shader> m_text_shader;
+    // Transparent
+    Ref<Texture> m_transparent_buffer;
 
     // Rendering stuff
     WGPUTextureFormat m_surface_format = WGPUTextureFormat_Undefined;

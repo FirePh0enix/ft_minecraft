@@ -12,6 +12,7 @@
 #include "Profiler.hpp"
 #include "Render/Shader.hpp"
 #include "Render/Types.hpp"
+#include "Variant.hpp"
 #include "World/Dimension.hpp"
 #include "World/Registry.hpp"
 #include "World/World.hpp"
@@ -993,6 +994,12 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_chunk_shader->set_sampler("images", {.min_filter = WGPUFilterMode_Nearest, .mag_filter = WGPUFilterMode_Nearest});
     m_chunk_shader->create_bind_group_layout();
 
+    m_water_shader = TRY(Shader::load_from_path("assets/shaders/water.wgsl"));
+    m_water_shader->set_binding("image", Binding(BindingKind::Texture, WGPUShaderStage_Fragment, 0, 0, BindingAccess::Read, WGPUTextureViewDimension_2D));
+    m_water_shader->set_sampler("image", {.min_filter = WGPUFilterMode_Nearest, .mag_filter = WGPUFilterMode_Nearest});
+    m_water_shader->set_binding("camera", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 2, BindingAccess::Read));
+    m_water_shader->create_bind_group_layout();
+
     m_ssao_shader = TRY(Shader::load_from_path("assets/shaders/ssao.wgsl"));
     m_ssao_shader->set_binding("uniforms", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Fragment, 0, 0, BindingAccess::Read));
     m_ssao_shader->set_binding("camera", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex | WGPUShaderStage_Fragment, 0, 1, BindingAccess::Read));
@@ -1096,6 +1103,10 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_chunk_material->set_param("camera", m_camera_buffer);
     m_chunk_material->set_param("images", Engine::get().registry().get_texture_array());
 
+    m_water_material = TRY(Material::create(m_water_shader, MaterialFlagBits::Transparency, WGPUCullMode_Back, UVType::UV, Instance(attributes, sizeof(glm::vec3))));
+    m_water_material->set_param("image", Engine::get().registry().create_texture("assets/textures/water.png"));
+    m_water_material->set_param("camera", m_camera_buffer);
+
     m_ssao_material = TRY(Material::create(m_ssao_shader, MaterialFlagBits::NoData, WGPUCullMode_None, UVType::UV));
     m_ssao_material->set_param("uniforms", m_ssao_uniform_buffer);
     m_ssao_material->set_param("camera", m_camera_buffer);
@@ -1109,10 +1120,6 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     // m_chunk_material = TRY(Material::create(m_voxel_shader, MaterialFlagBits::None, WGPUCullMode_Back, UVType::UVT, Instance(attributes, sizeof(glm::vec3))));
     // m_chunk_material->set_param("images", Engine::get().registry().get_texture_array());
     // m_chunk_material->set_param("env", Renderer::get().get_world_environment());
-
-    // m_water_material = TRY(Material::create(m_water_shader, MaterialFlagBits::Transparency, WGPUCullMode_Back, UVType::UV, Instance(attributes, sizeof(glm::vec3))));
-    // m_water_material->set_param("image", Engine::get().registry().create_texture("assets/textures/water.png"));
-    // m_water_material->set_param("env", Renderer::get().get_world_environment());
 
     // m_simple_shader = TRY(Shader::load(simple_shape_source));
     // m_simple_shader->set_binding("env", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
@@ -1330,6 +1337,60 @@ void Renderer::draw(const Ref<World>& world)
     draw_world(world, RenderPass(main_pass_encoder, RenderTarget(m_depth_buffer->format()), Vector<RenderTarget>::create(RenderTarget(m_albedo_buffer->format(), false), RenderTarget(m_position_buffer->format(), false), RenderTarget(m_normal_buffer->format(), false))));
     wgpuRenderPassEncoderEnd(main_pass_encoder);
     wgpuRenderPassEncoderRelease(main_pass_encoder);
+
+    // Water Pass
+    Map<float, Ref<Chunk>> chunks;
+    for (const auto& [pos, chunk] : world->get_dimension(0).get_chunks())
+    {
+        const glm::vec3 posf = glm::vec3(float(pos.x) * 16.0, 128.0, float(pos.z) * 16.0);
+        const float distance = glm::length2(posf - world->get_active_camera()->get_global_transform().position());
+        chunks.put(distance, chunk);
+    }
+
+    WGPURenderPassColorAttachment transparent_color_attach{};
+    transparent_color_attach.clearValue = WGPUColor(0.0, 0.0, 0.0, 1.0);
+    transparent_color_attach.depthSlice = WGPU_DEPTH_SLICE_UNDEFINED;
+    transparent_color_attach.loadOp = WGPULoadOp_Load;
+    transparent_color_attach.storeOp = WGPUStoreOp_Store;
+    transparent_color_attach.view = m_albedo_buffer->handle_view();
+
+    WGPURenderPassDepthStencilAttachment depth_buffer_load_attach{};
+    depth_buffer_load_attach.depthClearValue = 1.0;
+    depth_buffer_load_attach.depthLoadOp = WGPULoadOp_Load;
+    depth_buffer_load_attach.depthStoreOp = WGPUStoreOp_Store;
+    depth_buffer_load_attach.view = m_depth_buffer->handle_view();
+
+    WGPURenderPassDescriptor transparent_pass{};
+    transparent_pass.label = WGPU_STRING_VIEW("Transparent Pass");
+    transparent_pass.colorAttachmentCount = 1;
+    transparent_pass.colorAttachments = &transparent_color_attach;
+    transparent_pass.depthStencilAttachment = &depth_buffer_load_attach;
+
+    WGPURenderPassEncoder transparent_pass_encoder = wgpuCommandEncoderBeginRenderPass(encoder, &transparent_pass);
+    wgpuRenderPassEncoderSetPipeline(transparent_pass_encoder, m_water_material->get_pipeline(RenderPass(transparent_pass_encoder, RenderTarget(m_depth_buffer->format()), Vector<RenderTarget>::create(m_albedo_buffer->format()))));
+    wgpuRenderPassEncoderSetBindGroup(transparent_pass_encoder, 0, m_water_material->get_bind_group(), 0, nullptr);
+
+    for (ssize_t i = (ssize_t)world->get_dimension(0).get_chunks().size() - 1; i >= 0; i--)
+    {
+        const Ref<Chunk>& chunk = world->get_dimension(0).get_chunks().pairs()[i].value;
+        for (size_t slice_index = 0; slice_index < Chunk::slice_count; slice_index++)
+        {
+            const Chunk::Slice& slice = chunk->get_slices()[slice_index];
+            const Ref<Mesh>& mesh = slice.water_mesh;
+
+            if (mesh.is_null())
+                continue;
+
+            wgpuRenderPassEncoderSetIndexBuffer(transparent_pass_encoder, mesh->get_buffer(Mesh::BufferKind::Index)->handle(), mesh->index_type(), 0, mesh->get_buffer(Mesh::BufferKind::Index)->size());
+            wgpuRenderPassEncoderSetVertexBuffer(transparent_pass_encoder, 0, mesh->get_buffer(Mesh::BufferKind::Position)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Position)->size());
+            wgpuRenderPassEncoderSetVertexBuffer(transparent_pass_encoder, 1, mesh->get_buffer(Mesh::BufferKind::Normal)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Normal)->size());
+            wgpuRenderPassEncoderSetVertexBuffer(transparent_pass_encoder, 2, mesh->get_buffer(Mesh::BufferKind::UV)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::UV)->size());
+            wgpuRenderPassEncoderSetVertexBuffer(transparent_pass_encoder, 3, chunk->get_chunk_buffer()->handle(), sizeof(glm::vec3) * slice_index, sizeof(glm::vec3));
+            wgpuRenderPassEncoderDrawIndexed(transparent_pass_encoder, mesh->vertex_count(), 1, 0, 0, 0);
+        }
+    }
+    wgpuRenderPassEncoderEnd(transparent_pass_encoder);
+    wgpuRenderPassEncoderRelease(transparent_pass_encoder);
 
     // Screen-Space Ambiant Occlusion
     WGPURenderPassColorAttachment ssao_buffer_attach{};
