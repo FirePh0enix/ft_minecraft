@@ -52,14 +52,12 @@ MAIN(int argc, char *argv[])
         if (elapsed_time >= fixed_update_time)
         {
             FrameMark;
-
             last_update_time = clock();
 
             engine->tick(float(fixed_update_time)); // TODO: change to elapsed time or something
+            engine->draw(float(fixed_update_time));
             Input::post_events();
         }
-
-        engine->draw(float(fixed_update_time));
     }
 
     engine = nullptr;
