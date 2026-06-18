@@ -8,8 +8,10 @@ constexpr int two_d_to_1d(int x, int y, int w)
 
 Option<ItemStack> CraftingManager::match(const InplaceVector<Id<Item>, 9>& grid, int width, int height)
 {
+
     for (const auto& r : m_recipes)
     {
+
         // Skip recipes that don't fit in crafting grid. Ex: Inventory will have a limit of 2x2.
         if (r.width > width || r.height > height)
             continue;
@@ -24,7 +26,7 @@ Option<ItemStack> CraftingManager::match(const InplaceVector<Id<Item>, 9>& grid,
                     // Try all possible positions where the recipe could fit.
                     for (int x = 0; x < r.width; x++)
                     {
-                        Id<Item> a = grid[two_d_to_1d(off_x + x, off_y + y, 3)];
+                        Id<Item> a = grid[two_d_to_1d(off_x + x, off_y + y, width)];
                         Id<Item> b = r.pattern[two_d_to_1d(x, y, 3)];
 
                         if (a != b)
