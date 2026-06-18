@@ -53,9 +53,16 @@ public:
 
     void add_stack(ItemStack stack);
 
+    virtual bool on_place(uint32_t layer, uint32_t index, ItemStack stack, InventoryContainer *container) override;
+    virtual bool on_pick(uint32_t layer, uint32_t index, ItemStack stack, InventoryContainer *container) override;
+
+    void update_recipe();
+    void consume_ingredients();
+
 private:
     Array<Ref<QuickSlot>, inventory_width> m_quick_slots;
     Ref<Container> m_quick_slots_container;
 
     size_t m_selected_slot = 0;
+    bool m_dirty = false;
 };

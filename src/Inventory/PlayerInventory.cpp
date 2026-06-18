@@ -74,6 +74,9 @@ PlayerInventory::PlayerInventory(Ref<InventoryContainer> container)
     add_grid(9, 3, 0, glm::vec2(0, -0.2f));
     add_grid(9, 1, 1, glm::vec2(0, -0.6f));
 
+    add_grid(2, 2, 2, glm::vec2(-0.2f, 0.3f));
+    add_grid(1, 1, 3, glm::vec2(0.3f, 0.3f));
+
     constexpr float slot_size = 0.12f;
     constexpr float slot_margin = 0.04f;
     constexpr float slot_tsize = slot_size + slot_margin;
@@ -108,6 +111,12 @@ void PlayerInventory::update(float d)
     }
 
     m_quick_slots_container->update(d);
+
+    if (m_dirty)
+    {
+        update_recipe();
+        m_dirty = false;
+    }
 }
 
 void PlayerInventory::draw(const RenderPass& pass)
@@ -166,5 +175,82 @@ void PlayerInventory::add_stack(ItemStack stack)
             m_container->set_stack(0, i, current_stack);
             return;
         }
+    }
+}
+
+bool PlayerInventory::on_place(uint32_t layer, uint32_t index, ItemStack stack, InventoryContainer *container)
+{
+    (void)index;
+    (void)stack;
+
+    if (layer == 3 && container == m_container.ptr())
+        return false;
+
+    if (layer == 2)
+        m_dirty = true;
+
+    return true;
+}
+
+bool PlayerInventory::on_pick(uint32_t layer, uint32_t index, ItemStack stack, InventoryContainer *container)
+{
+    (void)stack;
+    (void)container;
+
+    if (layer == 3 && index == 0)
+    {
+        ItemStack result = m_container->get_stack(3, 0);
+
+        if (result.item().valid())
+        {
+            consume_ingredients();
+            m_dirty = true;
+        }
+    }
+
+    if (layer == 2)
+        m_dirty = true;
+
+    return true;
+}
+
+void PlayerInventory::update_recipe()
+{
+    InplaceVector<Id<Item>, 9> grid;
+    for (size_t i = 0; i < 9; i++)
+    {
+        ItemStack s = m_container->get_stack(2, i);
+        auto value = s.item().valid() ? s.item() : Id<Item>();
+        grid.push_back(value);
+    }
+
+    Option<ItemStack> result = Engine::get().crafting().match(grid, 2, 2);
+    if (result.has_value())
+    {
+        println("Matched item {}, count {}", result.value().item().value, result.value().count());
+        m_container->set_stack(3, 0, result.value());
+    }
+    else
+    {
+        println("Not matching !");
+        m_container->set_stack(3, 0, ItemStack());
+    }
+}
+
+void PlayerInventory::consume_ingredients()
+{
+    for (size_t i = 0; i < 4; i++)
+    {
+        ItemStack stack = m_container->get_stack(2, i);
+
+        if (!stack.item().valid())
+            continue;
+
+        stack.set_count(stack.count() - 1);
+
+        if (stack.count() <= 0)
+            m_container->set_stack(2, i, ItemStack());
+        else
+            m_container->set_stack(2, i, stack);
     }
 }

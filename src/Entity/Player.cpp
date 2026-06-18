@@ -77,6 +77,8 @@ void Player::on_ready()
     m_inventory_container = newref<InventoryContainer>();
     EXPECT(m_inventory_container->add_layer(27)); // main inventory
     EXPECT(m_inventory_container->add_layer(9));  // toolbar
+    EXPECT(m_inventory_container->add_layer(4));  // Crafting Grid
+    EXPECT(m_inventory_container->add_layer(1));  // Crafting Result
 
     m_inventory_container->set_stack(1, 0, ItemStack(Items::crafting_table_block, 16));
     m_inventory_container->set_stack(1, 1, ItemStack(Items::water_bucket, 1));
