@@ -24,6 +24,11 @@
 #include <ctime>
 #include <imgui.h>
 
+constexpr int two_d_to_1d(int x, int y)
+{
+    return y * 3 + x;
+}
+
 Engine::Engine()
 {
     singleton = this;
@@ -76,11 +81,7 @@ void Engine::register_entities()
     m_entity_registry.register_entity<Zombie>();
 }
 
-constexpr int two_d_to_1d(int x, int y)
-{
-    return y * 3 + x;
-}
-
+// TODO: Create a helper for creating recipe maybe ?
 void Engine::register_recipes()
 {
     Recipe crafting_table;
@@ -98,7 +99,7 @@ void Engine::register_recipes()
 
     crafting_table.result = ItemStack(Items::crafting_table_block, 1);
 
-    m_crafting.add_recipe(crafting_table);
+    m_registry.add_recipe(crafting_table);
 }
 
 void Engine::tick(float delta)

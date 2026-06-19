@@ -10,6 +10,11 @@
 #include "Render/Renderer.hpp"
 #include "webgpu/webgpu.h"
 
+constexpr int two_d_to_1d(int x, int y, int w)
+{
+    return y * w + x;
+}
+
 Result<Ref<Entity>> EntityRegistry::create_entity(ClassHashCode class_hash)
 {
     return m_entries.get(class_hash).value().c();
@@ -224,5 +229,63 @@ Option<size_t> GameRegistry::get_image(const StringView& path)
         if (StringView(m_images[i].path) == path)
             return i + 1;
     }
+    return None;
+}
+
+Option<ItemStack> GameRegistry::match(const InplaceVector<Id<Item>, 9>& grid, int width, int height)
+{
+
+    for (const auto& r : m_recipes)
+    {
+
+        // Skip recipes that don't fit in crafting grid. Ex: Inventory will have a limit of 2x2.
+        if (r.width > width || r.height > height)
+            continue;
+
+        for (int off_y = 0; off_y <= height - r.height; off_y++)
+        {
+            for (int off_x = 0; off_x <= width - r.width; off_x++)
+            {
+                bool ok = true;
+                for (int y = 0; y < r.height && ok; y++)
+                {
+                    // Try all possible positions where the recipe could fit.
+                    for (int x = 0; x < r.width; x++)
+                    {
+                        Id<Item> a = grid[two_d_to_1d(off_x + x, off_y + y, width)];
+                        Id<Item> b = r.pattern[two_d_to_1d(x, y, 3)];
+
+                        if (a != b)
+                        {
+                            ok = false;
+                            break;
+                        }
+                    }
+                }
+
+                if (!ok)
+                    continue;
+
+                // Ensure there is no extra item.
+                for (int y = 0; y < height && ok; y++)
+                {
+                    for (int x = 0; x < width; x++)
+                    {
+                        bool inside = y >= off_y && y < off_y + r.height && x >= off_x && x < off_x + r.width;
+
+                        if (!inside && grid[two_d_to_1d(x, y, width)] != Id<Item>())
+                        {
+                            ok = false;
+                            break;
+                        }
+                    }
+                }
+
+                if (ok)
+                    return r.result;
+            }
+        }
+    }
+
     return None;
 }

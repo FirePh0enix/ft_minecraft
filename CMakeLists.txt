@@ -52,7 +52,6 @@ list(APPEND SOURCES
     src/Inventory/CraftingTable.cpp
     src/Inventory/Inventory.cpp
     src/Inventory/PlayerInventory.cpp
-    src/Inventory/CraftingManager.cpp
     src/Item/Bucket.cpp
     src/Item/Item.cpp
     src/Item/ItemStack.cpp
