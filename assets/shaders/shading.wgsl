@@ -1,3 +1,13 @@
+struct Camera {
+    view_matrix: mat4x4f,
+    projection_matrix: mat4x4f,
+}
+
+struct WorldUniforms {
+    fog_color: vec4f,
+    fog_distance: f32,
+}
+
 struct VertexInput {
     @builtin(vertex_index) vertex_index: u32,
 }
@@ -22,6 +32,9 @@ struct VertexOutput {
 @group(0) @binding(8) var depth_texture: texture_2d<f32>;
 @group(0) @binding(9) var depth_texture_sampler: sampler;
 
+@group(0) @binding(10) var<uniform> camera: Camera;
+@group(0) @binding(11) var<uniform> world: WorldUniforms;
+
 @vertex
 fn vertex_main(in: VertexInput) -> VertexOutput {
     let u = f32((in.vertex_index << 1u) & 2u);
@@ -33,10 +46,20 @@ fn vertex_main(in: VertexInput) -> VertexOutput {
     return out;
 }
 
+fn compute_volumetric_fog(world_pos: vec3f, camera_to_world_pos: vec3f) -> f32 {
+    return max(min(length(world_pos - camera_to_world_pos) / world.fog_distance - 0.8, 1.0), 0.0);
+}
+
 @fragment
 fn fragment_main(in: VertexOutput) -> @location(0) vec4f {
     let albedo = textureSample(albedo_texture, albedo_texture_sampler, in.uv);
     let normal = textureSample(normal_texture, normal_texture_sampler, in.uv);
+    let position = textureSample(position_texture, position_texture_sampler, in.uv);
+    let depth = textureSample(depth_texture, depth_texture_sampler, in.uv);
+
+    if (albedo.a == 0.0) {
+        discard;
+    }
 
     let texel_size = 1.0 / vec2f(textureDimensions(ssao_texture));
     var ssao_value = 0.0;
@@ -46,7 +69,7 @@ fn fragment_main(in: VertexOutput) -> @location(0) vec4f {
            ssao_value += textureSample(ssao_texture, ssao_texture_sampler, in.uv + offset).r;
        }
     }
-    // return albedo;
-    return albedo * (ssao_value / 25.0);
-    // return vec4f(1, 1, 1, 1.0) * (ssao_value / 25.0);
+
+    let fog_factor = compute_volumetric_fog(position.xyz, (camera.view_matrix * vec4f()).xyz);
+    return mix(albedo * (ssao_value / 25.0), world.fog_color, fog_factor);
 }

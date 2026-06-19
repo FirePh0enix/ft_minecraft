@@ -11,6 +11,7 @@
 #include "Render/Types.hpp"
 #include "Window.hpp"
 
+#include <thread>
 #include <tuple>
 #include <webgpu/webgpu.h>
 
@@ -72,6 +73,9 @@ private:
     WGPUBuffer m_buffer;
     size_t m_size;
     WGPUBufferUsage m_usage;
+
+    BufferVisibility m_visibility;
+    WGPUBuffer m_transfer_buffer;
 };
 
 class Texture : public Object
@@ -319,23 +323,28 @@ struct GPU_ATTRIBUTE CameraUniforms
     glm::mat4 projection_matrix;
 };
 
-struct GPU_ATTRIBUTE WorldEnvironment
+struct GPU_ATTRIBUTE WorldUniforms
 {
-    glm::mat4 view_matrix = glm::identity<glm::mat4>();
-    glm::vec3 sun_direction = glm::vec3();
-    glm::vec3 sun_color = glm::vec4(1.0, 1.0, 1.0, 1.0);
+    glm::vec4 fog_color;
+    float fog_distance;
 };
 
-struct GPU_ATTRIBUTE SimpleUniforms
-{
-    glm::mat4 model_matrix;
-    glm::vec4 color;
-};
+// struct GPU_ATTRIBUTE WorldEnvironment
+// {
+//     glm::mat4 view_matrix = glm::identity<glm::mat4>();
+//     glm::vec3 sun_direction = glm::vec3();
+//     glm::vec3 sun_color = glm::vec4(1.0, 1.0, 1.0, 1.0);
+// };
+
+// struct GPU_ATTRIBUTE SimpleUniforms
+// {
+//     glm::mat4 model_matrix;
+//     glm::vec4 color;
+// };
 
 struct GPU_ATTRIBUTE SkyUniforms
 {
-    glm::mat4 model_matrix;
-    float time;
+    glm::vec4 color;
 };
 
 struct GPU_ATTRIBUTE FullscreenUniforms
@@ -359,6 +368,11 @@ public:
 
     Result<void> init(const Window& window, InitFlags flags);
 
+    /**
+     * Start the rendering thread.
+     */
+    void start();
+
     void configure_surface(size_t width, size_t height, VSync vsync);
 
     // TODO: Only used by imgui for the main menu, which will be removed.
@@ -369,6 +383,9 @@ public:
     void draw_fullscreen(const RenderPass& pass, Ref<Material> material);
 
     void draw_world(const Ref<World>& world, const RenderPass& pass);
+
+    void set_fog(glm::vec4 color, float distance);
+    void set_sky(glm::vec4 color);
 
     void set_underwater(bool v) { m_underwater_effect = v; }
 
@@ -417,6 +434,9 @@ private:
     std::mutex m_device_mutex;
     std::mutex m_queue_mutex;
 
+    // WGPUQuerySet m_pipeline_query_set;
+    // Ref<Buffer> m_pipeline_query_set_buffer;
+
     // Rendering 2.0 stuff
     Ref<Texture> m_albedo_buffer;
     Ref<Texture> m_position_buffer;
@@ -424,6 +444,8 @@ private:
     Ref<Texture> m_depth_buffer;
 
     Ref<Buffer> m_camera_buffer;
+    WorldUniforms m_world_uniforms;
+    Ref<Buffer> m_world_buffer;
 
     Ref<Shader> m_chunk_shader;
     Ref<Material> m_chunk_material;
@@ -440,8 +462,10 @@ private:
     Ref<Material> m_ssao_material;
     Ref<Texture> m_ssao_noise_texture;
 
-    // Transparent
-    Ref<Texture> m_transparent_buffer;
+    // Sky
+    Ref<Shader> m_sky_shader;
+    Ref<Material> m_sky_material;
+    Ref<Buffer> m_sky_buffer;
 
     // Rendering stuff
     WGPUTextureFormat m_surface_format = WGPUTextureFormat_Undefined;
@@ -460,10 +484,10 @@ private:
     Ref<Shader> m_underwater_shader;
     Ref<Material> m_underwater_material;
 
-    Ref<Shader> m_sky_shader;
-    Ref<Material> m_sky_material;
-    SkyUniforms m_sky_uniforms{};
-    Ref<Buffer> m_sky_uniform_buffer;
+    // Ref<Shader> m_sky_shader;
+    // Ref<Material> m_sky_material;
+    // SkyUniforms m_sky_uniforms{};
+    // Ref<Buffer> m_sky_buffer;
 
     Ref<Mesh> m_cube_mesh;
     Ref<Mesh> m_square_mesh;

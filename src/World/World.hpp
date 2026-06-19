@@ -119,6 +119,8 @@ public:
     BlockState get_block_state(int64_t x, int64_t y, int64_t z) const;
     void set_block_state(int64_t x, int64_t y, int64_t z, BlockState state);
 
+    int64_t get_render_distance() const { return m_load_distance; }
+
     Option<Ref<Chunk>> get_chunk(int64_t x, int64_t z) const;
     Option<Ref<Chunk>> get_chunk(int64_t x, int64_t z);
 
