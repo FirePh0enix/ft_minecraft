@@ -1,9 +1,14 @@
 #include "Inventory/CraftingTable.hpp"
 
-#include "Core/Print.hpp"
 #include "Engine.hpp"
 #include "Inventory/Inventory.hpp"
 #include "Item/Item.hpp"
+#include "World/Registry.hpp"
+
+
+constexpr int CRAFTING_GRID_SIZE = 9;
+constexpr int INGREDIENTS_LAYER = 0;
+constexpr int RESULT_LAYER = 1;
 
 CraftingTableInventory::CraftingTableInventory(Ref<InventoryContainer> inventory, Ref<InventoryContainer> player_inventory)
     : Inventory(inventory), m_player_inventory(player_inventory)
@@ -36,10 +41,10 @@ bool CraftingTableInventory::on_place(uint32_t layer, uint32_t index, ItemStack 
     (void)index;
     (void)stack;
 
-    if (layer == 1 && container == m_container.ptr())
+    if (layer == RESULT_LAYER && container == m_container.ptr())
         return false;
 
-    if (layer == 0)
+    if (layer == INGREDIENTS_LAYER)
         m_dirty = true;
 
     return true;
@@ -50,9 +55,9 @@ bool CraftingTableInventory::on_pick(uint32_t layer, uint32_t index, ItemStack s
     (void)stack;
     (void)container;
 
-    if (layer == 1 && index == 0)
+    if (layer == RESULT_LAYER && index == 0)
     {
-        ItemStack result = m_container->get_stack(1, 0);
+        ItemStack result = m_container->get_stack(RESULT_LAYER, 0);
 
         if (result.item().valid())
         {
@@ -61,7 +66,7 @@ bool CraftingTableInventory::on_pick(uint32_t layer, uint32_t index, ItemStack s
         }
     }
 
-    if (layer == 0)
+    if (layer == INGREDIENTS_LAYER)
         m_dirty = true;
 
     return true;
@@ -69,32 +74,25 @@ bool CraftingTableInventory::on_pick(uint32_t layer, uint32_t index, ItemStack s
 
 void CraftingTableInventory::update_recipe()
 {
-    InplaceVector<Id<Item>, 9> grid;
-    for (size_t i = 0; i < 9; i++)
+    InplaceVector<Id<Item>, RECIPE_SIZE> grid;
+    for (size_t i = 0; i < RECIPE_SIZE; i++)
     {
-        ItemStack s = m_container->get_stack(0, i);
-        auto value = s.item().value > 0 ? s.item() : Id<Item>();
-        grid.push_back(value);
+        ItemStack s = m_container->get_stack(INGREDIENTS_LAYER, i);
+        grid.push_back(s.item());
     }
 
-    Option<ItemStack> result = Engine::get().crafting().match(grid, 3, 3);
+    Option<ItemStack> result = Engine::get().registry().match(grid, 3, 3);
     if (result.has_value())
-    {
-        println("Matched item {}, count {}", result.value().item().value, result.value().count());
-        m_container->set_stack(1, 0, result.value());
-    }
+        m_container->set_stack(RESULT_LAYER, 0, result.value());
     else
-    {
-        println("Not matching !");
-        m_container->set_stack(1, 0, Id<Item>());
-    }
+        m_container->set_stack(RESULT_LAYER, 0, Id<Item>());
 }
 
 void CraftingTableInventory::consume_ingredients()
 {
-    for (size_t i = 0; i < 9; i++)
+    for (size_t i = 0; i < CRAFTING_GRID_SIZE; i++)
     {
-        ItemStack stack = m_container->get_stack(0, i);
+        ItemStack stack = m_container->get_stack(INGREDIENTS_LAYER, i);
 
         if (!stack.item().valid())
             continue;
@@ -102,8 +100,8 @@ void CraftingTableInventory::consume_ingredients()
         stack.set_count(stack.count() - 1);
 
         if (stack.count() <= 0)
-            m_container->set_stack(0, i, ItemStack());
+            m_container->set_stack(INGREDIENTS_LAYER, i, ItemStack());
         else
-            m_container->set_stack(0, i, stack);
+            m_container->set_stack(INGREDIENTS_LAYER, i, stack);
     }
 }

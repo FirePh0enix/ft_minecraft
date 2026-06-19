@@ -5,6 +5,7 @@
 #include "Core/Ref.hpp"
 #include "Entity/Entity.hpp"
 #include "Item/Item.hpp"
+#include "Item/ItemStack.hpp"
 #include "Render/Renderer.hpp"
 #include <stb_image.h>
 
@@ -15,6 +16,17 @@ struct Image
     int h;
     int channels;
     String path;
+};
+
+constexpr int RECIPE_SIZE = 9;
+
+struct Recipe
+{
+    uint8_t width = 3;
+    uint8_t height = 3;
+
+    InplaceVector<Id<Item>, RECIPE_SIZE> pattern;
+    ItemStack result;
 };
 
 class EntityRegistry
@@ -120,6 +132,10 @@ public:
         return None;
     }
 
+    // Crafting system.
+    void add_recipe(const Recipe& recipe) { m_recipes.append(recipe); }
+    Option<ItemStack> match(const InplaceVector<Id<Item>, 9>& grid, int width, int height);
+
 private:
     Map<Id<Block>, Ref<Block>> m_blocks;
     Map<Id<Item>, Ref<Item>> m_items;
@@ -135,4 +151,6 @@ private:
     Map<ClassHashCode, HashMap<String, RpcTarget>> m_exposed_rpc;
 
     Option<size_t> get_image(const StringView& path);
+
+    Vector<Recipe> m_recipes;
 };

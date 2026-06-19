@@ -5,6 +5,11 @@
 #include "Item/ItemStack.hpp"
 #include "UI/ColorRect.hpp"
 #include "UI/ItemSlot.hpp"
+#include "World/Registry.hpp"
+
+constexpr int CRAFTING_GRID_SIZE = 4;
+constexpr int INGREDIENTS_LAYER = 2;
+constexpr int RESULT_LAYER = 3;
 
 QuickSlot::QuickSlot()
     : m_count(0)
@@ -183,10 +188,10 @@ bool PlayerInventory::on_place(uint32_t layer, uint32_t index, ItemStack stack, 
     (void)index;
     (void)stack;
 
-    if (layer == 3 && container == m_container.ptr())
+    if (layer == RESULT_LAYER && container == m_container.ptr())
         return false;
 
-    if (layer == 2)
+    if (layer == INGREDIENTS_LAYER)
         m_dirty = true;
 
     return true;
@@ -197,9 +202,9 @@ bool PlayerInventory::on_pick(uint32_t layer, uint32_t index, ItemStack stack, I
     (void)stack;
     (void)container;
 
-    if (layer == 3 && index == 0)
+    if (layer == RESULT_LAYER && index == 0)
     {
-        ItemStack result = m_container->get_stack(3, 0);
+        ItemStack result = m_container->get_stack(RESULT_LAYER, 0);
 
         if (result.item().valid())
         {
@@ -208,7 +213,7 @@ bool PlayerInventory::on_pick(uint32_t layer, uint32_t index, ItemStack stack, I
         }
     }
 
-    if (layer == 2)
+    if (layer == INGREDIENTS_LAYER)
         m_dirty = true;
 
     return true;
@@ -216,32 +221,25 @@ bool PlayerInventory::on_pick(uint32_t layer, uint32_t index, ItemStack stack, I
 
 void PlayerInventory::update_recipe()
 {
-    InplaceVector<Id<Item>, 9> grid;
-    for (size_t i = 0; i < 9; i++)
+    InplaceVector<Id<Item>, RECIPE_SIZE> grid;
+    for (size_t i = 0; i < RECIPE_SIZE; i++)
     {
-        ItemStack s = m_container->get_stack(2, i);
-        auto value = s.item().valid() ? s.item() : Id<Item>();
-        grid.push_back(value);
+        ItemStack s = m_container->get_stack(INGREDIENTS_LAYER, i);
+        grid.push_back(s.item());
     }
 
-    Option<ItemStack> result = Engine::get().crafting().match(grid, 2, 2);
+    Option<ItemStack> result = Engine::get().registry().match(grid, 2, 2);
     if (result.has_value())
-    {
-        println("Matched item {}, count {}", result.value().item().value, result.value().count());
-        m_container->set_stack(3, 0, result.value());
-    }
+        m_container->set_stack(RESULT_LAYER, 0, result.value());
     else
-    {
-        println("Not matching !");
-        m_container->set_stack(3, 0, ItemStack());
-    }
+        m_container->set_stack(RESULT_LAYER, 0, ItemStack());
 }
 
 void PlayerInventory::consume_ingredients()
 {
-    for (size_t i = 0; i < 4; i++)
+    for (size_t i = 0; i < CRAFTING_GRID_SIZE; i++)
     {
-        ItemStack stack = m_container->get_stack(2, i);
+        ItemStack stack = m_container->get_stack(INGREDIENTS_LAYER, i);
 
         if (!stack.item().valid())
             continue;
@@ -249,8 +247,8 @@ void PlayerInventory::consume_ingredients()
         stack.set_count(stack.count() - 1);
 
         if (stack.count() <= 0)
-            m_container->set_stack(2, i, ItemStack());
+            m_container->set_stack(INGREDIENTS_LAYER, i, ItemStack());
         else
-            m_container->set_stack(2, i, stack);
+            m_container->set_stack(INGREDIENTS_LAYER, i, stack);
     }
 }

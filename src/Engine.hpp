@@ -6,7 +6,6 @@
 #include "Entity/Entity.hpp"
 #include "Entity/Player.hpp"
 #include "Font.hpp"
-#include "Inventory/CraftingManager.hpp"
 #include "Network/Network.hpp"
 #include "Render/Renderer.hpp"
 #include "World/Registry.hpp"
@@ -58,8 +57,6 @@ public:
 
     GameRegistry& registry() { return m_registry; }
     EntityRegistry& entities() { return m_entity_registry; }
-    CraftingManager& crafting() { return m_crafting; }
-
 
     Ref<Player> get_player() const { return m_player; }
 
@@ -85,7 +82,6 @@ private:
 
     GameRegistry m_registry;
     EntityRegistry m_entity_registry;
-    CraftingManager m_crafting;
 
     RpcTarget m_authority = RpcTarget::Server;
     NetworkConnection m_connection;
