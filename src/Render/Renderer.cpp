@@ -925,7 +925,7 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     ERR_COND_R(m_adapter == nullptr, "Unable to acquire the adapter", Error(ErrorKind::BadDriver));
 
     const WGPUFeatureName required_features[] = {
-        (WGPUFeatureName)WGPUNativeFeature_PipelineStatisticsQuery,
+        // (WGPUFeatureName)WGPUNativeFeature_PipelineStatisticsQuery,
     };
 
     WGPUDeviceDescriptor device_desc{};
