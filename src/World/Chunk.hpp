@@ -129,7 +129,7 @@ public:
     const Slice *get_slices() const { return m_slices; }
     Slice *get_slices() { return m_slices; }
 
-    Ref<Buffer> get_chunk_buffer() const { return m_chunk_buffer; }
+    Ref<Buffer> get_chunk_instance_buffer() const { return m_chunk_instance_buffer; }
 
     Result<void> build_simple_mesh(size_t slice);
     Result<void> build_water_mesh(size_t slice);
@@ -155,7 +155,8 @@ private:
     Dimension *m_dim;
 
     Map<int64_t, BlockTags> m_tags;
-    Ref<Buffer> m_chunk_buffer;
+    Ref<Buffer> m_chunk_instance_buffer;
+    Ref<Buffer> m_chunk_position_buffer;
 
     int64_t m_x;
     int64_t m_z;

@@ -1,5 +1,6 @@
 struct Camera {
     view_matrix: mat4x4f,
+    inv_view_matrix: mat4x4f,
     projection_matrix: mat4x4f,
 }
 

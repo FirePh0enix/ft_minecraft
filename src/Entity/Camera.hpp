@@ -48,6 +48,19 @@ public:
         return rotation * translation;
     }
 
+    glm::mat4 get_rotation_matrix() const
+    {
+        return glm::toMat4(get_global_transform().rotation());
+    }
+
+    glm::mat4 get_inv_view_matrix() const
+    {
+        const Transform3D global_transform = get_global_transform();
+        const glm::mat4 rotation = glm::toMat4(-global_transform.rotation());
+        const glm::mat4 translation = glm::translate(glm::mat4(1.0), global_transform.position());
+        return rotation * translation;
+    }
+
     glm::mat4 get_view_proj_matrix() const
     {
         return get_projection_matrix() * get_view_matrix();

@@ -323,7 +323,22 @@ void Player::tick(float delta)
     const bool in_water = is_in_water();
     const bool chunk_loaded = chunk_is_loaded();
 
-    Renderer::get().set_underwater(m_world->get_dimension(m_dimension).get_tag(get_position() + glm::vec3(0, 1.2, 0.0), "water").has_value());
+    if (m_local_player)
+    {
+        Renderer::get().set_underwater(head_in_water());
+        if (head_in_water())
+        {
+            const glm::vec4 sky_color = glm::vec4(0.0, 0.0, 1.0, 1.0);
+            Renderer::get().set_fog(sky_color, float(m_world->get_render_distance()) * 16.0f * 0.3f);
+            Renderer::get().set_sky(sky_color);
+        }
+        else
+        {
+            const glm::vec4 sky_color = glm::vec4(130.0 / 255.0, 200.0 / 255.0, 229.0 / 255.0, 1.0);
+            Renderer::get().set_fog(sky_color, float(m_world->get_render_distance()) * 16.0f - 1.0f);
+            Renderer::get().set_sky(sky_color);
+        }
+    }
 
     float updown_dir = 0.0;
     if (are_input_available() && m_local_player && (!has_gravity() || in_water))
@@ -518,4 +533,9 @@ void Player::close_inventory()
     m_opened_inventory.value()->grab_cancel();
     m_opened_inventory = None;
     Input::set_mouse_grabbed(true);
+}
+
+bool Player::head_in_water() const
+{
+    return m_world->get_dimension(m_dimension).get_tag(get_position() + glm::vec3(0, 1.2, 0.0), "water").has_value();
 }

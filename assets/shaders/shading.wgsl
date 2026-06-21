@@ -1,11 +1,13 @@
 struct Camera {
     view_matrix: mat4x4f,
+    inv_view_matrix: mat4x4f,
     projection_matrix: mat4x4f,
 }
 
 struct WorldUniforms {
     fog_color: vec4f,
     fog_distance: f32,
+    underwater: u32,
 }
 
 struct VertexInput {
@@ -71,5 +73,9 @@ fn fragment_main(in: VertexOutput) -> @location(0) vec4f {
     }
 
     let fog_factor = compute_volumetric_fog(position.xyz, (camera.view_matrix * vec4f()).xyz);
-    return mix(albedo * (ssao_value / 25.0), world.fog_color, fog_factor);
+    var albedo_with_fog = mix(albedo * (ssao_value / 25.0), world.fog_color, fog_factor);
+    if (world.underwater == 1) {
+        albedo_with_fog = mix(albedo_with_fog, vec4f(0.0, 0.0, 1.0, 1.0), 0.5);
+    }
+    return albedo_with_fog;
 }

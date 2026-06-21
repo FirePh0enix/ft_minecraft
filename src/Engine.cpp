@@ -282,10 +282,6 @@ void Engine::draw_main_menu()
 
 void Engine::draw_world_scene()
 {
-    const glm::vec4 sky_color = glm::vec4(130.0 / 255.0, 200.0 / 255.0, 229.0 / 255.0, 1.0);
-
-    m_renderer.set_fog(sky_color, float(m_world->get_render_distance()) * 16.0f - 1.0f);
-    m_renderer.set_sky(sky_color);
     m_renderer.draw(m_world);
 }
 

@@ -31,4 +31,3 @@ fn vertex_main(in: VertexInput) -> VertexOutput {
 fn fragment_main(in: VertexOutput) -> @location(0) vec4f {
     return sky.color;
 }
-

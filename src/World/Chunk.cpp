@@ -5,6 +5,7 @@
 #include "Engine.hpp"
 #include "Render/Types.hpp"
 #include "World/Registry.hpp"
+#include "webgpu/webgpu.h"
 
 #include <bit>
 #include <cstdint>
@@ -17,11 +18,11 @@ Chunk::Chunk(Dimension *dim, int64_t x, int64_t z)
     m_biomes = alloc_array_uninitialized<Biome>(block_count);
     m_slices = alloc_array<Slice>(slice_count);
 
-    m_chunk_buffer = EXPECT(Buffer::create(sizeof(glm::vec3) * slice_count, WGPUBufferUsage_Vertex | WGPUBufferUsage_CopyDst));
+    m_chunk_instance_buffer = EXPECT(Buffer::create(sizeof(glm::vec3) * slice_count, WGPUBufferUsage_Vertex | WGPUBufferUsage_CopyDst));
     Array<glm::vec3, slice_count> chunk_data{};
     for (size_t i = 0; i < slice_count; i++)
         chunk_data[i] = glm::vec3(x * Chunk::width, i * Chunk::width, z * Chunk::width);
-    m_chunk_buffer->update(View(chunk_data).as_bytes());
+    m_chunk_instance_buffer->update(View(chunk_data).as_bytes());
 }
 
 Chunk::~Chunk()

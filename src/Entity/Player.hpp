@@ -85,6 +85,8 @@ public:
     void open_inventory(Ref<Inventory> inventory);
     void close_inventory();
 
+    bool head_in_water() const;
+
 private:
     Ref<Camera> m_camera;
     GameMode m_gamemode = GameMode::Survival;

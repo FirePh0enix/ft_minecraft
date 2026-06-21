@@ -1127,11 +1127,6 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_shading_material->set_param("camera", m_camera_buffer);
     m_shading_material->set_param("world", m_world_buffer);
 
-    // m_simple_shader = TRY(Shader::load(simple_shape_source));
-    // m_simple_shader->set_binding("env", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
-    // m_simple_shader->set_binding("model", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 1, BindingAccess::Read));
-    // m_simple_shader->create_bind_group_layout();
-
     Array<uint16_t, 6> indices{0, 1, 2, 0, 2, 3};
     Array<glm::vec3, 4> vertices{
         glm::vec3(-0.5, -0.5, 0.1),
@@ -1304,7 +1299,7 @@ void Renderer::draw(const Ref<World>& world)
     WGPUCommandEncoder encoder = wgpuDeviceCreateCommandEncoder(m_device, nullptr);
 
     // Update environment data
-    m_camera_buffer->update(View(CameraUniforms(world->get_active_camera()->get_view_matrix(), world->get_active_camera()->get_projection_matrix())).as_bytes());
+    m_camera_buffer->update(View(CameraUniforms(world->get_active_camera()->get_view_matrix(), world->get_active_camera()->get_inv_view_matrix(), world->get_active_camera()->get_projection_matrix())).as_bytes());
 
     WGPURenderPassDepthStencilAttachment depth_buffer_attach{};
     depth_buffer_attach.depthClearValue = 1.0;
@@ -1414,7 +1409,7 @@ void Renderer::draw(const Ref<World>& world)
             wgpuRenderPassEncoderSetVertexBuffer(transparent_pass_encoder, 0, mesh->get_buffer(Mesh::BufferKind::Position)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Position)->size());
             wgpuRenderPassEncoderSetVertexBuffer(transparent_pass_encoder, 1, mesh->get_buffer(Mesh::BufferKind::Normal)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Normal)->size());
             wgpuRenderPassEncoderSetVertexBuffer(transparent_pass_encoder, 2, mesh->get_buffer(Mesh::BufferKind::UV)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::UV)->size());
-            wgpuRenderPassEncoderSetVertexBuffer(transparent_pass_encoder, 3, chunk->get_chunk_buffer()->handle(), sizeof(glm::vec3) * slice_index, sizeof(glm::vec3));
+            wgpuRenderPassEncoderSetVertexBuffer(transparent_pass_encoder, 3, chunk->get_chunk_instance_buffer()->handle(), sizeof(glm::vec3) * slice_index, sizeof(glm::vec3));
             wgpuRenderPassEncoderDrawIndexed(transparent_pass_encoder, mesh->vertex_count(), 1, 0, 0, 0);
         }
     }
@@ -1542,38 +1537,13 @@ void Renderer::draw_fullscreen(const RenderPass& pass, Ref<Material> material)
     wgpuRenderPassEncoderDraw(pass.encoder, 4, 1, 0, 0);
 }
 
-// const glm::vec3 daylight_color(1.0, 1.0, 1.0);
-// const glm::vec3 sunset_color(247.0 / 255.0, 152.0 / 255.0, 2.0 / 255.0);
-
-// glm::vec3 lerp(const glm::vec3& x, const glm::vec3& y, float t)
-// {
-//     return x * (1.0f - t) + y * t;
-// }
-
-// TODO:
-// To improve sky color gradient, sunset/sunrise should be very short, and night/day should be the same length.
-// template <const size_t _S>
-// glm::vec3 color_gradient(const Array<glm::vec3, _S>& colors, float t)
-// {
-//     t = std::clamp(t, 0.0f, 1.0f);
-//     if (t <= 0.0f)
-//         return colors[0];
-//     if (t >= 1.0f)
-//         return colors[6];
-
-//     const int segments = 6;
-//     const float segLen = 1.0f / float(segments);
-//     int si = std::min(int(std::floor(t / segLen)), segments - 1);
-//     float localT = (t - float(si) * segLen) / segLen;
-//     return lerp(colors[si], colors[si + 1], localT);
-// }
-
 void Renderer::draw_world(const Ref<World>& world, const RenderPass& pass)
 {
     ZoneScoped;
 
     const Dimension& dim = world->get_dimension(0);
     const Ref<Camera> camera = world->get_active_camera();
+    const glm::vec3 camera_pos = camera->get_position();
     WGPURenderPassEncoder encoder = pass.encoder;
 
     if (camera.is_null())
@@ -1581,120 +1551,49 @@ void Renderer::draw_world(const Ref<World>& world, const RenderPass& pass)
         return;
     }
 
-    // float time_uniform = float(Engine::get().time_of_day()) / float(ticks_per_day);
-    // set_time(time_uniform);
+    WGPURenderPipeline pipeline = m_chunk_material->get_pipeline(pass);
+    wgpuRenderPassEncoderSetPipeline(encoder, pipeline);
+    wgpuRenderPassEncoderSetBindGroup(encoder, 0, m_chunk_material->get_bind_group(), 0, nullptr);
 
-    // const Array<glm::vec3, 7> sky_color_array{daylight_color, sunset_color, daylight_color, daylight_color, daylight_color, sunset_color, daylight_color};
-
-    // m_environment.view_matrix = camera->get_view_proj_matrix();
-    // m_environment.sun_direction = glm::normalize(glm::vec3(glm::rotate(glm::mat4(1.0), float(M_PI) * time_uniform, glm::vec3(0, 0, -1.0)) * glm::vec4(1, 0, 0, 1.0)));
-    // m_environment.sun_color = glm::vec4(color_gradient(sky_color_array, time_uniform), time_uniform);
-    // m_env_buffer->update(View(m_environment).as_bytes());
-
-    // {
-    //     ZoneScopedN("draw entities");
-
-    //     for (Ref<Entity> entity : dim.get_entities())
-    //         if (!entity.is_null())
-    //             entity->draw(encoder);
-    // }
-
+    for (const auto& [key, chunk] : dim.get_chunks())
     {
-        ZoneScopedN("draw opaque");
+        ChunkPos pos = chunk->pos();
+        AABB aabb = AABB(-glm::vec3(Chunk::width / 2.0, Chunk::height / 2.0, Chunk::width / 2), glm::vec3(Chunk::width / 2.0, Chunk::height / 2.0, Chunk::width / 2))
+                        .translate(glm::vec3((float)pos.x * Chunk::width + Chunk::width / 2.0, float(Chunk::height) / 2.0, (float)pos.z * Chunk::width + Chunk::width / 2.0));
 
-        WGPURenderPipeline pipeline = m_chunk_material->get_pipeline(pass);
-        wgpuRenderPassEncoderSetPipeline(encoder, pipeline);
-        wgpuRenderPassEncoderSetBindGroup(encoder, 0, m_chunk_material->get_bind_group(), 0, nullptr);
+        if (!camera->frustum().contains(aabb))
+            continue;
 
-        for (const auto& [key, chunk] : dim.get_chunks())
+        const Chunk::Slice *slices = chunk->get_slices();
+
+        for (size_t i = 0; i < Chunk::slice_count; i++)
         {
+            const Chunk::Slice& slice = slices[i];
+
+            if (slice.mesh.is_null())
+                continue;
+
             ChunkPos pos = chunk->pos();
-            AABB aabb = AABB(-glm::vec3(Chunk::width / 2.0, Chunk::height / 2.0, Chunk::width / 2), glm::vec3(Chunk::width / 2.0, Chunk::height / 2.0, Chunk::width / 2))
-                            .translate(glm::vec3((float)pos.x * Chunk::width + Chunk::width / 2.0, float(Chunk::height) / 2.0, (float)pos.z * Chunk::width + Chunk::width / 2.0));
+            AABB aabb = AABB(-glm::vec3(Chunk::width / 2.0, Chunk::width / 2.0, Chunk::width / 2), glm::vec3(Chunk::width / 2.0, Chunk::width / 2.0, Chunk::width / 2))
+                            .translate(glm::vec3((float)pos.x * Chunk::width + Chunk::width / 2.0, (float)i * Chunk::width + Chunk::width / 2.0, (float)pos.z * Chunk::width + Chunk::width / 2.0));
 
             if (!camera->frustum().contains(aabb))
                 continue;
 
-            const Chunk::Slice *slices = chunk->get_slices();
+            const glm::vec4 p(float(pos.x) * 16.0 - camera_pos.x, float(i) * 16.0, float(pos.z) * 16.0 - camera_pos.z, 1.0);
 
-            for (size_t i = 0; i < Chunk::slice_count; i++)
-            {
-                const Chunk::Slice& slice = slices[i];
+            chunk->get_chunk_instance_buffer()->update(View(glm::vec3(p)).as_bytes(), i * sizeof(glm::vec3));
 
-                if (slice.mesh.is_null())
-                    continue;
+            const Ref<Mesh>& mesh = slice.mesh;
+            wgpuRenderPassEncoderSetIndexBuffer(encoder, mesh->get_buffer(Mesh::BufferKind::Index)->handle(), mesh->index_type(), 0, mesh->get_buffer(Mesh::BufferKind::Index)->size());
+            wgpuRenderPassEncoderSetVertexBuffer(encoder, 0, mesh->get_buffer(Mesh::BufferKind::Position)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Position)->size());
+            wgpuRenderPassEncoderSetVertexBuffer(encoder, 1, mesh->get_buffer(Mesh::BufferKind::Normal)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Normal)->size());
+            wgpuRenderPassEncoderSetVertexBuffer(encoder, 2, mesh->get_buffer(Mesh::BufferKind::UV)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::UV)->size());
+            wgpuRenderPassEncoderSetVertexBuffer(encoder, 3, chunk->get_chunk_instance_buffer()->handle(), sizeof(glm::vec3) * i, sizeof(glm::vec3));
 
-                ChunkPos pos = chunk->pos();
-                AABB aabb = AABB(-glm::vec3(Chunk::width / 2.0, Chunk::width / 2.0, Chunk::width / 2), glm::vec3(Chunk::width / 2.0, Chunk::width / 2.0, Chunk::width / 2))
-                                .translate(glm::vec3((float)pos.x * Chunk::width + Chunk::width / 2.0, (float)i * Chunk::width + Chunk::width / 2.0, (float)pos.z * Chunk::width + Chunk::width / 2.0));
-
-                if (!camera->frustum().contains(aabb))
-                    continue;
-
-                const Ref<Mesh>& mesh = slice.mesh;
-                wgpuRenderPassEncoderSetIndexBuffer(encoder, mesh->get_buffer(Mesh::BufferKind::Index)->handle(), mesh->index_type(), 0, mesh->get_buffer(Mesh::BufferKind::Index)->size());
-                wgpuRenderPassEncoderSetVertexBuffer(encoder, 0, mesh->get_buffer(Mesh::BufferKind::Position)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Position)->size());
-                wgpuRenderPassEncoderSetVertexBuffer(encoder, 1, mesh->get_buffer(Mesh::BufferKind::Normal)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Normal)->size());
-                wgpuRenderPassEncoderSetVertexBuffer(encoder, 2, mesh->get_buffer(Mesh::BufferKind::UV)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::UV)->size());
-                wgpuRenderPassEncoderSetVertexBuffer(encoder, 3, chunk->get_chunk_buffer()->handle(), sizeof(glm::vec3) * i, sizeof(glm::vec3));
-
-                wgpuRenderPassEncoderDrawIndexed(encoder, mesh->vertex_count(), 1, 0, 0, 0);
-            }
+            wgpuRenderPassEncoderDrawIndexed(encoder, mesh->vertex_count(), 1, 0, 0, 0);
         }
     }
-
-    // {
-    //     ZoneScopedN("draw transparent");
-
-    //     WGPURenderPipeline pipeline = get_pipeline(m_water_material);
-    //     wgpuRenderPassEncoderSetPipeline(encoder, pipeline);
-    //     wgpuRenderPassEncoderSetBindGroup(encoder, 0, m_water_material->get_bind_group(), 0, nullptr);
-
-    //     // TODO: sort back to front.
-
-    //     for (const auto& [key, chunk] : dim.get_chunks())
-    //     {
-    //         ChunkPos pos = chunk->pos();
-    //         AABB aabb = AABB(-glm::vec3(Chunk::width / 2.0, Chunk::height, Chunk::width / 2), glm::vec3(Chunk::width / 2.0, Chunk::height, Chunk::width / 2))
-    //                         .translate(glm::vec3((float)pos.x * Chunk::width + Chunk::width / 2.0, float(Chunk::height) / 2.0, (float)pos.z * Chunk::width + Chunk::width / 2.0));
-
-    //         if (!camera->frustum().contains(aabb))
-    //             continue;
-
-    //         const Chunk::Slice *slices = chunk->get_slices();
-
-    //         // TODO: do the frustum check per slice.
-    //         for (size_t i = 0; i < Chunk::slice_count; i++)
-    //         {
-    //             const Chunk::Slice& slice = slices[i];
-
-    //             if (slice.water_mesh.is_null())
-    //                 continue;
-
-    //             ChunkPos pos = chunk->pos();
-    //             AABB aabb = AABB(-glm::vec3(Chunk::width / 2.0, Chunk::height, Chunk::width / 2), glm::vec3(Chunk::width / 2.0, Chunk::height, Chunk::width / 2))
-    //                             .translate(glm::vec3((float)pos.x * Chunk::width + Chunk::width / 2.0, (float)i * Chunk::width + Chunk::width / 2.0, (float)pos.z * Chunk::width + Chunk::width / 2.0));
-
-    //             if (!camera->frustum().contains(aabb))
-    //                 continue;
-
-    //             const Ref<Mesh>& mesh = slice.water_mesh;
-    //             wgpuRenderPassEncoderSetIndexBuffer(encoder, mesh->get_buffer(Mesh::BufferKind::Index)->handle(), mesh->index_type(), 0, mesh->get_buffer(Mesh::BufferKind::Index)->size());
-    //             wgpuRenderPassEncoderSetVertexBuffer(encoder, 0, mesh->get_buffer(Mesh::BufferKind::Position)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Position)->size());
-    //             wgpuRenderPassEncoderSetVertexBuffer(encoder, 1, mesh->get_buffer(Mesh::BufferKind::Normal)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Normal)->size());
-    //             wgpuRenderPassEncoderSetVertexBuffer(encoder, 2, mesh->get_buffer(Mesh::BufferKind::UV)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::UV)->size());
-    //             wgpuRenderPassEncoderSetVertexBuffer(encoder, 3, chunk->get_chunk_buffer()->handle(), sizeof(glm::vec3) * i, sizeof(glm::vec3));
-
-    //             wgpuRenderPassEncoderDrawIndexed(encoder, mesh->vertex_count(), 1, 0, 0, 0);
-    //         }
-    //     }
-    // }
-
-    // {
-    //     ZoneScopedN("draw ui");
-    //     for (Ref<Entity> entity : dim.get_entities())
-    //         entity->draw_ui(encoder);
-    // }
 }
 
 void Renderer::set_fog(glm::vec4 color, float distance)
@@ -1709,11 +1608,11 @@ void Renderer::set_sky(glm::vec4 color)
     m_sky_buffer->update(View(SkyUniforms(color)).as_bytes());
 }
 
-// void Renderer::set_time(float time)
-// {
-//     m_sky_uniforms.time = time;
-//     m_sky_uniform_buffer->update(View(m_sky_uniforms).as_bytes());
-// }
+void Renderer::set_underwater(bool v)
+{
+    m_world_uniforms.underwater = v;
+    m_world_buffer->update(View(m_world_uniforms).as_bytes());
+}
 
 View<uint8_t> Renderer::get_missing_texture_data() const
 {

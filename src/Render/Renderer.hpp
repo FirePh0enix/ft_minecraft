@@ -320,6 +320,7 @@ DEFINE_WGPU_HANDLE(Surface, WGPUSurface, wgpuSurfaceAddRef, wgpuSurfaceRelease);
 struct GPU_ATTRIBUTE CameraUniforms
 {
     glm::mat4 view_matrix;
+    glm::mat4 inv_view_matrix;
     glm::mat4 projection_matrix;
 };
 
@@ -327,6 +328,7 @@ struct GPU_ATTRIBUTE WorldUniforms
 {
     glm::vec4 fog_color;
     float fog_distance;
+    uint32_t underwater;
 };
 
 // struct GPU_ATTRIBUTE WorldEnvironment
@@ -386,8 +388,7 @@ public:
 
     void set_fog(glm::vec4 color, float distance);
     void set_sky(glm::vec4 color);
-
-    void set_underwater(bool v) { m_underwater_effect = v; }
+    void set_underwater(bool v);
 
     WGPUSampler get_sampler(const SamplerDescriptor& desc) { return m_sampler_cache.get(desc); }
 
