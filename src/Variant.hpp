@@ -107,45 +107,9 @@ struct __attribute__((aligned(16))) Variant
         new (data) Map<Variant, Variant>(map);
     }
 
-    Variant(const Variant& v)
-        : tag(v.tag)
-    {
-        if (v.has(VariantType::String))
-        {
-            const String& s = v.get_unchecked<String>();
-            new (data) String(s);
-        }
-        else if (v.has(VariantType::Array))
-        {
-            const Vector<Variant>& s = v.get_unchecked<Vector<Variant>>();
-            new (data) Vector<Variant>(s);
-        }
-        else if (v.has(VariantType::Map))
-        {
-            const Map<Variant, Variant>& m = v.get_unchecked<Map<Variant, Variant>>();
-            new (data) Map<Variant, Variant>(m);
-        }
-        else
-        {
-            memcpy(data, v.data, 24);
-        }
-    }
+    Variant(const Variant& v);
 
-    ~Variant()
-    {
-        if (has(VariantType::String))
-        {
-            ((String *)data)->~String();
-        }
-        else if (has(VariantType::Array))
-        {
-            ((Vector<Variant> *)data)->~Vector<Variant>();
-        }
-        else if (has(VariantType::Map))
-        {
-            ((Map<Variant, Variant> *)data)->~Map<Variant, Variant>();
-        }
-    }
+    ~Variant();
 
     Variant& operator=(const Variant& v)
     {

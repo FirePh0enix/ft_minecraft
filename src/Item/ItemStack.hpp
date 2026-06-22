@@ -39,7 +39,14 @@ public:
 
     void sub(size_t count);
 
+    void set_tag(const StringView& name, Variant variant) { m_tags.put(name, variant); }
+    void remove_tag(const StringView& name) { m_tags.erase(name); }
+
+    template<typename T>
+    Option<T> get_tag(const StringView& name) const { return m_tags.get(name); }
+
 private:
     Id<Item> m_item;
     size_t m_count;
+    HashMap<String, Variant> m_tags;
 };
