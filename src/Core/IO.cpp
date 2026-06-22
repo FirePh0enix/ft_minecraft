@@ -1,6 +1,7 @@
 #include "Core/IO.hpp"
 
 #include "Core/Error.hpp"
+#include "Core/String.hpp"
 #include "Item/ItemStack.hpp"
 #include "Variant.hpp"
 
@@ -78,9 +79,17 @@ Result<Option<Variant>> Reader::read_variant()
         TRY(read_raw(&size, sizeof(uint32_t)));
         TRY(read_raw(&id, sizeof(uint32_t)));
 
+        //         Variant variant(stack.get_tags());
+        // TRY(write_variant(variant));
+
+        Option<Variant> variant = TRY(read_variant());
+        Variant v = variant.value();
+
+        Map<String, Variant> map = v.to_map<String, Variant>();
+
         Id<Item> item(id);
 
-        return Option(Variant(ItemStack(item, size)));
+        return Option(Variant(ItemStack(item, size, map)));
     }
     else if (type == VariantType::Array)
     {
@@ -202,6 +211,9 @@ Result<void> Writer::write_variant(const Variant& variant)
 
         TRY(write_raw(&size, sizeof(uint32_t)));
         TRY(write_raw(&block_id, sizeof(uint32_t)));
+
+        Variant variant(stack.get_tags());
+        TRY(write_variant(variant));
     }
     else if (variant.has(VariantType::Array))
     {

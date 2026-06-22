@@ -59,7 +59,7 @@ class ItemStack;
 
 struct __attribute__((aligned(16))) Variant
 {
-    uint8_t data[32]{0};
+    uint8_t data[40]{0};
     VariantType tag;
 
     Variant() : tag(VariantType::Null) {}
@@ -138,7 +138,7 @@ struct __attribute__((aligned(16))) Variant
         Map<K, V> v;
 
         for (const auto& [key, value] : map)
-            v.put(key.get_unchecked<int64_t>(), value.get_unchecked<V>());
+            v.put(key.get_unchecked<K>(), value.get_unchecked<V>());
 
         return v;
     }
