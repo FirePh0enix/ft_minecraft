@@ -6,6 +6,7 @@ struct Status
 {
     float value = 0.0;
     bool repeat = false;
+    bool released = false;
 };
 
 enum class ActionMappingKind
@@ -39,6 +40,7 @@ public:
 
     static bool is_action_pressed(const StringView& action);
     static bool is_action_just_pressed(const StringView& action);
+    static bool is_action_just_released(const StringView& action);
 
     static float get_action_value(const StringView& action);
 

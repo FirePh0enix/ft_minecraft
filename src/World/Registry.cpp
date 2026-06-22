@@ -6,6 +6,7 @@
 #include "Core/Format.hpp"
 #include "Core/Ref.hpp"
 #include "Engine.hpp"
+#include "Item/Bow.hpp"
 #include "Item/Bucket.hpp"
 #include "Render/Renderer.hpp"
 #include "webgpu/webgpu.h"
@@ -32,6 +33,9 @@ void GameRegistry::register_all()
     add_item(Items::dirt_block, newref<ItemBlock>(Blocks::dirt));
     add_item(Items::crafting_table_block, newref<ItemBlock>(Blocks::crafting_table));
     add_item(Items::water_bucket, newref<BucketItem>());
+    add_item(Items::bow, newref<BowItem>());
+
+
 }
 
 Result<void> GameRegistry::post_register()

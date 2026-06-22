@@ -65,6 +65,9 @@ constexpr Id<Item> stone_block(1);
 constexpr Id<Item> dirt_block(2);
 constexpr Id<Item> crafting_table_block(3);
 constexpr Id<Item> water_bucket(4);
+constexpr Id<Item> bow(5);
+constexpr Id<Item> arrow(6);
+
 }; // namespace Items
 
 namespace Entities

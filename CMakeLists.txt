@@ -55,6 +55,7 @@ list(APPEND SOURCES
     src/Item/Bucket.cpp
     src/Item/Item.cpp
     src/Item/ItemStack.cpp
+    src/Item/Bow.cpp
     src/Network/Network.cpp
     src/Network/Packet.cpp
     src/Render/Shader.cpp

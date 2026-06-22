@@ -90,6 +90,8 @@ void Player::on_ready()
     m_inventory_container->set_stack(1, 6, ItemStack(Items::stone_block, 16));
     m_inventory_container->set_stack(1, 7, ItemStack(Items::stone_block, 16));
 
+    m_inventory_container->set_stack(1, 8, ItemStack(Items::bow, 1));
+
     // m_model_buffer = EXPECT(Buffer::create(sizeof(ItemBlockModel), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform));
     // m_material = EXPECT(Material::create(Renderer::get().get_item_block_shader(), MaterialFlagBits::None, WGPUCullMode_Back, UVType::UV));
     // m_material->set_param("env", Renderer::get().get_world_environment());
@@ -263,14 +265,14 @@ void Player::tick(float delta)
             {
                 if (Input::is_action_pressed("attack"))
                 {
-                    if (!m_is_destroing)
+                    if (!m_is_destroying)
                     {
-                        m_is_destroing = true;
+                        m_is_destroying = true;
                         m_destroy_block_pos = result.block_pos;
                     }
                     else if (m_destroy_block_pos != result.block_pos)
                     {
-                        m_is_destroing = false;
+                        m_is_destroying = false;
                         m_destroy_ticks = 0;
                     }
 
@@ -278,7 +280,7 @@ void Player::tick(float delta)
                     if (m_destroy_ticks >= max_destroy_ticks)
                     {
                         m_world->break_block(result.block_pos.x, result.block_pos.y, result.block_pos.z);
-                        m_is_destroing = false;
+                        m_is_destroying = false;
                         m_destroy_ticks = 0;
                     }
                 }
@@ -286,7 +288,7 @@ void Player::tick(float delta)
             else
             {
                 m_destroy_ticks = 0;
-                m_is_destroing = false;
+                m_is_destroying = false;
             }
 
             if (Input::is_action_just_pressed("interact"))
@@ -313,6 +315,23 @@ void Player::tick(float delta)
         else
         {
             m_aimed_block = None;
+            if (Input::is_action_just_pressed("interact"))
+            {
+                ItemStack stack = m_inventory_container->get_stack(1, m_slot);
+                if (stack.item().valid() && stack.item() == Items::bow)
+                {
+                    Ref<Item> item = Engine::get().registry().get_item(stack.item());
+                    item->interact(*m_world, m_dimension, stack, result.block_pos, result.normal);
+                    m_inventory_container->set_stack(1, m_slot, stack);
+                }
+            }
+        }
+
+        if (Input::is_action_just_released("interact"))
+        {
+            ItemStack stack = m_inventory_container->get_stack(1, m_slot);
+            Ref<Item> item = Engine::get().registry().get_item(stack.item());
+            item->on_release(*m_world, m_dimension, stack);
         }
     }
 
