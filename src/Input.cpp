@@ -99,6 +99,15 @@ bool Input::is_action_just_pressed(std::string_view action)
     return status_opt->second.value > 0.0 && !status_opt->second.repeat;
 }
 
+bool Input::is_action_just_released(const StringView& action)
+{
+    Option<Status> status_opt = s_actions.get(action);
+    if (!status_opt.has_value())
+        return false;
+
+    return status_opt.value().released;
+}
+
 float Input::get_action_value(std::string_view action)
 {
     auto status_opt = s_actions.find(action);
@@ -169,6 +178,8 @@ void Input::post_events()
 
     for (auto& [key, status] : s_actions)
     {
+        status.released = false;
+
         if (status.value > 0)
             status.repeat = true;
 

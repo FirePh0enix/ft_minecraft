@@ -22,6 +22,13 @@ public:
         (void)normal;
     }
 
+    virtual void on_release(World& world, size_t dimension, ItemStack& stack)
+    {
+        (void)world;
+        (void)dimension;
+        (void)stack;
+    }
+
     std::shared_ptr<Texture> get_texture() const { return m_texture; }
     void set_texture(const std::shared_ptr<Texture>& texture) { m_texture = texture; }
 
