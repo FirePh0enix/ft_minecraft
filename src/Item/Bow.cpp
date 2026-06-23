@@ -27,6 +27,7 @@ void BowItem::on_release(World& world, size_t dimension, ItemStack& stack, glm::
 
     Ref<ArrowEntity> arrow = newref<ArrowEntity>(Items::stone_block);
     auto arrow_pos = pos;
+    arrow_pos.z += 1.0f;
     arrow->get_transform().position() = arrow_pos;
     arrow->m_dir = dir;
     world.add_entity(dimension, arrow);
