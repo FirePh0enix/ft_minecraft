@@ -336,13 +336,13 @@ void Engine::create_world_and_start()
 
     m_world->force_load_chunk_for(m_player->get_position());
 
-    // Ref<Entity> cow = EXPECT(newref<Cow>());
+    // Ref<Entity> cow = newref<Cow>();
     // cow->get_transform().position() = m_player->get_position();
     // m_world->add_entity(World::overworld, cow);
 
-    // Ref<Entity> zombie = newref<Zombie>();
-    // zombie->get_transform().position() = m_player->get_position();
-    // m_world->add_entity(World::overworld, zombie);
+    Ref<Entity> zombie = newref<Zombie>();
+    zombie->get_transform().position() = m_player->get_position();
+    m_world->add_entity(World::overworld, zombie);
 
     m_scene = GameScene::World;
     m_authority = RpcTarget::Server;

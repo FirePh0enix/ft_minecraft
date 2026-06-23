@@ -22,11 +22,13 @@ public:
         (void)normal;
     }
 
-    virtual void on_release(World& world, size_t dimension, ItemStack& stack)
+    virtual void on_release(World& world, size_t dimension, ItemStack& stack, glm::i64vec3 pos, glm::vec3 dir)
     {
         (void)world;
         (void)dimension;
         (void)stack;
+        (void)pos;
+        (void)dir;
     }
 
     Ref<Texture> get_texture() const { return m_texture; }
