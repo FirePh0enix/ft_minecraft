@@ -3,7 +3,6 @@
 #include "AABB.hpp"
 #include "Block/Inventory.hpp"
 #include "Core/Math.hpp"
-#include "Core/Types.hpp"
 #include "Engine.hpp"
 #include "Entity/Entity.hpp"
 #include "Entity/Item.hpp"
@@ -255,6 +254,7 @@ void Player::tick(float delta)
         else
         {
             m_aimed_block = std::nullopt;
+            // Bow can be interacted even though he is not aiming at a block, can do better.
             if (Input::is_action_just_pressed("interact"))
             {
                 ItemStack stack = m_inventory_container->get_stack(1, m_slot);
@@ -271,7 +271,7 @@ void Player::tick(float delta)
         {
             ItemStack stack = m_inventory_container->get_stack(1, m_slot);
             Ref<Item> item = Engine::get().registry().get_item(stack.item());
-            item->on_release(*m_world, m_dimension, stack);
+            item->on_release(*m_world, m_dimension, stack, m_camera->get_global_transform().position(), m_camera->get_global_transform().forward());
         }
     }
 
