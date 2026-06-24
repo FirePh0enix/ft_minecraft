@@ -5,6 +5,8 @@
 #include "Id.hpp"
 #include "Render/Renderer.hpp"
 
+class InventoryContainer;
+
 class Item : public Object
 {
     CLASS(Item, Object);
@@ -13,22 +15,24 @@ public:
     /**
      * Callback used when a player is interacting with the world with an item in its hand.
      */
-    virtual void interact(World& world, size_t dimension, ItemStack& stack, glm::i64vec3 pos, glm::i64vec3 normal)
+    virtual void interact(World& world, size_t dimension, ItemStack& stack, glm::i64vec3 pos, glm::i64vec3 normal, InventoryContainer& inventory)
     {
         (void)world;
         (void)dimension;
         (void)stack;
         (void)pos;
         (void)normal;
+        (void)inventory;
     }
 
-    virtual void on_release(World& world, size_t dimension, ItemStack& stack, glm::i64vec3 pos, glm::vec3 dir)
+    virtual void on_release(World& world, size_t dimension, ItemStack& stack, glm::i64vec3 pos, glm::vec3 dir, InventoryContainer& inventory)
     {
         (void)world;
         (void)dimension;
         (void)stack;
         (void)pos;
         (void)dir;
+        (void)inventory;
     }
 
     Ref<Texture> get_texture() const { return m_texture; }
@@ -48,7 +52,7 @@ public:
     {
     }
 
-    virtual void interact(World& world, size_t dimension, ItemStack& stack, glm::i64vec3 pos, glm::i64vec3 normal) override;
+    virtual void interact(World& world, size_t dimension, ItemStack& stack, glm::i64vec3 pos, glm::i64vec3 normal, InventoryContainer& inventory) override;
 
     Id<Block> block() const { return m_block; }
 

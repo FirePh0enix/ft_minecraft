@@ -15,6 +15,30 @@ void InventoryContainer::set_stack(uint32_t layer, uint32_t i, ItemStack stack)
     m_layers[layer].stacks[i] = stack;
 }
 
+Option<ItemStack> InventoryContainer::consume(Id<Item> item)
+{
+    // Quick Inventory + normal inventory;
+    constexpr size_t layers_to_check[] = {0, 1};
+
+    for (size_t layer_index : layers_to_check)
+    {
+        auto& layer = m_layers[layer_index];
+        for (size_t i = 0; i < layer.stacks.size(); i++)
+        {
+            ItemStack& stack = layer.stacks.get_unchecked(i);
+
+            if (!stack.item().valid() || stack.item() != item)
+                continue;
+
+            ItemStack consumed(item, 1);
+            stack.sub(1);
+            return consumed;
+        }
+    }
+
+    return None;
+}
+
 Inventory::Inventory(Ref<InventoryContainer> container)
     : m_container(container)
 {

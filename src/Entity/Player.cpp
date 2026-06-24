@@ -5,7 +5,6 @@
 #include "Core/Containers/LocalVector.hpp"
 #include "Core/Format.hpp"
 #include "Core/Math.hpp"
-#include "Core/Print.hpp"
 #include "Engine.hpp"
 #include "Entity/Entity.hpp"
 #include "Entity/Item.hpp"
@@ -92,6 +91,7 @@ void Player::on_ready()
     m_inventory_container->set_stack(1, 7, ItemStack(Items::stone_block, 16));
 
     m_inventory_container->set_stack(1, 8, ItemStack(Items::bow, 1));
+    m_inventory_container->set_stack(0, 0, ItemStack(Items::arrow, 3));
 
     // m_model_buffer = EXPECT(Buffer::create(sizeof(ItemBlockModel), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform));
     // m_material = EXPECT(Material::create(Renderer::get().get_item_block_shader(), MaterialFlagBits::None, WGPUCullMode_Back, UVType::UV));
@@ -307,7 +307,7 @@ void Player::tick(float delta)
                     if (stack.item().valid())
                     {
                         Ref<Item> item = Engine::get().registry().get_item(stack.item());
-                        item->interact(*m_world, m_dimension, stack, result.block_pos, result.normal);
+                        item->interact(*m_world, m_dimension, stack, result.block_pos, result.normal, *m_inventory_container);
                         m_inventory_container->set_stack(1, m_slot, stack);
                     }
                 }
@@ -323,7 +323,7 @@ void Player::tick(float delta)
                 if (stack.item().valid() && stack.item() == Items::bow)
                 {
                     Ref<Item> item = Engine::get().registry().get_item(stack.item());
-                    item->interact(*m_world, m_dimension, stack, result.block_pos, result.normal);
+                    item->interact(*m_world, m_dimension, stack, result.block_pos, result.normal, *m_inventory_container);
                     m_inventory_container->set_stack(1, m_slot, stack);
                 }
             }
@@ -333,7 +333,7 @@ void Player::tick(float delta)
         {
             ItemStack stack = m_inventory_container->get_stack(1, m_slot);
             Ref<Item> item = Engine::get().registry().get_item(stack.item());
-            item->on_release(*m_world, m_dimension, stack, m_camera->get_global_transform().position(), m_camera->get_global_transform().forward());
+            item->on_release(*m_world, m_dimension, stack, m_camera->get_global_transform().position(), m_camera->get_global_transform().forward(), *m_inventory_container);
         }
     }
 

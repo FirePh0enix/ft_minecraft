@@ -13,8 +13,11 @@ static bool has_major_entities(const Vector<Ref<Entity>>& entities)
     return false;
 }
 
-void ItemBlock::interact(World& world, size_t dimension, ItemStack& stack, glm::i64vec3 pos, glm::i64vec3 normal)
+void ItemBlock::interact(World& world, size_t dimension, ItemStack& stack, glm::i64vec3 pos, glm::i64vec3 normal, InventoryContainer& inventory)
 {
+
+    (void)inventory;
+
     if (stack.count() == 0)
     {
         return;

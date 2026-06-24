@@ -57,6 +57,7 @@ namespace Blocks
 constexpr Id<Block> stone(1);
 constexpr Id<Block> dirt(2);
 constexpr Id<Block> crafting_table(3);
+
 } // namespace Blocks
 
 namespace Items
