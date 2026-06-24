@@ -43,7 +43,15 @@ public:
     void remove_tag(const StringView& name) { m_tags.erase(name); }
 
     template <typename T>
-    Option<T> get_tag(const StringView& name) const { return m_tags.get(name); }
+    Option<T> get_tag(const StringView& name) const
+    {
+        auto opt = m_tags.get(name);
+
+        if (!opt.has_value())
+            return None;
+
+        return opt.value().get_unchecked<T>();
+    }
 
     Map<String, Variant> get_tags() const { return m_tags; }
 
