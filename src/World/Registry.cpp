@@ -56,8 +56,7 @@ void GameRegistry::register_all()
 
     add_structure("tree", Structure::load(STRUCT("tree")));
     add_item(Items::bow, newref<BowItem>());
-
-
+    add_item(Items::arrow, newref<ItemBlock>(Blocks::stone));
 }
 
 Result<void> GameRegistry::post_register()

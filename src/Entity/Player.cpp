@@ -261,7 +261,7 @@ void Player::tick(float delta)
                 if (stack.item().valid() && stack.item() == Items::bow)
                 {
                     Ref<Item> item = Engine::get().registry().get_item(stack.item());
-                    item->interact(*m_world, m_dimension, stack, result.block_pos, result.normal);
+                    item->interact(*m_world, m_dimension, stack, result.block_pos, result.normal, *m_inventory_container);
                     m_inventory_container->set_stack(1, m_slot, stack);
                 }
             }
@@ -271,7 +271,7 @@ void Player::tick(float delta)
         {
             ItemStack stack = m_inventory_container->get_stack(1, m_slot);
             Ref<Item> item = Engine::get().registry().get_item(stack.item());
-            item->on_release(*m_world, m_dimension, stack, m_camera->get_global_transform().position(), m_camera->get_global_transform().forward());
+            item->on_release(*m_world, m_dimension, stack, m_camera->get_global_transform().position(), m_camera->get_global_transform().forward(), *m_inventory_container);
         }
     }
 

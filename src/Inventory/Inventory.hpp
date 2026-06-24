@@ -23,6 +23,7 @@ public:
     ItemStack get_stack(uint32_t layer, uint32_t i) { return m_layers[layer].stacks[i]; }
     const Layer& get_layer(uint32_t layer) const { return m_layers[layer]; }
     Layer& get_layer(uint32_t layer) { return m_layers[layer]; }
+    Option<ItemStack> consume(Id<Item> item);
 
 private:
     std::vector<Layer> m_layers;
