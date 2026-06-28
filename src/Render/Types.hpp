@@ -22,6 +22,7 @@ struct SamplerDescriptor
 {
     WGPUFilterMode min_filter = WGPUFilterMode_Linear;
     WGPUFilterMode mag_filter = WGPUFilterMode_Linear;
+    WGPUCompareFunction compare = WGPUCompareFunction_Undefined;
 
     struct
     {
@@ -32,17 +33,17 @@ struct SamplerDescriptor
 
     bool operator<(const SamplerDescriptor& o) const
     {
-        return std::tie(min_filter, mag_filter, address_mode.u, address_mode.v, address_mode.w) < std::tie(o.min_filter, o.mag_filter, o.address_mode.u, o.address_mode.v, o.address_mode.w);
+        return std::tie(min_filter, mag_filter, compare, address_mode.u, address_mode.v, address_mode.w) < std::tie(o.min_filter, o.mag_filter, o.compare, o.address_mode.u, o.address_mode.v, o.address_mode.w);
     }
 
     bool operator>(const SamplerDescriptor& o) const
     {
-        return std::tie(min_filter, mag_filter, address_mode.u, address_mode.v, address_mode.w) > std::tie(o.min_filter, o.mag_filter, o.address_mode.u, o.address_mode.v, o.address_mode.w);
+        return std::tie(min_filter, mag_filter, compare, address_mode.u, address_mode.v, address_mode.w) > std::tie(o.min_filter, o.mag_filter, o.compare, o.address_mode.u, o.address_mode.v, o.address_mode.w);
     }
 
     bool operator==(const SamplerDescriptor& o) const
     {
-        return std::tie(min_filter, mag_filter, address_mode.u, address_mode.v, address_mode.w) == std::tie(o.min_filter, o.mag_filter, o.address_mode.u, o.address_mode.v, o.address_mode.w);
+        return std::tie(min_filter, mag_filter, compare, address_mode.u, address_mode.v, address_mode.w) == std::tie(o.min_filter, o.mag_filter, o.compare, o.address_mode.u, o.address_mode.v, o.address_mode.w);
     }
 };
 

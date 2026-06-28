@@ -17,6 +17,7 @@ struct VertexOutput {
     @location(1) normal: vec3f,
     @location(2) texture_index: u32,
     @location(3) view_position: vec4f,
+    @location(4) world_position: vec4f,
 }
 
 @group(0) @binding(0) var<uniform> camera: Camera;
@@ -32,10 +33,9 @@ fn vertex_main(in: VertexInput) -> VertexOutput {
         in.chunk_position.x, in.chunk_position.y, in.chunk_position.z, 1
     );
 
-    let model_view = camera.view_matrix * model_matrix;
-
     var out: VertexOutput;
-    out.view_position = model_view * vec4f(in.position, 1.0);
+    out.world_position = model_matrix * vec4f(in.position, 1.0);
+    out.view_position = camera.view_matrix * out.world_position;
     out.clip_position = camera.projection_matrix * out.view_position;
     out.uv = in.uvt.xy;
     out.normal = (model_matrix * vec4f(in.normal, 0.0)).xyz;
@@ -47,6 +47,7 @@ struct GBufferOutput {
     @location(0) albedo: vec4f,
     @location(1) position: vec4f,
     @location(2) normal: vec4f,
+    @location(3) worldpos: vec4f,
 }
 
 @fragment
@@ -58,5 +59,6 @@ fn fragment_main(in: VertexOutput) -> GBufferOutput {
     out.albedo = textureSample(images, images_sampler, uv2, in.texture_index);
     out.position = vec4f(in.view_position.xyz, in.clip_position.z);
     out.normal = vec4f(normalize(in.normal) * 0.5 + 0.5, 1.0);
+    out.worldpos = in.world_position;
     return out;
 }

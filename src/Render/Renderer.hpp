@@ -11,7 +11,6 @@
 #include "Render/Types.hpp"
 #include "Window.hpp"
 
-#include <thread>
 #include <tuple>
 #include <webgpu/webgpu.h>
 
@@ -32,6 +31,8 @@
 #include <mutex>
 
 class World;
+class Chunk;
+class ChunkPos;
 
 enum class InitFlagBits
 {
@@ -229,6 +230,7 @@ public:
     {
         Vector<RenderTarget> color_formats;
         Option<RenderTarget> depth_format;
+        WGPUCullMode cull_mode;
 
         bool operator>(const PipelineKey& k) const
         {
@@ -241,7 +243,7 @@ public:
 
         bool operator==(const PipelineKey& k) const
         {
-            return depth_format == k.depth_format && color_formats == k.color_formats;
+            return depth_format == k.depth_format && color_formats == k.color_formats && cull_mode == k.cull_mode;
         }
     };
 
@@ -324,19 +326,20 @@ struct GPU_ATTRIBUTE CameraUniforms
     glm::mat4 projection_matrix;
 };
 
-struct GPU_ATTRIBUTE WorldUniforms
+struct GPU_ATTRIBUTE ShadowmapCameraUniforms
 {
-    glm::vec4 fog_color;
-    float fog_distance;
-    uint32_t underwater;
+    glm::mat4 view_projection;
 };
 
-// struct GPU_ATTRIBUTE WorldEnvironment
-// {
-//     glm::mat4 view_matrix = glm::identity<glm::mat4>();
-//     glm::vec3 sun_direction = glm::vec3();
-//     glm::vec3 sun_color = glm::vec4(1.0, 1.0, 1.0, 1.0);
-// };
+struct GPU_ATTRIBUTE WorldUniforms
+{
+    GPU_ATTRIBUTE glm::vec4 fog_color;
+    GPU_ATTRIBUTE float fog_distance;
+    GPU_ATTRIBUTE uint32_t underwater;
+
+    GPU_ATTRIBUTE glm::mat4 light_view_projection;
+    GPU_ATTRIBUTE glm::vec3 light_dir;
+};
 
 // struct GPU_ATTRIBUTE SimpleUniforms
 // {
@@ -385,6 +388,7 @@ public:
     void draw_fullscreen(const RenderPass& pass, Ref<Material> material);
 
     void draw_world(const Ref<World>& world, const RenderPass& pass);
+    void draw_world(const Ref<World>& world, const RenderPass& pass, Ref<Material> material, std::function<void(const RenderPass& pass, const Ref<Chunk>&, size_t, const Ref<Mesh>&)> f);
 
     void set_fog(glm::vec4 color, float distance);
     void set_sky(glm::vec4 color);
@@ -443,6 +447,7 @@ private:
     Ref<Texture> m_position_buffer;
     Ref<Texture> m_normal_buffer;
     Ref<Texture> m_depth_buffer;
+    Ref<Texture> m_worldpos_buffer;
 
     Ref<Buffer> m_camera_buffer;
     WorldUniforms m_world_uniforms;
@@ -467,6 +472,13 @@ private:
     Ref<Shader> m_sky_shader;
     Ref<Material> m_sky_material;
     Ref<Buffer> m_sky_buffer;
+
+    // Shadowmap
+    ShadowmapCameraUniforms m_shadowmap_uniforms;
+    Ref<Shader> m_shadowmap_shader;
+    Ref<Material> m_shadowmap_material;
+    Ref<Buffer> m_shadowmap_buffer;
+    Ref<Texture> m_shadowmap_texture;
 
     // Rendering stuff
     WGPUTextureFormat m_surface_format = WGPUTextureFormat_Undefined;

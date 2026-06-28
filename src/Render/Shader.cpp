@@ -5,6 +5,7 @@
 #include "Core/Hash.hpp"
 #include "Render/Renderer.hpp"
 #include "Render/Types.hpp"
+#include "webgpu/webgpu.h"
 
 Shader::~Shader()
 {
@@ -40,6 +41,12 @@ static Vector<WGPUBindGroupLayoutEntry> convert_bindings(Shader *shader)
             entry.binding = binding.binding;
             entry.visibility = binding.shader_stage;
             entry.texture.sampleType = binding.sampler_binding == WGPUSamplerBindingType_NonFiltering ? WGPUTextureSampleType_UnfilterableFloat : WGPUTextureSampleType_Float;
+            if (binding.sampler_binding == WGPUSamplerBindingType_NonFiltering)
+                entry.texture.sampleType = WGPUTextureSampleType_UnfilterableFloat;
+            else if (binding.sampler_binding == WGPUSamplerBindingType_Comparison)
+                entry.texture.sampleType = WGPUTextureSampleType_Depth;
+            else
+                entry.texture.sampleType = WGPUTextureSampleType_Float;
             entry.texture.multisampled = false;
             entry.texture.viewDimension = binding.dimension;
 

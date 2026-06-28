@@ -16,6 +16,9 @@
 #include "World/Dimension.hpp"
 #include "World/Registry.hpp"
 #include "World/World.hpp"
+#include "glm/ext/matrix_clip_space.hpp"
+#include "glm/ext/matrix_transform.hpp"
+#include "glm/trigonometric.hpp"
 #include "webgpu/webgpu.h"
 #include "webgpu/wgpu.h"
 
@@ -630,6 +633,7 @@ WGPUSampler SamplerCache::get(const SamplerDescriptor& desc)
     d.addressModeV = desc.address_mode.v;
     d.addressModeW = desc.address_mode.w;
     d.maxAnisotropy = 1;
+    d.compare = desc.compare;
 
     WGPUSampler sampler = wgpuDeviceCreateSampler(Renderer::get().device(), &d);
     m_samplers.put(desc, sampler);
@@ -892,6 +896,8 @@ static Result<Ref<Mesh>> create_cube_mesh(glm::vec3 size = glm::vec3(1.0), glm::
     return Mesh::create_from_data(View(indices).as_bytes(), vertices, normals, View(uvs).as_bytes(), WGPUIndexFormat_Uint16);
 }
 
+#define SHADOWMAP_RESOLUTION 2048
+
 Result<void> Renderer::init(const Window& window, InitFlags flags)
 {
     singleton = this;
@@ -984,6 +990,9 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_world_buffer = TRY(Buffer::create(sizeof(WorldUniforms), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
     m_env_2d_buffer = TRY(Buffer::create(sizeof(glm::mat4), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
     m_sky_buffer = TRY(Buffer::create(sizeof(SkyUniforms), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
+    m_shadowmap_buffer = TRY(Buffer::create(sizeof(ShadowmapCameraUniforms), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
+
+    m_shadowmap_texture = TRY(Texture::create(SHADOWMAP_RESOLUTION, SHADOWMAP_RESOLUTION, WGPUTextureFormat_Depth32Float, WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_TextureBinding));
 
     m_color_rect_shader = TRY(Shader::load_from_path("assets/shaders/ui/color_rect.wgsl"));
     m_color_rect_shader->set_binding("env", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
@@ -1041,8 +1050,12 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_shading_shader->set_sampler("ssao_texture", SamplerDescriptor(WGPUFilterMode_Undefined, WGPUFilterMode_Undefined));
     m_shading_shader->set_binding("depth_texture", Binding(BindingKind::Texture, WGPUShaderStage_Fragment, 0, 8, BindingAccess::Read, WGPUTextureViewDimension_2D, WGPUSamplerBindingType_NonFiltering));
     m_shading_shader->set_sampler("depth_texture", SamplerDescriptor(WGPUFilterMode_Undefined, WGPUFilterMode_Undefined));
-    m_shading_shader->set_binding("camera", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Fragment, 0, 10, BindingAccess::Read));
-    m_shading_shader->set_binding("world", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Fragment, 0, 11, BindingAccess::Read));
+    m_shading_shader->set_binding("shadowmap_texture", Binding(BindingKind::Texture, WGPUShaderStage_Fragment, 0, 10, BindingAccess::Read, WGPUTextureViewDimension_2D, WGPUSamplerBindingType_NonFiltering));
+    m_shading_shader->set_sampler("shadowmap_texture", SamplerDescriptor(WGPUFilterMode_Undefined, WGPUFilterMode_Undefined));
+    m_shading_shader->set_binding("worldpos_texture", Binding(BindingKind::Texture, WGPUShaderStage_Fragment, 0, 12, BindingAccess::Read, WGPUTextureViewDimension_2D, WGPUSamplerBindingType_NonFiltering));
+    m_shading_shader->set_sampler("worldpos_texture", SamplerDescriptor(WGPUFilterMode_Undefined, WGPUFilterMode_Undefined));
+    m_shading_shader->set_binding("camera", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Fragment, 0, 14, BindingAccess::Read));
+    m_shading_shader->set_binding("world", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Fragment, 0, 15, BindingAccess::Read));
     m_shading_shader->create_bind_group_layout();
 
     m_preview_block_shader = TRY(Shader::load_from_path("assets/shaders/block_preview.wgsl"));
@@ -1050,6 +1063,10 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_preview_block_shader->set_binding("images", Binding(BindingKind::Texture, WGPUShaderStage_Fragment, 0, 1, BindingAccess::Read, WGPUTextureViewDimension_2DArray)); // binding = 3 is the sampler
     m_preview_block_shader->set_sampler("images", {.min_filter = WGPUFilterMode_Nearest, .mag_filter = WGPUFilterMode_Nearest});
     m_preview_block_shader->create_bind_group_layout();
+
+    m_shadowmap_shader = TRY(Shader::load_from_path("assets/shaders/shadowmap.wgsl"));
+    m_shadowmap_shader->set_binding("camera", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
+    m_shadowmap_shader->create_bind_group_layout();
 
     m_missing_texture = TRY(Texture::create(16, 16, WGPUTextureFormat_RGBA8UnormSrgb, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding));
     m_missing_texture->update(View(missing_texture_data, 16 * 16).as_bytes());
@@ -1124,8 +1141,18 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_sky_material->set_param("sky", m_sky_buffer);
 
     m_shading_material = TRY(Material::create(m_shading_shader, MaterialFlagBits::NoData, WGPUCullMode_None, UVType::UV));
+    m_shading_material->set_param("shadowmap_texture", m_shadowmap_texture);
     m_shading_material->set_param("camera", m_camera_buffer);
     m_shading_material->set_param("world", m_world_buffer);
+
+    m_shadowmap_material = TRY(Material::create(m_shadowmap_shader, MaterialFlagBits::NoNormal | MaterialFlagBits::NoUV, WGPUCullMode_Front, UVType::UV, Instance(attributes, sizeof(glm::vec3))));
+    m_shadowmap_material->set_param("camera", m_shadowmap_buffer);
+
+    // m_shadowmap_uniforms.view_matrix = glm::lookAt(glm::vec3(-10.0f, 85.0f, 0.0f),
+    //                                                glm::vec3(0.0f, 0.0f, 0.0f),
+    //                                                glm::vec3(0.0f, 1.0f, 0.0f));
+    // m_shadowmap_uniforms.projection_matrix = glm::ortho(-10.0, 10.0, -10.0, 10.0);
+    // m_shadowmap_buffer->update(View(m_shadowmap_uniforms).as_bytes());
 
     Array<uint16_t, 6> indices{0, 1, 2, 0, 2, 3};
     Array<glm::vec3, 4> vertices{
@@ -1170,8 +1197,6 @@ void Renderer::configure_surface(size_t width, size_t height, VSync vsync)
     WGPUSurfaceCapabilities capabilities;
     wgpuSurfaceGetCapabilities(m_surface, m_adapter, &capabilities);
 
-    // ASSERT_V((capabilities.usages & WGPUTextureUsage_TextureBinding) != 0, "Surface must support TextureBinding");
-
     WGPUSurfaceConfiguration config{};
     config.device = m_device;
     config.format = WGPUTextureFormat_BGRA8Unorm; // capabilities.formats[0];
@@ -1199,6 +1224,7 @@ void Renderer::configure_surface(size_t width, size_t height, VSync vsync)
     m_position_buffer = EXPECT(Texture::create(m_surface_extent.width, m_surface_extent.height, WGPUTextureFormat_RGBA32Float, WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_TextureBinding));
     m_normal_buffer = EXPECT(Texture::create(m_surface_extent.width, m_surface_extent.height, WGPUTextureFormat_RGBA32Float, WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_TextureBinding));
     m_depth_buffer = EXPECT(Texture::create(m_surface_extent.width, m_surface_extent.height, WGPUTextureFormat_Depth32Float, WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_TextureBinding));
+    m_worldpos_buffer = EXPECT(Texture::create(m_surface_extent.width, m_surface_extent.height, WGPUTextureFormat_RGBA32Float, WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_TextureBinding));
 
     m_ssao_buffer = EXPECT(Texture::create(m_surface_extent.width, m_surface_extent.height, WGPUTextureFormat_R32Float, WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_TextureBinding));
     m_ssao_material->set_param("position_buffer", m_position_buffer);
@@ -1209,15 +1235,13 @@ void Renderer::configure_surface(size_t width, size_t height, VSync vsync)
     m_shading_material->set_param("normal_texture", m_normal_buffer);
     m_shading_material->set_param("ssao_texture", m_ssao_buffer);
     m_shading_material->set_param("depth_texture", m_depth_buffer);
+    m_shading_material->set_param("worldpos_texture", m_worldpos_buffer);
 
     m_sky_material->set_param("albedo_texture", m_albedo_buffer);
 
     float ratio = float(width) / float(height);
     glm::mat4 ortho_matrix = glm::ortho(-1.0f * ratio, 1.0f * ratio, -1.0f, 1.0f, -1.0f, 1.0f);
     m_env_2d_buffer->update(View(ortho_matrix).as_bytes());
-
-    // m_sky_uniforms.model_matrix = glm::scale(glm::mat4(1.0), glm::vec3(2.0 * ratio, 2.0, 1.0));
-    // m_sky_uniform_buffer->update(View(m_sky_uniforms).as_bytes());
 }
 
 void Renderer::draw_legacy(std::function<void()> f)
@@ -1301,6 +1325,16 @@ void Renderer::draw(const Ref<World>& world)
     // Update environment data
     m_camera_buffer->update(View(CameraUniforms(world->get_active_camera()->get_view_matrix(), world->get_active_camera()->get_inv_view_matrix(), world->get_active_camera()->get_projection_matrix())).as_bytes());
 
+    m_shadowmap_uniforms.view_projection = glm::ortho(10.0f, -10.0f, -10.0f, 10.0f, 1.0f, 100.0f) *
+                                           glm::translate(glm::mat4(1.0), -world->get_active_camera()->get_global_transform().position());
+    m_shadowmap_buffer->update(View(m_shadowmap_uniforms).as_bytes());
+
+    const glm::vec3 position = world->get_active_camera()->get_global_transform().position();
+    println("[ {} {} {} ]", position.x, position.y, position.z);
+
+    m_world_uniforms.light_view_projection = m_shadowmap_uniforms.view_projection;
+    m_world_buffer->update(View(m_world_uniforms).as_bytes());
+
     WGPURenderPassDepthStencilAttachment depth_buffer_attach{};
     depth_buffer_attach.depthClearValue = 1.0;
     depth_buffer_attach.depthLoadOp = WGPULoadOp_Clear;
@@ -1325,7 +1359,7 @@ void Renderer::draw(const Ref<World>& world)
 
     // Main color pass
     // > Generate the G-Buffer from the world geometry.
-    WGPURenderPassColorAttachment main_pass_color_attachs[3]{};
+    WGPURenderPassColorAttachment main_pass_color_attachs[4]{};
     main_pass_color_attachs[0].clearValue = WGPUColor(0.0, 0.0, 0.0, 0.0);
     main_pass_color_attachs[0].depthSlice = WGPU_DEPTH_SLICE_UNDEFINED;
     main_pass_color_attachs[0].view = m_albedo_buffer->handle_view();
@@ -1344,6 +1378,12 @@ void Renderer::draw(const Ref<World>& world)
     main_pass_color_attachs[2].loadOp = WGPULoadOp_Clear;
     main_pass_color_attachs[2].storeOp = WGPUStoreOp_Store;
 
+    main_pass_color_attachs[3].clearValue = WGPUColor(0.0, 0.0, 0.0, 0.0);
+    main_pass_color_attachs[3].depthSlice = WGPU_DEPTH_SLICE_UNDEFINED;
+    main_pass_color_attachs[3].view = m_worldpos_buffer->handle_view();
+    main_pass_color_attachs[3].loadOp = WGPULoadOp_Clear;
+    main_pass_color_attachs[3].storeOp = WGPUStoreOp_Store;
+
     WGPURenderPassDescriptor main_pass{};
     main_pass.label = WGPU_STRING_VIEW("G-Buffer Pass");
     main_pass.colorAttachmentCount = sizeof(main_pass_color_attachs) / sizeof(WGPURenderPassColorAttachment);
@@ -1351,7 +1391,7 @@ void Renderer::draw(const Ref<World>& world)
     main_pass.depthStencilAttachment = &depth_buffer_attach;
 
     WGPURenderPassEncoder main_pass_encoder = wgpuCommandEncoderBeginRenderPass(encoder, &main_pass);
-    draw_world(world, RenderPass(main_pass_encoder, RenderTarget(m_depth_buffer->format()), Vector<RenderTarget>::create(RenderTarget(m_albedo_buffer->format(), false), RenderTarget(m_position_buffer->format(), false), RenderTarget(m_normal_buffer->format(), false))));
+    draw_world(world, RenderPass(main_pass_encoder, RenderTarget(m_depth_buffer->format()), Vector<RenderTarget>::create(RenderTarget(m_albedo_buffer->format(), false), RenderTarget(m_position_buffer->format(), false), RenderTarget(m_normal_buffer->format(), false), RenderTarget(m_worldpos_buffer->format(), false))));
     wgpuRenderPassEncoderEnd(main_pass_encoder);
     wgpuRenderPassEncoderRelease(main_pass_encoder);
 
@@ -1415,6 +1455,27 @@ void Renderer::draw(const Ref<World>& world)
     }
     wgpuRenderPassEncoderEnd(transparent_pass_encoder);
     wgpuRenderPassEncoderRelease(transparent_pass_encoder);
+
+    // Shadow Map
+    WGPURenderPassDepthStencilAttachment shadowmap_depth_attach{};
+    shadowmap_depth_attach.depthClearValue = 1.0;
+    shadowmap_depth_attach.view = m_shadowmap_texture->handle_view();
+    shadowmap_depth_attach.depthLoadOp = WGPULoadOp_Clear;
+    shadowmap_depth_attach.depthStoreOp = WGPUStoreOp_Store;
+
+    WGPURenderPassDescriptor shadowmap_pass{};
+    shadowmap_pass.label = WGPU_STRING_VIEW("ShadowMap Pass");
+    shadowmap_pass.depthStencilAttachment = &shadowmap_depth_attach;
+
+    WGPURenderPassEncoder shadowmap_encoder = wgpuCommandEncoderBeginRenderPass(encoder, &shadowmap_pass);
+    draw_world(world, RenderPass(shadowmap_encoder, RenderTarget(m_shadowmap_texture->format()), {}), m_shadowmap_material, [](const RenderPass& pass, const Ref<Chunk>& chunk, size_t i, const Ref<Mesh>& mesh)
+               {
+                   wgpuRenderPassEncoderSetIndexBuffer(pass.encoder, mesh->get_buffer(Mesh::BufferKind::Index)->handle(), mesh->index_type(), 0, mesh->get_buffer(Mesh::BufferKind::Index)->size());
+                   wgpuRenderPassEncoderSetVertexBuffer(pass.encoder, 0, mesh->get_buffer(Mesh::BufferKind::Position)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Position)->size());
+                   wgpuRenderPassEncoderSetVertexBuffer(pass.encoder, 1, chunk->get_chunk_instance_buffer()->handle(), sizeof(glm::vec3) * i, sizeof(glm::vec3));
+                   wgpuRenderPassEncoderDrawIndexed(pass.encoder, mesh->vertex_count(), 1, 0, 0, 0); });
+    wgpuRenderPassEncoderEnd(shadowmap_encoder);
+    wgpuRenderPassEncoderRelease(shadowmap_encoder);
 
     // Screen-Space Ambiant Occlusion
     WGPURenderPassColorAttachment ssao_buffer_attach{};
@@ -1582,7 +1643,7 @@ void Renderer::draw_world(const Ref<World>& world, const RenderPass& pass)
 
             const glm::vec4 p(float(pos.x) * 16.0 - camera_pos.x, float(i) * 16.0, float(pos.z) * 16.0 - camera_pos.z, 1.0);
 
-            chunk->get_chunk_instance_buffer()->update(View(glm::vec3(p)).as_bytes(), i * sizeof(glm::vec3));
+            // chunk->get_chunk_instance_buffer()->update(View(glm::vec3(p)).as_bytes(), i * sizeof(glm::vec3));
 
             const Ref<Mesh>& mesh = slice.mesh;
             wgpuRenderPassEncoderSetIndexBuffer(encoder, mesh->get_buffer(Mesh::BufferKind::Index)->handle(), mesh->index_type(), 0, mesh->get_buffer(Mesh::BufferKind::Index)->size());
@@ -1592,6 +1653,54 @@ void Renderer::draw_world(const Ref<World>& world, const RenderPass& pass)
             wgpuRenderPassEncoderSetVertexBuffer(encoder, 3, chunk->get_chunk_instance_buffer()->handle(), sizeof(glm::vec3) * i, sizeof(glm::vec3));
 
             wgpuRenderPassEncoderDrawIndexed(encoder, mesh->vertex_count(), 1, 0, 0, 0);
+        }
+    }
+}
+
+void Renderer::draw_world(const Ref<World>& world, const RenderPass& pass, Ref<Material> material, std::function<void(const RenderPass& pass, const Ref<Chunk>&, size_t, const Ref<Mesh>&)> f)
+{
+    const Dimension& dim = world->get_dimension(0);
+    const Ref<Camera> camera = world->get_active_camera();
+    const glm::vec3 camera_pos = camera->get_position();
+
+    WGPURenderPipeline pipeline = material->get_pipeline(pass);
+    wgpuRenderPassEncoderSetPipeline(pass.encoder, pipeline);
+    wgpuRenderPassEncoderSetBindGroup(pass.encoder, 0, material->get_bind_group(), 0, nullptr);
+
+    for (const auto& [key, chunk] : dim.get_chunks())
+    {
+        // ChunkPos pos = chunk->pos();
+        // AABB aabb = AABB(-glm::vec3(Chunk::width / 2.0, Chunk::height / 2.0, Chunk::width / 2), glm::vec3(Chunk::width / 2.0, Chunk::height / 2.0, Chunk::width / 2))
+        //                 .translate(glm::vec3((float)pos.x * Chunk::width + Chunk::width / 2.0, float(Chunk::height) / 2.0, (float)pos.z * Chunk::width + Chunk::width / 2.0));
+
+        // if (!camera->frustum().contains(aabb))
+        //     continue;
+
+        const Chunk::Slice *slices = chunk->get_slices();
+
+        for (size_t i = 0; i < Chunk::slice_count; i++)
+        {
+            const Chunk::Slice& slice = slices[i];
+
+            if (slice.mesh.is_null())
+                continue;
+
+            // ChunkPos pos = chunk->pos();
+            // AABB aabb = AABB(-glm::vec3(Chunk::width / 2.0, Chunk::width / 2.0, Chunk::width / 2), glm::vec3(Chunk::width / 2.0, Chunk::width / 2.0, Chunk::width / 2))
+            //                 .translate(glm::vec3((float)pos.x * Chunk::width + Chunk::width / 2.0, (float)i * Chunk::width + Chunk::width / 2.0, (float)pos.z * Chunk::width + Chunk::width / 2.0));
+
+            // if (!camera->frustum().contains(aabb))
+            //     continue;
+
+            const Ref<Mesh>& mesh = slice.mesh;
+            f(pass, chunk, i, mesh);
+            // wgpuRenderPassEncoderSetIndexBuffer(pass.encoder, mesh->get_buffer(Mesh::BufferKind::Index)->handle(), mesh->index_type(), 0, mesh->get_buffer(Mesh::BufferKind::Index)->size());
+            // wgpuRenderPassEncoderSetVertexBuffer(pass.encoder, 0, mesh->get_buffer(Mesh::BufferKind::Position)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Position)->size());
+            // wgpuRenderPassEncoderSetVertexBuffer(pass.encoder, 1, mesh->get_buffer(Mesh::BufferKind::Normal)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Normal)->size());
+            // wgpuRenderPassEncoderSetVertexBuffer(pass.encoder, 2, mesh->get_buffer(Mesh::BufferKind::UV)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::UV)->size());
+            // wgpuRenderPassEncoderSetVertexBuffer(pass.encoder, 3, chunk->get_chunk_instance_buffer()->handle(), sizeof(glm::vec3) * i, sizeof(glm::vec3));
+
+            // wgpuRenderPassEncoderDrawIndexed(pass.encoder, mesh->vertex_count(), 1, 0, 0, 0);
         }
     }
 }
