@@ -170,9 +170,11 @@ Ref<Texture> GameRegistry::create_preview_texture(Ref<Block> block)
     constexpr uint32_t preview_size = 128;
 
     Ref<Buffer> buffer = THROW(Buffer::create(sizeof(PreviewBlockModel), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform), Renderer::get().get_missing_texture());
-    Ref<Material> material = THROW(Material::create(Renderer::get().get_preview_block_shader(), MaterialFlagBits::None, WGPUCullMode_Back, UVType::UV), Renderer::get().get_missing_texture());
-    material->set_param("model", buffer);
-    material->set_param("images", Engine::get().registry().get_texture_array());
+    Ref<Material> material = Material::create(Renderer::get().get_preview_block_shader(), MaterialFlagBits::None, WGPUCullMode_Back, UVType::UV);
+
+    Ref<BindGroup> bg = BindGroup::create(Renderer::get().get_preview_block_shader());
+    bg->set_param("model", buffer);
+    bg->set_param("images", Engine::get().registry().get_texture_array());
 
     glm::mat4 matrix = glm::ortho(-1.0f, 1.0f, -1.0f, 1.0f) *
                        glm::translate(glm::identity<glm::mat4>(), glm::vec3(0.f, 0.f, -0.86f)) *
@@ -207,7 +209,7 @@ Ref<Texture> GameRegistry::create_preview_texture(Ref<Block> block)
     rp.depthStencilAttachment = &depth_attach;
 
     WGPURenderPassEncoder render_encoder = wgpuCommandEncoderBeginRenderPass(encoder, &rp);
-    Renderer::get().draw(RenderPass(render_encoder, RenderTarget(depth_texture->format()), Vector<RenderTarget>::create(color_texture->format())), Renderer::get().get_cube_mesh(), material);
+    Renderer::get().draw(RenderPass(render_encoder, RenderTarget(depth_texture->format()), Vector<RenderTarget>::create(color_texture->format())), Renderer::get().get_cube_mesh(), material, bg);
     wgpuRenderPassEncoderEnd(render_encoder);
     wgpuRenderPassEncoderRelease(render_encoder);
 

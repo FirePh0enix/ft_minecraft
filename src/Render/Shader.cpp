@@ -8,6 +8,10 @@
 
 Shader::~Shader()
 {
+    if (m_bind_group_layout)
+        wgpuBindGroupLayoutRelease(m_bind_group_layout);
+    if (m_pipeline_layout)
+        wgpuPipelineLayoutRelease(m_pipeline_layout);
 }
 
 Result<Ref<Shader>> Shader::load(const StringView& source)
@@ -40,6 +44,7 @@ static Vector<WGPUBindGroupLayoutEntry> convert_bindings(Shader *shader)
             entry.binding = binding.binding;
             entry.visibility = binding.shader_stage;
             entry.texture.sampleType = binding.sampler_binding == WGPUSamplerBindingType_NonFiltering ? WGPUTextureSampleType_UnfilterableFloat : WGPUTextureSampleType_Float;
+            entry.texture.sampleType = binding.texture_sample;
             entry.texture.multisampled = false;
             entry.texture.viewDimension = binding.dimension;
 
@@ -54,34 +59,12 @@ static Vector<WGPUBindGroupLayoutEntry> convert_bindings(Shader *shader)
             entries.append(sampler_entry);
         }
         break;
-        case BindingKind::StorageTexture:
-        {
-            WGPUBindGroupLayoutEntry entry{};
-            entry.binding = binding.binding;
-            entry.visibility = binding.shader_stage;
-            entry.storageTexture.access = WGPUStorageTextureAccess_ReadWrite; // TODO ?
-            entry.storageTexture.format = WGPUTextureFormat_RGBA8Unorm;       // TODO: this is the surface format.
-            entry.storageTexture.viewDimension = binding.dimension;
-
-            entries.append(entry);
-        }
-        break;
         case BindingKind::UniformBuffer:
         {
             WGPUBindGroupLayoutEntry entry{};
             entry.binding = binding.binding;
             entry.visibility = binding.shader_stage;
             entry.buffer.type = WGPUBufferBindingType_Uniform;
-
-            entries.append(entry);
-        }
-        break;
-        case BindingKind::StorageBuffer:
-        {
-            WGPUBindGroupLayoutEntry entry{};
-            entry.binding = binding.binding;
-            entry.visibility = binding.shader_stage;
-            entry.buffer.type = binding.access == BindingAccess::Read ? WGPUBufferBindingType_ReadOnlyStorage : WGPUBufferBindingType_Storage;
 
             entries.append(entry);
         }
@@ -99,16 +82,14 @@ void Shader::create_bind_group_layout()
 {
     Vector<WGPUBindGroupLayoutEntry> entries = convert_bindings(this);
 
-    WGPUBindGroupLayoutDescriptor bind_group_desc{};
+    WGPUBindGroupLayoutDescriptor bind_group_desc = WGPU_BIND_GROUP_LAYOUT_DESCRIPTOR_INIT;
     bind_group_desc.entryCount = entries.size();
     bind_group_desc.entries = entries.data();
 
     m_bind_group_layout = wgpuDeviceCreateBindGroupLayout(Renderer::get().device(), &bind_group_desc);
     ERR_COND(m_bind_group_layout == nullptr, "BindGroupLayout is invalid");
 
-    WGPUPipelineLayoutDescriptor pipeline_layout_desc{};
-    pipeline_layout_desc.nextInChain = nullptr;
-    pipeline_layout_desc.label = WGPU_STRING_VIEW_INIT;
+    WGPUPipelineLayoutDescriptor pipeline_layout_desc = WGPU_PIPELINE_LAYOUT_DESCRIPTOR_INIT;
     pipeline_layout_desc.bindGroupLayouts = &m_bind_group_layout;
     pipeline_layout_desc.bindGroupLayoutCount = 1;
 

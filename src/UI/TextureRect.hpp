@@ -21,9 +21,9 @@ public:
     virtual void process_event(Event& event) override;
     virtual void draw(const RenderPass& pass) override;
 
-    void set_texture(Ref<Texture> texture) { m_material->set_param("image", texture); }
+    void set_texture(Ref<Texture> texture) { m_bg->set_param("image", texture); }
 
 private:
     Ref<Buffer> m_uniforms;
-    Ref<Material> m_material;
+    Ref<BindGroup> m_bg;
 };

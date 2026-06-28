@@ -22,6 +22,11 @@ ItemEntity::ItemEntity(Id<Item> item)
     // m_material->set_param("model", m_model_buffer);
     // m_material->set_param("images", Engine::get().registry().get_texture_array());
 
+    m_bg = BindGroup::create(Renderer::get().get_fw_item_block_shader()); // FIXME
+    // m_bg->set_param("env", Renderer::get().get_world_environment());
+    m_bg->set_param("model", m_model_buffer);
+    m_bg->set_param("images", Engine::get().registry().get_texture_array());
+
     Ref<Block> block = Engine::get().registry().block_from_item(item);
     m_textures = glm::uvec3(block->get_texture_ids()[0] | (block->get_texture_ids()[1] << 16), block->get_texture_ids()[2] | (block->get_texture_ids()[3] << 16), block->get_texture_ids()[4] | (block->get_texture_ids()[5] << 16));
 }
@@ -40,5 +45,5 @@ void ItemEntity::draw(const RenderPass& pass)
     ItemBlockModel matrix(get_transform().to_matrix(), m_textures);
 
     m_model_buffer->update(View(matrix).as_bytes());
-    Renderer::get().draw(pass, Renderer::get().get_cube_mesh(), m_material);
+    Renderer::get().draw(pass, Renderer::get().get_cube_mesh(), Renderer::get().get_fw_item_block_mat(), m_bg);
 }

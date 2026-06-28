@@ -19,7 +19,8 @@ public:
 private:
     Id<Item> m_item;
     glm::uvec3 m_textures{};
-    Ref<Material> m_material;
+    // Ref<Material> m_material;
+    Ref<BindGroup> m_bg;
     Ref<Buffer> m_model_buffer;
 
     float m_time;

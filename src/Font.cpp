@@ -146,16 +146,10 @@ Text::Text(Ref<Font> font)
 
     m_uniform_buffer = EXPECT(Buffer::create(sizeof(Font::Uniform), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform));
 
-    Vector<InstanceAttribute> attribs;
-    attribs.reserve(3);
-    attribs.append(InstanceAttribute(offsetof(Font::Instance, bounds), WGPUVertexFormat_Float32x4));
-    attribs.append(InstanceAttribute(offsetof(Font::Instance, char_pos), WGPUVertexFormat_Float32x2));
-    attribs.append(InstanceAttribute(offsetof(Font::Instance, scale), WGPUVertexFormat_Float32x2));
-
-    m_material = EXPECT(Material::create(Renderer::get().get_text_shader(), MaterialFlagBits::Transparency | MaterialFlagBits::NoNormal | MaterialFlagBits::NoUV, WGPUCullMode_None, UVType::UV, Instance(attribs, sizeof(Font::Instance))));
-    m_material->set_param("env", Renderer::get().get_env_2d());
-    m_material->set_param("uniforms", m_uniform_buffer);
-    m_material->set_param("bitmap", font->get_bitmap());
+    m_bg = BindGroup::create(Renderer::get().get_fw_text_shader());
+    m_bg->set_param("env", Renderer::get().get_env_2d());
+    m_bg->set_param("uniforms", m_uniform_buffer);
+    m_bg->set_param("bitmap", font->get_bitmap());
 }
 
 Text::Text(size_t capacity, Ref<Font> font)
@@ -239,7 +233,8 @@ void Text::set_color(glm::vec4 color)
 
 void Text::draw(const RenderPass& pass)
 {
-    Renderer::get().draw(pass, Renderer::get().get_square_mesh(), m_material, m_instance_buffer, m_size);
+    // TODO
+    Renderer::get().draw(pass, g_mesh, Renderer::get().get_fw_text_mat(), m_bg, m_instance_buffer, m_size);
 }
 
 void Text::update_uniform_buffer()

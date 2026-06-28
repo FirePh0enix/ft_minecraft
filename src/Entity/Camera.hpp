@@ -90,7 +90,7 @@ private:
     Frustum m_frustum;
 
     float m_near = 0.01;
-    float m_far = 10'000.0;
+    float m_far = 500.0;
 
     glm::mat4 calculate_projection_matrix() const
     {

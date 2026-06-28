@@ -1,8 +1,6 @@
 #include "UI/ItemSlot.hpp"
 
-#include "Core/Containers/InplaceVector.hpp"
 #include "Core/Format.hpp"
-#include "Core/Print.hpp"
 #include "Engine.hpp"
 #include "Inventory/Inventory.hpp"
 #include "Item/ItemStack.hpp"
@@ -76,8 +74,6 @@ void ItemSlot::update(float d)
                 m_container->set_stack(m_layer, m_index, ItemStack());
             }
         }
-
-     
     }
 }
 

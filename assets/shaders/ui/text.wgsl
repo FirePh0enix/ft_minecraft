@@ -38,7 +38,7 @@ fn vertex_main(in: VertexInput) -> VertexOutput {
 
     let matrix = mat4x4f(
         in.scale.x * uniforms.scale.x, 0.0, 0.0, 0.0,
-        0.0, in.scale.y * uniforms.scale.y, 0.0, 0.0,
+        0.0, -in.scale.y * uniforms.scale.y, 0.0, 0.0,
         0.0, 0.0, 1.0, 0.0,
         in.char_pos.x * uniforms.scale.x + uniforms.position.x, in.char_pos.y * uniforms.scale.x + uniforms.position.y - (in.char_pos.y * uniforms.scale.x) / 2.0, uniforms.position.z, 1.0
     );

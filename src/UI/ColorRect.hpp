@@ -29,5 +29,5 @@ public:
 private:
     Color m_color;
     Ref<Buffer> m_uniforms;
-    Ref<Material> m_material;
+    Ref<BindGroup> m_bg;
 };

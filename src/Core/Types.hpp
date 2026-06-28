@@ -23,3 +23,5 @@ struct Extent2D
  * to respect GPU requirements.
  */
 #define GPU_ATTRIBUTE __attribute__((aligned(16)))
+
+#define _aligned(A) __attribute__((aligned(A)))

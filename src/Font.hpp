@@ -103,7 +103,7 @@ private:
     Ref<Buffer> m_instance_buffer;
     size_t m_capacity;
     size_t m_size;
-    Ref<Material> m_material;
+    Ref<BindGroup> m_bg;
     Font::Uniform m_uniform;
     Ref<Buffer> m_uniform_buffer;
 

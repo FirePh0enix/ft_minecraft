@@ -8,11 +8,13 @@
 #include "Core/Ref.hpp"
 #include "Core/String.hpp"
 #include "Event.hpp"
-#include "Render/Renderer.hpp"
 #include "Transform3D.hpp"
 
+// from `World.hpp`
 class World;
 class Dimension;
+// from `Renderer.hpp`
+class RenderPass;
 
 enum class RpcTarget
 {

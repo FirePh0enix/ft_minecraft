@@ -18,9 +18,7 @@ public:
     {
         auto opt = m_samplers.get(name);
         if (opt.has_value())
-        {
             return opt.value();
-        }
         return SamplerDescriptor{};
     }
 
@@ -76,4 +74,3 @@ private:
     WGPUBindGroupLayout m_bind_group_layout = nullptr;
     WGPUPipelineLayout m_pipeline_layout = nullptr;
 };
-

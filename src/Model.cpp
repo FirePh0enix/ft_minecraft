@@ -123,7 +123,9 @@ Result<Ref<Model>> Model::load(const StringView& path)
         obj.size = glm::vec3(object.size[0], object.size[1], object.size[2]);
         obj.position = glm::vec3(object.position[0], object.position[1], object.position[2]);
         obj.origin = glm::vec3(object.origin[0], object.origin[1], object.origin[2]);
-        obj.material = TRY(Material::create(Renderer::get().get_model_shader(), MaterialFlagBits::None, WGPUCullMode_Back, UVType::UV));
+        // obj.material = TRY(Material::create(Renderer::get().get_model_shader(), MaterialFlagBits::None, WGPUCullMode_Back, UVType::UV));
+
+        obj.bg = BindGroup::create(Renderer::get().get_model_shader());
 
         Vector<glm::vec2> uvs;
         for (uint32_t i = 0; i < 24; i++)
@@ -178,6 +180,26 @@ Result<Ref<Model>> Model::load(const StringView& path)
     return model;
 }
 
+View<Model::Object> Model::objects() const
+{
+    return m_objects;
+}
+
+Ref<Buffer> Model::get_global_buffer() const
+{
+    return m_global_buffer;
+}
+
+Option<Model::Object> Model::get_object(String name) const
+{
+    for (const auto& obj : m_objects)
+    {
+        if (obj.name == name)
+            return obj;
+    }
+    return None;
+}
+
 void Model::encode(const RenderPass& pass, const Transform3D& transform)
 {
     const Ref<Mesh>& mesh = Renderer::get().get_cube_mesh();
@@ -186,10 +208,7 @@ void Model::encode(const RenderPass& pass, const Transform3D& transform)
     m_global_buffer->update(View(info).as_bytes());
 
     for (const auto& obj : m_objects)
-    {
-        Ref<Material> material = obj.material;
-        Renderer::get().draw(pass, mesh, material);
-    }
+        Renderer::get().draw(pass, mesh, Renderer::get().get_fw_model_mat(), obj.bg);
 }
 
 void Animator::set_model(Ref<Model> model)

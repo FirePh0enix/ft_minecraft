@@ -3,7 +3,6 @@
 #include "Block/Block.hpp"
 #include "Core/Containers/HashMap.hpp"
 #include "Core/Containers/Map.hpp"
-#include "Core/Containers/Vector.hpp"
 #include "Core/Definitions.hpp"
 #include "Core/String.hpp"
 #include "Render/Renderer.hpp"
@@ -15,8 +14,9 @@
 class World;
 class Dimension;
 
-struct ChunkPos
+class ChunkPos
 {
+public:
     int64_t x;
     int64_t z;
 
@@ -39,50 +39,45 @@ struct ChunkPos
     }
 };
 
-struct ChunkModel
-{
-    glm::mat4 model_matrix = glm::identity<glm::mat4>();
-};
+// struct __attribute__((packed)) ChunkNode
+// {
+//     uint32_t leaf : 1 = 0;
+//     /**
+//      * If `same` is set this means all children are the same block. For a leaf block `ptr` points *one* block.
+//      * For a non-leaf block this means no child nodes are present and `ptr` points to the block.
+//      * For `same` to be valid all bits of `child_mask` must be set.
+//      */
+//     uint32_t same : 1 = 0;
+//     uint32_t ptr : 30 = 0;
+//     uint64_t child_mask = 0;
+// };
 
-struct __attribute__((packed)) ChunkNode
-{
-    uint32_t leaf : 1 = 0;
-    /**
-     * If `same` is set this means all children are the same block. For a leaf block `ptr` points *one* block.
-     * For a non-leaf block this means no child nodes are present and `ptr` points to the block.
-     * For `same` to be valid all bits of `child_mask` must be set.
-     */
-    uint32_t same : 1 = 0;
-    uint32_t ptr : 30 = 0;
-    uint64_t child_mask = 0;
-};
+// struct __attribute__((packed)) ChunkBiomeNode
+// {
+//     uint16_t ptr = 0;
+//     /**
+//      * All children of this node are the same value. If set then the children nodes
+//      * are ignored and `ptr` points to the biome value.
+//      */
+//     uint16_t same : 1 = 0;
+//     uint16_t reserved : 15 = 0;
+// };
 
-struct __attribute__((packed)) ChunkBiomeNode
-{
-    uint16_t ptr = 0;
-    /**
-     * All children of this node are the same value. If set then the children nodes
-     * are ignored and `ptr` points to the biome value.
-     */
-    uint16_t same : 1 = 0;
-    uint16_t reserved : 15 = 0;
-};
+// struct CompressedChunk
+// {
+// public:
+//     CompressedChunk()
+//         : compressed_slice_mask(0)
+//     {
+//     }
 
-struct CompressedChunk
-{
-public:
-    CompressedChunk()
-        : compressed_slice_mask(0)
-    {
-    }
+//     Vector<BlockState> compressed_blocks;
+//     Vector<ChunkNode> compressed_nodes;
+//     uint16_t compressed_slice_mask;
 
-    Vector<BlockState> compressed_blocks;
-    Vector<ChunkNode> compressed_nodes;
-    uint16_t compressed_slice_mask;
-
-    Vector<Biome> compressed_biomes;
-    Vector<ChunkBiomeNode> compressed_biome_nodes;
-};
+//     Vector<Biome> compressed_biomes;
+//     Vector<ChunkBiomeNode> compressed_biome_nodes;
+// };
 
 struct BlockTags
 {
@@ -102,6 +97,10 @@ public:
         bool empty = true;
         Ref<Mesh> mesh = nullptr;
         Ref<Mesh> water_mesh = nullptr;
+
+        Ref<BindGroup> mesh_bg;
+        Ref<BindGroup> mesh_shadowmap_bg;
+        Ref<BindGroup> water_bg;
     };
 
     static constexpr int64_t width = 16;
@@ -110,6 +109,7 @@ public:
     static constexpr int64_t slice_count = height / width;
 
     Chunk(Dimension *dim, int64_t x, int64_t z);
+    Chunk(const Chunk&) = delete;
     ~Chunk();
 
     ALWAYS_INLINE BlockState get_block(int64_t x, int64_t y, int64_t z) const { return m_blocks[linearize(x, y, z)]; }
@@ -129,13 +129,13 @@ public:
     const Slice *get_slices() const { return m_slices; }
     Slice *get_slices() { return m_slices; }
 
-    Ref<Buffer> get_chunk_instance_buffer() const { return m_chunk_instance_buffer; }
+    // Ref<Buffer> get_chunk_instance_buffer() const { return m_chunk_instance_buffer; }
 
     Result<void> build_simple_mesh(size_t slice);
     Result<void> build_water_mesh(size_t slice);
 
-    Result<CompressedChunk> compress() const;
-    Result<void> uncompress(View<BlockState> compressed_blocks, View<ChunkNode> compressed_nodes, uint16_t compressed_slice_mask, View<Biome> compressed_biomes, View<ChunkBiomeNode> compressed_biome_nodes);
+    // Result<CompressedChunk> compress() const;
+    // Result<void> uncompress(View<BlockState> compressed_blocks, View<ChunkNode> compressed_nodes, uint16_t compressed_slice_mask, View<Biome> compressed_biomes, View<ChunkBiomeNode> compressed_biome_nodes);
 
     bool is_modified() const { return m_modified; }
     void clear_modified() { m_modified = false; }
@@ -155,8 +155,10 @@ private:
     Dimension *m_dim;
 
     Map<int64_t, BlockTags> m_tags;
-    Ref<Buffer> m_chunk_instance_buffer;
-    Ref<Buffer> m_chunk_position_buffer;
+    // Ref<Buffer> m_chunk_instance_buffer;
+    // Ref<Buffer> m_chunk_position_buffer;
+
+    Ref<Buffer> m_uniform_buffer;
 
     int64_t m_x;
     int64_t m_z;

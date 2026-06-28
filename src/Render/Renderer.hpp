@@ -11,9 +11,10 @@
 #include "Render/Types.hpp"
 #include "Window.hpp"
 
-#include <thread>
-#include <tuple>
 #include <webgpu/webgpu.h>
+
+#include <limits>
+#include <tuple>
 
 #ifdef __platform_web
 #define WGPU_STRING_VIEW_INIT nullptr
@@ -32,6 +33,8 @@
 #include <mutex>
 
 class World;
+class Chunk;
+class ChunkPos;
 
 enum class InitFlagBits
 {
@@ -203,6 +206,9 @@ struct MaterialParamCache
     BindingKind kind = BindingKind::Texture;
     Ref<Texture> texture = nullptr;
     Ref<Buffer> buffer = nullptr;
+
+    size_t offset = 0;
+    size_t size = std::numeric_limits<size_t>::max();
 };
 
 enum class MaterialFlagBits
@@ -229,6 +235,7 @@ public:
     {
         Vector<RenderTarget> color_formats;
         Option<RenderTarget> depth_format;
+        WGPUCullMode cull_mode;
 
         bool operator>(const PipelineKey& k) const
         {
@@ -241,20 +248,14 @@ public:
 
         bool operator==(const PipelineKey& k) const
         {
-            return depth_format == k.depth_format && color_formats == k.color_formats;
+            return depth_format == k.depth_format && color_formats == k.color_formats && cull_mode == k.cull_mode;
         }
     };
 
     ~Material();
 
-    static Result<Ref<Material>> create(const Ref<Shader>& shader, MaterialFlags flags, WGPUCullMode cull_mode, UVType uv_type, Instance instance = {});
+    static Ref<Material> create(const Ref<Shader>& shader, MaterialFlags flags, WGPUCullMode cull_mode, UVType uv_type, Instance instance = {});
 
-    void set_param(const StringView& name, const Ref<Buffer>& buffer);
-    void set_param(const StringView& name, const Ref<Texture>& texture);
-
-    const MaterialParamCache& get_param(const StringView& name) const;
-
-    WGPUBindGroup get_bind_group();
     WGPURenderPipeline get_pipeline(const RenderPass& pass);
 
     Ref<Shader> get_shader() const { return m_shader; }
@@ -269,8 +270,6 @@ private:
     Ref<Shader> m_shader;
     WGPUBindGroup m_bind_group = nullptr;
 
-    HashMap<String, MaterialParamCache> m_caches;
-
     MaterialFlags m_flags;
     WGPUCullMode m_cull_mode;
     UVType m_uv_type;
@@ -280,10 +279,30 @@ private:
 
     Map<PipelineKey, WGPURenderPipeline> m_pipelines;
 
+    WGPURenderPipeline create_pipeline(const RenderPass& pass);
+};
+
+class BindGroup : public Object
+{
+    CLASS(BindGroup, Object);
+
+public:
+    static Ref<BindGroup> create(const Ref<Shader>& shader);
+
+    void set_param(const StringView& name, const Ref<Buffer>& buffer, size_t offset = 0, size_t size = std::numeric_limits<size_t>::max());
+    void set_param(const StringView& name, const Ref<Texture>& texture);
+
+    WGPUBindGroup get_bind_group();
+
+private:
+    Ref<Shader> m_shader;
+    HashMap<String, MaterialParamCache> m_caches;
+    WGPUBindGroup m_bind_group = nullptr;
+
     bool m_dirty = true;
 
+    const MaterialParamCache& get_param(const StringView& name) const;
     void create_bind_group();
-    WGPURenderPipeline create_pipeline(const RenderPass& pass);
 };
 
 class SamplerCache
@@ -317,6 +336,15 @@ DEFINE_WGPU_HANDLE(Adapter, WGPUAdapter, wgpuAdapterAddRef, wgpuAdapterRelease);
 DEFINE_WGPU_HANDLE(Surface, WGPUSurface, wgpuSurfaceAddRef, wgpuSurfaceRelease);
 }; // namespace wgpu
 
+enum class WorldFlagBits
+{
+    Shadowmap = 1 << 0,
+    NoFrustumCheck = 1 << 1, // TODO: remove in favor of specifying the frustum directly in `draw_world`.
+    Water = 1 << 2,          // TODO: remove this water rendering needs its own function.
+};
+using WorldFlags = Flags<WorldFlagBits>;
+DEFINE_FLAG_TRAITS(WorldFlagBits);
+
 struct GPU_ATTRIBUTE CameraUniforms
 {
     glm::mat4 view_matrix;
@@ -324,40 +352,36 @@ struct GPU_ATTRIBUTE CameraUniforms
     glm::mat4 projection_matrix;
 };
 
-struct GPU_ATTRIBUTE WorldUniforms
+struct GPU_ATTRIBUTE ShadowmapCameraUniforms
 {
-    glm::vec4 fog_color;
-    float fog_distance;
-    uint32_t underwater;
-};
-
-// struct GPU_ATTRIBUTE WorldEnvironment
-// {
-//     glm::mat4 view_matrix = glm::identity<glm::mat4>();
-//     glm::vec3 sun_direction = glm::vec3();
-//     glm::vec3 sun_color = glm::vec4(1.0, 1.0, 1.0, 1.0);
-// };
-
-// struct GPU_ATTRIBUTE SimpleUniforms
-// {
-//     glm::mat4 model_matrix;
-//     glm::vec4 color;
-// };
-
-struct GPU_ATTRIBUTE SkyUniforms
-{
-    glm::vec4 color;
-};
-
-struct GPU_ATTRIBUTE FullscreenUniforms
-{
-    glm::mat4 projection_matrix;
-    glm::mat4 model_matrix;
+    glm::mat4 view_projection;
 };
 
 struct GPU_ATTRIBUTE SSAOUniforms
 {
     Array<glm::vec4, 64> samples;
+};
+
+struct GPU_ATTRIBUTE FwChunkUniforms
+{
+    glm::mat4 model_matrix;
+};
+
+struct GPU_ATTRIBUTE FwCamera
+{
+    glm::mat4 view_projection;
+};
+
+struct GPU_ATTRIBUTE FwWorldEnv
+{
+    glm::mat4 light_view_projection;
+    glm::vec3 light_dir;
+};
+
+struct GPU_ATTRIBUTE FwColored
+{
+    glm::mat4 model;
+    glm::vec4 color;
 };
 
 class Renderer
@@ -380,15 +404,32 @@ public:
     // TODO: Only used by imgui for the main menu, which will be removed.
     void draw_legacy(std::function<void()> f);
 
-    void draw(const Ref<World>& world);
-    void draw(const RenderPass& pass, Ref<Mesh> mesh, Ref<Material> material, const Ref<Buffer>& instance_buffer = nullptr, size_t instance_count = 1);
-    void draw_fullscreen(const RenderPass& pass, Ref<Material> material);
-
-    void draw_world(const Ref<World>& world, const RenderPass& pass);
+    void draw_forward(const Ref<World>& world);
+    void draw_world(const Ref<World>& world, const RenderPass& pass, WorldFlags flags);
+    void draw(const RenderPass& pass, Ref<Mesh> mesh, Ref<Material> material, Ref<BindGroup> bg, const Ref<Buffer>& instance_buffer = nullptr, size_t instance_count = 1);
 
     void set_fog(glm::vec4 color, float distance);
     void set_sky(glm::vec4 color);
     void set_underwater(bool v);
+
+    Ref<Shader> get_fw_chunk_shader() const { return m_fw_chunk_shader; }
+    Ref<Shader> get_fw_water_shader() const { return m_fw_water_shader; }
+    Ref<Shader> get_fw_shadowmap_shader() const { return m_fw_chunk_shadowmap_shader; }
+    Ref<Shader> get_fw_item_block_shader() const { return m_fw_item_block_shader; }
+    Ref<Shader> get_fw_text_shader() const { return m_fw_text_shader; }
+    Ref<Material> get_fw_chunk_mat() const { return m_fw_chunk_mat; }
+    Ref<Material> get_fw_shadowmap_mat() const { return m_fw_chunk_shadowmap_mat; }
+    Ref<Material> get_fw_texture_rect_mat() const { return m_fw_texture_rect_mat; }
+    Ref<Material> get_fw_model_mat() const { return m_fw_model_mat; }
+    Ref<Material> get_fw_text_mat() const { return m_fw_text_mat; }
+    Ref<Material> get_fw_color_rect_mat() const { return m_fw_color_rect_mat; }
+    Ref<Material> get_fw_item_block_mat() const { return m_fw_item_block_mat; }
+    Ref<Texture> get_fw_shadowmap() const { return m_fw_shadowmap; }
+    Ref<Buffer> get_fw_camera() const { return m_fw_camera; }
+    Ref<Buffer> get_fw_world_env() const { return m_fw_world_env; }
+    Ref<Buffer> get_fw_shadowmap_camera() const { return m_fw_shadowmap_camera; }
+
+    Ref<Texture> get_fw_water_texture() const { return m_fw_water_texture; }
 
     WGPUSampler get_sampler(const SamplerDescriptor& desc) { return m_sampler_cache.get(desc); }
 
@@ -409,13 +450,9 @@ public:
     Ref<Mesh> get_cube_mesh() const { return m_cube_mesh; }
     Ref<Mesh> get_square_mesh() const { return m_square_mesh; }
 
-    // Ref<Shader> get_simple_shader() const { return m_simple_shader; }
     Ref<Shader> get_preview_block_shader() const { return m_preview_block_shader; }
-    // Ref<Shader> get_item_block_shader() const { return m_item_block_shader; }
     Ref<Shader> get_color_rect_shader() const { return m_color_rect_shader; }
     Ref<Shader> get_texture_rect_shader() const { return m_texture_rect_shader; }
-
-    Ref<Shader> get_text_shader() const { return m_text_shader; }
 
     Ref<Texture> get_missing_texture() const { return m_missing_texture; }
     View<uint8_t> get_missing_texture_data() const;
@@ -435,26 +472,44 @@ private:
     std::mutex m_device_mutex;
     std::mutex m_queue_mutex;
 
-    // WGPUQuerySet m_pipeline_query_set;
-    // Ref<Buffer> m_pipeline_query_set_buffer;
+    // Forward rendering
+    Ref<Texture> m_fw_depth_texture;
+    Ref<Texture> m_fw_debug_texture;
 
-    // Rendering 2.0 stuff
-    Ref<Texture> m_albedo_buffer;
-    Ref<Texture> m_position_buffer;
-    Ref<Texture> m_normal_buffer;
-    Ref<Texture> m_depth_buffer;
+    Ref<Buffer> m_fw_camera;
+    Ref<Buffer> m_fw_world_env;
 
-    Ref<Buffer> m_camera_buffer;
-    WorldUniforms m_world_uniforms;
-    Ref<Buffer> m_world_buffer;
+    Ref<Shader> m_fw_chunk_shadowmap_shader;
 
-    Ref<Shader> m_chunk_shader;
-    Ref<Material> m_chunk_material;
+    Ref<Texture> m_fw_shadowmap;
+    Ref<Buffer> m_fw_shadowmap_camera;
 
-    Ref<Shader> m_shading_shader;
-    Ref<Material> m_shading_material;
+    Ref<Shader> m_fw_chunk_shader;
+    Ref<Shader> m_fw_water_shader;
+    Ref<Shader> m_fw_item_block_shader;
+    Ref<Shader> m_fw_text_shader;
+    Ref<Shader> m_fw_colored_shader;
 
-    Ref<Shader> m_text_shader;
+    Ref<Material> m_fw_chunk_mat;
+    Ref<Material> m_fw_chunk_shadowmap_mat;
+    Ref<Material> m_fw_water_mat;
+    Ref<Material> m_fw_texture_rect_mat;
+    Ref<Material> m_fw_text_mat;
+    Ref<Material> m_fw_model_mat;
+    Ref<Material> m_fw_color_rect_mat;
+    Ref<Material> m_fw_item_block_mat;
+
+    Ref<Buffer> m_fw_colored_buffer;
+    Ref<Material> m_fw_colored_mat;
+    Ref<Material> m_fw_colored_shadowmap_mat;
+    Ref<BindGroup> m_fw_colored_bg;
+    Ref<BindGroup> m_fw_colored_shadowmap_bg;
+
+    Ref<Material> m_fw_shadowmap_cam_mat;
+    Ref<BindGroup> m_fw_shadowmap_cam_bg;
+    Ref<Buffer> m_fw_shadowmap_cam_buffer;
+
+    Ref<Texture> m_fw_water_texture;
 
     // SSAO
     Ref<Texture> m_ssao_buffer;
@@ -462,11 +517,6 @@ private:
     Ref<Shader> m_ssao_shader;
     Ref<Material> m_ssao_material;
     Ref<Texture> m_ssao_noise_texture;
-
-    // Sky
-    Ref<Shader> m_sky_shader;
-    Ref<Material> m_sky_material;
-    Ref<Buffer> m_sky_buffer;
 
     // Rendering stuff
     WGPUTextureFormat m_surface_format = WGPUTextureFormat_Undefined;
@@ -477,7 +527,6 @@ private:
     Ref<Shader> m_model_shader;
     Ref<Shader> m_simple_shader;
     Ref<Shader> m_preview_block_shader;
-    Ref<Shader> m_item_block_shader;
     Ref<Shader> m_color_rect_shader;
     Ref<Shader> m_texture_rect_shader;
     Ref<Shader> m_water_shader;
@@ -485,20 +534,11 @@ private:
     Ref<Shader> m_underwater_shader;
     Ref<Material> m_underwater_material;
 
-    // Ref<Shader> m_sky_shader;
-    // Ref<Material> m_sky_material;
-    // SkyUniforms m_sky_uniforms{};
-    // Ref<Buffer> m_sky_buffer;
-
     Ref<Mesh> m_cube_mesh;
     Ref<Mesh> m_square_mesh;
+    Ref<Mesh> m_quad_mesh;
 
-    // Ref<Material> m_chunk_material;
-    Ref<Material> m_water_material;
     Ref<Buffer> m_env_2d_buffer;
-
-    // WorldEnvironment m_environment;
-    // Ref<Buffer> m_env_buffer;
 
     Ref<Texture> m_missing_texture;
 

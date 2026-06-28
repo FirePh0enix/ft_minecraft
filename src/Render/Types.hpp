@@ -22,6 +22,7 @@ struct SamplerDescriptor
 {
     WGPUFilterMode min_filter = WGPUFilterMode_Linear;
     WGPUFilterMode mag_filter = WGPUFilterMode_Linear;
+    WGPUCompareFunction compare = WGPUCompareFunction_Undefined;
 
     struct
     {
@@ -32,26 +33,24 @@ struct SamplerDescriptor
 
     bool operator<(const SamplerDescriptor& o) const
     {
-        return std::tie(min_filter, mag_filter, address_mode.u, address_mode.v, address_mode.w) < std::tie(o.min_filter, o.mag_filter, o.address_mode.u, o.address_mode.v, o.address_mode.w);
+        return std::tie(min_filter, mag_filter, compare, address_mode.u, address_mode.v, address_mode.w) < std::tie(o.min_filter, o.mag_filter, o.compare, o.address_mode.u, o.address_mode.v, o.address_mode.w);
     }
 
     bool operator>(const SamplerDescriptor& o) const
     {
-        return std::tie(min_filter, mag_filter, address_mode.u, address_mode.v, address_mode.w) > std::tie(o.min_filter, o.mag_filter, o.address_mode.u, o.address_mode.v, o.address_mode.w);
+        return std::tie(min_filter, mag_filter, compare, address_mode.u, address_mode.v, address_mode.w) > std::tie(o.min_filter, o.mag_filter, o.compare, o.address_mode.u, o.address_mode.v, o.address_mode.w);
     }
 
     bool operator==(const SamplerDescriptor& o) const
     {
-        return std::tie(min_filter, mag_filter, address_mode.u, address_mode.v, address_mode.w) == std::tie(o.min_filter, o.mag_filter, o.address_mode.u, o.address_mode.v, o.address_mode.w);
+        return std::tie(min_filter, mag_filter, compare, address_mode.u, address_mode.v, address_mode.w) == std::tie(o.min_filter, o.mag_filter, o.compare, o.address_mode.u, o.address_mode.v, o.address_mode.w);
     }
 };
 
 enum class BindingKind : uint8_t
 {
     Texture,
-    StorageTexture,
     UniformBuffer,
-    StorageBuffer,
 };
 
 enum class BindingAccess
@@ -68,28 +67,25 @@ struct Binding
     uint32_t binding = 0;
     BindingAccess access = BindingAccess::Read;
 
-    Binding()
+    static Binding Texture(WGPUShaderStage shader_stage, uint32_t group, uint32_t binding, BindingAccess access, WGPUTextureViewDimension dimension, WGPUTextureSampleType texture_sample = WGPUTextureSampleType_Float, WGPUSamplerBindingType sampler_binding = WGPUSamplerBindingType_Filtering)
     {
+        return Binding{.kind = BindingKind::Texture, .shader_stage = shader_stage, .group = group, .binding = binding, .access = access, .dimension = dimension, .texture_sample = texture_sample, .sampler_binding = sampler_binding};
     }
 
-    Binding(BindingKind kind, WGPUShaderStage shader_stage, uint32_t group, uint32_t binding, BindingAccess access, WGPUTextureViewDimension dimension, WGPUSamplerBindingType sampler_binding = WGPUSamplerBindingType_Filtering)
-        : kind(kind), shader_stage(shader_stage), group(group), binding(binding), access(access), dimension(dimension), sampler_binding(sampler_binding)
+    static Binding UniformBuffer(WGPUShaderStage shader_stage, uint32_t group, uint32_t binding, BindingAccess access)
     {
-    }
-
-    Binding(BindingKind kind, WGPUShaderStage shader_stage, uint32_t group, uint32_t binding, BindingAccess access)
-        : kind(kind), shader_stage(shader_stage), group(group), binding(binding), access(access)
-    {
+        return Binding{.kind = BindingKind::UniformBuffer, .shader_stage = shader_stage, .group = group, .binding = binding, .access = access, .sampler_binding = WGPUSamplerBindingType_Undefined};
     }
 
     union
     {
+        /**
+         * Available only when binding is a `Texture`.
+         */
         struct
         {
-            /**
-             * Available only when binding is a `Texture`.
-             */
             WGPUTextureViewDimension dimension = WGPUTextureViewDimension_Undefined;
+            WGPUTextureSampleType texture_sample = WGPUTextureSampleType_Undefined;
             WGPUSamplerBindingType sampler_binding = WGPUSamplerBindingType_Filtering;
         };
     };

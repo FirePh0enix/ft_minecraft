@@ -282,7 +282,7 @@ void Engine::draw_main_menu()
 
 void Engine::draw_world_scene()
 {
-    m_renderer.draw(m_world);
+    m_renderer.draw_forward(m_world);
 }
 
 float Engine::time()

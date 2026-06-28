@@ -74,6 +74,8 @@ public:
 
     bool operator==(const Vector& o) const
     {
+        if (o.size() != size())
+            return false;
         size_t i = 0;
         for (; i < m_size && i < o.m_size; i++)
         {

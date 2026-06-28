@@ -1,13 +1,17 @@
 #pragma once
 
+#include "Core/Class.hpp"
 #include "Core/Containers/Vector.hpp"
 #include "Core/Containers/View.hpp"
 #include "Core/Ref.hpp"
 #include "Core/String.hpp"
-#include "Render/Renderer.hpp"
 #include "Transform3D.hpp"
 
-// FIXME: world is flip on the X axis.
+class Buffer;
+class Texture;
+class Material;
+class RenderPass;
+class BindGroup;
 
 class Model : public Object
 {
@@ -30,7 +34,7 @@ public:
         Ref<Buffer> model_buffer;
         Ref<Buffer> uv_buffer;
 
-        Ref<Material> material;
+        Ref<BindGroup> bg;
     };
 
     struct Transform
@@ -57,8 +61,8 @@ public:
     static Result<Ref<Model>> load(const StringView& path);
 
     String name() const { return m_name; }
-    View<Object> objects() const { return m_objects; }
-    Ref<Buffer> get_global_buffer() const { return m_global_buffer; }
+    View<Object> objects() const;
+    Ref<Buffer> get_global_buffer() const;
 
     Option<Animation> get_animation(String name) const
     {
@@ -70,15 +74,7 @@ public:
         return None;
     }
 
-    Option<Object> get_object(String name) const
-    {
-        for (const auto& obj : m_objects)
-        {
-            if (obj.name == name)
-                return obj;
-        }
-        return None;
-    }
+    Option<Object> get_object(String name) const;
 
     void encode(const RenderPass& pass, const Transform3D& transform);
 
