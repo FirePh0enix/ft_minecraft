@@ -1009,12 +1009,19 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_fw_model_shader->set_sampler("texture", SamplerDescriptor(WGPUFilterMode_Nearest, WGPUFilterMode_Nearest));
     m_fw_model_shader->create_bind_group_layout();
 
-    // m_fw_item_block_shader = TRY(Shader::load(item_block_shader_source)); // TODO: put shader in a file
-    // m_fw_item_block_shader->set_binding("env", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
-    // m_fw_item_block_shader->set_binding("model", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 1, BindingAccess::Read));
-    // m_fw_item_block_shader->set_binding("images", Binding::Texture(WGPUShaderStage_Fragment, 0, 2, BindingAccess::Read, WGPUTextureViewDimension_2DArray));
-    // m_fw_item_block_shader->set_sampler("images", {.min_filter = WGPUFilterMode_Nearest, .mag_filter = WGPUFilterMode_Nearest});
-    // m_fw_item_block_shader->create_bind_group_layout();
+    m_fw_item_block_shader = TRY(Shader::load_from_path("assets/shaders/fw/itemblock.wgsl"));
+    m_fw_item_block_shader->set_binding("camera", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
+    m_fw_item_block_shader->set_binding("model", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 1, BindingAccess::Read));
+    m_fw_item_block_shader->set_binding("images", Binding::Texture(WGPUShaderStage_Fragment, 0, 2, BindingAccess::Read, WGPUTextureViewDimension_2DArray));
+    m_fw_item_block_shader->set_sampler("images", {.min_filter = WGPUFilterMode_Nearest, .mag_filter = WGPUFilterMode_Nearest});
+    m_fw_item_block_shader->create_bind_group_layout();
+
+    m_fw_item_shader = TRY(Shader::load_from_path("assets/shaders/fw/item.wgsl"));
+    m_fw_item_shader->set_binding("camera", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
+    m_fw_item_shader->set_binding("model", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 1, BindingAccess::Read));
+    m_fw_item_shader->set_binding("image", Binding::Texture(WGPUShaderStage_Fragment, 0, 2, BindingAccess::Read, WGPUTextureViewDimension_2D));
+    m_fw_item_shader->set_sampler("image", {.min_filter = WGPUFilterMode_Nearest, .mag_filter = WGPUFilterMode_Nearest});
+    m_fw_item_shader->create_bind_group_layout();
 
     m_fw_chunk_shader = TRY(Shader::load_from_path("assets/shaders/fw/chunk.wgsl"));
     m_fw_chunk_shader->set_binding("chunk", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
@@ -1052,6 +1059,8 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_fw_color_rect_mat = Material::create(m_color_rect_shader, MaterialFlagBits::Transparency | MaterialFlagBits::NoNormal | MaterialFlagBits::NoUV, WGPUCullMode_None, UVType::UV);
     m_fw_item_block_mat = Material::create(m_fw_item_block_shader, MaterialFlagBits::None, WGPUCullMode_Back, UVType::UV);
     m_fw_shadowmap_cam_mat = Material::create(m_fw_colored_shader, MaterialFlagBits::None, WGPUCullMode_None, UVType::UV);
+    m_fw_item_block_mat = Material::create(m_fw_item_block_shader, MaterialFlagBits::None, WGPUCullMode_Back, UVType::UV);
+    m_fw_item_mat = Material::create(m_fw_item_shader, MaterialFlagBits::Transparency, WGPUCullMode_None, UVType::UV);
 
     m_fw_chunk_mat = Material::create(m_fw_chunk_shader, MaterialFlagBits::None, WGPUCullMode_Back, UVType::UVT);
     m_fw_chunk_shadowmap_mat = Material::create(m_fw_chunk_shadowmap_shader, MaterialFlagBits::NoNormal | MaterialFlagBits::NoUV, WGPUCullMode_Front, UVType::UVT);

@@ -111,7 +111,8 @@ private:
 
     Array<Ref<Texture>, 4> m_breaks_textures;
     Ref<Buffer> m_model_buffer;
-    Ref<Material> m_material;
+    Ref<BindGroup> m_hand_item_bg;
+    // Ref<Material> m_material;
 
     Option<Ref<Inventory>> m_opened_inventory;
 

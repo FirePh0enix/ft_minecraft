@@ -5,6 +5,7 @@
 #include "Core/Containers/LocalVector.hpp"
 #include "Core/Format.hpp"
 #include "Core/Math.hpp"
+#include "Core/Types.hpp"
 #include "Engine.hpp"
 #include "Entity/Entity.hpp"
 #include "Entity/Item.hpp"
@@ -72,6 +73,11 @@ struct GPU_ATTRIBUTE ItemBlockModel
     glm::uvec3 textures;
 };
 
+struct GPU_ATTRIBUTE ItemModel
+{
+    glm::mat4 model_matrix;
+};
+
 void Player::on_ready()
 {
     m_inventory_container = newref<InventoryContainer>();
@@ -90,11 +96,11 @@ void Player::on_ready()
     m_inventory_container->set_stack(1, 6, ItemStack(Items::stone_block, 16));
     m_inventory_container->set_stack(1, 7, ItemStack(Items::stone_block, 16));
 
-    // m_model_buffer = EXPECT(Buffer::create(sizeof(ItemBlockModel), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform));
-    // m_material = EXPECT(Material::create(Renderer::get().get_item_block_shader(), MaterialFlagBits::None, WGPUCullMode_Back, UVType::UV));
-    // m_material->set_param("env", Renderer::get().get_world_environment());
-    // m_material->set_param("model", m_model_buffer);
-    // m_material->set_param("images", Engine::get().registry().get_texture_array());
+    m_model_buffer = EXPECT(Buffer::create(sizeof(ItemBlockModel), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform));
+    m_hand_item_bg = BindGroup::create(Renderer::get().get_fw_item_block_shader());
+    m_hand_item_bg->set_param("camera", Renderer::get().get_fw_camera());
+    m_hand_item_bg->set_param("model", m_model_buffer);
+    m_hand_item_bg->set_param("images", Engine::get().registry().get_texture_array());
 
     if (m_local_player)
     {
@@ -438,31 +444,46 @@ void Player::draw(const RenderPass& pass)
     //     Renderer::get().draw(pass, Renderer::get().get_cube_mesh(), m_aim_material);
     // }
 
-    // if (m_local_player && m_inventory_container->get_stack(1, m_inventory->selected_slot()).item().valid())
-    // {
-    //     Id<Item> id = m_inventory_container->get_stack(1, m_inventory->selected_slot()).item();
-    //     Ref<Item> item = Engine::get().registry().get_item(id);
-    //     if (Ref<ItemBlock> ib = item.cast_to<ItemBlock>())
-    //     {
-    //         Ref<Block> block = Engine::get().registry().block_from_item(m_inventory_container->get_stack(1, m_inventory->selected_slot()).item());
+    if (m_local_player && m_inventory_container->get_stack(1, m_inventory->selected_slot()).item().valid())
+    {
+        Id<Item> id = m_inventory_container->get_stack(1, m_inventory->selected_slot()).item();
+        Ref<Item> item = Engine::get().registry().get_item(id);
+        if (Ref<ItemBlock> ib = item.cast_to<ItemBlock>())
+        {
+            Ref<Block> block = Engine::get().registry().block_from_item(m_inventory_container->get_stack(1, m_inventory->selected_slot()).item());
 
-    //         Transform3D transform = m_camera->get_global_transform();
-    //         transform.scale() = glm::vec3(0.2);
-    //         transform.position() += m_camera->get_global_transform().forward() * 0.5f + m_camera->get_global_transform().right() * 0.35f + m_camera->get_global_transform().up() * -0.3f;
-    //         transform.set_euler_angles(glm::vec3(0, -m_transform.get_euler_angles().y, 0));
+            Transform3D transform = m_camera->get_global_transform();
+            transform.scale() = glm::vec3(0.2);
+            transform.position() += m_camera->get_global_transform().forward() * 0.5f + m_camera->get_global_transform().right() * 0.35f + m_camera->get_global_transform().up() * -0.3f;
+            transform.set_euler_angles(glm::vec3(0, -m_transform.get_euler_angles().y, 0));
 
-    //         ItemBlockModel matrix(
-    //             transform.to_matrix(),
-    //             glm::uvec3(block->get_texture_ids()[0] | (block->get_texture_ids()[1] << 16), block->get_texture_ids()[2] | (block->get_texture_ids()[3] << 16), block->get_texture_ids()[4] | (block->get_texture_ids()[5] << 16)));
+            ItemBlockModel matrix(
+                transform.to_matrix(),
+                glm::uvec3(block->get_texture_ids()[0] | (block->get_texture_ids()[1] << 16), block->get_texture_ids()[2] | (block->get_texture_ids()[3] << 16), block->get_texture_ids()[4] | (block->get_texture_ids()[5] << 16)));
+            m_model_buffer->update(View(matrix).as_bytes());
 
-    //         m_model_buffer->update(View(matrix).as_bytes());
-    //         Renderer::get().draw(pass, Renderer::get().get_cube_mesh(), m_material);
-    //     }
-    //     else
-    //     {
-    //         // TODO: 3d model for other sprites.
-    //     }
-    // }
+            Renderer::get().draw(pass, Renderer::get().get_cube_mesh(), Renderer::get().get_fw_item_block_mat(), m_hand_item_bg);
+        }
+        else
+        {
+            Ref<Texture> texture = item->get_texture();
+
+            Transform3D transform = m_camera->get_global_transform();
+            transform.scale() = glm::vec3(0.2);
+            transform.position() += m_camera->get_global_transform().forward() * 0.5f + m_camera->get_global_transform().right() * 0.35f + m_camera->get_global_transform().up() * -0.3f;
+            transform.set_euler_angles(glm::vec3(0, -m_transform.get_euler_angles().y, 0));
+
+            ItemBlockModel matrix(transform.to_matrix());
+            m_model_buffer->update(View(matrix).as_bytes());
+
+            Ref<BindGroup> bg = BindGroup::create(Renderer::get().get_fw_item_shader());
+            bg->set_param("camera", Renderer::get().get_fw_camera());
+            bg->set_param("model", m_model_buffer);
+            bg->set_param("image", texture);
+
+            Renderer::get().draw(pass, Renderer::get().get_quad_mesh(), Renderer::get().get_fw_item_mat(), bg);
+        }
+    }
 }
 
 void Player::draw_ui(const RenderPass& pass)

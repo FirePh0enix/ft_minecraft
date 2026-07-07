@@ -418,6 +418,7 @@ public:
     Ref<Shader> get_fw_water_shader() const { return m_fw_water_shader; }
     Ref<Shader> get_fw_shadowmap_shader() const { return m_fw_chunk_shadowmap_shader; }
     Ref<Shader> get_fw_item_block_shader() const { return m_fw_item_block_shader; }
+    Ref<Shader> get_fw_item_shader() const { return m_fw_item_shader; }
     Ref<Shader> get_fw_text_shader() const { return m_fw_text_shader; }
     Ref<Shader> get_fw_model_shader() const { return m_fw_model_shader; }
     Ref<Material> get_fw_chunk_mat() const { return m_fw_chunk_mat; }
@@ -427,6 +428,7 @@ public:
     Ref<Material> get_fw_text_mat() const { return m_fw_text_mat; }
     Ref<Material> get_fw_color_rect_mat() const { return m_fw_color_rect_mat; }
     Ref<Material> get_fw_item_block_mat() const { return m_fw_item_block_mat; }
+    Ref<Material> get_fw_item_mat() const { return m_fw_item_mat; }
     Ref<Texture> get_fw_shadowmap() const { return m_fw_shadowmap; }
     Ref<Buffer> get_fw_camera() const { return m_fw_camera; }
     Ref<Buffer> get_fw_world_env() const { return m_fw_world_env; }
@@ -442,7 +444,6 @@ public:
 
     WGPUQueue get_queue() const { return m_queue; }
 
-    // Ref<Buffer> get_world_environment() const { return m_env_buffer; }
     Ref<Buffer> get_env_2d() const { return m_env_2d_buffer; }
 
     std::mutex& get_device_mutex() { return m_device_mutex; }
@@ -450,6 +451,7 @@ public:
 
     Ref<Mesh> get_cube_mesh() const { return m_cube_mesh; }
     Ref<Mesh> get_square_mesh() const { return m_square_mesh; }
+    Ref<Mesh> get_quad_mesh() const { return m_quad_mesh; }
 
     Ref<Shader> get_preview_block_shader() const { return m_preview_block_shader; }
     Ref<Shader> get_color_rect_shader() const { return m_color_rect_shader; }
@@ -488,6 +490,7 @@ private:
     Ref<Shader> m_fw_chunk_shader;
     Ref<Shader> m_fw_water_shader;
     Ref<Shader> m_fw_item_block_shader;
+    Ref<Shader> m_fw_item_shader;
     Ref<Shader> m_fw_text_shader;
     Ref<Shader> m_fw_colored_shader;
     Ref<Shader> m_fw_model_shader;
@@ -500,6 +503,7 @@ private:
     Ref<Material> m_fw_model_mat;
     Ref<Material> m_fw_color_rect_mat;
     Ref<Material> m_fw_item_block_mat;
+    Ref<Material> m_fw_item_mat;
 
     Ref<Buffer> m_fw_colored_buffer;
     Ref<Material> m_fw_colored_mat;
