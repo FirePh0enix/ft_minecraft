@@ -15,6 +15,7 @@
 #include "World/Dimension.hpp"
 #include "World/Registry.hpp"
 #include "World/World.hpp"
+#include "webgpu/webgpu.h"
 
 #include <backends/imgui_impl_sdl3.h>
 #include <backends/imgui_impl_wgpu.h>
@@ -323,9 +324,6 @@ static WGPUShaderModule create_shader_module(const Ref<Shader>& shader)
 
 Material::~Material()
 {
-    if (m_bind_group)
-        wgpuBindGroupRelease(m_bind_group);
-
     for (const auto& [_, pipeline] : m_pipelines)
         wgpuRenderPipelineRelease(pipeline);
 }
@@ -483,6 +481,12 @@ WGPURenderPipeline Material::create_pipeline(const RenderPass& pass)
     return pipeline;
 }
 
+BindGroup::~BindGroup()
+{
+    if (m_bind_group)
+        wgpuBindGroupRelease(m_bind_group);
+}
+
 Ref<BindGroup> BindGroup::create(const Ref<Shader>& shader)
 {
     Ref<BindGroup> bg = newref<BindGroup>();
@@ -605,7 +609,7 @@ WGPUSampler SamplerCache::get(const SamplerDescriptor& desc)
     return sampler;
 }
 
-void SamplerCache::clear()
+SamplerCache::~SamplerCache()
 {
     for (auto [_, sampler] : m_samplers)
         wgpuSamplerRelease(sampler);
@@ -1165,6 +1169,8 @@ void Renderer::configure_surface(size_t width, size_t height, VSync vsync)
     config.height = surface_extent.height;
     config.presentMode = vsync == VSync::On ? WGPUPresentMode_Fifo : WGPUPresentMode_Immediate;
     config.alphaMode = capabilities.alphaModes[0];
+
+    wgpuSurfaceCapabilitiesFreeMembers(capabilities);
 #else
     WGPUSurfaceConfiguration config{};
     config.device = m_device;
@@ -1247,6 +1253,7 @@ void Renderer::draw_legacy(std::function<void()> f)
     wgpuCommandEncoderRelease(encoder);
 
     wgpuTextureViewRelease(surface_view);
+    wgpuTextureRelease(surface_texture.texture);
 }
 
 void Renderer::draw_forward(const Ref<World>& world)
@@ -1389,6 +1396,7 @@ void Renderer::draw_forward(const Ref<World>& world)
 
     wgpuCommandBufferRelease(command_buffer);
     wgpuTextureViewRelease(surface_view);
+    wgpuTextureRelease(surface_texture.texture);
 }
 
 void Renderer::draw(const RenderPass& pass, Ref<Mesh> mesh, Ref<Material> material, Ref<BindGroup> bg, const Ref<Buffer>& instance_buffer, size_t instance_count)

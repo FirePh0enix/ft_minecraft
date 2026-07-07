@@ -268,7 +268,6 @@ public:
 
 private:
     Ref<Shader> m_shader;
-    WGPUBindGroup m_bind_group = nullptr;
 
     MaterialFlags m_flags;
     WGPUCullMode m_cull_mode;
@@ -289,6 +288,8 @@ class BindGroup : public Object
 public:
     static Ref<BindGroup> create(const Ref<Shader>& shader);
 
+    ~BindGroup();
+
     void set_param(const StringView& name, const Ref<Buffer>& buffer, size_t offset = 0, size_t size = std::numeric_limits<size_t>::max());
     void set_param(const StringView& name, const Ref<Texture>& texture);
 
@@ -308,8 +309,8 @@ private:
 class SamplerCache
 {
 public:
+    ~SamplerCache();
     WGPUSampler get(const SamplerDescriptor& desc);
-    void clear();
 
 private:
     Map<SamplerDescriptor, WGPUSampler> m_samplers;
@@ -334,6 +335,7 @@ DEFINE_WGPU_HANDLE(Instance, WGPUInstance, wgpuInstanceAddRef, wgpuInstanceRelea
 DEFINE_WGPU_HANDLE(Device, WGPUDevice, wgpuDeviceAddRef, wgpuDeviceRelease);
 DEFINE_WGPU_HANDLE(Adapter, WGPUAdapter, wgpuAdapterAddRef, wgpuAdapterRelease);
 DEFINE_WGPU_HANDLE(Surface, WGPUSurface, wgpuSurfaceAddRef, wgpuSurfaceRelease);
+DEFINE_WGPU_HANDLE(Queue, WGPUQueue, wgpuQueueAddRef, wgpuQueueRelease);
 }; // namespace wgpu
 
 enum class WorldFlagBits
@@ -467,7 +469,7 @@ private:
     wgpu::Adapter m_adapter = nullptr;
     wgpu::Device m_device = nullptr;
     wgpu::Surface m_surface = nullptr;
-    WGPUQueue m_queue = nullptr;
+    wgpu::Queue m_queue = nullptr;
 
     std::mutex m_device_mutex;
     std::mutex m_queue_mutex;
