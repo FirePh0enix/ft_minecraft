@@ -340,9 +340,9 @@ void Engine::create_world_and_start()
     // cow->get_transform().position() = m_player->get_position();
     // m_world->add_entity(World::overworld, cow);
 
-    // Ref<Entity> zombie = newref<Zombie>();
-    // zombie->get_transform().position() = m_player->get_position();
-    // m_world->add_entity(World::overworld, zombie);
+    Ref<Entity> zombie = newref<Zombie>();
+    zombie->get_transform().position() = m_player->get_position();
+    m_world->add_entity(World::overworld, zombie);
 
     m_scene = GameScene::World;
     m_authority = RpcTarget::Server;

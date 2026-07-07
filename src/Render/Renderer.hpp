@@ -419,6 +419,7 @@ public:
     Ref<Shader> get_fw_shadowmap_shader() const { return m_fw_chunk_shadowmap_shader; }
     Ref<Shader> get_fw_item_block_shader() const { return m_fw_item_block_shader; }
     Ref<Shader> get_fw_text_shader() const { return m_fw_text_shader; }
+    Ref<Shader> get_fw_model_shader() const { return m_fw_model_shader; }
     Ref<Material> get_fw_chunk_mat() const { return m_fw_chunk_mat; }
     Ref<Material> get_fw_shadowmap_mat() const { return m_fw_chunk_shadowmap_mat; }
     Ref<Material> get_fw_texture_rect_mat() const { return m_fw_texture_rect_mat; }
@@ -446,8 +447,6 @@ public:
 
     std::mutex& get_device_mutex() { return m_device_mutex; }
     std::mutex& get_queue_mutex() { return m_queue_mutex; }
-
-    Ref<Shader> get_model_shader() const { return m_model_shader; }
 
     Ref<Mesh> get_cube_mesh() const { return m_cube_mesh; }
     Ref<Mesh> get_square_mesh() const { return m_square_mesh; }
@@ -491,6 +490,7 @@ private:
     Ref<Shader> m_fw_item_block_shader;
     Ref<Shader> m_fw_text_shader;
     Ref<Shader> m_fw_colored_shader;
+    Ref<Shader> m_fw_model_shader;
 
     Ref<Material> m_fw_chunk_mat;
     Ref<Material> m_fw_chunk_shadowmap_mat;
@@ -526,8 +526,6 @@ private:
 
     SamplerCache m_sampler_cache;
 
-    Ref<Shader> m_model_shader;
-    Ref<Shader> m_simple_shader;
     Ref<Shader> m_preview_block_shader;
     Ref<Shader> m_color_rect_shader;
     Ref<Shader> m_texture_rect_shader;

@@ -123,9 +123,7 @@ Result<Ref<Model>> Model::load(const StringView& path)
         obj.size = glm::vec3(object.size[0], object.size[1], object.size[2]);
         obj.position = glm::vec3(object.position[0], object.position[1], object.position[2]);
         obj.origin = glm::vec3(object.origin[0], object.origin[1], object.origin[2]);
-        // obj.material = TRY(Material::create(Renderer::get().get_model_shader(), MaterialFlagBits::None, WGPUCullMode_Back, UVType::UV));
-
-        obj.bg = BindGroup::create(Renderer::get().get_model_shader());
+        obj.bg = BindGroup::create(Renderer::get().get_fw_model_shader());
 
         Vector<glm::vec2> uvs;
         for (uint32_t i = 0; i < 24; i++)
@@ -133,18 +131,17 @@ Result<Ref<Model>> Model::load(const StringView& path)
         obj.uv_buffer = TRY(Buffer::create(sizeof(glm::vec2) * 24, WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
         obj.uv_buffer->update(View(uvs).as_bytes());
 
-        // FIXME: use deferred rendering here.
-        // Model::Info info{
-        //     // TODO: add rotation.
-        //     .model_matrix = glm::translate(glm::identity<glm::mat4>(), obj.position) * glm::scale(glm::identity<glm::mat4>(), obj.size),
-        // };
-        // obj.model_buffer->update(View(info).as_bytes());
+        Model::Info info{
+            // TODO: add rotation.
+            .model_matrix = glm::rotate(glm::identity<glm::mat4>(), float(M_PI), glm::vec3(0, 1, 0)) * glm::translate(glm::identity<glm::mat4>(), obj.position) * glm::scale(glm::identity<glm::mat4>(), obj.size),
+        };
+        obj.model_buffer->update(View(info).as_bytes());
 
-        // obj.material->set_param("env", Renderer::get().get_world_environment());
-        // obj.material->set_param("model", obj.model_buffer);
-        // obj.material->set_param("global_model", model->m_global_buffer);
-        // obj.material->set_param("uvs", obj.uv_buffer);
-        // obj.material->set_param("texture", model->m_texture);
+        obj.bg->set_param("camera", Renderer::get().get_fw_camera());
+        obj.bg->set_param("model", obj.model_buffer);
+        obj.bg->set_param("global_model", model->m_global_buffer);
+        obj.bg->set_param("uvs", obj.uv_buffer);
+        obj.bg->set_param("texture", model->m_texture);
 
         model->m_objects.append(obj);
     }
