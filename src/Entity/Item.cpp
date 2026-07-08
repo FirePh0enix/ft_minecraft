@@ -16,14 +16,10 @@ ItemEntity::ItemEntity(Id<Item> item)
     m_aabb = AABB(-glm::vec3(0.2, 0.2, 0.2), glm::vec3(0.2, 0.2, 0.2));
     get_transform().scale() = glm::vec3(0.2, 0.2, 0.2);
 
-    // m_model_buffer = EXPECT(Buffer::create(sizeof(ItemBlockModel), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform));
-    // m_material = EXPECT(Material::create(Renderer::get().get_item_block_shader(), MaterialFlagBits::None, WGPUCullMode_Back, UVType::UV));
-    // m_material->set_param("env", Renderer::get().get_world_environment());
-    // m_material->set_param("model", m_model_buffer);
-    // m_material->set_param("images", Engine::get().registry().get_texture_array());
+    m_model_buffer = EXPECT(Buffer::create(sizeof(ItemBlockModel), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform));
 
     m_bg = BindGroup::create(Renderer::get().get_fw_item_block_shader()); // FIXME
-    // m_bg->set_param("env", Renderer::get().get_world_environment());
+    m_bg->set_param("camera", Renderer::get().get_fw_camera());
     m_bg->set_param("model", m_model_buffer);
     m_bg->set_param("images", Engine::get().registry().get_texture_array());
 
