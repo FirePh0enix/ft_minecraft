@@ -46,10 +46,13 @@ fn vertex_main(
         out.uv = uvs[vertex_index / 2].zw;
     }
 
+    out.frag_pos_light_space = world_env.light_view_projection * chunk.model * vec4f(in.position, 1.0);
+
     return out;
 }
 
 @fragment
 fn fragment_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    return textureSample(image, image_sampler, in.uv);
+    let color = textureSample(image, image_sampler, in.uv);
+    return lighting(color, in.normal, in.frag_pos_light_space);
 }

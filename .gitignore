@@ -13,6 +13,9 @@ compile_commands.json
 # Visual Studio Code
 .vscode
 
+# Emacs
+*~
+
 # Misc
 imgui.ini
 config.ini

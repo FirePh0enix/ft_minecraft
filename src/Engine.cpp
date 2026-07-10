@@ -29,10 +29,13 @@ constexpr int two_d_to_1d(int x, int y)
     return y * 3 + x;
 }
 
+#define WINDOW_INIT_WIDTH 1920
+#define WINDOW_INIT_HEIGHT 1080
+
 Engine::Engine()
 {
     singleton = this;
-    m_window = newref<Window>("ft_minecraft", 1280, 720);
+    m_window = newref<Window>("ft_minecraft", WINDOW_INIT_WIDTH, WINDOW_INIT_HEIGHT);
 
     Input::init(*m_window);
     Input::load_config();
@@ -340,9 +343,9 @@ void Engine::create_world_and_start()
     // cow->get_transform().position() = m_player->get_position();
     // m_world->add_entity(World::overworld, cow);
 
-    Ref<Entity> zombie = newref<Zombie>();
-    zombie->get_transform().position() = m_player->get_position();
-    m_world->add_entity(World::overworld, zombie);
+    //Ref<Entity> zombie = newref<Zombie>();
+    //zombie->get_transform().position() = m_player->get_position();
+    //m_world->add_entity(World::overworld, zombie);
 
     m_scene = GameScene::World;
     m_authority = RpcTarget::Server;

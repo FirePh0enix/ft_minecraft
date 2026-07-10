@@ -3,6 +3,7 @@
 #include "Core/Assert.hpp"
 #include "Core/Filesystem.hpp"
 #include "Core/Hash.hpp"
+#include "Core/Print.hpp"
 #include "Render/Renderer.hpp"
 #include "Render/Types.hpp"
 
@@ -12,6 +13,39 @@ Shader::~Shader()
         wgpuBindGroupLayoutRelease(m_bind_group_layout);
     if (m_pipeline_layout)
         wgpuPipelineLayoutRelease(m_pipeline_layout);
+}
+
+static Result<String> preprocess(const String& source, StringView basepath)
+{
+    std::string source2(source.data(), source.size());
+    std::stringstream ss(source2);
+    std::string s;
+    std::string line;
+
+    while (std::getline(ss, line))
+    {
+	if (line.starts_with("#include "))
+	{
+	    std::string path = line.substr(10, line.length() - 11);
+
+	    std::string fpath = basepath.data();
+	    fpath += path;
+
+	    println("including `{}`", path);
+	    
+	    String include_source = TRY(TRY(Filesystem::open_file(StringView(fpath.data(), fpath.size()))).reader().read_to_string());
+	    
+	    s.append(include_source.data(), include_source.size());
+	    s.append("\n");
+	}
+	else
+	{
+	    s.append(line.data(), line.size());
+	    s.append("\n");
+	}
+    }
+
+    return String(s.data());
 }
 
 Result<Ref<Shader>> Shader::load(const StringView& source)
@@ -26,6 +60,7 @@ Result<Ref<Shader>> Shader::load_from_path(const StringView& path)
 {
     File file = TRY(Filesystem::open_file(path));
     String s = TRY(file.reader().read_to_string());
+    s = TRY(preprocess(s, "assets/shaders/"));
     return load(s);
 }
 

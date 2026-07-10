@@ -47,36 +47,10 @@ fn vertex_main(in: VertexInput) -> VertexOutput {
     return out;
 }
 
-struct FragmentOutput {
-    @location(0) color: vec4f,
-    @location(1) debug: vec4f,
-}
+#include "lighting.wgsl"
 
 @fragment
-fn fragment_main(in: VertexOutput) -> FragmentOutput {
-    var out: FragmentOutput;
+fn fragment_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let color = textureSample(image, image_sampler, in.uv);
-
-    let ambient = max(dot(world_env.light_dir, in.normal), 0.2);
-
-    if (in.frag_pos_light_space.z > 1) {
-        out.color = color * max(ambient, 0.3);
-        return out;
-    }
-
-    let uv = in.frag_pos_light_space.xy * vec2(0.5, -0.5) + vec2(0.5);
-
-    if (uv.x < 0 || uv.x > 1 || uv.y < 0 || uv.y > 1) {
-        out.color = color * max(ambient, 0.3);
-        return out;
-    }
-    
-    var visibility = 1.0;
-    if (textureSample(shadowmap, shadowmap_sampler, uv) < in.frag_pos_light_space.z - 0.005) {
-        visibility = 0.0;
-    }
-
-    out.color = color * max(visibility * ambient, 0.3);
-
-    return out;
+    return lighting(color, in.normal, in.frag_pos_light_space);
 }
