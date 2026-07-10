@@ -1017,6 +1017,8 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_fw_item_block_shader->set_binding("world_env", Binding::UniformBuffer(WGPUShaderStage_Vertex | WGPUShaderStage_Fragment, 0, 2, BindingAccess::Read));
     m_fw_item_block_shader->set_binding("images", Binding::Texture(WGPUShaderStage_Fragment, 0, 3, BindingAccess::Read, WGPUTextureViewDimension_2DArray));
     m_fw_item_block_shader->set_sampler("images", {.min_filter = WGPUFilterMode_Nearest, .mag_filter = WGPUFilterMode_Nearest});
+    m_fw_item_block_shader->set_binding("shadowmap", Binding::Texture(WGPUShaderStage_Fragment, 0, 5, BindingAccess::Read, WGPUTextureViewDimension_2D, WGPUTextureSampleType_Depth, WGPUSamplerBindingType_Filtering));
+    m_fw_item_block_shader->set_sampler("shadowmap", SamplerDescriptor{.compare = WGPUCompareFunction_Undefined, .address_mode = {.u = WGPUAddressMode_ClampToEdge, .v = WGPUAddressMode_ClampToEdge}});
     m_fw_item_block_shader->create_bind_group_layout();
 
     m_fw_item_shader = TRY(Shader::load_from_path("assets/shaders/fw/item.wgsl"));

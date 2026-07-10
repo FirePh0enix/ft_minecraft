@@ -30,6 +30,9 @@ struct VertexOutput
 @group(0) @binding(3) var images: texture_2d_array<f32>;
 @group(0) @binding(4) var images_sampler: sampler;
 
+@group(0) @binding(5) var shadowmap: texture_depth_2d;
+@group(0) @binding(6) var shadowmap_sampler: sampler;
+
 @vertex
 fn vertex_main(
     @location(0) position: vec3<f32>,
@@ -41,7 +44,7 @@ fn vertex_main(
     var out: VertexOutput;
     out.position = camera.view_matrix * model.model_matrix * vec4<f32>(position, 1.0);
     out.uv = vec2(uv.x, 1.0 - uv.y);
-    out.normal = normalize(normal);
+    out.normal = (model.model_matrix * vec4(normalize(normal), 1.0)).xyz;
 
     var offset: u32 = 0;
     if (index % 8 > 3) {
@@ -54,12 +57,12 @@ fn vertex_main(
     return out;
 }
 
-// #include "lighting.wgsl"
+#include "lighting.wgsl"
 
 @fragment
 fn fragment_main(in: VertexOutput) -> @location(0) vec4<f32> {
+    // TODO: shadows dont correctly works here.
     let color = textureSample(images, images_sampler, in.uv, in.texture);
-    // TODO: find a way to give it the shadowmap without too much pain.
-    // return lighting(color, in.normal, in.shadow_pos);
+    //return lighting(color, in.normal, in.shadow_pos);
     return color;
 }

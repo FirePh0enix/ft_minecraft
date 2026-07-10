@@ -90,7 +90,8 @@ void Stacktrace::print(FILE *fp, size_t skip_frame) const
     for (size_t i = skip_frame; i < length; i++)
     {
         const Frame& frame = frames[i];
-        println(fp, "#{}: {} in {}:{}", i - skip_frame, frame.function ? frame.function : "???", frame.filename ? frame.filename : "???", frame.line);
+	//        println(fp, "#{}: {} in {}:{}:0", i - skip_frame, frame.function ? frame.function : "???", frame.filename ? frame.filename : "???", frame.line);
+	println(fp, "{}:{}:1 @ {}", frame.filename ? frame.filename : "???", frame.line, frame.function ? frame.function : "???");
     }
 
     if (non_exhaustive)
