@@ -340,7 +340,7 @@ Ref<Material> Material::create(const Ref<Shader>& shader, MaterialFlags flags, W
 
 WGPURenderPipeline Material::get_pipeline(const RenderPass& pass)
 {
-    PipelineKey key(pass.textures, pass.depth);
+    PipelineKey key(pass.textures, pass.depth); // TODO: cull mode is not set here.
     Option<WGPURenderPipeline> p = m_pipelines.get(key);
     if (p.has_value())
         return p.value();
@@ -938,6 +938,7 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_env_2d_buffer = TRY(Buffer::create(sizeof(glm::mat4), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
 
     m_fw_camera = TRY(Buffer::create(sizeof(FwCamera), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
+    m_fw_camera_rel = TRY(Buffer::create(sizeof(FwCamera), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
     m_fw_world_env = TRY(Buffer::create(sizeof(FwWorldEnv), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
     m_fw_shadowmap_camera = TRY(Buffer::create(sizeof(FwCamera), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
 
@@ -1012,7 +1013,8 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_fw_item_block_shader = TRY(Shader::load_from_path("assets/shaders/fw/itemblock.wgsl"));
     m_fw_item_block_shader->set_binding("camera", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
     m_fw_item_block_shader->set_binding("model", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 1, BindingAccess::Read));
-    m_fw_item_block_shader->set_binding("images", Binding::Texture(WGPUShaderStage_Fragment, 0, 2, BindingAccess::Read, WGPUTextureViewDimension_2DArray));
+    m_fw_item_block_shader->set_binding("world_env", Binding::UniformBuffer(WGPUShaderStage_Vertex | WGPUShaderStage_Fragment, 0, 2, BindingAccess::Read));
+    m_fw_item_block_shader->set_binding("images", Binding::Texture(WGPUShaderStage_Fragment, 0, 3, BindingAccess::Read, WGPUTextureViewDimension_2DArray));
     m_fw_item_block_shader->set_sampler("images", {.min_filter = WGPUFilterMode_Nearest, .mag_filter = WGPUFilterMode_Nearest});
     m_fw_item_block_shader->create_bind_group_layout();
 
@@ -1282,6 +1284,9 @@ void Renderer::draw_forward(const Ref<World>& world)
     FwCamera camera{};
     camera.view_projection = world->get_active_camera()->get_view_proj_matrix();
     m_fw_camera->update(View(camera).as_bytes());
+    
+    camera.view_projection = world->get_active_camera()->get_projection_matrix();
+    m_fw_camera_rel->update(View(camera).as_bytes());
 
     const float shadowmap_range = float(world->get_render_distance()) * 16.0f + 8.0f;
     const glm::vec3 light_target = world->get_active_camera()->get_global_transform().position();

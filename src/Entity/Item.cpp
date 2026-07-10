@@ -21,6 +21,7 @@ ItemEntity::ItemEntity(Id<Item> item)
     m_bg = BindGroup::create(Renderer::get().get_fw_item_block_shader()); // FIXME
     m_bg->set_param("camera", Renderer::get().get_fw_camera());
     m_bg->set_param("model", m_model_buffer);
+    m_bg->set_param("world_env", Renderer::get().get_fw_world_env());
     m_bg->set_param("images", Engine::get().registry().get_texture_array());
 
     Ref<Block> block = Engine::get().registry().block_from_item(item);

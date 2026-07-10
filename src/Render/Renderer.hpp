@@ -431,6 +431,7 @@ public:
     Ref<Material> get_fw_item_mat() const { return m_fw_item_mat; }
     Ref<Texture> get_fw_shadowmap() const { return m_fw_shadowmap; }
     Ref<Buffer> get_fw_camera() const { return m_fw_camera; }
+    Ref<Buffer> get_fw_camera_rel() const { return m_fw_camera_rel; }
     Ref<Buffer> get_fw_world_env() const { return m_fw_world_env; }
     Ref<Buffer> get_fw_shadowmap_camera() const { return m_fw_shadowmap_camera; }
 
@@ -480,6 +481,7 @@ private:
     Ref<Texture> m_fw_debug_texture;
 
     Ref<Buffer> m_fw_camera;
+    Ref<Buffer> m_fw_camera_rel;
     Ref<Buffer> m_fw_world_env;
 
     Ref<Shader> m_fw_chunk_shadowmap_shader;
