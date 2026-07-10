@@ -454,7 +454,7 @@ WGPURenderPipeline Material::create_pipeline(const RenderPass& pass)
     if (pass.depth.has_value())
     {
         depth_state.format = pass.depth.value().format;
-        depth_state.depthWriteEnabled = WGPUOptionalBool_True;
+        depth_state.depthWriteEnabled = !m_flags.has_any(MaterialFlagBits::DisableDepthTest) ? WGPUOptionalBool_True : WGPUOptionalBool_False;
         depth_state.depthCompare = WGPUCompareFunction_LessEqual;
     }
 
@@ -936,6 +936,7 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     ERR_COND_R(m_queue == nullptr, "Unable to retrieve the queue", Error(ErrorKind::NoSuitableDevice));
 
     m_env_2d_buffer = TRY(Buffer::create(sizeof(glm::mat4), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
+    m_sky_buffer = TRY(Buffer::create(sizeof(SkyUniforms), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
 
     m_fw_camera = TRY(Buffer::create(sizeof(FwCamera), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
     m_fw_camera_rel = TRY(Buffer::create(sizeof(FwCamera), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
@@ -1056,6 +1057,10 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_fw_colored_shader->set_binding("world_env", Binding::UniformBuffer(WGPUShaderStage_Vertex | WGPUShaderStage_Fragment, 0, 2, BindingAccess::Read));
     m_fw_colored_shader->create_bind_group_layout();
 
+    m_sky_shader = TRY(Shader::load_from_path("assets/shaders/sky.wgsl"));
+    m_sky_shader->set_binding("uniforms", Binding::UniformBuffer(WGPUShaderStage_Fragment, 0, 0, BindingAccess::Read));
+    m_sky_shader->create_bind_group_layout();
+
     m_fw_texture_rect_mat = Material::create(m_texture_rect_shader, MaterialFlagBits::Transparency | MaterialFlagBits::NoNormal, WGPUCullMode_None, UVType::UV);
     m_fw_model_mat = Material::create(m_fw_model_shader, MaterialFlagBits::None, WGPUCullMode_Back, UVType::UV);
     m_fw_color_rect_mat = Material::create(m_color_rect_shader, MaterialFlagBits::Transparency | MaterialFlagBits::NoNormal | MaterialFlagBits::NoUV, WGPUCullMode_None, UVType::UV);
@@ -1070,6 +1075,8 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
 
     m_fw_colored_mat = Material::create(m_fw_colored_shader, MaterialFlagBits::NoUV, WGPUCullMode_Back, UVType::UV);
     m_fw_colored_shadowmap_mat = Material::create(m_fw_colored_shader, MaterialFlagBits::NoUV, WGPUCullMode_Front, UVType::UV);
+
+    m_sky_mat = Material::create(m_sky_shader, MaterialFlagBits::DisableDepthTest | MaterialFlagBits::NoData, WGPUCullMode_None, UVType::UV);
 
     Vector<InstanceAttribute> attribs = Vector<InstanceAttribute>::create(InstanceAttribute(offsetof(Font::Instance, bounds), WGPUVertexFormat_Float32x4),
                                                                           InstanceAttribute(offsetof(Font::Instance, char_pos), WGPUVertexFormat_Float32x2),
@@ -1103,6 +1110,9 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_fw_shadowmap_cam_bg->set_param("model", m_fw_shadowmap_cam_buffer);
     m_fw_shadowmap_cam_bg->set_param("camera", m_fw_camera);
     m_fw_shadowmap_cam_bg->set_param("world_env", m_fw_world_env);
+
+    m_sky_bg = BindGroup::create(m_sky_shader);
+    m_sky_bg->set_param("uniforms", m_sky_buffer);
 
     Array<uint16_t, 6> indices{0, 1, 2, 0, 2, 3};
     Array<glm::vec3, 4> vertices{
@@ -1363,6 +1373,7 @@ void Renderer::draw_forward(const Ref<World>& world)
 
     WGPURenderPassEncoder color_pass = wgpuCommandEncoderBeginRenderPass(encoder, &color_pass_desc);
     const RenderPass color_pass_info(color_pass, RenderTarget(m_fw_depth_texture->format()), Vector<RenderTarget>::create(m_surface_format));
+    draw_fullscreen(color_pass_info, m_sky_mat, m_sky_bg);
     draw_world(world, color_pass_info, WorldFlags());
     draw_world(world, color_pass_info, WorldFlagBits::Water);
     for (Ref<Entity> entity : world->get_dimension(0).get_entities())
@@ -1492,6 +1503,13 @@ void Renderer::draw_world(const Ref<World>& world, const RenderPass& pass, World
     }
 }
 
+void Renderer::draw_fullscreen(const RenderPass& pass, Ref<Material> material, Ref<BindGroup> bg)
+{
+    wgpuRenderPassEncoderSetPipeline(pass.encoder, material->get_pipeline(pass));
+    wgpuRenderPassEncoderSetBindGroup(pass.encoder, 0, bg->get_bind_group(), 0, nullptr);
+    wgpuRenderPassEncoderDraw(pass.encoder, 4, 1, 0, 0);
+}
+
 void Renderer::set_fog(glm::vec4 color, float distance)
 {
     // m_world_uniforms.fog_color = color;
@@ -1501,7 +1519,7 @@ void Renderer::set_fog(glm::vec4 color, float distance)
 
 void Renderer::set_sky(glm::vec4 color)
 {
-    // m_sky_buffer->update(View(SkyUniforms(color)).as_bytes());
+    m_sky_buffer->update(View(SkyUniforms(color)).as_bytes());
 }
 
 void Renderer::set_underwater(bool v)

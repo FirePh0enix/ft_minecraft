@@ -221,6 +221,8 @@ enum class MaterialFlagBits
     NoNormal = 1 << 3,
     NoUV = 1 << 4,
 
+    DisableDepthTest = 1 << 5,
+
     NoData = NoPosition | NoNormal | NoUV,
 };
 using MaterialFlags = Flags<MaterialFlagBits>;
@@ -386,6 +388,11 @@ struct GPU_ATTRIBUTE FwColored
     glm::vec4 color;
 };
 
+struct SkyUniforms
+{
+    glm::vec4 color;
+};
+
 class Renderer
 {
     friend class Buffer;
@@ -409,6 +416,7 @@ public:
     void draw_forward(const Ref<World>& world);
     void draw_world(const Ref<World>& world, const RenderPass& pass, WorldFlags flags);
     void draw(const RenderPass& pass, Ref<Mesh> mesh, Ref<Material> material, Ref<BindGroup> bg, const Ref<Buffer>& instance_buffer = nullptr, size_t instance_count = 1);
+    void draw_fullscreen(const RenderPass& pass, Ref<Material> material, Ref<BindGroup> bg);
 
     void set_fog(glm::vec4 color, float distance);
     void set_sky(glm::vec4 color);
@@ -526,7 +534,12 @@ private:
     Ref<Material> m_ssao_material;
     Ref<Texture> m_ssao_noise_texture;
 
-    // Rendering stuff
+    // Sky
+    Ref<Buffer> m_sky_buffer;
+    Ref<Shader> m_sky_shader;
+    Ref<Material> m_sky_mat;
+    Ref<BindGroup> m_sky_bg;
+
     WGPUTextureFormat m_surface_format = WGPUTextureFormat_Undefined;
     Extent2D m_surface_extent;
 
