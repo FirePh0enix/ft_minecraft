@@ -222,6 +222,7 @@ bool PlayerInventory::on_pick(uint32_t layer, uint32_t index, ItemStack stack, I
 void PlayerInventory::update_recipe()
 {
     InplaceVector<Id<Item>, RECIPE_SIZE> grid;
+    println("{}", RECIPE_SIZE);
     for (size_t i = 0; i < RECIPE_SIZE; i++)
     {
         ItemStack s = m_container->get_stack(INGREDIENTS_LAYER, i);

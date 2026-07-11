@@ -66,6 +66,12 @@ void Inventory::draw(const RenderPass& pass)
 
 void Inventory::grab(const ItemStack& itemstack, Option<InventoryOrigin> pos)
 {
+    if (itemstack.count() == 0 || !itemstack.item().valid())
+    {
+	ungrab();
+	return;
+    }
+    
     m_grabbed_stack = itemstack;
     if (pos.has_value())
         m_grabbed_from = pos.value_or(InventoryOrigin());
@@ -92,7 +98,10 @@ InventoryOrigin Inventory::get_grabbed_origin()
 void Inventory::grab_cancel()
 {
     if (m_grabbed_stack.has_value())
+    {
         m_grabbed_from.container->set_stack(m_grabbed_from.layer, m_grabbed_from.i, m_grabbed_stack.value());
+	m_grabbed_stack = None;
+    }
 }
 
 void Inventory::add_grid(uint32_t w, uint32_t h, uint32_t layer, glm::vec2 pos, InventoryContainer *container)

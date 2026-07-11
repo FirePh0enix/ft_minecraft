@@ -30,13 +30,9 @@ void ItemSlot::update(float d)
     m_label->update(d);
 
     if (is_mouse_hovering())
-    {
         m_background->set_color(Colors::red);
-    }
     else
-    {
         m_background->set_color(Colors::blue);
-    }
 
     if (is_mouse_hovering() && Input::is_action_just_pressed("ui_click"))
     {
@@ -74,6 +70,27 @@ void ItemSlot::update(float d)
                 m_container->set_stack(m_layer, m_index, ItemStack());
             }
         }
+    }
+    else if (is_mouse_hovering() && Input::is_action_just_pressed("ui_rclick"))
+    {
+	Option<ItemStack> grabbed = m_inventory->get_grabbed();
+	if (grabbed.has_value())
+	{
+	    bool allow_change = m_inventory->on_place(m_layer, m_count, grabbed.value(), m_container);
+	    ItemStack gs = grabbed.value();
+	    if (allow_change && m_item.valid() && m_item == gs.item())
+	    {
+		m_container->set_stack(m_layer, m_index, ItemStack(gs.item(), m_count + 1));
+		gs.sub(1);
+		m_inventory->grab(gs);
+	    }
+	    else if (allow_change && !m_item.valid())
+	    {
+		m_container->set_stack(m_layer, m_index, ItemStack(gs.item(), 1));
+		gs.sub(1);
+		m_inventory->grab(gs);
+	    }
+	}
     }
 }
 

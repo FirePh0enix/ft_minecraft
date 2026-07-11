@@ -4,7 +4,8 @@
 
 #include <compare>
 
-Variant::Variant(ItemStack is) : tag(VariantType::ItemStack)
+Variant::Variant(ItemStack is)
+    : tag(VariantType::ItemStack)
 {
     new (data) ItemStack(is);
 }
@@ -125,5 +126,6 @@ void from_json(const nlohmann::json& j, Variant& m)
     else if (j.contains("count") && j.contains("id"))
     {
         m = ItemStack(Id<Item>(j.at("id")), j.at("count"));
+	// TODO: tags ? or removed json in favor of binary stream
     }
 }

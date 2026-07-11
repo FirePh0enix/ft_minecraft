@@ -80,6 +80,9 @@ void Input::load_config()
     // UI
     Input::add_action("ui_click");
     Input::add_action_mapping("ui_click", ActionMapping(ActionMappingKind::MouseButton, 1));
+
+    Input::add_action("ui_rclick");
+    Input::add_action_mapping("ui_rclick", ActionMapping(ActionMappingKind::MouseButton, 3));
 }
 
 bool Input::is_action_pressed(const StringView& action)

@@ -1,10 +1,8 @@
-struct Camera
-{
+struct Camera {
     view_matrix: mat4x4<f32>,
 };
 
-struct Model
-{
+struct Model {
     model_matrix: mat4x4<f32>,
     textures: vec3<u32>,
 }
@@ -14,8 +12,7 @@ struct WorldEnv {
     light_dir: vec3f,
 }
 
-struct VertexOutput
-{
+struct VertexOutput {
     @builtin(position) position: vec4<f32>,
     @location(0) color: vec4<f32>,
     @location(1) uv: vec2<f32>,

@@ -31,8 +31,6 @@ static Result<String> preprocess(const String& source, StringView basepath)
 	    std::string fpath = basepath.data();
 	    fpath += path;
 
-	    println("including `{}`", path);
-	    
 	    String include_source = TRY(TRY(Filesystem::open_file(StringView(fpath.data(), fpath.size()))).reader().read_to_string());
 	    
 	    s.append(include_source.data(), include_source.size());
