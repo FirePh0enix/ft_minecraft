@@ -942,6 +942,7 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_fw_camera_rel = TRY(Buffer::create(sizeof(FwCamera), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
     m_fw_world_env = TRY(Buffer::create(sizeof(FwWorldEnv), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
     m_fw_shadowmap_camera = TRY(Buffer::create(sizeof(FwCamera), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
+    m_fw_pp_buffer = TRY(Buffer::create(sizeof(PostProcessUniforms), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
 
     m_fw_shadowmap = TRY(Texture::create(SHADOWMAP_RESOLUTION, SHADOWMAP_RESOLUTION, WGPUTextureFormat_Depth32Float, WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_TextureBinding));
 
@@ -1063,6 +1064,12 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_sky_shader->set_binding("uniforms", Binding::UniformBuffer(WGPUShaderStage_Fragment, 0, 0, BindingAccess::Read));
     m_sky_shader->create_bind_group_layout();
 
+    m_fw_pp_shader = TRY(Shader::load_from_path("assets/shaders/fw/postprocess.wgsl"));
+    m_fw_pp_shader->set_binding("uniforms", Binding::UniformBuffer(WGPUShaderStage_Fragment, 0, 0, BindingAccess::Read));
+    m_fw_pp_shader->set_binding("albedo", Binding::Texture(WGPUShaderStage_Fragment, 0, 1, BindingAccess::Read, WGPUTextureViewDimension_2D));
+    m_fw_pp_shader->set_binding("depth", Binding::Texture(WGPUShaderStage_Fragment, 0, 3, BindingAccess::Read, WGPUTextureViewDimension_2D, WGPUTextureSampleType_Depth, WGPUSamplerBindingType_Filtering));
+    m_fw_pp_shader->create_bind_group_layout();
+
     m_fw_texture_rect_mat = Material::create(m_texture_rect_shader, MaterialFlagBits::Transparency | MaterialFlagBits::NoNormal, WGPUCullMode_None, UVType::UV);
     m_fw_model_mat = Material::create(m_fw_model_shader, MaterialFlagBits::None, WGPUCullMode_Back, UVType::UV);
     m_fw_color_rect_mat = Material::create(m_color_rect_shader, MaterialFlagBits::Transparency | MaterialFlagBits::NoNormal | MaterialFlagBits::NoUV, WGPUCullMode_None, UVType::UV);
@@ -1079,6 +1086,8 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_fw_colored_shadowmap_mat = Material::create(m_fw_colored_shader, MaterialFlagBits::NoUV, WGPUCullMode_Front, UVType::UV);
 
     m_sky_mat = Material::create(m_sky_shader, MaterialFlagBits::DisableDepthTest | MaterialFlagBits::NoData, WGPUCullMode_None, UVType::UV);
+
+    m_fw_pp_mat = Material::create(m_fw_pp_shader, MaterialFlagBits::NoData, WGPUCullMode_None, UVType::UV);
 
     Vector<InstanceAttribute> attribs = Vector<InstanceAttribute>::create(InstanceAttribute(offsetof(Font::Instance, bounds), WGPUVertexFormat_Float32x4),
                                                                           InstanceAttribute(offsetof(Font::Instance, char_pos), WGPUVertexFormat_Float32x2),
@@ -1154,6 +1163,10 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
 
     m_fw_water_texture = Engine::get().registry().create_texture("assets/textures/water.png");
 
+    m_fw_pp.near = 0.01;
+    m_fw_pp.far = 500.0;
+    m_fw_pp_buffer->update(View(m_fw_pp).as_bytes());
+
     configure_surface(window.size().width, window.size().height, VSync::On);
 
     IMGUI_CHECKVERSION();
@@ -1207,8 +1220,8 @@ void Renderer::configure_surface(size_t width, size_t height, VSync vsync)
     m_surface_extent = surface_extent;
     m_surface_format = config.format;
 
-    m_fw_depth_texture = EXPECT(Texture::create(m_surface_extent.width, m_surface_extent.height, WGPUTextureFormat_Depth32Float, WGPUTextureUsage_RenderAttachment));
-    m_fw_debug_texture = EXPECT(Texture::create(m_surface_extent.width, m_surface_extent.height, WGPUTextureFormat_RGBA32Float, WGPUTextureUsage_RenderAttachment));
+    m_fw_depth_texture = EXPECT(Texture::create(m_surface_extent.width, m_surface_extent.height, WGPUTextureFormat_Depth32Float, WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_TextureBinding));
+    m_fw_color_texture = EXPECT(Texture::create(m_surface_extent.width, m_surface_extent.height, WGPUTextureFormat_BGRA8Unorm, WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_TextureBinding));
 
     float ratio = float(width) / float(height);
     glm::mat4 ortho_matrix = glm::ortho(-1.0f * ratio, 1.0f * ratio, -1.0f, 1.0f, -1.0f, 1.0f);
@@ -1358,14 +1371,14 @@ void Renderer::draw_forward(const Ref<World>& world)
     WGPURenderPassDepthStencilAttachment depth_load_attach = WGPU_RENDER_PASS_DEPTH_STENCIL_ATTACHMENT_INIT;
     depth_load_attach.depthClearValue = 1.0;
     depth_load_attach.depthLoadOp = WGPULoadOp_Load;
-    depth_load_attach.depthStoreOp = WGPUStoreOp_Discard;
+    depth_load_attach.depthStoreOp = WGPUStoreOp_Store;
     depth_load_attach.view = m_fw_depth_texture->handle_view();
 
     WGPURenderPassColorAttachment color_attach = WGPU_RENDER_PASS_COLOR_ATTACHMENT_INIT;
     color_attach.clearValue = WGPUColor(0.0, 0.0, 0.0, 0.0);
     color_attach.loadOp = WGPULoadOp_Clear;
     color_attach.storeOp = WGPUStoreOp_Store;
-    color_attach.view = surface_view;
+    color_attach.view = m_fw_color_texture->handle_view();
 
     WGPURenderPassDescriptor color_pass_desc = WGPU_RENDER_PASS_DESCRIPTOR_INIT;
     color_pass_desc.label = WGPU_STRING_VIEW("Color pass");
@@ -1380,9 +1393,30 @@ void Renderer::draw_forward(const Ref<World>& world)
     draw_world(world, color_pass_info, WorldFlagBits::Water);
     for (Ref<Entity> entity : world->get_dimension(0).get_entities())
         entity->draw(color_pass_info);
-    // draw(color_pass_info, m_quad_mesh, m_fw_shadowmap_cam_mat, m_fw_shadowmap_cam_bg);
+    // draw(color_pass_info, m_quad_mesh, m_fw_shadowmap_cam_mat, m_fw_shadowmap_cam_bg); // Quad placed at the origin of the "sun"
     wgpuRenderPassEncoderEnd(color_pass);
     wgpuRenderPassEncoderRelease(color_pass);
+
+    // Do post processing effects after the 3D rendering and before IU rendering.
+    WGPURenderPassColorAttachment output_color_attach = WGPU_RENDER_PASS_COLOR_ATTACHMENT_INIT;
+    output_color_attach.clearValue = WGPUColor(0.0, 0.0, 0.0, 0.0);
+    output_color_attach.loadOp = WGPULoadOp_Clear;
+    output_color_attach.storeOp = WGPUStoreOp_Store;
+    output_color_attach.view = surface_view;
+    
+    WGPURenderPassDescriptor postprocess_pass_desc = WGPU_RENDER_PASS_DESCRIPTOR_INIT;
+    postprocess_pass_desc.colorAttachments = &output_color_attach;
+    postprocess_pass_desc.colorAttachmentCount = 1;
+
+    WGPURenderPassEncoder postprocess_pass = wgpuCommandEncoderBeginRenderPass(encoder, &postprocess_pass_desc);
+    const RenderPass postprocess_pass_info(postprocess_pass, None, Vector<RenderTarget>::create(m_surface_format));
+    Ref<BindGroup> postprocess_bg = BindGroup::create(m_fw_pp_shader);
+    postprocess_bg->set_param("uniforms", m_fw_pp_buffer);
+    postprocess_bg->set_param("albedo", m_fw_color_texture);
+    postprocess_bg->set_param("depth", m_fw_depth_texture);
+    draw_fullscreen(postprocess_pass_info, m_fw_pp_mat, postprocess_bg);
+    wgpuRenderPassEncoderEnd(postprocess_pass);
+    wgpuRenderPassEncoderRelease(postprocess_pass);
 
     // Finally one last pass for rendering the UI.
     WGPURenderPassColorAttachment color_load_attach = WGPU_RENDER_PASS_COLOR_ATTACHMENT_INIT;
@@ -1514,9 +1548,9 @@ void Renderer::draw_fullscreen(const RenderPass& pass, Ref<Material> material, R
 
 void Renderer::set_fog(glm::vec4 color, float distance)
 {
-    // m_world_uniforms.fog_color = color;
-    // m_world_uniforms.fog_distance = distance;
-    // m_world_buffer->update(View(m_world_uniforms).as_bytes());
+    m_fw_pp.fog_color = color;
+    m_fw_pp.fog_distance = distance;
+    m_fw_pp_buffer->update(View(m_fw_pp).as_bytes());
 }
 
 void Renderer::set_sky(glm::vec4 color)
@@ -1526,7 +1560,7 @@ void Renderer::set_sky(glm::vec4 color)
 
 void Renderer::set_underwater(bool v)
 {
-    // m_world_uniforms.underwater = v;
+    // m_fw_pp.underwater = v;
     // m_world_buffer->update(View(m_world_uniforms).as_bytes());
 }
 

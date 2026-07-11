@@ -151,6 +151,7 @@ void PlayerInventory::add_stack(ItemStack stack)
             Option<ItemStack> excess = current_stack.merge(stack);
             m_container->set_stack(1, x, current_stack);
 
+
             if (excess.has_value())
                 add_stack(excess.value());
             return;

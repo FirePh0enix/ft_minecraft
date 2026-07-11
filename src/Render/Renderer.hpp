@@ -393,6 +393,14 @@ struct SkyUniforms
     glm::vec4 color;
 };
 
+struct PostProcessUniforms
+{
+    glm::vec4 fog_color;
+    float fog_distance;
+    float near;
+    float far;
+};
+
 class Renderer
 {
     friend class Buffer;
@@ -402,11 +410,6 @@ public:
     Renderer();
 
     Result<void> init(const Window& window, InitFlags flags);
-
-    /**
-     * Start the rendering thread.
-     */
-    void start();
 
     void configure_surface(size_t width, size_t height, VSync vsync);
 
@@ -486,7 +489,7 @@ private:
 
     // Forward rendering
     Ref<Texture> m_fw_depth_texture;
-    Ref<Texture> m_fw_debug_texture;
+    Ref<Texture> m_fw_color_texture;
 
     Ref<Buffer> m_fw_camera;
     Ref<Buffer> m_fw_camera_rel;
@@ -540,6 +543,12 @@ private:
     Ref<Material> m_sky_mat;
     Ref<BindGroup> m_sky_bg;
 
+    // Post processing
+    Ref<Shader> m_fw_pp_shader;
+    Ref<Material> m_fw_pp_mat;
+    PostProcessUniforms m_fw_pp;
+    Ref<Buffer> m_fw_pp_buffer;
+
     WGPUTextureFormat m_surface_format = WGPUTextureFormat_Undefined;
     Extent2D m_surface_extent;
 
@@ -548,10 +557,10 @@ private:
     Ref<Shader> m_preview_block_shader;
     Ref<Shader> m_color_rect_shader;
     Ref<Shader> m_texture_rect_shader;
-    Ref<Shader> m_water_shader;
+    // Ref<Shader> m_water_shader;
 
-    Ref<Shader> m_underwater_shader;
-    Ref<Material> m_underwater_material;
+    // Ref<Shader> m_underwater_shader;
+    // Ref<Material> m_underwater_material;
 
     Ref<Mesh> m_cube_mesh;
     Ref<Mesh> m_square_mesh;
