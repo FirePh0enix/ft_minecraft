@@ -1560,8 +1560,8 @@ void Renderer::set_sky(glm::vec4 color)
 
 void Renderer::set_underwater(bool v)
 {
-    // m_fw_pp.underwater = v;
-    // m_world_buffer->update(View(m_world_uniforms).as_bytes());
+    m_fw_pp.underwater = v;
+    m_fw_pp_buffer->update(View(m_fw_pp).as_bytes());
 }
 
 View<uint8_t> Renderer::get_missing_texture_data() const

@@ -399,6 +399,7 @@ struct PostProcessUniforms
     float fog_distance;
     float near;
     float far;
+    uint32_t underwater;
 };
 
 class Renderer

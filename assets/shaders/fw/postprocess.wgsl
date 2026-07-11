@@ -3,6 +3,7 @@ struct PostProcessUniforms {
  fog_distance: f32,
  near: f32,
  far: f32,
+ underwater: u32,
 };
 
 @group(0) @binding(0) var<uniform> uniforms: PostProcessUniforms;
@@ -39,8 +40,12 @@ fn simpleFog(d: f32) -> f32 {
 
 @fragment
 fn fragment_main(in: VertexOutput) -> @location(0) vec4<f32> {
+    let color = textureSample(surface, surface_sampler, in.uv);
     let depth = textureSample(depth, depth_sampler, in.uv);
     let linear_depth = linearize_depth(depth);
     let fog_factor = simpleFog(linear_depth);
-    return mix(textureSample(surface, surface_sampler, in.uv), uniforms.fog_color, fog_factor);
+    if (uniforms.underwater == 1) {
+	return mix(mix(color, uniforms.fog_color, fog_factor), vec4(0.0, 0.0, 1.0, 1.0), 0.5);
+    }
+    return mix(color, uniforms.fog_color, fog_factor);
 }
