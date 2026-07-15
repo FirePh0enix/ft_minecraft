@@ -231,7 +231,7 @@ Result<Ref<Texture>> Texture::load(const StringView& path)
     if (data == nullptr)
         return Error(ErrorKind::ReadFailure);
 
-    Ref<Texture> texture = TRY(Texture::create(w, h, WGPUTextureFormat_RGBA8UnormSrgb, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding, WGPUTextureViewDimension_2D, 1, 1));
+    Ref<Texture> texture = TRY(Texture::create(w, h, WGPUTextureFormat_RGBA8Unorm, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding, WGPUTextureViewDimension_2D, 1, 1));
     texture->update(View((uint8_t *)data, w * h * 4));
 
     stbi_image_free(data);
@@ -943,6 +943,7 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_fw_world_env = TRY(Buffer::create(sizeof(FwWorldEnv), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
     m_fw_shadowmap_camera = TRY(Buffer::create(sizeof(FwCamera), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
     m_fw_pp_buffer = TRY(Buffer::create(sizeof(PostProcessUniforms), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
+    m_fw_clouds_buffer = TRY(Buffer::create(sizeof(CloudsParams), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
 
     m_fw_shadowmap = TRY(Texture::create(SHADOWMAP_RESOLUTION, SHADOWMAP_RESOLUTION, WGPUTextureFormat_Depth32Float, WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_TextureBinding));
 
@@ -1050,8 +1051,8 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_fw_water_shader->create_bind_group_layout();
 
     m_fw_chunk_shadowmap_shader = TRY(Shader::load_from_path("assets/shaders/fw/chunk_shadowmap.wgsl"));
-    m_fw_chunk_shadowmap_shader->set_binding("chunk", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
-    m_fw_chunk_shadowmap_shader->set_binding("camera", Binding(BindingKind::UniformBuffer, WGPUShaderStage_Vertex, 0, 1, BindingAccess::Read));
+    m_fw_chunk_shadowmap_shader->set_binding("chunk", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
+    m_fw_chunk_shadowmap_shader->set_binding("camera", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 1, BindingAccess::Read));
     m_fw_chunk_shadowmap_shader->create_bind_group_layout();
 
     m_fw_colored_shader = TRY(Shader::load_from_path("assets/shaders/fw/colored.wgsl"));
@@ -1069,6 +1070,13 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_fw_pp_shader->set_binding("albedo", Binding::Texture(WGPUShaderStage_Fragment, 0, 1, BindingAccess::Read, WGPUTextureViewDimension_2D));
     m_fw_pp_shader->set_binding("depth", Binding::Texture(WGPUShaderStage_Fragment, 0, 3, BindingAccess::Read, WGPUTextureViewDimension_2D, WGPUTextureSampleType_Depth, WGPUSamplerBindingType_Filtering));
     m_fw_pp_shader->create_bind_group_layout();
+
+    m_fw_clouds_shader = TRY(Shader::load_from_path("assets/shaders/fw/clouds.wgsl"));
+    m_fw_clouds_shader->set_binding("params", Binding::UniformBuffer(WGPUShaderStage_Vertex | WGPUShaderStage_Fragment, 0, 0, BindingAccess::Read));
+    m_fw_clouds_shader->set_binding("camera", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 1, BindingAccess::Read));
+    m_fw_clouds_shader->set_binding("noise", Binding::Texture(WGPUShaderStage_Fragment, 0, 2, BindingAccess::Read, WGPUTextureViewDimension_2D));
+    m_fw_clouds_shader->set_binding("depth", Binding::Texture(WGPUShaderStage_Fragment, 0, 4, BindingAccess::Read, WGPUTextureViewDimension_2D, WGPUTextureSampleType_Depth, WGPUSamplerBindingType_Filtering));
+    m_fw_clouds_shader->create_bind_group_layout();
 
     m_fw_texture_rect_mat = Material::create(m_texture_rect_shader, MaterialFlagBits::Transparency | MaterialFlagBits::NoNormal, WGPUCullMode_None, UVType::UV);
     m_fw_model_mat = Material::create(m_fw_model_shader, MaterialFlagBits::None, WGPUCullMode_Back, UVType::UV);
@@ -1088,6 +1096,8 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_sky_mat = Material::create(m_sky_shader, MaterialFlagBits::DisableDepthTest | MaterialFlagBits::NoData, WGPUCullMode_None, UVType::UV);
 
     m_fw_pp_mat = Material::create(m_fw_pp_shader, MaterialFlagBits::NoData, WGPUCullMode_None, UVType::UV);
+
+    m_fw_clouds_mat = Material::create(m_fw_clouds_shader, MaterialFlagBits::Transparency | MaterialFlagBits::NoData, WGPUCullMode_None, UVType::UV);
 
     Vector<InstanceAttribute> attribs = Vector<InstanceAttribute>::create(InstanceAttribute(offsetof(Font::Instance, bounds), WGPUVertexFormat_Float32x4),
                                                                           InstanceAttribute(offsetof(Font::Instance, char_pos), WGPUVertexFormat_Float32x2),
@@ -1124,6 +1134,13 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
 
     m_sky_bg = BindGroup::create(m_sky_shader);
     m_sky_bg->set_param("uniforms", m_sky_buffer);
+
+    m_fw_clouds_noise = TRY(Texture::load("assets/noise2.png"));
+
+    m_fw_clouds_bg = BindGroup::create(m_fw_clouds_shader);
+    m_fw_clouds_bg->set_param("params", m_fw_clouds_buffer);
+    m_fw_clouds_bg->set_param("camera", m_fw_camera);
+    m_fw_clouds_bg->set_param("noise", m_fw_clouds_noise);
 
     Array<uint16_t, 6> indices{0, 1, 2, 0, 2, 3};
     Array<glm::vec3, 4> vertices{
@@ -1195,18 +1212,18 @@ void Renderer::configure_surface(size_t width, size_t height, VSync vsync)
     WGPUSurfaceCapabilities capabilities = WGPU_SURFACE_CAPABILITIES_INIT;
     wgpuSurfaceGetCapabilities(m_surface, m_adapter, &capabilities);
 
-    WGPUSurfaceConfiguration config{};
+    WGPUSurfaceConfiguration config = WGPU_SURFACE_CONFIGURATION_INIT;
     config.device = m_device;
     config.format = WGPUTextureFormat_BGRA8Unorm; // capabilities.formats[0];
     config.usage = capabilities.usages;
     config.width = surface_extent.width;
     config.height = surface_extent.height;
-    config.presentMode = vsync == VSync::On ? WGPUPresentMode_Fifo : WGPUPresentMode_Immediate;
+    config.presentMode = WGPUPresentMode_Immediate; // vsync == VSync::On ? WGPUPresentMode_Fifo : WGPUPresentMode_Immediate;
     config.alphaMode = capabilities.alphaModes[0];
 
     wgpuSurfaceCapabilitiesFreeMembers(capabilities);
 #else
-    WGPUSurfaceConfiguration config{};
+    WGPUSurfaceConfiguration config = WGPU_SURFACE_CONFIGURATION_INIT;
     config.device = m_device;
     config.format = WGPUTextureFormat_RGBA8Unorm;
     config.usage = WGPUTextureUsage_RenderAttachment;
@@ -1222,6 +1239,8 @@ void Renderer::configure_surface(size_t width, size_t height, VSync vsync)
 
     m_fw_depth_texture = EXPECT(Texture::create(m_surface_extent.width, m_surface_extent.height, WGPUTextureFormat_Depth32Float, WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_TextureBinding));
     m_fw_color_texture = EXPECT(Texture::create(m_surface_extent.width, m_surface_extent.height, WGPUTextureFormat_BGRA8Unorm, WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_TextureBinding));
+
+    m_fw_clouds_bg->set_param("depth", m_fw_depth_texture);
 
     float ratio = float(width) / float(height);
     glm::mat4 ortho_matrix = glm::ortho(-1.0f * ratio, 1.0f * ratio, -1.0f, 1.0f, -1.0f, 1.0f);
@@ -1316,9 +1335,9 @@ void Renderer::draw_forward(const Ref<World>& world)
     const float shadowmap_range = float(world->get_render_distance()) * 16.0f + 8.0f;
     const glm::vec3 light_target = world->get_active_camera()->get_global_transform().position();
     const glm::vec3 light_dir = glm::normalize(glm::vec3(1, 1, 0));
-    const float light_distance = 30.0;
+    const float light_distance = 100.0;
 
-    const glm::mat4 shadowmap_proj = glm::ortho(-shadowmap_range, shadowmap_range, -shadowmap_range, shadowmap_range, -1.0f, 200.0f);
+    const glm::mat4 shadowmap_proj = glm::ortho(-shadowmap_range, shadowmap_range, -shadowmap_range, shadowmap_range, -1.0f, 300.0f);
     const glm::mat4 shadowmap_view = glm::lookAt(light_target + light_dir * light_distance, light_target, glm::vec3(0, 1, 0));
 
     FwColored shadowmap_cam(
@@ -1334,6 +1353,17 @@ void Renderer::draw_forward(const Ref<World>& world)
     world_env.light_view_projection = shadowmap_camera.view_projection;
     world_env.light_dir = light_dir;
     m_fw_world_env->update(View(world_env).as_bytes());
+
+    CloudsParams clouds_params{};
+    clouds_params.camera_projection = world->get_active_camera()->get_projection_matrix();
+    clouds_params.camera_rot = glm::inverse(world->get_active_camera()->get_rotation_matrix());
+    clouds_params.camera_position = glm::vec4(world->get_active_camera()->get_global_transform().position(), 1.0);
+    clouds_params.camera_dir = glm::vec4(world->get_active_camera()->get_global_transform().forward(), 1.0);
+    clouds_params.aspect_ratio = (float)m_surface_extent.width / (float)m_surface_extent.height;
+    clouds_params.time = Engine::get().time();
+    clouds_params.near = 0.01;
+    clouds_params.far = 500.0;
+    m_fw_clouds_buffer->update(View(clouds_params).as_bytes());
 
     // Generate a shadowmap by doing a depth-only pass from the point of view of the "sun".
     WGPURenderPassDepthStencilAttachment shadowmap_attach = WGPU_RENDER_PASS_DEPTH_STENCIL_ATTACHMENT_INIT;
@@ -1396,6 +1426,23 @@ void Renderer::draw_forward(const Ref<World>& world)
     // draw(color_pass_info, m_quad_mesh, m_fw_shadowmap_cam_mat, m_fw_shadowmap_cam_bg); // Quad placed at the origin of the "sun"
     wgpuRenderPassEncoderEnd(color_pass);
     wgpuRenderPassEncoderRelease(color_pass);
+
+    // Clouds rendering using raymarching as a fullscreen post processing effect.
+    WGPURenderPassColorAttachment clouds_color_attach = WGPU_RENDER_PASS_COLOR_ATTACHMENT_INIT;
+    clouds_color_attach.clearValue = WGPUColor(1.0, 0.0, 0.0, 0.0);
+    clouds_color_attach.loadOp = WGPULoadOp_Load;
+    clouds_color_attach.storeOp = WGPUStoreOp_Store;
+    clouds_color_attach.view = m_fw_color_texture->handle_view();
+    
+    WGPURenderPassDescriptor clouds_pass_desc = WGPU_RENDER_PASS_DESCRIPTOR_INIT;
+    clouds_pass_desc.colorAttachments = &clouds_color_attach;
+    clouds_pass_desc.colorAttachmentCount = 1;
+
+    WGPURenderPassEncoder clouds_pass = wgpuCommandEncoderBeginRenderPass(encoder, &clouds_pass_desc);
+    const RenderPass clouds_pass_info(clouds_pass, None, Vector<RenderTarget>::create(m_surface_format));
+    draw_fullscreen(clouds_pass_info, m_fw_clouds_mat, m_fw_clouds_bg);
+    wgpuRenderPassEncoderEnd(clouds_pass);
+    wgpuRenderPassEncoderRelease(clouds_pass);
 
     // Do post processing effects after the 3D rendering and before IU rendering.
     WGPURenderPassColorAttachment output_color_attach = WGPU_RENDER_PASS_COLOR_ATTACHMENT_INIT;
@@ -1543,7 +1590,7 @@ void Renderer::draw_fullscreen(const RenderPass& pass, Ref<Material> material, R
 {
     wgpuRenderPassEncoderSetPipeline(pass.encoder, material->get_pipeline(pass));
     wgpuRenderPassEncoderSetBindGroup(pass.encoder, 0, bg->get_bind_group(), 0, nullptr);
-    wgpuRenderPassEncoderDraw(pass.encoder, 4, 1, 0, 0);
+    wgpuRenderPassEncoderDraw(pass.encoder, 3, 1, 0, 0);
 }
 
 void Renderer::set_fog(glm::vec4 color, float distance)

@@ -388,18 +388,30 @@ struct GPU_ATTRIBUTE FwColored
     glm::vec4 color;
 };
 
-struct SkyUniforms
+struct GPU_ATTRIBUTE SkyUniforms
 {
     glm::vec4 color;
 };
 
-struct PostProcessUniforms
+struct GPU_ATTRIBUTE PostProcessUniforms
 {
     glm::vec4 fog_color;
     float fog_distance;
     float near;
     float far;
     uint32_t underwater;
+};
+
+struct GPU_ATTRIBUTE CloudsParams
+{
+    glm::mat4 camera_projection;
+    glm::mat4 camera_rot;
+    glm::vec4 camera_position;
+    glm::vec4 camera_dir;
+    float aspect_ratio;
+    float time;
+    float near;
+    float far;
 };
 
 class Renderer
@@ -543,6 +555,13 @@ private:
     Ref<Shader> m_sky_shader;
     Ref<Material> m_sky_mat;
     Ref<BindGroup> m_sky_bg;
+
+    // Clouds
+    Ref<Buffer> m_fw_clouds_buffer;
+    Ref<Shader> m_fw_clouds_shader;
+    Ref<Material> m_fw_clouds_mat;
+    Ref<BindGroup> m_fw_clouds_bg;
+    Ref<Texture> m_fw_clouds_noise;
 
     // Post processing
     Ref<Shader> m_fw_pp_shader;

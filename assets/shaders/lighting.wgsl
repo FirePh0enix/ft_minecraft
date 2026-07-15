@@ -6,6 +6,7 @@ fn shadowMap(normal: vec3<f32>, frag_pos_light_space: vec4<f32>) -> f32 {
     }
 
     let texel_size = vec2<f32>(1.0) / vec2<f32>(textureDimensions(shadowmap));
+    // TODO: correct the bias formula should fix shadow issues.
     //let bias = max(0.05 * (1.0 - dot(-normal, normalize(world_env.light_dir))), 0.005);
     let bias = 0.000;
     var visibility = 0.0;
@@ -25,5 +26,5 @@ fn shadowMap(normal: vec3<f32>, frag_pos_light_space: vec4<f32>) -> f32 {
 fn lighting(color: vec4<f32>, normal: vec3<f32>, shadow_pos: vec4<f32>) -> vec4<f32> {
     let ambient = max(dot(world_env.light_dir, normal), 0.2);
     let visibility = 1.0 - shadowMap(normal, shadow_pos);
-    return color * max(visibility * ambient, 0.3);
+    return vec4(color.rgb * max(visibility * ambient, 0.3), color.a);
 }
