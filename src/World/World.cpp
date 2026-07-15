@@ -16,6 +16,8 @@
 
 #include <SDL3/SDL.h>
 
+#include <zlib.h>
+
 #include <algorithm>
 #include <cstdlib>
 #include <limits>
@@ -213,12 +215,10 @@ void World::tick(float delta)
     {
         m_dims[0].m_entities.remove(entity);
     }
-    m_dims[0].m_entities_to_remove.clear();
     for (Ref<Entity> entity : m_dims[0].m_entities_to_add)
     {
         m_dims[0].m_entities.append(entity);
     }
-    m_dims[0].m_entities_to_add.clear();
 
     if (!m_proxy)
     {
@@ -262,7 +262,21 @@ void World::tick(float delta)
         //     EXPECT(m_generation_thread_pool.async([this, pos]
         //                                           { EXPECT(m_dims[0].rebuild_neighbor_chunks_water(pos.x, pos.z)); }));
         // }
+
+	// Update all entitity positions
+	if (Engine::get().is_server()) {
+	    for (Ref<Entity> entity : m_dims[World::overworld].get_entities()) {
+		UpdateEntityPacket p{};
+		p.id = entity->id();
+		p.position = entity->get_transform().position();
+		p.rotation = entity->get_transform().rotation();
+		Engine::get().connection().broadcast(Engine::get().connection().create_packet(p));
+	    }
+	}
     }
+
+    m_dims[0].m_entities_to_remove.clear();
+    m_dims[0].m_entities_to_add.clear();
 }
 
 BlockState World::get_block_state(int64_t x, int64_t y, int64_t z) const
@@ -501,6 +515,81 @@ Result<void> World::save_player(const Ref<Player>& player)
     TRY(serializer.save(path));
 
     return Result<void>();
+}
+
+#define COMPRESSION_BUFFER_SIZE 4 * 1024
+
+void World::send_chunk(ENetPeer *peer, const Ref<Chunk>& chunk) const
+{
+    std::vector<uint8_t> buffer; // TODO: use Vector
+    uint8_t tmp[COMPRESSION_BUFFER_SIZE];
+
+    z_stream strm;
+    strm.zalloc = 0;
+    strm.zfree = 0;
+    strm.next_in = (uint8_t *)chunk->get_blocks();
+    strm.avail_in = Chunk::block_count * sizeof(BlockState);
+    strm.next_out = tmp;
+    strm.avail_out = COMPRESSION_BUFFER_SIZE;
+    deflateInit(&strm, Z_BEST_COMPRESSION);
+
+    while(strm.avail_in != 0) {
+	int res = deflate(&strm, Z_NO_FLUSH);
+	assert(res == Z_OK);
+
+	if (strm.avail_out == 0) {
+	    buffer.insert(buffer.end(), tmp, tmp + COMPRESSION_BUFFER_SIZE);
+	    strm.next_out = tmp;
+	    strm.avail_out = COMPRESSION_BUFFER_SIZE;
+	}
+    }
+
+    int deflate_res = Z_OK;
+    while (deflate_res == Z_OK) {
+	if (strm.avail_out == 0) {
+	    buffer.insert(buffer.end(), tmp, tmp + COMPRESSION_BUFFER_SIZE);
+	    strm.next_out = tmp;
+	    strm.avail_out = COMPRESSION_BUFFER_SIZE;
+	}
+	deflate_res = deflate(&strm, Z_FINISH);
+    }
+
+    assert(deflate_res == Z_STREAM_END);
+    buffer.insert(buffer.end(), tmp, tmp + COMPRESSION_BUFFER_SIZE - strm.avail_out);
+    deflateEnd(&strm);
+
+    // debug("deflated size {} vs actual size {}", buffer.size(), Chunk::block_count * sizeof(BlockState));
+
+    ChunkDataPacket chunk_packet;
+    chunk_packet.x = chunk->x();
+    chunk_packet.z = chunk->z();
+    chunk_packet.blocks.append_range(buffer.data(), buffer.size());
+
+    Engine::get().connection().send(peer, Engine::get().connection().create_packet(chunk_packet));
+}
+
+void World::receive_chunk(int64_t x, int64_t z, const Vector<uint8_t>& compressed_data)
+{
+    Ref<Chunk> chunk;
+    if (get_dimension(World::overworld).has_chunk(x, z)) {
+	chunk = get_dimension(World::overworld).get_chunk(x, z).value();
+    } else {
+	chunk = newref<Chunk>(&get_dimension(World::overworld), x, z);
+	get_dimension(World::overworld).add_chunk(x, z, chunk);
+    }
+
+    debug("size = {}", compressed_data.size());
+
+    // TODO: probably use inflateInit & co
+    uLongf usize = Chunk::block_count * sizeof(BlockState);
+    uLongf csize = compressed_data.size();
+    int res = uncompress((uint8_t *)chunk->get_blocks(), &usize, compressed_data.data(), csize);
+    debug("{}", res);
+    assert(res == Z_OK);
+
+    for (size_t i = 0; i < Chunk::slice_count; i++) {
+	EXPECT(chunk->build_simple_mesh(i));
+    }
 }
 
 void World::force_load_chunk_for(glm::vec3 position)

@@ -140,8 +140,10 @@ Result<Ref<Model>> Model::load(const StringView& path)
         obj.bg->set_param("camera", Renderer::get().get_fw_camera());
         obj.bg->set_param("model", obj.model_buffer);
         obj.bg->set_param("global_model", model->m_global_buffer);
+	obj.bg->set_param("world_env", Renderer::get().get_fw_world_env());
         obj.bg->set_param("uvs", obj.uv_buffer);
         obj.bg->set_param("texture", model->m_texture);
+	obj.bg->set_param("shadowmap", Renderer::get().get_fw_shadowmap());
 
         model->m_objects.append(obj);
     }

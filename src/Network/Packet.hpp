@@ -290,8 +290,8 @@ struct ChunkDataPacket
 {
     int64_t x;
     int64_t z;
-    Vector<BlockState> blocks;
-    Vector<Biome> biomes;
+    Vector<uint8_t> blocks;
+    // Vector<Biome> biomes;
 
     static constexpr PacketType type = PacketType::ChunkData;
 };
@@ -299,15 +299,21 @@ inline Result<void> serialize(DataBuffer& buffer, const ChunkDataPacket& p)
 {
     buffer.write(p.x);
     buffer.write(p.z);
+
+    uint32_t size = p.blocks.size();
+    buffer.write(size);
+
     buffer.write_array(p.blocks);
-    buffer.write_array(p.biomes);
+    // buffer.write_array(p.biomes);
     return Result<void>();
 }
 inline Result<void> deserialize(DataBuffer& buffer, ChunkDataPacket& p)
 {
     p.x = buffer.read<int64_t>();
     p.z = buffer.read<int64_t>();
-    p.blocks = buffer.read_array<BlockState>(Chunk::block_count);
-    p.biomes = buffer.read_array<Biome>(Chunk::block_count);
+
+    uint32_t size = buffer.read<uint8_t>();
+    p.blocks = buffer.read_array<uint8_t>(size);
+    // p.biomes = buffer.read_array<Biome>(Chunk::block_count);
     return Result<void>();
 }

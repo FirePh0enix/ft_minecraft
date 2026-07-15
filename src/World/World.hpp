@@ -9,6 +9,8 @@
 #include "World/Chunk.hpp"
 #include "World/Dimension.hpp"
 
+#include <enet/enet.h>
+
 #include <cstddef>
 
 class Player;
@@ -204,6 +206,9 @@ public:
 
     Result<void> save_entity(const Ref<Entity>& entity);
     Result<void> save_player(const Ref<Player>& player);
+
+    void send_chunk(ENetPeer *peer, const Ref<Chunk>& chunk) const;
+    void receive_chunk(int64_t x, int64_t z, const Vector<uint8_t>& compressed_data);
 
     void force_load_chunk_for(glm::vec3 position);
 

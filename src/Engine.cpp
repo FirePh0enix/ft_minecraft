@@ -343,9 +343,9 @@ void Engine::create_world_and_start()
     // cow->get_transform().position() = m_player->get_position();
     // m_world->add_entity(World::overworld, cow);
 
-    //Ref<Entity> zombie = newref<Zombie>();
-    //zombie->get_transform().position() = m_player->get_position();
-    //m_world->add_entity(World::overworld, zombie);
+    // Ref<Entity> zombie = newref<Zombie>();
+    // zombie->get_transform().position() = m_player->get_position();
+    // m_world->add_entity(World::overworld, zombie);
 
     m_scene = GameScene::World;
     m_authority = RpcTarget::Server;
@@ -410,7 +410,7 @@ void Engine::receive_client(void *user, NetworkConnection& conn, ENetPacket *pac
         if (Ref<Player> player = entity)
             player->set_remote();
 
-        self->m_world->add_entity(0, entity);
+        self->m_world->add_entity(World::overworld, entity);
     }
     break;
     case PacketType::RemoveEntity:
@@ -419,8 +419,7 @@ void Engine::receive_client(void *user, NetworkConnection& conn, ENetPacket *pac
         EXPECT(deserialize(buffer, p));
 
         debug("remove entity (id = {})", (uint32_t)p.id);
-        // FIXME
-        // self->m_world->remove_entity(0, p.id);
+        self->m_world->remove_entity(World::overworld, p.id);
     }
     break;
     case PacketType::UpdateEntity:
@@ -432,6 +431,8 @@ void Engine::receive_client(void *user, NetworkConnection& conn, ENetPacket *pac
         if (entity.is_null())
             break;
 
+	// debug("update entity (id = {})", (uint32_t)p.id);
+	
         entity->get_transform().position() = p.position;
         entity->get_transform().rotation() = p.rotation;
     }
@@ -467,7 +468,9 @@ void Engine::receive_client(void *user, NetworkConnection& conn, ENetPacket *pac
         ChunkDataPacket p;
         EXPECT(deserialize(buffer, p));
 
-        if (self->m_world->get_dimension(0).has_chunk(p.x, p.z))
+	self->m_world->receive_chunk(p.x, p.z, p.blocks);
+
+        /*if (self->m_world->get_dimension(0).has_chunk(p.x, p.z))
         {
             // SAFETY: we already checked if the chunk exists, there is no multithreading to mess things up.
             Ref<Chunk> chunk = self->m_world->get_dimension(0).get_chunk(p.x, p.z).value();
@@ -484,7 +487,7 @@ void Engine::receive_client(void *user, NetworkConnection& conn, ENetPacket *pac
                 EXPECT(chunk->build_simple_mesh(i));
 
             self->m_world->add_chunk(p.x, p.z, chunk);
-        }
+	    }*/
     }
     break;
     default:
@@ -579,26 +582,28 @@ void Engine::connect_server(void *user, NetworkConnection& conn, const Client& c
     for (Ref<Entity> entity : self->m_world->get_dimension(0).get_entities())
     {
         Transform3D transform = entity->get_transform();
-        AddEntityPacket p(transform.position(), transform.rotation(), entity->id(), entity->get_class_hash_code());
-        conn.send(client.peer(), conn.create_packet(p));
+        AddEntityPacket p2(transform.position(), transform.rotation(), entity->id(), entity->get_class_hash_code());
+        conn.send(client.peer(), conn.create_packet(p2));
     }
 
     for (const auto& [pos, chunk] : self->m_world->get_dimension(0).get_chunks())
     {
-        ChunkDataPacket chunk_packet;
-        chunk_packet.x = pos.x;
-        chunk_packet.z = pos.z;
+        // ChunkDataPacket chunk_packet;
+        // chunk_packet.x = pos.x;
+        // chunk_packet.z = pos.z;
 
-        chunk_packet.blocks.resize(Chunk::block_count);
-        std::memcpy(chunk_packet.blocks.data(), chunk->get_blocks(), sizeof(BlockState) * chunk_packet.blocks.size());
+	self->m_world->send_chunk(client.peer(), chunk);
 
-        chunk_packet.biomes.resize(Chunk::block_count);
-        std::memcpy(chunk_packet.biomes.data(), chunk->get_biomes(), sizeof(Biome) * chunk_packet.biomes.size());
+        // chunk_packet.blocks.resize(Chunk::block_count);
+        // std::memcpy(chunk_packet.blocks.data(), chunk->get_blocks(), sizeof(BlockState) * chunk_packet.blocks.size());
 
-        conn.send(client.peer(), conn.create_packet(chunk_packet));
+        // chunk_packet.biomes.resize(Chunk::block_count);
+        // std::memcpy(chunk_packet.biomes.data(), chunk->get_biomes(), sizeof(Biome) * chunk_packet.biomes.size());
+
+        // conn.send(client.peer(), conn.create_packet(chunk_packet));
     }
 
-    Engine::singleton->connection().broadcast(Engine::singleton->connection().create_packet(p));
+    // conn.broadcast(Engine::singleton->connection().create_packet(p));
 
     Ref<Player> player = newref<Player>();
     player->set_remote();

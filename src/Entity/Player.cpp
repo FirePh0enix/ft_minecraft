@@ -129,8 +129,8 @@ void Player::on_ready()
         m_model = EXPECT(Model::load("assets/models/player.json"));
         m_animator.set_model(m_model);
 
-        Model::Info info{.model_matrix = glm::translate(glm::identity<glm::mat4>(), glm::vec3(0.0, 100.0, 0.0))};
-        m_model->get_global_buffer()->update(View(info).as_bytes());
+        // Model::Info info{.model_matrix = glm::translate(glm::identity<glm::mat4>(), glm::vec3(0.0, 100.0, 0.0))};
+        // m_model->get_global_buffer()->update(View(info).as_bytes());
     }
 }
 
@@ -355,7 +355,7 @@ void Player::tick(float delta)
     float movement_damp = in_water ? 1.0f : 1.0f;
     float vertical_movement_damp = in_water ? 1.0f : 1.0f;
 
-    if (are_input_available() && (glm::length2(dir) != 0.0 || updown_dir != 0.0) && m_local_player && chunk_loaded)
+    if (are_input_available() && (glm::length2(dir) != 0.0 || updown_dir != 0.0) && m_local_player) //  && chunk_loaded)
     {
         glm::vec3 move = glm::normalize(forward * dir.y + right * dir.x + up * updown_dir) * glm::vec3(movement_damp, vertical_movement_damp, movement_damp) * m_speed;
         m_velocity += move * delta;
@@ -385,6 +385,8 @@ void Player::tick(float delta)
         get_transform().position() += m_velocity;
     }
 
+    bool has_moved = m_velocity.x != 0 || m_velocity.z != 0;
+
     // Reset velocity after movements.
     m_velocity.x = 0.0;
     m_velocity.z = 0.0;
@@ -394,10 +396,15 @@ void Player::tick(float delta)
     else
         m_velocity.y = 0.0;
 
-    if (!m_local_player)
+    if (!m_local_player && has_moved)
     {
         m_animator.play("walk");
         m_animator.tick(delta);
+    }
+    else if (!m_local_player)
+    {
+	m_animator.play("idle");
+	m_animator.tick(delta);
     }
 
     if (m_local_player)
@@ -420,14 +427,14 @@ void Player::tick(float delta)
         m_debug_menu->update(delta);
     }
 
-    // if (m_local_player && Engine::get().is_online() && !Engine::get().is_server())
-    // {
-    //     SendPlayerTransformPacket p{};
-    //     p.id = m_id;
-    //     p.position = get_global_transform().position();
-    //     p.rotation = get_global_transform().rotation();
-    //     Engine::get().connection().send(Engine::get().connection().create_packet(p));
-    // }
+    if (m_local_player && Engine::get().is_online() && !Engine::get().is_server())
+    {
+        SendPlayerTransformPacket p{};
+        p.id = m_id;
+        p.position = get_global_transform().position();
+        p.rotation = get_global_transform().rotation();
+        Engine::get().connection().send(Engine::get().connection().create_packet(p));
+    }
 }
 
 void Player::draw(const RenderPass& pass)
@@ -446,8 +453,6 @@ void Player::draw(const RenderPass& pass)
 
     if (m_local_player && m_inventory_container->get_stack(1, m_inventory->selected_slot()).item().valid())
     {
-	Transform3D camera_transform = m_camera->get_global_transform();
-	
         Id<Item> id = m_inventory_container->get_stack(1, m_inventory->selected_slot()).item();
         Ref<Item> item = Engine::get().registry().get_item(id);
         if (Ref<ItemBlock> ib = item.cast_to<ItemBlock>())

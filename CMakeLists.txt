@@ -344,6 +344,19 @@ FetchContent_MakeAvailable(stb)
 target_include_directories(${TARGET_NAME} PRIVATE ${stb_SOURCE_DIR})
 target_include_directories(${TARGET_NAME}_test PRIVATE ${stb_SOURCE_DIR})
 
+# zlib
+FetchContent_Declare(
+	zlib
+	GIT_REPOSITORY https://github.com/madler/zlib
+	GIT_TAG e3dc0a85b7032e98380dec011bc8f2c2ee0d8fca
+)
+FetchContent_MakeAvailable(zlib)
+target_link_libraries(${TARGET_NAME} PRIVATE zlib)
+target_include_directories(${TARGET_NAME} PRIVATE ${zlib_SOURCE_DIR})
+
+target_link_libraries(${TARGET_NAME}_test PRIVATE zlib)
+target_include_directories(${TARGET_NAME}_test PRIVATE ${zlib_SOURCE_DIR})
+
 # enet
 set(BUILD_SHARED_LIBS 0)
 
