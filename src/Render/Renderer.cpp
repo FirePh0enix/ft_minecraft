@@ -1031,7 +1031,6 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_fw_item_shader->create_bind_group_layout();
 
     m_fw_chunk_shader = TRY(Shader::load_from_path("assets/shaders/fw/chunk.wgsl"));
-    m_fw_chunk_shader->set_binding("chunk", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
     m_fw_chunk_shader->set_binding("camera", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 1, BindingAccess::Read));
     m_fw_chunk_shader->set_binding("world_env", Binding::UniformBuffer(WGPUShaderStage_Vertex | WGPUShaderStage_Fragment, 0, 2, BindingAccess::Read));
     m_fw_chunk_shader->set_binding("images", Binding::Texture(WGPUShaderStage_Fragment, 0, 3, BindingAccess::Read, WGPUTextureViewDimension_2DArray));
@@ -1041,7 +1040,6 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_fw_chunk_shader->create_bind_group_layout();
 
     m_fw_water_shader = TRY(Shader::load_from_path("assets/shaders/fw/water.wgsl"));
-    m_fw_water_shader->set_binding("chunk", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
     m_fw_water_shader->set_binding("camera", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 1, BindingAccess::Read));
     m_fw_water_shader->set_binding("world_env", Binding::UniformBuffer(WGPUShaderStage_Vertex | WGPUShaderStage_Fragment, 0, 2, BindingAccess::Read));
     m_fw_water_shader->set_binding("image", Binding::Texture(WGPUShaderStage_Fragment, 0, 3, BindingAccess::Read, WGPUTextureViewDimension_2D));
@@ -1051,7 +1049,6 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_fw_water_shader->create_bind_group_layout();
 
     m_fw_chunk_shadowmap_shader = TRY(Shader::load_from_path("assets/shaders/fw/chunk_shadowmap.wgsl"));
-    m_fw_chunk_shadowmap_shader->set_binding("chunk", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
     m_fw_chunk_shadowmap_shader->set_binding("camera", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 1, BindingAccess::Read));
     m_fw_chunk_shadowmap_shader->create_bind_group_layout();
 
@@ -1086,9 +1083,10 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_fw_item_block_mat = Material::create(m_fw_item_block_shader, MaterialFlagBits::None, WGPUCullMode_Back, UVType::UV);
     m_fw_item_mat = Material::create(m_fw_item_shader, MaterialFlagBits::Transparency, WGPUCullMode_None, UVType::UV);
 
-    m_fw_chunk_mat = Material::create(m_fw_chunk_shader, MaterialFlagBits::None, WGPUCullMode_Back, UVType::UVT);
-    m_fw_chunk_shadowmap_mat = Material::create(m_fw_chunk_shadowmap_shader, MaterialFlagBits::NoNormal | MaterialFlagBits::NoUV, WGPUCullMode_Front, UVType::UVT);
-    m_fw_water_mat = Material::create(m_fw_water_shader, MaterialFlagBits::Transparency, WGPUCullMode_Back, UVType::UV);
+    Vector<InstanceAttribute> chunk_attribs = Vector<InstanceAttribute>::create(InstanceAttribute(0, WGPUVertexFormat_Float32x3)); 
+    m_fw_chunk_mat = Material::create(m_fw_chunk_shader, MaterialFlagBits::None, WGPUCullMode_Back, UVType::UVT, Instance(chunk_attribs, sizeof(glm::vec3)));
+    m_fw_chunk_shadowmap_mat = Material::create(m_fw_chunk_shadowmap_shader, MaterialFlagBits::NoNormal | MaterialFlagBits::NoUV, WGPUCullMode_Front, UVType::UVT, Instance(chunk_attribs, sizeof(glm::vec3)));
+    m_fw_water_mat = Material::create(m_fw_water_shader, MaterialFlagBits::Transparency, WGPUCullMode_Back, UVType::UV, Instance(chunk_attribs, sizeof(glm::vec3)));
 
     m_fw_colored_mat = Material::create(m_fw_colored_shader, MaterialFlagBits::NoUV, WGPUCullMode_Back, UVType::UV);
     m_fw_colored_shadowmap_mat = Material::create(m_fw_colored_shader, MaterialFlagBits::NoUV, WGPUCullMode_Front, UVType::UV);
@@ -1577,11 +1575,12 @@ void Renderer::draw_world(const Ref<World>& world, const RenderPass& pass, World
 
             size_t buffer_index = 1;
             if (!mat->flags().has_any(MaterialFlagBits::NoNormal))
-                wgpuRenderPassEncoderSetVertexBuffer(pass.encoder, buffer_index++, mesh->get_buffer(Mesh::BufferKind::Normal)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Normal)->size());
+                wgpuRenderPassEncoderSetVertexBuffer(encoder, buffer_index++, mesh->get_buffer(Mesh::BufferKind::Normal)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Normal)->size());
             if (!mat->flags().has_any(MaterialFlagBits::NoUV))
-                wgpuRenderPassEncoderSetVertexBuffer(pass.encoder, buffer_index++, mesh->get_buffer(Mesh::BufferKind::UV)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::UV)->size());
+                wgpuRenderPassEncoderSetVertexBuffer(encoder, buffer_index++, mesh->get_buffer(Mesh::BufferKind::UV)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::UV)->size());
 
-            wgpuRenderPassEncoderDrawIndexed(encoder, mesh->vertex_count(), 1, 0, 0, 0);
+	    wgpuRenderPassEncoderSetVertexBuffer(encoder, buffer_index++, chunk->get_instance_buffer()->handle(), 0, chunk->get_instance_buffer()->size());
+            wgpuRenderPassEncoderDrawIndexed(encoder, mesh->vertex_count(), 1, 0, 0, i);
         }
     }
 }

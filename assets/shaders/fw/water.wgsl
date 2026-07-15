@@ -1,7 +1,3 @@
-struct Chunk {
-    model: mat4x4f,
-}
-
 struct Camera {
     view_projection: mat4x4f,
 }
@@ -11,7 +7,6 @@ struct WorldEnv {
     light_dir: vec3f,
 }
 
-@group(0) @binding(0) var<uniform> chunk: Chunk;
 @group(0) @binding(1) var<uniform> camera: Camera;
 @group(0) @binding(2) var<uniform> world_env: WorldEnv;
 
@@ -22,9 +17,11 @@ struct WorldEnv {
 @group(0) @binding(6) var shadowmap_sampler: sampler;
 
 struct VertexInput {
-    @location(0) position: vec3f,
-    @location(1) normal: vec3f,
-    @location(2) uv: vec2f,
+    @location(0) position: vec3<f32>,
+    @location(1) normal: vec3<f32>,
+    @location(2) uv: vec2<f32>,
+
+    @location(3) chunk_pos: vec3<f32>, // per instance
 }
 
 struct VertexOutput {
@@ -37,12 +34,17 @@ struct VertexOutput {
 
 @vertex
 fn vertex_main(in: VertexInput) -> VertexOutput {
+    let model_matrix = mat4x4(1.0, 0.0, 0.0, 0.0,
+			      0.0, 1.0, 0.0, 0.0,
+			      0.0, 0.0, 1.0, 0.0,
+			      in.chunk_pos.x, in.chunk_pos.y, in.chunk_pos.z, 1.0);
+
     var out: VertexOutput;
     out.uv = vec2f(in.uv.x, 1.0 - in.uv.y);
     out.normal = in.normal;
 
-    out.clip_position = camera.view_projection * chunk.model * vec4f(in.position, 1.0);
-    out.frag_pos_light_space = world_env.light_view_projection * chunk.model * vec4f(in.position, 1.0);
+    out.clip_position = camera.view_projection * model_matrix * vec4f(in.position, 1.0);
+    out.frag_pos_light_space = world_env.light_view_projection * model_matrix * vec4f(in.position, 1.0);
 
     return out;
 }

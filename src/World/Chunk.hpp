@@ -129,6 +129,8 @@ public:
     const Slice *get_slices() const { return m_slices; }
     Slice *get_slices() { return m_slices; }
 
+    ALWAYS_INLINE Ref<Buffer> get_instance_buffer() const { return m_uniform_buffer; }
+
     // Ref<Buffer> get_chunk_instance_buffer() const { return m_chunk_instance_buffer; }
 
     Result<void> build_simple_mesh(size_t slice);

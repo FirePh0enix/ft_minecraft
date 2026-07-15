@@ -17,30 +17,27 @@ Chunk::Chunk(Dimension *dim, int64_t x, int64_t z)
     m_biomes = alloc_array_uninitialized<Biome>(block_count);
     m_slices = alloc_array<Slice>(slice_count);
 
-    m_uniform_buffer = EXPECT(Buffer::create(sizeof(FwChunkUniforms) * slice_count, WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
-    Array<FwChunkUniforms, slice_count> uniform_data{};
+    m_uniform_buffer = EXPECT(Buffer::create(sizeof(FwChunkUniforms) * slice_count, WGPUBufferUsage_Uniform | WGPUBufferUsage_Vertex | WGPUBufferUsage_CopyDst));
+    Array<glm::vec3, slice_count> uniform_data{};
 
     for (size_t i = 0; i < slice_count; i++)
     {
         m_slices[i].mesh_bg = BindGroup::create(Renderer::get().get_fw_chunk_shader());
-        m_slices[i].mesh_bg->set_param("chunk", m_uniform_buffer, i * sizeof(FwChunkUniforms), sizeof(FwChunkUniforms));
         m_slices[i].mesh_bg->set_param("camera", Renderer::get().get_fw_camera());
         m_slices[i].mesh_bg->set_param("world_env", Renderer::get().get_fw_world_env());
         m_slices[i].mesh_bg->set_param("images", Engine::get().registry().get_texture_array());
         m_slices[i].mesh_bg->set_param("shadowmap", Renderer::get().get_fw_shadowmap());
 
         m_slices[i].water_bg = BindGroup::create(Renderer::get().get_fw_water_shader());
-        m_slices[i].water_bg->set_param("chunk", m_uniform_buffer, i * sizeof(FwChunkUniforms), sizeof(FwChunkUniforms));
         m_slices[i].water_bg->set_param("camera", Renderer::get().get_fw_camera());
         m_slices[i].water_bg->set_param("world_env", Renderer::get().get_fw_world_env());
         m_slices[i].water_bg->set_param("image", Renderer::get().get_fw_water_texture());
         m_slices[i].water_bg->set_param("shadowmap", Renderer::get().get_fw_shadowmap());
 
         m_slices[i].mesh_shadowmap_bg = BindGroup::create(Renderer::get().get_fw_shadowmap_shader());
-        m_slices[i].mesh_shadowmap_bg->set_param("chunk", m_uniform_buffer, i * sizeof(FwChunkUniforms), sizeof(FwChunkUniforms));
         m_slices[i].mesh_shadowmap_bg->set_param("camera", Renderer::get().get_fw_shadowmap_camera());
 
-        uniform_data[i].model_matrix = glm::translate(glm::identity<glm::mat4>(), glm::vec3(x * Chunk::width, i * Chunk::width, z * Chunk::width));
+	uniform_data[i] = glm::vec3(x * Chunk::width, i * Chunk::width, z * Chunk::width);
     }
 
     m_uniform_buffer->update(View(uniform_data).as_bytes());
