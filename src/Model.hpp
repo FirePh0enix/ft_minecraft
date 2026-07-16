@@ -10,7 +10,7 @@
 class Buffer;
 class Texture;
 class Material;
-class RenderPass;
+struct RenderPass;
 class BindGroup;
 
 class Model : public Object

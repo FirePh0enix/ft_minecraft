@@ -236,42 +236,41 @@ void World::tick(float delta)
         }
 
         load_around_player();
+    }
 
-        // Flush all new chunks.
-        LocalVector<ChunkPos> chunk_modified;
+    // Flush all new chunks.
+    LocalVector<ChunkPos> chunk_modified;
 
+    {
+        std::lock_guard<std::mutex> lock(m_dims[0].mutex());
+        for (auto& [pos, chunk] : m_dims[0].m_chunks_to_flush)
         {
-            std::lock_guard<std::mutex> lock(m_dims[0].mutex());
-            for (auto& [pos, chunk] : m_dims[0].m_chunks_to_flush)
-            {
-                m_dims[0].m_chunks.put(pos, chunk);
-                chunk_modified.append(pos);
-            }
-            m_dims[0].m_chunks_to_flush.clear();
-
-            for (auto pos : m_dims[0].m_chunks_to_remove)
-            {
-                m_dims[0].m_chunks.erase(pos);
-                chunk_modified.append(pos);
-            }
-            m_dims[0].m_chunks_to_remove.clear();
+            m_dims[0].m_chunks.put(pos, chunk);
+            chunk_modified.append(pos);
         }
+        m_dims[0].m_chunks_to_flush.clear();
 
-        // for (ChunkPos pos : chunk_modified)
-        // {
-        //     EXPECT(m_generation_thread_pool.async([this, pos]
-        //                                           { EXPECT(m_dims[0].rebuild_neighbor_chunks_water(pos.x, pos.z)); }));
-        // }
+        for (auto pos : m_dims[0].m_chunks_to_remove)
+        {
+            m_dims[0].m_chunks.erase(pos);
+            chunk_modified.append(pos);
+        }
+        m_dims[0].m_chunks_to_remove.clear();
+    }
 
-	// Update all entitity positions
-	if (Engine::get().is_server()) {
-	    for (Ref<Entity> entity : m_dims[World::overworld].get_entities()) {
-		UpdateEntityPacket p{};
-		p.id = entity->id();
-		p.position = entity->get_transform().position();
-		p.rotation = entity->get_transform().rotation();
-		Engine::get().connection().broadcast(Engine::get().connection().create_packet(p));
-	    }
+    // for (ChunkPos pos : chunk_modified)
+    // {
+    //     EXPECT(m_generation_thread_pool.async([this, pos]
+    //                                           { EXPECT(m_dims[0].rebuild_neighbor_chunks_water(pos.x, pos.z)); }));
+    // }
+
+    if (!m_proxy && Engine::get().is_server()) {
+	for (Ref<Entity> entity : m_dims[World::overworld].get_entities()) {
+	    UpdateEntityPacket p{};
+	    p.id = entity->id();
+	    p.position = entity->get_transform().position();
+	    p.rotation = entity->get_transform().rotation();
+	    Engine::get().connection().broadcast(Engine::get().connection().create_packet(p));
 	}
     }
 
@@ -517,12 +516,12 @@ Result<void> World::save_player(const Ref<Player>& player)
     return Result<void>();
 }
 
-#define COMPRESSION_BUFFER_SIZE 4 * 1024
+#define DEFLATE_BUFFER_SIZE 4 * 1024
 
 void World::send_chunk(ENetPeer *peer, const Ref<Chunk>& chunk) const
 {
     std::vector<uint8_t> buffer; // TODO: use Vector
-    uint8_t tmp[COMPRESSION_BUFFER_SIZE];
+    uint8_t tmp[DEFLATE_BUFFER_SIZE];
 
     z_stream strm;
     strm.zalloc = 0;
@@ -530,7 +529,7 @@ void World::send_chunk(ENetPeer *peer, const Ref<Chunk>& chunk) const
     strm.next_in = (uint8_t *)chunk->get_blocks();
     strm.avail_in = Chunk::block_count * sizeof(BlockState);
     strm.next_out = tmp;
-    strm.avail_out = COMPRESSION_BUFFER_SIZE;
+    strm.avail_out = DEFLATE_BUFFER_SIZE;
     deflateInit(&strm, Z_BEST_COMPRESSION);
 
     while(strm.avail_in != 0) {
@@ -538,58 +537,85 @@ void World::send_chunk(ENetPeer *peer, const Ref<Chunk>& chunk) const
 	assert(res == Z_OK);
 
 	if (strm.avail_out == 0) {
-	    buffer.insert(buffer.end(), tmp, tmp + COMPRESSION_BUFFER_SIZE);
+	    buffer.insert(buffer.end(), tmp, tmp + DEFLATE_BUFFER_SIZE);
 	    strm.next_out = tmp;
-	    strm.avail_out = COMPRESSION_BUFFER_SIZE;
+	    strm.avail_out = DEFLATE_BUFFER_SIZE;
 	}
     }
 
     int deflate_res = Z_OK;
     while (deflate_res == Z_OK) {
 	if (strm.avail_out == 0) {
-	    buffer.insert(buffer.end(), tmp, tmp + COMPRESSION_BUFFER_SIZE);
+	    buffer.insert(buffer.end(), tmp, tmp + DEFLATE_BUFFER_SIZE);
 	    strm.next_out = tmp;
-	    strm.avail_out = COMPRESSION_BUFFER_SIZE;
+	    strm.avail_out = DEFLATE_BUFFER_SIZE;
 	}
 	deflate_res = deflate(&strm, Z_FINISH);
     }
 
     assert(deflate_res == Z_STREAM_END);
-    buffer.insert(buffer.end(), tmp, tmp + COMPRESSION_BUFFER_SIZE - strm.avail_out);
+    buffer.insert(buffer.end(), tmp, tmp + DEFLATE_BUFFER_SIZE - strm.avail_out);
     deflateEnd(&strm);
 
-    // debug("deflated size {} vs actual size {}", buffer.size(), Chunk::block_count * sizeof(BlockState));
+    ChunkDataPacket p;
+    p.x = chunk->x();
+    p.z = chunk->z();
 
-    ChunkDataPacket chunk_packet;
-    chunk_packet.x = chunk->x();
-    chunk_packet.z = chunk->z();
-    chunk_packet.blocks.append_range(buffer.data(), buffer.size());
+    p.blocks.resize(buffer.size());
+    memcpy(p.blocks.data(), buffer.data(), buffer.size());
 
-    Engine::get().connection().send(peer, Engine::get().connection().create_packet(chunk_packet));
+    Engine::get().connection().send(peer, Engine::get().connection().create_packet(p));
+}
+ 
+#define INFLATE_BUFFER_SIZE (sizeof(BlockState) * 1024)
+
+void World::receive_chunk(int64_t x, int64_t z, uint8_t *compressed_data, size_t size)
+{
+    Dimension& dimension = get_dimension(World::overworld);
+    bool has_chunk = dimension.has_chunk(x, z);
+    
+    Ref<Chunk> chunk;
+    if (has_chunk) {
+	chunk = dimension.get_chunk(x, z).value();
+	// TODO: maybe we need a mutex to modify a chunk, for now it only creates new one.
+    } else {
+	chunk = newref<Chunk>(&dimension, x, z);
+    }
+
+    z_stream strm{};
+    strm.zalloc = 0;
+    strm.zfree = 0;
+    strm.next_in = (uint8_t *)compressed_data;
+    strm.avail_in = size;
+    strm.next_out = (uint8_t *)chunk->get_blocks();
+    strm.avail_out = Chunk::block_count * sizeof(BlockState);
+
+    // TODO: Obsiously we don't want to crash on errors.
+    
+    // The expected size of the output is already known which allows to have only one `inflate` call.
+    int res = inflateInit(&strm);
+    assert(res == Z_OK);
+    res = inflate(&strm, Z_FINISH);
+    assert(res == Z_STREAM_END);
+    inflateEnd(&strm);
+    
+    for (size_t i = 0; i < Chunk::slice_count; i++) {
+	// TODO: Remove the `empty` boolean, this serve no actual purpose.
+     	chunk->get_slices()[i].empty = false;
+     	EXPECT(chunk->build_simple_mesh(i));
+    }
+
+    destroy_array_nodestruct(compressed_data, size);
+
+    if (!has_chunk) {
+    	dimension.add_chunk(x, z, chunk);
+    }
 }
 
-void World::receive_chunk(int64_t x, int64_t z, const Vector<uint8_t>& compressed_data)
+void World::deferred_receive_chunk(int64_t x, int64_t z, uint8_t *compressed_data, size_t size)
 {
-    Ref<Chunk> chunk;
-    if (get_dimension(World::overworld).has_chunk(x, z)) {
-	chunk = get_dimension(World::overworld).get_chunk(x, z).value();
-    } else {
-	chunk = newref<Chunk>(&get_dimension(World::overworld), x, z);
-	get_dimension(World::overworld).add_chunk(x, z, chunk);
-    }
-
-    debug("size = {}", compressed_data.size());
-
-    // TODO: probably use inflateInit & co
-    uLongf usize = Chunk::block_count * sizeof(BlockState);
-    uLongf csize = compressed_data.size();
-    int res = uncompress((uint8_t *)chunk->get_blocks(), &usize, compressed_data.data(), csize);
-    debug("{}", res);
-    assert(res == Z_OK);
-
-    for (size_t i = 0; i < Chunk::slice_count; i++) {
-	EXPECT(chunk->build_simple_mesh(i));
-    }
+    // Maybe I'm dumb and I don't know anything but using `[&]` creates segfaults, but manually specifying captures don't.
+    m_generation_thread_pool.async([this, x, z, compressed_data, size]() { receive_chunk(x, z, compressed_data, size); });
 }
 
 void World::force_load_chunk_for(glm::vec3 position)
@@ -638,7 +664,7 @@ void World::load_one_chunk(ChunkPos pos)
         // }
 
         memcpy(chunk->get_blocks(), data.data() + wb.blocks_offset, sizeof(BlockState) * Chunk::block_count);
-        memcpy(chunk->get_biomes(), data.data() + wb.biomes_offset, sizeof(BlockState) * Chunk::block_count);
+        memcpy(chunk->get_biomes(), data.data() + wb.biomes_offset, sizeof(Biome) * Chunk::block_count);
 
         String path = format("{}saves/{}/DIM0/{}${}/tags.dat", Filesystem::get_data_directory(), m_name, pos.x, pos.z);
         if (Filesystem::exists(path))

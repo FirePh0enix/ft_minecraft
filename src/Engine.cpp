@@ -457,6 +457,7 @@ void Engine::receive_client(void *user, NetworkConnection& conn, ENetPacket *pac
         if (!rpc.has_value())
             break;
 
+	// We are on the client, so skip call to server RPCs.
         if (rpc == RpcTarget::Server)
             break;
 
@@ -468,26 +469,11 @@ void Engine::receive_client(void *user, NetworkConnection& conn, ENetPacket *pac
         ChunkDataPacket p;
         EXPECT(deserialize(buffer, p));
 
-	self->m_world->receive_chunk(p.x, p.z, p.blocks);
+	uint8_t *mem = alloc_array_uninitialized<uint8_t>(p.blocks.size());
+	memcpy(mem, p.blocks.data(), p.blocks.size());
 
-        /*if (self->m_world->get_dimension(0).has_chunk(p.x, p.z))
-        {
-            // SAFETY: we already checked if the chunk exists, there is no multithreading to mess things up.
-            Ref<Chunk> chunk = self->m_world->get_dimension(0).get_chunk(p.x, p.z).value();
-            std::memcpy(chunk->get_blocks(), p.blocks.data(), sizeof(BlockState) * p.blocks.size());
-            std::memcpy(chunk->get_biomes(), p.biomes.data(), sizeof(Biome) * p.biomes.size());
-        }
-        else
-        {
-            Ref<Chunk> chunk = newref<Chunk>(&self->m_world->get_dimension(0), p.x, p.z);
-            std::memcpy(chunk->get_blocks(), p.blocks.data(), sizeof(BlockState) * p.blocks.size());
-            std::memcpy(chunk->get_biomes(), p.biomes.data(), sizeof(Biome) * p.biomes.size());
-
-            for (size_t i = 0; i < Chunk::slice_count; i++)
-                EXPECT(chunk->build_simple_mesh(i));
-
-            self->m_world->add_chunk(p.x, p.z, chunk);
-	    }*/
+	// Inflate the data is a seperate thread to free up the network thread.
+	self->m_world->deferred_receive_chunk(p.x, p.z, mem, p.blocks.size());
     }
     break;
     default:
@@ -586,24 +572,11 @@ void Engine::connect_server(void *user, NetworkConnection& conn, const Client& c
         conn.send(client.peer(), conn.create_packet(p2));
     }
 
+    // TODO: remove this, replace this by a requests system.
     for (const auto& [pos, chunk] : self->m_world->get_dimension(0).get_chunks())
     {
-        // ChunkDataPacket chunk_packet;
-        // chunk_packet.x = pos.x;
-        // chunk_packet.z = pos.z;
-
 	self->m_world->send_chunk(client.peer(), chunk);
-
-        // chunk_packet.blocks.resize(Chunk::block_count);
-        // std::memcpy(chunk_packet.blocks.data(), chunk->get_blocks(), sizeof(BlockState) * chunk_packet.blocks.size());
-
-        // chunk_packet.biomes.resize(Chunk::block_count);
-        // std::memcpy(chunk_packet.biomes.data(), chunk->get_biomes(), sizeof(Biome) * chunk_packet.biomes.size());
-
-        // conn.send(client.peer(), conn.create_packet(chunk_packet));
     }
-
-    // conn.broadcast(Engine::singleton->connection().create_packet(p));
 
     Ref<Player> player = newref<Player>();
     player->set_remote();

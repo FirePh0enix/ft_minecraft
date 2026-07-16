@@ -143,23 +143,6 @@ public:
 	m_size += additional_size;
     }
 
-    void append_range(const T *data, size_t size)
-    {
-	copy_on_write();
-
-        size_t additonal_size = size;
-        ensure_at_least(additonal_size);
-
-        size_t i = m_size;
-        for (; i < m_size + size; i++)
-        {
-            new (m_data + i) T(data[i - m_size]);
-            i += 1;
-        }
-
-	m_size += size;
-    }
-
     T pop_one_unchecked()
     {
         copy_on_write();

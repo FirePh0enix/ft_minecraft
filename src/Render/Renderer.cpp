@@ -1477,7 +1477,6 @@ void Renderer::draw_forward(const Ref<World>& world)
     ui_pass_desc.label = WGPU_STRING_VIEW("Color pass");
     ui_pass_desc.colorAttachmentCount = 1;
     ui_pass_desc.colorAttachments = &color_load_attach;
-    ui_pass_desc.depthStencilAttachment = nullptr;
 
     WGPURenderPassEncoder ui_pass = wgpuCommandEncoderBeginRenderPass(encoder, &ui_pass_desc);
     const RenderPass ui_pass_info(ui_pass, None, Vector<RenderTarget>::create(m_surface_format));

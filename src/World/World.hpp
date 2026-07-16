@@ -207,8 +207,10 @@ public:
     Result<void> save_entity(const Ref<Entity>& entity);
     Result<void> save_player(const Ref<Player>& player);
 
+    void deferred_receive_chunk(int64_t x, int64_t z, uint8_t *compressed_data, size_t size);
+
     void send_chunk(ENetPeer *peer, const Ref<Chunk>& chunk) const;
-    void receive_chunk(int64_t x, int64_t z, const Vector<uint8_t>& compressed_data);
+    void receive_chunk(int64_t x, int64_t z, uint8_t *compressed_data, size_t size);
 
     void force_load_chunk_for(glm::vec3 position);
 
