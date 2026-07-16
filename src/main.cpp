@@ -21,28 +21,17 @@ static clock_t last_update_time;
 
 MAIN(int argc, char *argv[])
 {
+    (void)argc;
+    (void)argv;
+    
 #if !defined(__has_address_sanitizer) && !defined(__platform_web)
     // NOTE: Address sanitizer mess with our custom error handling.
     initialize_error_handling(Filesystem::current_executable_path().c_str());
 #endif
 
-    Option<String> data_dir;
-    for (int i = 1; i < argc; i++)
-    {
-        if (StringView(argv[i]) == "--data-dir" && i + 1 < argc)
-            data_dir = Option<String>(argv[++i]);
-    }
-
     TracySetThreadName("Main");
 
     Ref<Engine> engine = newref<Engine>();
-
-    if (data_dir.has_value())
-    {
-        String s = data_dir.value();
-        s.append("/");
-        Filesystem::data_dir = s;
-    }
 
     info("using data directory `{}`", Filesystem::get_data_directory());
 
@@ -55,9 +44,11 @@ MAIN(int argc, char *argv[])
             last_update_time = clock();
 
             engine->tick(float(fixed_update_time)); // TODO: change to elapsed time or something
-            engine->draw(float(fixed_update_time));
+            //engine->draw(float(fixed_update_time));
             Input::post_events();
         }
+
+	engine->draw(float(fixed_update_time));
     }
 
     engine = nullptr;

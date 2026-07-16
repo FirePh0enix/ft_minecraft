@@ -46,22 +46,7 @@ std::filesystem::path Filesystem::current_executable_directory()
 
 String Filesystem::get_data_directory()
 {
-    if (data_dir.has_value())
-        return data_dir.value();
-
-#ifdef __platform_linux
-    const char *xdg_data_home = getenv("XDG_DATA_HOME");
-    if (xdg_data_home != nullptr)
-        return format("{}/ft_minecraft/", xdg_data_home);
-
-    const char *home = getenv("HOME");
-    if (home != nullptr)
-        return format("{}/.local/share/ft_minecraft");
-
-    return format("./appdata/");
-#else
-    return format("./appdata/");
-#endif
+    return "./appdata/";
 }
 
 bool Filesystem::exists(const StringView& path)

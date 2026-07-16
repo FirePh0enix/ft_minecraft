@@ -76,6 +76,4 @@ public:
 
     static Result<File> open_file(const StringView& path, bool rw = false);
     static Result<void> make_dirs(const StringView& path);
-
-    static inline Option<String> data_dir;
 };

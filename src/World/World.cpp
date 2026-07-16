@@ -430,34 +430,16 @@ void World::break_block(int64_t x, int64_t y, int64_t z)
 
 Result<void> World::save_chunk(Ref<Chunk> chunk)
 {
-    // CompressedChunk cchunk = TRY(chunk->compress());
-
     String path = format("{}/saves/{}/DIM0/{}${}/", Filesystem::get_data_directory(), m_name, chunk->x(), chunk->z());
     TRY(Filesystem::make_dirs(path));
 
     path.append("blocks.dat");
     File file = TRY(Filesystem::open_file(path, true));
 
-    WorldBlocks wb{};
-    wb.padding0 = 0;
-    // wb.chunk_slice_mask = cchunk.compressed_slice_mask;
-    wb.blocks_offset = sizeof(WorldBlocks);
-    // wb.blocks_len = cchunk.compressed_blocks.size();
-    // wb.blocks_tree_offset = wb.blocks_offset + cchunk.compressed_blocks.size() * sizeof(BlockState);
-    // wb.blocks_tree_len = cchunk.compressed_nodes.size();
-    // wb.biomes_offset = wb.blocks_tree_offset + cchunk.compressed_nodes.size() * sizeof(ChunkNode);
-    // wb.biomes_len = cchunk.compressed_biomes.size();
-    // wb.biomes_tree_offset = wb.biomes_offset + cchunk.compressed_biomes.size() * sizeof(Biome);
-    // wb.biomes_tree_len = cchunk.compressed_biome_nodes.size();
-    wb.biomes_offset = Chunk::block_count * sizeof(BlockState);
+    std::vector<uint8_t> compressed_data;
+    deflate_blocks(chunk, compressed_data);
 
-    TRY(file.writer().write_raw(&wb, sizeof(WorldBlocks)));
-    TRY(file.writer().write_raw(chunk->get_blocks(), sizeof(BlockState) * Chunk::block_count));
-    TRY(file.writer().write_raw(chunk->get_biomes(), sizeof(Biome) * Chunk::block_count));
-    // TRY(file.write_raw(cchunk.compressed_blocks.data(), cchunk.compressed_blocks.size() * sizeof(BlockState)));
-    // TRY(file.write_raw(cchunk.compressed_nodes.data(), cchunk.compressed_nodes.size() * sizeof(ChunkNode)));
-    // TRY(file.write_raw(cchunk.compressed_biomes.data(), cchunk.compressed_biomes.size() * sizeof(Biome)));
-    // TRY(file.write_raw(cchunk.compressed_biome_nodes.data(), cchunk.compressed_biome_nodes.size() * sizeof(ChunkBiomeNode)));
+    TRY(file.writer().write_raw(compressed_data.data(), compressed_data.size()));
 
     file.close();
 
@@ -494,7 +476,7 @@ Result<void> World::save_entity(const Ref<Entity>& entity)
     entity->save(serializer);
 
     path.append("");
-    // TODO
+    // TODO: save to disk
 
     return Result<void>();
 }
@@ -520,42 +502,8 @@ Result<void> World::save_player(const Ref<Player>& player)
 
 void World::send_chunk(ENetPeer *peer, const Ref<Chunk>& chunk) const
 {
-    std::vector<uint8_t> buffer; // TODO: use Vector
-    uint8_t tmp[DEFLATE_BUFFER_SIZE];
-
-    z_stream strm;
-    strm.zalloc = 0;
-    strm.zfree = 0;
-    strm.next_in = (uint8_t *)chunk->get_blocks();
-    strm.avail_in = Chunk::block_count * sizeof(BlockState);
-    strm.next_out = tmp;
-    strm.avail_out = DEFLATE_BUFFER_SIZE;
-    deflateInit(&strm, Z_BEST_COMPRESSION);
-
-    while(strm.avail_in != 0) {
-	int res = deflate(&strm, Z_NO_FLUSH);
-	assert(res == Z_OK);
-
-	if (strm.avail_out == 0) {
-	    buffer.insert(buffer.end(), tmp, tmp + DEFLATE_BUFFER_SIZE);
-	    strm.next_out = tmp;
-	    strm.avail_out = DEFLATE_BUFFER_SIZE;
-	}
-    }
-
-    int deflate_res = Z_OK;
-    while (deflate_res == Z_OK) {
-	if (strm.avail_out == 0) {
-	    buffer.insert(buffer.end(), tmp, tmp + DEFLATE_BUFFER_SIZE);
-	    strm.next_out = tmp;
-	    strm.avail_out = DEFLATE_BUFFER_SIZE;
-	}
-	deflate_res = deflate(&strm, Z_FINISH);
-    }
-
-    assert(deflate_res == Z_STREAM_END);
-    buffer.insert(buffer.end(), tmp, tmp + DEFLATE_BUFFER_SIZE - strm.avail_out);
-    deflateEnd(&strm);
+    std::vector<uint8_t> buffer;
+    deflate_blocks(chunk, buffer);
 
     ChunkDataPacket p;
     p.x = chunk->x();
@@ -582,22 +530,7 @@ void World::receive_chunk(int64_t x, int64_t z, uint8_t *compressed_data, size_t
 	chunk = newref<Chunk>(&dimension, x, z);
     }
 
-    z_stream strm{};
-    strm.zalloc = 0;
-    strm.zfree = 0;
-    strm.next_in = (uint8_t *)compressed_data;
-    strm.avail_in = size;
-    strm.next_out = (uint8_t *)chunk->get_blocks();
-    strm.avail_out = Chunk::block_count * sizeof(BlockState);
-
-    // TODO: Obsiously we don't want to crash on errors.
-    
-    // The expected size of the output is already known which allows to have only one `inflate` call.
-    int res = inflateInit(&strm);
-    assert(res == Z_OK);
-    res = inflate(&strm, Z_FINISH);
-    assert(res == Z_STREAM_END);
-    inflateEnd(&strm);
+    inflate_blocks(compressed_data, size, (uint8_t *)chunk->get_blocks());
     
     for (size_t i = 0; i < Chunk::slice_count; i++) {
 	// TODO: Remove the `empty` boolean, this serve no actual purpose.
@@ -646,25 +579,7 @@ void World::load_one_chunk(ChunkPos pos)
         EXPECT(file.reader().read_to_buffer(data));
         file.close();
 
-        WorldBlocks wb = *(WorldBlocks *)data.data();
-        // println("size = {}", data.size());
-        // println("{} - {}", wb.blocks_offset, wb.blocks_offset + wb.blocks_len * sizeof(BlockState));
-        // println("{} - {}", wb.blocks_tree_offset, wb.blocks_tree_offset + wb.blocks_tree_len * sizeof(ChunkNode));
-        // println("{} - {}", wb.biomes_offset, wb.biomes_offset + wb.biomes_len * sizeof(Biome));
-        // println("{} - {}\n", wb.biomes_tree_offset, wb.biomes_tree_offset + wb.biomes_tree_len * sizeof(ChunkBiomeNode));
-
-        // some sanity checks
-        // if (
-        //     wb.blocks_offset + wb.blocks_len * sizeof(BlockState) > data.size() ||
-        //     wb.blocks_tree_offset + wb.blocks_tree_len * sizeof(ChunkNode) > data.size() ||
-        //     wb.biomes_offset + wb.biomes_len * sizeof(Biome) > data.size() ||
-        //     wb.biomes_tree_offset + wb.biomes_tree_len * sizeof(ChunkBiomeNode) > data.size())
-        // {
-        //     return;
-        // }
-
-        memcpy(chunk->get_blocks(), data.data() + wb.blocks_offset, sizeof(BlockState) * Chunk::block_count);
-        memcpy(chunk->get_biomes(), data.data() + wb.biomes_offset, sizeof(Biome) * Chunk::block_count);
+	inflate_blocks((uint8_t *)data.data(), data.size(), (uint8_t *)chunk->get_blocks());
 
         String path = format("{}saves/{}/DIM0/{}${}/tags.dat", Filesystem::get_data_directory(), m_name, pos.x, pos.z);
         if (Filesystem::exists(path))
@@ -695,16 +610,6 @@ void World::load_one_chunk(ChunkPos pos)
             EXPECT(chunk->build_simple_mesh(i));
             EXPECT(chunk->build_water_mesh(i));
         }
-
-        // memset(chunk->get_blocks(), 0, sizeof(BlockState) * Chunk::block_count);
-        // memset(chunk->get_biomes(), 0, sizeof(Biome) * Chunk::block_count);
-
-        // EXPECT(chunk->uncompress(
-        //     View((BlockState *)(data.data() + wb.blocks_offset), wb.blocks_len),
-        //     View((ChunkNode *)(data.data() + wb.blocks_tree_offset), wb.blocks_tree_len),
-        //     wb.chunk_slice_mask,
-        //     View((Biome *)(data.data() + wb.biomes_offset), wb.biomes_len),
-        //     View((ChunkBiomeNode *)(data.data() + wb.biomes_tree_offset), wb.biomes_tree_len)));
     }
     else
     {
@@ -727,4 +632,64 @@ void World::load_one_chunk(ChunkPos pos)
 void World::unload_one_chunk(ChunkPos pos)
 {
     m_dims[0].remove_chunk(pos.x, pos.z);
+}
+
+void World::deflate_blocks(const Ref<Chunk>& chunk, std::vector<uint8_t>& compressed_data) const
+{
+    std::vector<uint8_t> buffer; // TODO: use Vector
+    uint8_t tmp[DEFLATE_BUFFER_SIZE];
+
+    z_stream strm;
+    strm.zalloc = 0;
+    strm.zfree = 0;
+    strm.next_in = (uint8_t *)chunk->get_blocks();
+    strm.avail_in = Chunk::block_count * sizeof(BlockState);
+    strm.next_out = tmp;
+    strm.avail_out = DEFLATE_BUFFER_SIZE;
+    deflateInit(&strm, Z_BEST_COMPRESSION);
+
+    while(strm.avail_in != 0) {
+	int res = deflate(&strm, Z_NO_FLUSH);
+	assert(res == Z_OK);
+
+	if (strm.avail_out == 0) {
+	    compressed_data.insert(buffer.end(), tmp, tmp + DEFLATE_BUFFER_SIZE);
+	    strm.next_out = tmp;
+	    strm.avail_out = DEFLATE_BUFFER_SIZE;
+	}
+    }
+
+    int deflate_res = Z_OK;
+    while (deflate_res == Z_OK) {
+	if (strm.avail_out == 0) {
+	    compressed_data.insert(buffer.end(), tmp, tmp + DEFLATE_BUFFER_SIZE);
+	    strm.next_out = tmp;
+	    strm.avail_out = DEFLATE_BUFFER_SIZE;
+	}
+	deflate_res = deflate(&strm, Z_FINISH);
+    }
+
+    assert(deflate_res == Z_STREAM_END);
+    compressed_data.insert(buffer.end(), tmp, tmp + DEFLATE_BUFFER_SIZE - strm.avail_out);
+    deflateEnd(&strm);
+}
+
+void World::inflate_blocks(const uint8_t *compressed_data, size_t compressed_data_size, uint8_t *uncompressed_data) const
+{
+    z_stream strm{};
+    strm.zalloc = 0;
+    strm.zfree = 0;
+    strm.next_in = (uint8_t *)compressed_data;
+    strm.avail_in = compressed_data_size;
+    strm.next_out = uncompressed_data;
+    strm.avail_out = Chunk::block_count * sizeof(BlockState);
+
+    // TODO: Obsiously we don't want to crash on errors.
+    
+    // The expected size of the output is already known which allows to have only one `inflate` call.
+    int res = inflateInit(&strm);
+    assert(res == Z_OK);
+    res = inflate(&strm, Z_FINISH);
+    assert(res == Z_STREAM_END);
+    inflateEnd(&strm);
 }

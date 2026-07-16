@@ -81,22 +81,6 @@ struct WorldSaveInfo
     glm::vec3 spawn_position;
 };
 
-struct WorldBlocks
-{
-    uint16_t padding0;
-    uint16_t chunk_slice_mask;
-
-    uint32_t blocks_offset;
-    uint32_t blocks_len;
-    uint32_t blocks_tree_offset;
-    uint32_t blocks_tree_len;
-
-    uint32_t biomes_offset;
-    uint32_t biomes_len;
-    uint32_t biomes_tree_offset;
-    uint32_t biomes_tree_len;
-};
-
 class World : public Object
 {
     CLASS(World, Object);
@@ -243,4 +227,7 @@ private:
 
     void load_one_chunk(ChunkPos pos);
     void unload_one_chunk(ChunkPos pos);
+
+    void deflate_blocks(const Ref<Chunk>& chunk, std::vector<uint8_t>& compressed_data) const;
+    void inflate_blocks(const uint8_t *compressed_data, size_t compressed_data_size, uint8_t *uncompressed_data) const;
 };
