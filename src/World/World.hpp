@@ -2,12 +2,14 @@
 
 #include "Core/Definitions.hpp"
 #include "Core/Ref.hpp"
+#include "Core/IO.hpp"
 #include "Core/ThreadPool.hpp"
 #include "Entity/Camera.hpp"
 #include "Entity/Entity.hpp"
 #include "Ray.hpp"
 #include "World/Chunk.hpp"
 #include "World/Dimension.hpp"
+#include "Network/Packet.hpp"
 
 #include <enet/enet.h>
 
@@ -191,10 +193,10 @@ public:
     Result<void> save_entity(const Ref<Entity>& entity);
     Result<void> save_player(const Ref<Player>& player);
 
-    void deferred_receive_chunk(int64_t x, int64_t z, uint8_t *compressed_data, size_t size);
+    void deferred_receive_chunk(const ChunkDataPacket& p);
 
     void send_chunk(ENetPeer *peer, const Ref<Chunk>& chunk) const;
-    void receive_chunk(int64_t x, int64_t z, uint8_t *compressed_data, size_t size);
+    void receive_chunk(const ChunkDataPacket& p);
 
     void force_load_chunk_for(glm::vec3 position);
 
@@ -228,6 +230,9 @@ private:
     void load_one_chunk(ChunkPos pos);
     void unload_one_chunk(ChunkPos pos);
 
-    void deflate_blocks(const Ref<Chunk>& chunk, std::vector<uint8_t>& compressed_data) const;
-    void inflate_blocks(const uint8_t *compressed_data, size_t compressed_data_size, uint8_t *uncompressed_data) const;
+    void write_tags(Writer& writer, const Ref<Chunk>& chunk) const;
+    void read_tags(Reader& reader, Ref<Chunk>& chunk) const;
+
+    void deflate_data(const uint8_t *data, size_t size, std::vector<uint8_t>& compressed_data) const;
+    void inflate_data(const uint8_t *compressed_data, size_t compressed_data_size, std::vector<uint8_t>& uncompressed_data) const;
 };

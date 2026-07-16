@@ -280,7 +280,7 @@ inline Result<void> deserialize(DataBuffer& buffer, RpcCallPacket& p)
 
     String s = buffer.read();
     println("`{}`", s);
-    // FIXME
+    // FIXME: Replace this with binary variant ?
     // p.args = nlohmann::json::parse(std::string(s.data(), s.size()));
 
     return Result<void>();
@@ -291,6 +291,7 @@ struct ChunkDataPacket
     int64_t x;
     int64_t z;
     Vector<uint8_t> blocks;
+    Vector<uint8_t> tags;
 
     static constexpr PacketType type = PacketType::ChunkData;
 };
@@ -303,6 +304,11 @@ inline Result<void> serialize(DataBuffer& buffer, const ChunkDataPacket& p)
     buffer.write(size);
 
     buffer.write_array(p.blocks);
+    
+    size = p.tags.size();
+    buffer.write(size);
+
+    buffer.write_array(p.tags);
     return Result<void>();
 }
 inline Result<void> deserialize(DataBuffer& buffer, ChunkDataPacket& p)
@@ -312,5 +318,8 @@ inline Result<void> deserialize(DataBuffer& buffer, ChunkDataPacket& p)
 
     uint32_t size = buffer.read<uint32_t>();
     p.blocks = buffer.read_array<uint8_t>(size);
+
+    size = buffer.read<uint32_t>();
+    p.tags = buffer.read_array<uint8_t>(size);    
     return Result<void>();
 }

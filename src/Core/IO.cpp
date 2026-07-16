@@ -239,3 +239,29 @@ Result<void> Writer::write_variant(const Variant& variant)
 
     return Result<void>();
 }
+
+Result<size_t> BufferReader::read_raw(void *buf, size_t size)
+{
+    size_t remaining_size = std::min(size, m_size - m_cursor);
+    memcpy(buf, m_buffer + m_cursor, remaining_size);
+    m_cursor += size;
+    return remaining_size;
+}
+
+size_t BufferReader::size()
+{
+    return m_size;
+}
+
+bool BufferReader::eof()
+{
+    return m_cursor >= m_size;
+}
+
+Result<size_t> BufferWriter::write_raw(const void *buf, size_t size)
+{
+    size_t prev_size = m_buffer.size();
+    m_buffer.resize(prev_size + size);
+    memcpy(m_buffer.data() + prev_size, buf, size);
+    return size;
+}

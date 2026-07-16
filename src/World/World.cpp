@@ -437,7 +437,7 @@ Result<void> World::save_chunk(Ref<Chunk> chunk)
     File file = TRY(Filesystem::open_file(path, true));
 
     std::vector<uint8_t> compressed_data;
-    deflate_blocks(chunk, compressed_data);
+    deflate_data((uint8_t *)chunk->get_blocks(), sizeof(BlockState) * Chunk::block_count, compressed_data);
 
     TRY(file.writer().write_raw(compressed_data.data(), compressed_data.size()));
 
@@ -445,18 +445,8 @@ Result<void> World::save_chunk(Ref<Chunk> chunk)
 
     path = format("{}/saves/{}/DIM0/{}${}/tags.dat", Filesystem::get_data_directory(), m_name, chunk->x(), chunk->z());
     file = TRY(Filesystem::open_file(path, true));
-
-    Map<int64_t, Map<String, Variant>> tags;
-    for (const auto& [key, value] : chunk->m_tags)
-    {
-        Map<String, Variant> tags2;
-        for (const auto& [_, key2, value2] : value.tags)
-            tags2.put(key2, value2);
-        tags.put(key, tags2);
-    }
-
-    TRY(file.writer().write_variant(Variant(tags)));
-
+    FileWriter writer = file.writer();
+    write_tags(writer, chunk);
     file.close();
 
     return Result<void>();
@@ -498,57 +488,74 @@ Result<void> World::save_player(const Ref<Player>& player)
     return Result<void>();
 }
 
-#define DEFLATE_BUFFER_SIZE 4 * 1024
-
 void World::send_chunk(ENetPeer *peer, const Ref<Chunk>& chunk) const
 {
-    std::vector<uint8_t> buffer;
-    deflate_blocks(chunk, buffer);
+    std::vector<uint8_t> blocks_data;
+    deflate_data((uint8_t *)chunk->get_blocks(), sizeof(BlockState) * Chunk::block_count, blocks_data);
+
+    BufferWriter writer;
+    write_tags(writer, chunk);
+    std::vector<uint8_t> tags_data;
+    deflate_data(writer.buffer().data(), writer.buffer().size(), tags_data);
 
     ChunkDataPacket p;
     p.x = chunk->x();
     p.z = chunk->z();
 
-    p.blocks.resize(buffer.size());
-    memcpy(p.blocks.data(), buffer.data(), buffer.size());
+    p.blocks.resize(blocks_data.size());
+    memcpy(p.blocks.data(), blocks_data.data(), blocks_data.size());
+
+    p.tags.resize(tags_data.size());
+    memcpy(p.tags.data(), tags_data.data(), tags_data.size());
 
     Engine::get().connection().send(peer, Engine::get().connection().create_packet(p));
 }
- 
-#define INFLATE_BUFFER_SIZE (sizeof(BlockState) * 1024)
 
-void World::receive_chunk(int64_t x, int64_t z, uint8_t *compressed_data, size_t size)
+void World::receive_chunk(const ChunkDataPacket& p)
 {
     Dimension& dimension = get_dimension(World::overworld);
-    bool has_chunk = dimension.has_chunk(x, z);
+    bool has_chunk = dimension.has_chunk(p.x, p.z);
     
     Ref<Chunk> chunk;
     if (has_chunk) {
-	chunk = dimension.get_chunk(x, z).value();
+	chunk = dimension.get_chunk(p.x, p.z).value();
 	// TODO: maybe we need a mutex to modify a chunk, for now it only creates new one.
     } else {
-	chunk = newref<Chunk>(&dimension, x, z);
+	chunk = newref<Chunk>(&dimension, p.x, p.z);
     }
 
-    inflate_blocks(compressed_data, size, (uint8_t *)chunk->get_blocks());
+    std::vector<uint8_t> blocks_data;
+    inflate_data(p.blocks.data(), p.blocks.size(), blocks_data);
+    if (blocks_data.size() != sizeof(BlockState) * Chunk::block_count) {
+	debug("received bad or corrupted blocks data for {} {}", p.x, p.z);
+	return;
+    }
+    memcpy(chunk->get_blocks(), blocks_data.data(), blocks_data.size());
+
+    std::vector<uint8_t> tags_data;
+    inflate_data(p.tags.data(), p.tags.size(), tags_data);
+
+    // debug("tags received = {}", tags_data.size());
+
+    BufferReader reader(tags_data.data(), tags_data.size());
+    read_tags(reader, chunk);
     
     for (size_t i = 0; i < Chunk::slice_count; i++) {
 	// TODO: Remove the `empty` boolean, this serve no actual purpose.
      	chunk->get_slices()[i].empty = false;
      	EXPECT(chunk->build_simple_mesh(i));
+	EXPECT(chunk->build_water_mesh(i));
     }
 
-    destroy_array_nodestruct(compressed_data, size);
-
     if (!has_chunk) {
-    	dimension.add_chunk(x, z, chunk);
+    	dimension.add_chunk(p.x, p.z, chunk);
     }
 }
 
-void World::deferred_receive_chunk(int64_t x, int64_t z, uint8_t *compressed_data, size_t size)
+void World::deferred_receive_chunk(const ChunkDataPacket& p)
 {
     // Maybe I'm dumb and I don't know anything but using `[&]` creates segfaults, but manually specifying captures don't.
-    m_generation_thread_pool.async([this, x, z, compressed_data, size]() { receive_chunk(x, z, compressed_data, size); });
+    m_generation_thread_pool.async([this, p]() { receive_chunk(p); });
 }
 
 void World::force_load_chunk_for(glm::vec3 position)
@@ -579,7 +586,11 @@ void World::load_one_chunk(ChunkPos pos)
         EXPECT(file.reader().read_to_buffer(data));
         file.close();
 
-	inflate_blocks((uint8_t *)data.data(), data.size(), (uint8_t *)chunk->get_blocks());
+	std::vector<uint8_t> uncompressed_data;
+	inflate_data((uint8_t *)data.data(), data.size(), uncompressed_data);
+
+	assert(uncompressed_data.size() == sizeof(BlockState) * Chunk::block_count);
+	memcpy(chunk->get_blocks(), uncompressed_data.data(), uncompressed_data.size());
 
         String path = format("{}saves/{}/DIM0/{}${}/tags.dat", Filesystem::get_data_directory(), m_name, pos.x, pos.z);
         if (Filesystem::exists(path))
@@ -587,21 +598,9 @@ void World::load_one_chunk(ChunkPos pos)
             File file = EXPECT(Filesystem::open_file(path));
             FileReader reader = file.reader();
 
-            Option<Variant> variant = EXPECT(reader.read_variant());
-            if (variant.has_value())
-            {
-                Map<int64_t, Map<String, Variant>> tags = variant.value().to_map<int64_t, Map<String, Variant>>();
+	    read_tags(reader, chunk);
 
-                for (const auto& [key, value] : tags)
-                {
-                    BlockTags btags;
-                    for (const auto& [key2, value2] : value)
-                        btags.tags.put(key2, value2);
-                    chunk->m_tags.put(key, btags);
-                }
-
-                file.close();
-            }
+	    file.close();
         }
 
         for (size_t i = 0; i < Chunk::slice_count; i++)
@@ -634,16 +633,18 @@ void World::unload_one_chunk(ChunkPos pos)
     m_dims[0].remove_chunk(pos.x, pos.z);
 }
 
-void World::deflate_blocks(const Ref<Chunk>& chunk, std::vector<uint8_t>& compressed_data) const
+#define DEFLATE_BUFFER_SIZE (sizeof(BlockState) * 1024)
+#define INFLATE_BUFFER_SIZE (sizeof(BlockState) * 1024)
+
+void World::deflate_data(const uint8_t *data, size_t size, std::vector<uint8_t>& compressed_data) const
 {
-    std::vector<uint8_t> buffer; // TODO: use Vector
     uint8_t tmp[DEFLATE_BUFFER_SIZE];
 
     z_stream strm;
     strm.zalloc = 0;
     strm.zfree = 0;
-    strm.next_in = (uint8_t *)chunk->get_blocks();
-    strm.avail_in = Chunk::block_count * sizeof(BlockState);
+    strm.next_in = (uint8_t *)data;
+    strm.avail_in = size;
     strm.next_out = tmp;
     strm.avail_out = DEFLATE_BUFFER_SIZE;
     deflateInit(&strm, Z_BEST_COMPRESSION);
@@ -653,7 +654,7 @@ void World::deflate_blocks(const Ref<Chunk>& chunk, std::vector<uint8_t>& compre
 	assert(res == Z_OK);
 
 	if (strm.avail_out == 0) {
-	    compressed_data.insert(buffer.end(), tmp, tmp + DEFLATE_BUFFER_SIZE);
+	    compressed_data.insert(compressed_data.end(), tmp, tmp + DEFLATE_BUFFER_SIZE);
 	    strm.next_out = tmp;
 	    strm.avail_out = DEFLATE_BUFFER_SIZE;
 	}
@@ -662,7 +663,7 @@ void World::deflate_blocks(const Ref<Chunk>& chunk, std::vector<uint8_t>& compre
     int deflate_res = Z_OK;
     while (deflate_res == Z_OK) {
 	if (strm.avail_out == 0) {
-	    compressed_data.insert(buffer.end(), tmp, tmp + DEFLATE_BUFFER_SIZE);
+	    compressed_data.insert(compressed_data.end(), tmp, tmp + DEFLATE_BUFFER_SIZE);
 	    strm.next_out = tmp;
 	    strm.avail_out = DEFLATE_BUFFER_SIZE;
 	}
@@ -670,26 +671,83 @@ void World::deflate_blocks(const Ref<Chunk>& chunk, std::vector<uint8_t>& compre
     }
 
     assert(deflate_res == Z_STREAM_END);
-    compressed_data.insert(buffer.end(), tmp, tmp + DEFLATE_BUFFER_SIZE - strm.avail_out);
+    compressed_data.insert(compressed_data.end(), tmp, tmp + DEFLATE_BUFFER_SIZE - strm.avail_out);
     deflateEnd(&strm);
 }
 
-void World::inflate_blocks(const uint8_t *compressed_data, size_t compressed_data_size, uint8_t *uncompressed_data) const
+void World::inflate_data(const uint8_t *compressed_data, size_t compressed_data_size, std::vector<uint8_t>& uncompressed_data) const
 {
-    z_stream strm{};
+    uint8_t tmp[INFLATE_BUFFER_SIZE];
+
+    z_stream strm;
     strm.zalloc = 0;
     strm.zfree = 0;
     strm.next_in = (uint8_t *)compressed_data;
     strm.avail_in = compressed_data_size;
-    strm.next_out = uncompressed_data;
-    strm.avail_out = Chunk::block_count * sizeof(BlockState);
+    strm.next_out = tmp;
+    strm.avail_out = INFLATE_BUFFER_SIZE;
+    inflateInit(&strm);
 
+    while(strm.avail_in != 0) {
+	int res = inflate(&strm, Z_NO_FLUSH);
+	assert(res >= 0);
+
+	if (strm.avail_out == 0) {
+	    uncompressed_data.insert(uncompressed_data.end(), tmp, tmp + INFLATE_BUFFER_SIZE);
+	    strm.next_out = tmp;
+	    strm.avail_out = INFLATE_BUFFER_SIZE;
+	}
+    }
+
+    /*int res = Z_OK;
+    while (res == Z_OK) {
+	if (strm.avail_out == 0) {
+	    uncompressed_data.insert(uncompressed_data.end(), tmp, tmp + INFLATE_BUFFER_SIZE);
+	    strm.next_out = tmp;
+	    strm.avail_out = INFLATE_BUFFER_SIZE;
+	}
+	res = inflate(&strm, Z_FINISH);
+    }*/
+
+    // assert(res == Z_STREAM_END);
+    uncompressed_data.insert(uncompressed_data.end(), tmp, tmp + INFLATE_BUFFER_SIZE - strm.avail_out);
+    inflateEnd(&strm);
+    
     // TODO: Obsiously we don't want to crash on errors.
     
     // The expected size of the output is already known which allows to have only one `inflate` call.
-    int res = inflateInit(&strm);
-    assert(res == Z_OK);
-    res = inflate(&strm, Z_FINISH);
-    assert(res == Z_STREAM_END);
-    inflateEnd(&strm);
+    // int res = inflateInit(&strm);
+    // assert(res == Z_OK);
+    // res = inflate(&strm, Z_FINISH);
+    // assert(res == Z_STREAM_END);
+    // inflateEnd(&strm);
+}
+
+void World::write_tags(Writer& writer, const Ref<Chunk>& chunk) const
+{
+    Map<int64_t, Map<String, Variant>> tags;
+    for (const auto& [key, value] : chunk->m_tags)
+    {
+        Map<String, Variant> tags2;
+        for (const auto& [_, key2, value2] : value.tags)
+            tags2.put(key2, value2);
+        tags.put(key, tags2);
+    }
+    EXPECT(writer.write_variant(Variant(tags)));
+}
+
+void World::read_tags(Reader& reader, Ref<Chunk>& chunk) const
+{
+    Option<Variant> variant = EXPECT(reader.read_variant());
+    if (variant.has_value()) {
+        Map<int64_t, Map<String, Variant>> tags = variant.value().to_map<int64_t, Map<String, Variant>>();
+        for (const auto& [key, value] : tags) {
+            BlockTags btags;
+            for (const auto& [key2, value2] : value)
+                btags.tags.put(key2, value2);
+            chunk->m_tags.put(key, btags);
+        }
+    } else {
+	debug("dadwawd");
+    }
 }

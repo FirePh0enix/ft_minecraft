@@ -469,11 +469,11 @@ void Engine::receive_client(void *user, NetworkConnection& conn, ENetPacket *pac
         ChunkDataPacket p;
         EXPECT(deserialize(buffer, p));
 
-	uint8_t *mem = alloc_array_uninitialized<uint8_t>(p.blocks.size());
-	memcpy(mem, p.blocks.data(), p.blocks.size());
+	// uint8_t *mem = alloc_array_uninitialized<uint8_t>(p.blocks.size());
+	// memcpy(mem, p.blocks.data(), p.blocks.size());
 
 	// Inflate the data is a seperate thread to free up the network thread.
-	self->m_world->deferred_receive_chunk(p.x, p.z, mem, p.blocks.size());
+	self->m_world->deferred_receive_chunk(p);
     }
     break;
     default:
