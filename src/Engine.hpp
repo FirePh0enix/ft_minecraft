@@ -85,7 +85,7 @@ private:
 
     RpcTarget m_authority = RpcTarget::Server;
     NetworkConnection m_connection;
-    HashMap<ENetPeer *, Ref<Player>> m_players;
+    Map<ENetPeer *, Ref<Player>> m_players;
 
     Renderer m_renderer;
 
@@ -110,9 +110,22 @@ private:
     char m_world_seed_buf[32] = "0";
     char m_connect_ip[32] = "127.0.0.1";
     int m_connect_port = NetworkConnection::default_port;
+    char m_username[32] = "steve";
 
     // Debug Menu
     Console m_console;
+
+    bool has_player_with_name(const StringView& name) const {
+	if (name == StringView(m_player.cast_to<Player>()->get_username())) {
+	    return true;
+	}
+	for (const auto& [peer, player] : m_players) {
+	    if (StringView(player->get_username()) == name) {
+		return true;
+	    }
+	}
+	return false;
+    }
 
     void register_entities();
     void register_recipes();

@@ -531,7 +531,7 @@ Result<void> World::save_player(const Ref<Player>& player)
     String path = format("{}saves/{}/players/", Filesystem::get_data_directory(), m_name);
     TRY(Filesystem::make_dirs(path));
 
-    path.append("player.dat");
+    path.append(format("{}.dat", player->get_username()));
 
     EntitySerializer serializer;
     serializer.set("position", player->get_position());

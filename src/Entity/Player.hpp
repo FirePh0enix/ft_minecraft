@@ -63,6 +63,9 @@ public:
 
     virtual void die() override;
 
+    void set_username(const String& username) { m_username = username; }
+    String get_username() const { return m_username; }
+
     void break_block(int64_t x, int64_t y, int64_t z);
     void place_block(int64_t x, int64_t y, int64_t z, glm::vec3 normal, ItemStack stack);
 
@@ -122,6 +125,8 @@ private:
 
     bool m_open_chat = false;
     Ref<Chat> m_chat;
+
+    String m_username;
 
     bool m_open_debug_menu = false;
     Ref<DebugMenuContainer> m_debug_menu;

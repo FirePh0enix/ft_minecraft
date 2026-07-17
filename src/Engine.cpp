@@ -274,6 +274,8 @@ void Engine::draw_main_menu()
                 if (ImGui::DragInt("Port", &m_connect_port))
                 {
                 }
+		if (ImGui::InputText("Username", m_username, sizeof(m_username))) {
+		}
 
                 imguitk_center_next_widget("Connect");
                 if (ImGui::Button("Connect"))
@@ -291,6 +293,7 @@ void Engine::draw_world_scene()
 
 float Engine::time()
 {
+    // TODO: replace this by the real time.
     return float(clock()) / float(CLOCKS_PER_SEC);
 }
 
@@ -316,12 +319,15 @@ void Engine::create_world_and_start()
         m_world = EXPECT(World::create(name, seed, m_main_menu_world_type));
     }
 
+    String username = "john";
+
     m_player = newref<Player>();
+    m_player.cast_to<Player>()->set_username(username);
     m_world->add_entity(World::overworld, m_player);
 
-    if (m_world->is_player_saved("player"))
+    if (m_world->is_player_saved(username))
     {
-        String path = format("{}saves/{}/players/{}.dat", Filesystem::get_data_directory(), m_world->get_name(), "player");
+        String path = format("{}saves/{}/players/{}.dat", Filesystem::get_data_directory(), m_world->get_name(), username);
 
         EntitySerializer serializer;
         EXPECT(serializer.load(path));
@@ -361,14 +367,11 @@ void Engine::connect_to_remote_world()
     m_scene = GameScene::WaitingForWorld;
     m_authority = RpcTarget::Client;
     EXPECT(m_connection.connect_to(m_connect_ip, m_connect_port));
-
-    // After this point we are waiting for the server to send us information about the world.
 }
 
 void Engine::receive_client(void *user, NetworkConnection& conn, ENetPacket *packet, const Client& client)
 {
     Engine *self = (Engine *)user;
-    (void)conn;
     (void)client;
 
     const void *data = packet->data;
@@ -379,6 +382,17 @@ void Engine::receive_client(void *user, NetworkConnection& conn, ENetPacket *pac
 
     switch (type)
     {
+    case PacketType::Refused: {
+	RefusedPacket p;
+	EXPECT(deserialize(buffer, p));
+
+	info("Connection error: {}", p.message);
+
+	conn.close();
+	self->m_world = nullptr;
+	self->m_scene = GameScene::MainMenu;
+    };
+    break;
     case PacketType::Init:
     {
         InitPacket p;
@@ -469,8 +483,7 @@ void Engine::receive_client(void *user, NetworkConnection& conn, ENetPacket *pac
     {
         ChunkDataPacket p;
         EXPECT(deserialize(buffer, p));
-
-	// Inflate the data is a seperate thread to free up the network thread.
+	
 	self->m_world->deferred_receive_chunk(p);
     }
     break;
@@ -479,10 +492,16 @@ void Engine::receive_client(void *user, NetworkConnection& conn, ENetPacket *pac
     }
 }
 
-void Engine::connect_client(void *, NetworkConnection& conn, const Client& client)
+void Engine::connect_client(void *user, NetworkConnection& conn, const Client& client)
 {
-    (void)conn;
     (void)client;
+    Engine *self = (Engine *)user;
+
+    debug("hello world");
+
+    BonjourPacket p;
+    p.username = self->m_username;
+    conn.send(conn.create_packet(p));
 }
 
 void Engine::disconnect_client(void *user, NetworkConnection& conn, const Client& client)
@@ -493,6 +512,8 @@ void Engine::disconnect_client(void *user, NetworkConnection& conn, const Client
 
     self->m_scene = GameScene::MainMenu;
     self->m_world = nullptr;
+
+    info("Disconnected from the player");
 }
 
 void Engine::receive_server(void *user, NetworkConnection& conn, ENetPacket *packet, const Client& client)
@@ -507,6 +528,43 @@ void Engine::receive_server(void *user, NetworkConnection& conn, ENetPacket *pac
 
     switch (type)
     {
+    case PacketType::Bonjour: {
+	BonjourPacket p;
+	EXPECT(deserialize(buffer, p));
+	
+	if (self->has_player_with_name(p.username)) {
+	    RefusedPacket p2;
+	    p2.message = format("`{}` is already connected", p.username);
+	    conn.send(client.peer(), conn.create_packet(p2));
+	    break;
+	}
+	
+	EntityId id = World::next_id();
+	const glm::vec3 spawn_position = glm::vec3(0, 100.0, 0);
+
+	InitPacket init_p(self->m_world->seed(), id, spawn_position);
+	conn.send(client.peer(), conn.create_packet(init_p));
+
+	for (Ref<Entity> entity : self->m_world->get_dimension(0).get_entities())
+	    {
+		Transform3D transform = entity->get_transform();
+		AddEntityPacket p2(transform.position(), transform.rotation(), entity->id(), entity->get_class_hash_code());
+		conn.send(client.peer(), conn.create_packet(p2));
+	    }
+
+	Ref<Player> player = newref<Player>();
+	player->set_remote();
+	player->set_id(id);
+	player->get_transform().position() = spawn_position;
+	player->set_username(p.username);
+
+	self->m_world->add_entity(0, player);
+	self->m_players.put(client.peer(), player);
+
+	AddEntityPacket p2(player->get_transform().position(), player->get_transform().rotation(), id, player->get_class_hash_code());
+	conn.broadcast(conn.create_packet(p2), client.peer());
+    };
+    break;
     case PacketType::SendPlayerTransform:
     {
         SendPlayerTransformPacket p;
@@ -557,39 +615,9 @@ void Engine::receive_server(void *user, NetworkConnection& conn, ENetPacket *pac
 
 void Engine::connect_server(void *user, NetworkConnection& conn, const Client& client)
 {
-    Engine *self = (Engine *)user;
-
-    EntityId id = World::next_id();
-    const glm::vec3 spawn_position = glm::vec3(0, 100.0, 0);
-
-    InitPacket p(self->m_world->seed(), id, spawn_position);
-    conn.send(client.peer(), conn.create_packet(p));
-
-    for (Ref<Entity> entity : self->m_world->get_dimension(0).get_entities())
-    {
-        Transform3D transform = entity->get_transform();
-        AddEntityPacket p2(transform.position(), transform.rotation(), entity->id(), entity->get_class_hash_code());
-        conn.send(client.peer(), conn.create_packet(p2));
-    }
-
-    // TODO: remove this, replace this by a requests system.
-    // for (const auto& [pos, chunk] : self->m_world->get_dimension(0).get_chunks())
-    // {
-    // 	self->m_world->send_chunk(client.peer(), chunk);
-    // }
-
-    Ref<Player> player = newref<Player>();
-    player->set_remote();
-    player->set_id(id);
-    player->get_transform().position() = spawn_position;
-
-    self->m_world->add_entity(0, player);
-    self->m_players.put(client.peer(), player);
-
-    debug("player is was {}, but know is {}", (uint32_t)id, (uint32_t)player->id());
-
-    AddEntityPacket p2(player->get_transform().position(), player->get_transform().rotation(), id, player->get_class_hash_code());
-    conn.broadcast(conn.create_packet(p2), client.peer());
+    (void)user;
+    (void)conn;
+    (void)client;
 }
 
 void Engine::disconnect_server(void *user, NetworkConnection& conn, const Client& client)
@@ -604,4 +632,5 @@ void Engine::disconnect_server(void *user, NetworkConnection& conn, const Client
     conn.broadcast(conn.create_packet(p), client.peer());
 
     self->m_world->remove_entity(World::overworld, player);
+    self->m_players.erase(client.peer());
 }

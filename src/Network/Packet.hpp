@@ -15,7 +15,15 @@
 enum class PacketType : uint32_t
 {
     /**
-     * Send by the server to any client connecting to send basic informations about the world.
+     * Send by a client right after connecting with information about themself.
+     */
+    Bonjour,
+    /**
+     * Send by the server to indicate a client is not welcome.
+     */
+    Refused,
+    /**
+     * Send by the server to any client after receiving a Bonjour to send basic informations about the world.
      */
     Init,
     /**
@@ -108,6 +116,42 @@ private:
     size_t m_ro_data_size = 0;
     size_t m_cursor = 0;
 };
+
+struct BonjourPacket {
+    String username;
+
+    static constexpr PacketType type = PacketType::Bonjour;
+};
+inline Result<void> serialize(DataBuffer& buffer, const BonjourPacket& p) {
+    uint32_t size = p.username.size();
+    buffer.write(size);
+    buffer.write_array(View<char>(p.username.data(), p.username.size()));
+    return Result<void>();
+}
+inline Result<void> deserialize(DataBuffer& buffer, BonjourPacket& p) {
+    uint32_t size = buffer.read<uint32_t>();
+    Vector<char> string_buf = buffer.read_array<char>(size);
+    p.username.append(string_buf.data(), string_buf.size());
+    return Result<void>();
+}
+
+struct RefusedPacket {
+    String message;
+
+    static constexpr PacketType type = PacketType::Refused;
+};
+inline Result<void> serialize(DataBuffer& buffer, const RefusedPacket& p) {
+    uint32_t size = p.message.size();
+    buffer.write(size);
+    buffer.write_array(View<char>(p.message.data(), p.message.size()));
+    return Result<void>();
+}
+inline Result<void> deserialize(DataBuffer& buffer, RefusedPacket& p) {
+    uint32_t size = buffer.read<uint32_t>();
+    Vector<char> string_buf = buffer.read_array<char>(size);
+    p.message.append(string_buf.data(), string_buf.size());
+    return Result<void>();
+}
 
 struct InitPacket
 {
