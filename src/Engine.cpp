@@ -78,6 +78,7 @@ Engine::~Engine()
 void Engine::register_entities()
 {
     Entity::bind_methods();
+    Player::bind_methods();
 
     m_entity_registry.register_entity<Player>();
     m_entity_registry.register_entity<Cow>();
@@ -469,9 +470,6 @@ void Engine::receive_client(void *user, NetworkConnection& conn, ENetPacket *pac
         ChunkDataPacket p;
         EXPECT(deserialize(buffer, p));
 
-	// uint8_t *mem = alloc_array_uninitialized<uint8_t>(p.blocks.size());
-	// memcpy(mem, p.blocks.data(), p.blocks.size());
-
 	// Inflate the data is a seperate thread to free up the network thread.
 	self->m_world->deferred_receive_chunk(p);
     }
@@ -499,7 +497,6 @@ void Engine::disconnect_client(void *user, NetworkConnection& conn, const Client
 
 void Engine::receive_server(void *user, NetworkConnection& conn, ENetPacket *packet, const Client& client)
 {
-    (void)conn;
     Engine *self = (Engine *)user;
 
     const void *data = packet->data;
@@ -523,31 +520,34 @@ void Engine::receive_server(void *user, NetworkConnection& conn, ENetPacket *pac
         entity->get_transform().rotation() = p.rotation;
     }
     break;
+    case PacketType::RequestChunk:
+    {
+	RequestChunkPacket p;
+	EXPECT(deserialize(buffer, p));
+
+	// TODO: handle different dimension here.
+	self->m_world->request_chunk(client.peer(), 0, p.x, p.z);
+    };
+    break;
     case PacketType::RpcCall:
     {
         RpcCallPacket p;
         EXPECT(deserialize(buffer, p));
 
         Ref<Entity> entity = self->m_world->get_entity(p.id);
+	debug("received RPC call on {}", (uint32_t)p.id);
         if (entity.is_null())
             break;
-
-        Vector<Variant> variants;
-        variants.reserve(p.args.size());
-        for (const Variant& v : p.args)
-            variants.append(v);
 
         Option<RpcTarget> rpc = entity->get_rpc(p.name);
         if (!rpc.has_value())
             break;
 
         if (rpc == RpcTarget::Server || rpc == RpcTarget::Both)
-            entity->call(p.name, variants);
+            entity->call(p.name, p.args);
 
         if (rpc == RpcTarget::Both || rpc == RpcTarget::Client)
-        {
             conn.broadcast(conn.create_packet(p), client.peer());
-        }
     };
     break;
     default:
@@ -573,10 +573,10 @@ void Engine::connect_server(void *user, NetworkConnection& conn, const Client& c
     }
 
     // TODO: remove this, replace this by a requests system.
-    for (const auto& [pos, chunk] : self->m_world->get_dimension(0).get_chunks())
-    {
-	self->m_world->send_chunk(client.peer(), chunk);
-    }
+    // for (const auto& [pos, chunk] : self->m_world->get_dimension(0).get_chunks())
+    // {
+    // 	self->m_world->send_chunk(client.peer(), chunk);
+    // }
 
     Ref<Player> player = newref<Player>();
     player->set_remote();
@@ -585,6 +585,8 @@ void Engine::connect_server(void *user, NetworkConnection& conn, const Client& c
 
     self->m_world->add_entity(0, player);
     self->m_players.put(client.peer(), player);
+
+    debug("player is was {}, but know is {}", (uint32_t)id, (uint32_t)player->id());
 
     AddEntityPacket p2(player->get_transform().position(), player->get_transform().rotation(), id, player->get_class_hash_code());
     conn.broadcast(conn.create_packet(p2), client.peer());

@@ -25,16 +25,16 @@ public:
     {
     }
 
-    View(const Vector<T>& vector)
-        : m_data(vector.data()), m_size(vector.size())
-    {
-    }
-
     View(const LocalVector<T>& vector)
         : m_data(vector.data()), m_size(vector.size())
     {
     }
 
+    View(const Vector<T>& vector)
+        : m_data(vector.data()), m_size(vector.size())
+    {
+    }
+    
     template <const size_t size>
     View(const Array<T, size>& array)
         : m_data(array.data()), m_size(array.size())
@@ -55,7 +55,7 @@ public:
 
     const T& operator[](size_t index)
     {
-        ASSERT_V(index < m_size, "");
+        ASSERT_V(index < m_size, "index {} was given for a view of size {}", index, m_size);
         return m_data[index];
     }
 
@@ -84,12 +84,12 @@ public:
         return View<uint8_t>((const uint8_t *)m_data, m_size * sizeof(T));
     }
 
-    Vector<T> to_vector() const
-    {
-        Vector<T> vec;
-        vec.append_iter(begin(), end());
-        return vec;
-    }
+    // Vector<T> to_vector() const
+    // {
+    //     Vector<T> vec;
+    //     vec.append_iter(begin(), end());
+    //     return vec;
+    // }
 
 private:
     const T *m_data;

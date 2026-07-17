@@ -14,7 +14,7 @@
 class World;
 class Dimension;
 // from `Renderer.hpp`
-class RenderPass;
+struct RenderPass;
 
 enum class RpcTarget
 {
@@ -170,12 +170,12 @@ public:
     template <typename... Args>
     void call_rpc(const StringView& name, Args&&...args)
     {
-        InplaceVector<Variant, sizeof...(args)> variants;
-        (variants.append(args), ...);
-        call_rpc(name, variants);
+        Vector<Variant> variants;
+	(void(variants.append(std::forward<Args>(args))), ...);
+        call_rpci(name, variants);
     }
 
-    void call_rpc(const StringView& name) { call_rpc(name, {}); }
+    void call_rpc(const StringView& name) { call_rpci(name, {}); }
 
     const AABB& get_aabb() const { return m_aabb; }
 
@@ -212,5 +212,5 @@ protected:
     static void expose_rpc(String name, RpcTarget target = RpcTarget::Both) { expose_rpc(T::get_static_hash_code(), name, target); }
     static void expose_rpc(ClassHashCode cls, String name, RpcTarget target = RpcTarget::Both);
 
-    void call_rpc(StringView name, View<Variant> args);
+    void call_rpci(StringView name, View<Variant> args);
 };

@@ -1,4 +1,5 @@
 #include "Core/Containers/HashMap.hpp"
+#include "Core/Containers/Vector.hpp"
 #include "Core/Alloc.hpp"
 #include "Core/Containers/Map.hpp"
 #include "Core/String.hpp"

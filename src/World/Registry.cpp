@@ -291,3 +291,16 @@ Option<ItemStack> GameRegistry::match(const InplaceVector<Id<Item>, 9>& grid, in
 
     return None;
 }
+
+Option<RpcTarget> GameRegistry::get_rpc(Entity *entity, const StringView& name) const {
+    for (ssize_t i = (ssize_t)entity->get_classes().size() - 1; i >= 0; i--) {
+        ClassHashCode class_hash = entity->get_classes()[i];
+        if (m_exposed_rpc.contains(class_hash)) {
+            const auto rpcs = m_exposed_rpc.get(class_hash).value();
+	    Option<RpcTarget> target = rpcs.get(name);
+            if (target.has_value())
+                return target;
+        }
+    }
+    return None;
+}

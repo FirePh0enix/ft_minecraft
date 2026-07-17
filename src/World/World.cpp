@@ -229,6 +229,10 @@ void World::tick(float delta)
             chunk->clear_modified();
         }
 
+	// TODO: add a unique identifier for players. (it can be a simple username), add verification when connecting to
+	// make sure only one player can have the same name.
+	// For now all players are saved each frames to the same file, it should only be saved when stuff have changed, or once
+	// per seconds.
         for (const Ref<Entity>& entity : m_dims[World::overworld].get_entities())
         {
             if (Ref<Player> player = entity.cast_to<Player>())
@@ -236,6 +240,8 @@ void World::tick(float delta)
         }
 
         load_around_player();
+    } else if (Engine::get().is_online() && !Engine::get().is_server()) {
+	request_load_around();
     }
 
     // Flush all new chunks.
@@ -258,13 +264,7 @@ void World::tick(float delta)
         m_dims[0].m_chunks_to_remove.clear();
     }
 
-    // for (ChunkPos pos : chunk_modified)
-    // {
-    //     EXPECT(m_generation_thread_pool.async([this, pos]
-    //                                           { EXPECT(m_dims[0].rebuild_neighbor_chunks_water(pos.x, pos.z)); }));
-    // }
-
-    if (!m_proxy && Engine::get().is_server()) {
+    if (!m_proxy && Engine::get().is_online() && Engine::get().is_server()) {
 	for (Ref<Entity> entity : m_dims[World::overworld].get_entities()) {
 	    UpdateEntityPacket p{};
 	    p.id = entity->id();
@@ -272,6 +272,18 @@ void World::tick(float delta)
 	    p.rotation = entity->get_transform().rotation();
 	    Engine::get().connection().broadcast(Engine::get().connection().create_packet(p));
 	}
+
+	for (const ChunkLoadRequest& req : m_load_requests) {
+	    Option<Ref<Chunk>> chunk_opt = get_dimension(req.dimension).get_chunk(req.x, req.z);
+	    if (chunk_opt.has_value()) {
+		Ref<Chunk> chunk = chunk_opt.value();
+
+		m_generation_thread_pool.async([this, req, chunk]() {
+		    send_chunk(req.peer, chunk);
+		});
+	    }
+	}
+	m_load_requests.clear();
     }
 
     m_dims[0].m_entities_to_remove.clear();
@@ -344,6 +356,40 @@ void World::load_around_player()
 
         m_generation_thread_pool.async([this, pos]
                                        { unload_one_chunk(pos); });
+    }
+}
+
+void World::request_load_around()
+{
+    const glm::vec3 player_pos = m_camera->get_global_transform().position();
+    int64_t player_cx = int64_t(player_pos.x / 16);
+    int64_t player_cz = int64_t(player_pos.z / 16);
+
+    for (int64_t cx = -m_load_distance; cx <= m_load_distance; cx++) {
+	for (int64_t cz = -m_load_distance; cz <= m_load_distance; cz++) {
+	    int64_t x = player_cx + cx;
+	    int64_t z = player_cz + cz;
+	    ChunkPos pos(x, z);
+
+            {
+                std::lock_guard<std::mutex> lock(m_dims[0].mutex());
+                if (m_dims[0].has_chunk(x, z) || m_dims[0].m_chunks_to_flush.contains(pos))
+                    continue;
+            }
+
+            {
+                std::lock_guard<std::mutex> lock(m_dims[0].m_chunk_loading_mutex);
+                if (m_dims[0].m_chunk_loading_queue.contains(pos))
+                    continue;
+
+                m_dims[0].m_chunk_loading_queue.put(pos);
+            }
+	    
+	    RequestChunkPacket p;
+	    p.x = x;
+	    p.z = z;
+	    Engine::get().connection().send(Engine::get().connection().create_packet(p));
+	}
     }
 }
 
@@ -445,8 +491,17 @@ Result<void> World::save_chunk(Ref<Chunk> chunk)
 
     path = format("{}/saves/{}/DIM0/{}${}/tags.dat", Filesystem::get_data_directory(), m_name, chunk->x(), chunk->z());
     file = TRY(Filesystem::open_file(path, true));
-    FileWriter writer = file.writer();
+
+    BufferWriter writer;
     write_tags(writer, chunk);
+
+    std::vector<uint8_t> tags_data;
+    deflate_data(writer.buffer().data(), writer.buffer().size(), tags_data);
+
+    TRY(file.writer().write_raw(tags_data.data(), tags_data.size()));
+    
+    //FileWriter writer = file.writer();
+    //write_tags(writer, chunk);
     file.close();
 
     return Result<void>();
@@ -586,21 +641,25 @@ void World::load_one_chunk(ChunkPos pos)
         EXPECT(file.reader().read_to_buffer(data));
         file.close();
 
-	std::vector<uint8_t> uncompressed_data;
-	inflate_data((uint8_t *)data.data(), data.size(), uncompressed_data);
+	std::vector<uint8_t> blocks_data;
+	inflate_data((uint8_t *)data.data(), data.size(), blocks_data);
 
-	assert(uncompressed_data.size() == sizeof(BlockState) * Chunk::block_count);
-	memcpy(chunk->get_blocks(), uncompressed_data.data(), uncompressed_data.size());
+	assert(blocks_data.size() == sizeof(BlockState) * Chunk::block_count);
+	memcpy(chunk->get_blocks(), blocks_data.data(), blocks_data.size());
 
         String path = format("{}saves/{}/DIM0/{}${}/tags.dat", Filesystem::get_data_directory(), m_name, pos.x, pos.z);
         if (Filesystem::exists(path))
         {
             File file = EXPECT(Filesystem::open_file(path));
-            FileReader reader = file.reader();
-
-	    read_tags(reader, chunk);
-
+	    LocalVector<char> tags_compressed_data;
+	    EXPECT(file.reader().read_to_buffer(tags_compressed_data));
 	    file.close();
+
+	    std::vector<uint8_t> tags_data;
+	    inflate_data((uint8_t *)tags_compressed_data.data(), tags_compressed_data.size(), tags_data);
+
+	    BufferReader reader(tags_data.data(), tags_data.size());
+	    read_tags(reader, chunk);
         }
 
         for (size_t i = 0; i < Chunk::slice_count; i++)
@@ -747,7 +806,10 @@ void World::read_tags(Reader& reader, Ref<Chunk>& chunk) const
                 btags.tags.put(key2, value2);
             chunk->m_tags.put(key, btags);
         }
-    } else {
-	debug("dadwawd");
     }
+}
+
+void World::request_chunk(ENetPeer *peer, int dimension, int64_t x, int64_t z)
+{
+    m_load_requests.append(ChunkLoadRequest(peer, dimension, x, z));
 }

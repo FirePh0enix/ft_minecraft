@@ -17,7 +17,7 @@ public:
     {
     }
 
-    constexpr InplaceVector(const std::initializer_list<T>& list)
+    constexpr InplaceVector(std::initializer_list<T> list)
         : m_size(list.size())
     {
         for (size_t i = 0; i < m_size; i++)
@@ -97,6 +97,9 @@ public:
         m_data[m_size] = value;
         m_size++;
     }
+
+    void append(T&& value) { push_back(value); }
+    void append(const T& value) { push_back(value); }
 
     ForwardIterator<T> begin()
     {

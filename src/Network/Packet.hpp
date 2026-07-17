@@ -2,6 +2,7 @@
 
 #include "Block/Block.hpp"
 #include "Core/Containers/Vector.hpp"
+#include "Core/IO.hpp"
 #include "Entity/Entity.hpp"
 #include "World/Biome.hpp"
 #include "World/Chunk.hpp"
@@ -14,8 +15,7 @@
 enum class PacketType : uint32_t
 {
     /**
-     * This packet is send by the server to any client connecting to send basic informations about the
-     * world.
+     * Send by the server to any client connecting to send basic informations about the world.
      */
     Init,
     /**
@@ -38,6 +38,10 @@ enum class PacketType : uint32_t
      * Call a remote procedure for an entity.
      */
     RpcCall,
+    /**
+     * Send by the client to request data for a specific chunk. The server is expected to respond with a `ChunkData` packet.
+     */
+    RequestChunk,
     /**
      * Send by the server, contains the data of a chunk.
      */
@@ -63,15 +67,8 @@ public:
         std::memcpy(m_data.data() + m_data.size() - sizeof(T), &value, sizeof(T));
     }
 
-    void write(String value)
-    {
-        m_data.resize(m_data.size() + value.size());
-        std::memcpy(m_data.data() + m_data.size() - value.size(), value.data(), value.size());
-        m_data.append(0);
-    }
-
     template <typename T>
-    void write_array(Vector<T> vec)
+    void write_array(View<T> vec)
     {
         const size_t byte_len = vec.size() * sizeof(T);
 
@@ -86,19 +83,6 @@ public:
         std::memcpy(&value, m_ro_data + m_cursor, sizeof(T));
         m_cursor += sizeof(T);
         return value;
-    }
-
-    String read()
-    {
-        size_t len = 0;
-        while (len < m_ro_data_size && m_ro_data[m_cursor + len] != 0)
-            len++;
-
-        String s;
-        s.resize(len);
-        std::memcpy(s.data(), m_ro_data + m_cursor, len);
-        m_cursor += len + 1;
-        return s;
     }
 
     template <typename T>
@@ -265,24 +249,64 @@ struct RpcCallPacket
 inline Result<void> serialize(DataBuffer& buffer, const RpcCallPacket& p)
 {
     buffer.write(p.id);
-    buffer.write(p.name);
 
-    nlohmann::json j = p.args;
-    std::string s = j.dump();
-    buffer.write(s);
+    uint32_t name_size = p.name.size();
+    buffer.write(name_size);
+    buffer.write_array(View(p.name.data(), p.name.size()));
+
+    BufferWriter writer;
+    for (const Variant& v : p.args) {
+	TRY(writer.write_variant(v));
+    }
+
+    uint32_t size = writer.buffer().size();
+    buffer.write(size);
+    buffer.write_array(writer.buffer());
 
     return Result<void>();
 }
 inline Result<void> deserialize(DataBuffer& buffer, RpcCallPacket& p)
 {
     p.id = buffer.read<EntityId>();
-    p.name = buffer.read();
 
-    String s = buffer.read();
-    println("`{}`", s);
-    // FIXME: Replace this with binary variant ?
-    // p.args = nlohmann::json::parse(std::string(s.data(), s.size()));
+    uint32_t name_size = buffer.read<uint32_t>();
+    Vector<uint8_t> name_vec = buffer.read_array<uint8_t>(name_size);
 
+    p.name.append((char *)name_vec.data(), name_vec.size());
+
+    uint32_t size = buffer.read<uint32_t>();
+    Vector<uint8_t> data = buffer.read_array<uint8_t>(size);
+
+    BufferReader reader(data.data(), data.size());
+    for (;;) {
+	Option<Variant> v = TRY(reader.read_variant());
+	if (v.has_value()) {
+	    p.args.append(v.value());
+	} else {
+	    break;
+	}
+    }
+
+    return Result<void>();
+}
+
+struct RequestChunkPacket
+{
+    int64_t x;
+    int64_t z;
+
+    static constexpr PacketType type = PacketType::RequestChunk;
+};
+inline Result<void> serialize(DataBuffer& buffer, const RequestChunkPacket& p)
+{
+    buffer.write(p.x);
+    buffer.write(p.z);
+    return Result<void>();
+}
+inline Result<void> deserialize(DataBuffer& buffer, RequestChunkPacket& p)
+{
+    p.x = buffer.read<int64_t>();
+    p.z = buffer.read<int64_t>();
     return Result<void>();
 }
 
@@ -303,12 +327,12 @@ inline Result<void> serialize(DataBuffer& buffer, const ChunkDataPacket& p)
     uint32_t size = p.blocks.size();
     buffer.write(size);
 
-    buffer.write_array(p.blocks);
+    buffer.write_array(View(p.blocks));
     
     size = p.tags.size();
     buffer.write(size);
 
-    buffer.write_array(p.tags);
+    buffer.write_array(View(p.tags));
     return Result<void>();
 }
 inline Result<void> deserialize(DataBuffer& buffer, ChunkDataPacket& p)

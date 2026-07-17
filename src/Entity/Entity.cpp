@@ -70,7 +70,7 @@ void Entity::add_child(Ref<Entity> entity)
 
     entity->set_parent(this);
     entity->m_world = m_world;
-    entity->m_id = World::next_id();
+    entity->m_id = World::next_id(); // FIXME: don't do that
 }
 
 void Entity::remove_child(size_t index)
@@ -100,11 +100,12 @@ void Entity::expose_rpc(ClassHashCode cls, String name, RpcTarget target)
     Engine::get().registry().register_rpc(cls, name, target);
 }
 
-void Entity::call_rpc(StringView name, View<Variant> args)
+void Entity::call_rpci(StringView name, View<Variant> args)
 {
     auto rpc_target_maybe = get_rpc(name);
-    if (!rpc_target_maybe.has_value())
+    if (!rpc_target_maybe.has_value()) {
         return;
+    }
 
     RpcTarget rpc_target = rpc_target_maybe.value();
 
@@ -127,7 +128,10 @@ void Entity::call_rpc(StringView name, View<Variant> args)
         RpcCallPacket p;
         p.id = id();
         p.name = name;
-        p.args = args.to_vector();
+	
+	for (const Variant& v : args) {
+	    p.args.append(v);
+	}
 
         if (Engine::singleton->is_server())
             Engine::singleton->connection().broadcast(Engine::singleton->connection().create_packet(p));

@@ -43,7 +43,8 @@ class Player : public LivingEntity
     CLASS(Player, LivingEntity);
 
 public:
-    //  health, attack_damage, speed, jump_force
+    static void bind_methods();
+
     Player()
         : LivingEntity(20)
     {
@@ -61,6 +62,9 @@ public:
     virtual void load(const EntitySerializer& deser) override;
 
     virtual void die() override;
+
+    void break_block(int64_t x, int64_t y, int64_t z);
+    void place_block(int64_t x, int64_t y, int64_t z, glm::vec3 normal, ItemStack stack);
 
     void on_ready() override;
 

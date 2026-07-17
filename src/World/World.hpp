@@ -83,6 +83,13 @@ struct WorldSaveInfo
     glm::vec3 spawn_position;
 };
 
+struct ChunkLoadRequest {
+    ENetPeer *peer;
+    int dimension;
+    int64_t x;
+    int64_t z;
+};
+
 class World : public Object
 {
     CLASS(World, Object);
@@ -158,7 +165,7 @@ public:
     {
         entity->m_world = this;
         entity->m_dimension = dimension;
-        if (!m_proxy)
+        if (!m_proxy && (uint32_t)entity->id() == 0)
             entity->m_id = World::next_id();
         entity->on_ready();
         m_dims[dimension].add_entity(entity);
@@ -202,6 +209,8 @@ public:
 
     bool is_player_saved(const StringView& name) const;
 
+    void request_chunk(ENetPeer *peer, int dimension, int64_t x, int64_t z);
+
     static EntityId next_id()
     {
         static uint32_t id = 0;
@@ -219,6 +228,8 @@ private:
     ThreadPool m_generation_thread_pool;
     int32_t m_load_distance = 8;
 
+    LocalVector<ChunkLoadRequest> m_load_requests;
+
     Ref<Camera> m_camera;
     bool m_proxy = false;
 
@@ -226,6 +237,7 @@ private:
 
     void find_safe_spawn();
     void load_around_player();
+    void request_load_around();
 
     void load_one_chunk(ChunkPos pos);
     void unload_one_chunk(ChunkPos pos);

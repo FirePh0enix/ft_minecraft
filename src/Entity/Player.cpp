@@ -78,6 +78,15 @@ struct GPU_ATTRIBUTE ItemModel
     glm::mat4 model_matrix;
 };
 
+void Player::bind_methods()
+{
+    type.add_method("break_block", &Player::break_block);
+    expose_rpc<Player>("break_block", RpcTarget::Both);
+
+    type.add_method("place_block", &Player::place_block);
+    expose_rpc<Player>("place_block", RpcTarget::Both);
+}
+
 void Player::on_ready()
 {
     m_inventory_container = newref<InventoryContainer>();
@@ -252,18 +261,14 @@ void Player::tick(float delta)
             else
                 m_aimed_block = None;
 
-            if (Input::is_action_just_pressed("attack"))
+            if (Input::is_action_just_pressed("attack") && result.hit_entity)
             {
-                if (result.hit_entity)
-                {
-                    if (auto mob = result.entity.cast_to<Mob>())
-                        mob->damage(1, id()); // TODO: different tool deals different damages.
-                }
+		if (auto mob = result.entity.cast_to<Mob>())
+                    mob->damage(1, id()); // TODO: different tool deals different damages.
             }
-
-            if (m_gamemode == GameMode::Creative && !result.hit_entity && Input::is_action_just_pressed("attack"))
+            else if (m_gamemode == GameMode::Creative && !result.hit_entity && Input::is_action_just_pressed("attack"))
             {
-                m_world->set_block_state(result.block_pos.x, result.block_pos.y, result.block_pos.z, BlockState());
+		call_rpc("break_block", result.block_pos.x, result.block_pos.y, result.block_pos.z);
             }
             else if (m_gamemode == GameMode::Survival && !result.hit_entity)
             {
@@ -283,7 +288,7 @@ void Player::tick(float delta)
                     m_destroy_ticks += 1;
                     if (m_destroy_ticks >= max_destroy_ticks)
                     {
-                        m_world->break_block(result.block_pos.x, result.block_pos.y, result.block_pos.z);
+			call_rpc("break_block", result.block_pos.x, result.block_pos.y, result.block_pos.z);
                         m_is_destroing = false;
                         m_destroy_ticks = 0;
                     }
@@ -302,17 +307,13 @@ void Player::tick(float delta)
 
                 if (Ref<InventoryBlock> ib = block.cast_to<InventoryBlock>())
                 {
+		    // TODO: How to handle this with an RPC ?
                     ib->open_inventory(result.block_pos, this);
                 }
                 else
                 {
                     ItemStack stack = m_inventory_container->get_stack(1, m_slot);
-                    if (stack.item().valid())
-                    {
-                        Ref<Item> item = Engine::get().registry().get_item(stack.item());
-                        item->interact(*m_world, m_dimension, stack, result.block_pos, result.normal);
-                        m_inventory_container->set_stack(1, m_slot, stack);
-                    }
+		    call_rpc("place_block", result.block_pos.x, result.block_pos.y, result.block_pos.z, result.normal, stack);
                 }
             }
         }
@@ -555,6 +556,25 @@ void Player::load(const EntitySerializer& deser)
 
 void Player::die()
 {
+}
+
+void Player::break_block(int64_t x, int64_t y, int64_t z)
+{
+    if (m_gamemode == GameMode::Survival) {
+	m_world->break_block(x, y, z);
+    } else {
+	m_world->set_block_state(x, y, z, BlockState());
+    }
+}
+
+void Player::place_block(int64_t x, int64_t y, int64_t z, glm::vec3 normal, ItemStack stack)
+{
+    if (stack.item().valid())
+    {
+	Ref<Item> item = Engine::get().registry().get_item(stack.item());
+        item->interact(*m_world, m_dimension, stack, glm::i64vec3(x, y, z), normal);
+	if (m_local_player) m_inventory_container->set_stack(1, m_slot, stack);
+    }
 }
 
 void Player::open_inventory(Ref<Inventory> inventory)

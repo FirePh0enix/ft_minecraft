@@ -29,6 +29,11 @@ struct Recipe
     ItemStack result;
 };
 
+template<typename T>
+concept HasBindMethods = requires(T a) {
+    { T::bind_methods() } -> std::convertible_to<void>;
+};
+
 class EntityRegistry
 {
 public:
@@ -39,6 +44,14 @@ public:
         Constructor c;
     };
 
+    template <typename T> requires(HasBindMethods<T>)
+    void register_entity()
+    {
+        // T::bind_methods();
+        m_entries.put(T::get_static_hash_code(), Entry{.c = []() -> Ref<Entity>
+                                                       { return newref<T>().template cast_to<Entity>(); }});
+    }
+    
     template <typename T>
     void register_entity()
     {
@@ -117,20 +130,7 @@ public:
         m_exposed_rpc.get_or_put(cls, {})->put(name, target);
     }
 
-    Option<RpcTarget> get_rpc(Entity *entity, const StringView& name) const
-    {
-        for (ssize_t i = (ssize_t)entity->get_classes().size(); i >= 0; i--)
-        {
-            ClassHashCode class_hash = entity->get_classes()[i];
-            if (m_exposed_rpc.contains(class_hash))
-            {
-                const auto rpcs = m_exposed_rpc.get(class_hash).value();
-                if (rpcs.contains(name))
-                    return rpcs.get(name);
-            }
-        }
-        return None;
-    }
+    Option<RpcTarget> get_rpc(Entity *entity, const StringView& name) const;
 
     // Crafting system.
     void add_recipe(const Recipe& recipe) { m_recipes.append(recipe); }

@@ -5,14 +5,12 @@
 #include "Core/Containers/Iterator.hpp"
 #include "Core/Definitions.hpp"
 #include "Core/Option.hpp"
+#include "Core/Containers/View.hpp"
 
 #include <compare>
 #include <cstddef>
 #include <functional>
 
-/**
- *  @brief Dynamic array with fallible memory allocation.
- */
 template <typename T>
 class Vector
 {

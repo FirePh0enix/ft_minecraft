@@ -3,6 +3,7 @@
 #include <cstdint>
 
 #include "Core/Containers/HashMap.hpp"
+#include "Core/Containers/Vector.hpp"
 #include "Core/String.hpp"
 
 enum class CmdArgKind

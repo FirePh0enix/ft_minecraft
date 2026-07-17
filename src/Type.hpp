@@ -18,7 +18,7 @@ struct Arguments
     T pop()
     {
         ASSERT_V(i <= args.size(), "");
-        return args[i++].get_unchecked<T>();
+        return args[args.size() - (i++) - 1].get_unchecked<T>();
     }
 };
 
@@ -51,10 +51,10 @@ public:
     template <typename T, typename Ret, typename... Args>
     void add_method(String name, Ret (T::*func)(Args...))
     {
-        m_methods.put(name, Method{.func = [&](Object *instance, Arguments args)
+        m_methods.put(name, Method{.func = [func](Object *instance, Arguments args)
                                    {
-                                       constexpr bool is_null = std::is_same_v<Ret, void>;
-                                       if constexpr (is_null)
+                                       constexpr bool ret_is_void = std::is_same_v<Ret, void>;
+                                       if constexpr (ret_is_void)
                                        {
                                            (reinterpret_cast<T *>(instance)->*func)(args.pop<Args>()...);
                                            return nullptr;
@@ -71,9 +71,9 @@ public:
     void add_property(String name, Value (T::*getter)() const, void (T::*setter)(Value v))
     {
         m_properties.put(name, Property{
-                                   .getter = [&](Object *instance, Arguments args)
+                                   .getter = [getter](Object *instance, Arguments args)
                                    { (void) args; return (reinterpret_cast<T *>(instance)->*getter)(); },
-                                   .setter = [&](Object *instance, Arguments args)
+                                   .setter = [setter](Object *instance, Arguments args)
                                    { (reinterpret_cast<T *>(instance)->*setter)(args.pop<Value>()); return nullptr; },
                                });
     }
