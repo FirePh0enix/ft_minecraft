@@ -1,6 +1,7 @@
 #include "Window.hpp"
 #include "Core/Logger.hpp"
-#include "SDL3/SDL_keyboard.h"
+
+#include <SDL3/SDL.h>
 
 #ifdef __platform_web
 #include <emscripten/html5.h>
@@ -17,20 +18,24 @@ Window::Window(const String& title, uint32_t width, uint32_t height, bool resiza
 
     SDL_WindowFlags flags = 0;
 
-#ifdef __platform_linux
+#if defined(__platform_linux) || defined(__platform_windows)
     flags |= SDL_WINDOW_VULKAN;
 #elif defined(__platform_macos)
     flags |= SDL_WINDOW_METAL;
-#elif defined(__platform_windows)
-#error "Windows not implemented"
 #endif
 
-    if (resizable)
-    {
-        flags |= SDL_WINDOW_RESIZABLE;
-    }
+    // flags |= SDL_WINDOW_RESIZABLE;
 
-    m_window = SDL_CreateWindow(title.data(), (int)width, (int)height, flags);
+    int display_count = 0;
+    SDL_DisplayID *displays = SDL_GetDisplays(&display_count);
+    assert(display_count > 0);
+
+    const SDL_DisplayMode *dm = SDL_GetDesktopDisplayMode(displays[0]);
+    constexpr float factor = 0.9;
+    int w = float(dm->w) * factor;
+    int h = float(dm->h) * factor;
+
+    m_window = SDL_CreateWindow(title.data(), w, h, flags);
 
     if (m_window == nullptr)
     {
