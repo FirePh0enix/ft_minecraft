@@ -93,40 +93,26 @@ World::World()
 void World::find_safe_spawn()
 {
     srand(0);
-    glm::vec3 water_spawn_position;
-    bool found = false;
+    
     size_t i;
-
-    for (i = 0; i < 30 && !found; i++)
+    for (i = 0; i < 30; i++)
     {
         int64_t x = rand() % 30;
         int64_t z = rand() % 30;
 
-        for (int64_t y = Chunk::height - 1; y > 3; y -= 4)
+        for (int64_t y = Chunk::height - 1; y > 0; y--)
         {
-            // BlockState state = m_dims[overworld].generate_block(x, y, z);
-            // BlockState state1 = m_dims[overworld].generate_block(x, y - 1, z);
-            // BlockState state2 = m_dims[overworld].generate_block(x, y - 2, z);
-            // BlockState state3 = m_dims[overworld].generate_block(x, y - 3, z);
-
-            // if (state.is_air() && state1.is_air() && state2.is_air() && !state3.is_air())
-            // {
-            // if (state3.id != Blocks::water)
-            // {
-            m_spawn_position = glm::vec3(x, y - 3, z) + glm::vec3(0, 6.6, 0);
-            found = true;
-            break;
-            // }
-            // else
-            // {
-            //     water_spawn_position = glm::vec3(x, y - 3, z) + glm::vec3(0, 6.6, 0);
-            // }
-            // }
+	    int64_t cx = local_coords(x);
+	    int64_t cz = local_coords(z);
+	    Ref<Chunk> chunk = newref<Chunk>(&m_dims[0], chunk_index(x), chunk_index(z));
+	    BlockState state = m_dims[0].generate_block(x, y, z, chunk);
+	    
+	    if (!state.is_air() || chunk->get_tag(glm::i64vec3(cx, y, cz), "water").has_value()) {
+		m_spawn_position = glm::vec3(x, y, z) + glm::vec3(0, 2.6, 0);
+		return;
+	    }
         }
     }
-
-    if (!found)
-        m_spawn_position = water_spawn_position;
 }
 
 Result<Ref<World>> World::create(String name, uint64_t seed, int type)
@@ -144,7 +130,7 @@ Result<Ref<World>> World::create(String name, uint64_t seed, int type)
         world->m_dims[overworld].m_generation_passes.append(newref<OverworldSurfacePass>());
     }
 
-    world->find_safe_spawn();
+    // world->find_safe_spawn();
 
     String path = format("{}saves/{}/", Filesystem::get_data_directory(), name);
     TRY(Filesystem::make_dirs(path));
@@ -154,7 +140,7 @@ Result<Ref<World>> World::create(String name, uint64_t seed, int type)
     WorldSaveInfo wi{};
     wi.seed = seed;
     wi.type = WorldPresetType(type);
-    wi.spawn_position = world->get_spawn_position();
+    wi.spawn_position = glm::vec3(0, 80, 0); // world->get_spawn_position();
     TRY(file.writer().write_raw(&wi, sizeof(WorldSaveInfo)));
     file.close();
 
@@ -200,7 +186,7 @@ World::~World()
 {
 }
 
-static void add_neighbour_chunk(World *world, ChunkPos pos, Set<ChunkPos>& chunks) {
+static void add_neighbour_chunk(ChunkPos pos, Set<ChunkPos>& chunks) {
     const Array<ChunkPos, 4> positions = {
 	ChunkPos(pos.x - 1, pos.z),
 	ChunkPos(pos.x + 1, pos.z),
@@ -264,32 +250,20 @@ void World::tick(float delta)
         for (auto& [pos, chunk] : m_dims[0].m_chunks_to_flush) {
             m_dims[0].m_chunks.put(pos, chunk);
             chunk_modified.put(pos);
-	    add_neighbour_chunk(this, pos, chunk_modified);
+	    add_neighbour_chunk(pos, chunk_modified);
         }
         m_dims[0].m_chunks_to_flush.clear();
 
         for (auto pos : m_dims[0].m_chunks_to_remove) {
             m_dims[0].m_chunks.erase(pos);
             chunk_modified.put(pos);
-	    add_neighbour_chunk(this, pos, chunk_modified);
+	    add_neighbour_chunk(pos, chunk_modified);
         }
         m_dims[0].m_chunks_to_remove.clear();
     }
 
     for (ChunkPos pos : chunk_modified) {
-	std::lock_guard<std::mutex> lock(m_dims[0].m_chunk_rebuild_mutex);
-	if (m_dims[0].m_chunk_rebuild_queue.contains(pos)) {
-	    continue;
-	}
-	m_dims[0].m_chunk_rebuild_queue.put(pos);
-
-	Engine::get().get_thread_pool().async([this, pos] {
-	    rebuild_chunk(pos);
-
-	    std::lock_guard<std::mutex> lock(m_dims[0].m_chunk_rebuild_mutex);
-	    // FIXME: spurious heap-buffer-overflow when ASan is enabled.
-	    m_dims[0].m_chunk_rebuild_queue.erase(pos);
-	});
+        m_dims[World::overworld].queue_rebuild(pos);
     }
  
     if (!m_proxy && Engine::get().is_online() && Engine::get().is_server()) {
@@ -572,6 +546,21 @@ Result<void> World::save_player(const Ref<Player>& player)
     return Result<void>();
 }
 
+void World::load_player(const StringView& username, Ref<Player>& player)
+{
+    String path = format("{}saves/{}/players/{}.dat", Filesystem::get_data_directory(), get_name(), username);
+
+    EntitySerializer serializer;
+    EXPECT(serializer.load(path));
+
+    glm::vec3 position = serializer.get<glm::vec3>("position").value_or(get_spawn_position());
+    glm::quat rotation = serializer.get<glm::quat>("rotation").value_or({});
+
+    player->set_position(position);
+    player->set_rotation(rotation);
+    player->load(serializer);
+}
+
 void World::send_chunk(ENetPeer *peer, const Ref<Chunk>& chunk) const
 {
     std::vector<uint8_t> blocks_data;
@@ -784,17 +773,6 @@ void World::inflate_data(const uint8_t *compressed_data, size_t compressed_data_
 	}
     }
 
-    /*int res = Z_OK;
-    while (res == Z_OK) {
-	if (strm.avail_out == 0) {
-	    uncompressed_data.insert(uncompressed_data.end(), tmp, tmp + INFLATE_BUFFER_SIZE);
-	    strm.next_out = tmp;
-	    strm.avail_out = INFLATE_BUFFER_SIZE;
-	}
-	res = inflate(&strm, Z_FINISH);
-    }*/
-
-    // assert(res == Z_STREAM_END);
     uncompressed_data.insert(uncompressed_data.end(), tmp, tmp + INFLATE_BUFFER_SIZE - strm.avail_out);
     inflateEnd(&strm);
     
@@ -831,40 +809,4 @@ void World::read_tags(Reader& reader, Ref<Chunk>& chunk) const
 void World::request_chunk(ENetPeer *peer, int dimension, int64_t x, int64_t z)
 {
     m_load_requests.append(ChunkLoadRequest(peer, dimension, x, z));
-}
-
-void World::rebuild_chunk(ChunkPos pos)
-{
-    Ref<Chunk> chunk;
-    Map<ChunkPos, Ref<Chunk>> nchunks;
-
-    {
-	std::lock_guard<std::mutex> lock(m_dims[0].mutex());
-
-	Option<Ref<Chunk>> chunk_opt = m_dims[0].get_chunk(pos.x, pos.z);
-	if (!chunk_opt.has_value()) {
-	    return;
-	}
-
-	chunk = chunk_opt.value();
-
-	const Array<ChunkPos, 4> positions{
-	    ChunkPos(pos.x + 1, pos.z),
-	    ChunkPos(pos.x - 1, pos.z),
-	    ChunkPos(pos.x, pos.z + 1),
-	    ChunkPos(pos.x, pos.z - 1),
-	};
-	for (ChunkPos p : positions) {
-	    chunk_opt = m_dims[0].get_chunk(p.x, p.z);
-	    if (!chunk_opt.has_value()) {
-		continue;
-	    }
-	    nchunks.put(p, chunk_opt.value());
-	}
-    }
-
-    for (size_t i = 0; i < Chunk::slice_count; i++) {
-	EXPECT(chunk->build_simple_mesh(i, nchunks));
-	EXPECT(chunk->build_water_mesh(i, nchunks));
-    }
 }

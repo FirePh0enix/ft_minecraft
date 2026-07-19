@@ -60,16 +60,7 @@ void Chunk::set_block(int64_t x, int64_t y, int64_t z, BlockState state)
 
     m_modified = true;
 
-    /*EXPECT(build_simple_mesh(slice, {}));
-
-    if (y > 0 && y % width == 0)
-    {
-        EXPECT(build_simple_mesh(slice - 1));
-    }
-    else if (y < Chunk::height - 1 && y % width == width - 1)
-    {
-        EXPECT(build_simple_mesh(slice + 1));
-	}*/
+    m_dim->queue_rebuild(ChunkPos(m_x, m_z));
 }
 
 struct ChunkBlockFace
@@ -328,8 +319,8 @@ void Chunk::set_tag(glm::i64vec3 pos, const StringView& name, Variant v, bool re
     uint16_t key = linearize(pos.x, pos.y, pos.z);
     BlockTags *tags = m_tags.get_or_put(key, BlockTags());
     tags->tags.put(name, v);
-    //if (rebuild)
-    //    EXPECT(build_water_mesh(pos.y / Chunk::width));
+
+    m_dim->queue_rebuild(ChunkPos(m_x, m_z));
 }
 
 void Chunk::remove_tag(glm::i64vec3 pos, const StringView& name, bool rebuild)
@@ -344,8 +335,7 @@ void Chunk::remove_tag(glm::i64vec3 pos, const StringView& name, bool rebuild)
         if (tags.value()->tags.size() == 0)
         {
             m_tags.erase(key);
-            //if (rebuild)
-            //    EXPECT(build_water_mesh(pos.y / Chunk::width));
+	    m_dim->queue_rebuild(ChunkPos(m_x, m_z)); // TODO: Add a way to rebuild one slice ? (pos.y / 16)
         }
     }
 }

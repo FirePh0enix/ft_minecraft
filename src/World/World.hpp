@@ -200,6 +200,11 @@ public:
     Result<void> save_entity(const Ref<Entity>& entity);
     Result<void> save_player(const Ref<Player>& player);
 
+    /**
+     * Load player data from the disk.
+     */
+    void load_player(const StringView& name, Ref<Player>& player);
+
     void deferred_receive_chunk(const ChunkDataPacket& p);
 
     void send_chunk(ENetPeer *peer, const Ref<Chunk>& chunk) const;
@@ -210,8 +215,6 @@ public:
     bool is_player_saved(const StringView& name) const;
 
     void request_chunk(ENetPeer *peer, int dimension, int64_t x, int64_t z);
-
-    void rebuild_chunk(ChunkPos pos);
 
     static EntityId next_id()
     {

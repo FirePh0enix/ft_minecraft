@@ -319,30 +319,17 @@ void Engine::create_world_and_start()
         m_world = EXPECT(World::create(name, seed, m_main_menu_world_type));
     }
 
+    // TODO: Add way to personalize username.
     String username = "john";
 
     m_player = newref<Player>();
-    m_player.cast_to<Player>()->set_username(username);
+    m_player->set_username(username);
     m_world->add_entity(World::overworld, m_player);
 
     if (m_world->is_player_saved(username))
-    {
-        String path = format("{}saves/{}/players/{}.dat", Filesystem::get_data_directory(), m_world->get_name(), username);
-
-        EntitySerializer serializer;
-        EXPECT(serializer.load(path));
-
-        glm::vec3 position = serializer.get<glm::vec3>("position").value_or(m_world->get_spawn_position());
-        glm::quat rotation = serializer.get<glm::quat>("rotation").value_or({});
-
-        m_player->set_position(position);
-        m_player->set_rotation(rotation);
-        m_player->load(serializer);
-    }
+	m_world->load_player(username, m_player);
     else
-    {
         m_player->get_transform().position() = m_world->get_spawn_position();
-    }
 
     m_world->force_load_chunk_for(m_player->get_position());
 
@@ -497,8 +484,6 @@ void Engine::connect_client(void *user, NetworkConnection& conn, const Client& c
     (void)client;
     Engine *self = (Engine *)user;
 
-    debug("hello world");
-
     BonjourPacket p;
     p.username = self->m_username;
     conn.send(conn.create_packet(p));
@@ -513,7 +498,7 @@ void Engine::disconnect_client(void *user, NetworkConnection& conn, const Client
     self->m_scene = GameScene::MainMenu;
     self->m_world = nullptr;
 
-    info("Disconnected from the player");
+    info("Disconnected from the server");
 }
 
 void Engine::receive_server(void *user, NetworkConnection& conn, ENetPacket *packet, const Client& client)
@@ -540,9 +525,19 @@ void Engine::receive_server(void *user, NetworkConnection& conn, ENetPacket *pac
 	}
 	
 	EntityId id = World::next_id();
-	const glm::vec3 spawn_position = glm::vec3(0, 100.0, 0);
 
-	InitPacket init_p(self->m_world->seed(), id, spawn_position);
+	Ref<Player> player = newref<Player>();
+	player->set_remote();
+	player->set_id(id);
+	player->get_transform().position() = self->m_world->get_spawn_position();
+	player->set_username(p.username);
+	
+	// TODO: Send inventory content, maybe with a separate packet.
+	if (self->m_world->is_player_saved(p.username)) {
+	    self->m_world->load_player(p.username, player);
+	}
+
+	InitPacket init_p(self->m_world->seed(), id, player->get_transform().position());
 	conn.send(client.peer(), conn.create_packet(init_p));
 
 	for (Ref<Entity> entity : self->m_world->get_dimension(0).get_entities())
@@ -551,12 +546,6 @@ void Engine::receive_server(void *user, NetworkConnection& conn, ENetPacket *pac
 		AddEntityPacket p2(transform.position(), transform.rotation(), entity->id(), entity->get_class_hash_code());
 		conn.send(client.peer(), conn.create_packet(p2));
 	    }
-
-	Ref<Player> player = newref<Player>();
-	player->set_remote();
-	player->set_id(id);
-	player->get_transform().position() = spawn_position;
-	player->set_username(p.username);
 
 	self->m_world->add_entity(0, player);
 	self->m_players.put(client.peer(), player);

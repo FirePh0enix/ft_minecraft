@@ -52,6 +52,13 @@ public:
     Result<Ref<Chunk>> generate_chunk(int64_t cx, int64_t cz);
     BlockState generate_block(int64_t x, int64_t y, int64_t z, Ref<Chunk>& chunk);
 
+    void rebuild(ChunkPos pos);
+
+    /**
+     * Add a `rebuild` call the the thread pool.
+     */
+    void queue_rebuild(ChunkPos pos);
+
 private:
     std::mutex m_chunk_mutex;
     LocalVector<Ref<Entity>> m_entities;

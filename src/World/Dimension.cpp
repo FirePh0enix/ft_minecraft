@@ -4,6 +4,7 @@
 #include "Profiler.hpp"
 #include "World/Chunk.hpp"
 #include "World/World.hpp"
+#include "Engine.hpp"
 
 #include <limits>
 
@@ -47,8 +48,7 @@ void Dimension::remove_entity(EntityId id)
 
 Ref<Entity> Dimension::get_entity(EntityId id) const
 {
-    for (const auto& entity : m_entities)
-    {
+    for (const auto& entity : m_entities) {
         if (entity->id() == id)
             return entity;
     }
@@ -136,31 +136,6 @@ void Dimension::set_block(int64_t x, int64_t y, int64_t z, BlockState state)
     int64_t local_z = local_coords(z);
 
     chunk->set_block(local_x, y, local_z, state);
-
-    /*if (local_x == 0)
-    {
-        chunk_value = get_chunk(chunk_x - 1, chunk_z);
-        if (chunk_value.has_value())
-            EXPECT(chunk_value.value()->build_simple_mesh(y / 16));
-    }
-    else if (local_x == 15)
-    {
-        chunk_value = get_chunk(chunk_x + 1, chunk_z);
-        if (chunk_value.has_value())
-            EXPECT(chunk_value.value()->build_simple_mesh(y / 16));
-    }
-    if (local_z == 0)
-    {
-        chunk_value = get_chunk(chunk_x, chunk_z - 1);
-        if (chunk_value.has_value())
-            EXPECT(chunk_value.value()->build_simple_mesh(y / 16));
-    }
-    else if (local_z == 15)
-    {
-        chunk_value = get_chunk(chunk_x, chunk_z + 1);
-        if (chunk_value.has_value())
-            EXPECT(chunk_value.value()->build_simple_mesh(y / 16));
-	    }*/
 }
 
 void Dimension::set_tag(glm::i64vec3 pos, const StringView& name, Variant v)
@@ -256,11 +231,6 @@ Result<Ref<Chunk>> Dimension::generate_chunk(int64_t cx, int64_t cz)
         }
     }
 
-    // for (size_t i = 0; i < Chunk::slice_count; i++) {
-    //     TRY(chunk->build_simple_mesh(i));
-    //     TRY(chunk->build_water_mesh(i));
-    // }
-
     return chunk;
 }
 
@@ -273,4 +243,57 @@ BlockState Dimension::generate_block(int64_t x, int64_t y, int64_t z, Ref<Chunk>
         state = pass->generate_block(x, y, z, chunk);
     }
     return state;
+}
+
+void Dimension::rebuild(ChunkPos pos)
+{
+    Ref<Chunk> chunk;
+    Map<ChunkPos, Ref<Chunk>> nchunks;
+
+    {
+	std::lock_guard<std::mutex> lock(mutex());
+
+	Option<Ref<Chunk>> chunk_opt = get_chunk(pos.x, pos.z);
+	if (!chunk_opt.has_value()) {
+	    return;
+	}
+
+	chunk = chunk_opt.value();
+
+	const Array<ChunkPos, 4> positions{
+	    ChunkPos(pos.x + 1, pos.z),
+	    ChunkPos(pos.x - 1, pos.z),
+	    ChunkPos(pos.x, pos.z + 1),
+	    ChunkPos(pos.x, pos.z - 1),
+	};
+	for (ChunkPos p : positions) {
+	    chunk_opt = get_chunk(p.x, p.z);
+	    if (!chunk_opt.has_value()) {
+		continue;
+	    }
+	    nchunks.put(p, chunk_opt.value());
+	}
+    }
+
+    for (size_t i = 0; i < Chunk::slice_count; i++) {
+	EXPECT(chunk->build_simple_mesh(i, nchunks));
+	EXPECT(chunk->build_water_mesh(i, nchunks));
+    }
+}
+
+void Dimension::queue_rebuild(ChunkPos pos)
+{
+    std::lock_guard<std::mutex> lock(m_chunk_rebuild_mutex);
+    if (m_chunk_rebuild_queue.contains(pos)) {
+	return;
+    }
+    m_chunk_rebuild_queue.put(pos);
+    
+    Engine::get().get_thread_pool().async([this, pos] {
+	rebuild(pos);
+
+	std::lock_guard<std::mutex> lock(m_chunk_rebuild_mutex);
+	// FIXME: spurious heap-buffer-overflow when ASan is enabled.
+	m_chunk_rebuild_queue.erase(pos);
+    });
 }

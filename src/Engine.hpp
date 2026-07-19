@@ -97,7 +97,7 @@ private:
     ThreadPool m_thread_pool;
 
     Ref<World> m_world;
-    Ref<Entity> m_player;
+    Ref<Player> m_player;
     Ref<Font> m_font;
 
     bool m_time_pass = true;
