@@ -16,19 +16,19 @@ class Ref
 {
 public:
     ALWAYS_INLINE Ref()
-        : m_ptr(nullptr), m_references(nullptr)
+        : m_ptr(nullptr) //, m_references(nullptr)
     {
     }
 
     ALWAYS_INLINE Ref(std::nullptr_t)
-        : m_ptr(nullptr), m_references(nullptr)
+        : m_ptr(nullptr) //, m_references(nullptr)
     {
     }
 
-    ALWAYS_INLINE explicit Ref(T *ptr)
-        : m_ptr(ptr), m_references(alloc<std::atomic_size_t>(1))
-    {
-    }
+    // ALWAYS_INLINE explicit Ref(T *ptr)
+    //     : m_ptr(ptr), m_references(alloc<std::atomic_size_t>(1))
+    // {
+    // }
 
     Ref(const Ref& other)
         : Ref()
@@ -36,14 +36,14 @@ public:
         if (!other.is_null())
         {
             m_ptr = other.m_ptr;
-            m_references = other.m_references;
+            // m_references = other.m_references;
 
             ref();
         }
     }
 
-    Ref(T *ptr, std::atomic_size_t *references)
-        : m_ptr(ptr), m_references(references)
+    Ref(T *ptr) //, std::atomic_size_t *references)
+        : m_ptr(ptr) //, m_references(references)
     {
         if (!is_null())
             ref();
@@ -54,7 +54,7 @@ public:
         if (!is_null())
             unref();
         m_ptr = nullptr;
-        m_references = nullptr;
+        // m_references = nullptr;
     }
 
     Ref& operator=(std::nullptr_t)
@@ -65,7 +65,7 @@ public:
         }
 
         m_ptr = nullptr;
-        m_references = nullptr;
+        // m_references = nullptr;
 
         return *this;
     }
@@ -85,14 +85,14 @@ public:
         if (!other.is_null())
         {
             m_ptr = other.m_ptr;
-            m_references = other.m_references;
+            // m_references = other.m_references;
 
             ref();
         }
         else
         {
             m_ptr = nullptr;
-            m_references = nullptr;
+            // m_references = nullptr;
         }
 
         return *this;
@@ -156,7 +156,7 @@ public:
     template <typename B>
     ALWAYS_INLINE Ref<B> unchecked_cast_to() const
     {
-        return Ref<B>(static_cast<B *>((B *)m_ptr), m_references);
+        return Ref<B>(static_cast<B *>((B *)m_ptr));
     }
 
     template <typename B>
@@ -164,33 +164,33 @@ public:
     {
         if (!is_null() && m_ptr->template is<B>())
         {
-            return Ref<B>(static_cast<B *>((B *)m_ptr), m_references);
+            return Ref<B>(static_cast<B *>((B *)m_ptr));
         }
         return nullptr;
     }
 
-    size_t references() const { return m_references ? m_references->load() : 0; }
+    size_t references() const { return m_ptr ? m_ptr->get_reference_count().load() : 0; }
 
 private:
     T *m_ptr;
-    std::atomic_size_t *m_references;
+    // std::atomic_size_t *m_references;
 
     ALWAYS_INLINE void ref()
     {
         // *m_references += 1;
-        m_references->fetch_add(1);
+        m_ptr->get_reference_count().fetch_add(1);
     }
 
     void unref()
     {
-        // *m_references -= 1;
-        if (m_references->fetch_sub(1) == 1)
-        {
+        //*m_references -= 1;
+        if (m_ptr->get_reference_count().fetch_sub(1, std::memory_order_acq_rel) == 1)
+	{
             destroy(m_ptr);
-            destroy(m_references);
+            // destroy(m_references);
 
             m_ptr = nullptr;
-            m_references = nullptr;
+            // m_references = nullptr;
         }
     }
 };

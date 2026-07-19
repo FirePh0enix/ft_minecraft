@@ -4,6 +4,7 @@
 #include "Profiler.hpp"
 #include "World/Chunk.hpp"
 #include "World/World.hpp"
+
 #include <limits>
 
 Option<Ref<Chunk>> Dimension::get_chunk(int64_t x, int64_t z) const
@@ -75,7 +76,7 @@ Vector<AABB> Dimension::get_boxes_that_may_collide(const AABB& box) const
                     continue;
 
                 AABB block_box = AABB(-glm::vec3(0.5), glm::vec3(0.5)).translate(glm::vec3(x, y, z));
-                boxes.append(block_box); // TODO: change to `TRY`
+                boxes.append(block_box);
             }
         }
     }
@@ -136,7 +137,7 @@ void Dimension::set_block(int64_t x, int64_t y, int64_t z, BlockState state)
 
     chunk->set_block(local_x, y, local_z, state);
 
-    if (local_x == 0)
+    /*if (local_x == 0)
     {
         chunk_value = get_chunk(chunk_x - 1, chunk_z);
         if (chunk_value.has_value())
@@ -159,7 +160,7 @@ void Dimension::set_block(int64_t x, int64_t y, int64_t z, BlockState state)
         chunk_value = get_chunk(chunk_x, chunk_z + 1);
         if (chunk_value.has_value())
             EXPECT(chunk_value.value()->build_simple_mesh(y / 16));
-    }
+	    }*/
 }
 
 void Dimension::set_tag(glm::i64vec3 pos, const StringView& name, Variant v)
@@ -233,35 +234,6 @@ bool Dimension::has_solid_block(int64_t x, int64_t y, int64_t z) const
     return !get_block(x, y, z).is_air();
 }
 
-Result<void> Dimension::rebuild_neighbor_chunks_water(int64_t cx, int64_t cz, size_t slice_index)
-{
-    const Array<glm::i64vec2, 4> array{
-        glm::i64vec2(1, 0),
-        glm::i64vec2(-1, 0),
-        glm::i64vec2(0, 1),
-        glm::i64vec2(0, -1),
-    };
-
-    for (const glm::i64vec2 dir : array)
-    {
-        Option<Ref<Chunk>> chunk = get_chunk(cx + dir.x, cz + dir.y);
-        if (chunk.has_value())
-        {
-            if (slice_index == std::numeric_limits<size_t>::max())
-            {
-                for (size_t i = 0; i < Chunk::slice_count; i++)
-                    TRY(chunk.value()->build_water_mesh(i));
-            }
-            else
-            {
-                TRY(chunk.value()->build_water_mesh(slice_index));
-            }
-        }
-    }
-
-    return Result<void>();
-}
-
 Result<Ref<Chunk>> Dimension::generate_chunk(int64_t cx, int64_t cz)
 {
     ZoneScoped;
@@ -280,19 +252,14 @@ Result<Ref<Chunk>> Dimension::generate_chunk(int64_t cx, int64_t cz)
 
                 BlockState state = generate_block(gx, y, gz, chunk);
                 chunk->get_blocks()[Chunk::linearize(x, y, z)] = state;
-
-                // there is at least one non-empty block.
-                if (!state.is_air())
-                    chunk->get_slices()[y / Chunk::width].empty = false;
             }
         }
     }
 
-    for (size_t i = 0; i < Chunk::slice_count; i++)
-    {
-        TRY(chunk->build_simple_mesh(i));
-        TRY(chunk->build_water_mesh(i));
-    }
+    // for (size_t i = 0; i < Chunk::slice_count; i++) {
+    //     TRY(chunk->build_simple_mesh(i));
+    //     TRY(chunk->build_water_mesh(i));
+    // }
 
     return chunk;
 }

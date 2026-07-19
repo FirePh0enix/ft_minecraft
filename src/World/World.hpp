@@ -211,6 +211,8 @@ public:
 
     void request_chunk(ENetPeer *peer, int dimension, int64_t x, int64_t z);
 
+    void rebuild_chunk(ChunkPos pos);
+
     static EntityId next_id()
     {
         static uint32_t id = 0;
@@ -224,8 +226,6 @@ private:
 
     Array<Dimension, max_dimensions> m_dims;
 
-    // Thread pool used for chunk loading/unloading.
-    ThreadPool m_generation_thread_pool;
     int32_t m_load_distance = 8;
 
     LocalVector<ChunkLoadRequest> m_load_requests;

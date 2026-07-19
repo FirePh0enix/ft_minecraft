@@ -1,6 +1,7 @@
 #include "World/World.hpp"
 #include "AABB.hpp"
 #include "Core/Containers/LocalVector.hpp"
+#include "Core/Containers/HashSet.hpp"
 #include "Core/Filesystem.hpp"
 #include "Core/Format.hpp"
 #include "Core/Print.hpp"
@@ -199,6 +200,19 @@ World::~World()
 {
 }
 
+static void add_neighbour_chunk(World *world, ChunkPos pos, Set<ChunkPos>& chunks) {
+    const Array<ChunkPos, 4> positions = {
+	ChunkPos(pos.x - 1, pos.z),
+	ChunkPos(pos.x + 1, pos.z),
+	ChunkPos(pos.x, pos.z - 1),
+	ChunkPos(pos.x, pos.z + 1),
+    };
+
+    for (const auto& p : positions) {
+	chunks.put(p);
+    }
+}
+
 void World::tick(float delta)
 {
     ZoneScoped;
@@ -229,10 +243,7 @@ void World::tick(float delta)
             chunk->clear_modified();
         }
 
-	// TODO: add a unique identifier for players. (it can be a simple username), add verification when connecting to
-	// make sure only one player can have the same name.
-	// For now all players are saved each frames to the same file, it should only be saved when stuff have changed, or once
-	// per seconds.
+	// TODO: Don't save every players each frames.
         for (const Ref<Entity>& entity : m_dims[World::overworld].get_entities())
         {
             if (Ref<Player> player = entity.cast_to<Player>())
@@ -245,25 +256,42 @@ void World::tick(float delta)
     }
 
     // Flush all new chunks.
-    LocalVector<ChunkPos> chunk_modified;
-
-    {
+    Set<ChunkPos> chunk_modified;
+    
+    {	
         std::lock_guard<std::mutex> lock(m_dims[0].mutex());
-        for (auto& [pos, chunk] : m_dims[0].m_chunks_to_flush)
-        {
+	
+        for (auto& [pos, chunk] : m_dims[0].m_chunks_to_flush) {
             m_dims[0].m_chunks.put(pos, chunk);
-            chunk_modified.append(pos);
+            chunk_modified.put(pos);
+	    add_neighbour_chunk(this, pos, chunk_modified);
         }
         m_dims[0].m_chunks_to_flush.clear();
 
-        for (auto pos : m_dims[0].m_chunks_to_remove)
-        {
+        for (auto pos : m_dims[0].m_chunks_to_remove) {
             m_dims[0].m_chunks.erase(pos);
-            chunk_modified.append(pos);
+            chunk_modified.put(pos);
+	    add_neighbour_chunk(this, pos, chunk_modified);
         }
         m_dims[0].m_chunks_to_remove.clear();
     }
 
+    for (ChunkPos pos : chunk_modified) {
+	std::lock_guard<std::mutex> lock(m_dims[0].m_chunk_rebuild_mutex);
+	if (m_dims[0].m_chunk_rebuild_queue.contains(pos)) {
+	    continue;
+	}
+	m_dims[0].m_chunk_rebuild_queue.put(pos);
+
+	Engine::get().get_thread_pool().async([this, pos] {
+	    rebuild_chunk(pos);
+
+	    std::lock_guard<std::mutex> lock(m_dims[0].m_chunk_rebuild_mutex);
+	    // FIXME: spurious heap-buffer-overflow when ASan is enabled.
+	    m_dims[0].m_chunk_rebuild_queue.erase(pos);
+	});
+    }
+ 
     if (!m_proxy && Engine::get().is_online() && Engine::get().is_server()) {
 	for (Ref<Entity> entity : m_dims[World::overworld].get_entities()) {
 	    UpdateEntityPacket p{};
@@ -278,9 +306,12 @@ void World::tick(float delta)
 	    if (chunk_opt.has_value()) {
 		Ref<Chunk> chunk = chunk_opt.value();
 
-		m_generation_thread_pool.async([this, req, chunk]() {
+		Engine::get().get_thread_pool().async([this, req, chunk] {
 		    send_chunk(req.peer, chunk);
 		});
+	    } else {
+		// TODO: chunk is loaded but requested by a client, so we load the chunk and send it when its ready.
+		//       This will require to split chunks in two: chunks loaded or visible chunks.
 	    }
 	}
 	m_load_requests.clear();
@@ -342,8 +373,7 @@ void World::load_around_player()
                 m_dims[0].m_chunk_loading_queue.put(pos);
             }
 
-            m_generation_thread_pool.async([this, pos]
-                                           { load_one_chunk(pos); });
+	    Engine::get().get_thread_pool().async([this, pos] { load_one_chunk(pos); });
         }
 
     std::lock_guard<std::mutex> lock(m_dims[0].mutex());
@@ -354,8 +384,7 @@ void World::load_around_player()
             continue;
         }
 
-        m_generation_thread_pool.async([this, pos]
-                                       { unload_one_chunk(pos); });
+	Engine::get().get_thread_pool().async([this, pos] { unload_one_chunk(pos); });
     }
 }
 
@@ -595,12 +624,10 @@ void World::receive_chunk(const ChunkDataPacket& p)
     BufferReader reader(tags_data.data(), tags_data.size());
     read_tags(reader, chunk);
     
-    for (size_t i = 0; i < Chunk::slice_count; i++) {
-	// TODO: Remove the `empty` boolean, this serve no actual purpose.
-     	chunk->get_slices()[i].empty = false;
-     	EXPECT(chunk->build_simple_mesh(i));
-	EXPECT(chunk->build_water_mesh(i));
-    }
+    // for (size_t i = 0; i < Chunk::slice_count; i++) {
+    //  	EXPECT(chunk->build_simple_mesh(i));
+    // 	EXPECT(chunk->build_water_mesh(i));
+    // }
 
     if (!has_chunk) {
     	dimension.add_chunk(p.x, p.z, chunk);
@@ -610,7 +637,7 @@ void World::receive_chunk(const ChunkDataPacket& p)
 void World::deferred_receive_chunk(const ChunkDataPacket& p)
 {
     // Maybe I'm dumb and I don't know anything but using `[&]` creates segfaults, but manually specifying captures don't.
-    m_generation_thread_pool.async([this, p]() { receive_chunk(p); });
+    Engine::get().get_thread_pool().async([this, p]() { receive_chunk(p); });
 }
 
 void World::force_load_chunk_for(glm::vec3 position)
@@ -662,12 +689,11 @@ void World::load_one_chunk(ChunkPos pos)
 	    read_tags(reader, chunk);
         }
 
-        for (size_t i = 0; i < Chunk::slice_count; i++)
-        {
-            chunk->get_slices()[i].empty = false;
-            EXPECT(chunk->build_simple_mesh(i));
-            EXPECT(chunk->build_water_mesh(i));
-        }
+        // for (size_t i = 0; i < Chunk::slice_count; i++)
+        // {
+        //     EXPECT(chunk->build_simple_mesh(i));
+        //     EXPECT(chunk->build_water_mesh(i));
+        // }
     }
     else
     {
@@ -773,13 +799,6 @@ void World::inflate_data(const uint8_t *compressed_data, size_t compressed_data_
     inflateEnd(&strm);
     
     // TODO: Obsiously we don't want to crash on errors.
-    
-    // The expected size of the output is already known which allows to have only one `inflate` call.
-    // int res = inflateInit(&strm);
-    // assert(res == Z_OK);
-    // res = inflate(&strm, Z_FINISH);
-    // assert(res == Z_STREAM_END);
-    // inflateEnd(&strm);
 }
 
 void World::write_tags(Writer& writer, const Ref<Chunk>& chunk) const
@@ -812,4 +831,40 @@ void World::read_tags(Reader& reader, Ref<Chunk>& chunk) const
 void World::request_chunk(ENetPeer *peer, int dimension, int64_t x, int64_t z)
 {
     m_load_requests.append(ChunkLoadRequest(peer, dimension, x, z));
+}
+
+void World::rebuild_chunk(ChunkPos pos)
+{
+    Ref<Chunk> chunk;
+    Map<ChunkPos, Ref<Chunk>> nchunks;
+
+    {
+	std::lock_guard<std::mutex> lock(m_dims[0].mutex());
+
+	Option<Ref<Chunk>> chunk_opt = m_dims[0].get_chunk(pos.x, pos.z);
+	if (!chunk_opt.has_value()) {
+	    return;
+	}
+
+	chunk = chunk_opt.value();
+
+	const Array<ChunkPos, 4> positions{
+	    ChunkPos(pos.x + 1, pos.z),
+	    ChunkPos(pos.x - 1, pos.z),
+	    ChunkPos(pos.x, pos.z + 1),
+	    ChunkPos(pos.x, pos.z - 1),
+	};
+	for (ChunkPos p : positions) {
+	    chunk_opt = m_dims[0].get_chunk(p.x, p.z);
+	    if (!chunk_opt.has_value()) {
+		continue;
+	    }
+	    nchunks.put(p, chunk_opt.value());
+	}
+    }
+
+    for (size_t i = 0; i < Chunk::slice_count; i++) {
+	EXPECT(chunk->build_simple_mesh(i, nchunks));
+	EXPECT(chunk->build_water_mesh(i, nchunks));
+    }
 }

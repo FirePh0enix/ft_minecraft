@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Core/Result.hpp"
+#include "Core/Containers/Iterator.hpp"
 
 #include <cstddef>
 
@@ -94,6 +95,9 @@ public:
 
     size_t capacity() const { return m_capacity; }
     size_t size() const { return m_size; }
+
+    ForwardIterator<T> begin() const { return ForwardIterator<T>(m_data); }
+    ForwardIterator<T> end() const { return ForwardIterator<T>(m_data + m_size); }
 
     static constexpr size_t initial_capacity = 3;
     static constexpr size_t growth_factor(size_t size)

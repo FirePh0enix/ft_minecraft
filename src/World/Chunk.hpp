@@ -39,46 +39,6 @@ public:
     }
 };
 
-// struct __attribute__((packed)) ChunkNode
-// {
-//     uint32_t leaf : 1 = 0;
-//     /**
-//      * If `same` is set this means all children are the same block. For a leaf block `ptr` points *one* block.
-//      * For a non-leaf block this means no child nodes are present and `ptr` points to the block.
-//      * For `same` to be valid all bits of `child_mask` must be set.
-//      */
-//     uint32_t same : 1 = 0;
-//     uint32_t ptr : 30 = 0;
-//     uint64_t child_mask = 0;
-// };
-
-// struct __attribute__((packed)) ChunkBiomeNode
-// {
-//     uint16_t ptr = 0;
-//     /**
-//      * All children of this node are the same value. If set then the children nodes
-//      * are ignored and `ptr` points to the biome value.
-//      */
-//     uint16_t same : 1 = 0;
-//     uint16_t reserved : 15 = 0;
-// };
-
-// struct CompressedChunk
-// {
-// public:
-//     CompressedChunk()
-//         : compressed_slice_mask(0)
-//     {
-//     }
-
-//     Vector<BlockState> compressed_blocks;
-//     Vector<ChunkNode> compressed_nodes;
-//     uint16_t compressed_slice_mask;
-
-//     Vector<Biome> compressed_biomes;
-//     Vector<ChunkBiomeNode> compressed_biome_nodes;
-// };
-
 struct BlockTags
 {
     HashMap<String, Variant> tags;
@@ -94,7 +54,6 @@ public:
 
     struct Slice
     {
-        bool empty = true;
         Ref<Mesh> mesh = nullptr;
         Ref<Mesh> water_mesh = nullptr;
 
@@ -131,13 +90,8 @@ public:
 
     ALWAYS_INLINE Ref<Buffer> get_instance_buffer() const { return m_uniform_buffer; }
 
-    // Ref<Buffer> get_chunk_instance_buffer() const { return m_chunk_instance_buffer; }
-
-    Result<void> build_simple_mesh(size_t slice);
-    Result<void> build_water_mesh(size_t slice);
-
-    // Result<CompressedChunk> compress() const;
-    // Result<void> uncompress(View<BlockState> compressed_blocks, View<ChunkNode> compressed_nodes, uint16_t compressed_slice_mask, View<Biome> compressed_biomes, View<ChunkBiomeNode> compressed_biome_nodes);
+    Result<void> build_simple_mesh(size_t slice, const Map<ChunkPos, Ref<Chunk>>& chunks);
+    Result<void> build_water_mesh(size_t slice, const Map<ChunkPos, Ref<Chunk>>& chunks);
 
     bool is_modified() const { return m_modified; }
     void clear_modified() { m_modified = false; }
@@ -157,8 +111,6 @@ private:
     Dimension *m_dim;
 
     Map<int64_t, BlockTags> m_tags;
-    // Ref<Buffer> m_chunk_instance_buffer;
-    // Ref<Buffer> m_chunk_position_buffer;
 
     Ref<Buffer> m_uniform_buffer;
 

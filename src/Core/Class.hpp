@@ -185,4 +185,10 @@ public:
     {
         return get_type()->get(name, this);
     }
+
+    std::atomic_size_t& get_reference_count() { return m_reference_count; }
+    const std::atomic_size_t& get_reference_count() const { return m_reference_count; }
+    
+private:
+    std::atomic_size_t m_reference_count = 1;
 };

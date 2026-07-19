@@ -58,11 +58,9 @@ void Chunk::set_block(int64_t x, int64_t y, int64_t z, BlockState state)
 
     size_t slice = y / width;
 
-    if (!state.is_air())
-        m_slices[slice].empty = false;
     m_modified = true;
 
-    EXPECT(build_simple_mesh(slice));
+    /*EXPECT(build_simple_mesh(slice, {}));
 
     if (y > 0 && y % width == 0)
     {
@@ -71,7 +69,7 @@ void Chunk::set_block(int64_t x, int64_t y, int64_t z, BlockState state)
     else if (y < Chunk::height - 1 && y % width == width - 1)
     {
         EXPECT(build_simple_mesh(slice + 1));
-    }
+	}*/
 }
 
 struct ChunkBlockFace
@@ -150,19 +148,13 @@ static glm::vec3 normal_from_axis(Axis axis, bool positive)
     return glm::vec3();
 }
 
-Result<void> Chunk::build_simple_mesh(size_t slice_index)
+Result<void> Chunk::build_simple_mesh(size_t slice_index, const Map<ChunkPos, Ref<Chunk>>& chunks)
 {
     Slice& slice = m_slices[slice_index];
     int64_t slice_y_offset = int64_t(slice_index) * width;
 
-    // Chunk is empty, nothing to generate.
-    if (slice.empty)
-    {
-        return Result<void>();
-    }
-
     // Let's detect which faces are not hidden.
-    Vector<ChunkBlockFace> faces;
+    LocalVector<ChunkBlockFace> faces;
 
     for (int64_t x = 0; x < Chunk::width; x++)
     {
@@ -177,9 +169,9 @@ Result<void> Chunk::build_simple_mesh(size_t slice_index)
 
                 Ref<Block> block = Engine::get().registry().get_block(m_blocks[index].id);
 
-                if (x == 0 || m_blocks[linearize(x - 1, y, z)].is_air())
+                if ((x > 0 && m_blocks[linearize(x - 1, y, z)].is_air()) || (x == 0 && chunks.contains(ChunkPos(m_x - 1, m_z)) && chunks.get(ChunkPos(m_x - 1, m_z)).value()->get_block(15, y, z).is_air()))
                     faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::X, false, block->get_texture_index(Axis::X, false)));
-                if (x == Chunk::width - 1 || m_blocks[linearize(x + 1, y, z)].is_air())
+                if ((x < 15 && m_blocks[linearize(x + 1, y, z)].is_air()) || (x == 15 && chunks.contains(ChunkPos(m_x + 1, m_z)) && chunks.get(ChunkPos(m_x + 1, m_z)).value()->get_block(0, y, z).is_air()))
                     faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::X, true, block->get_texture_index(Axis::X, true)));
 
                 if (y == 0 || m_blocks[linearize(x, y - 1, z)].is_air())
@@ -187,9 +179,9 @@ Result<void> Chunk::build_simple_mesh(size_t slice_index)
                 if (y == height - 1 || m_blocks[linearize(x, y + 1, z)].is_air())
                     faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Y, true, block->get_texture_index(Axis::Y, true)));
 
-                if (z == 0 || m_blocks[linearize(x, y, z - 1)].is_air())
+                if ((z > 0 && m_blocks[linearize(x, y, z - 1)].is_air()) || (z == 0 && chunks.contains(ChunkPos(m_x, m_z - 1)) && chunks.get(ChunkPos(m_x, m_z - 1)).value()->get_block(x, y, 15).is_air()))
                     faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Z, false, block->get_texture_index(Axis::Z, false)));
-                if (z == Chunk::width - 1 || m_blocks[linearize(x, y, z + 1)].is_air())
+                if ((z < 15 && m_blocks[linearize(x, y, z + 1)].is_air()) || (z == 15 && chunks.contains(ChunkPos(m_x, m_z + 1)) && chunks.get(ChunkPos(m_x, m_z + 1)).value()->get_block(x, y, 0).is_air()))
                     faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Z, true, block->get_texture_index(Axis::Z, true)));
             }
         }
@@ -246,75 +238,36 @@ Result<void> Chunk::build_simple_mesh(size_t slice_index)
     return Result<void>();
 }
 
-Result<void> Chunk::build_water_mesh(size_t slice_index)
+Result<void> Chunk::build_water_mesh(size_t slice_index, const Map<ChunkPos, Ref<Chunk>>& chunks)
 {
     Slice& slice = m_slices[slice_index];
     int64_t slice_y_offset = int64_t(slice_index) * width;
 
-    // Chunk is empty, nothing to generate.
-    if (slice.empty)
-    {
-        return Result<void>();
-    }
-
-    Map<ChunkPos, Ref<Chunk>> chunks;
-    {
-        std::lock_guard<std::mutex> lock(m_dim->mutex());
-        Array<ChunkPos, 4> array{
-            ChunkPos(m_x - 1, m_z),
-            ChunkPos(m_x + 1, m_z),
-            ChunkPos(m_x, m_z - 1),
-            ChunkPos(m_x, m_z + 1),
-        };
-
-        for (const auto& pos : array)
-        {
-            Option<Ref<Chunk>> chunk_opt = m_dim->get_chunk(pos.x, pos.z);
-            if (chunk_opt.has_value())
-                chunks.put(pos, chunk_opt.value());
-        }
-    }
-
-    auto check_neighbour_block = [chunks](int64_t cx, int64_t cz, int64_t x, int64_t y, int64_t z)
-    {
-        Option<Ref<Chunk>> chunk_opt = chunks.get(ChunkPos(cx, cz));
-        if (chunk_opt.has_value())
-        {
-            Ref<Chunk> chunk = chunk_opt.value();
-            return chunk->get_block(x, y, z).is_air() && !chunk->get_tag(glm::i64vec3(width - 1, y, z), "water");
-        }
-        return true;
-    };
-
     // Let's detect which faces are not hidden.
     Vector<ChunkBlockFace> faces;
-    {
-        for (int64_t x = 0; x < Chunk::width; x++)
-        {
-            for (int64_t y = slice_y_offset; y < slice_y_offset + Chunk::width; y++)
-            {
-                for (int64_t z = 0; z < Chunk::width; z++)
-                {
-                    const uint32_t index = linearize(x, y, z);
+    
+    for (int64_t x = 0; x < Chunk::width; x++) {
+        for (int64_t y = slice_y_offset; y < slice_y_offset + Chunk::width; y++) {
+            for (int64_t z = 0; z < Chunk::width; z++) {
+                const uint32_t index = linearize(x, y, z);
 
-                    if (!get_tag(index, "water").has_value())
-                        continue;
+                if (!get_tag(index, "water").has_value())
+                    continue;
 
-                    if ((x == 0 && check_neighbour_block(m_x - 1, m_z, width - 1, y, z)) || (x > 0 && get_block(x - 1, y, z).is_air() && !get_tag(glm::i64vec3(x - 1, y, z), "water").has_value()))
-                        faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::X, false, 0));
-                    if ((x == width - 1 && check_neighbour_block(m_x + 1, m_z, 0, y, z)) || (x < width - 1 && get_block(x + 1, y, z).is_air() && !get_tag(glm::i64vec3(x + 1, y, z), "water").has_value()))
-                        faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::X, true, 0));
+                if ((x > 0 && !get_tag(glm::i64vec3(x - 1, y, z), "water").has_value()) || (x == 0 && chunks.contains(ChunkPos(m_x - 1, m_z)) && !chunks.get(ChunkPos(m_x - 1, m_z)).value()->get_tag(glm::i64vec3(15, y, z), "water").has_value()))
+                    faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::X, false, 0));
+                if ((x < 15 && !get_tag(glm::i64vec3(x + 1, y, z), "water").has_value()) || (x == 15 && chunks.contains(ChunkPos(m_x + 1, m_z)) && !chunks.get(ChunkPos(m_x + 1, m_z)).value()->get_tag(glm::i64vec3(0, y, z), "water")))
+                    faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::X, true, 0));
 
-                    if (y == 0 || (get_block(x, y - 1, z).is_air() && !get_tag(glm::i64vec3(x, y - 1, z), "water").has_value()))
-                        faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Y, false, 0));
-                    if (y == height - 1 || (get_block(x, y + 1, z).is_air() && !get_tag(glm::i64vec3(x, y + 1, z), "water").has_value()))
-                        faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Y, true, 0));
+                if (y == 0 || (!get_tag(glm::i64vec3(x, y - 1, z), "water").has_value()))
+                    faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Y, false, 0));
+                if (y == height - 1 || (!get_tag(glm::i64vec3(x, y + 1, z), "water").has_value()))
+                    faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Y, true, 0));
 
-                    if ((z == 0 && check_neighbour_block(m_x, m_z - 1, x, y, width - 1)) || (z > 0 && get_block(x, y, z - 1).is_air() && !get_tag(glm::i64vec3(x, y, z - 1), "water").has_value()))
-                        faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Z, false, 0));
-                    if ((z == width - 1 && check_neighbour_block(m_x, m_z, x, y, 0)) || (z < width - 1 && get_block(x, y, z + 1).is_air() && !get_tag(glm::i64vec3(x, y, z + 1), "water").has_value()))
-                        faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Z, true, 0));
-                }
+                if ((z > 0 && !get_tag(glm::i64vec3(x, y, z - 1), "water").has_value()) || (z == 0 && chunks.contains(ChunkPos(m_x, m_z - 1)) && !chunks.get(ChunkPos(m_x, m_z - 1)).value()->get_tag(glm::i64vec3(x, y, 0), "water")))
+                    faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Z, false, 0));
+		if ((z < 15 && !get_tag(glm::i64vec3(x, y, z + 1), "water").has_value()) || (z == 15 && chunks.contains(ChunkPos(m_x, m_z + 1)) && !chunks.get(ChunkPos(m_x, m_z + 1)).value()->get_tag(glm::i64vec3(x, y, 0), "water")))
+                    faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Z, true, 0));
             }
         }
     }
@@ -370,272 +323,13 @@ Result<void> Chunk::build_water_mesh(size_t slice_index)
     return Result<void>();
 }
 
-// Result<CompressedChunk> Chunk::compress() const
-// {
-//     CompressedChunk cchunk{};
-
-//     const BlockState *chunk_blocks = get_blocks();
-//     const Biome *chunk_biomes = get_biomes();
-
-//     for (int64_t i = 0; i < Chunk::slice_count; i++)
-//     {
-//         size_t node_index = cchunk.compressed_nodes.size();
-
-//         ChunkNode node;
-//         node.same = 0;
-
-//         cchunk.compressed_nodes.append(node);
-
-//         BlockState saved_block = m_blocks[(i * 16 + 0) + 0];
-
-//         Vector<BlockState> blocks;
-//         Vector<ChunkNode> nodes;
-
-//         for (int64_t xx = 0; xx < 4; xx++)
-//             for (int64_t yy = 0; yy < 4; yy++)
-//                 for (int64_t zz = 0; zz < 4; zz++)
-//                 {
-//                     uint64_t index = xx + yy * 4 + zz * 16;
-
-//                     size_t node2_index = nodes.size();
-//                     ChunkNode node2;
-//                     node2.leaf = 1;
-//                     node2.same = 0;
-
-//                     nodes.append(node2);
-//                     node2.ptr = cchunk.compressed_blocks.size() + blocks.size();
-
-//                     BlockState saved_block2 = chunk_blocks[Chunk::linearize(0, i * 16, 0)];
-
-//                     Vector<BlockState> blocks2;
-
-//                     for (int64_t xx2 = 0; xx2 < 4; xx2++)
-//                         for (int64_t yy2 = 0; yy2 < 4; yy2++)
-//                             for (int64_t zz2 = 0; zz2 < 4; zz2++)
-//                             {
-//                                 uint64_t index2 = xx2 + yy2 * 4 + zz2 * 16;
-//                                 BlockState block = chunk_blocks[Chunk::linearize(xx * 4 + xx2, yy * 4 + yy2 + i * 16, zz * 4 + zz2)];
-
-//                                 if (block != saved_block2)
-//                                     node2.same = 0;
-
-//                                 if (block.is_air())
-//                                     continue;
-
-//                                 blocks2.append(block);
-//                                 node2.child_mask |= 1 << index2;
-//                             }
-
-//                     if (node2.child_mask != 0)
-//                     {
-//                         node.child_mask |= 1 << index;
-//                         nodes.get_unchecked(node2_index) = node2;
-
-//                         if (!node2.same)
-//                         {
-//                             for (BlockState block : blocks2)
-//                                 blocks.append(block);
-
-//                             node.same = 0;
-//                         }
-//                         else
-//                         {
-//                             blocks.append(saved_block2);
-
-//                             if (saved_block.is_air())
-//                                 saved_block = saved_block2;
-
-//                             if (saved_block != saved_block2)
-//                                 node.same = 0;
-//                         }
-//                     }
-//                     else
-//                     {
-//                         nodes.remove_one();
-//                     }
-//                 }
-
-//         if (node.child_mask != 0)
-//         {
-//             cchunk.compressed_slice_mask = 1 << i;
-
-//             if (!node.same)
-//             {
-//                 for (BlockState block : blocks)
-//                     cchunk.compressed_blocks.append(block);
-//                 for (ChunkNode node : nodes)
-//                     cchunk.compressed_nodes.append(node);
-//             }
-//             else
-//             {
-//                 node.ptr = cchunk.compressed_blocks.size();
-//                 cchunk.compressed_blocks.append(saved_block);
-//             }
-
-//             cchunk.compressed_nodes.get_unchecked(node_index) = node;
-//         }
-//         else
-//         {
-//             cchunk.compressed_nodes.remove_one();
-//         }
-
-//         // Compress the biome data. Each block has a biome values so the only case available is
-//         // if a 4x4x4 node has the same value.
-
-//         size_t bnode_index = cchunk.compressed_biome_nodes.size();
-
-//         ChunkBiomeNode bnode;
-//         bnode.same = 1;
-
-//         cchunk.compressed_biome_nodes.append(bnode);
-
-//         Vector<Biome> biomes;
-//         Vector<ChunkBiomeNode> biome_nodes;
-
-//         Option<Biome> saved_biome;
-
-//         for (int64_t xx = 0; xx < 4; xx++)
-//             for (int64_t yy = 0; yy < 4; yy++)
-//                 for (int64_t zz = 0; zz < 4; zz++)
-//                 {
-//                     ChunkBiomeNode bnode2;
-//                     bnode2.same = 1;
-
-//                     biome_nodes.append(bnode2);
-
-//                     Biome saved_biome2 = chunk_biomes[Chunk::linearize(0, i * 16, 0)];
-//                     Vector<Biome> biomes2;
-
-//                     for (int64_t xx2 = 0; xx2 < 4; xx2++)
-//                         for (int64_t yy2 = 0; yy2 < 4; yy2++)
-//                             for (int64_t zz2 = 0; zz2 < 4; zz2++)
-//                             {
-//                                 Biome biome = chunk_biomes[Chunk::linearize(xx * 4 + xx2, yy * 4 + yy2 + i * 16, zz * 4 + zz2)];
-
-//                                 if (biome != saved_biome2)
-//                                     bnode2.same = 0;
-
-//                                 biomes2.append(biome);
-//                             }
-
-//                     if (!bnode2.same)
-//                     {
-//                         for (Biome biome : biomes2)
-//                             biomes.append(biome);
-
-//                         bnode.same = 0;
-//                     }
-//                     else
-//                     {
-//                         bnode2.ptr = biomes.size();
-//                         biomes.append(saved_biome2);
-
-//                         if (!saved_biome.has_value())
-//                             saved_biome = saved_biome2;
-
-//                         if (saved_biome != saved_biome2)
-//                             bnode.same = 0;
-//                     }
-//                 }
-
-//         if (!bnode.same)
-//         {
-//             for (Biome biome : biomes)
-//                 cchunk.compressed_biomes.append(biome);
-//             for (ChunkBiomeNode node : biome_nodes)
-//                 cchunk.compressed_biome_nodes.append(node);
-//         }
-//         else
-//         {
-//             bnode.ptr = cchunk.compressed_biomes.size();
-//             cchunk.compressed_biomes.append(saved_biome.value());
-//         }
-
-//         cchunk.compressed_biome_nodes.get_unchecked(bnode_index) = bnode;
-//     }
-
-//     return cchunk;
-// }
-
-// Result<void> Chunk::uncompress(View<BlockState> compressed_blocks, View<ChunkNode> compressed_nodes, uint16_t compressed_slice_mask, View<Biome> compressed_biomes, View<ChunkBiomeNode> compressed_biome_nodes)
-// {
-//     (void)compressed_biomes;
-//     (void)compressed_biome_nodes;
-
-//     size_t cursor = 0;
-
-//     for (int64_t slice_y = 0; slice_y < Chunk::slice_count; slice_y++)
-//     {
-//         if (((compressed_slice_mask >> slice_y) & 1) == 0)
-//         {
-//             continue;
-//         }
-
-//         ChunkNode node = compressed_nodes[cursor];
-//         // if (node.same)
-//         // {
-//         //     m_slices[slice_y].empty = false;
-
-//         //     BlockState bs = compressed_blocks[node.ptr];
-//         //     for (int64_t x = 0; x < Chunk::width; x++)
-//         //         for (int64_t y = 0; y < Chunk::width; y++)
-//         //             for (int64_t z = 0; z < Chunk::width; z++)
-//         //                 m_blocks[Chunk::linearize(x, y + slice_y * 16, z)] = bs;
-//         // }
-//         // else
-//         // {
-//         for (int64_t x = 0; x < 4; x++)
-//             for (int64_t y = 0; y < 4; y++)
-//                 for (int64_t z = 0; z < 4; z++)
-//                 {
-//                     uint64_t index = x + y * 4 + z * 4 * 4;
-//                     if (((node.child_mask >> index) & 1) == 0)
-//                         continue;
-
-//                     ChunkNode node2 = compressed_nodes[cursor];
-//                     // auto leaf = node.leaf;
-//                     // auto ptr = node.ptr;
-//                     // println("{} {}", leaf, ptr);
-
-//                     // BlockState bs = compressed_blocks[node.ptr];
-//                     // for (int64_t x2 = 0; x2 < Chunk::width; x2++)
-//                     //     for (int64_t y2 = 0; y2 < Chunk::width; y2++)
-//                     //         for (int64_t z2 = 0; z2 < Chunk::width; z2++)
-//                     //             m_blocks[Chunk::linearize(x * 4 + x2, (y * 4 + y2) + slice_y * 16, z * 4 + z2)] = bs;
-
-//                     for (int64_t x2 = 0; x2 < 4; x2++)
-//                         for (int64_t y2 = 0; y2 < 4; y2++)
-//                             for (int64_t z2 = 0; z2 < 4; z2++)
-//                             {
-//                                 uint64_t index2 = x + y * 4 + z * 4 * 4;
-//                                 if (((node2.child_mask >> index2) & 1) == 0)
-//                                     continue;
-
-//                                 BlockState bs = compressed_blocks[node2.ptr];
-//                                 m_blocks[Chunk::linearize(x * 4 + x2, (y * 4 + y2) + slice_y * 16, z * 4 + z2)] = bs;
-//                             }
-
-//                     cursor += std::popcount(node2.child_mask);
-//                     // TODO: learn to use popcount
-//                 }
-
-//         // cursor += offset; // std::popcount(node.child_mask);
-//         // }
-
-//         EXPECT(build_simple_mesh(slice_y));
-//         cursor += std::popcount(node.child_mask);
-//     }
-
-//     return Result<void>();
-// }
-
 void Chunk::set_tag(glm::i64vec3 pos, const StringView& name, Variant v, bool rebuild)
 {
     uint16_t key = linearize(pos.x, pos.y, pos.z);
     BlockTags *tags = m_tags.get_or_put(key, BlockTags());
     tags->tags.put(name, v);
-    if (rebuild)
-        EXPECT(build_water_mesh(pos.y / Chunk::width));
+    //if (rebuild)
+    //    EXPECT(build_water_mesh(pos.y / Chunk::width));
 }
 
 void Chunk::remove_tag(glm::i64vec3 pos, const StringView& name, bool rebuild)
@@ -650,8 +344,8 @@ void Chunk::remove_tag(glm::i64vec3 pos, const StringView& name, bool rebuild)
         if (tags.value()->tags.size() == 0)
         {
             m_tags.erase(key);
-            if (rebuild)
-                EXPECT(build_water_mesh(pos.y / Chunk::width));
+            //if (rebuild)
+            //    EXPECT(build_water_mesh(pos.y / Chunk::width));
         }
     }
 }

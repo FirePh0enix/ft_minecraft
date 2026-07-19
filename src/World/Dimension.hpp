@@ -49,8 +49,6 @@ public:
 
     bool has_solid_block(int64_t x, int64_t y, int64_t z) const;
 
-    Result<void> rebuild_neighbor_chunks_water(int64_t cx, int64_t cz, size_t slice_index = std::numeric_limits<size_t>::max());
-
     Result<Ref<Chunk>> generate_chunk(int64_t cx, int64_t cz);
     BlockState generate_block(int64_t x, int64_t y, int64_t z, Ref<Chunk>& chunk);
 
@@ -61,14 +59,13 @@ private:
     LocalVector<Ref<Entity>> m_entities_to_add;
     LocalVector<Ref<Entity>> m_entities_to_remove;
 
-    /**
-     * Chunks loaded in memory. Could also be called `Simulated chunks`.
-     * NOTE: This map is only should only be accessed from the main thread. For adding chunks from other threads use `m_chunks_to_flush` and `m_chunk_mutex`.
-     */
     Map<ChunkPos, Ref<Chunk>> m_chunks;
 
     std::mutex m_chunk_loading_mutex;
     Set<ChunkPos> m_chunk_loading_queue;
+
+    std::mutex m_chunk_rebuild_mutex;
+    Set<ChunkPos> m_chunk_rebuild_queue;
 
     Map<ChunkPos, Ref<Chunk>> m_chunks_to_flush;
     LocalVector<ChunkPos> m_chunks_to_remove;

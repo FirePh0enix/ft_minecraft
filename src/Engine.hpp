@@ -53,6 +53,11 @@ public:
         return m_connection;
     }
 
+    ThreadPool& get_thread_pool()
+    {
+	return m_thread_pool;
+    }
+
     bool is_online() const { return m_connection.state() != ConnectionState::Idle; }
 
     GameRegistry& registry() { return m_registry; }
@@ -88,6 +93,8 @@ private:
     Map<ENetPeer *, Ref<Player>> m_players;
 
     Renderer m_renderer;
+
+    ThreadPool m_thread_pool;
 
     Ref<World> m_world;
     Ref<Entity> m_player;
