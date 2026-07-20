@@ -211,38 +211,31 @@ bool Dimension::has_solid_block(int64_t x, int64_t y, int64_t z) const
 
 Result<Ref<Chunk>> Dimension::generate_chunk(int64_t cx, int64_t cz)
 {
-    ZoneScoped;
-
+    Gen gen(m_gen_desc);
     Ref<Chunk> chunk = newref<Chunk>(this, cx, cz);
-    memset(chunk->get_biomes(), 0, sizeof(Biome) * Chunk::block_count);
+    memset(chunk->get_blocks(), 0, sizeof(BlockState) * Chunk::block_count);
 
-    for (int64_t x = 0; x < Chunk::width; x++)
-    {
-        for (int64_t y = 0; y < Chunk::height; y++)
-        {
-            for (int64_t z = 0; z < Chunk::width; z++)
-            {
-                int64_t gx = cx * 16 + x;
-                int64_t gz = cz * 16 + z;
-
-                BlockState state = generate_block(gx, y, gz, chunk);
-                chunk->get_blocks()[Chunk::linearize(x, y, z)] = state;
-            }
-        }
+    for (int64_t lx = 0; lx < 16; lx++) {
+	for (int64_t lz = 0; lz < 16; lz++) {
+	    for (Ref<GenPass> pass : gen.desc().passes()) {
+		if (pass->is_flat()) {
+		    BlockState state;
+		    BlockTags tags;
+		    pass->gen(gen, cx * 16 + lx, 0, cz * 16 + lz, state, tags);
+		} else {		    
+		    for (int64_t y = 0; y < 256; y++) {
+			BlockState state;
+			BlockTags tags;
+			pass->gen(gen, cx * 16 + lx, y, cz + 16 * lz, state, tags);
+			chunk->get_blocks()[Chunk::linearize(lx, y, lz)] = state;
+			chunk->merge_tag(Chunk::linearize(lx, y, lz), tags);
+		    }
+		}
+	    }
+	}
     }
 
     return chunk;
-}
-
-BlockState Dimension::generate_block(int64_t x, int64_t y, int64_t z, Ref<Chunk>& chunk)
-{
-    BlockState state;
-    for (size_t index = 0; index < m_generation_passes.size(); index++)
-    {
-        Ref<GenerationPass>& pass = m_generation_passes.get_unchecked(index);
-        state = pass->generate_block(x, y, z, chunk);
-    }
-    return state;
 }
 
 void Dimension::rebuild(ChunkPos pos)
@@ -287,13 +280,12 @@ void Dimension::queue_rebuild(ChunkPos pos)
     if (m_chunk_rebuild_queue.contains(pos)) {
 	return;
     }
-    m_chunk_rebuild_queue.put(pos);
+    m_chunk_rebuild_queue.insert(pos);
     
     Engine::get().get_thread_pool().async([this, pos] {
 	rebuild(pos);
 
 	std::lock_guard<std::mutex> lock(m_chunk_rebuild_mutex);
-	// FIXME: spurious heap-buffer-overflow when ASan is enabled.
 	m_chunk_rebuild_queue.erase(pos);
     });
 }

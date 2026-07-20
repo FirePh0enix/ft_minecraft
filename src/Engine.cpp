@@ -32,7 +32,8 @@ constexpr int two_d_to_1d(int x, int y)
 #define WINDOW_INIT_WIDTH 1920
 #define WINDOW_INIT_HEIGHT 1080
 
-Engine::Engine()
+Engine::Engine(bool disable_save)
+    : m_disable_save(disable_save)
 {
     singleton = this;
     m_window = newref<Window>("ft_minecraft", WINDOW_INIT_WIDTH, WINDOW_INIT_HEIGHT);

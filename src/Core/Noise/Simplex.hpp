@@ -55,6 +55,11 @@ public:
 private:
     uint8_t m_perms[256];
 
+    inline uint8_t hash(int32_t i) const
+    {
+	return m_perms[(uint8_t)i];
+    }
+
     inline float gradient(int32_t hash, float x) const
     {
         int h = hash & 0x0F;

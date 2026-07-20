@@ -6,9 +6,10 @@
 #include "Core/Containers/Set.hpp"
 #include "Entity/Entity.hpp"
 #include "World/Chunk.hpp"
-#include "World/Generator.hpp"
+#include "World/Gen.hpp"
 
 #include <mutex>
+#include <set>
 
 class Dimension
 {
@@ -72,10 +73,10 @@ private:
     Set<ChunkPos> m_chunk_loading_queue;
 
     std::mutex m_chunk_rebuild_mutex;
-    Set<ChunkPos> m_chunk_rebuild_queue;
+    std::set<ChunkPos> m_chunk_rebuild_queue;
 
     Map<ChunkPos, Ref<Chunk>> m_chunks_to_flush;
     LocalVector<ChunkPos> m_chunks_to_remove;
 
-    LocalVector<Ref<GenerationPass>> m_generation_passes;
+    GenDesc m_gen_desc;
 };

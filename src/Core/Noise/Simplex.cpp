@@ -55,9 +55,9 @@ float SimplexNoise::sample(glm::vec2 coords) const
     float x2 = x0 - 1.0f + 2.0f * g2;
     float y2 = y0 - 1.0f + 2.0f * g2;
 
-    int gi0 = m_perms[i + m_perms[j]];
-    int gi1 = m_perms[i + i1 + m_perms[j + j1]];
-    int gi2 = m_perms[i + 1 + m_perms[j + 1]];
+    int gi0 = hash(i + hash(j));
+    int gi1 = hash(i + i1 + hash(j + j1));
+    int gi2 = hash(i + 1 + hash(j + 1));
 
     float t0 = 0.5f - x0 * x0 - y0 * y0;
     if (t0 < 0.0)

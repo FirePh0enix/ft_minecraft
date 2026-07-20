@@ -31,7 +31,7 @@ class Engine : public Object
     CLASS(Engine, Object);
 
 public:
-    Engine();
+    Engine(bool disable_save);
     ~Engine();
 
     bool is_running() const { return m_window->is_running(); }
@@ -72,6 +72,8 @@ public:
     ALWAYS_INLINE int64_t get_fps() const { return m_fps; }
     ALWAYS_INLINE int64_t get_tps() const { return m_tps; }
 
+    bool is_save_disabled() const { return m_disable_save; }
+
     /**
      * Time of day in ticks since the start of the day.
      */
@@ -87,6 +89,7 @@ private:
 
     GameRegistry m_registry;
     EntityRegistry m_entity_registry;
+    bool m_disable_save;
 
     RpcTarget m_authority = RpcTarget::Server;
     NetworkConnection m_connection;

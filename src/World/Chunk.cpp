@@ -159,6 +159,9 @@ Result<void> Chunk::build_simple_mesh(size_t slice_index, const Map<ChunkPos, Re
                     continue;
 
                 Ref<Block> block = Engine::get().registry().get_block(m_blocks[index].id);
+		if (block.is_null()) {
+		    return Result<void>();
+		}
 
                 if ((x > 0 && m_blocks[linearize(x - 1, y, z)].is_air()) || (x == 0 && chunks.contains(ChunkPos(m_x - 1, m_z)) && chunks.get(ChunkPos(m_x - 1, m_z)).value()->get_block(15, y, z).is_air()))
                     faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::X, false, block->get_texture_index(Axis::X, false)));
@@ -351,4 +354,17 @@ Option<Variant> Chunk::get_tag(uint16_t index, const StringView& name) const
 Option<Variant> Chunk::get_tag(glm::i64vec3 pos, const StringView& name) const
 {
     return get_tag(linearize(pos.x, pos.y, pos.z), name);
+}
+
+void Chunk::merge_tag(uint16_t index, const BlockTags& tags)
+{
+    if (tags.tags.size() == 0) {
+	return;
+    }
+
+    BlockTags *t = m_tags.get_or_put(index, BlockTags());
+    
+    for (const auto [_, name, value] : tags.tags) {
+	t->tags.put(name, value);
+    }
 }

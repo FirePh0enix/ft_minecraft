@@ -92,27 +92,27 @@ World::World()
 
 void World::find_safe_spawn()
 {
-    srand(0);
+    // srand(0);
     
-    size_t i;
-    for (i = 0; i < 30; i++)
-    {
-        int64_t x = rand() % 30;
-        int64_t z = rand() % 30;
+    // size_t i;
+    // for (i = 0; i < 30; i++)
+    // {
+    //     int64_t x = rand() % 30;
+    //     int64_t z = rand() % 30;
 
-        for (int64_t y = Chunk::height - 1; y > 0; y--)
-        {
-	    int64_t cx = local_coords(x);
-	    int64_t cz = local_coords(z);
-	    Ref<Chunk> chunk = newref<Chunk>(&m_dims[0], chunk_index(x), chunk_index(z));
-	    BlockState state = m_dims[0].generate_block(x, y, z, chunk);
+    //     for (int64_t y = Chunk::height - 1; y > 0; y--)
+    //     {
+    // 	    int64_t cx = local_coords(x);
+    // 	    int64_t cz = local_coords(z);
+    // 	    Ref<Chunk> chunk = newref<Chunk>(&m_dims[0], chunk_index(x), chunk_index(z));
+    // 	    BlockState state = m_dims[0].generate_block(x, y, z, chunk);
 	    
-	    if (!state.is_air() || chunk->get_tag(glm::i64vec3(cx, y, cz), "water").has_value()) {
-		m_spawn_position = glm::vec3(x, y, z) + glm::vec3(0, 2.6, 0);
-		return;
-	    }
-        }
-    }
+    // 	    if (!state.is_air() || chunk->get_tag(glm::i64vec3(cx, y, cz), "water").has_value()) {
+    // 		m_spawn_position = glm::vec3(x, y, z) + glm::vec3(0, 2.6, 0);
+    // 		return;
+    // 	    }
+    //     }
+    // }
 }
 
 Result<Ref<World>> World::create(String name, uint64_t seed, int type)
@@ -121,28 +121,25 @@ Result<Ref<World>> World::create(String name, uint64_t seed, int type)
     world->m_seed = seed;
     world->m_name = name;
 
-    if (type == WorldPresetFlat)
-    {
-        world->m_dims[overworld].m_generation_passes.append(newref<FlatSurfacePass>());
-    }
-    else if (type == WorldPresetNormal)
-    {
-        world->m_dims[overworld].m_generation_passes.append(newref<OverworldSurfacePass>());
-    }
-
+    world->m_dims[overworld].m_gen_desc.add_pass(newref<OverworldOceanPass>());
+    world->m_dims[overworld].m_gen_desc.add_pass(newref<MountainPass>());
+    world->m_dims[overworld].m_gen_desc.add_pass(newref<OverworldTerrainPass>());
+    
     // world->find_safe_spawn();
 
-    String path = format("{}saves/{}/", Filesystem::get_data_directory(), name);
-    TRY(Filesystem::make_dirs(path));
-    path.append("info.dat");
-    File file = TRY(Filesystem::open_file(path, true));
+    if (!Engine::get().is_save_disabled()) {
+	String path = format("{}saves/{}/", Filesystem::get_data_directory(), name);
+	TRY(Filesystem::make_dirs(path));
+	path.append("info.dat");
+	File file = TRY(Filesystem::open_file(path, true));
 
-    WorldSaveInfo wi{};
-    wi.seed = seed;
-    wi.type = WorldPresetType(type);
-    wi.spawn_position = glm::vec3(0, 80, 0); // world->get_spawn_position();
-    TRY(file.writer().write_raw(&wi, sizeof(WorldSaveInfo)));
-    file.close();
+	WorldSaveInfo wi{};
+	wi.seed = seed;
+	wi.type = WorldPresetType(type);
+	wi.spawn_position = glm::vec3(0, 80, 0); // world->get_spawn_position();
+	TRY(file.writer().write_raw(&wi, sizeof(WorldSaveInfo)));
+	file.close();
+    }
 
     return world;
 }
@@ -159,25 +156,23 @@ Result<Ref<World>> World::load(StringView name)
 {
     Ref<World> world = newref<World>();
 
-    String path = format("{}saves/{}/info.dat", Filesystem::get_data_directory(), name);
-    File file = TRY(Filesystem::open_file(path));
+    if (!Engine::get().is_save_disabled()) {
+	String path = format("{}saves/{}/info.dat", Filesystem::get_data_directory(), name);
+	File file = TRY(Filesystem::open_file(path));
 
-    WorldSaveInfo wi{};
-    TRY(file.reader().read_raw(&wi, sizeof(WorldSaveInfo)));
-    file.close();
+	WorldSaveInfo wi{};
+	TRY(file.reader().read_raw(&wi, sizeof(WorldSaveInfo)));
+	file.close();
+
+	world->m_seed = wi.seed;
+	world->m_spawn_position = wi.spawn_position;
+    }
 
     world->m_name = name;
-    world->m_seed = wi.seed;
-    world->m_spawn_position = wi.spawn_position;
-
-    if (wi.type == WorldPresetFlat)
-    {
-        world->m_dims[overworld].m_generation_passes.append(newref<FlatSurfacePass>());
-    }
-    else if (wi.type == WorldPresetNormal)
-    {
-        world->m_dims[overworld].m_generation_passes.append(newref<OverworldSurfacePass>());
-    }
+    
+    world->m_dims[overworld].m_gen_desc.add_pass(newref<OverworldOceanPass>());
+    world->m_dims[overworld].m_gen_desc.add_pass(newref<MountainPass>());
+    world->m_dims[overworld].m_gen_desc.add_pass(newref<OverworldTerrainPass>());
 
     return world;
 }
@@ -479,6 +474,10 @@ void World::break_block(int64_t x, int64_t y, int64_t z)
 
 Result<void> World::save_chunk(Ref<Chunk> chunk)
 {
+    if (Engine::get().is_save_disabled()) {
+	return Result<void>();
+    }
+    
     String path = format("{}/saves/{}/DIM0/{}${}/", Filesystem::get_data_directory(), m_name, chunk->x(), chunk->z());
     TRY(Filesystem::make_dirs(path));
 
@@ -647,7 +646,7 @@ void World::load_one_chunk(ChunkPos pos)
     Ref<Chunk> chunk;
 
     String path = format("{}saves/{}/DIM0/{}${}/blocks.dat", Filesystem::get_data_directory(), m_name, pos.x, pos.z);
-    if (Filesystem::exists(path))
+    if (!Engine::get().is_save_disabled() && Filesystem::exists(path))
     {
         chunk = newref<Chunk>(&m_dims[0], pos.x, pos.z);
 

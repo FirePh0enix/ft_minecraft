@@ -101,6 +101,8 @@ public:
     Option<Variant> get_tag(glm::i64vec3 pos, const StringView& name) const;
     Option<Variant> get_tag(uint16_t index, const StringView& name) const;
 
+    void merge_tag(uint16_t index, const BlockTags& tags);
+
     static ALWAYS_INLINE size_t linearize(int64_t x, int64_t y, int64_t z) { return z * width * height + y * width + x; }
 
 private:

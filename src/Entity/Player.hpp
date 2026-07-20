@@ -98,7 +98,7 @@ private:
     Ref<Camera> m_camera;
     GameMode m_gamemode = GameMode::Creative; //GameMode::Survival;
 
-    float m_speed = 8.0;
+    float m_speed = 20.0f; // 8.0;
     float m_jump_force = 0.24f;
 
     Option<glm::vec3> m_aimed_block;

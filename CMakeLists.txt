@@ -64,6 +64,10 @@ list(APPEND SOURCES
     src/UI/ItemSlot.cpp
     src/UI/Label.cpp
     src/UI/TextureRect.cpp
+    src/World/Gen.cpp
+    src/World/Gen/Mountain.cpp
+    src/World/Gen/OverworldOcean.cpp
+    src/World/Gen/OverworldTerrain.cpp
     src/World/Pass/Flat.cpp
     src/World/Pass/Overworld.cpp
     src/World/Chunk.cpp

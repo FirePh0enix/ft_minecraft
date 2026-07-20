@@ -29,11 +29,21 @@ MAIN(int argc, char *argv[])
     initialize_error_handling(Filesystem::current_executable_path().c_str());
 #endif
 
+    bool disable_save = false;
+    for (int i = 0; i < argc; i++) {
+	if (StringView(argv[i]) == "--disable-save") {
+	    disable_save = true;
+	}
+    }
+
     TracySetThreadName("Main");
 
-    Ref<Engine> engine = newref<Engine>();
+    Ref<Engine> engine = newref<Engine>(disable_save);
 
     info("using data directory `{}`", Filesystem::get_data_directory());
+    if (disable_save) {
+	info("save are disabled, modification will not be saved");
+    }
 
     while (engine->is_running())
     {
