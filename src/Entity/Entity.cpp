@@ -119,7 +119,7 @@ void Entity::call_rpci(StringView name, View<Variant> args)
         else
         {
             const Type::Method& method = get_type()->get_method(name);
-            method.func((Object *)this, Arguments{.args = args});
+            // method.func((Object *)this, Arguments{.args = args});
         }
     }
 

@@ -20,7 +20,7 @@ void Zombie::tick(float delta)
     m_path_update_timer -= delta;
 
     if (!m_on_ground)
-        m_velocity.y -= 9.81f * delta;
+        m_velocity.y -= m_gravity_value * delta;
 
     // Tracking.
     AABB search_box = AABB::from_center_extent(get_global_transform().position(), glm::vec3(DETECTION_RADIUS));

@@ -36,5 +36,5 @@ protected:
     float m_stopping_dst = 2;
 
     float m_speed = 1.0f;
-    float m_jump_force = 1.0f;
+    float m_jump_force = 0.24f;
 };
