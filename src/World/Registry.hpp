@@ -29,7 +29,7 @@ struct Recipe
     ItemStack result;
 };
 
-template<typename T>
+template <typename T>
 concept HasBindMethods = requires(T a) {
     { T::bind_methods() } -> std::convertible_to<void>;
 };
@@ -44,14 +44,15 @@ public:
         Constructor c;
     };
 
-    template <typename T> requires(HasBindMethods<T>)
+    template <typename T>
+        requires(HasBindMethods<T>)
     void register_entity()
     {
         // T::bind_methods();
         m_entries.put(T::get_static_hash_code(), Entry{.c = []() -> Ref<Entity>
                                                        { return newref<T>().template cast_to<Entity>(); }});
     }
-    
+
     template <typename T>
     void register_entity()
     {
@@ -69,15 +70,17 @@ namespace Blocks
 {
 constexpr Id<Block> stone(1);
 constexpr Id<Block> dirt(2);
-constexpr Id<Block> crafting_table(3);
+constexpr Id<Block> sand(3);
+constexpr Id<Block> crafting_table(4);
 } // namespace Blocks
 
 namespace Items
 {
 constexpr Id<Item> stone_block(1);
 constexpr Id<Item> dirt_block(2);
-constexpr Id<Item> crafting_table_block(3);
-constexpr Id<Item> water_bucket(4);
+constexpr Id<Item> sand_block(3);
+constexpr Id<Item> crafting_table_block(4);
+constexpr Id<Item> water_bucket(5);
 }; // namespace Items
 
 namespace Entities

@@ -28,7 +28,7 @@ struct BlockState
 
     bool operator==(BlockState other) const
     {
-        return *(uint32_t *)this == *(uint32_t *)&other;
+        return id == other.id;
     }
 };
 

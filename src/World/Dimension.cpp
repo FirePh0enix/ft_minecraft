@@ -1,16 +1,17 @@
 #include "World/Dimension.hpp"
 
 #include "Block/Block.hpp"
+#include "Engine.hpp"
 #include "Profiler.hpp"
 #include "World/Chunk.hpp"
 #include "World/World.hpp"
-#include "Engine.hpp"
-
-#include <limits>
 
 Option<Ref<Chunk>> Dimension::get_chunk(int64_t x, int64_t z) const
 {
-    return m_chunks.get(ChunkPos(x, z));
+    auto iter = m_chunks.find(ChunkPos(x, z));
+    if (iter != m_chunks.end())
+        return iter->second;
+    return None;
 }
 
 bool Dimension::has_chunk(int64_t x, int64_t z) const
@@ -48,7 +49,8 @@ void Dimension::remove_entity(EntityId id)
 
 Ref<Entity> Dimension::get_entity(EntityId id) const
 {
-    for (const auto& entity : m_entities) {
+    for (const auto& entity : m_entities)
+    {
         if (entity->id() == id)
             return entity;
     }
@@ -215,24 +217,34 @@ Result<Ref<Chunk>> Dimension::generate_chunk(int64_t cx, int64_t cz)
     Ref<Chunk> chunk = newref<Chunk>(this, cx, cz);
     memset(chunk->get_blocks(), 0, sizeof(BlockState) * Chunk::block_count);
 
-    for (int64_t lx = 0; lx < 16; lx++) {
-	for (int64_t lz = 0; lz < 16; lz++) {
-	    for (Ref<GenPass> pass : gen.desc().passes()) {
-		if (pass->is_flat()) {
-		    BlockState state;
-		    BlockTags tags;
-		    pass->gen(gen, cx * 16 + lx, 0, cz * 16 + lz, state, tags);
-		} else {		    
-		    for (int64_t y = 0; y < 256; y++) {
-			BlockState state;
-			BlockTags tags;
-			pass->gen(gen, cx * 16 + lx, y, cz + 16 * lz, state, tags);
-			chunk->get_blocks()[Chunk::linearize(lx, y, lz)] = state;
-			chunk->merge_tag(Chunk::linearize(lx, y, lz), tags);
-		    }
-		}
-	    }
-	}
+    for (int64_t lx = 0; lx < 16; lx++)
+    {
+        for (int64_t lz = 0; lz < 16; lz++)
+        {
+            for (Ref<GenPass> pass : gen.desc().passes())
+            {
+                if (pass->is_flat())
+                {
+                    BlockState state;
+                    BlockTags tags;
+                    Biome biome = chunk->get_biomes()[lx + lz * 16];
+                    pass->gen(gen, cx * 16 + lx, 0, cz * 16 + lz, state, tags, biome);
+                    chunk->get_biomes()[lx + lz * 16] = biome;
+                }
+                else
+                {
+                    for (int64_t y = 0; y < 256; y++)
+                    {
+                        BlockState state = chunk->get_blocks()[Chunk::linearize(lx, y, lz)];
+                        BlockTags tags;
+                        Biome biome = chunk->get_biomes()[lx + lz * 16];
+                        pass->gen(gen, cx * 16 + lx, y, cz * 16 + lz, state, tags, biome);
+                        chunk->get_blocks()[Chunk::linearize(lx, y, lz)] = state;
+                        chunk->merge_tag(Chunk::linearize(lx, y, lz), tags);
+                    }
+                }
+            }
+        }
     }
 
     return chunk;
@@ -244,48 +256,53 @@ void Dimension::rebuild(ChunkPos pos)
     Map<ChunkPos, Ref<Chunk>> nchunks;
 
     {
-	std::lock_guard<std::mutex> lock(mutex());
+        std::lock_guard<std::mutex> lock(mutex());
 
-	Option<Ref<Chunk>> chunk_opt = get_chunk(pos.x, pos.z);
-	if (!chunk_opt.has_value()) {
-	    return;
-	}
+        Option<Ref<Chunk>> chunk_opt = get_chunk(pos.x, pos.z);
+        if (!chunk_opt.has_value())
+        {
+            return;
+        }
 
-	chunk = chunk_opt.value();
+        chunk = chunk_opt.value();
 
-	const Array<ChunkPos, 4> positions{
-	    ChunkPos(pos.x + 1, pos.z),
-	    ChunkPos(pos.x - 1, pos.z),
-	    ChunkPos(pos.x, pos.z + 1),
-	    ChunkPos(pos.x, pos.z - 1),
-	};
-	for (ChunkPos p : positions) {
-	    chunk_opt = get_chunk(p.x, p.z);
-	    if (!chunk_opt.has_value()) {
-		continue;
-	    }
-	    nchunks.put(p, chunk_opt.value());
-	}
+        const Array<ChunkPos, 4> positions{
+            ChunkPos(pos.x + 1, pos.z),
+            ChunkPos(pos.x - 1, pos.z),
+            ChunkPos(pos.x, pos.z + 1),
+            ChunkPos(pos.x, pos.z - 1),
+        };
+        for (ChunkPos p : positions)
+        {
+            chunk_opt = get_chunk(p.x, p.z);
+            if (!chunk_opt.has_value())
+            {
+                continue;
+            }
+            nchunks.put(p, chunk_opt.value());
+        }
     }
 
-    for (size_t i = 0; i < Chunk::slice_count; i++) {
-	EXPECT(chunk->build_simple_mesh(i, nchunks));
-	EXPECT(chunk->build_water_mesh(i, nchunks));
+    for (size_t i = 0; i < Chunk::slice_count; i++)
+    {
+        EXPECT(chunk->build_simple_mesh(i, nchunks));
+        EXPECT(chunk->build_water_mesh(i, nchunks));
     }
 }
 
 void Dimension::queue_rebuild(ChunkPos pos)
 {
     std::lock_guard<std::mutex> lock(m_chunk_rebuild_mutex);
-    if (m_chunk_rebuild_queue.contains(pos)) {
-	return;
+    if (m_chunk_rebuild_queue.contains(pos))
+    {
+        return;
     }
     m_chunk_rebuild_queue.insert(pos);
-    
-    Engine::get().get_thread_pool().async([this, pos] {
+
+    Engine::get().get_thread_pool().async([this, pos]
+                                          {
 	rebuild(pos);
 
 	std::lock_guard<std::mutex> lock(m_chunk_rebuild_mutex);
-	m_chunk_rebuild_queue.erase(pos);
-    });
+	m_chunk_rebuild_queue.erase(pos); });
 }

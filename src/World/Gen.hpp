@@ -4,6 +4,8 @@
 #include "Core/Noise/Simplex.hpp"
 #include "World/Chunk.hpp"
 
+#include "spline.hpp"
+
 //
 // Separate multiple type of passes:
 // - PreGenPass   => Generate biome, elevation, and other buffer values.
@@ -17,32 +19,49 @@
 
 class GenPass;
 
+// defined in spline.c from https://oceancolor.gsfc.nasa.gov/staff/norman/seawifs_image_cookbook/faux_shuttle/spline.c
+extern void spline(
+    float x[],
+    float y[],
+    int n,
+    float yp1,
+    float ypn,
+    float y2[]);
+extern void splint(
+    float xa[],
+    float ya[],
+    float y2a[],
+    int n,
+    float x,
+    float *y);
+
 /**
  * Describe world generation.
  */
 class GenDesc
 {
     friend class Gen;
-    
+
 public:
-    struct Buffer {
-	String name;
-	size_t element_size;
-	bool flat;
+    struct Buffer
+    {
+        String name;
+        size_t element_size;
+        bool flat;
     };
-    
+
     void add_pass(Ref<GenPass> pass);
 
     void add_buffer(const String& name, size_t element_size, bool flat = false)
     {
-	m_buffers.push_back(Buffer(name, element_size, flat));
+        m_buffers.push_back(Buffer(name, element_size, flat));
     }
 
     View<Ref<GenPass>> passes() const
     {
-	return View(m_passes.data(), m_passes.size());
+        return View(m_passes.data(), m_passes.size());
     }
-    
+
 private:
     std::vector<Ref<GenPass>> m_passes;
     std::vector<Buffer> m_buffers;
@@ -55,29 +74,31 @@ class Gen
 {
 public:
     Gen(GenDesc& desc)
-	: m_desc(desc)
+        : m_desc(desc)
     {
-	for (const GenDesc::Buffer& desc : desc.m_buffers) {
-	    m_buffers.put(desc.name, alloc_array<uint8_t>(desc.element_size));
-	}
+        for (const GenDesc::Buffer& desc : desc.m_buffers)
+        {
+            m_buffers.put(desc.name, alloc_array<uint8_t>(desc.element_size));
+        }
     }
 
     ~Gen()
     {
-	for (const auto& [_, name, buf] : m_buffers) {
-	    destroy((uint8_t *)buf);
-	}
+        for (const auto& [_, name, buf] : m_buffers)
+        {
+            destroy((uint8_t *)buf);
+        }
     }
 
     const GenDesc& desc() const
     {
-	return m_desc;
+        return m_desc;
     }
 
-    template<typename T>
+    template <typename T>
     T *get_buffer(const StringView& name) const
     {
-	return static_cast<T *>(m_buffers.get(name).value());
+        return static_cast<T *>(m_buffers.get(name).value());
     }
 
 private:
@@ -95,15 +116,15 @@ class GenPass : public Object
 public:
     virtual void init(GenDesc& desc)
     {
-	(void)desc;
+        (void)desc;
     }
-    virtual void gen(const Gen& gen, int64_t x, int64_t y, int64_t z, BlockState& state, BlockTags& tags) = 0;
+    virtual void gen(const Gen& gen, int64_t x, int64_t y, int64_t z, BlockState& state, BlockTags& tags, Biome& biome) = 0;
 
     bool is_flat() const
     {
-	return m_flat;
+        return m_flat;
     }
-    
+
 protected:
     /**
      * This pass should only be dispatch in 2D, not for each.
@@ -118,7 +139,7 @@ class OverworldOceanPass : public GenPass
 
 public:
     virtual void init(GenDesc& desc) override;
-    virtual void gen(const Gen& gen, int64_t x, int64_t y, int64_t z, BlockState& state, BlockTags& tags) override;
+    virtual void gen(const Gen& gen, int64_t x, int64_t y, int64_t z, BlockState& state, BlockTags& tags, Biome& biome) override;
 };
 
 class MountainPass : public GenPass
@@ -127,7 +148,16 @@ class MountainPass : public GenPass
 
 public:
     virtual void init(GenDesc& desc) override;
-    virtual void gen(const Gen& gen, int64_t x, int64_t y, int64_t z, BlockState& state, BlockTags& tags) override;
+    virtual void gen(const Gen& gen, int64_t x, int64_t y, int64_t z, BlockState& state, BlockTags& tags, Biome& biome) override;
+};
+
+class OverworldBiomePass : public GenPass
+{
+    CLASS(BiomePass, GenPass);
+
+public:
+    virtual void init(GenDesc& desc) override;
+    virtual void gen(const Gen& gen, int64_t x, int64_t y, int64_t z, BlockState& state, BlockTags& tags, Biome& biome) override;
 };
 
 class OverworldTerrainPass : public GenPass
@@ -135,5 +165,10 @@ class OverworldTerrainPass : public GenPass
     CLASS(OverworldTerrainPass, GenPass);
 
 public:
-    virtual void gen(const Gen& gen, int64_t x, int64_t y, int64_t z, BlockState& state, BlockTags& tags) override;
+    virtual void init(GenDesc& desc) override;
+    virtual void gen(const Gen& gen, int64_t x, int64_t y, int64_t z, BlockState& state, BlockTags& tags, Biome& biome) override;
+
+private:
+    tk::spline m_spline;
+    tk::spline m_mspline;
 };

@@ -16,7 +16,6 @@ option(BUILD_DOC "Build documentation" OFF)
 option(ENABLE_TRACING "Enable tracing using Tracy" OFF)
 option(SANITIZE_ADDRESS "Enable AddressSanitizer" OFF)
 option(SANITIZE_THREAD "Enable ThreadSanitizer" OFF)
-option(DETERMINISTIC "Try to guaranty deterministic maths" OFF)
 
 list(APPEND SOURCES
     src/Console.cpp
@@ -68,6 +67,7 @@ list(APPEND SOURCES
     src/World/Gen/Mountain.cpp
     src/World/Gen/OverworldOcean.cpp
     src/World/Gen/OverworldTerrain.cpp
+    src/World/Gen/OverworldBiome.cpp
     src/World/Pass/Flat.cpp
     src/World/Pass/Overworld.cpp
     src/World/Chunk.cpp
@@ -120,18 +120,8 @@ target_include_directories(${TARGET_NAME}_test PRIVATE ${CMAKE_SOURCE_DIR}/src $
 # Disable exceptions
 target_compile_options(${TARGET_NAME} PUBLIC -fno-exceptions -fno-rtti)
 
-if(DETERMINISTIC)
-    if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-        target_compile_options(${TARGET_NAME} PUBLIC -ffp-model=precise) # -ffp-contract=off
-    elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-        target_compile_options(${TARGET_NAME} PUBLIC -fexcess-precision=standard)
-    elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-        target_compile_options(${TARGET_NAME} PUBLIC /fp:precise)
-    endif()
-endif()
-
 # Enable warnings
-target_compile_options(${TARGET_NAME} PUBLIC -Wall -Wextra)
+target_compile_options(${TARGET_NAME} PUBLIC -Wall -Wextra -Wno-subobject-linkage)
 
 # Enable support for C++20
 set_property(TARGET ${TARGET_NAME} PROPERTY CXX_STANDARD 20)
@@ -218,6 +208,16 @@ endif()
 # Dont build shared libraries
 set(BUILD_SHARED_LIBS 0)
 
+# SplineLibrary
+FetchContent_Declare(
+    SplineLibrary
+    GIT_REPOSITORY https://github.com/ejmahler/SplineLibrary
+    GIT_TAG 1e3f4a2d4fb8db206ab23a0c60192bea8a7c6bfe # master
+)
+FetchContent_MakeAvailable(SplineLibrary)
+target_include_directories(${TARGET_NAME} PRIVATE ${splinelibrary_SOURCE_DIR})
+target_include_directories(${TARGET_NAME}_test PRIVATE ${splinelibrary_SOURCE_DIR})
+
 # doctest for unit tests.
 FetchContent_Declare(
     doctest
@@ -290,6 +290,7 @@ FetchContent_Declare(
     SDL
     GIT_REPOSITORY https://github.com/libsdl-org/SDL
     GIT_TAG 96292a5b464258a2b926e0a3d72f8b98c2a81aa6 # 3.2.20
+    GIT_SHALLOW 1 # we only need the last commit
 )
 FetchContent_MakeAvailable(SDL)
 target_link_libraries(${TARGET_NAME} PUBLIC SDL3::SDL3)

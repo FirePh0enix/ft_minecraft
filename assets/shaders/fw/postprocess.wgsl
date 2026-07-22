@@ -42,14 +42,14 @@ fn simpleFog(d: f32) -> f32 {
 fn fragment_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let color = textureSample(surface, surface_sampler, in.uv);
     let depth = textureSample(depth, depth_sampler, in.uv);
-    let linear_depth = linearize_depth(depth);
+    let linear_depth = linearize_depth(depth); // TODO: multiply this by cosO
     var fog_factor = simpleFog(linear_depth);
     if (depth == 1.0) {
-	// Fix for clouds, ideally clouds should write a depth value.
-	fog_factor = 0.0;
+        // Fix for clouds, ideally clouds should write a depth value.
+        fog_factor = 0.0;
     }
     if (uniforms.underwater == 1) {
-	return mix(mix(color, uniforms.fog_color, fog_factor), vec4(0.0, 0.0, 1.0, 1.0), 0.5);
+        return mix(mix(color, uniforms.fog_color, fog_factor), vec4(0.0, 0.0, 1.0, 1.0), 0.5);
     }
     return mix(color, uniforms.fog_color, fog_factor);
 }

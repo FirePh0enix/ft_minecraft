@@ -1,15 +1,15 @@
 #pragma once
 
 #include "Core/Definitions.hpp"
-#include "Core/Ref.hpp"
 #include "Core/IO.hpp"
+#include "Core/Ref.hpp"
 #include "Core/ThreadPool.hpp"
 #include "Entity/Camera.hpp"
 #include "Entity/Entity.hpp"
+#include "Network/Packet.hpp"
 #include "Ray.hpp"
 #include "World/Chunk.hpp"
 #include "World/Dimension.hpp"
-#include "Network/Packet.hpp"
 
 #include <enet/enet.h>
 
@@ -83,7 +83,8 @@ struct WorldSaveInfo
     glm::vec3 spawn_position;
 };
 
-struct ChunkLoadRequest {
+struct ChunkLoadRequest
+{
     ENetPeer *peer;
     int dimension;
     int64_t x;
@@ -229,7 +230,8 @@ private:
 
     Array<Dimension, max_dimensions> m_dims;
 
-    int32_t m_load_distance = 8;
+    // TODO: needs to be 16
+    int32_t m_load_distance = 16;
 
     LocalVector<ChunkLoadRequest> m_load_requests;
 

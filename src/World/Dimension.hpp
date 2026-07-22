@@ -32,7 +32,7 @@ public:
     void remove_entity(Ref<Entity> entity);
     void remove_entity(EntityId id);
 
-    ALWAYS_INLINE const Map<ChunkPos, Ref<Chunk>>& get_chunks() const { return m_chunks; }
+    ALWAYS_INLINE const std::map<ChunkPos, Ref<Chunk>>& get_chunks() const { return m_chunks; }
 
     const LocalVector<Ref<Entity>>& get_entities() const { return m_entities; }
 
@@ -67,7 +67,7 @@ private:
     LocalVector<Ref<Entity>> m_entities_to_add;
     LocalVector<Ref<Entity>> m_entities_to_remove;
 
-    Map<ChunkPos, Ref<Chunk>> m_chunks;
+    std::map<ChunkPos, Ref<Chunk>> m_chunks;
 
     std::mutex m_chunk_loading_mutex;
     Set<ChunkPos> m_chunk_loading_queue;

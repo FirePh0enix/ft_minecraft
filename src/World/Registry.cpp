@@ -26,10 +26,12 @@ void GameRegistry::register_all()
 {
     add_block(Blocks::stone, newref<Block>(TEX("stone")));
     add_block(Blocks::dirt, newref<Block>(TEX("dirt")));
+    add_block(Blocks::sand, newref<Block>(TEX("sand")));
     add_block(Blocks::crafting_table, newref<CraftingTableBlock>());
 
     add_item(Items::stone_block, newref<ItemBlock>(Blocks::stone));
     add_item(Items::dirt_block, newref<ItemBlock>(Blocks::dirt));
+    add_item(Items::sand_block, newref<ItemBlock>(Blocks::sand));
     add_item(Items::crafting_table_block, newref<ItemBlock>(Blocks::crafting_table));
     add_item(Items::water_bucket, newref<BucketItem>());
 }
@@ -176,7 +178,7 @@ Ref<Texture> GameRegistry::create_preview_texture(Ref<Block> block)
     bg->set_param("model", buffer);
     bg->set_param("images", Engine::get().registry().get_texture_array());
 
-    glm::mat4 matrix = glm::ortho(-1.0f, 1.0f, -1.0f, 1.0f) *
+    glm::mat4 matrix = glm::ortho(-1.0f, 1.0f, -1.0f, 1.0f, -1.0f, 10.0f) *
                        glm::translate(glm::identity<glm::mat4>(), glm::vec3(0.f, 0.f, -0.86f)) *
                        glm::rotate(glm::identity<glm::mat4>(), glm::radians(35.0f), glm::vec3(1, 0, 0)) *
                        glm::rotate(glm::identity<glm::mat4>(), glm::radians(45.0f), glm::vec3(0, 1, 0));
@@ -292,12 +294,15 @@ Option<ItemStack> GameRegistry::match(const InplaceVector<Id<Item>, 9>& grid, in
     return None;
 }
 
-Option<RpcTarget> GameRegistry::get_rpc(Entity *entity, const StringView& name) const {
-    for (ssize_t i = (ssize_t)entity->get_classes().size() - 1; i >= 0; i--) {
+Option<RpcTarget> GameRegistry::get_rpc(Entity *entity, const StringView& name) const
+{
+    for (ssize_t i = (ssize_t)entity->get_classes().size() - 1; i >= 0; i--)
+    {
         ClassHashCode class_hash = entity->get_classes()[i];
-        if (m_exposed_rpc.contains(class_hash)) {
+        if (m_exposed_rpc.contains(class_hash))
+        {
             const auto rpcs = m_exposed_rpc.get(class_hash).value();
-	    Option<RpcTarget> target = rpcs.get(name);
+            Option<RpcTarget> target = rpcs.get(name);
             if (target.has_value())
                 return target;
         }

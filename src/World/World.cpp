@@ -1,7 +1,7 @@
 #include "World/World.hpp"
 #include "AABB.hpp"
-#include "Core/Containers/LocalVector.hpp"
 #include "Core/Containers/HashSet.hpp"
+#include "Core/Containers/LocalVector.hpp"
 #include "Core/Filesystem.hpp"
 #include "Core/Format.hpp"
 #include "Core/Print.hpp"
@@ -93,7 +93,7 @@ World::World()
 void World::find_safe_spawn()
 {
     // srand(0);
-    
+
     // size_t i;
     // for (i = 0; i < 30; i++)
     // {
@@ -106,7 +106,7 @@ void World::find_safe_spawn()
     // 	    int64_t cz = local_coords(z);
     // 	    Ref<Chunk> chunk = newref<Chunk>(&m_dims[0], chunk_index(x), chunk_index(z));
     // 	    BlockState state = m_dims[0].generate_block(x, y, z, chunk);
-	    
+
     // 	    if (!state.is_air() || chunk->get_tag(glm::i64vec3(cx, y, cz), "water").has_value()) {
     // 		m_spawn_position = glm::vec3(x, y, z) + glm::vec3(0, 2.6, 0);
     // 		return;
@@ -123,22 +123,24 @@ Result<Ref<World>> World::create(String name, uint64_t seed, int type)
 
     world->m_dims[overworld].m_gen_desc.add_pass(newref<OverworldOceanPass>());
     world->m_dims[overworld].m_gen_desc.add_pass(newref<MountainPass>());
+    world->m_dims[overworld].m_gen_desc.add_pass(newref<OverworldBiomePass>());
     world->m_dims[overworld].m_gen_desc.add_pass(newref<OverworldTerrainPass>());
-    
+
     // world->find_safe_spawn();
 
-    if (!Engine::get().is_save_disabled()) {
-	String path = format("{}saves/{}/", Filesystem::get_data_directory(), name);
-	TRY(Filesystem::make_dirs(path));
-	path.append("info.dat");
-	File file = TRY(Filesystem::open_file(path, true));
+    if (!Engine::get().is_save_disabled())
+    {
+        String path = format("{}saves/{}/", Filesystem::get_data_directory(), name);
+        TRY(Filesystem::make_dirs(path));
+        path.append("info.dat");
+        File file = TRY(Filesystem::open_file(path, true));
 
-	WorldSaveInfo wi{};
-	wi.seed = seed;
-	wi.type = WorldPresetType(type);
-	wi.spawn_position = glm::vec3(0, 80, 0); // world->get_spawn_position();
-	TRY(file.writer().write_raw(&wi, sizeof(WorldSaveInfo)));
-	file.close();
+        WorldSaveInfo wi{};
+        wi.seed = seed;
+        wi.type = WorldPresetType(type);
+        wi.spawn_position = glm::vec3(0, 80, 0); // world->get_spawn_position();
+        TRY(file.writer().write_raw(&wi, sizeof(WorldSaveInfo)));
+        file.close();
     }
 
     return world;
@@ -156,22 +158,24 @@ Result<Ref<World>> World::load(StringView name)
 {
     Ref<World> world = newref<World>();
 
-    if (!Engine::get().is_save_disabled()) {
-	String path = format("{}saves/{}/info.dat", Filesystem::get_data_directory(), name);
-	File file = TRY(Filesystem::open_file(path));
+    if (!Engine::get().is_save_disabled())
+    {
+        String path = format("{}saves/{}/info.dat", Filesystem::get_data_directory(), name);
+        File file = TRY(Filesystem::open_file(path));
 
-	WorldSaveInfo wi{};
-	TRY(file.reader().read_raw(&wi, sizeof(WorldSaveInfo)));
-	file.close();
+        WorldSaveInfo wi{};
+        TRY(file.reader().read_raw(&wi, sizeof(WorldSaveInfo)));
+        file.close();
 
-	world->m_seed = wi.seed;
-	world->m_spawn_position = wi.spawn_position;
+        world->m_seed = wi.seed;
+        world->m_spawn_position = wi.spawn_position;
     }
 
     world->m_name = name;
-    
+
     world->m_dims[overworld].m_gen_desc.add_pass(newref<OverworldOceanPass>());
     world->m_dims[overworld].m_gen_desc.add_pass(newref<MountainPass>());
+    world->m_dims[overworld].m_gen_desc.add_pass(newref<OverworldBiomePass>());
     world->m_dims[overworld].m_gen_desc.add_pass(newref<OverworldTerrainPass>());
 
     return world;
@@ -181,16 +185,18 @@ World::~World()
 {
 }
 
-static void add_neighbour_chunk(ChunkPos pos, Set<ChunkPos>& chunks) {
+static void add_neighbour_chunk(ChunkPos pos, Set<ChunkPos>& chunks)
+{
     const Array<ChunkPos, 4> positions = {
-	ChunkPos(pos.x - 1, pos.z),
-	ChunkPos(pos.x + 1, pos.z),
-	ChunkPos(pos.x, pos.z - 1),
-	ChunkPos(pos.x, pos.z + 1),
+        ChunkPos(pos.x - 1, pos.z),
+        ChunkPos(pos.x + 1, pos.z),
+        ChunkPos(pos.x, pos.z - 1),
+        ChunkPos(pos.x, pos.z + 1),
     };
 
-    for (const auto& p : positions) {
-	chunks.put(p);
+    for (const auto& p : positions)
+    {
+        chunks.put(p);
     }
 }
 
@@ -224,7 +230,7 @@ void World::tick(float delta)
             chunk->clear_modified();
         }
 
-	// TODO: Don't save every players each frames.
+        // TODO: Don't save every players each frames.
         for (const Ref<Entity>& entity : m_dims[World::overworld].get_entities())
         {
             if (Ref<Player> player = entity.cast_to<Player>())
@@ -232,58 +238,68 @@ void World::tick(float delta)
         }
 
         load_around_player();
-    } else if (Engine::get().is_online() && !Engine::get().is_server()) {
-	request_load_around();
+    }
+    else if (Engine::get().is_online() && !Engine::get().is_server())
+    {
+        request_load_around();
     }
 
     // Flush all new chunks.
     Set<ChunkPos> chunk_modified;
-    
-    {	
+
+    {
         std::lock_guard<std::mutex> lock(m_dims[0].mutex());
-	
-        for (auto& [pos, chunk] : m_dims[0].m_chunks_to_flush) {
-            m_dims[0].m_chunks.put(pos, chunk);
+
+        for (auto& [pos, chunk] : m_dims[0].m_chunks_to_flush)
+        {
+            m_dims[0].m_chunks[pos] = chunk;
             chunk_modified.put(pos);
-	    add_neighbour_chunk(pos, chunk_modified);
+            add_neighbour_chunk(pos, chunk_modified);
         }
         m_dims[0].m_chunks_to_flush.clear();
 
-        for (auto pos : m_dims[0].m_chunks_to_remove) {
+        for (auto pos : m_dims[0].m_chunks_to_remove)
+        {
             m_dims[0].m_chunks.erase(pos);
             chunk_modified.put(pos);
-	    add_neighbour_chunk(pos, chunk_modified);
+            add_neighbour_chunk(pos, chunk_modified);
         }
         m_dims[0].m_chunks_to_remove.clear();
     }
 
-    for (ChunkPos pos : chunk_modified) {
+    for (ChunkPos pos : chunk_modified)
+    {
         m_dims[World::overworld].queue_rebuild(pos);
     }
- 
-    if (!m_proxy && Engine::get().is_online() && Engine::get().is_server()) {
-	for (Ref<Entity> entity : m_dims[World::overworld].get_entities()) {
-	    UpdateEntityPacket p{};
-	    p.id = entity->id();
-	    p.position = entity->get_transform().position();
-	    p.rotation = entity->get_transform().rotation();
-	    Engine::get().connection().broadcast(Engine::get().connection().create_packet(p));
-	}
 
-	for (const ChunkLoadRequest& req : m_load_requests) {
-	    Option<Ref<Chunk>> chunk_opt = get_dimension(req.dimension).get_chunk(req.x, req.z);
-	    if (chunk_opt.has_value()) {
-		Ref<Chunk> chunk = chunk_opt.value();
+    if (!m_proxy && Engine::get().is_online() && Engine::get().is_server())
+    {
+        for (Ref<Entity> entity : m_dims[World::overworld].get_entities())
+        {
+            UpdateEntityPacket p{};
+            p.id = entity->id();
+            p.position = entity->get_transform().position();
+            p.rotation = entity->get_transform().rotation();
+            Engine::get().connection().broadcast(Engine::get().connection().create_packet(p));
+        }
 
-		Engine::get().get_thread_pool().async([this, req, chunk] {
-		    send_chunk(req.peer, chunk);
-		});
-	    } else {
-		// TODO: chunk is loaded but requested by a client, so we load the chunk and send it when its ready.
-		//       This will require to split chunks in two: chunks loaded or visible chunks.
-	    }
-	}
-	m_load_requests.clear();
+        for (const ChunkLoadRequest& req : m_load_requests)
+        {
+            Option<Ref<Chunk>> chunk_opt = get_dimension(req.dimension).get_chunk(req.x, req.z);
+            if (chunk_opt.has_value())
+            {
+                Ref<Chunk> chunk = chunk_opt.value();
+
+                Engine::get().get_thread_pool().async([this, req, chunk]
+                                                      { send_chunk(req.peer, chunk); });
+            }
+            else
+            {
+                // TODO: chunk is loaded but requested by a client, so we load the chunk and send it when its ready.
+                //       This will require to split chunks in two: chunks loaded or visible chunks.
+            }
+        }
+        m_load_requests.clear();
     }
 
     m_dims[0].m_entities_to_remove.clear();
@@ -342,7 +358,8 @@ void World::load_around_player()
                 m_dims[0].m_chunk_loading_queue.put(pos);
             }
 
-	    Engine::get().get_thread_pool().async([this, pos] { load_one_chunk(pos); });
+            Engine::get().get_thread_pool().async([this, pos]
+                                                  { load_one_chunk(pos); });
         }
 
     std::lock_guard<std::mutex> lock(m_dims[0].mutex());
@@ -353,7 +370,8 @@ void World::load_around_player()
             continue;
         }
 
-	Engine::get().get_thread_pool().async([this, pos] { unload_one_chunk(pos); });
+        Engine::get().get_thread_pool().async([this, pos]
+                                              { unload_one_chunk(pos); });
     }
 }
 
@@ -363,11 +381,13 @@ void World::request_load_around()
     int64_t player_cx = int64_t(player_pos.x / 16);
     int64_t player_cz = int64_t(player_pos.z / 16);
 
-    for (int64_t cx = -m_load_distance; cx <= m_load_distance; cx++) {
-	for (int64_t cz = -m_load_distance; cz <= m_load_distance; cz++) {
-	    int64_t x = player_cx + cx;
-	    int64_t z = player_cz + cz;
-	    ChunkPos pos(x, z);
+    for (int64_t cx = -m_load_distance; cx <= m_load_distance; cx++)
+    {
+        for (int64_t cz = -m_load_distance; cz <= m_load_distance; cz++)
+        {
+            int64_t x = player_cx + cx;
+            int64_t z = player_cz + cz;
+            ChunkPos pos(x, z);
 
             {
                 std::lock_guard<std::mutex> lock(m_dims[0].mutex());
@@ -382,12 +402,12 @@ void World::request_load_around()
 
                 m_dims[0].m_chunk_loading_queue.put(pos);
             }
-	    
-	    RequestChunkPacket p;
-	    p.x = x;
-	    p.z = z;
-	    Engine::get().connection().send(Engine::get().connection().create_packet(p));
-	}
+
+            RequestChunkPacket p;
+            p.x = x;
+            p.z = z;
+            Engine::get().connection().send(Engine::get().connection().create_packet(p));
+        }
     }
 }
 
@@ -474,10 +494,11 @@ void World::break_block(int64_t x, int64_t y, int64_t z)
 
 Result<void> World::save_chunk(Ref<Chunk> chunk)
 {
-    if (Engine::get().is_save_disabled()) {
-	return Result<void>();
+    if (Engine::get().is_save_disabled())
+    {
+        return Result<void>();
     }
-    
+
     String path = format("{}/saves/{}/DIM0/{}${}/", Filesystem::get_data_directory(), m_name, chunk->x(), chunk->z());
     TRY(Filesystem::make_dirs(path));
 
@@ -501,9 +522,9 @@ Result<void> World::save_chunk(Ref<Chunk> chunk)
     deflate_data(writer.buffer().data(), writer.buffer().size(), tags_data);
 
     TRY(file.writer().write_raw(tags_data.data(), tags_data.size()));
-    
-    //FileWriter writer = file.writer();
-    //write_tags(writer, chunk);
+
+    // FileWriter writer = file.writer();
+    // write_tags(writer, chunk);
     file.close();
 
     return Result<void>();
@@ -587,20 +608,24 @@ void World::receive_chunk(const ChunkDataPacket& p)
 {
     Dimension& dimension = get_dimension(World::overworld);
     bool has_chunk = dimension.has_chunk(p.x, p.z);
-    
+
     Ref<Chunk> chunk;
-    if (has_chunk) {
-	chunk = dimension.get_chunk(p.x, p.z).value();
-	// TODO: maybe we need a mutex to modify a chunk, for now it only creates new one.
-    } else {
-	chunk = newref<Chunk>(&dimension, p.x, p.z);
+    if (has_chunk)
+    {
+        chunk = dimension.get_chunk(p.x, p.z).value();
+        // TODO: maybe we need a mutex to modify a chunk, for now it only creates new one.
+    }
+    else
+    {
+        chunk = newref<Chunk>(&dimension, p.x, p.z);
     }
 
     std::vector<uint8_t> blocks_data;
     inflate_data(p.blocks.data(), p.blocks.size(), blocks_data);
-    if (blocks_data.size() != sizeof(BlockState) * Chunk::block_count) {
-	debug("received bad or corrupted blocks data for {} {}", p.x, p.z);
-	return;
+    if (blocks_data.size() != sizeof(BlockState) * Chunk::block_count)
+    {
+        debug("received bad or corrupted blocks data for {} {}", p.x, p.z);
+        return;
     }
     memcpy(chunk->get_blocks(), blocks_data.data(), blocks_data.size());
 
@@ -611,21 +636,23 @@ void World::receive_chunk(const ChunkDataPacket& p)
 
     BufferReader reader(tags_data.data(), tags_data.size());
     read_tags(reader, chunk);
-    
+
     // for (size_t i = 0; i < Chunk::slice_count; i++) {
     //  	EXPECT(chunk->build_simple_mesh(i));
     // 	EXPECT(chunk->build_water_mesh(i));
     // }
 
-    if (!has_chunk) {
-    	dimension.add_chunk(p.x, p.z, chunk);
+    if (!has_chunk)
+    {
+        dimension.add_chunk(p.x, p.z, chunk);
     }
 }
 
 void World::deferred_receive_chunk(const ChunkDataPacket& p)
 {
     // Maybe I'm dumb and I don't know anything but using `[&]` creates segfaults, but manually specifying captures don't.
-    Engine::get().get_thread_pool().async([this, p]() { receive_chunk(p); });
+    Engine::get().get_thread_pool().async([this, p]()
+                                          { receive_chunk(p); });
 }
 
 void World::force_load_chunk_for(glm::vec3 position)
@@ -656,25 +683,25 @@ void World::load_one_chunk(ChunkPos pos)
         EXPECT(file.reader().read_to_buffer(data));
         file.close();
 
-	std::vector<uint8_t> blocks_data;
-	inflate_data((uint8_t *)data.data(), data.size(), blocks_data);
+        std::vector<uint8_t> blocks_data;
+        inflate_data((uint8_t *)data.data(), data.size(), blocks_data);
 
-	assert(blocks_data.size() == sizeof(BlockState) * Chunk::block_count);
-	memcpy(chunk->get_blocks(), blocks_data.data(), blocks_data.size());
+        assert(blocks_data.size() == sizeof(BlockState) * Chunk::block_count);
+        memcpy(chunk->get_blocks(), blocks_data.data(), blocks_data.size());
 
         String path = format("{}saves/{}/DIM0/{}${}/tags.dat", Filesystem::get_data_directory(), m_name, pos.x, pos.z);
         if (Filesystem::exists(path))
         {
             File file = EXPECT(Filesystem::open_file(path));
-	    LocalVector<char> tags_compressed_data;
-	    EXPECT(file.reader().read_to_buffer(tags_compressed_data));
-	    file.close();
+            LocalVector<char> tags_compressed_data;
+            EXPECT(file.reader().read_to_buffer(tags_compressed_data));
+            file.close();
 
-	    std::vector<uint8_t> tags_data;
-	    inflate_data((uint8_t *)tags_compressed_data.data(), tags_compressed_data.size(), tags_data);
+            std::vector<uint8_t> tags_data;
+            inflate_data((uint8_t *)tags_compressed_data.data(), tags_compressed_data.size(), tags_data);
 
-	    BufferReader reader(tags_data.data(), tags_data.size());
-	    read_tags(reader, chunk);
+            BufferReader reader(tags_data.data(), tags_data.size());
+            read_tags(reader, chunk);
         }
 
         // for (size_t i = 0; i < Chunk::slice_count; i++)
@@ -722,25 +749,29 @@ void World::deflate_data(const uint8_t *data, size_t size, std::vector<uint8_t>&
     strm.avail_out = DEFLATE_BUFFER_SIZE;
     deflateInit(&strm, Z_BEST_COMPRESSION);
 
-    while(strm.avail_in != 0) {
-	int res = deflate(&strm, Z_NO_FLUSH);
-	assert(res == Z_OK);
+    while (strm.avail_in != 0)
+    {
+        int res = deflate(&strm, Z_NO_FLUSH);
+        assert(res == Z_OK);
 
-	if (strm.avail_out == 0) {
-	    compressed_data.insert(compressed_data.end(), tmp, tmp + DEFLATE_BUFFER_SIZE);
-	    strm.next_out = tmp;
-	    strm.avail_out = DEFLATE_BUFFER_SIZE;
-	}
+        if (strm.avail_out == 0)
+        {
+            compressed_data.insert(compressed_data.end(), tmp, tmp + DEFLATE_BUFFER_SIZE);
+            strm.next_out = tmp;
+            strm.avail_out = DEFLATE_BUFFER_SIZE;
+        }
     }
 
     int deflate_res = Z_OK;
-    while (deflate_res == Z_OK) {
-	if (strm.avail_out == 0) {
-	    compressed_data.insert(compressed_data.end(), tmp, tmp + DEFLATE_BUFFER_SIZE);
-	    strm.next_out = tmp;
-	    strm.avail_out = DEFLATE_BUFFER_SIZE;
-	}
-	deflate_res = deflate(&strm, Z_FINISH);
+    while (deflate_res == Z_OK)
+    {
+        if (strm.avail_out == 0)
+        {
+            compressed_data.insert(compressed_data.end(), tmp, tmp + DEFLATE_BUFFER_SIZE);
+            strm.next_out = tmp;
+            strm.avail_out = DEFLATE_BUFFER_SIZE;
+        }
+        deflate_res = deflate(&strm, Z_FINISH);
     }
 
     assert(deflate_res == Z_STREAM_END);
@@ -761,20 +792,22 @@ void World::inflate_data(const uint8_t *compressed_data, size_t compressed_data_
     strm.avail_out = INFLATE_BUFFER_SIZE;
     inflateInit(&strm);
 
-    while(strm.avail_in != 0) {
-	int res = inflate(&strm, Z_NO_FLUSH);
-	assert(res >= 0);
+    while (strm.avail_in != 0)
+    {
+        int res = inflate(&strm, Z_NO_FLUSH);
+        assert(res >= 0);
 
-	if (strm.avail_out == 0) {
-	    uncompressed_data.insert(uncompressed_data.end(), tmp, tmp + INFLATE_BUFFER_SIZE);
-	    strm.next_out = tmp;
-	    strm.avail_out = INFLATE_BUFFER_SIZE;
-	}
+        if (strm.avail_out == 0)
+        {
+            uncompressed_data.insert(uncompressed_data.end(), tmp, tmp + INFLATE_BUFFER_SIZE);
+            strm.next_out = tmp;
+            strm.avail_out = INFLATE_BUFFER_SIZE;
+        }
     }
 
     uncompressed_data.insert(uncompressed_data.end(), tmp, tmp + INFLATE_BUFFER_SIZE - strm.avail_out);
     inflateEnd(&strm);
-    
+
     // TODO: Obsiously we don't want to crash on errors.
 }
 
@@ -794,9 +827,11 @@ void World::write_tags(Writer& writer, const Ref<Chunk>& chunk) const
 void World::read_tags(Reader& reader, Ref<Chunk>& chunk) const
 {
     Option<Variant> variant = EXPECT(reader.read_variant());
-    if (variant.has_value()) {
+    if (variant.has_value())
+    {
         Map<int64_t, Map<String, Variant>> tags = variant.value().to_map<int64_t, Map<String, Variant>>();
-        for (const auto& [key, value] : tags) {
+        for (const auto& [key, value] : tags)
+        {
             BlockTags btags;
             for (const auto& [key2, value2] : value)
                 btags.tags.put(key2, value2);

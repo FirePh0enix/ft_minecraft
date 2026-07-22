@@ -74,7 +74,7 @@ public:
         T r = 0;
         size_t i = 0;
 
-        bool neg;
+        bool neg = false;
 
         if constexpr (std::is_unsigned_v<T>)
             if (i > 0 && m_data[i] == '-')
