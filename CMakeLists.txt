@@ -68,11 +68,8 @@ list(APPEND SOURCES
     src/World/Gen/OverworldOcean.cpp
     src/World/Gen/OverworldTerrain.cpp
     src/World/Gen/OverworldBiome.cpp
-    src/World/Pass/Flat.cpp
-    src/World/Pass/Overworld.cpp
     src/World/Chunk.cpp
     src/World/Dimension.cpp
-    src/World/Generator.cpp
     src/World/Registry.cpp
     src/World/World.cpp
 )
