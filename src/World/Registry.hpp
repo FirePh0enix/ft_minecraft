@@ -7,6 +7,9 @@
 #include "Item/Item.hpp"
 #include "Item/ItemStack.hpp"
 #include "Render/Renderer.hpp"
+#include "Structure.hpp"
+
+#include <memory>
 #include <stb_image.h>
 
 struct Image
@@ -71,7 +74,9 @@ namespace Blocks
 constexpr Id<Block> stone(1);
 constexpr Id<Block> dirt(2);
 constexpr Id<Block> sand(3);
-constexpr Id<Block> crafting_table(4);
+constexpr Id<Block> log(4);
+constexpr Id<Block> leaves(5);
+constexpr Id<Block> crafting_table(6);
 } // namespace Blocks
 
 namespace Items
@@ -79,8 +84,10 @@ namespace Items
 constexpr Id<Item> stone_block(1);
 constexpr Id<Item> dirt_block(2);
 constexpr Id<Item> sand_block(3);
-constexpr Id<Item> crafting_table_block(4);
-constexpr Id<Item> water_bucket(5);
+constexpr Id<Item> log_block(4);
+constexpr Id<Item> leaves_block(5);
+constexpr Id<Item> crafting_table_block(6);
+constexpr Id<Item> water_bucket(7);
 }; // namespace Items
 
 namespace Entities
@@ -97,12 +104,15 @@ public:
 
     void add_block(Id<Block> id, Ref<Block> block);
     void add_item(Id<Item> id, Ref<Item> item);
+    void add_structure(String name, std::shared_ptr<Structure> structure);
 
     Ref<Block> get_block(Id<Block> key) const { return m_blocks.get(key).value_or(nullptr); }
     Ref<Item> get_item(Id<Item> key) const { return m_items.get(key).value_or(nullptr); }
+    std::shared_ptr<Structure> get_struct(String name) const { return m_structures.get(name).value_or(nullptr); }
 
     Option<Id<Block>> to_block(Id<Item> id);
     Option<Id<Item>> to_item(Id<Block> block) { return m_block_items.get(block); }
+    Option<Id<Block>> item_from_name(const StringView& name) { return m_block_names.get(name); }
 
     Ref<Block> block_from_item(Id<Item> key)
     {
@@ -143,9 +153,11 @@ private:
     Map<Id<Block>, Ref<Block>> m_blocks;
     Map<Id<Item>, Ref<Item>> m_items;
 
-    Map<Id<Block>, Id<Item>> m_block_items;
+    Map<String, std::shared_ptr<Structure>> m_structures;
 
+    Map<Id<Block>, Id<Item>> m_block_items;
     Map<uint16_t, Id<Block>> m_block_ids;
+    Map<String, Id<Block>> m_block_names;
 
     LocalVector<Image> m_images;
     Ref<Texture> m_texture_array;

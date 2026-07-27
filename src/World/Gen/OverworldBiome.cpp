@@ -23,8 +23,12 @@ void OverworldBiomePass::gen(const Gen& gen, int64_t x, int64_t y, int64_t z, Bl
     {
         biome = Biome::Ocean;
     }
-    else if (mountain > 0.5)
+    else if (mountain > 0.1)
     {
         biome = Biome::Mountain;
+    }
+    else if (ocean >= 0.5 && ocean <= 0.72)
+    {
+        biome = Biome::Beach;
     }
 }

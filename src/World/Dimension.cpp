@@ -217,6 +217,9 @@ Result<Ref<Chunk>> Dimension::generate_chunk(int64_t cx, int64_t cz)
     Ref<Chunk> chunk = newref<Chunk>(this, cx, cz);
     memset(chunk->get_blocks(), 0, sizeof(BlockState) * Chunk::block_count);
 
+    for (int i = 0; i < 16 * 16; i++)
+        chunk->get_biomes()[i] = Biome::Plain;
+
     for (int64_t lx = 0; lx < 16; lx++)
     {
         for (int64_t lz = 0; lz < 16; lz++)
@@ -245,6 +248,11 @@ Result<Ref<Chunk>> Dimension::generate_chunk(int64_t cx, int64_t cz)
                 }
             }
         }
+    }
+
+    for (Ref<StructurePass> pass : gen.desc().spasses())
+    {
+        pass->gen(gen, chunk);
     }
 
     return chunk;

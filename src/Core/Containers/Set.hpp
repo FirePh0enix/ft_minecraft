@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Core/Result.hpp"
 #include "Core/Containers/Iterator.hpp"
+#include "Core/Result.hpp"
 
 #include <cstddef>
 
@@ -78,6 +78,9 @@ public:
             return;
 
         m_data[index].~T();
+
+        if (m_size == 0)
+            return;
 
         if (index < m_size - 1)
             std::memmove((void *)(m_data + index), (void *)(m_data + index + 1), (m_size - index) * sizeof(T));

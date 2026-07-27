@@ -3,6 +3,8 @@
 #include "Core/Class.hpp"
 #include "Core/Noise/Simplex.hpp"
 #include "World/Chunk.hpp"
+#include "World/Settings.hpp"
+#include "World/Structure.hpp"
 
 #include "spline.hpp"
 
@@ -18,6 +20,7 @@
 //
 
 class GenPass;
+class StructurePass;
 
 // defined in spline.c from https://oceancolor.gsfc.nasa.gov/staff/norman/seawifs_image_cookbook/faux_shuttle/spline.c
 extern void spline(
@@ -50,7 +53,13 @@ public:
         bool flat;
     };
 
+    GenDesc(WorldSettings settings)
+        : m_settings(settings)
+    {
+    }
+
     void add_pass(Ref<GenPass> pass);
+    void add_struct_pass(Ref<StructurePass> pass);
 
     void add_buffer(const String& name, size_t element_size, bool flat = false)
     {
@@ -62,9 +71,18 @@ public:
         return View(m_passes.data(), m_passes.size());
     }
 
+    View<Ref<StructurePass>> spasses() const
+    {
+        return View(m_struct_passes.data(), m_struct_passes.size());
+    }
+
+    WorldSettings settings() const { return m_settings; }
+
 private:
     std::vector<Ref<GenPass>> m_passes;
+    std::vector<Ref<StructurePass>> m_struct_passes;
     std::vector<Buffer> m_buffers;
+    WorldSettings m_settings;
 };
 
 /**
@@ -93,6 +111,11 @@ public:
     const GenDesc& desc() const
     {
         return m_desc;
+    }
+
+    WorldSettings settings() const
+    {
+        return desc().settings();
     }
 
     template <typename T>
@@ -127,7 +150,7 @@ public:
 
 protected:
     /**
-     * This pass should only be dispatch in 2D, not for each.
+     * This pass should only be dispatch in 2D, not for each blocks.
      */
     bool m_flat = false;
     SimplexNoise m_noise = 0;
@@ -160,9 +183,9 @@ public:
     virtual void gen(const Gen& gen, int64_t x, int64_t y, int64_t z, BlockState& state, BlockTags& tags, Biome& biome) override;
 };
 
-class OverworldTerrainPass : public GenPass
+class HeightPass : public GenPass
 {
-    CLASS(OverworldTerrainPass, GenPass);
+    CLASS(HeightPass, GenPass);
 
 public:
     virtual void init(GenDesc& desc) override;
@@ -171,4 +194,38 @@ public:
 private:
     tk::spline m_spline;
     tk::spline m_mspline;
+    tk::spline m_rspline;
+};
+
+class OverworldTerrainPass : public GenPass
+{
+    CLASS(OverworldTerrainPass, GenPass);
+
+public:
+    virtual void init(GenDesc& desc) override;
+    virtual void gen(const Gen& gen, int64_t x, int64_t y, int64_t z, BlockState& state, BlockTags& tags, Biome& biome) override;
+};
+
+class StructurePass : public Object
+{
+    CLASS(StructurePass, Object);
+
+public:
+    virtual void init(GenDesc& desc)
+    {
+        (void)desc;
+    }
+    virtual void gen(const Gen& gen, Ref<Chunk> chunk) = 0;
+};
+
+class TreePass : public StructurePass
+{
+    CLASS(TreePass, StructurePass);
+
+public:
+    virtual void init(GenDesc& desc) override;
+    virtual void gen(const Gen& gen, Ref<Chunk> chunk) override;
+
+private:
+    std::shared_ptr<Structure> m_tree_struct;
 };

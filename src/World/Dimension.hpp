@@ -78,5 +78,5 @@ private:
     Map<ChunkPos, Ref<Chunk>> m_chunks_to_flush;
     LocalVector<ChunkPos> m_chunks_to_remove;
 
-    GenDesc m_gen_desc;
+    GenDesc m_gen_desc = GenDesc(WorldSettings{});
 };

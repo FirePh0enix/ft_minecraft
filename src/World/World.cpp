@@ -119,7 +119,10 @@ Result<Ref<World>> World::create(String name, uint64_t seed, int type)
     world->m_dims[overworld].m_gen_desc.add_pass(newref<OverworldOceanPass>());
     world->m_dims[overworld].m_gen_desc.add_pass(newref<MountainPass>());
     world->m_dims[overworld].m_gen_desc.add_pass(newref<OverworldBiomePass>());
+    world->m_dims[overworld].m_gen_desc.add_pass(newref<HeightPass>());
     world->m_dims[overworld].m_gen_desc.add_pass(newref<OverworldTerrainPass>());
+
+    world->m_dims[overworld].m_gen_desc.add_struct_pass(newref<TreePass>());
 
     // world->find_safe_spawn();
 
@@ -171,7 +174,10 @@ Result<Ref<World>> World::load(StringView name)
     world->m_dims[overworld].m_gen_desc.add_pass(newref<OverworldOceanPass>());
     world->m_dims[overworld].m_gen_desc.add_pass(newref<MountainPass>());
     world->m_dims[overworld].m_gen_desc.add_pass(newref<OverworldBiomePass>());
+    world->m_dims[overworld].m_gen_desc.add_pass(newref<HeightPass>());
     world->m_dims[overworld].m_gen_desc.add_pass(newref<OverworldTerrainPass>());
+
+    world->m_dims[overworld].m_gen_desc.add_struct_pass(newref<TreePass>());
 
     return world;
 }
@@ -398,7 +404,7 @@ void World::request_load_around()
                 m_dims[0].m_chunk_loading_queue.put(pos);
             }
 
-            RequestChunkPacket p;
+            RequestChunkPacket p{};
             p.x = x;
             p.z = z;
             Engine::get().connection().send(Engine::get().connection().create_packet(p));

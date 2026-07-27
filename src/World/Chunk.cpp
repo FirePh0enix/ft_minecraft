@@ -16,9 +16,6 @@ Chunk::Chunk(Dimension *dim, int64_t x, int64_t z)
     m_biomes = alloc_array_uninitialized<Biome>(16 * 16);
     m_slices = alloc_array<Slice>(slice_count);
 
-    for (int i = 0; i < 16 * 16; i++)
-        m_biomes[i] = Biome::Plain;
-
     m_uniform_buffer = EXPECT(Buffer::create(sizeof(FwChunkUniforms) * slice_count, WGPUBufferUsage_Uniform | WGPUBufferUsage_Vertex | WGPUBufferUsage_CopyDst));
     Array<glm::vec3, slice_count> uniform_data{};
 

@@ -8,7 +8,6 @@
 #include "Engine.hpp"
 #include "Item/Bucket.hpp"
 #include "Render/Renderer.hpp"
-#include "webgpu/webgpu.h"
 
 constexpr int two_d_to_1d(int x, int y, int w)
 {
@@ -21,19 +20,34 @@ Result<Ref<Entity>> EntityRegistry::create_entity(ClassHashCode class_hash)
 }
 
 #define TEX(name) ("assets/textures/" name ".png")
+#define STRUCT(name) ("assets/structures/" name ".yml")
 
 void GameRegistry::register_all()
 {
     add_block(Blocks::stone, newref<Block>(TEX("stone")));
     add_block(Blocks::dirt, newref<Block>(TEX("dirt")));
     add_block(Blocks::sand, newref<Block>(TEX("sand")));
+    add_block(Blocks::log, newref<Block>(Array<String, 6>{TEX("log"), TEX("log"), TEX("log"), TEX("log"), TEX("log_top"), TEX("log_top")}));
+    add_block(Blocks::leaves, newref<Block>(TEX("leaves")));
     add_block(Blocks::crafting_table, newref<CraftingTableBlock>());
+
+    // TODO: Ids should be names, numeric ids should be generated at runtime.
+    m_block_names.put("stone", Blocks::stone);
+    m_block_names.put("dirt", Blocks::dirt);
+    m_block_names.put("sand", Blocks::sand);
+    m_block_names.put("log", Blocks::log);
+    m_block_names.put("leaves", Blocks::leaves);
+    m_block_names.put("crafting_table", Blocks::crafting_table);
 
     add_item(Items::stone_block, newref<ItemBlock>(Blocks::stone));
     add_item(Items::dirt_block, newref<ItemBlock>(Blocks::dirt));
     add_item(Items::sand_block, newref<ItemBlock>(Blocks::sand));
+    add_item(Items::log_block, newref<ItemBlock>(Blocks::log));
+    add_item(Items::leaves_block, newref<ItemBlock>(Blocks::leaves));
     add_item(Items::crafting_table_block, newref<ItemBlock>(Blocks::crafting_table));
     add_item(Items::water_bucket, newref<BucketItem>());
+
+    add_structure("tree", Structure::load(STRUCT("tree")));
 }
 
 Result<void> GameRegistry::post_register()
@@ -82,6 +96,11 @@ void GameRegistry::add_item(Id<Item> id, Ref<Item> item)
 
     if (Ref<ItemBlock> ib = item.cast_to<ItemBlock>())
         m_block_items.put(ib->block(), id);
+}
+
+void GameRegistry::add_structure(String name, std::shared_ptr<Structure> structure)
+{
+    m_structures.put(name, structure);
 }
 
 Option<Id<Block>> GameRegistry::to_block(Id<Item> id)

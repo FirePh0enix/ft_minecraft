@@ -31,7 +31,6 @@ list(APPEND SOURCES
     src/Block/CraftingTable.cpp
     src/Core/Noise/Simplex.cpp
     src/Core/Alloc.cpp
-    src/Core/Class.cpp
     src/Core/Error.cpp
     src/Core/Filesystem.cpp
     src/Core/IO.cpp
@@ -64,13 +63,16 @@ list(APPEND SOURCES
     src/UI/Label.cpp
     src/UI/TextureRect.cpp
     src/World/Gen.cpp
+    src/World/Gen/Height.cpp
     src/World/Gen/Mountain.cpp
     src/World/Gen/OverworldOcean.cpp
     src/World/Gen/OverworldTerrain.cpp
     src/World/Gen/OverworldBiome.cpp
+    src/World/Gen/Tree.cpp
     src/World/Chunk.cpp
     src/World/Dimension.cpp
     src/World/Registry.cpp
+    src/World/Structure.cpp
     src/World/World.cpp
 )
 
@@ -115,7 +117,7 @@ add_executable(${TARGET_NAME}_test ${SOURCES} ${SOURCES_TEST})
 target_include_directories(${TARGET_NAME}_test PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests)
 
 # Disable exceptions
-target_compile_options(${TARGET_NAME} PUBLIC -fno-exceptions -fno-rtti)
+# target_compile_options(${TARGET_NAME} PUBLIC -fno-exceptions -fno-rtti)
 
 # Enable warnings
 target_compile_options(${TARGET_NAME} PUBLIC -Wall -Wextra -Wno-subobject-linkage)
@@ -403,6 +405,24 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(json)
 target_link_libraries(${TARGET_NAME} PRIVATE nlohmann_json::nlohmann_json)
 target_link_libraries(${TARGET_NAME}_test PRIVATE nlohmann_json::nlohmann_json)
+
+# yaml-cpp
+FetchContent_Declare(
+  yaml-cpp
+  GIT_REPOSITORY https://github.com/jbeder/yaml-cpp.git
+  GIT_TAG yaml-cpp-0.9.0
+)
+FetchContent_MakeAvailable(yaml-cpp)
+target_link_libraries(${TARGET_NAME} PUBLIC yaml-cpp::yaml-cpp) 
+target_link_libraries(${TARGET_NAME}_test PUBLIC yaml-cpp::yaml-cpp)
+
+# rapidyaml
+# FetchContent_Declare(
+#     rapidyaml
+#     GIT_REPOSITORY https://github.com/biojppm/rapidyaml
+#     GIT_TAG v0.16.9
+# )
+# FetchContent_MakeAvailable(rapidyaml)
 
 # tracy
 if (ENABLE_TRACING)
