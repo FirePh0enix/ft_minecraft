@@ -1,6 +1,7 @@
 #include "Pathfinding.hpp"
 
 #include "Entity/Pathfinding/PathNode.hpp"
+#include "glm/ext/vector_int3_sized.hpp"
 
 #include <algorithm>
 #include <cstddef>
@@ -36,6 +37,18 @@ bool Pathfinding::is_walkable(const glm::ivec3& to, int max_jump_height)
 
     bool block_at_to = !m_world->get_block_state(to.x, to.y, to.z).is_air();
     bool block_below_to = !m_world->get_block_state(to.x, to.y - 1, to.z).is_air();
+
+    auto at_water = m_world->get_dimension(0).get_tag(to, "water").has_value();
+
+    const glm::i64vec3 below = glm::i64vec3(to.x, to.y - 1, to.z);
+
+    auto below_water = m_world->get_dimension(0).get_tag(below, "water").has_value();
+
+    if (at_water)
+        return true;
+
+    if (below_water)
+        return true;
 
     // Ensure he can stand on.
     if (!block_at_to && block_below_to)
