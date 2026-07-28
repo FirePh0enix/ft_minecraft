@@ -1,11 +1,12 @@
 #pragma once
 
-#include "Core/Format.hpp"
 #include "Core/Print.hpp"
 #include "Core/Stacktrace.hpp"
 
+#include <format>
+
 template <typename... Args>
-static inline void assert_internal(bool condition, const char *expression_string, FormatString<Args...> fmt, Args&&...args)
+static inline void assert_internal(bool condition, const char *expression_string, std::format_string<Args...> fmt, Args&&...args)
 {
     if (!condition)
     {

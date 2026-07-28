@@ -4,8 +4,6 @@
 
 class CraftingTableBlock : public InventoryBlock
 {
-    CLASS(CraftingTable, InventoryBlock);
-
 public:
     CraftingTableBlock();
 

@@ -1,10 +1,11 @@
 #include "UI/Chat.hpp"
-#include "Core/Ref.hpp"
+
 #include "Engine.hpp"
-#include "SDL3/SDL_events.h"
-#include "SDL3/SDL_keycode.h"
 #include "UI/ColorRect.hpp"
 #include "UI/Label.hpp"
+
+#include <SDL3/SDL_events.h>
+#include <SDL3/SDL_keycode.h>
 
 ChatInput::ChatInput(Chat *chat)
     : m_chat(chat)
@@ -12,13 +13,13 @@ ChatInput::ChatInput(Chat *chat)
     m_scale = glm::vec2(1.5, 0.08);
     m_position = glm::vec2(-0.95, -0.92);
 
-    m_background = newref<ColorRect>();
+    m_background = std::make_shared<ColorRect>();
     m_background->set_scale(m_scale);
     m_background->set_color(Color(0.01, 1.0));
     m_background->set_position(m_position);
 
     constexpr float scale = 0.05f;
-    m_label = newref<Label>(Engine::get().get_font());
+    m_label = std::make_shared<Label>(Engine::get().get_font());
     m_label->set_scale(glm::vec2(scale));
     m_label->set_position(glm::vec2(-1.6, -0.925));
 }
@@ -72,21 +73,21 @@ Chat::Chat()
 {
     m_scale = glm::vec2(1.5, 1.0);
 
-    Ref<ColorRect> background = newref<ColorRect>();
+    std::shared_ptr<ColorRect> background = std::make_shared<ColorRect>();
     background->set_scale(m_scale);
     background->set_color(Color(0.02, 0.6));
     background->set_position(glm::vec2(-0.95, -0.45));
     add_child(background);
 
-    Ref<ChatInput> input = newref<ChatInput>(this);
+    std::shared_ptr<ChatInput> input = std::make_shared<ChatInput>(this);
     add_child(input);
 }
 
-Result<void> Chat::add_line(const String& line)
+Result<void> Chat::add_line(const std::string& line)
 {
-    m_lines.append(line);
+    m_lines.push_back(line);
 
-    Ref<Font> font = Engine::get().get_font();
+    std::shared_ptr<Font> font = Engine::get().get_font();
     constexpr float scale = 0.05f;
 
     for (auto& label : m_labels)
@@ -94,12 +95,12 @@ Result<void> Chat::add_line(const String& line)
         label->set_position(label->get_position() + glm::vec2(0, scale));
     }
 
-    Ref<Label> label = newref<Label>(font);
+    std::shared_ptr<Label> label = std::make_shared<Label>(font);
     label->set_text(line);
     label->set_scale(glm::vec2(scale));
     label->set_position(glm::vec2(-1.6, -0.80));
 
-    m_labels.append(label);
+    m_labels.push_back(label);
     add_child(label);
 
     return Result<void>();

@@ -11,10 +11,10 @@ NetworkConnection::NetworkConnection()
     ASSERT(enet_initialize() == 0, "failed to initialize ENet");
 }
 
-Result<void> NetworkConnection::connect_to(String ip, uint16_t port)
+Result<void> NetworkConnection::connect_to(std::string_view ip, uint16_t port)
 {
     m_address.port = port;
-    enet_address_set_host_ip(&m_address, "127.0.0.1");
+    enet_address_set_host_ip(&m_address, ip.data());
 
     m_host = enet_host_create(nullptr, 1, 0, 0, 0);
     if (m_host == nullptr)
@@ -37,7 +37,7 @@ Result<void> NetworkConnection::connect_to(String ip, uint16_t port)
     return Result<void>();
 }
 
-Result<void> NetworkConnection::host(uint16_t port, String ip)
+Result<void> NetworkConnection::host(uint16_t port, std::string_view ip)
 {
     (void)ip;
     m_address.port = port;
@@ -69,7 +69,7 @@ void NetworkConnection::send(ENetPacket *packet)
 
 void NetworkConnection::broadcast(ENetPacket *packet, ENetPeer *peer)
 {
-    for (const auto& [_, key, value] : m_clients)
+    for (const auto& [key, value] : m_clients)
     {
         if (peer == value.peer())
             continue;
@@ -139,8 +139,8 @@ void NetworkConnection::tick_server()
             char address_buf[32];
             enet_address_get_host_ip(&event.peer->address, address_buf, sizeof(address_buf));
 
-            Client client(String(address_buf), event.peer->address.port, event.peer);
-            m_clients.put(event.peer, client);
+            Client client(address_buf, event.peer->address.port, event.peer);
+            m_clients[event.peer] = client;
 
             m_connect_handler(m_disconnect_handler_user, *this, client);
 
@@ -149,9 +149,9 @@ void NetworkConnection::tick_server()
         break;
         case ENET_EVENT_TYPE_DISCONNECT:
         {
-            m_disconnect_handler(m_disconnect_handler_user, *this, m_clients.get(event.peer).value());
+            m_disconnect_handler(m_disconnect_handler_user, *this, m_clients[event.peer]);
 
-            const Client& client = *m_clients.get_ptr(event.peer).value();
+            const Client& client = m_clients[event.peer];
             info("Client disconnected from {}:{}", client.ip(), client.port());
 
             m_clients.erase(event.peer);
@@ -159,7 +159,7 @@ void NetworkConnection::tick_server()
         break;
         case ENET_EVENT_TYPE_RECEIVE:
         {
-            const Client& client = *m_clients.get_ptr(event.peer).value();
+            const Client& client = m_clients[event.peer];
             m_packet_handler(m_packet_handler_user, *this, event.packet, client);
             enet_packet_destroy(event.packet);
         }

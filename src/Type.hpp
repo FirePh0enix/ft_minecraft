@@ -1,9 +1,8 @@
 #pragma once
 
-#include "Core/Containers/HashMap.hpp"
-#include "Core/Containers/View.hpp"
-#include "Core/String.hpp"
+#include "Core/Assert.hpp"
 #include "Variant.hpp"
+#include "stdext.hpp"
 
 #include <functional>
 
@@ -11,7 +10,7 @@ class Object;
 
 struct Arguments
 {
-    View<Variant> args;
+    std::span<const Variant> args;
     size_t i = 0;
 
     template <typename T>
@@ -49,57 +48,64 @@ public:
     }
 
     template <typename T, typename Ret, typename... Args>
-    void add_method(String name, Ret (T::*func)(Args...))
+    void add_method(std::string_view name, Ret (T::*func)(Args...))
     {
-        m_methods.put(name, Method{.func = [func](Object *instance, Arguments args)
-                                   {
-                                       constexpr bool ret_is_void = std::is_same_v<Ret, void>;
-                                       if constexpr (ret_is_void)
-                                       {
-                                           (reinterpret_cast<T *>(instance)->*func)(args.pop<Args>()...);
-                                           return nullptr;
-                                       }
-                                       else
-                                       {
-                                           Variant ret = (reinterpret_cast<T *>(instance)->*func)(args.pop<Args>()...);
-                                           return ret;
-                                       }
-                                   }});
+        m_methods[std::string(name)] = Method{
+            .func = [func](Object *instance, Arguments args)
+            {
+                constexpr bool ret_is_void = std::is_same_v<Ret, void>;
+                if constexpr (ret_is_void)
+                {
+                    (reinterpret_cast<T *>(instance)->*func)(args.pop<Args>()...);
+                    return nullptr;
+                }
+                else
+                {
+                    Variant ret = (reinterpret_cast<T *>(instance)->*func)(args.pop<Args>()...);
+                    return ret;
+                }
+            }};
     }
 
     template <typename T, typename Value>
-    void add_property(String name, Value (T::*getter)() const, void (T::*setter)(Value v))
+    void add_property(std::string_view name, Value (T::*getter)() const, void (T::*setter)(Value v))
     {
-        m_properties.put(name, Property{
-                                   .getter = [getter](Object *instance, Arguments args)
-                                   { (void) args; return (reinterpret_cast<T *>(instance)->*getter)(); },
-                                   .setter = [setter](Object *instance, Arguments args)
-                                   { (reinterpret_cast<T *>(instance)->*setter)(args.pop<Value>()); return nullptr; },
-                               });
+        m_properties[std::string(name)] = Property{
+            .getter = [getter](Object *instance, Arguments args)
+            {
+            (void)args;
+            return (reinterpret_cast<T *>(instance)->*getter)(); },
+            .setter = [setter](Object *instance, Arguments args)
+            {
+            (reinterpret_cast<T *>(instance)->*setter)(args.pop<Value>());
+            return nullptr; },
+        };
     }
 
-    Variant call(String name, Object *instance, View<Variant> args);
-    void set(String name, Object *instance, Variant value);
-    Variant get(String name, Object *instance);
+    Variant call(std::string_view name, Object *instance, std::span<const Variant> args);
+    void set(std::string_view name, Object *instance, Variant value);
+    Variant get(std::string_view name, Object *instance);
 
-    const Method& get_method(StringView name) const
+    const Method& get_method(std::string_view name) const
     {
-        if (m_methods.contains(name))
-            return *m_methods.get_ptr(name).value();
+        auto iter = m_methods.find(name);
+        if (iter != m_methods.end())
+            return iter->second;
         ASSERT_V(m_parent != nullptr, "");
         return m_parent->get_method(name);
     }
 
-    const Property& get_property(StringView name) const
+    const Property& get_property(std::string_view name) const
     {
-        if (m_properties.contains(name))
-            return *m_properties.get_ptr(name).value();
+        auto iter = m_properties.find(name);
+        if (iter != m_properties.end())
+            return iter->second;
         ASSERT_V(m_parent != nullptr, "");
         return m_parent->get_property(name);
     }
 
 private:
-    HashMap<String, Method> m_methods;
-    HashMap<String, Property> m_properties;
+    stdext::string_map<Method> m_methods;
+    stdext::string_map<Property> m_properties;
     Type *m_parent;
 };

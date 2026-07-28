@@ -1,11 +1,11 @@
 #pragma once
 
-#include "Core/String.hpp"
 #include "Network/Packet.hpp"
 
 #include <enet/enet.h>
 
 #include <cstdint>
+#include <string>
 
 enum class ConnectionState
 {
@@ -18,7 +18,7 @@ enum class ConnectionState
 class Client
 {
 public:
-    Client(String ip, uint16_t port, ENetPeer *peer)
+    Client(std::string ip, uint16_t port, ENetPeer *peer)
         : m_ip(ip), m_port(port), m_peer(peer)
     {
     }
@@ -27,12 +27,12 @@ public:
     {
     }
 
-    String ip() const { return m_ip; }
+    std::string_view ip() const { return m_ip; }
     uint16_t port() const { return m_port; }
     ENetPeer *peer() const { return m_peer; }
 
 private:
-    String m_ip;
+    std::string m_ip;
     uint16_t m_port = 0;
     ENetPeer *m_peer = nullptr;
 };
@@ -48,8 +48,8 @@ public:
 
     NetworkConnection();
 
-    Result<void> connect_to(String ip, uint16_t port = default_port);
-    Result<void> host(uint16_t port, String ip = "0.0.0.0");
+    Result<void> connect_to(std::string_view ip, uint16_t port = default_port);
+    Result<void> host(uint16_t port, std::string_view ip = "0.0.0.0");
 
     /**
      * Send a packet to a connected peer.
@@ -98,7 +98,7 @@ public:
 
 private:
     ConnectionState m_state = ConnectionState::Idle;
-    HashMap<ENetPeer *, Client> m_clients;
+    std::map<ENetPeer *, Client> m_clients;
 
     size_t m_maximum_connection = 32;
     ENetAddress m_address{};

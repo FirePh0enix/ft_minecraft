@@ -1,10 +1,9 @@
 #pragma once
 
-#include <cstdint>
+#include "stdext.hpp"
 
-#include "Core/Containers/HashMap.hpp"
-#include "Core/Containers/Vector.hpp"
-#include "Core/String.hpp"
+#include <cstdint>
+#include <vector>
 
 enum class CmdArgKind
 {
@@ -15,13 +14,13 @@ enum class CmdArgKind
 struct CmdArgInfo
 {
     CmdArgKind kind;
-    String name;
+    std::string name;
 };
 
 struct CmdArg
 {
     int64_t i = 0;
-    String s = "";
+    std::string s = "";
 };
 
 struct CommandInfo;
@@ -29,20 +28,20 @@ struct CommandInfo;
 class Command
 {
 public:
-    Command(const CommandInfo& info, const Vector<StringView>& args);
+    Command(const CommandInfo& info, const std::vector<std::string_view>& args);
 
-    int64_t get_arg_int(const StringView& name) const
+    int64_t get_arg_int(std::string_view name) const
     {
-        return m_args.get(name).value().i;
+        return m_args.find(name)->second.i;
     }
 
-    String get_arg_string(const StringView& name) const
+    std::string_view get_arg_string(std::string_view name) const
     {
-        return m_args.get(name).value().s;
+        return m_args.find(name)->second.s;
     }
 
 private:
-    HashMap<String, CmdArg> m_args;
+    stdext::string_map<CmdArg> m_args;
 };
 
 typedef void (*CommandCallback)(const Command& cmd);
@@ -50,7 +49,7 @@ typedef void (*CommandCallback)(const Command& cmd);
 struct CommandInfo
 {
     CommandCallback callback;
-    Vector<CmdArgInfo> args;
+    std::vector<CmdArgInfo> args;
 };
 
 #define CONSOLE_BUFFER_SIZE 128
@@ -60,7 +59,7 @@ class Console
 public:
     Console();
 
-    void register_command(const String& name, Vector<CmdArgInfo> args, CommandCallback callback);
+    void register_command(std::string_view name, std::vector<CmdArgInfo> args, CommandCallback callback);
     void exec();
 
     char *get_buffer()
@@ -74,6 +73,6 @@ public:
     }
 
 private:
-    HashMap<String, CommandInfo> m_commands;
+    stdext::string_map<CommandInfo> m_commands;
     char m_buffer[CONSOLE_BUFFER_SIZE];
 };

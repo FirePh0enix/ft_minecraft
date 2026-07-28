@@ -1,5 +1,4 @@
 #include "Core/Class.hpp"
-#include "Core/Alloc.hpp"
 
 #include <doctest/doctest.h>
 
@@ -17,15 +16,15 @@ TEST_CASE("Class")
 {
     CHECK(!strcmp(Foo::get_static_class_name(), "Foo"));
 
-    const View<ClassHashCode>& classes = Bar::get_static_classes();
+    const std::span<const ClassHashCode>& classes = Bar::get_static_classes();
     CHECK(classes.size() == 3);
     CHECK(classes[0] == Object::get_static_hash_code());
     CHECK(classes[1] == Foo::get_static_hash_code());
     CHECK(classes[2] == Bar::get_static_hash_code());
 
-    Foo *obj = alloc<Bar>();
+    Foo *obj = new Bar();
     CHECK(obj->is<Bar>());
     CHECK(obj->is<Foo>());
 
-    destroy(obj);
+    delete obj;
 }

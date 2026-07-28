@@ -8,12 +8,14 @@
 #include "Variant.hpp"
 #include "World/World.hpp"
 
-Result<void> EntitySerializer::save(const StringView& path) const
+#include <string>
+
+Result<void> EntitySerializer::save(std::string_view path) const
 {
     File file = TRY(Filesystem::open_file(path, true));
     FileWriter writer = file.writer();
 
-    for (auto& [_, name, value] : m_variants)
+    for (auto& [name, value] : m_variants)
     {
         TRY(writer.write_variant(Variant(name)));
         TRY(writer.write_variant(value));
@@ -23,7 +25,7 @@ Result<void> EntitySerializer::save(const StringView& path) const
     return Result<void>();
 }
 
-Result<void> EntitySerializer::load(const StringView& path)
+Result<void> EntitySerializer::load(std::string_view path)
 {
     File file = TRY(Filesystem::open_file(path));
     FileReader reader = file.reader();
@@ -36,10 +38,10 @@ Result<void> EntitySerializer::load(const StringView& path)
 
         Variant vname = vname_opt.value();
         ASSERT_V(vname.has(VariantType::String), "");
-        String s = vname.get_unchecked<String>();
+        std::string s = vname.get_unchecked<std::string>();
 
         Variant value = TRY(reader.read_variant()).value();
-        m_variants.put(s, value);
+        m_variants[s] = value;
     }
 
     file.close();
@@ -64,9 +66,9 @@ Transform3D Entity::get_global_transform() const
     return m_parent ? m_transform.with_parent(m_parent->get_global_transform()) : m_transform;
 }
 
-void Entity::add_child(Ref<Entity> entity)
+void Entity::add_child(std::shared_ptr<Entity> entity)
 {
-    (void)m_children.append(entity);
+    (void)m_children.push_back(entity);
 
     entity->set_parent(this);
     entity->m_world = m_world;
@@ -75,35 +77,36 @@ void Entity::add_child(Ref<Entity> entity)
 
 void Entity::remove_child(size_t index)
 {
-    m_children.remove_at(index);
+    m_children.erase(m_children.begin() + (ssize_t)index);
 }
 
-Ref<Entity> Entity::get_child(size_t index)
+std::shared_ptr<Entity> Entity::get_child(size_t index)
 {
-    return m_children.get_unchecked(index);
+    return m_children[index];
 }
 
 void Entity::recurse_tick(float delta)
 {
-    for (Ref<Entity> entity : m_children)
+    for (std::shared_ptr<Entity> entity : m_children)
         entity->recurse_tick(delta);
     tick(delta);
 }
 
-Option<RpcTarget> Entity::get_rpc(StringView name)
+Option<RpcTarget> Entity::get_rpc(std::string_view name)
 {
     return Engine::get().registry().get_rpc(this, name);
 }
 
-void Entity::expose_rpc(ClassHashCode cls, String name, RpcTarget target)
+void Entity::expose_rpc(ClassHashCode cls, std::string_view name, RpcTarget target)
 {
     Engine::get().registry().register_rpc(cls, name, target);
 }
 
-void Entity::call_rpci(StringView name, View<Variant> args)
+void Entity::call_rpci(std::string_view name, std::span<const Variant> args)
 {
     auto rpc_target_maybe = get_rpc(name);
-    if (!rpc_target_maybe.has_value()) {
+    if (!rpc_target_maybe.has_value())
+    {
         return;
     }
 
@@ -113,7 +116,7 @@ void Entity::call_rpci(StringView name, View<Variant> args)
     {
         if (name.starts_with("set/"))
         {
-            const Type::Property& property = get_type()->get_property(name.slice(4));
+            const Type::Property& property = get_type()->get_property(name.substr(4));
             property.setter((Object *)this, Arguments{.args = args});
         }
         else
@@ -128,10 +131,9 @@ void Entity::call_rpci(StringView name, View<Variant> args)
         RpcCallPacket p;
         p.id = id();
         p.name = name;
-	
-	for (const Variant& v : args) {
-	    p.args.append(v);
-	}
+
+        for (const Variant& v : args)
+            p.args.push_back(v);
 
         if (Engine::singleton->is_server())
             Engine::singleton->connection().broadcast(Engine::singleton->connection().create_packet(p));
@@ -145,7 +147,7 @@ void Entity::move_and_collide()
 {
     AABB mob_box = m_aabb.translate(m_transform.position());
     const Dimension& dimension = m_world->get_dimension(m_dimension);
-    const Vector<AABB> colliders = dimension.get_boxes_that_may_collide(mob_box);
+    const std::vector<AABB> colliders = dimension.get_boxes_that_may_collide(mob_box);
 
     glm::vec3 move_vector = m_velocity;
     glm::vec3 original_vector = move_vector;

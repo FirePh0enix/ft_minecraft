@@ -1,9 +1,10 @@
 #pragma once
 
-#include "Core/Class.hpp"
-#include "Core/Containers/Array.hpp"
-#include "Core/String.hpp"
 #include "Id.hpp"
+
+#include <array>
+#include <span>
+#include <string>
 
 class Block;
 
@@ -41,21 +42,21 @@ enum class Axis : uint8_t
     Z
 };
 
-class Block : public Object
+class Block
 {
-    CLASS(Block, Object);
-
 public:
-    Block() : m_transparent(false) {}
-    Block(const Array<String, 6>& textures);
-    Block(const StringView& texture);
+    virtual ~Block() {}
 
-    Array<String, 6> get_texture_names() const
+    Block() : m_transparent(false) {}
+    Block(const std::array<std::string, 6>& textures);
+    Block(std::string_view texture);
+
+    std::span<const std::string, 6> get_texture_names() const
     {
         return m_textures;
     }
 
-    Array<uint32_t, 6> get_texture_ids() const
+    std::span<const uint32_t, 6> get_texture_ids() const
     {
         return m_texture_ids;
     }
@@ -73,12 +74,12 @@ public:
         return m_texture_ids[index];
     }
 
-    void set_texture(const StringView& path);
+    void set_texture(std::string_view path);
 
     bool is_tranparent() const { return m_transparent; }
 
 private:
-    Array<String, 6> m_textures;
-    Array<uint32_t, 6> m_texture_ids; // [+Z, -Z, +X, -X, +Y, -Y]
+    std::array<std::string, 6> m_textures{};
+    std::array<uint32_t, 6> m_texture_ids{0, 0, 0, 0, 0, 0}; // [+Z, -Z, +X, -X, +Y, -Y]
     bool m_transparent;
 };

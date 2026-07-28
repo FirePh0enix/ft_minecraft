@@ -9,7 +9,7 @@ void TreePass::init(GenDesc& desc)
     m_tree_struct = Engine::get().registry().get_struct("tree");
 }
 
-void TreePass::gen(const Gen& gen, Ref<Chunk> chunk)
+void TreePass::gen(const Gen& gen, std::shared_ptr<Chunk> chunk)
 {
     float height = *gen.get_buffer<float>("height");
 

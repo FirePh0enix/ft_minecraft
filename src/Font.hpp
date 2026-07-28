@@ -1,7 +1,5 @@
 #pragma once
 
-#include "Core/Containers/HashMap.hpp"
-#include "Core/Ref.hpp"
 #include "Core/Result.hpp"
 #include "Core/Types.hpp"
 #include "Render/Renderer.hpp"
@@ -11,7 +9,7 @@ class Font : public Object
     CLASS(Font, Object);
 
 public:
-    static Result<Ref<Font>> create(const StringView& font_name, uint32_t font_size);
+    static Result<std::shared_ptr<Font>> create(std::string_view font_name, uint32_t font_size);
 
     ~Font();
     static Result<void> init_library();
@@ -51,24 +49,27 @@ public:
 
     inline Mesh *get_mesh() const
     {
-        return m_mesh.ptr();
+        return m_mesh.get();
     }
 
     inline Option<Character> get_character(uint8_t c)
     {
-        return m_characters.get(c);
+        auto iter = m_characters.find(c);
+        if (iter == m_characters.end())
+            return iter->second;
+        return None;
     }
 
-    inline Ref<Texture> get_bitmap() const
+    inline std::shared_ptr<Texture> get_bitmap() const
     {
         return m_bitmap;
     }
 
 private:
-    Ref<Texture> m_bitmap;
-    Ref<Buffer> m_buffer;
-    Ref<Mesh> m_mesh;
-    HashMap<uint8_t, Character> m_characters;
+    std::shared_ptr<Texture> m_bitmap;
+    std::shared_ptr<Buffer> m_buffer;
+    std::shared_ptr<Mesh> m_mesh;
+    std::map<uint8_t, Character> m_characters;
 
     size_t m_width;
     size_t m_height;
@@ -77,10 +78,10 @@ private:
 class Text
 {
 public:
-    Text(Ref<Font> font);
-    Text(size_t capacity, Ref<Font> font);
+    Text(std::shared_ptr<Font> font);
+    Text(size_t capacity, std::shared_ptr<Font> font);
 
-    Text(const String& text, Ref<Font> font)
+    Text(const std::string& text, std::shared_ptr<Font> font)
         : Text(text.size(), font)
     {
         set(text);
@@ -90,7 +91,7 @@ public:
     {
     }
 
-    void set(const String& text);
+    void set(const std::string& text);
 
     void set_position(glm::vec3 position);
     void set_scale(glm::vec2 scale);
@@ -99,13 +100,13 @@ public:
     void draw(const RenderPass& pass);
 
 private:
-    Ref<Font> m_font;
-    Ref<Buffer> m_instance_buffer;
+    std::shared_ptr<Font> m_font;
+    std::shared_ptr<Buffer> m_instance_buffer;
     size_t m_capacity;
     size_t m_size;
-    Ref<BindGroup> m_bg;
+    std::shared_ptr<BindGroup> m_bg;
     Font::Uniform m_uniform;
-    Ref<Buffer> m_uniform_buffer;
+    std::shared_ptr<Buffer> m_uniform_buffer;
 
     void update_uniform_buffer();
 };

@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Core/Class.hpp"
-#include "Core/Containers/LocalVector.hpp"
 #include "Item/ItemStack.hpp"
 #include "UI/Container.hpp"
 #include "UI/ItemSlot.hpp"
@@ -15,7 +14,7 @@ class InventoryContainer : public Object
 public:
     struct Layer
     {
-        Vector<ItemStack> stacks;
+        std::vector<ItemStack> stacks;
     };
 
     Result<void> add_layer(size_t size);
@@ -23,11 +22,11 @@ public:
     void set_stack(uint32_t layer, uint32_t i, ItemStack stack);
 
     ItemStack get_stack(uint32_t layer, uint32_t i) { return m_layers[layer].stacks[i]; }
-    const Layer& get_layer(uint32_t layer) const { return m_layers.get_unchecked(layer); }
-    Layer& get_layer(uint32_t layer) { return m_layers.get_unchecked(layer); }
+    const Layer& get_layer(uint32_t layer) const { return m_layers[layer]; }
+    Layer& get_layer(uint32_t layer) { return m_layers[layer]; }
 
 private:
-    LocalVector<Layer> m_layers;
+    std::vector<Layer> m_layers;
 };
 
 struct InventoryOrigin
@@ -42,7 +41,7 @@ class Inventory : public Container
     CLASS(Inventory, Container);
 
 public:
-    Inventory(Ref<InventoryContainer> container);
+    Inventory(std::shared_ptr<InventoryContainer> container);
 
     virtual void update(float d) override;
     virtual void draw(const RenderPass& pass) override;
@@ -86,13 +85,13 @@ public:
     void add_background();
 
 protected:
-    Ref<TextureRect> m_grabbed_item_rect;
-    Ref<Label> m_grabbed_item_label;
+    std::shared_ptr<TextureRect> m_grabbed_item_rect;
+    std::shared_ptr<Label> m_grabbed_item_label;
 
-    LocalVector<Vector<Ref<ItemSlot>>> m_grids;
+    std::vector<std::vector<std::shared_ptr<ItemSlot>>> m_grids;
 
     Option<ItemStack> m_grabbed_stack;
     InventoryOrigin m_grabbed_from;
 
-    Ref<InventoryContainer> m_container;
+    std::shared_ptr<InventoryContainer> m_container;
 };

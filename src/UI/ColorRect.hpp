@@ -28,6 +28,6 @@ public:
 
 private:
     Color m_color;
-    Ref<Buffer> m_uniforms;
-    Ref<BindGroup> m_bg;
+    std::shared_ptr<Buffer> m_uniforms;
+    std::shared_ptr<BindGroup> m_bg;
 };

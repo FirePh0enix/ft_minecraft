@@ -26,9 +26,9 @@ public:
     void set_selected(bool b) { m_selected = b; }
 
 private:
-    Ref<ColorRect> m_background;
-    Ref<TextureRect> m_item_rect;
-    Ref<Label> m_label;
+    std::shared_ptr<ColorRect> m_background;
+    std::shared_ptr<TextureRect> m_item_rect;
+    std::shared_ptr<Label> m_label;
     Id<Item> m_item;
     size_t m_count;
     bool m_selected = false;
@@ -39,7 +39,7 @@ class PlayerInventory : public Inventory
     CLASS(PlayerInventory, Inventory);
 
 public:
-    PlayerInventory(Ref<InventoryContainer> container);
+    PlayerInventory(std::shared_ptr<InventoryContainer> container);
 
     virtual void update(float d) override;
     virtual void process_event(Event& event) override { (void)event; }
@@ -60,8 +60,8 @@ public:
     void consume_ingredients();
 
 private:
-    Array<Ref<QuickSlot>, inventory_width> m_quick_slots;
-    Ref<Container> m_quick_slots_container;
+    std::array<std::shared_ptr<QuickSlot>, inventory_width> m_quick_slots;
+    std::shared_ptr<Container> m_quick_slots_container;
 
     size_t m_selected_slot = 0;
     bool m_dirty = false;

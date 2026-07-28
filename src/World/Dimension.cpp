@@ -6,7 +6,7 @@
 #include "World/Chunk.hpp"
 #include "World/World.hpp"
 
-Option<Ref<Chunk>> Dimension::get_chunk(int64_t x, int64_t z) const
+Option<std::shared_ptr<Chunk>> Dimension::get_chunk(int64_t x, int64_t z) const
 {
     auto iter = m_chunks.find(ChunkPos(x, z));
     if (iter != m_chunks.end())
@@ -19,35 +19,35 @@ bool Dimension::has_chunk(int64_t x, int64_t z) const
     return m_chunks.contains(ChunkPos(x, z));
 }
 
-void Dimension::add_chunk(int64_t x, int64_t z, const Ref<Chunk>& chunk)
+void Dimension::add_chunk(int64_t x, int64_t z, const std::shared_ptr<Chunk>& chunk)
 {
     std::lock_guard<std::mutex> g(m_chunk_mutex);
-    m_chunks_to_flush.put(ChunkPos(x, z), chunk);
+    m_chunks_to_flush[ChunkPos(x, z)] = chunk;
 }
 
 void Dimension::remove_chunk(int64_t x, int64_t z)
 {
     std::lock_guard<std::mutex> g(m_chunk_mutex);
-    m_chunks_to_remove.append(ChunkPos(x, z));
+    m_chunks_to_remove.push_back(ChunkPos(x, z));
 }
 
-void Dimension::add_entity(Ref<Entity> entity)
+void Dimension::add_entity(std::shared_ptr<Entity> entity)
 {
-    m_entities_to_add.append(entity);
+    m_entities_to_add.push_back(entity);
 }
 
-void Dimension::remove_entity(Ref<Entity> entity)
+void Dimension::remove_entity(std::shared_ptr<Entity> entity)
 {
-    m_entities_to_remove.append(entity);
+    m_entities_to_remove.push_back(entity);
 }
 
 void Dimension::remove_entity(EntityId id)
 {
-    Ref<Entity> entity = get_entity(id);
-    m_entities_to_remove.append(entity);
+    std::shared_ptr<Entity> entity = get_entity(id);
+    m_entities_to_remove.push_back(entity);
 }
 
-Ref<Entity> Dimension::get_entity(EntityId id) const
+std::shared_ptr<Entity> Dimension::get_entity(EntityId id) const
 {
     for (const auto& entity : m_entities)
     {
@@ -57,9 +57,9 @@ Ref<Entity> Dimension::get_entity(EntityId id) const
     return nullptr;
 }
 
-Vector<AABB> Dimension::get_boxes_that_may_collide(const AABB& box) const
+std::vector<AABB> Dimension::get_boxes_that_may_collide(const AABB& box) const
 {
-    Vector<AABB> boxes;
+    std::vector<AABB> boxes;
     int64_t size = 3;
 
     glm::i64vec3 pos = box.center();
@@ -78,7 +78,7 @@ Vector<AABB> Dimension::get_boxes_that_may_collide(const AABB& box) const
                     continue;
 
                 AABB block_box = AABB(-glm::vec3(0.5), glm::vec3(0.5)).translate(glm::vec3(x, y, z));
-                boxes.append(block_box);
+                boxes.push_back(block_box);
             }
         }
     }
@@ -86,14 +86,14 @@ Vector<AABB> Dimension::get_boxes_that_may_collide(const AABB& box) const
     return boxes;
 }
 
-Vector<Ref<Entity>> Dimension::cast_box(const AABB& box) const
+std::vector<std::shared_ptr<Entity>> Dimension::cast_box(const AABB& box) const
 {
-    Vector<Ref<Entity>> entities;
+    std::vector<std::shared_ptr<Entity>> entities;
 
-    for (Ref<Entity>& entity : m_entities)
+    for (const std::shared_ptr<Entity>& entity : m_entities)
     {
         if (entity->get_aabb().translate(entity->get_position()).intersect(box))
-            entities.append(entity);
+            entities.push_back(entity);
     }
 
     return entities;
@@ -111,7 +111,7 @@ BlockState Dimension::get_block(int64_t x, int64_t y, int64_t z) const
     if (!chunk_maybe)
         return BlockState();
 
-    Ref<Chunk> chunk = chunk_maybe.value();
+    std::shared_ptr<Chunk> chunk = chunk_maybe.value();
     int64_t local_x = local_coords(x);
     int64_t local_z = local_coords(z);
 
@@ -126,21 +126,21 @@ void Dimension::set_block(int64_t x, int64_t y, int64_t z, BlockState state)
     int64_t chunk_x = chunk_index(x);
     int64_t chunk_z = chunk_index(z);
 
-    Option<Ref<Chunk>> chunk_value = get_chunk(chunk_x, chunk_z);
+    Option<std::shared_ptr<Chunk>> chunk_value = get_chunk(chunk_x, chunk_z);
 
     if (!chunk_value.has_value())
     {
         return;
     }
 
-    Ref<Chunk> chunk = chunk_value.value();
+    std::shared_ptr<Chunk> chunk = chunk_value.value();
     int64_t local_x = local_coords(x);
     int64_t local_z = local_coords(z);
 
     chunk->set_block(local_x, y, local_z, state);
 }
 
-void Dimension::set_tag(glm::i64vec3 pos, const StringView& name, Variant v)
+void Dimension::set_tag(glm::i64vec3 pos, std::string_view name, Variant v)
 {
     if (pos.y < 0 || pos.y >= Chunk::height)
         return;
@@ -148,21 +148,21 @@ void Dimension::set_tag(glm::i64vec3 pos, const StringView& name, Variant v)
     int64_t chunk_x = chunk_index(pos.x);
     int64_t chunk_z = chunk_index(pos.z);
 
-    Option<Ref<Chunk>> chunk_value = get_chunk(chunk_x, chunk_z);
+    Option<std::shared_ptr<Chunk>> chunk_value = get_chunk(chunk_x, chunk_z);
 
     if (!chunk_value.has_value())
     {
         return;
     }
 
-    Ref<Chunk> chunk = chunk_value.value();
+    std::shared_ptr<Chunk> chunk = chunk_value.value();
     int64_t local_x = local_coords(pos.x);
     int64_t local_z = local_coords(pos.z);
 
     chunk->set_tag({local_x, pos.y, local_z}, name, v);
 }
 
-void Dimension::remove_tag(glm::i64vec3 pos, const StringView& name)
+void Dimension::remove_tag(glm::i64vec3 pos, std::string_view name)
 {
     if (pos.y < 0 || pos.y >= Chunk::height)
         return;
@@ -170,21 +170,21 @@ void Dimension::remove_tag(glm::i64vec3 pos, const StringView& name)
     int64_t chunk_x = chunk_index(pos.x);
     int64_t chunk_z = chunk_index(pos.z);
 
-    Option<Ref<Chunk>> chunk_value = get_chunk(chunk_x, chunk_z);
+    Option<std::shared_ptr<Chunk>> chunk_value = get_chunk(chunk_x, chunk_z);
 
     if (!chunk_value.has_value())
     {
         return;
     }
 
-    Ref<Chunk> chunk = chunk_value.value();
+    std::shared_ptr<Chunk> chunk = chunk_value.value();
     int64_t local_x = local_coords(pos.x);
     int64_t local_z = local_coords(pos.z);
 
     chunk->remove_tag({local_x, pos.y, local_z}, name);
 }
 
-Option<Variant> Dimension::get_tag(glm::i64vec3 pos, const StringView& name) const
+Option<Variant> Dimension::get_tag(glm::i64vec3 pos, std::string_view name) const
 {
     if (pos.y < 0 || pos.y >= Chunk::height)
         return None;
@@ -192,14 +192,14 @@ Option<Variant> Dimension::get_tag(glm::i64vec3 pos, const StringView& name) con
     int64_t chunk_x = chunk_index(pos.x);
     int64_t chunk_z = chunk_index(pos.z);
 
-    Option<Ref<Chunk>> chunk_value = get_chunk(chunk_x, chunk_z);
+    Option<std::shared_ptr<Chunk>> chunk_value = get_chunk(chunk_x, chunk_z);
 
     if (!chunk_value.has_value())
     {
         return None;
     }
 
-    Ref<Chunk> chunk = chunk_value.value();
+    std::shared_ptr<Chunk> chunk = chunk_value.value();
     int64_t local_x = local_coords(pos.x);
     int64_t local_z = local_coords(pos.z);
 
@@ -211,11 +211,11 @@ bool Dimension::has_solid_block(int64_t x, int64_t y, int64_t z) const
     return !get_block(x, y, z).is_air();
 }
 
-Result<Ref<Chunk>> Dimension::generate_chunk(int64_t cx, int64_t cz)
+Result<std::shared_ptr<Chunk>> Dimension::generate_chunk(int64_t cx, int64_t cz)
 {
     Gen gen(m_gen_desc);
-    Ref<Chunk> chunk = newref<Chunk>(this, cx, cz);
-    memset(chunk->get_blocks(), 0, sizeof(BlockState) * Chunk::block_count);
+    std::shared_ptr<Chunk> chunk = std::make_shared<Chunk>(this, cx, cz);
+    memset((void *)chunk->get_blocks(), 0, sizeof(BlockState) * Chunk::block_count);
 
     for (int i = 0; i < 16 * 16; i++)
         chunk->get_biomes()[i] = Biome::Plain;
@@ -224,7 +224,7 @@ Result<Ref<Chunk>> Dimension::generate_chunk(int64_t cx, int64_t cz)
     {
         for (int64_t lz = 0; lz < 16; lz++)
         {
-            for (Ref<GenPass> pass : gen.desc().passes())
+            for (std::shared_ptr<GenPass> pass : gen.desc()->passes())
             {
                 if (pass->is_flat())
                 {
@@ -250,7 +250,7 @@ Result<Ref<Chunk>> Dimension::generate_chunk(int64_t cx, int64_t cz)
         }
     }
 
-    for (Ref<StructurePass> pass : gen.desc().spasses())
+    for (std::shared_ptr<StructurePass> pass : gen.desc()->spasses())
     {
         pass->gen(gen, chunk);
     }
@@ -260,13 +260,13 @@ Result<Ref<Chunk>> Dimension::generate_chunk(int64_t cx, int64_t cz)
 
 void Dimension::rebuild(ChunkPos pos)
 {
-    Ref<Chunk> chunk;
-    Map<ChunkPos, Ref<Chunk>> nchunks;
+    std::shared_ptr<Chunk> chunk;
+    std::map<ChunkPos, std::shared_ptr<Chunk>> nchunks;
 
     {
         std::lock_guard<std::mutex> lock(mutex());
 
-        Option<Ref<Chunk>> chunk_opt = get_chunk(pos.x, pos.z);
+        Option<std::shared_ptr<Chunk>> chunk_opt = get_chunk(pos.x, pos.z);
         if (!chunk_opt.has_value())
         {
             return;
@@ -274,7 +274,7 @@ void Dimension::rebuild(ChunkPos pos)
 
         chunk = chunk_opt.value();
 
-        const Array<ChunkPos, 4> positions{
+        const std::array<ChunkPos, 4> positions{
             ChunkPos(pos.x + 1, pos.z),
             ChunkPos(pos.x - 1, pos.z),
             ChunkPos(pos.x, pos.z + 1),
@@ -287,7 +287,7 @@ void Dimension::rebuild(ChunkPos pos)
             {
                 continue;
             }
-            nchunks.put(p, chunk_opt.value());
+            nchunks[p] = chunk_opt.value();
         }
     }
 
@@ -309,8 +309,7 @@ void Dimension::queue_rebuild(ChunkPos pos)
 
     Engine::get().get_thread_pool().async([this, pos]
                                           {
-	rebuild(pos);
-
-	std::lock_guard<std::mutex> lock(m_chunk_rebuild_mutex);
-	m_chunk_rebuild_queue.erase(pos); });
+                                            rebuild(pos);
+                                            std::lock_guard<std::mutex> lock(m_chunk_rebuild_mutex);
+                                            m_chunk_rebuild_queue.erase(pos); });
 }

@@ -70,10 +70,10 @@ public:
      */
     static std::filesystem::path current_executable_directory();
 
-    static String get_data_directory();
+    static std::string get_data_directory();
 
-    static bool exists(const StringView& path);
+    static bool exists(std::string_view path);
 
-    static Result<File> open_file(const StringView& path, bool rw = false);
-    static Result<void> make_dirs(const StringView& path);
+    static Result<File> open_file(std::string_view path, bool rw = false);
+    static Result<void> make_dirs(std::string_view path);
 };

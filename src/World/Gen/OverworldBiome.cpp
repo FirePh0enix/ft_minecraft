@@ -8,7 +8,7 @@ void OverworldBiomePass::init(GenDesc& desc)
     m_flat = true;
 }
 
-void OverworldBiomePass::gen(const Gen& gen, int64_t x, int64_t y, int64_t z, BlockState& state, BlockTags& tags, Biome& biome)
+void OverworldBiomePass::gen(Gen& gen, int64_t x, int64_t y, int64_t z, BlockState& state, BlockTags& tags, Biome& biome)
 {
     (void)x;
     (void)y;

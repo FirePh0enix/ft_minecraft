@@ -3,9 +3,7 @@
 #include "Core/Assert.hpp"
 #include "Core/Error.hpp"
 #include "Core/Filesystem.hpp"
-#include "Core/Format.hpp"
 #include "Core/Math.hpp"
-#include "Core/Ref.hpp"
 #include "Core/Result.hpp"
 #include "Engine.hpp"
 #include "Entity/Entity.hpp"
@@ -15,14 +13,15 @@
 #include "World/Dimension.hpp"
 #include "World/Registry.hpp"
 #include "World/World.hpp"
-#include "webgpu/webgpu.h"
 
 #include <backends/imgui_impl_sdl3.h>
 #include <backends/imgui_impl_wgpu.h>
 #include <imgui.h>
 
+#include <format>
 #include <mutex>
 #include <random>
+#include <span>
 
 // clang-format off
 static const uint32_t missing_texture_data[16 * 16]{
@@ -106,7 +105,7 @@ Buffer::~Buffer()
     Renderer::get().m_device_memory_freed += m_size;
 }
 
-Result<Ref<Buffer>> Buffer::create(size_t size, WGPUBufferUsage usage, BufferVisibility visibility)
+Result<std::shared_ptr<Buffer>> Buffer::create(size_t size, WGPUBufferUsage usage, BufferVisibility visibility)
 {
     WGPUBufferDescriptor desc = WGPU_BUFFER_DESCRIPTOR_INIT;
     desc.size = size;
@@ -125,7 +124,7 @@ Result<Ref<Buffer>> Buffer::create(size_t size, WGPUBufferUsage usage, BufferVis
     });
     ERR_COND_VRV(wgpu_buffer == nullptr, Error(ErrorKind::OutOfDeviceMemory), "Failed to create buffer of size {}", size);
 
-    Ref<Buffer> buffer = newref<Buffer>();
+    std::shared_ptr<Buffer> buffer = std::make_shared<Buffer>();
     buffer->m_buffer = wgpu_buffer;
     buffer->m_usage = usage;
     buffer->m_size = size;
@@ -146,7 +145,7 @@ Result<Ref<Buffer>> Buffer::create(size_t size, WGPUBufferUsage usage, BufferVis
     return buffer;
 }
 
-void Buffer::update(View<uint8_t> view, size_t offset)
+void Buffer::update(std::span<const std::byte> view, size_t offset)
 {
     std::lock_guard<std::mutex> guard(Renderer::get().get_queue_mutex());
     wgpuQueueWriteBuffer(Renderer::get().m_queue, m_buffer, static_cast<uint64_t>(offset), view.data(), view.size());
@@ -161,7 +160,7 @@ Texture::~Texture()
     }
 }
 
-Result<Ref<Texture>> Texture::create(uint32_t width, uint32_t height, WGPUTextureFormat format, WGPUTextureUsage usage, WGPUTextureViewDimension dimension, uint32_t layers, uint32_t mip_level)
+Result<std::shared_ptr<Texture>> Texture::create(uint32_t width, uint32_t height, WGPUTextureFormat format, WGPUTextureUsage usage, WGPUTextureViewDimension dimension, uint32_t layers, uint32_t mip_level)
 {
     WGPUTextureDescriptor desc = WGPU_TEXTURE_DESCRIPTOR_INIT;
     desc.usage = usage;
@@ -191,7 +190,7 @@ Result<Ref<Texture>> Texture::create(uint32_t width, uint32_t height, WGPUTextur
     if (!view)
         return Error(ErrorKind::OutOfDeviceMemory);
 
-    Ref<Texture> tex = newref<Texture>();
+    std::shared_ptr<Texture> tex = std::make_shared<Texture>();
     tex->m_texture = texture;
     tex->m_view = view;
     tex->m_width = width;
@@ -203,9 +202,9 @@ Result<Ref<Texture>> Texture::create(uint32_t width, uint32_t height, WGPUTextur
     return tex;
 }
 
-Ref<Texture> Texture::create_from_handle(WGPUTexture texture, WGPUTextureView view)
+std::shared_ptr<Texture> Texture::create_from_handle(WGPUTexture texture, WGPUTextureView view)
 {
-    Ref<Texture> tex = newref<Texture>();
+    std::shared_ptr<Texture> tex = std::make_shared<Texture>();
     tex->m_texture = texture;
     tex->m_view = view;
     tex->m_width = wgpuTextureGetWidth(texture);
@@ -217,11 +216,11 @@ Ref<Texture> Texture::create_from_handle(WGPUTexture texture, WGPUTextureView vi
     return tex;
 }
 
-Result<Ref<Texture>> Texture::load(const StringView& path)
+Result<std::shared_ptr<Texture>> Texture::load(std::string_view path)
 {
     File file = TRY(Filesystem::open_file(path));
 
-    LocalVector<char> buffer;
+    std::vector<char> buffer;
     TRY(file.reader().read_to_buffer(buffer));
     file.close();
 
@@ -231,15 +230,15 @@ Result<Ref<Texture>> Texture::load(const StringView& path)
     if (data == nullptr)
         return Error(ErrorKind::ReadFailure);
 
-    Ref<Texture> texture = TRY(Texture::create(w, h, WGPUTextureFormat_RGBA8Unorm, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding, WGPUTextureViewDimension_2D, 1, 1));
-    texture->update(View((uint8_t *)data, w * h * 4));
+    std::shared_ptr<Texture> texture = TRY(Texture::create(w, h, WGPUTextureFormat_RGBA8Unorm, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding, WGPUTextureViewDimension_2D, 1, 1));
+    texture->update(std::span((std::byte *)data, w * h * 4));
 
     stbi_image_free(data);
 
     return texture;
 }
 
-void Texture::update(View<uint8_t> view, uint32_t layer)
+void Texture::update(std::span<const std::byte> view, uint32_t layer)
 {
     std::lock_guard<std::mutex> guard(Renderer::get().get_queue_mutex());
 
@@ -276,30 +275,30 @@ void Texture::update(View<uint8_t> view, uint32_t layer)
 #endif
 }
 
-Result<Ref<Mesh>> Mesh::create_from_data(const View<uint8_t>& indices, const View<glm::vec3>& positions, const View<glm::vec3>& normals, const View<uint8_t>& uvs, WGPUIndexFormat index_type, UVType uv_type)
+Result<std::shared_ptr<Mesh>> Mesh::create_from_data(std::span<const std::byte> indices, std::span<const glm::vec3> positions, std::span<const glm::vec3> normals, std::span<const std::byte> uvs, WGPUIndexFormat index_type, UVType uv_type)
 {
     const size_t vertex_count = indices.size() / size_of(index_type);
 
-    Ref<Buffer> index_buffer = TRY(Buffer::create(indices.size(), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Index));
-    index_buffer->update(indices.as_bytes());
+    std::shared_ptr<Buffer> index_buffer = TRY(Buffer::create(indices.size(), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Index));
+    index_buffer->update(indices);
 
-    Ref<Buffer> vertex_buffer = TRY(Buffer::create(positions.size() * sizeof(glm::vec3), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Vertex));
-    vertex_buffer->update(positions.as_bytes());
+    std::shared_ptr<Buffer> vertex_buffer = TRY(Buffer::create(positions.size() * sizeof(glm::vec3), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Vertex));
+    vertex_buffer->update(std::as_bytes(positions));
 
-    Ref<Buffer> uv_buffer = TRY(Buffer::create(uvs.size(), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Vertex));
-    uv_buffer->update(uvs.as_bytes());
+    std::shared_ptr<Buffer> uv_buffer = TRY(Buffer::create(uvs.size(), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Vertex));
+    uv_buffer->update(std::as_bytes(uvs));
 
-    Ref<Buffer> normal_buffer;
+    std::shared_ptr<Buffer> normal_buffer;
     if (normals.size() > 0)
     {
         normal_buffer = TRY(Buffer::create(normals.size() * sizeof(glm::vec3), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Vertex));
-        normal_buffer->update(normals.as_bytes());
+        normal_buffer->update(std::as_bytes(normals));
     }
 
-    return newref<Mesh>(vertex_count, index_type, uv_type, index_buffer, vertex_buffer, normal_buffer, uv_buffer);
+    return std::make_shared<Mesh>(vertex_count, index_type, uv_type, index_buffer, vertex_buffer, normal_buffer, uv_buffer);
 }
 
-static WGPUShaderModule create_shader_module(const Ref<Shader>& shader)
+static WGPUShaderModule create_shader_module(const std::shared_ptr<Shader>& shader)
 {
     WGPUShaderModuleDescriptor module_desc{};
     module_desc.label = WGPU_STRING_VIEW_INIT;
@@ -326,9 +325,9 @@ Material::~Material()
         wgpuRenderPipelineRelease(pipeline);
 }
 
-Ref<Material> Material::create(const Ref<Shader>& shader, MaterialFlags flags, WGPUCullMode cull_mode, UVType uv_type, Instance instance)
+std::shared_ptr<Material> Material::create(const std::shared_ptr<Shader>& shader, MaterialFlags flags, WGPUCullMode cull_mode, UVType uv_type, Instance instance)
 {
-    Ref<Material> material = newref<Material>();
+    std::shared_ptr<Material> material = std::make_shared<Material>();
     material->m_shader = shader;
     material->m_flags = flags;
     material->m_cull_mode = cull_mode;
@@ -340,19 +339,19 @@ Ref<Material> Material::create(const Ref<Shader>& shader, MaterialFlags flags, W
 
 WGPURenderPipeline Material::get_pipeline(const RenderPass& pass)
 {
-    PipelineKey key(pass.textures, pass.depth); // TODO: cull mode is not set here.
-    Option<WGPURenderPipeline> p = m_pipelines.get(key);
-    if (p.has_value())
-        return p.value();
+    PipelineKey key(pass.textures, pass.depth);
+    auto p = m_pipelines.find(key);
+    if (p != m_pipelines.end())
+        return p->second;
 
     WGPURenderPipeline pipeline = create_pipeline(pass);
-    m_pipelines.put(key, pipeline);
+    m_pipelines[key] = pipeline;
     return pipeline;
 }
 
 WGPURenderPipeline Material::create_pipeline(const RenderPass& pass)
 {
-    LocalVector<WGPUVertexBufferLayout> buffers;
+    std::vector<WGPUVertexBufferLayout> buffers;
     buffers.reserve(3 + m_attributes.size());
 
     uint32_t attrib_index = 0;
@@ -363,7 +362,7 @@ WGPURenderPipeline Material::create_pipeline(const RenderPass& pass)
         vertex_attrib.format = WGPUVertexFormat_Float32x3;
         vertex_attrib.offset = 0;
         vertex_attrib.shaderLocation = attrib_index++;
-        buffers.append(WGPUVertexBufferLayout{.nextInChain = nullptr, .stepMode = WGPUVertexStepMode_Vertex, .arrayStride = sizeof(glm::vec3), .attributeCount = 1, .attributes = &vertex_attrib});
+        buffers.push_back(WGPUVertexBufferLayout{.nextInChain = nullptr, .stepMode = WGPUVertexStepMode_Vertex, .arrayStride = sizeof(glm::vec3), .attributeCount = 1, .attributes = &vertex_attrib});
     }
 
     WGPUVertexAttribute normal_attrib{};
@@ -372,7 +371,7 @@ WGPURenderPipeline Material::create_pipeline(const RenderPass& pass)
         normal_attrib.format = WGPUVertexFormat_Float32x3;
         normal_attrib.offset = 0;
         normal_attrib.shaderLocation = attrib_index++;
-        buffers.append(WGPUVertexBufferLayout{.nextInChain = nullptr, .stepMode = WGPUVertexStepMode_Vertex, .arrayStride = sizeof(glm::vec3), .attributeCount = 1, .attributes = &normal_attrib});
+        buffers.push_back(WGPUVertexBufferLayout{.nextInChain = nullptr, .stepMode = WGPUVertexStepMode_Vertex, .arrayStride = sizeof(glm::vec3), .attributeCount = 1, .attributes = &normal_attrib});
     }
 
     WGPUVertexAttribute uv_attrib{};
@@ -383,27 +382,27 @@ WGPURenderPipeline Material::create_pipeline(const RenderPass& pass)
             uv_attrib.format = WGPUVertexFormat_Float32x2;
             uv_attrib.offset = 0;
             uv_attrib.shaderLocation = attrib_index++;
-            buffers.append(WGPUVertexBufferLayout{.nextInChain = nullptr, .stepMode = WGPUVertexStepMode_Vertex, .arrayStride = sizeof(glm::vec2), .attributeCount = 1, .attributes = &uv_attrib});
+            buffers.push_back(WGPUVertexBufferLayout{.nextInChain = nullptr, .stepMode = WGPUVertexStepMode_Vertex, .arrayStride = sizeof(glm::vec2), .attributeCount = 1, .attributes = &uv_attrib});
         }
         else if (m_uv_type == UVType::UVT)
         {
             uv_attrib.format = WGPUVertexFormat_Float32x3;
             uv_attrib.offset = 0;
             uv_attrib.shaderLocation = attrib_index++;
-            buffers.append(WGPUVertexBufferLayout{.nextInChain = nullptr, .stepMode = WGPUVertexStepMode_Vertex, .arrayStride = sizeof(glm::vec3), .attributeCount = 1, .attributes = &uv_attrib});
+            buffers.push_back(WGPUVertexBufferLayout{.nextInChain = nullptr, .stepMode = WGPUVertexStepMode_Vertex, .arrayStride = sizeof(glm::vec3), .attributeCount = 1, .attributes = &uv_attrib});
         }
     }
 
-    LocalVector<WGPUVertexAttribute> attributes;
+    std::vector<WGPUVertexAttribute> attributes;
     attributes.reserve(m_attributes.size());
     for (uint32_t i = 0; i < m_attributes.size(); i++)
     {
         InstanceAttribute attrib = m_attributes[i];
-        attributes.append(WGPUVertexAttribute{.nextInChain = nullptr, .format = attrib.format, .offset = attrib.offset, .shaderLocation = attrib_index + i});
+        attributes.push_back(WGPUVertexAttribute{.nextInChain = nullptr, .format = attrib.format, .offset = attrib.offset, .shaderLocation = attrib_index + i});
     }
     if (m_attributes.size() > 0)
     {
-        buffers.append(WGPUVertexBufferLayout{.nextInChain = nullptr, .stepMode = WGPUVertexStepMode_Instance, .arrayStride = m_instance_stride, .attributeCount = attributes.size(), .attributes = attributes.data()});
+        buffers.push_back(WGPUVertexBufferLayout{.nextInChain = nullptr, .stepMode = WGPUVertexStepMode_Instance, .arrayStride = m_instance_stride, .attributeCount = attributes.size(), .attributes = attributes.data()});
     }
 
     WGPUShaderModule module = create_shader_module(m_shader);
@@ -438,10 +437,10 @@ WGPURenderPipeline Material::create_pipeline(const RenderPass& pass)
         blend_state.alpha.operation = WGPUBlendOperation_Add;
     }
 
-    Vector<WGPUColorTargetState> color_states;
+    std::vector<WGPUColorTargetState> color_states;
     color_states.reserve(pass.textures.size());
     for (const RenderTarget& target : pass.textures)
-        color_states.append(WGPUColorTargetState{.nextInChain = nullptr, .format = target.format, .blend = target.blending ? &blend_state : nullptr, .writeMask = WGPUColorWriteMask_All});
+        color_states.push_back(WGPUColorTargetState{.nextInChain = nullptr, .format = target.format, .blend = target.blending ? &blend_state : nullptr, .writeMask = WGPUColorWriteMask_All});
 
     WGPUFragmentState fragment_state = WGPU_FRAGMENT_STATE_INIT;
     fragment_state.targets = color_states.data();
@@ -485,37 +484,37 @@ BindGroup::~BindGroup()
         wgpuBindGroupRelease(m_bind_group);
 }
 
-Ref<BindGroup> BindGroup::create(const Ref<Shader>& shader)
+std::shared_ptr<BindGroup> BindGroup::create(const std::shared_ptr<Shader>& shader)
 {
-    Ref<BindGroup> bg = newref<BindGroup>();
+    std::shared_ptr<BindGroup> bg = std::make_shared<BindGroup>();
     bg->m_shader = shader;
     return bg;
 }
 
-void BindGroup::set_param(const StringView& name, const Ref<Texture>& texture)
+void BindGroup::set_param(std::string_view name, const std::shared_ptr<Texture>& texture)
 {
     Option<Binding> binding_result = m_shader->get_binding(name);
-    ASSERT_V(!texture.is_null(), "Texture specified for {} is null", name);
+    ASSERT_V(texture != nullptr, "Texture specified for {} is null", name);
     ASSERT_V(binding_result.has_value(), "Invalid parameter name `{}`", name.data());
 
-    m_caches.put(name, MaterialParamCache{.kind = binding_result.value().kind, .texture = texture});
+    m_caches[std::string(name)] = MaterialParamCache{.kind = binding_result.value().kind, .texture = texture};
     m_dirty = true;
 }
 
-void BindGroup::set_param(const StringView& name, const Ref<Buffer>& buffer, size_t offset, size_t size)
+void BindGroup::set_param(std::string_view name, const std::shared_ptr<Buffer>& buffer, size_t offset, size_t size)
 {
     Option<Binding> binding_result = m_shader->get_binding(name);
-    ERR_COND_VR(buffer.is_null(), "Buffer specified for {} is null", name);
+    ERR_COND_VR(buffer == nullptr, "Buffer specified for {} is null", name);
     ERR_COND_VR(!binding_result.has_value(), "Invalid parameter name `{}`", name.data());
 
-    m_caches.put(name, MaterialParamCache{.kind = BindingKind::UniformBuffer, .buffer = buffer, .offset = offset, .size = size});
+    m_caches[std::string(name)] = MaterialParamCache{.kind = BindingKind::UniformBuffer, .buffer = buffer, .offset = offset, .size = size};
     m_dirty = true;
 }
 
-const MaterialParamCache& BindGroup::get_param(const StringView& name) const
+const MaterialParamCache& BindGroup::get_param(std::string_view name) const
 {
     ASSERT_V(m_caches.contains(name), "Cache missing {}", name);
-    return *m_caches.get_ptr(name).value();
+    return m_caches.find(name)->second;
 }
 
 WGPUBindGroup BindGroup::get_bind_group()
@@ -530,10 +529,10 @@ void BindGroup::create_bind_group()
     if (m_bind_group != nullptr)
         wgpuBindGroupRelease(m_bind_group);
 
-    LocalVector<WGPUBindGroupEntry> entries;
+    std::vector<WGPUBindGroupEntry> entries;
     entries.reserve(m_shader->get_bindings().size());
 
-    for (const auto& [_, name, binding] : m_shader->get_bindings())
+    for (const auto& [name, binding] : m_shader->get_bindings())
     {
         switch (binding.kind)
         {
@@ -545,7 +544,7 @@ void BindGroup::create_bind_group()
             entry.binding = binding.binding;
             entry.textureView = cache.texture->handle_view();
 
-            entries.append(entry);
+            entries.push_back(entry);
 
             SamplerDescriptor sampler = m_shader->get_sampler(name);
 
@@ -556,7 +555,7 @@ void BindGroup::create_bind_group()
             sampler_entry.binding = binding.binding + 1;
             sampler_entry.sampler = sampler_result;
 
-            entries.append(sampler_entry);
+            entries.push_back(sampler_entry);
         }
         break;
         case BindingKind::UniformBuffer:
@@ -570,7 +569,7 @@ void BindGroup::create_bind_group()
             entry.offset = cache.offset;
             entry.size = std::min(cache.buffer->size(), cache.size);
 
-            entries.append(entry);
+            entries.push_back(entry);
         }
         break;
         }
@@ -589,9 +588,9 @@ void BindGroup::create_bind_group()
 
 WGPUSampler SamplerCache::get(const SamplerDescriptor& desc)
 {
-    Option<WGPUSampler> sampler_opt = m_samplers.get(desc);
-    if (sampler_opt.has_value())
-        return sampler_opt.value();
+    auto sampler_opt = m_samplers.find(desc);
+    if (sampler_opt != m_samplers.end())
+        return sampler_opt->second;
 
     WGPUSamplerDescriptor d = WGPU_SAMPLER_DESCRIPTOR_INIT;
     d.magFilter = desc.mag_filter;
@@ -602,7 +601,7 @@ WGPUSampler SamplerCache::get(const SamplerDescriptor& desc)
     d.compare = desc.compare;
 
     WGPUSampler sampler = wgpuDeviceCreateSampler(Renderer::get().device(), &d);
-    m_samplers.put(desc, sampler);
+    m_samplers[desc] = sampler;
 
     return sampler;
 }
@@ -737,12 +736,12 @@ static WGPUSurface create_surface(WGPUInstance instance, SDL_Window *window)
 
 #endif
 
-static Result<Ref<Mesh>> create_cube_mesh(glm::vec3 size = glm::vec3(1.0), glm::vec3 offset = glm::vec3())
+static Result<std::shared_ptr<Mesh>> create_cube_mesh(glm::vec3 size = glm::vec3(1.0), glm::vec3 offset = glm::vec3())
 {
     const glm::vec3 hs = size / glm::vec3(2.0);
 
     // clang-format off
-    Array<uint16_t, 36> indices{
+    std::array<uint16_t, 36> indices{
         0, 1, 2,
         2, 3, 0, // front
 
@@ -763,7 +762,7 @@ static Result<Ref<Mesh>> create_cube_mesh(glm::vec3 size = glm::vec3(1.0), glm::
     };
     // clang-format on
 
-    Array<glm::vec3, 24> vertices{
+    std::array<glm::vec3, 24> vertices{
         glm::vec3(-hs.x + offset.x, -hs.y + offset.y, hs.z + offset.z), // front
         glm::vec3(hs.x + offset.x, -hs.y + offset.y, hs.z + offset.z),
         glm::vec3(hs.x + offset.x, hs.y + offset.y, hs.z + offset.z),
@@ -795,7 +794,7 @@ static Result<Ref<Mesh>> create_cube_mesh(glm::vec3 size = glm::vec3(1.0), glm::
         glm::vec3(-hs.x + offset.x, -hs.y + offset.y, hs.z + offset.z),
     };
 
-    Array<glm::vec2, 24> uvs{
+    std::array<glm::vec2, 24> uvs{
         glm::vec2(0.0, 0.0),
         glm::vec2(1.0, 0.0),
         glm::vec2(1.0, 1.0),
@@ -827,7 +826,7 @@ static Result<Ref<Mesh>> create_cube_mesh(glm::vec3 size = glm::vec3(1.0), glm::
         glm::vec2(0.0, 1.0),
     };
 
-    Array<glm::vec3, 24> normals{
+    std::array<glm::vec3, 24> normals{
         glm::vec3(0.0, 0.0, 1.0), // front
         glm::vec3(0.0, 0.0, 1.0),
         glm::vec3(0.0, 0.0, 1.0),
@@ -859,7 +858,7 @@ static Result<Ref<Mesh>> create_cube_mesh(glm::vec3 size = glm::vec3(1.0), glm::
         glm::vec3(0.0, -1.0, 0.0),
     };
 
-    return Mesh::create_from_data(View(indices).as_bytes(), vertices, normals, View(uvs).as_bytes(), WGPUIndexFormat_Uint16);
+    return Mesh::create_from_data(std::as_bytes(std::span(indices)), vertices, normals, std::as_bytes(std::span(uvs)), WGPUIndexFormat_Uint16);
 }
 
 #define SHADOWMAP_RESOLUTION 2048
@@ -915,7 +914,7 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
         .nextInChain = nullptr,
         .callback = [](const WGPUDevice *, WGPUErrorType, WGPUStringView message, void *, void *)
         {
-            String s;
+            std::string s;
             s.append(message.data, message.length);
             println("{}", s);
         },
@@ -972,13 +971,13 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_preview_block_shader->create_bind_group_layout();
 
     m_missing_texture = TRY(Texture::create(16, 16, WGPUTextureFormat_RGBA8UnormSrgb, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding));
-    m_missing_texture->update(View(missing_texture_data, 16 * 16).as_bytes());
+    m_missing_texture->update(std::span((std::byte *)missing_texture_data, 16 * 16));
 
     // Create resources for SSAO
     std::uniform_real_distribution<float> random_floats(0.0, 1.0);
     std::default_random_engine generator;
 
-    Array<glm::vec4, 64> ssao_kernel;
+    std::array<glm::vec4, 64> ssao_kernel{};
     for (size_t i = 0; i < 64; i++)
     {
         glm::vec3 sample(random_floats(generator) * 2.0 - 1.0, random_floats(generator) * 2.0 - 1.0, random_floats(generator));
@@ -992,9 +991,9 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     }
 
     m_ssao_uniform_buffer = TRY(Buffer::create(sizeof(SSAOUniforms), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
-    m_ssao_uniform_buffer->update(View(SSAOUniforms(ssao_kernel)).as_bytes());
+    m_ssao_uniform_buffer->update_struct(SSAOUniforms(ssao_kernel));
 
-    Array<glm::vec4, 16> ssao_noise;
+    std::array<glm::vec4, 16> ssao_noise{};
     for (size_t i = 0; i < 16; i++)
     {
         const glm::vec4 noise(random_floats(generator) * 2.0 - 1.0, random_floats(generator) * 2.0 - 1.0, 0, 0);
@@ -1002,7 +1001,7 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     }
 
     m_ssao_noise_texture = TRY(Texture::create(4, 4, WGPUTextureFormat_RGBA32Float, WGPUTextureUsage_TextureBinding | WGPUTextureUsage_CopyDst));
-    m_ssao_noise_texture->update(View(ssao_noise).as_bytes());
+    m_ssao_noise_texture->update(std::as_bytes(std::span(ssao_noise)));
 
     m_fw_model_shader = TRY(Shader::load_from_path("assets/shaders/fw/model.wgsl"));
     m_fw_model_shader->set_binding("camera", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
@@ -1086,7 +1085,7 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_fw_item_block_mat = Material::create(m_fw_item_block_shader, MaterialFlagBits::None, WGPUCullMode_Back, UVType::UV);
     m_fw_item_mat = Material::create(m_fw_item_shader, MaterialFlagBits::Transparency, WGPUCullMode_None, UVType::UV);
 
-    Vector<InstanceAttribute> chunk_attribs = Vector<InstanceAttribute>::create(InstanceAttribute(0, WGPUVertexFormat_Float32x3)); 
+    std::vector<InstanceAttribute> chunk_attribs{InstanceAttribute(0, WGPUVertexFormat_Float32x3)};
     m_fw_chunk_mat = Material::create(m_fw_chunk_shader, MaterialFlagBits::None, WGPUCullMode_Back, UVType::UVT, Instance(chunk_attribs, sizeof(glm::vec3)));
     m_fw_chunk_shadowmap_mat = Material::create(m_fw_chunk_shadowmap_shader, MaterialFlagBits::NoNormal | MaterialFlagBits::NoUV, WGPUCullMode_Front, UVType::UVT, Instance(chunk_attribs, sizeof(glm::vec3)));
     m_fw_water_mat = Material::create(m_fw_water_shader, MaterialFlagBits::Transparency, WGPUCullMode_Back, UVType::UV, Instance(chunk_attribs, sizeof(glm::vec3)));
@@ -1100,9 +1099,9 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
 
     m_fw_clouds_mat = Material::create(m_fw_clouds_shader, MaterialFlagBits::Transparency | MaterialFlagBits::NoData, WGPUCullMode_None, UVType::UV);
 
-    Vector<InstanceAttribute> attribs = Vector<InstanceAttribute>::create(InstanceAttribute(offsetof(Font::Instance, bounds), WGPUVertexFormat_Float32x4),
-                                                                          InstanceAttribute(offsetof(Font::Instance, char_pos), WGPUVertexFormat_Float32x2),
-                                                                          InstanceAttribute(offsetof(Font::Instance, scale), WGPUVertexFormat_Float32x2));
+    std::vector<InstanceAttribute> attribs{InstanceAttribute(offsetof(Font::Instance, bounds), WGPUVertexFormat_Float32x4),
+                                           InstanceAttribute(offsetof(Font::Instance, char_pos), WGPUVertexFormat_Float32x2),
+                                           InstanceAttribute(offsetof(Font::Instance, scale), WGPUVertexFormat_Float32x2)};
     m_fw_text_mat = Material::create(m_fw_text_shader, MaterialFlagBits::Transparency | MaterialFlagBits::NoNormal | MaterialFlagBits::NoUV, WGPUCullMode_None, UVType::UV, Instance(attribs, sizeof(Font::Instance)));
 
     m_cube_mesh = TRY(create_cube_mesh());
@@ -1114,7 +1113,7 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     FwColored colored(
         glm::translate(glm::identity<glm::mat4>(), glm::vec3(0, 78, 0)),
         glm::vec4(1.0, 1.0, 1.0, 1.0));
-    m_fw_colored_buffer->update(View(colored).as_bytes());
+    m_fw_colored_buffer->update_struct(colored);
 
     m_fw_shadowmap_cam_buffer = TRY(Buffer::create(sizeof(FwColored), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
 
@@ -1143,47 +1142,47 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_fw_clouds_bg->set_param("camera", m_fw_camera);
     m_fw_clouds_bg->set_param("noise", m_fw_clouds_noise);
 
-    Array<uint16_t, 6> indices{0, 1, 2, 0, 2, 3};
-    Array<glm::vec3, 4> vertices{
+    std::array<uint16_t, 6> indices{0, 1, 2, 0, 2, 3};
+    std::array<glm::vec3, 4> vertices{
         glm::vec3(-0.5, -0.5, 0.1),
         glm::vec3(+0.5, -0.5, 0.1),
         glm::vec3(+0.5, +0.5, 0.1),
         glm::vec3(-0.5, +0.5, 0.1),
     };
-    Array<glm::vec2, 4> uvs{
+    std::array<glm::vec2, 4> uvs{
         glm::vec2(0.0, 0.0),
         glm::vec2(1.0, 0.0),
         glm::vec2(1.0, 1.0),
         glm::vec2(0.0, 1.0),
     };
-    m_square_mesh = TRY(Mesh::create_from_data(View(indices).as_bytes(), vertices, {}, View(uvs).as_bytes(), WGPUIndexFormat_Uint16));
+    m_square_mesh = TRY(Mesh::create_from_data(std::as_bytes(std::span(indices)), vertices, {}, std::as_bytes(std::span(uvs)), WGPUIndexFormat_Uint16));
 
-    Array<uint16_t, 6> quad_indices{0, 1, 2, 0, 2, 3};
-    Array<glm::vec3, 4> quad_vertices{
+    std::array<uint16_t, 6> quad_indices{0, 1, 2, 0, 2, 3};
+    std::array<glm::vec3, 4> quad_vertices{
         glm::vec3(-0.5, -0.5, 0.0),
         glm::vec3(+0.5, -0.5, 0.0),
         glm::vec3(+0.5, +0.5, 0.0),
         glm::vec3(-0.5, +0.5, 0.0),
     };
-    Array<glm::vec3, 4> quad_normals{
+    std::array<glm::vec3, 4> quad_normals{
         glm::vec3(0.0, 0.0, 1.0),
         glm::vec3(0.0, 0.0, 1.0),
         glm::vec3(0.0, 0.0, 1.0),
         glm::vec3(0.0, 0.0, 1.0),
     };
-    Array<glm::vec2, 4> quad_uvs{
+    std::array<glm::vec2, 4> quad_uvs{
         glm::vec2(0.0, 0.0),
         glm::vec2(1.0, 0.0),
         glm::vec2(1.0, 1.0),
         glm::vec2(0.0, 1.0),
     };
-    m_quad_mesh = TRY(Mesh::create_from_data(View(quad_indices).as_bytes(), quad_vertices, quad_normals, View(quad_uvs).as_bytes(), WGPUIndexFormat_Uint16));
+    m_quad_mesh = TRY(Mesh::create_from_data(std::as_bytes(std::span(quad_indices)), quad_vertices, quad_normals, std::as_bytes(std::span(quad_uvs)), WGPUIndexFormat_Uint16));
 
     m_fw_water_texture = Engine::get().registry().create_texture("assets/textures/water.png");
 
     m_fw_pp.near = 0.01;
     m_fw_pp.far = 500.0;
-    m_fw_pp_buffer->update(View(m_fw_pp).as_bytes());
+    m_fw_pp_buffer->update_struct(m_fw_pp);
 
     configure_surface(window.size().width, window.size().height, VSync::On);
 
@@ -1207,6 +1206,8 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
 
 void Renderer::configure_surface(size_t width, size_t height, VSync vsync)
 {
+    (void)vsync;
+
     Extent2D surface_extent(width, height);
 
 #ifndef __platform_web
@@ -1245,7 +1246,7 @@ void Renderer::configure_surface(size_t width, size_t height, VSync vsync)
 
     float ratio = float(width) / float(height);
     glm::mat4 ortho_matrix = glm::ortho(-1.0f * ratio, 1.0f * ratio, -1.0f, 1.0f, -1.0f, 1.0f);
-    m_env_2d_buffer->update(View(ortho_matrix).as_bytes());
+    m_env_2d_buffer->update_struct(ortho_matrix);
 }
 
 void Renderer::draw_legacy(std::function<void()> f)
@@ -1253,7 +1254,7 @@ void Renderer::draw_legacy(std::function<void()> f)
     WGPUSurfaceTexture surface_texture{};
     wgpuSurfaceGetCurrentTexture(m_surface, &surface_texture);
 
-    ERR_COND_VR(surface_texture.texture == nullptr, "Cannot acquire a swapchain image (status = {})", surface_texture.status);
+    ERR_COND_VR(surface_texture.texture == nullptr, "Cannot acquire a swapchain image (status = {})", (uint32_t)surface_texture.status);
     // TODO: if status is WGPUSurfaceGetCurrentTextureStatus_Outdated or WGPUSurfaceGetCurrentTextureStatus_Timeout
 
     WGPUTextureView surface_view = wgpuTextureCreateView(surface_texture.texture, nullptr);
@@ -1310,28 +1311,28 @@ void Renderer::draw_legacy(std::function<void()> f)
     wgpuTextureRelease(surface_texture.texture);
 }
 
-void Renderer::draw_forward(const Ref<World>& world)
+void Renderer::draw_forward(const std::shared_ptr<World>& world)
 {
     ZoneScoped;
 
     WGPUSurfaceTexture surface_texture = WGPU_SURFACE_TEXTURE_INIT;
     wgpuSurfaceGetCurrentTexture(m_surface, &surface_texture);
 
-    ERR_COND_VR(surface_texture.texture == nullptr, "Cannot acquire a swapchain image (status = {})", surface_texture.status);
+    ERR_COND_VR(surface_texture.texture == nullptr, "Cannot acquire a swapchain image (status = {})", (uint32_t)surface_texture.status);
     // TODO: if status is WGPUSurfaceGetCurrentTextureStatus_Outdated or WGPUSurfaceGetCurrentTextureStatus_Timeout
 
     WGPUTextureView surface_view = wgpuTextureCreateView(surface_texture.texture, nullptr);
     ERR_COND_R(surface_view == nullptr, "Cannot acquire a swapchain image view");
-    Ref<Texture> surface_tex = Texture::create_from_handle(surface_texture.texture, surface_view);
+    std::shared_ptr<Texture> surface_tex = Texture::create_from_handle(surface_texture.texture, surface_view);
 
     WGPUCommandEncoder encoder = wgpuDeviceCreateCommandEncoder(m_device, nullptr);
 
     FwCamera camera{};
     camera.view_projection = world->get_active_camera()->get_view_proj_matrix();
-    m_fw_camera->update(View(camera).as_bytes());
-    
+    m_fw_camera->update_struct(camera);
+
     camera.view_projection = world->get_active_camera()->get_projection_matrix();
-    m_fw_camera_rel->update(View(camera).as_bytes());
+    m_fw_camera_rel->update_struct(camera);
 
     const float shadowmap_range = float(world->get_render_distance()) * 16.0f + 8.0f;
     const glm::vec3 light_target = world->get_active_camera()->get_global_transform().position();
@@ -1344,16 +1345,18 @@ void Renderer::draw_forward(const Ref<World>& world)
     FwColored shadowmap_cam(
         glm::inverse(shadowmap_view) * glm::scale(glm::identity<glm::mat4>(), glm::vec3(shadowmap_range) * 2.0f),
         glm::vec4(1.0, 1.0, 1.0, 1.0));
-    m_fw_shadowmap_cam_buffer->update(View(shadowmap_cam).as_bytes());
+    m_fw_shadowmap_cam_buffer->update_struct(shadowmap_cam);
 
     FwCamera shadowmap_camera{};
     shadowmap_camera.view_projection = shadowmap_proj * shadowmap_view;
-    m_fw_shadowmap_camera->update(View(shadowmap_camera).as_bytes());
+    m_fw_shadowmap_camera->update_struct(shadowmap_camera);
 
     FwWorldEnv world_env{};
     world_env.light_view_projection = shadowmap_camera.view_projection;
     world_env.light_dir = light_dir;
-    m_fw_world_env->update(View(world_env).as_bytes());
+
+    std::array<FwWorldEnv, 1> weu{world_env};
+    m_fw_world_env->update(std::as_bytes(std::span(weu)));
 
     CloudsParams clouds_params{};
     clouds_params.camera_projection = world->get_active_camera()->get_projection_matrix();
@@ -1364,7 +1367,9 @@ void Renderer::draw_forward(const Ref<World>& world)
     clouds_params.time = Engine::get().time();
     clouds_params.near = 0.01;
     clouds_params.far = 500.0;
-    m_fw_clouds_buffer->update(View(clouds_params).as_bytes());
+
+    std::array<CloudsParams, 1> cpu{clouds_params};
+    m_fw_clouds_buffer->update(std::as_bytes(std::span(cpu)));
 
     // Generate a shadowmap by doing a depth-only pass from the point of view of the "sun".
     WGPURenderPassDepthStencilAttachment shadowmap_attach = WGPU_RENDER_PASS_DEPTH_STENCIL_ATTACHMENT_INIT;
@@ -1378,7 +1383,7 @@ void Renderer::draw_forward(const Ref<World>& world)
     shadowmap_pass_desc.depthStencilAttachment = &shadowmap_attach;
 
     WGPURenderPassEncoder shadowmap_pass = wgpuCommandEncoderBeginRenderPass(encoder, &shadowmap_pass_desc);
-    draw_world(world, RenderPass(shadowmap_pass, RenderTarget(m_fw_shadowmap->format()), Vector<RenderTarget>()), WorldFlagBits::Shadowmap | WorldFlagBits::NoFrustumCheck);
+    draw_world(world, RenderPass(shadowmap_pass, RenderTarget(m_fw_shadowmap->format()), {}), WorldFlagBits::Shadowmap | WorldFlagBits::NoFrustumCheck);
     wgpuRenderPassEncoderEnd(shadowmap_pass);
     wgpuRenderPassEncoderRelease(shadowmap_pass);
 
@@ -1394,7 +1399,7 @@ void Renderer::draw_forward(const Ref<World>& world)
     depth_prepass_desc.depthStencilAttachment = &depth_attach;
 
     WGPURenderPassEncoder depth_pass = wgpuCommandEncoderBeginRenderPass(encoder, &depth_prepass_desc);
-    draw_world(world, RenderPass(depth_pass, RenderTarget(m_fw_depth_texture->format()), Vector<RenderTarget>()), WorldFlags());
+    draw_world(world, RenderPass(depth_pass, RenderTarget(m_fw_depth_texture->format()), {}), WorldFlags());
     wgpuRenderPassEncoderEnd(depth_pass);
     wgpuRenderPassEncoderRelease(depth_pass);
 
@@ -1418,11 +1423,11 @@ void Renderer::draw_forward(const Ref<World>& world)
     color_pass_desc.depthStencilAttachment = &depth_load_attach;
 
     WGPURenderPassEncoder color_pass = wgpuCommandEncoderBeginRenderPass(encoder, &color_pass_desc);
-    const RenderPass color_pass_info(color_pass, RenderTarget(m_fw_depth_texture->format()), Vector<RenderTarget>::create(m_surface_format));
+    const RenderPass color_pass_info(color_pass, RenderTarget(m_fw_depth_texture->format()), {m_surface_format});
     draw_fullscreen(color_pass_info, m_sky_mat, m_sky_bg);
     draw_world(world, color_pass_info, WorldFlags());
     draw_world(world, color_pass_info, WorldFlagBits::Water);
-    for (Ref<Entity> entity : world->get_dimension(0).get_entities())
+    for (std::shared_ptr<Entity> entity : world->get_dimension(0).get_entities())
         entity->draw(color_pass_info);
     // draw(color_pass_info, m_quad_mesh, m_fw_shadowmap_cam_mat, m_fw_shadowmap_cam_bg); // Quad placed at the origin of the "sun"
     wgpuRenderPassEncoderEnd(color_pass);
@@ -1434,13 +1439,13 @@ void Renderer::draw_forward(const Ref<World>& world)
     clouds_color_attach.loadOp = WGPULoadOp_Load;
     clouds_color_attach.storeOp = WGPUStoreOp_Store;
     clouds_color_attach.view = m_fw_color_texture->handle_view();
-    
+
     WGPURenderPassDescriptor clouds_pass_desc = WGPU_RENDER_PASS_DESCRIPTOR_INIT;
     clouds_pass_desc.colorAttachments = &clouds_color_attach;
     clouds_pass_desc.colorAttachmentCount = 1;
 
     WGPURenderPassEncoder clouds_pass = wgpuCommandEncoderBeginRenderPass(encoder, &clouds_pass_desc);
-    const RenderPass clouds_pass_info(clouds_pass, None, Vector<RenderTarget>::create(m_surface_format));
+    const RenderPass clouds_pass_info(clouds_pass, None, {m_surface_format});
     draw_fullscreen(clouds_pass_info, m_fw_clouds_mat, m_fw_clouds_bg);
     wgpuRenderPassEncoderEnd(clouds_pass);
     wgpuRenderPassEncoderRelease(clouds_pass);
@@ -1451,14 +1456,14 @@ void Renderer::draw_forward(const Ref<World>& world)
     output_color_attach.loadOp = WGPULoadOp_Clear;
     output_color_attach.storeOp = WGPUStoreOp_Store;
     output_color_attach.view = surface_view;
-    
+
     WGPURenderPassDescriptor postprocess_pass_desc = WGPU_RENDER_PASS_DESCRIPTOR_INIT;
     postprocess_pass_desc.colorAttachments = &output_color_attach;
     postprocess_pass_desc.colorAttachmentCount = 1;
 
     WGPURenderPassEncoder postprocess_pass = wgpuCommandEncoderBeginRenderPass(encoder, &postprocess_pass_desc);
-    const RenderPass postprocess_pass_info(postprocess_pass, None, Vector<RenderTarget>::create(m_surface_format));
-    Ref<BindGroup> postprocess_bg = BindGroup::create(m_fw_pp_shader);
+    const RenderPass postprocess_pass_info(postprocess_pass, None, {m_surface_format});
+    std::shared_ptr<BindGroup> postprocess_bg = BindGroup::create(m_fw_pp_shader);
     postprocess_bg->set_param("uniforms", m_fw_pp_buffer);
     postprocess_bg->set_param("albedo", m_fw_color_texture);
     postprocess_bg->set_param("depth", m_fw_depth_texture);
@@ -1478,16 +1483,25 @@ void Renderer::draw_forward(const Ref<World>& world)
     ui_pass_desc.colorAttachmentCount = 1;
     ui_pass_desc.colorAttachments = &color_load_attach;
 
-    WGPURenderPassEncoder ui_pass = wgpuCommandEncoderBeginRenderPass(encoder, &ui_pass_desc);
-    const RenderPass ui_pass_info(ui_pass, None, Vector<RenderTarget>::create(m_surface_format));
-    for (Ref<Entity> entity : world->get_dimension(0).get_entities())
-        entity->draw_ui(ui_pass_info);
-    wgpuRenderPassEncoderEnd(ui_pass);
-    wgpuRenderPassEncoderRelease(ui_pass);
+    {
+        ZoneScopedN("draw ui");
+
+        WGPURenderPassEncoder ui_pass = wgpuCommandEncoderBeginRenderPass(encoder, &ui_pass_desc);
+        const RenderPass ui_pass_info(ui_pass, None, {m_surface_format});
+        for (const std::shared_ptr<Entity>& entity : world->get_dimension(0).get_entities())
+            entity->draw_ui(ui_pass_info);
+        wgpuRenderPassEncoderEnd(ui_pass);
+        wgpuRenderPassEncoderRelease(ui_pass);
+    }
 
     // Submit everything to the GPU.
-    WGPUCommandBuffer command_buffer = wgpuCommandEncoderFinish(encoder, nullptr);
-    wgpuCommandEncoderRelease(encoder);
+    WGPUCommandBuffer command_buffer;
+    {
+        ZoneScopedN("finish encoder");
+
+        command_buffer = wgpuCommandEncoderFinish(encoder, nullptr);
+        wgpuCommandEncoderRelease(encoder);
+    }
 
     {
         ZoneScopedN("submit");
@@ -1507,7 +1521,7 @@ void Renderer::draw_forward(const Ref<World>& world)
     wgpuTextureRelease(surface_texture.texture);
 }
 
-void Renderer::draw(const RenderPass& pass, Ref<Mesh> mesh, Ref<Material> material, Ref<BindGroup> bg, const Ref<Buffer>& instance_buffer, size_t instance_count)
+void Renderer::draw(const RenderPass& pass, const std::shared_ptr<Mesh>& mesh, const std::shared_ptr<Material>& material, const std::shared_ptr<BindGroup>& bg, const std::shared_ptr<Buffer>& instance_buffer, size_t instance_count)
 {
     wgpuRenderPassEncoderSetPipeline(pass.encoder, material->get_pipeline(pass));
     wgpuRenderPassEncoderSetBindGroup(pass.encoder, 0, bg->get_bind_group(), 0, nullptr);
@@ -1520,26 +1534,26 @@ void Renderer::draw(const RenderPass& pass, Ref<Mesh> mesh, Ref<Material> materi
     if (!material->flags().has_any(MaterialFlagBits::NoUV))
         wgpuRenderPassEncoderSetVertexBuffer(pass.encoder, buffer_index++, mesh->get_buffer(Mesh::BufferKind::UV)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::UV)->size());
 
-    if (!instance_buffer.is_null())
+    if (instance_buffer != nullptr)
         wgpuRenderPassEncoderSetVertexBuffer(pass.encoder, buffer_index++, instance_buffer->handle(), 0, instance_buffer->size());
 
     wgpuRenderPassEncoderDrawIndexed(pass.encoder, mesh->vertex_count(), instance_count, 0, 0, 0);
 }
 
-void Renderer::draw_world(const Ref<World>& world, const RenderPass& pass, WorldFlags flags)
+void Renderer::draw_world(const std::shared_ptr<World>& world, const RenderPass& pass, WorldFlags flags)
 {
     ZoneScoped;
 
     const Dimension& dim = world->get_dimension(0);
-    const Ref<Camera> camera = world->get_active_camera();
+    const std::shared_ptr<Camera> camera = world->get_active_camera();
     WGPURenderPassEncoder encoder = pass.encoder;
 
-    if (camera.is_null())
+    if (camera == nullptr)
     {
         return;
     }
 
-    Ref<Material> mat = flags.has_any(WorldFlagBits::Shadowmap) ? m_fw_chunk_shadowmap_mat : (flags.has_any(WorldFlagBits::Water) ? m_fw_water_mat : m_fw_chunk_mat);
+    std::shared_ptr<Material> mat = flags.has_any(WorldFlagBits::Shadowmap) ? m_fw_chunk_shadowmap_mat : (flags.has_any(WorldFlagBits::Water) ? m_fw_water_mat : m_fw_chunk_mat);
     wgpuRenderPassEncoderSetPipeline(encoder, mat->get_pipeline(pass));
 
     for (const auto& [key, chunk] : dim.get_chunks())
@@ -1557,7 +1571,7 @@ void Renderer::draw_world(const Ref<World>& world, const RenderPass& pass, World
         {
             Chunk::Slice slice = slices[i];
 
-            if ((flags.has_any(WorldFlagBits::Water) && slice.water_mesh.is_null()) || (!flags.has_any(WorldFlagBits::Water) && slice.mesh.is_null()))
+            if ((flags.has_any(WorldFlagBits::Water) && slice.water_mesh == nullptr) || (!flags.has_any(WorldFlagBits::Water) && slice.mesh == nullptr))
                 continue;
 
             ChunkPos pos = chunk->pos();
@@ -1567,11 +1581,11 @@ void Renderer::draw_world(const Ref<World>& world, const RenderPass& pass, World
             if (!flags.has_any(WorldFlagBits::NoFrustumCheck) && !camera->frustum().contains(aabb))
                 continue;
 
-            Ref<BindGroup> bg = flags.has_any(WorldFlagBits::Shadowmap) ? slice.mesh_shadowmap_bg : (flags.has_any(WorldFlagBits::Water) ? slice.water_bg : slice.mesh_bg);
+            std::shared_ptr<BindGroup> bg = flags.has_any(WorldFlagBits::Shadowmap) ? slice.mesh_shadowmap_bg : (flags.has_any(WorldFlagBits::Water) ? slice.water_bg : slice.mesh_bg);
 
             wgpuRenderPassEncoderSetBindGroup(encoder, 0, bg->get_bind_group(), 0, nullptr);
 
-            const Ref<Mesh>& mesh = flags.has_any(WorldFlagBits::Water) ? slice.water_mesh : slice.mesh;
+            const std::shared_ptr<Mesh>& mesh = flags.has_any(WorldFlagBits::Water) ? slice.water_mesh : slice.mesh;
             wgpuRenderPassEncoderSetIndexBuffer(encoder, mesh->get_buffer(Mesh::BufferKind::Index)->handle(), mesh->index_type(), 0, mesh->get_buffer(Mesh::BufferKind::Index)->size());
             wgpuRenderPassEncoderSetVertexBuffer(encoder, 0, mesh->get_buffer(Mesh::BufferKind::Position)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Position)->size());
 
@@ -1581,13 +1595,13 @@ void Renderer::draw_world(const Ref<World>& world, const RenderPass& pass, World
             if (!mat->flags().has_any(MaterialFlagBits::NoUV))
                 wgpuRenderPassEncoderSetVertexBuffer(encoder, buffer_index++, mesh->get_buffer(Mesh::BufferKind::UV)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::UV)->size());
 
-	    wgpuRenderPassEncoderSetVertexBuffer(encoder, buffer_index++, chunk->get_instance_buffer()->handle(), 0, chunk->get_instance_buffer()->size());
+            wgpuRenderPassEncoderSetVertexBuffer(encoder, buffer_index++, chunk->get_instance_buffer()->handle(), 0, chunk->get_instance_buffer()->size());
             wgpuRenderPassEncoderDrawIndexed(encoder, mesh->vertex_count(), 1, 0, 0, i);
         }
     }
 }
 
-void Renderer::draw_fullscreen(const RenderPass& pass, Ref<Material> material, Ref<BindGroup> bg)
+void Renderer::draw_fullscreen(const RenderPass& pass, std::shared_ptr<Material> material, std::shared_ptr<BindGroup> bg)
 {
     wgpuRenderPassEncoderSetPipeline(pass.encoder, material->get_pipeline(pass));
     wgpuRenderPassEncoderSetBindGroup(pass.encoder, 0, bg->get_bind_group(), 0, nullptr);
@@ -1598,21 +1612,26 @@ void Renderer::set_fog(glm::vec4 color, float distance)
 {
     m_fw_pp.fog_color = color;
     m_fw_pp.fog_distance = distance;
-    m_fw_pp_buffer->update(View(m_fw_pp).as_bytes());
+
+    std::array<PostProcessUniforms, 1> u{m_fw_pp};
+    m_fw_pp_buffer->update(std::as_bytes(std::span(u)));
 }
 
 void Renderer::set_sky(glm::vec4 color)
 {
-    m_sky_buffer->update(View(SkyUniforms(color)).as_bytes());
+    std::array<SkyUniforms, 1> u{SkyUniforms(color)};
+    m_sky_buffer->update(std::as_bytes(std::span(u)));
 }
 
 void Renderer::set_underwater(bool v)
 {
     m_fw_pp.underwater = v;
-    m_fw_pp_buffer->update(View(m_fw_pp).as_bytes());
+
+    std::array<PostProcessUniforms, 1> u{m_fw_pp};
+    m_fw_pp_buffer->update(std::as_bytes(std::span(u)));
 }
 
-View<uint8_t> Renderer::get_missing_texture_data() const
+std::span<const uint8_t> Renderer::get_missing_texture_data() const
 {
-    return View((uint8_t *)missing_texture_data, 16 * 16 * sizeof(uint32_t));
+    return std::span((uint8_t *)missing_texture_data, 16 * 16 * sizeof(uint32_t));
 }

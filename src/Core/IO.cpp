@@ -1,7 +1,6 @@
 #include "Core/IO.hpp"
 
 #include "Core/Error.hpp"
-#include "Core/String.hpp"
 #include "Item/ItemStack.hpp"
 #include "Variant.hpp"
 
@@ -40,7 +39,7 @@ Result<Option<Variant>> Reader::read_variant()
         uint32_t size;
         TRY(read_raw(&size, sizeof(uint32_t)));
 
-        String s;
+        std::string s;
         s.resize(size);
 
         TRY(read_raw(s.data(), size));
@@ -85,7 +84,7 @@ Result<Option<Variant>> Reader::read_variant()
         Option<Variant> variant = TRY(read_variant());
         Variant v = variant.value();
 
-        Map<String, Variant> map = v.to_map<String, Variant>();
+        std::map<std::string, Variant> map = v.to_map<std::string, Variant>();
 
         Id<Item> item(id);
 
@@ -93,7 +92,7 @@ Result<Option<Variant>> Reader::read_variant()
     }
     else if (type == VariantType::Array)
     {
-        Vector<Variant> array;
+        std::vector<Variant> array;
 
         uint32_t size;
         TRY(read_raw(&size, sizeof(uint32_t)));
@@ -103,14 +102,14 @@ Result<Option<Variant>> Reader::read_variant()
         for (size_t i = 0; i < size; i++)
         {
             Variant variant = TRY(read_variant()).value();
-            array.append(variant);
+            array.push_back(variant);
         }
 
         return Option(Variant(array));
     }
     else if (type == VariantType::Map)
     {
-        Map<Variant, Variant> array;
+        std::map<Variant, Variant> map;
 
         uint32_t size;
         TRY(read_raw(&size, sizeof(uint32_t)));
@@ -120,26 +119,26 @@ Result<Option<Variant>> Reader::read_variant()
             Variant key = TRY(read_variant()).value();
             Variant value = TRY(read_variant()).value();
 
-            array.put(key, value);
+            map[key] = value;
         }
 
-        return Option(Variant(array));
+        return Option(Variant(map));
     }
 
     println("{}", type_raw);
     return Error(ErrorKind::ReadFailure);
 }
 
-Result<void> Reader::read_to_buffer(LocalVector<char>& buffer)
+Result<void> Reader::read_to_buffer(std::vector<char>& buffer)
 {
     buffer.resize(size());
     TRY(read_raw(buffer.data(), buffer.size()));
     return Result<void>();
 }
 
-Result<String> Reader::read_to_string()
+Result<std::string> Reader::read_to_string()
 {
-    String str;
+    std::string str;
     str.resize(size());
     TRY(read_raw(str.data(), str.size()));
     return str;
@@ -172,7 +171,7 @@ Result<void> Writer::write_variant(const Variant& variant)
     }
     else if (variant.has(VariantType::String))
     {
-        const String& s = variant.get_unchecked<String>();
+        const std::string& s = variant.get_unchecked<std::string>();
         const uint32_t size = s.size();
         TRY(write_raw(&size, sizeof(uint32_t)));
         TRY(write_raw(s.data(), s.size()));
@@ -217,7 +216,7 @@ Result<void> Writer::write_variant(const Variant& variant)
     }
     else if (variant.has(VariantType::Array))
     {
-        const Vector<Variant>& array = variant.get_unchecked<Vector<Variant>>();
+        const std::vector<Variant>& array = variant.get_unchecked<std::vector<Variant>>();
         uint32_t size = array.size();
 
         TRY(write_raw(&size, sizeof(uint32_t)));
@@ -226,7 +225,7 @@ Result<void> Writer::write_variant(const Variant& variant)
     }
     else if (variant.has(VariantType::Map))
     {
-        const Map<Variant, Variant>& map = variant.get_unchecked<Map<Variant, Variant>>();
+        const std::map<Variant, Variant>& map = variant.get_unchecked<std::map<Variant, Variant>>();
         uint32_t size = map.size();
 
         TRY(write_raw(&size, sizeof(uint32_t)));

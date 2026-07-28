@@ -12,11 +12,11 @@ void CraftingTableBlock::open_inventory(glm::ivec3 pos, Player *player)
     (void)pos;
     (void)player;
 
-    Ref<InventoryContainer> container = newref<InventoryContainer>();
+    std::shared_ptr<InventoryContainer> container = std::make_shared<InventoryContainer>();
     EXPECT(container->add_layer(9));
     EXPECT(container->add_layer(1));
 
-    Ref<CraftingTableInventory> inv = newref<CraftingTableInventory>(container, player->get_inventory_container());
+    std::shared_ptr<CraftingTableInventory> inv = std::make_shared<CraftingTableInventory>(container, player->get_inventory_container());
     player->open_inventory(inv);
 }
 

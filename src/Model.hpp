@@ -1,10 +1,7 @@
 #pragma once
 
 #include "Core/Class.hpp"
-#include "Core/Containers/Vector.hpp"
-#include "Core/Containers/View.hpp"
-#include "Core/Ref.hpp"
-#include "Core/String.hpp"
+#include "Core/Result.hpp"
 #include "Transform3D.hpp"
 
 class Buffer;
@@ -25,21 +22,21 @@ public:
 
     struct Object
     {
-        String name;
+        std::string name;
 
         glm::vec3 size;
         glm::vec3 position;
         glm::vec3 origin;
 
-        Ref<Buffer> model_buffer;
-        Ref<Buffer> uv_buffer;
+        std::shared_ptr<Buffer> model_buffer;
+        std::shared_ptr<Buffer> uv_buffer;
 
-        Ref<BindGroup> bg;
+        std::shared_ptr<BindGroup> bg;
     };
 
     struct Transform
     {
-        String object_name;
+        std::string object_name;
         glm::vec3 position;
         glm::vec3 rotation;
     };
@@ -47,24 +44,25 @@ public:
     struct Keyframe
     {
         uint32_t frame;
-        Vector<Transform> transforms;
+        std::vector<Transform> transforms;
     };
 
     struct Animation
     {
-        String name;
+        std::string name;
         uint32_t fps;
         uint32_t frames;
-        Vector<Keyframe> keyframes;
+        std::vector<Keyframe> keyframes;
     };
 
-    static Result<Ref<Model>> load(const StringView& path);
+    static Result<std::shared_ptr<Model>> load(std::string_view path);
 
-    String name() const { return m_name; }
-    View<Object> objects() const;
-    Ref<Buffer> get_global_buffer() const;
+    std::string_view name() const { return m_name; }
+    std::span<const Object> objects() const;
+    std::span<Object> objects();
+    std::shared_ptr<Buffer> get_global_buffer() const;
 
-    Option<Animation> get_animation(String name) const
+    Option<Animation> get_animation(std::string_view name) const
     {
         for (const Animation& anim : m_animation)
         {
@@ -74,23 +72,23 @@ public:
         return None;
     }
 
-    Option<Object> get_object(String name) const;
+    Option<Object> get_object(std::string_view name) const;
 
     void encode(const RenderPass& pass, const Transform3D& transform);
 
 private:
-    String m_name;
-    Vector<Object> m_objects;
-    Vector<Animation> m_animation;
-    Ref<Buffer> m_global_buffer;
-    Ref<Texture> m_texture;
+    std::string m_name;
+    std::vector<Object> m_objects;
+    std::vector<Animation> m_animation;
+    std::shared_ptr<Buffer> m_global_buffer;
+    std::shared_ptr<Texture> m_texture;
 };
 
 class Animator
 {
 public:
-    void set_model(Ref<Model> model);
-    void play(String animation);
+    void set_model(std::shared_ptr<Model> model);
+    void play(const std::string& animation);
     void tick(float delta);
 
     struct TransformWithLength
@@ -100,8 +98,8 @@ public:
     };
 
 private:
-    Ref<Model> m_model;
-    String m_animation_name;
+    std::shared_ptr<Model> m_model;
+    std::string m_animation_name;
     float m_time = 0.0;
 
     uint32_t m_frame;
@@ -110,6 +108,6 @@ private:
 
     Option<Model::Keyframe> get_keyframe_for_frame(uint32_t frame) const;
 
-    Option<TransformWithLength> get_current_transform(String object_name) const;
-    Option<TransformWithLength> get_next_transform(String object_name) const;
+    Option<TransformWithLength> get_current_transform(std::string_view object_name) const;
+    Option<TransformWithLength> get_next_transform(std::string_view object_name) const;
 };

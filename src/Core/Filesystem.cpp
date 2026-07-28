@@ -1,5 +1,4 @@
 #include "Core/Filesystem.hpp"
-#include "Core/Format.hpp"
 #include "Core/Result.hpp"
 
 #include <fcntl.h>
@@ -44,18 +43,18 @@ std::filesystem::path Filesystem::current_executable_directory()
     return current_executable_path().parent_path();
 }
 
-String Filesystem::get_data_directory()
+std::string Filesystem::get_data_directory()
 {
     return "./appdata/";
 }
 
-bool Filesystem::exists(const StringView& path)
+bool Filesystem::exists(std::string_view path)
 {
     struct stat s{};
     return stat(path.data(), &s) != -1;
 }
 
-Result<File> Filesystem::open_file(const StringView& path, bool rw)
+Result<File> Filesystem::open_file(std::string_view path, bool rw)
 {
     int fd = open(path.data(), rw ? (O_RDWR | O_CREAT) : O_RDONLY, S_IRUSR | S_IWUSR);
 
@@ -72,9 +71,8 @@ Result<File> Filesystem::open_file(const StringView& path, bool rw)
     return file;
 }
 
-Result<void> Filesystem::make_dirs(const StringView& path)
+Result<void> Filesystem::make_dirs(std::string_view path)
 {
-    // TODO: replace with C lib
     std::filesystem::create_directories(path.data());
     return Result<void>();
 }

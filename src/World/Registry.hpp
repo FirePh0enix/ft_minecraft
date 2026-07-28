@@ -1,8 +1,6 @@
 #pragma once
 
 #include "Block/Block.hpp"
-#include "Core/Containers/HashMap.hpp"
-#include "Core/Ref.hpp"
 #include "Entity/Entity.hpp"
 #include "Item/Item.hpp"
 #include "Item/ItemStack.hpp"
@@ -18,17 +16,17 @@ struct Image
     int w;
     int h;
     int channels;
-    String path;
+    std::string path;
 };
 
-constexpr int RECIPE_SIZE = 9;
+constexpr int MAX_RECIPE_SIZE = 9;
 
 struct Recipe
 {
     uint8_t width = 3;
     uint8_t height = 3;
 
-    InplaceVector<Id<Item>, RECIPE_SIZE> pattern;
+    std::array<Id<Item>, MAX_RECIPE_SIZE> pattern;
     ItemStack result;
 };
 
@@ -40,7 +38,7 @@ concept HasBindMethods = requires(T a) {
 class EntityRegistry
 {
 public:
-    using Constructor = Ref<Entity> (*)();
+    using Constructor = std::shared_ptr<Entity> (*)();
 
     struct Entry
     {
@@ -52,21 +50,21 @@ public:
     void register_entity()
     {
         // T::bind_methods();
-        m_entries.put(T::get_static_hash_code(), Entry{.c = []() -> Ref<Entity>
-                                                       { return newref<T>().template cast_to<Entity>(); }});
+        m_entries[T::get_static_hash_code()] = Entry{.c = []() -> std::shared_ptr<Entity>
+                                                     { return std::make_shared<T>(); }};
     }
 
     template <typename T>
     void register_entity()
     {
-        m_entries.put(T::get_static_hash_code(), Entry{.c = []() -> Ref<Entity>
-                                                       { return newref<T>().template cast_to<Entity>(); }});
+        m_entries[T::get_static_hash_code()] = Entry{.c = []() -> std::shared_ptr<Entity>
+                                                     { return std::make_shared<T>(); }};
     }
 
-    Result<Ref<Entity>> create_entity(ClassHashCode class_hash);
+    Result<std::shared_ptr<Entity>> create_entity(ClassHashCode class_hash);
 
 private:
-    HashMap<ClassHashCode, Entry> m_entries;
+    std::map<ClassHashCode, Entry> m_entries;
 };
 
 namespace Blocks
@@ -102,70 +100,70 @@ public:
     void register_all();
     Result<void> post_register();
 
-    void add_block(Id<Block> id, Ref<Block> block);
-    void add_item(Id<Item> id, Ref<Item> item);
-    void add_structure(String name, std::shared_ptr<Structure> structure);
+    void add_block(Id<Block> id, std::shared_ptr<Block> block);
+    void add_item(Id<Item> id, std::shared_ptr<Item> item);
+    void add_structure(std::string_view name, std::shared_ptr<Structure> structure);
 
-    Ref<Block> get_block(Id<Block> key) const { return m_blocks.get(key).value_or(nullptr); }
-    Ref<Item> get_item(Id<Item> key) const { return m_items.get(key).value_or(nullptr); }
-    std::shared_ptr<Structure> get_struct(String name) const { return m_structures.get(name).value_or(nullptr); }
+    std::shared_ptr<Block> get_block(Id<Block> key) const { return m_blocks.at(key); }
+    std::shared_ptr<Item> get_item(Id<Item> key) const { return m_items.at(key); }
+    std::shared_ptr<Structure> get_struct(std::string_view name) const { return m_structures.find(name)->second; }
 
     Option<Id<Block>> to_block(Id<Item> id);
-    Option<Id<Item>> to_item(Id<Block> block) { return m_block_items.get(block); }
-    Option<Id<Block>> item_from_name(const StringView& name) { return m_block_names.get(name); }
+    Option<Id<Item>> to_item(Id<Block> block) { return m_block_items[block]; }
+    Option<Id<Block>> item_from_name(std::string_view name) { return m_block_names.find(name)->second; }
 
-    Ref<Block> block_from_item(Id<Item> key)
+    std::shared_ptr<Block> block_from_item(Id<Item> key)
     {
-        Ref<Item> item = m_items.get(key).value_or(nullptr);
-        if (Ref<ItemBlock> ib = item.cast_to<ItemBlock>())
-            return m_blocks.get(ib->block()).value_or(nullptr);
+        std::shared_ptr<Item> item = m_items[key];
+        if (std::shared_ptr<ItemBlock> ib = std::dynamic_pointer_cast<ItemBlock>(item))
+            return m_blocks[ib->block()];
         return nullptr;
     }
 
-    Ref<Texture> get_texture(Id<Item> item);
+    std::shared_ptr<Texture> get_texture(Id<Item> item);
 
-    Ref<Texture> get_texture_array() const { return m_texture_array; }
+    std::shared_ptr<Texture> get_texture_array() const { return m_texture_array; }
 
-    size_t load_texture(const StringView& path);
+    size_t load_texture(std::string_view path);
 
     /**
      * Create a texture from a file path. If an error occurs the missing texture is returned.
      */
-    Ref<Texture> create_texture(const StringView& path);
+    std::shared_ptr<Texture> create_texture(std::string_view path);
 
     /**
      * Render a 3D preview of the block. If an error occurs the missing texture is returned.
      */
-    Ref<Texture> create_preview_texture(Ref<Block> block);
+    std::shared_ptr<Texture> create_preview_texture(std::shared_ptr<Block> block);
 
-    void register_rpc(ClassHashCode cls, String name, RpcTarget target)
+    void register_rpc(ClassHashCode cls, std::string_view name, RpcTarget target)
     {
-        m_exposed_rpc.get_or_put(cls, {})->put(name, target);
+        m_exposed_rpc[cls][std::string(name)] = target;
     }
 
-    Option<RpcTarget> get_rpc(Entity *entity, const StringView& name) const;
+    Option<RpcTarget> get_rpc(Entity *entity, std::string_view name) const;
 
     // Crafting system.
-    void add_recipe(const Recipe& recipe) { m_recipes.append(recipe); }
-    Option<ItemStack> match(const InplaceVector<Id<Item>, 9>& grid, int width, int height);
+    void add_recipe(const Recipe& recipe) { m_recipes.push_back(recipe); }
+    Option<ItemStack> match(const std::array<Id<Item>, 9>& grid, int width, int height);
 
 private:
-    Map<Id<Block>, Ref<Block>> m_blocks;
-    Map<Id<Item>, Ref<Item>> m_items;
+    std::map<Id<Block>, std::shared_ptr<Block>> m_blocks;
+    std::map<Id<Item>, std::shared_ptr<Item>> m_items;
 
-    Map<String, std::shared_ptr<Structure>> m_structures;
+    stdext::string_map<std::shared_ptr<Structure>> m_structures;
 
-    Map<Id<Block>, Id<Item>> m_block_items;
-    Map<uint16_t, Id<Block>> m_block_ids;
-    Map<String, Id<Block>> m_block_names;
+    std::map<Id<Block>, Id<Item>> m_block_items;
+    std::map<uint16_t, Id<Block>> m_block_ids;
+    stdext::string_map<Id<Block>> m_block_names;
 
-    LocalVector<Image> m_images;
-    Ref<Texture> m_texture_array;
-    LocalVector<Ref<Texture>> m_texture_handles;
+    std::vector<Image> m_images;
+    std::shared_ptr<Texture> m_texture_array;
+    std::vector<std::shared_ptr<Texture>> m_texture_handles;
 
-    Map<ClassHashCode, HashMap<String, RpcTarget>> m_exposed_rpc;
+    std::map<ClassHashCode, stdext::string_map<RpcTarget>> m_exposed_rpc;
 
-    Option<size_t> get_image(const StringView& path);
+    Option<size_t> get_image(std::string_view path);
 
-    Vector<Recipe> m_recipes;
+    std::vector<Recipe> m_recipes;
 };

@@ -2,6 +2,8 @@
 
 #include "Core/Assert.hpp"
 
+#include <functional>
+
 struct NoneType
 {
 };
@@ -63,7 +65,7 @@ public:
         return has_value() && v == value();
     }
 
-    bool operator>(const Option& o) const
+    bool operator<(const Option& o) const
     {
         if (has_value() && !o.has_value())
             return true;

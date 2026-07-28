@@ -1,8 +1,6 @@
 #pragma once
 
 #include "Core/Class.hpp"
-#include "Core/Containers/LocalVector.hpp"
-#include "Core/String.hpp"
 #include "UI/ColorRect.hpp"
 #include "UI/Container.hpp"
 #include "UI/Label.hpp"
@@ -21,9 +19,9 @@ public:
     virtual void process_event(Event& event) override;
 
 private:
-    String m_buffer;
-    Ref<ColorRect> m_background;
-    Ref<Label> m_label;
+    std::string m_buffer;
+    std::shared_ptr<ColorRect> m_background;
+    std::shared_ptr<Label> m_label;
     Chat *m_chat;
 };
 
@@ -34,9 +32,9 @@ class Chat : public Container
 public:
     Chat();
 
-    Result<void> add_line(const String& line);
+    Result<void> add_line(const std::string& line);
 
 private:
-    LocalVector<String> m_lines;
-    LocalVector<Ref<Label>> m_labels;
+    std::vector<std::string> m_lines;
+    std::vector<std::shared_ptr<Label>> m_labels;
 };

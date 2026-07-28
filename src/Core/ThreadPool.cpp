@@ -4,7 +4,7 @@
 ThreadPool::ThreadPool(size_t num_threads)
 {
     for (size_t i = 0; i < num_threads; i++)
-        m_threads.emplace(&ThreadPool::thread_worker, this);
+        m_threads.emplace_back(&ThreadPool::thread_worker, this);
 }
 
 ThreadPool::~ThreadPool()
@@ -26,7 +26,7 @@ void ThreadPool::async(std::function<void()> task)
 {
     {
         std::unique_lock<std::mutex> lock(m_queue_mutex);
-        m_tasks.append(task);
+        m_tasks.push_back(task);
     }
 
     m_cv.notify_one();
@@ -44,11 +44,10 @@ void ThreadPool::thread_worker()
                       { return !m_tasks.empty() || m_stop; });
 
             if (m_stop && m_tasks.empty())
-            {
                 return;
-            }
 
-            task = m_tasks.pop_unchecked();
+            task = m_tasks[m_tasks.size() - 1];
+            m_tasks.pop_back();
         }
 
         task();

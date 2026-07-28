@@ -1,9 +1,13 @@
 #include "World/Structure.hpp"
 
-#include "Core/Alloc.hpp"
 #include "Engine.hpp"
 
-std::shared_ptr<Structure> Structure::load(const StringView& path)
+Structure::~Structure()
+{
+    delete[] m_blocks;
+}
+
+std::shared_ptr<Structure> Structure::load(std::string_view path)
 {
     // try
     // {
@@ -33,19 +37,19 @@ std::shared_ptr<Structure> Structure::load(const StringView& path)
         map[name] = block_name;
     }
 
-    self->m_blocks = alloc_array_uninitialized<BlockState>(count);
+    self->m_blocks = new BlockState[count]();
 
     const YAML::Node& data = config["data"];
-    size_t y = 0;
+    int64_t y = 0;
     for (auto ynode : data)
     {
         ASSERT_V(y < h, "y is {} but height is {}", y, h);
-        size_t x = 0;
+        int64_t x = 0;
         std::vector<std::string> lines = ynode.second.as<std::vector<std::string>>();
         for (auto line : lines)
         {
             ASSERT_V(x < w, "x is {} but width is {}", x, w);
-            size_t z = 0;
+            int64_t z = 0;
             for (char c : line)
             {
                 ASSERT_V(z < l, "z is {} but length is {}", z, l);
@@ -53,15 +57,13 @@ std::shared_ptr<Structure> Structure::load(const StringView& path)
                 s.push_back(c);
 
                 std::string name = map.at(s);
-                String s2;
-                s2.append(name.data(), name.size());
                 if (name == "air")
                 {
                     self->m_blocks[x + y * w + z * w * h] = BlockState();
                 }
                 else
                 {
-                    Id<Block> block = Engine::get().registry().item_from_name(s2).value();
+                    Id<Block> block = Engine::get().registry().item_from_name(name).value();
                     self->m_blocks[x + y * w + z * w * h] = BlockState(block);
                 }
 

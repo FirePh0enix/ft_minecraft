@@ -1,11 +1,12 @@
 #pragma once
 
-#include <cstdint>
-#include <cstdio>
-#include <cstring>
-
 #include "Core/Logger.hpp"
 #include "Core/Stacktrace.hpp"
+
+#include <cstdint>
+#include <cstdio>
+#include <format>
+#include <sstream>
 
 enum class ErrorKind : uint16_t
 {
@@ -59,54 +60,71 @@ enum class ErrorKind : uint16_t
     ConnectionFailed = 0x2001,
 };
 
-template <>
-struct Formatter<ErrorKind> : public FormatterBase
+static inline const char *error_name(const ErrorKind& kind)
 {
-    void format(const ErrorKind& kind, FormatContext& ctx) const
+    const char *msg = "";
+
+    switch (kind)
     {
-        const char *msg = "";
+    case ErrorKind::Unknown:
+        msg = "Unknown";
+        break;
+    case ErrorKind::OutOfMemory:
+        msg = "Out of memory";
+        break;
+    case ErrorKind::FileNotFound:
+        msg = "File not found";
+        break;
+    case ErrorKind::ReadFailure:
+        msg = "Read failed";
+        break;
+    case ErrorKind::WriteFailure:
+        msg = "Write failed";
+        break;
+    case ErrorKind::EndOfFile:
+        msg = "End of file";
+        break;
+    case ErrorKind::BadDriver:
+        msg = "Bad driver";
+        break;
+    case ErrorKind::OutOfDeviceMemory:
+        msg = "Out of GPU memory";
+        break;
+    case ErrorKind::NoSuitableDevice:
+        msg = "No suitable device";
+        break;
+    case ErrorKind::ShaderCompilationFailed:
+        msg = "Shader compilation failed";
+        break;
+    case ErrorKind::HostCreationFailed:
+        msg = "Host creating failed";
+        break;
+    case ErrorKind::ConnectionFailed:
+        msg = "Connection failed";
+        break;
+    }
 
-        switch (kind)
-        {
-        case ErrorKind::Unknown:
-            msg = "Unknown";
-            break;
-        case ErrorKind::OutOfMemory:
-            msg = "Out of memory";
-            break;
-        case ErrorKind::FileNotFound:
-            msg = "File not found";
-            break;
-        case ErrorKind::ReadFailure:
-            msg = "Read failed";
-            break;
-        case ErrorKind::WriteFailure:
-            msg = "Write failed";
-            break;
-        case ErrorKind::EndOfFile:
-            msg = "End of file";
-            break;
-        case ErrorKind::BadDriver:
-            msg = "Bad driver";
-            break;
-        case ErrorKind::OutOfDeviceMemory:
-            msg = "Out of GPU memory";
-            break;
-        case ErrorKind::NoSuitableDevice:
-            msg = "No suitable device";
-            break;
-        case ErrorKind::ShaderCompilationFailed:
-            msg = "Shader compilation failed";
-            break;
-        case ErrorKind::HostCreationFailed:
-            msg = "Host creating failed";
-            break;
-        case ErrorKind::ConnectionFailed:
-            msg = "Connection failed";
-            break;
-        }
+    return msg;
+}
 
-        ctx.write_str(msg, (std::streamsize)std::strlen(msg));
+template <>
+struct std::formatter<ErrorKind>
+{
+    template <class ParseContext>
+    constexpr ParseContext::iterator parse(ParseContext& ctx)
+    {
+        auto it = ctx.begin();
+        if (it == ctx.end())
+            return it;
+        return it;
+    }
+
+    template <typename FmtContext>
+    FmtContext::iterator format(ErrorKind kind, FmtContext& ctx)
+    {
+        std::ostringstream os;
+        os << error_name(kind);
+        return std::ranges::copy(std::move(os).str(), ctx.out());
     }
 };
 

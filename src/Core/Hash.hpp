@@ -1,10 +1,9 @@
 #pragma once
 
-#include "Core/StringView.hpp"
-
 #include <cstdint>
+#include <string_view>
 
-constexpr uint32_t hash_fnv32(StringView s)
+constexpr uint32_t hash_fnv32(std::string_view s)
 {
     const uint32_t fnv_32_prime = 0x01000193;
     uint32_t h = 0x811c9dc5;

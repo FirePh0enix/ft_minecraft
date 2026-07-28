@@ -2,11 +2,13 @@
 
 #include "Engine.hpp"
 
+#include <format>
+
 Result<void> InventoryContainer::add_layer(size_t size)
 {
-    Vector<ItemStack> stacks;
+    std::vector<ItemStack> stacks;
     stacks.resize(size);
-    m_layers.append(Layer(stacks));
+    m_layers.push_back(Layer(stacks));
     return Result<void>();
 }
 
@@ -15,13 +17,13 @@ void InventoryContainer::set_stack(uint32_t layer, uint32_t i, ItemStack stack)
     m_layers[layer].stacks[i] = stack;
 }
 
-Inventory::Inventory(Ref<InventoryContainer> container)
+Inventory::Inventory(std::shared_ptr<InventoryContainer> container)
     : m_container(container)
 {
-    m_grabbed_item_rect = newref<TextureRect>();
+    m_grabbed_item_rect = std::make_shared<TextureRect>();
     m_grabbed_item_rect->set_scale(glm::vec2(0.12) * 0.9f);
 
-    m_grabbed_item_label = newref<Label>(Engine::get().get_font());
+    m_grabbed_item_label = std::make_shared<Label>(Engine::get().get_font());
     m_grabbed_item_label->set_scale(glm::vec2(0.12) * 0.8f);
 }
 
@@ -31,7 +33,7 @@ void Inventory::update(float d)
 
     for (const auto& slots : m_grids)
     {
-        for (Ref<ItemSlot> is : slots)
+        for (std::shared_ptr<ItemSlot> is : slots)
         {
             ItemStack stack = is->container()->get_stack(is->layer(), is->index());
             if (!stack.item().valid())
@@ -68,16 +70,16 @@ void Inventory::grab(const ItemStack& itemstack, Option<InventoryOrigin> pos)
 {
     if (itemstack.count() == 0 || !itemstack.item().valid())
     {
-	ungrab();
-	return;
+        ungrab();
+        return;
     }
-    
+
     m_grabbed_stack = itemstack;
     if (pos.has_value())
         m_grabbed_from = pos.value_or(InventoryOrigin());
 
     m_grabbed_item_rect->set_texture(Engine::get().registry().get_texture(itemstack.item()));
-    m_grabbed_item_label->set_text(format("{}", itemstack.count()));
+    m_grabbed_item_label->set_text(std::format("{}", itemstack.count()));
 }
 
 void Inventory::ungrab()
@@ -100,7 +102,7 @@ void Inventory::grab_cancel()
     if (m_grabbed_stack.has_value())
     {
         m_grabbed_from.container->set_stack(m_grabbed_from.layer, m_grabbed_from.i, m_grabbed_stack.value());
-	m_grabbed_stack = None;
+        m_grabbed_stack = None;
     }
 }
 
@@ -108,10 +110,10 @@ void Inventory::add_grid(uint32_t w, uint32_t h, uint32_t layer, glm::vec2 pos, 
 {
     if (container == nullptr)
     {
-        container = m_container.ptr();
+        container = m_container.get();
     }
 
-    Vector<Ref<ItemSlot>> slots;
+    std::vector<std::shared_ptr<ItemSlot>> slots;
     slots.reserve(w * h);
 
     constexpr float slot_size = 0.12f;
@@ -123,18 +125,18 @@ void Inventory::add_grid(uint32_t w, uint32_t h, uint32_t layer, glm::vec2 pos, 
     for (size_t x = 0; x < w; x++)
         for (size_t y = 0; y < h; y++)
         {
-            Ref<ItemSlot> item_slot = newref<ItemSlot>(layer, x + y * w, this, container);
+            std::shared_ptr<ItemSlot> item_slot = std::make_shared<ItemSlot>(layer, x + y * w, this, container);
             item_slot->set_position(glm::vec2(offset_x, offset_y) + glm::vec2(float(x) * slot_tsize, float(y) * slot_tsize));
             add_child(item_slot);
-            slots.append(item_slot);
+            slots.push_back(item_slot);
         }
 
-    m_grids.append(slots);
+    m_grids.push_back(slots);
 }
 
 void Inventory::add_background()
 {
-    Ref<ColorRect> background = newref<ColorRect>();
+    std::shared_ptr<ColorRect> background = std::make_shared<ColorRect>();
     background->set_scale(glm::vec2(2.5, 1.5));
     background->set_color(Color(0.15));
     add_child(background);

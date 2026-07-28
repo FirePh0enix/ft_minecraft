@@ -15,8 +15,8 @@ Variant::Variant(const Variant& v)
 {
     if (v.has(VariantType::String))
     {
-        const String& s = v.get_unchecked<String>();
-        new (data) String(s);
+        const std::string& s = v.get_unchecked<std::string>();
+        new (data) std::string(s);
     }
     else if (v.has(VariantType::ItemStack))
     {
@@ -25,13 +25,13 @@ Variant::Variant(const Variant& v)
     }
     else if (v.has(VariantType::Array))
     {
-        const Vector<Variant>& s = v.get_unchecked<Vector<Variant>>();
-        new (data) Vector<Variant>(s);
+        const std::vector<Variant>& s = v.get_unchecked<std::vector<Variant>>();
+        new (data) std::vector<Variant>(s);
     }
     else if (v.has(VariantType::Map))
     {
-        const Map<Variant, Variant>& m = v.get_unchecked<Map<Variant, Variant>>();
-        new (data) Map<Variant, Variant>(m);
+        const std::map<Variant, Variant>& m = v.get_unchecked<std::map<Variant, Variant>>();
+        new (data) std::map<Variant, Variant>(m);
     }
     else
     {
@@ -43,7 +43,7 @@ Variant::~Variant()
 {
     if (has(VariantType::String))
     {
-        ((String *)data)->~String();
+        ((std::string *)data)->~basic_string();
     }
     else if (has(VariantType::ItemStack))
     {
@@ -51,11 +51,11 @@ Variant::~Variant()
     }
     else if (has(VariantType::Array))
     {
-        ((Vector<Variant> *)data)->~Vector<Variant>();
+        ((std::vector<Variant> *)data)->~vector<Variant>();
     }
     else if (has(VariantType::Map))
     {
-        ((Map<Variant, Variant> *)data)->~Map<Variant, Variant>();
+        ((std::map<Variant, Variant> *)data)->~map<Variant, Variant>();
     }
 }
 
@@ -76,7 +76,7 @@ std::strong_ordering Variant::operator<=>(const Variant& variant) const
     case VariantType::Integer:
         return get_unchecked<int64_t>() <=> variant.get_unchecked<int64_t>();
     case VariantType::String:
-        return get_unchecked<String>() <=> variant.get_unchecked<String>();
+        return get_unchecked<std::string>() <=> variant.get_unchecked<std::string>();
     case VariantType::Vec2: // TODO: implement this
     case VariantType::Vec3:
     case VariantType::Quat:
@@ -87,45 +87,4 @@ std::strong_ordering Variant::operator<=>(const Variant& variant) const
     }
 
     return std::strong_ordering::equal;
-}
-
-void from_json(const nlohmann::json& j, Variant& m)
-{
-    if (j.is_boolean())
-    {
-        m = bool(j);
-    }
-    else if (j.is_number_float())
-    {
-        m = double(j);
-    }
-    else if (j.is_number_integer())
-    {
-        m = int64_t(j);
-    }
-    else if (j.is_string())
-    {
-        String s = j;
-        m = s;
-    }
-    else if (j.is_array() && j.size() == 2)
-    {
-        Array<float, 2> a = j;
-        m = glm::vec2(a[0], a[1]);
-    }
-    else if (j.is_array() && j.size() == 3)
-    {
-        Array<float, 3> a = j;
-        m = glm::vec3(a[0], a[1], a[2]);
-    }
-    else if (j.is_array() && j.size() == 4)
-    {
-        Array<float, 4> a = j;
-        m = glm::quat(a[0], a[1], a[2], a[3]);
-    }
-    else if (j.contains("count") && j.contains("id"))
-    {
-        m = ItemStack(Id<Item>(j.at("id")), j.at("count"));
-	// TODO: tags ? or removed json in favor of binary stream
-    }
 }

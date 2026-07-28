@@ -30,13 +30,9 @@ list(APPEND SOURCES
     src/Block/Block.cpp
     src/Block/CraftingTable.cpp
     src/Core/Noise/Simplex.cpp
-    src/Core/Alloc.cpp
     src/Core/Error.cpp
     src/Core/Filesystem.cpp
     src/Core/IO.cpp
-    src/Core/Ref.cpp
-    src/Core/String.cpp
-    src/Core/StringView.cpp
     src/Core/ThreadPool.cpp
     src/Entity/Camera.cpp
     src/Entity/Entity.cpp
@@ -78,13 +74,10 @@ list(APPEND SOURCES
 
 list(APPEND SOURCES_TEST
     tests/class.cpp
-    tests/HashMap.cpp
     tests/main.cpp
     tests/Option.cpp
-    tests/Ref.cpp
     tests/Result.cpp
     tests/Variant.cpp
-    tests/Vector.cpp
 )
 
 if (EMSCRIPTEN)

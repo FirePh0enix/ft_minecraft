@@ -1,6 +1,5 @@
 #pragma once
 
-#include "Core/Containers/LocalVector.hpp"
 #include "UI/UI.hpp"
 
 class Container : public UI
@@ -10,31 +9,31 @@ class Container : public UI
 public:
     virtual ~Container() {}
 
-    void add_child(Ref<UI> ui)
+    void add_child(std::shared_ptr<UI> ui)
     {
-        m_children.append(ui);
+        m_children.push_back(ui);
     }
 
-    View<Ref<UI>> get_children() const { return m_children; }
+    std::span<std::shared_ptr<UI>> get_children() { return std::span<std::shared_ptr<UI>>(m_children); }
 
     virtual void update(float d) override
     {
-        for (Ref<UI> child : m_children)
+        for (std::shared_ptr<UI> child : m_children)
             child->update(d);
     }
 
     virtual void process_event(Event& event) override
     {
-        for (Ref<UI> child : m_children)
+        for (const std::shared_ptr<UI>& child : m_children)
             child->process_event(event);
     }
 
     virtual void draw(const RenderPass& pass) override
     {
-        for (Ref<UI> child : m_children)
+        for (const std::shared_ptr<UI>& child : m_children)
             child->draw(pass);
     }
 
 private:
-    LocalVector<Ref<UI>> m_children;
+    std::vector<std::shared_ptr<UI>> m_children;
 };

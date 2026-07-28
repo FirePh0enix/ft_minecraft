@@ -1,6 +1,5 @@
 #include "Pathfinding.hpp"
 
-#include "Core/Containers/InplaceVector.hpp"
 #include "Entity/Pathfinding/PathNode.hpp"
 
 #include <algorithm>
@@ -12,9 +11,9 @@ constexpr int vertical = 12;
 
 size_t Pathfinding::node_from_world_point(const glm::ivec3& pos)
 {
-    auto it = m_nodes.get(pos);
-    if (it.has_value())
-        return it.value();
+    auto it = m_nodes.find(pos);
+    if (it != m_nodes.end())
+        return it->second;
 
     bool walkable = m_world->get_block_state(pos.x, pos.y, pos.z).is_air();
 
@@ -23,11 +22,11 @@ size_t Pathfinding::node_from_world_point(const glm::ivec3& pos)
     node.m_position = glm::vec3(pos);
     node.m_walkable = walkable;
 
-    m_node_pool.append(node);
+    m_node_pool.push_back(node);
 
     size_t index = m_node_pool.size() - 1;
 
-    m_nodes.put(pos, index);
+    m_nodes[pos] = index;
 
     return index;
 }
@@ -49,14 +48,12 @@ bool Pathfinding::is_walkable(const glm::ivec3& to, int max_jump_height)
     return false;
 }
 
-Vector<size_t> Pathfinding::get_neighbors(size_t node_index)
+std::vector<size_t> Pathfinding::get_neighbors(size_t node_index)
 {
-
-    Vector<size_t> neighbors;
+    std::vector<size_t> neighbors;
 
     PathNode node = m_node_pool[node_index];
-    static InplaceVector<glm::ivec3, 10> directions = {
-
+    static std::array<glm::ivec3, 10> directions{{
         {-1, 0, 1},
         {1, 0, 1},
         {-1, 0, -1},
@@ -69,7 +66,7 @@ Vector<size_t> Pathfinding::get_neighbors(size_t node_index)
 
         {0, 1, 0},
         {0, -1, 0},
-    };
+    }};
 
     for (const glm::ivec3& dir : directions)
     {
@@ -97,7 +94,7 @@ Vector<size_t> Pathfinding::get_neighbors(size_t node_index)
         }
 
         size_t neighbor_index = node_from_world_point(neighbor_pos);
-        neighbors.append(neighbor_index);
+        neighbors.push_back(neighbor_index);
     }
 
     return neighbors;
@@ -123,7 +120,7 @@ void Pathfinding::retrace_path(size_t start_index, size_t end_index)
 
     while (current != max)
     {
-        m_path.append(current);
+        m_path.push_back(current);
 
         if (current == start_index)
             break;
@@ -155,7 +152,7 @@ void Pathfinding::find_path(const glm::vec3& start_pos, const glm::vec3& target_
     start.m_g_cost = 0;
     start.m_h_cost = get_distance(start, m_node_pool[target_index]);
 
-    m_open_set.append(start_index);
+    m_open_set.push_back(start_index);
 
     while (!m_open_set.empty())
     {
@@ -181,10 +178,10 @@ void Pathfinding::find_path(const glm::vec3& start_pos, const glm::vec3& target_
             }
         }
 
-        m_open_set.remove_at(best_index);
+        m_open_set.erase(m_open_set.begin() + (ssize_t)best_index);
 
         auto current = m_node_pool[current_index];
-        m_close_set.put(current.m_gridPos);
+        m_close_set.insert(current.m_gridPos);
 
         if (current.m_gridPos == target.m_gridPos)
         {
@@ -201,14 +198,14 @@ void Pathfinding::find_path(const glm::vec3& start_pos, const glm::vec3& target_
 
             int new_cost = current.m_g_cost + get_distance(current, neighbor);
 
-            if (new_cost < neighbor.m_g_cost || !m_open_set.contains(neighbor_index))
+            if (new_cost < neighbor.m_g_cost || std::find(m_open_set.begin(), m_open_set.end(), neighbor_index) == m_open_set.end())
             {
                 neighbor.m_g_cost = new_cost;
                 neighbor.m_h_cost = get_distance(neighbor, target);
                 neighbor.m_parent = current_index;
 
-                if (!m_open_set.contains(neighbor_index))
-                    m_open_set.append(neighbor_index);
+                if (std::find(m_open_set.begin(), m_open_set.end(), neighbor_index) == m_open_set.end())
+                    m_open_set.push_back(neighbor_index);
             }
         }
     }
@@ -216,14 +213,14 @@ void Pathfinding::find_path(const glm::vec3& start_pos, const glm::vec3& target_
     // println("Cannot find path. Start_pos: [{} {} {}], target_pos: [{} {} {}]", start_pos.x, start_pos.y, start_pos.z, target_pos.x, target_pos.y, target_pos.z);
 }
 
-Vector<glm::vec3> Pathfinding::simplify_path(const Vector<size_t>& path)
+std::vector<glm::vec3> Pathfinding::simplify_path(const std::vector<size_t>& path)
 {
-    Vector<glm::vec3> waypoints;
+    std::vector<glm::vec3> waypoints;
 
     if (path.empty())
         return waypoints;
 
-    waypoints.append(m_node_pool[path[0]].m_position);
+    waypoints.push_back(m_node_pool[path[0]].m_position);
 
     if (path.size() < 2)
         return waypoints;
@@ -236,12 +233,12 @@ Vector<glm::vec3> Pathfinding::simplify_path(const Vector<size_t>& path)
 
         if (curr != last_dir)
         {
-            waypoints.append(m_node_pool[path[i - 1]].m_position);
+            waypoints.push_back(m_node_pool[path[i - 1]].m_position);
             last_dir = curr;
         }
     }
 
-    waypoints.append(m_node_pool[path[path.size() - 1]].m_position);
+    waypoints.push_back(m_node_pool[path[path.size() - 1]].m_position);
 
     // println("-- Final path --");
     // for (size_t i = 0; i < waypoints.size(); i++)

@@ -2,7 +2,7 @@
 
 #include "Console.hpp"
 #include "Core/Class.hpp"
-#include "Core/Definitions.hpp"
+#include "Core/ThreadPool.hpp"
 #include "Entity/Entity.hpp"
 #include "Entity/Player.hpp"
 #include "Font.hpp"
@@ -10,6 +10,8 @@
 #include "Render/Renderer.hpp"
 #include "World/Registry.hpp"
 #include "World/World.hpp"
+
+#include <memory>
 
 enum class GameScene
 {
@@ -43,7 +45,7 @@ public:
 
     size_t get_memory_usage() const { return m_current_memory_usage; }
 
-    Ref<World> get_world()
+    std::shared_ptr<World> get_world()
     {
         return m_world;
     }
@@ -55,7 +57,7 @@ public:
 
     ThreadPool& get_thread_pool()
     {
-	return m_thread_pool;
+        return m_thread_pool;
     }
 
     bool is_online() const { return m_connection.state() != ConnectionState::Idle; }
@@ -63,9 +65,9 @@ public:
     GameRegistry& registry() { return m_registry; }
     EntityRegistry& entities() { return m_entity_registry; }
 
-    Ref<Player> get_player() const { return m_player; }
+    std::shared_ptr<Player> get_player() const { return m_player; }
 
-    Ref<Font> get_font() const { return m_font; }
+    std::shared_ptr<Font> get_font() const { return m_font; }
 
     float time();
 
@@ -85,7 +87,7 @@ public:
 
 private:
     GameScene m_scene = GameScene::MainMenu;
-    Ref<Window> m_window;
+    std::shared_ptr<Window> m_window;
 
     GameRegistry m_registry;
     EntityRegistry m_entity_registry;
@@ -93,15 +95,15 @@ private:
 
     RpcTarget m_authority = RpcTarget::Server;
     NetworkConnection m_connection;
-    Map<ENetPeer *, Ref<Player>> m_players;
+    std::map<ENetPeer *, std::shared_ptr<Player>> m_players;
 
     Renderer m_renderer;
 
-    ThreadPool m_thread_pool;
+    std::shared_ptr<World> m_world;
+    std::shared_ptr<Player> m_player;
+    std::shared_ptr<Font> m_font;
 
-    Ref<World> m_world;
-    Ref<Player> m_player;
-    Ref<Font> m_font;
+    ThreadPool m_thread_pool;
 
     bool m_time_pass = true;
     int64_t m_tick_scale = 15;
@@ -125,16 +127,20 @@ private:
     // Debug Menu
     Console m_console;
 
-    bool has_player_with_name(const StringView& name) const {
-	if (name == StringView(m_player.cast_to<Player>()->get_username())) {
-	    return true;
-	}
-	for (const auto& [peer, player] : m_players) {
-	    if (StringView(player->get_username()) == name) {
-		return true;
-	    }
-	}
-	return false;
+    bool has_player_with_name(std::string_view name) const
+    {
+        if (name == m_player->get_username())
+        {
+            return true;
+        }
+        for (const auto& [peer, player] : m_players)
+        {
+            if (player->get_username() == name)
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     void register_entities();

@@ -1,17 +1,17 @@
 #include "World/World.hpp"
 #include "AABB.hpp"
-#include "Core/Containers/LocalVector.hpp"
 #include "Core/Filesystem.hpp"
-#include "Core/Format.hpp"
-#include "Core/Ref.hpp"
 #include "Engine.hpp"
 #include "Entity/Entity.hpp"
 #include "Entity/Item.hpp"
 #include "Profiler.hpp"
 #include "World/Chunk.hpp"
+#include "World/Settings.hpp"
 
 #include <SDL3/SDL.h>
 
+#include <format>
+#include <memory>
 #include <zlib.h>
 
 #include <algorithm>
@@ -110,25 +110,26 @@ void World::find_safe_spawn()
     // }
 }
 
-Result<Ref<World>> World::create(String name, uint64_t seed, int type)
+Result<std::shared_ptr<World>> World::create(std::string name, uint64_t seed, int type)
 {
-    Ref<World> world = newref<World>();
+    std::shared_ptr<World> world = std::make_shared<World>();
     world->m_seed = seed;
     world->m_name = name;
 
-    world->m_dims[overworld].m_gen_desc.add_pass(newref<OverworldOceanPass>());
-    world->m_dims[overworld].m_gen_desc.add_pass(newref<MountainPass>());
-    world->m_dims[overworld].m_gen_desc.add_pass(newref<OverworldBiomePass>());
-    world->m_dims[overworld].m_gen_desc.add_pass(newref<HeightPass>());
-    world->m_dims[overworld].m_gen_desc.add_pass(newref<OverworldTerrainPass>());
+    world->m_dims[overworld].m_gen_desc = std::make_shared<GenDesc>(WorldSettings{});
+    world->m_dims[overworld].m_gen_desc->add_pass(std::make_shared<OverworldOceanPass>());
+    world->m_dims[overworld].m_gen_desc->add_pass(std::make_shared<MountainPass>());
+    world->m_dims[overworld].m_gen_desc->add_pass(std::make_shared<OverworldBiomePass>());
+    world->m_dims[overworld].m_gen_desc->add_pass(std::make_shared<HeightPass>());
+    world->m_dims[overworld].m_gen_desc->add_pass(std::make_shared<OverworldTerrainPass>());
 
-    world->m_dims[overworld].m_gen_desc.add_struct_pass(newref<TreePass>());
+    world->m_dims[overworld].m_gen_desc->add_struct_pass(std::make_shared<TreePass>());
 
     // world->find_safe_spawn();
 
     if (!Engine::get().is_save_disabled())
     {
-        String path = format("{}saves/{}/", Filesystem::get_data_directory(), name);
+        std::string path = std::format("{}saves/{}/", Filesystem::get_data_directory(), name);
         TRY(Filesystem::make_dirs(path));
         path.append("info.dat");
         File file = TRY(Filesystem::open_file(path, true));
@@ -144,21 +145,21 @@ Result<Ref<World>> World::create(String name, uint64_t seed, int type)
     return world;
 }
 
-Result<Ref<World>> World::create_proxy(uint64_t seed)
+Result<std::shared_ptr<World>> World::create_proxy(uint64_t seed)
 {
-    Ref<World> world = newref<World>();
+    std::shared_ptr<World> world = std::make_shared<World>();
     world->m_seed = seed;
     world->m_proxy = true;
     return world;
 }
 
-Result<Ref<World>> World::load(StringView name)
+Result<std::shared_ptr<World>> World::load(std::string name)
 {
-    Ref<World> world = newref<World>();
+    std::shared_ptr<World> world = std::make_shared<World>();
 
     if (!Engine::get().is_save_disabled())
     {
-        String path = format("{}saves/{}/info.dat", Filesystem::get_data_directory(), name);
+        std::string path = std::format("{}saves/{}/info.dat", Filesystem::get_data_directory(), name);
         File file = TRY(Filesystem::open_file(path));
 
         WorldSaveInfo wi{};
@@ -171,13 +172,14 @@ Result<Ref<World>> World::load(StringView name)
 
     world->m_name = name;
 
-    world->m_dims[overworld].m_gen_desc.add_pass(newref<OverworldOceanPass>());
-    world->m_dims[overworld].m_gen_desc.add_pass(newref<MountainPass>());
-    world->m_dims[overworld].m_gen_desc.add_pass(newref<OverworldBiomePass>());
-    world->m_dims[overworld].m_gen_desc.add_pass(newref<HeightPass>());
-    world->m_dims[overworld].m_gen_desc.add_pass(newref<OverworldTerrainPass>());
+    world->m_dims[overworld].m_gen_desc = std::make_shared<GenDesc>(WorldSettings{});
+    world->m_dims[overworld].m_gen_desc->add_pass(std::make_shared<OverworldOceanPass>());
+    world->m_dims[overworld].m_gen_desc->add_pass(std::make_shared<MountainPass>());
+    world->m_dims[overworld].m_gen_desc->add_pass(std::make_shared<OverworldBiomePass>());
+    world->m_dims[overworld].m_gen_desc->add_pass(std::make_shared<HeightPass>());
+    world->m_dims[overworld].m_gen_desc->add_pass(std::make_shared<OverworldTerrainPass>());
 
-    world->m_dims[overworld].m_gen_desc.add_struct_pass(newref<TreePass>());
+    world->m_dims[overworld].m_gen_desc->add_struct_pass(std::make_shared<TreePass>());
 
     return world;
 }
@@ -186,9 +188,9 @@ World::~World()
 {
 }
 
-static void add_neighbour_chunk(ChunkPos pos, Set<ChunkPos>& chunks)
+static void add_neighbour_chunk(ChunkPos pos, std::set<ChunkPos>& chunks)
 {
-    const Array<ChunkPos, 4> positions = {
+    const std::array<ChunkPos, 4> positions = {
         ChunkPos(pos.x - 1, pos.z),
         ChunkPos(pos.x + 1, pos.z),
         ChunkPos(pos.x, pos.z - 1),
@@ -197,7 +199,7 @@ static void add_neighbour_chunk(ChunkPos pos, Set<ChunkPos>& chunks)
 
     for (const auto& p : positions)
     {
-        chunks.put(p);
+        chunks.insert(p);
     }
 }
 
@@ -205,7 +207,7 @@ void World::tick(float delta)
 {
     ZoneScoped;
 
-    for (Ref<Entity> entity : m_dims[overworld].get_entities())
+    for (std::shared_ptr<Entity> entity : m_dims[overworld].get_entities())
     {
         if (entity->is_active())
             entity->recurse_tick(delta);
@@ -213,14 +215,10 @@ void World::tick(float delta)
             remove_entity(entity->m_dimension, entity);
     }
 
-    for (Ref<Entity> entity : m_dims[0].m_entities_to_remove)
-    {
-        m_dims[0].m_entities.remove(entity);
-    }
-    for (Ref<Entity> entity : m_dims[0].m_entities_to_add)
-    {
-        m_dims[0].m_entities.append(entity);
-    }
+    for (std::shared_ptr<Entity> entity : m_dims[0].m_entities_to_remove)
+        m_dims[0].m_entities.erase(std::find(m_dims[0].m_entities.begin(), m_dims[0].m_entities.end(), entity));
+    for (std::shared_ptr<Entity> entity : m_dims[0].m_entities_to_add)
+        m_dims[0].m_entities.push_back(entity);
 
     if (!m_proxy)
     {
@@ -232,9 +230,9 @@ void World::tick(float delta)
         }
 
         // TODO: Don't save every players each frames.
-        for (const Ref<Entity>& entity : m_dims[World::overworld].get_entities())
+        for (const std::shared_ptr<Entity>& entity : m_dims[World::overworld].get_entities())
         {
-            if (Ref<Player> player = entity.cast_to<Player>())
+            if (std::shared_ptr<Player> player = std::dynamic_pointer_cast<Player>(entity))
                 EXPECT(save_player(player));
         }
 
@@ -246,7 +244,7 @@ void World::tick(float delta)
     }
 
     // Flush all new chunks.
-    Set<ChunkPos> chunk_modified;
+    std::set<ChunkPos> chunk_modified;
 
     {
         std::lock_guard<std::mutex> lock(m_dims[0].mutex());
@@ -254,7 +252,7 @@ void World::tick(float delta)
         for (auto& [pos, chunk] : m_dims[0].m_chunks_to_flush)
         {
             m_dims[0].m_chunks[pos] = chunk;
-            chunk_modified.put(pos);
+            chunk_modified.insert(pos);
             add_neighbour_chunk(pos, chunk_modified);
         }
         m_dims[0].m_chunks_to_flush.clear();
@@ -262,7 +260,7 @@ void World::tick(float delta)
         for (auto pos : m_dims[0].m_chunks_to_remove)
         {
             m_dims[0].m_chunks.erase(pos);
-            chunk_modified.put(pos);
+            chunk_modified.insert(pos);
             add_neighbour_chunk(pos, chunk_modified);
         }
         m_dims[0].m_chunks_to_remove.clear();
@@ -275,7 +273,7 @@ void World::tick(float delta)
 
     if (!m_proxy && Engine::get().is_online() && Engine::get().is_server())
     {
-        for (Ref<Entity> entity : m_dims[World::overworld].get_entities())
+        for (std::shared_ptr<Entity> entity : m_dims[World::overworld].get_entities())
         {
             UpdateEntityPacket p{};
             p.id = entity->id();
@@ -286,11 +284,10 @@ void World::tick(float delta)
 
         for (const ChunkLoadRequest& req : m_load_requests)
         {
-            Option<Ref<Chunk>> chunk_opt = get_dimension(req.dimension).get_chunk(req.x, req.z);
+            Option<std::shared_ptr<Chunk>> chunk_opt = get_dimension(req.dimension).get_chunk(req.x, req.z);
             if (chunk_opt.has_value())
             {
-                Ref<Chunk> chunk = chunk_opt.value();
-
+                std::shared_ptr<Chunk> chunk = chunk_opt.value();
                 Engine::get().get_thread_pool().async([this, req, chunk]
                                                       { send_chunk(req.peer, chunk); });
             }
@@ -317,17 +314,17 @@ void World::set_block_state(int64_t x, int64_t y, int64_t z, BlockState state)
     m_dims[overworld].set_block(x, y, z, state);
 }
 
-Option<Ref<Chunk>> World::get_chunk(int64_t x, int64_t z) const
+Option<std::shared_ptr<Chunk>> World::get_chunk(int64_t x, int64_t z) const
 {
     return m_dims[overworld].get_chunk(x, z);
 }
 
-Option<Ref<Chunk>> World::get_chunk(int64_t x, int64_t z)
+Option<std::shared_ptr<Chunk>> World::get_chunk(int64_t x, int64_t z)
 {
     return m_dims[overworld].get_chunk(x, z);
 }
 
-void World::set_active_camera(Ref<Camera> camera)
+void World::set_active_camera(std::shared_ptr<Camera> camera)
 {
     m_camera = camera;
 }
@@ -356,7 +353,7 @@ void World::load_around_player()
                 if (m_dims[0].m_chunk_loading_queue.contains(pos))
                     continue;
 
-                m_dims[0].m_chunk_loading_queue.put(pos);
+                m_dims[0].m_chunk_loading_queue.insert(pos);
             }
 
             Engine::get().get_thread_pool().async([this, pos]
@@ -401,7 +398,7 @@ void World::request_load_around()
                 if (m_dims[0].m_chunk_loading_queue.contains(pos))
                     continue;
 
-                m_dims[0].m_chunk_loading_queue.put(pos);
+                m_dims[0].m_chunk_loading_queue.insert(pos);
             }
 
             RequestChunkPacket p{};
@@ -426,12 +423,12 @@ bool World::raycast(const Ray& ray, float range, RaycastResult& result, const En
     bool is_entiy = false;
     float t_min = std::numeric_limits<float>::infinity();
     glm::i64vec3 block_pos;
-    Ref<Entity> entity;
+    std::shared_ptr<Entity> entity;
     glm::vec3 normal;
 
-    for (const Ref<Entity>& e : m_dims[overworld].get_entities())
+    for (const std::shared_ptr<Entity>& e : m_dims[overworld].get_entities())
     {
-        if (e.ptr() == ignore)
+        if (e.get() == ignore)
             continue;
 
         AABB world_aabb = e->get_aabb().translate(e->get_global_transform().position());
@@ -487,20 +484,20 @@ void World::break_block(int64_t x, int64_t y, int64_t z)
     if (!item_opt.has_value())
         return;
 
-    Ref<ItemEntity> item_entity = newref<ItemEntity>(item_opt.value());
+    std::shared_ptr<ItemEntity> item_entity = std::make_shared<ItemEntity>(item_opt.value());
     item_entity->set_position(glm::vec3(x, y, z) + glm::vec3(rand_float(-0.6, 0.6), 0, rand_float(-0.6, 0.6)));
 
     add_entity(World::overworld, item_entity);
 }
 
-Result<void> World::save_chunk(Ref<Chunk> chunk)
+Result<void> World::save_chunk(std::shared_ptr<Chunk> chunk)
 {
     if (Engine::get().is_save_disabled())
     {
         return Result<void>();
     }
 
-    String path = format("{}/saves/{}/DIM0/{}${}/", Filesystem::get_data_directory(), m_name, chunk->x(), chunk->z());
+    std::string path = std::format("{}/saves/{}/DIM0/{}${}/", Filesystem::get_data_directory(), m_name, chunk->x(), chunk->z());
     TRY(Filesystem::make_dirs(path));
 
     path.append("blocks.dat");
@@ -513,7 +510,7 @@ Result<void> World::save_chunk(Ref<Chunk> chunk)
 
     file.close();
 
-    path = format("{}/saves/{}/DIM0/{}${}/tags.dat", Filesystem::get_data_directory(), m_name, chunk->x(), chunk->z());
+    path = std::format("{}/saves/{}/DIM0/{}${}/tags.dat", Filesystem::get_data_directory(), m_name, chunk->x(), chunk->z());
     file = TRY(Filesystem::open_file(path, true));
 
     BufferWriter writer;
@@ -531,12 +528,12 @@ Result<void> World::save_chunk(Ref<Chunk> chunk)
     return Result<void>();
 }
 
-Result<void> World::save_entity(const Ref<Entity>& entity)
+Result<void> World::save_entity(const std::shared_ptr<Entity>& entity)
 {
     int64_t cx = chunk_index(int64_t(entity->get_position().x));
     int64_t cz = chunk_index(int64_t(entity->get_position().z));
 
-    String path = format("{}saves/{}/DIM0/{}${}/entities/", Filesystem::get_data_directory(), m_name, cx, cz);
+    std::string path = std::format("{}saves/{}/DIM0/{}${}/entities/", Filesystem::get_data_directory(), m_name, cx, cz);
     TRY(Filesystem::make_dirs(path));
 
     EntitySerializer serializer;
@@ -550,12 +547,12 @@ Result<void> World::save_entity(const Ref<Entity>& entity)
     return Result<void>();
 }
 
-Result<void> World::save_player(const Ref<Player>& player)
+Result<void> World::save_player(const std::shared_ptr<Player>& player)
 {
-    String path = format("{}saves/{}/players/", Filesystem::get_data_directory(), m_name);
+    std::string path = std::format("{}saves/{}/players/", Filesystem::get_data_directory(), m_name);
     TRY(Filesystem::make_dirs(path));
 
-    path.append(format("{}.dat", player->get_username()));
+    path.append(std::format("{}.dat", player->get_username()));
 
     EntitySerializer serializer;
     serializer.set("position", player->get_position());
@@ -567,9 +564,9 @@ Result<void> World::save_player(const Ref<Player>& player)
     return Result<void>();
 }
 
-void World::load_player(const StringView& username, Ref<Player>& player)
+void World::load_player(std::string_view username, std::shared_ptr<Player>& player)
 {
-    String path = format("{}saves/{}/players/{}.dat", Filesystem::get_data_directory(), get_name(), username);
+    std::string path = std::format("{}saves/{}/players/{}.dat", Filesystem::get_data_directory(), get_name(), username);
 
     EntitySerializer serializer;
     EXPECT(serializer.load(path));
@@ -582,7 +579,7 @@ void World::load_player(const StringView& username, Ref<Player>& player)
     player->load(serializer);
 }
 
-void World::send_chunk(ENetPeer *peer, const Ref<Chunk>& chunk) const
+void World::send_chunk(ENetPeer *peer, const std::shared_ptr<Chunk>& chunk) const
 {
     std::vector<uint8_t> blocks_data;
     deflate_data((uint8_t *)chunk->get_blocks(), sizeof(BlockState) * Chunk::block_count, blocks_data);
@@ -610,7 +607,7 @@ void World::receive_chunk(const ChunkDataPacket& p)
     Dimension& dimension = get_dimension(World::overworld);
     bool has_chunk = dimension.has_chunk(p.x, p.z);
 
-    Ref<Chunk> chunk;
+    std::shared_ptr<Chunk> chunk;
     if (has_chunk)
     {
         chunk = dimension.get_chunk(p.x, p.z).value();
@@ -618,7 +615,7 @@ void World::receive_chunk(const ChunkDataPacket& p)
     }
     else
     {
-        chunk = newref<Chunk>(&dimension, p.x, p.z);
+        chunk = std::make_shared<Chunk>(&dimension, p.x, p.z);
     }
 
     std::vector<uint8_t> blocks_data;
@@ -663,22 +660,22 @@ void World::force_load_chunk_for(glm::vec3 position)
     load_one_chunk(ChunkPos(chunk_x, chunk_z));
 }
 
-bool World::is_player_saved(const StringView& name) const
+bool World::is_player_saved(std::string_view name) const
 {
-    String path = format("{}saves/{}/players/{}.dat", Filesystem::get_data_directory(), m_name, name);
+    std::string path = std::format("{}saves/{}/players/{}.dat", Filesystem::get_data_directory(), m_name, name);
     return Filesystem::exists(path);
 }
 
 void World::load_one_chunk(ChunkPos pos)
 {
-    Ref<Chunk> chunk;
+    std::shared_ptr<Chunk> chunk;
 
-    String path = format("{}saves/{}/DIM0/{}${}/blocks.dat", Filesystem::get_data_directory(), m_name, pos.x, pos.z);
+    std::string path = std::format("{}saves/{}/DIM0/{}${}/blocks.dat", Filesystem::get_data_directory(), m_name, pos.x, pos.z);
     if (!Engine::get().is_save_disabled() && Filesystem::exists(path))
     {
-        chunk = newref<Chunk>(&m_dims[0], pos.x, pos.z);
+        chunk = std::make_shared<Chunk>(&m_dims[0], pos.x, pos.z);
 
-        LocalVector<char> data;
+        std::vector<char> data;
         // TODO: how to handle errors from loading chunks ?
         File file = EXPECT(Filesystem::open_file(path));
         EXPECT(file.reader().read_to_buffer(data));
@@ -690,11 +687,11 @@ void World::load_one_chunk(ChunkPos pos)
         assert(blocks_data.size() == sizeof(BlockState) * Chunk::block_count);
         memcpy(chunk->get_blocks(), blocks_data.data(), blocks_data.size());
 
-        String path = format("{}saves/{}/DIM0/{}${}/tags.dat", Filesystem::get_data_directory(), m_name, pos.x, pos.z);
+        std::string path = std::format("{}saves/{}/DIM0/{}${}/tags.dat", Filesystem::get_data_directory(), m_name, pos.x, pos.z);
         if (Filesystem::exists(path))
         {
             File file = EXPECT(Filesystem::open_file(path));
-            LocalVector<char> tags_compressed_data;
+            std::vector<char> tags_compressed_data;
             EXPECT(file.reader().read_to_buffer(tags_compressed_data));
             file.close();
 
@@ -713,7 +710,7 @@ void World::load_one_chunk(ChunkPos pos)
     }
     else
     {
-        Result<Ref<Chunk>> result = m_dims[0].generate_chunk(pos.x, pos.z);
+        Result<std::shared_ptr<Chunk>> result = m_dims[0].generate_chunk(pos.x, pos.z);
         if (result.has_error())
             return;
         chunk = result.value();
@@ -812,36 +809,36 @@ void World::inflate_data(const uint8_t *compressed_data, size_t compressed_data_
     // TODO: Obsiously we don't want to crash on errors.
 }
 
-void World::write_tags(Writer& writer, const Ref<Chunk>& chunk) const
+void World::write_tags(Writer& writer, const std::shared_ptr<Chunk>& chunk) const
 {
-    Map<int64_t, Map<String, Variant>> tags;
+    std::map<int64_t, std::map<std::string, Variant>> tags;
     for (const auto& [key, value] : chunk->m_tags)
     {
-        Map<String, Variant> tags2;
-        for (const auto& [_, key2, value2] : value.tags)
-            tags2.put(key2, value2);
-        tags.put(key, tags2);
+        std::map<std::string, Variant> tags2;
+        for (const auto& [key2, value2] : value.tags)
+            tags2[key2] = value2;
+        tags[key] = tags2;
     }
     EXPECT(writer.write_variant(Variant(tags)));
 }
 
-void World::read_tags(Reader& reader, Ref<Chunk>& chunk) const
+void World::read_tags(Reader& reader, std::shared_ptr<Chunk>& chunk) const
 {
     Option<Variant> variant = EXPECT(reader.read_variant());
     if (variant.has_value())
     {
-        Map<int64_t, Map<String, Variant>> tags = variant.value().to_map<int64_t, Map<String, Variant>>();
+        std::map<int64_t, std::map<std::string, Variant>> tags = variant.value().to_map<int64_t, std::map<std::string, Variant>>();
         for (const auto& [key, value] : tags)
         {
             BlockTags btags;
             for (const auto& [key2, value2] : value)
-                btags.tags.put(key2, value2);
-            chunk->m_tags.put(key, btags);
+                btags.tags[key2] = value2;
+            chunk->m_tags[key] = btags;
         }
     }
 }
 
 void World::request_chunk(ENetPeer *peer, int dimension, int64_t x, int64_t z)
 {
-    m_load_requests.append(ChunkLoadRequest(peer, dimension, x, z));
+    m_load_requests.push_back(ChunkLoadRequest(peer, dimension, x, z));
 }

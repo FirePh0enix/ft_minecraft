@@ -1,18 +1,19 @@
 #include "Console.hpp"
-#include "Core/StringView.hpp"
 
-Command::Command(const CommandInfo& info, const Vector<StringView>& tokens)
+#include <string>
+
+Command::Command(const CommandInfo& info, const std::vector<std::string_view>& tokens)
 {
     for (size_t i = 1; i < tokens.size(); i++)
     {
-        const CmdArgInfo& arg_info = info.args.get_unchecked(i - 1);
+        const CmdArgInfo& arg_info = info.args[i - 1];
         switch (arg_info.kind)
         {
         case CmdArgKind::Int:
-            m_args.put(arg_info.name, CmdArg{.i = tokens.get_unchecked(i).parse_int<int64_t>()});
+            m_args[arg_info.name] = CmdArg{.i = std::stoll(std::string(tokens[i]))};
             break;
         case CmdArgKind::String:
-            m_args.put(arg_info.name, CmdArg{.s = tokens.get_unchecked(i)});
+            m_args[arg_info.name] = CmdArg{.s = std::string(tokens[i])};
             break;
         }
     }
@@ -23,15 +24,17 @@ Console::Console()
 {
 }
 
-void Console::register_command(const String& name, Vector<CmdArgInfo> args, CommandCallback callback)
+void Console::register_command(std::string_view name, std::vector<CmdArgInfo> args, CommandCallback callback)
 {
-    m_commands.put(name, CommandInfo{.callback = callback, .args = args});
+    m_commands[std::string(name)] = CommandInfo{.callback = callback, .args = args};
 }
 
 void Console::exec()
 {
-    Vector<StringView> tokens = StringView(m_buffer, std::strlen(m_buffer)).split(" ");
-    CommandInfo info = m_commands.get(tokens.get_unchecked(0)).value();
+    // StringView(m_buffer, std::strlen(m_buffer)).split(" ");
+
+    std::vector<std::string_view> tokens{std::string_view(m_buffer)}; // = StringView(m_buffer, std::strlen(m_buffer)).split(" ");
+    CommandInfo info = m_commands.find(tokens[0])->second;
     Command command(info, tokens);
     info.callback(command);
 

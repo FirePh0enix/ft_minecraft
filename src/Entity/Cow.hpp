@@ -22,5 +22,5 @@ protected:
     void die() override;
     void flee_from(int radius);
 
-    Ref<Entity> m_threat_entity;
+    std::shared_ptr<Entity> m_threat_entity;
 };

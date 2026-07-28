@@ -3,20 +3,19 @@
 #include "Block/Block.hpp"
 #include "Block/CraftingTable.hpp"
 #include "Core/Filesystem.hpp"
-#include "Core/Format.hpp"
-#include "Core/Ref.hpp"
 #include "Engine.hpp"
 #include "Item/Bucket.hpp"
 #include "Render/Renderer.hpp"
+#include <memory>
 
 constexpr int two_d_to_1d(int x, int y, int w)
 {
     return y * w + x;
 }
 
-Result<Ref<Entity>> EntityRegistry::create_entity(ClassHashCode class_hash)
+Result<std::shared_ptr<Entity>> EntityRegistry::create_entity(ClassHashCode class_hash)
 {
-    return m_entries.get(class_hash).value().c();
+    return m_entries[class_hash].c();
 }
 
 #define TEX(name) ("assets/textures/" name ".png")
@@ -24,28 +23,28 @@ Result<Ref<Entity>> EntityRegistry::create_entity(ClassHashCode class_hash)
 
 void GameRegistry::register_all()
 {
-    add_block(Blocks::stone, newref<Block>(TEX("stone")));
-    add_block(Blocks::dirt, newref<Block>(TEX("dirt")));
-    add_block(Blocks::sand, newref<Block>(TEX("sand")));
-    add_block(Blocks::log, newref<Block>(Array<String, 6>{TEX("log"), TEX("log"), TEX("log"), TEX("log"), TEX("log_top"), TEX("log_top")}));
-    add_block(Blocks::leaves, newref<Block>(TEX("leaves")));
-    add_block(Blocks::crafting_table, newref<CraftingTableBlock>());
+    add_block(Blocks::stone, std::make_shared<Block>(TEX("stone")));
+    add_block(Blocks::dirt, std::make_shared<Block>(TEX("dirt")));
+    add_block(Blocks::sand, std::make_shared<Block>(TEX("sand")));
+    add_block(Blocks::log, std::make_shared<Block>(std::array<std::string, 6>{TEX("log"), TEX("log"), TEX("log"), TEX("log"), TEX("log_top"), TEX("log_top")}));
+    add_block(Blocks::leaves, std::make_shared<Block>(TEX("leaves")));
+    add_block(Blocks::crafting_table, std::make_shared<CraftingTableBlock>());
 
     // TODO: Ids should be names, numeric ids should be generated at runtime.
-    m_block_names.put("stone", Blocks::stone);
-    m_block_names.put("dirt", Blocks::dirt);
-    m_block_names.put("sand", Blocks::sand);
-    m_block_names.put("log", Blocks::log);
-    m_block_names.put("leaves", Blocks::leaves);
-    m_block_names.put("crafting_table", Blocks::crafting_table);
+    m_block_names["stone"] = Blocks::stone;
+    m_block_names["dirt"] = Blocks::dirt;
+    m_block_names["sand"] = Blocks::sand;
+    m_block_names["log"] = Blocks::log;
+    m_block_names["leaves"] = Blocks::leaves;
+    m_block_names["crafting_table"] = Blocks::crafting_table;
 
-    add_item(Items::stone_block, newref<ItemBlock>(Blocks::stone));
-    add_item(Items::dirt_block, newref<ItemBlock>(Blocks::dirt));
-    add_item(Items::sand_block, newref<ItemBlock>(Blocks::sand));
-    add_item(Items::log_block, newref<ItemBlock>(Blocks::log));
-    add_item(Items::leaves_block, newref<ItemBlock>(Blocks::leaves));
-    add_item(Items::crafting_table_block, newref<ItemBlock>(Blocks::crafting_table));
-    add_item(Items::water_bucket, newref<BucketItem>());
+    add_item(Items::stone_block, std::make_shared<ItemBlock>(Blocks::stone));
+    add_item(Items::dirt_block, std::make_shared<ItemBlock>(Blocks::dirt));
+    add_item(Items::sand_block, std::make_shared<ItemBlock>(Blocks::sand));
+    add_item(Items::log_block, std::make_shared<ItemBlock>(Blocks::log));
+    add_item(Items::leaves_block, std::make_shared<ItemBlock>(Blocks::leaves));
+    add_item(Items::crafting_table_block, std::make_shared<ItemBlock>(Blocks::crafting_table));
+    add_item(Items::water_bucket, std::make_shared<BucketItem>());
 
     add_structure("tree", Structure::load(STRUCT("tree")));
 }
@@ -54,18 +53,18 @@ Result<void> GameRegistry::post_register()
 {
     uint32_t mip_level = 1;
     m_texture_array = TRY(Texture::create(16, 16, WGPUTextureFormat_RGBA8Unorm, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding, WGPUTextureViewDimension_2DArray, m_images.size() + 1, mip_level));
-    m_texture_array->update(Renderer::get().get_missing_texture_data(), 0);
+    m_texture_array->update(std::as_bytes(Renderer::get().get_missing_texture_data()), 0);
 
     size_t index = 1;
     for (const auto& image : m_images)
     {
-        m_texture_array->update(View((uint8_t *)image.data, image.w * image.h * 4), index);
+        m_texture_array->update(std::span((std::byte *)image.data, image.w * image.h * 4), index);
 
-        Ref<Texture> texture = TRY(Texture::create(16, 16, WGPUTextureFormat_RGBA8Unorm, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding, WGPUTextureViewDimension_2D));
-        texture->update(View((uint8_t *)image.data, image.w * image.h * 4));
+        std::shared_ptr<Texture> texture = TRY(Texture::create(16, 16, WGPUTextureFormat_RGBA8Unorm, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding, WGPUTextureViewDimension_2D));
+        texture->update(std::span((std::byte *)image.data, image.w * image.h * 4));
 
         // TODO: create textureview instead of duplicating data in memory.
-        m_texture_handles.append(texture);
+        m_texture_handles.push_back(texture);
         index++;
 
         stbi_image_free((stbi_uc *)image.data);
@@ -75,9 +74,9 @@ Result<void> GameRegistry::post_register()
 
     for (const auto& [id, item] : m_items)
     {
-        if (Ref<ItemBlock> ib = item.cast_to<ItemBlock>())
+        if (std::shared_ptr<ItemBlock> ib = std::dynamic_pointer_cast<ItemBlock>(item))
         {
-            Ref<Block> block = get_block(ib->block());
+            std::shared_ptr<Block> block = get_block(ib->block());
             ib->set_texture(create_preview_texture(block));
         }
     }
@@ -85,22 +84,22 @@ Result<void> GameRegistry::post_register()
     return Result<void>();
 }
 
-void GameRegistry::add_block(Id<Block> id, Ref<Block> block)
+void GameRegistry::add_block(Id<Block> id, std::shared_ptr<Block> block)
 {
-    m_blocks.put(id, block);
+    m_blocks[id] = block;
 }
 
-void GameRegistry::add_item(Id<Item> id, Ref<Item> item)
+void GameRegistry::add_item(Id<Item> id, std::shared_ptr<Item> item)
 {
-    m_items.put(id, item);
+    m_items[id] = item;
 
-    if (Ref<ItemBlock> ib = item.cast_to<ItemBlock>())
-        m_block_items.put(ib->block(), id);
+    if (std::shared_ptr<ItemBlock> ib = std::dynamic_pointer_cast<ItemBlock>(item))
+        m_block_items[ib->block()] = id;
 }
 
-void GameRegistry::add_structure(String name, std::shared_ptr<Structure> structure)
+void GameRegistry::add_structure(std::string_view name, std::shared_ptr<Structure> structure)
 {
-    m_structures.put(name, structure);
+    m_structures[std::string(name)] = structure;
 }
 
 Option<Id<Block>> GameRegistry::to_block(Id<Item> id)
@@ -108,37 +107,25 @@ Option<Id<Block>> GameRegistry::to_block(Id<Item> id)
     if (!id.valid())
         return None;
 
-    Option<Ref<Item>> item_opt = m_items.get(id);
+    Option<std::shared_ptr<Item>> item_opt = m_items[id];
     if (!item_opt.has_value())
         return None;
 
-    if (Ref<ItemBlock> ib = item_opt.value().cast_to<ItemBlock>())
-    {
+    if (std::shared_ptr<ItemBlock> ib = std::dynamic_pointer_cast<ItemBlock>(item_opt.value()))
         return ib->block();
-    }
     return None;
 }
 
-Ref<Texture> GameRegistry::get_texture(Id<Item> id)
+std::shared_ptr<Texture> GameRegistry::get_texture(Id<Item> id)
 {
     ASSERT_V(id.valid() && id.value <= m_items.size(), "Trying to get texture for invalid id `{}`", id.value);
 
-    Option<Ref<Item>> item = m_items.get(id);
-    if (item.has_value())
-    {
-        // Ref<Item> i = item.get();
-        // if (Ref<ItemBlock> ib = i.cast_to<ItemBlock>())
-        // {
-        //     Id<Block> block_id = ib->block();
-        //     Ref<Block> b = m_blocks.get(block_id).get();
-        //     return m_texture_handles.get_unchecked(b->get_texture_ids()[0]);
-        // }
-        return item.value()->get_texture();
-    }
-    return nullptr;
+    // TODO: Add error handling.
+    std::shared_ptr<Item> item = m_items[id];
+    return item->get_texture();
 }
 
-size_t GameRegistry::load_texture(const StringView& path)
+size_t GameRegistry::load_texture(std::string_view path)
 {
     Option<size_t> i = get_image(path);
     if (i.has_value())
@@ -148,7 +135,7 @@ size_t GameRegistry::load_texture(const StringView& path)
     if (file_opt.has_error())
         return 0;
 
-    LocalVector<char> buffer;
+    std::vector<char> buffer;
     Result<void> res = file_opt.value().reader().read_to_buffer(buffer);
     file_opt.value().close();
 
@@ -157,14 +144,14 @@ size_t GameRegistry::load_texture(const StringView& path)
     ERR_COND_R(data == nullptr, format("Failed to parse image `{}`", path), 0);
 
     const size_t id = m_images.size() + 1;
-    m_images.append(Image(data, w, h, channels, path));
+    m_images.push_back(Image(data, w, h, channels, std::string(path)));
     return id;
 }
 
-Ref<Texture> GameRegistry::create_texture(const StringView& path)
+std::shared_ptr<Texture> GameRegistry::create_texture(std::string_view path)
 {
     File file = THROW(Filesystem::open_file(path), Renderer::get().get_missing_texture());
-    LocalVector<char> buffer;
+    std::vector<char> buffer;
     THROW(file.reader().read_to_buffer(buffer), Renderer::get().get_missing_texture());
     file.close();
 
@@ -172,9 +159,9 @@ Ref<Texture> GameRegistry::create_texture(const StringView& path)
     stbi_uc *data = stbi_load_from_memory((const stbi_uc *)buffer.data(), (int)buffer.size(), &w, &h, &channels, 4);
     ERR_COND_V(data == nullptr, "Failed to parse image `{}`", path);
 
-    Ref<Texture> texture = THROW(Texture::create(w, h, WGPUTextureFormat_RGBA8UnormSrgb, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding), Renderer::get().get_missing_texture());
+    std::shared_ptr<Texture> texture = THROW(Texture::create(w, h, WGPUTextureFormat_RGBA8UnormSrgb, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding), Renderer::get().get_missing_texture());
     if (data)
-        texture->update(View(data, w * h * 4).as_bytes());
+        texture->update(std::span((std::byte *)data, w * h * 4));
 
     stbi_image_free(data);
     return texture;
@@ -186,14 +173,14 @@ struct GPU_ATTRIBUTE PreviewBlockModel
     glm::uvec3 textures;
 };
 
-Ref<Texture> GameRegistry::create_preview_texture(Ref<Block> block)
+std::shared_ptr<Texture> GameRegistry::create_preview_texture(std::shared_ptr<Block> block)
 {
     constexpr uint32_t preview_size = 128;
 
-    Ref<Buffer> buffer = THROW(Buffer::create(sizeof(PreviewBlockModel), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform), Renderer::get().get_missing_texture());
-    Ref<Material> material = Material::create(Renderer::get().get_preview_block_shader(), MaterialFlagBits::None, WGPUCullMode_Back, UVType::UV);
+    std::shared_ptr<Buffer> buffer = THROW(Buffer::create(sizeof(PreviewBlockModel), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform), Renderer::get().get_missing_texture());
+    std::shared_ptr<Material> material = Material::create(Renderer::get().get_preview_block_shader(), MaterialFlagBits::None, WGPUCullMode_Back, UVType::UV);
 
-    Ref<BindGroup> bg = BindGroup::create(Renderer::get().get_preview_block_shader());
+    std::shared_ptr<BindGroup> bg = BindGroup::create(Renderer::get().get_preview_block_shader());
     bg->set_param("model", buffer);
     bg->set_param("images", Engine::get().registry().get_texture_array());
 
@@ -202,10 +189,10 @@ Ref<Texture> GameRegistry::create_preview_texture(Ref<Block> block)
                        glm::rotate(glm::identity<glm::mat4>(), glm::radians(35.0f), glm::vec3(1, 0, 0)) *
                        glm::rotate(glm::identity<glm::mat4>(), glm::radians(45.0f), glm::vec3(0, 1, 0));
     PreviewBlockModel model(matrix, glm::uvec3(block->get_texture_ids()[0] | (block->get_texture_ids()[1] << 16), block->get_texture_ids()[2] | (block->get_texture_ids()[3] << 16), block->get_texture_ids()[4] | (block->get_texture_ids()[5] << 16)));
-    buffer->update(View(model).as_bytes());
+    buffer->update_struct(model);
 
-    Ref<Texture> depth_texture = THROW(Texture::create(preview_size, preview_size, WGPUTextureFormat_Depth32Float, WGPUTextureUsage_RenderAttachment), Renderer::get().get_missing_texture());
-    Ref<Texture> color_texture = THROW(Texture::create(preview_size, preview_size, WGPUTextureFormat_RGBA8Unorm, WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_TextureBinding), Renderer::get().get_missing_texture());
+    std::shared_ptr<Texture> depth_texture = THROW(Texture::create(preview_size, preview_size, WGPUTextureFormat_Depth32Float, WGPUTextureUsage_RenderAttachment), Renderer::get().get_missing_texture());
+    std::shared_ptr<Texture> color_texture = THROW(Texture::create(preview_size, preview_size, WGPUTextureFormat_RGBA8Unorm, WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_TextureBinding), Renderer::get().get_missing_texture());
 
     WGPUCommandEncoder encoder = wgpuDeviceCreateCommandEncoder(Renderer::get().device(), nullptr);
 
@@ -230,7 +217,7 @@ Ref<Texture> GameRegistry::create_preview_texture(Ref<Block> block)
     rp.depthStencilAttachment = &depth_attach;
 
     WGPURenderPassEncoder render_encoder = wgpuCommandEncoderBeginRenderPass(encoder, &rp);
-    Renderer::get().draw(RenderPass(render_encoder, RenderTarget(depth_texture->format()), Vector<RenderTarget>::create(color_texture->format())), Renderer::get().get_cube_mesh(), material, bg);
+    Renderer::get().draw(RenderPass(render_encoder, RenderTarget(depth_texture->format()), {color_texture->format()}), Renderer::get().get_cube_mesh(), material, bg);
     wgpuRenderPassEncoderEnd(render_encoder);
     wgpuRenderPassEncoderRelease(render_encoder);
 
@@ -245,17 +232,17 @@ Ref<Texture> GameRegistry::create_preview_texture(Ref<Block> block)
     return color_texture;
 }
 
-Option<size_t> GameRegistry::get_image(const StringView& path)
+Option<size_t> GameRegistry::get_image(std::string_view path)
 {
     for (size_t i = 0; i < m_images.size(); i++)
     {
-        if (StringView(m_images[i].path) == path)
+        if (m_images[i].path == path)
             return i + 1;
     }
     return None;
 }
 
-Option<ItemStack> GameRegistry::match(const InplaceVector<Id<Item>, 9>& grid, int width, int height)
+Option<ItemStack> GameRegistry::match(const std::array<Id<Item>, MAX_RECIPE_SIZE>& grid, int width, int height)
 {
 
     for (const auto& r : m_recipes)
@@ -313,17 +300,17 @@ Option<ItemStack> GameRegistry::match(const InplaceVector<Id<Item>, 9>& grid, in
     return None;
 }
 
-Option<RpcTarget> GameRegistry::get_rpc(Entity *entity, const StringView& name) const
+Option<RpcTarget> GameRegistry::get_rpc(Entity *entity, std::string_view name) const
 {
     for (ssize_t i = (ssize_t)entity->get_classes().size() - 1; i >= 0; i--)
     {
         ClassHashCode class_hash = entity->get_classes()[i];
-        if (m_exposed_rpc.contains(class_hash))
+        auto rpcs = m_exposed_rpc.find(class_hash);
+        if (rpcs != m_exposed_rpc.end())
         {
-            const auto rpcs = m_exposed_rpc.get(class_hash).value();
-            Option<RpcTarget> target = rpcs.get(name);
-            if (target.has_value())
-                return target;
+            auto target = rpcs->second.find(name);
+            if (target != rpcs->second.end())
+                return target->second;
         }
     }
     return None;

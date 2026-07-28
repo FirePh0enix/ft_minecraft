@@ -1,11 +1,7 @@
 #pragma once
 
-#include "Block/Block.hpp"
-#include "Core/Containers/Vector.hpp"
 #include "Core/IO.hpp"
 #include "Entity/Entity.hpp"
-#include "World/Biome.hpp"
-#include "World/Chunk.hpp"
 
 #include <nlohmann/json.hpp>
 
@@ -76,7 +72,7 @@ public:
     }
 
     template <typename T>
-    void write_array(View<T> vec)
+    void write_array(std::span<const T> vec)
     {
         const size_t byte_len = vec.size() * sizeof(T);
 
@@ -94,9 +90,9 @@ public:
     }
 
     template <typename T>
-    Vector<T> read_array(size_t len)
+    std::vector<T> read_array(size_t len)
     {
-        Vector<T> values;
+        std::vector<T> values;
         values.resize(len);
 
         const size_t byte_len = len / sizeof(T);
@@ -108,47 +104,53 @@ public:
         return values;
     }
 
-    Vector<char> data() const { return m_data; }
+    std::span<const char> data() const { return m_data; }
 
 private:
-    Vector<char> m_data;
+    std::vector<char> m_data;
     char *m_ro_data = nullptr;
     size_t m_ro_data_size = 0;
     size_t m_cursor = 0;
 };
 
-struct BonjourPacket {
-    String username;
+struct BonjourPacket
+{
+    std::string username;
 
     static constexpr PacketType type = PacketType::Bonjour;
 };
-inline Result<void> serialize(DataBuffer& buffer, const BonjourPacket& p) {
+inline Result<void> serialize(DataBuffer& buffer, const BonjourPacket& p)
+{
     uint32_t size = p.username.size();
     buffer.write(size);
-    buffer.write_array(View<char>(p.username.data(), p.username.size()));
+    buffer.write_array(std::span(p.username.data(), p.username.size()));
     return Result<void>();
 }
-inline Result<void> deserialize(DataBuffer& buffer, BonjourPacket& p) {
+inline Result<void> deserialize(DataBuffer& buffer, BonjourPacket& p)
+{
     uint32_t size = buffer.read<uint32_t>();
-    Vector<char> string_buf = buffer.read_array<char>(size);
+    std::vector<char> string_buf = buffer.read_array<char>(size);
     p.username.append(string_buf.data(), string_buf.size());
     return Result<void>();
 }
 
-struct RefusedPacket {
-    String message;
+struct RefusedPacket
+{
+    std::string message;
 
     static constexpr PacketType type = PacketType::Refused;
 };
-inline Result<void> serialize(DataBuffer& buffer, const RefusedPacket& p) {
+inline Result<void> serialize(DataBuffer& buffer, const RefusedPacket& p)
+{
     uint32_t size = p.message.size();
     buffer.write(size);
-    buffer.write_array(View<char>(p.message.data(), p.message.size()));
+    buffer.write_array(std::span(p.message.data(), p.message.size()));
     return Result<void>();
 }
-inline Result<void> deserialize(DataBuffer& buffer, RefusedPacket& p) {
+inline Result<void> deserialize(DataBuffer& buffer, RefusedPacket& p)
+{
     uint32_t size = buffer.read<uint32_t>();
-    Vector<char> string_buf = buffer.read_array<char>(size);
+    std::vector<char> string_buf = buffer.read_array<char>(size);
     p.message.append(string_buf.data(), string_buf.size());
     return Result<void>();
 }
@@ -285,8 +287,8 @@ inline Result<void> deserialize(DataBuffer& buffer, UpdateEntityPacket& p)
 struct RpcCallPacket
 {
     EntityId id;
-    String name;
-    Vector<Variant> args;
+    std::string name;
+    std::vector<Variant> args;
 
     static constexpr PacketType type = PacketType::RpcCall;
 };
@@ -296,11 +298,12 @@ inline Result<void> serialize(DataBuffer& buffer, const RpcCallPacket& p)
 
     uint32_t name_size = p.name.size();
     buffer.write(name_size);
-    buffer.write_array(View(p.name.data(), p.name.size()));
+    buffer.write_array(std::span(p.name.data(), p.name.size()));
 
     BufferWriter writer;
-    for (const Variant& v : p.args) {
-	TRY(writer.write_variant(v));
+    for (const Variant& v : p.args)
+    {
+        TRY(writer.write_variant(v));
     }
 
     uint32_t size = writer.buffer().size();
@@ -314,21 +317,21 @@ inline Result<void> deserialize(DataBuffer& buffer, RpcCallPacket& p)
     p.id = buffer.read<EntityId>();
 
     uint32_t name_size = buffer.read<uint32_t>();
-    Vector<uint8_t> name_vec = buffer.read_array<uint8_t>(name_size);
+    std::vector<uint8_t> name_vec = buffer.read_array<uint8_t>(name_size);
 
     p.name.append((char *)name_vec.data(), name_vec.size());
 
     uint32_t size = buffer.read<uint32_t>();
-    Vector<uint8_t> data = buffer.read_array<uint8_t>(size);
+    std::vector<uint8_t> data = buffer.read_array<uint8_t>(size);
 
     BufferReader reader(data.data(), data.size());
-    for (;;) {
-	Option<Variant> v = TRY(reader.read_variant());
-	if (v.has_value()) {
-	    p.args.append(v.value());
-	} else {
-	    break;
-	}
+    for (;;)
+    {
+        Option<Variant> v = TRY(reader.read_variant());
+        if (v.has_value())
+            p.args.push_back(v.value());
+        else
+            break;
     }
 
     return Result<void>();
@@ -358,8 +361,8 @@ struct ChunkDataPacket
 {
     int64_t x;
     int64_t z;
-    Vector<uint8_t> blocks;
-    Vector<uint8_t> tags;
+    std::vector<uint8_t> blocks;
+    std::vector<uint8_t> tags;
 
     static constexpr PacketType type = PacketType::ChunkData;
 };
@@ -371,12 +374,12 @@ inline Result<void> serialize(DataBuffer& buffer, const ChunkDataPacket& p)
     uint32_t size = p.blocks.size();
     buffer.write(size);
 
-    buffer.write_array(View(p.blocks));
-    
+    buffer.write_array(std::span(p.blocks));
+
     size = p.tags.size();
     buffer.write(size);
 
-    buffer.write_array(View(p.tags));
+    buffer.write_array(std::span(p.tags));
     return Result<void>();
 }
 inline Result<void> deserialize(DataBuffer& buffer, ChunkDataPacket& p)
@@ -388,6 +391,6 @@ inline Result<void> deserialize(DataBuffer& buffer, ChunkDataPacket& p)
     p.blocks = buffer.read_array<uint8_t>(size);
 
     size = buffer.read<uint32_t>();
-    p.tags = buffer.read_array<uint8_t>(size);    
+    p.tags = buffer.read_array<uint8_t>(size);
     return Result<void>();
 }

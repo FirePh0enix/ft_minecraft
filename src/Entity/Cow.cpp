@@ -18,12 +18,12 @@ void Cow::tick(float delta)
     {
         if (!verify_if_path_still_valid())
         {
-            const glm::ivec3& to = m_path.value().look_points.get_unchecked(m_path.value().finish_line_index);
+            const glm::ivec3& to = m_path.value().look_points[m_path.value().finish_line_index];
             const int remaining_jump = m_on_ground ? 1 : 0;
             bool is_final_pos_reachable = m_pathfinding->is_walkable(to, remaining_jump);
 
             if (is_final_pos_reachable)
-                flee_to(m_path.value().look_points.get_unchecked(m_path.value().finish_line_index));
+                flee_to(m_path.value().look_points[m_path.value().finish_line_index]);
             else
                 flee_from(20);
         }
@@ -87,7 +87,7 @@ void Cow::flee_from(int radius)
         return;
     }
 
-    Vector<glm::vec3> waypoints = m_pathfinding->simplify_path(m_pathfinding->m_path);
+    std::vector<glm::vec3> waypoints = m_pathfinding->simplify_path(m_pathfinding->m_path);
     m_path = Path(waypoints, m_stopping_dst);
     m_following_path = true;
     // Cow is already at waypoint 0.

@@ -7,7 +7,7 @@ class CraftingTableInventory : public Inventory
     CLASS(CraftingTableInventory, Inventory);
 
 public:
-    CraftingTableInventory(Ref<InventoryContainer> inventory, Ref<InventoryContainer> player_inventory);
+    CraftingTableInventory(std::shared_ptr<InventoryContainer> inventory, std::shared_ptr<InventoryContainer> player_inventory);
 
     virtual void update(float d) override;
     virtual void draw(const RenderPass& pass) override;
@@ -20,6 +20,6 @@ public:
     void consume_ingredients();
 
 private:
-    Ref<InventoryContainer> m_player_inventory;
+    std::shared_ptr<InventoryContainer> m_player_inventory;
     bool m_dirty = false;
 };

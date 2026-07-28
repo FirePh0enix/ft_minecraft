@@ -35,16 +35,6 @@ struct SamplerDescriptor
     {
         return std::tie(min_filter, mag_filter, compare, address_mode.u, address_mode.v, address_mode.w) < std::tie(o.min_filter, o.mag_filter, o.compare, o.address_mode.u, o.address_mode.v, o.address_mode.w);
     }
-
-    bool operator>(const SamplerDescriptor& o) const
-    {
-        return std::tie(min_filter, mag_filter, compare, address_mode.u, address_mode.v, address_mode.w) > std::tie(o.min_filter, o.mag_filter, o.compare, o.address_mode.u, o.address_mode.v, o.address_mode.w);
-    }
-
-    bool operator==(const SamplerDescriptor& o) const
-    {
-        return std::tie(min_filter, mag_filter, compare, address_mode.u, address_mode.v, address_mode.w) == std::tie(o.min_filter, o.mag_filter, o.compare, o.address_mode.u, o.address_mode.v, o.address_mode.w);
-    }
 };
 
 enum class BindingKind : uint8_t

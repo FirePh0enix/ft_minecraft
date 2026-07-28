@@ -2,6 +2,8 @@
 #include "Core/Logger.hpp"
 #include "Core/Print.hpp"
 
+#include <cstring>
+
 #ifdef __has_libbacktrace
 #include <backtrace.h>
 #endif
@@ -63,8 +65,10 @@ void bt_error_callback(void *, const char *msg, int errnum)
 
 void Stacktrace::record()
 {
+#if !defined(__has_address_sanitizer) && !defined(__platform_web)
     int skip = 0;
     backtrace_full(bt_state, skip, (backtrace_full_callback)bt_callback, (backtrace_error_callback)bt_error_callback, &stacktrace);
+#endif
 }
 
 const Stacktrace& Stacktrace::current()
@@ -100,7 +104,7 @@ void Stacktrace::print(FILE *fp, size_t skip_frame) const
 
 void Error::print(FILE *fp)
 {
-    ::print(fp, "error: {} ({:x})", m_kind, (uint32_t)m_kind);
+    ::print(fp, "error: {} ({:x})", error_name(m_kind), (uint32_t)m_kind);
 
     if (is_graphics())
     {

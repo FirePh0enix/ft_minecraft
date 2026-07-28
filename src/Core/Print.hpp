@@ -1,63 +1,62 @@
 #pragma once
 
-#include "Core/Format.hpp"
+#include <cstdio>
+#include <format>
 
 template <typename... _Args>
-void print(FILE *fp, FormatString<_Args...> fmt, _Args&&...args)
+void print(FILE *fp, std::format_string<_Args...> fmt, _Args&&...args)
 {
-    String s = format(fmt, std::forward<_Args>(args)...);
+    std::string s = format(fmt, std::forward<_Args>(args)...);
     fwrite(s.data(), 1, s.size(), fp);
     fflush(fp);
 }
 
 template <>
-inline void print(FILE *fp, BasicFormatString<> fmt)
+inline void print(FILE *fp, std::format_string<> fmt)
 {
-    String s = format(fmt);
+    std::string s = format(fmt);
     fwrite(s.data(), 1, s.size(), fp);
     fflush(fp);
 }
 
 template <typename... _Args>
-void print(FormatString<_Args...> fmt, _Args&&...args)
+void print(std::format_string<_Args...> fmt, _Args&&...args)
 {
     print(stdout, fmt, std::forward<_Args>(args)...);
 }
 
 template <>
-inline void print(BasicFormatString<> fmt)
+inline void print(std::format_string<> fmt)
 {
     print(stdout, fmt);
 }
 
 template <typename... _Args>
-void println(FILE *fp, FormatString<_Args...> fmt, _Args&&...args)
+void println(FILE *fp, std::format_string<_Args...> fmt, _Args&&...args)
 {
-    // TODO: should not call `format` directly since it allocate memory.
-
-    String s = format(fmt, std::forward<_Args>(args)...);
+    std::string s = format(fmt, std::forward<_Args>(args)...);
     fwrite(s.data(), 1, s.size(), fp);
     fputc('\n', fp);
     fflush(fp);
 }
 
 template <>
-inline void println(FILE *fp, FormatString<> fmt)
+inline void println(FILE *fp, std::format_string<> fmt)
 {
-    String s = format(fmt);
+    std::string s = format(fmt);
     fwrite(s.data(), 1, s.size(), fp);
     fputc('\n', fp);
     fflush(fp);
 }
 
 template <typename... _Args>
-void println(FormatString<_Args...> fmt, _Args&&...args)
+void println(std::format_string<_Args...> fmt, _Args&&...args)
 {
     println(stdout, fmt, std::forward<_Args>(args)...);
 }
 
 template <typename... _Args>
-void println(FormatString<> fmt)
+void println(std::format_string<> fmt)
 {
     println(stdout, fmt);
 }

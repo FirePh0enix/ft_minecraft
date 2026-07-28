@@ -7,8 +7,12 @@
 #include <emscripten/html5.h>
 #endif
 
-Window::Window(const String& title, uint32_t width, uint32_t height, bool resizable)
+Window::Window(std::string_view title, uint32_t width, uint32_t height, bool resizable)
 {
+    (void)width;
+    (void)height;
+    (void)resizable;
+
 #ifndef __platform_web
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS))
     {
@@ -32,8 +36,10 @@ Window::Window(const String& title, uint32_t width, uint32_t height, bool resiza
 
     const SDL_DisplayMode *dm = SDL_GetDesktopDisplayMode(displays[0]);
     constexpr float factor = 0.9;
-    int w = float(dm->w) * factor;
-    int h = float(dm->h) * factor;
+    int w = int(float(dm->w) * factor);
+    int h = int(float(dm->h) * factor);
+
+    SDL_free(displays);
 
     m_window = SDL_CreateWindow(title.data(), w, h, flags);
 

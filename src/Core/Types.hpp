@@ -25,3 +25,6 @@ struct Extent2D
 #define GPU_ATTRIBUTE __attribute__((aligned(16)))
 
 #define _aligned(A) __attribute__((aligned(A)))
+
+// Only way to force function inlining.
+#define ALWAYS_INLINE inline __attribute__((always_inline))

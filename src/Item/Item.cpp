@@ -3,9 +3,9 @@
 #include "Engine.hpp"
 #include "World/World.hpp"
 
-static bool has_major_entities(const Vector<Ref<Entity>>& entities)
+static bool has_major_entities(const std::vector<std::shared_ptr<Entity>>& entities)
 {
-    for (const Ref<Entity>& entity : entities)
+    for (const std::shared_ptr<Entity>& entity : entities)
     {
         if (!entity->is<ItemBlock>())
             return true;
@@ -20,7 +20,7 @@ void ItemBlock::interact(World& world, size_t dimension, ItemStack& stack, glm::
         return;
     }
 
-    Vector<Ref<Entity>> entities = world.get_dimension(dimension).cast_box(AABB(-glm::vec3(0.5), glm::vec3(0.5)).translate(pos + normal));
+    std::vector<std::shared_ptr<Entity>> entities = world.get_dimension(dimension).cast_box(AABB(-glm::vec3(0.5), glm::vec3(0.5)).translate(pos + normal));
     if (has_major_entities(entities))
     {
         return;

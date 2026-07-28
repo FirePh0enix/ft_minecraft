@@ -2,11 +2,9 @@
 
 #include "AABB.hpp"
 #include "Core/Class.hpp"
-#include "Core/Containers/HashMap.hpp"
-#include "Core/Containers/LocalVector.hpp"
-#include "Core/Definitions.hpp"
-#include "Core/Ref.hpp"
-#include "Core/String.hpp"
+#include "Core/Option.hpp"
+#include "Core/Result.hpp"
+#include "Core/Types.hpp"
 #include "Event.hpp"
 #include "Transform3D.hpp"
 
@@ -25,7 +23,7 @@ enum class RpcTarget
 
 struct EntityId
 {
-    EntityId()
+    constexpr EntityId()
         : m_inner(0)
     {
     }
@@ -51,39 +49,70 @@ struct EntityId
     }
 
     ALWAYS_INLINE bool is_valid() const { return m_inner != 0; }
+    ALWAYS_INLINE uint32_t value() const { return m_inner; }
 
 private:
     uint32_t m_inner;
+};
+
+template <>
+struct std::formatter<EntityId>
+{
+    template <class ParseContext>
+    constexpr ParseContext::iterator parse(ParseContext& ctx)
+    {
+        auto it = ctx.begin();
+        if (it == ctx.end())
+            return it;
+        return it;
+    }
+
+    template <typename FmtContext>
+    FmtContext::iterator format(EntityId id, FmtContext& ctx)
+    {
+        std::ostringstream os;
+        os << "EntityId(";
+        os << id.value();
+        os << ")";
+        return std::ranges::copy(std::move(os).str(), ctx.out());
+    }
 };
 
 class EntitySerializer
 {
 public:
     template <typename T>
-    void set(const StringView& attrib, const T& value)
+    void set(std::string_view attrib, const T& value)
     {
-        m_variants.put(attrib, Variant(value));
+        m_variants[std::string(attrib)] = Variant(value);
     }
 
     template <typename T>
-    Option<T> get(const StringView& attrib) const
+    Option<T> get(std::string_view attrib) const
     {
-        return m_variants.get(attrib).template map<T>([](const Variant& v) -> T
-                                                      { return v.get_unchecked<T>(); });
+        auto iter = m_variants.find(attrib);
+        if (iter != m_variants.end())
+            return iter->second.get_unchecked<T>();
+        return None;
     }
 
     template <typename T>
-    Option<Vector<T>> get_array(const StringView& attrib) const
+    Option<std::vector<T>> get_array(std::string_view attrib) const
     {
-        return m_variants.get(attrib).template map<Vector<T>>([](const Variant& v) -> Vector<T>
-                                                              { return v.to_array<T>(); });
+        auto iter = m_variants.find(attrib);
+        if (iter != m_variants.end())
+            return iter->second.to_array<T>();
+        return None;
+
+        // return m_variants.get(attrib).template map<std::vector<T>>([](const Variant& v) -> std::vector<T>
+        //                                                            { return v.to_array<T>(); });
     }
 
-    Result<void> save(const StringView& path) const;
-    Result<void> load(const StringView& path);
+    Result<void> save(std::string_view path) const;
+    Result<void> load(std::string_view path);
 
 private:
-    HashMap<String, Variant> m_variants;
+    stdext::string_map<Variant> m_variants;
 };
 
 class Entity : public Object
@@ -147,12 +176,12 @@ public:
 
     Transform3D get_global_transform() const;
 
-    void add_child(Ref<Entity> entity);
+    void add_child(std::shared_ptr<Entity> entity);
     void remove_child(size_t index);
 
-    Ref<Entity> get_child(size_t index);
+    std::shared_ptr<Entity> get_child(size_t index);
 
-    ALWAYS_INLINE View<Ref<Entity>> get_children() const { return m_children; }
+    ALWAYS_INLINE const std::vector<std::shared_ptr<Entity>>& get_children() const { return m_children; }
 
     ALWAYS_INLINE Entity *get_parent() const { return m_parent; }
     ALWAYS_INLINE void set_parent(Entity *parent) { m_parent = parent; }
@@ -168,14 +197,14 @@ public:
     glm::quat get_rotation() const { return get_transform().rotation(); }
 
     template <typename... Args>
-    void call_rpc(const StringView& name, Args&&...args)
+    void call_rpc(std::string_view name, Args&&...args)
     {
-        Vector<Variant> variants;
-	(void(variants.append(std::forward<Args>(args))), ...);
+        std::vector<Variant> variants;
+        (void(variants.push_back(std::forward<Args>(args))), ...);
         call_rpci(name, variants);
     }
 
-    void call_rpc(const StringView& name) { call_rpci(name, {}); }
+    void call_rpc(std::string_view name) { call_rpci(name, {}); }
 
     const AABB& get_aabb() const { return m_aabb; }
 
@@ -183,7 +212,7 @@ public:
 
     ALWAYS_INLINE bool is_active() const { return m_active; }
 
-    Option<RpcTarget> get_rpc(StringView name);
+    Option<RpcTarget> get_rpc(std::string_view name);
 
     void move_and_collide();
     bool is_in_water() const;
@@ -191,8 +220,8 @@ public:
 
 protected:
     EntityId m_id;
-    Entity *m_parent = nullptr; // FIXME: This must be changed by either a Ref<Entity> or a EntityId.
-    LocalVector<Ref<Entity>> m_children;
+    Entity *m_parent = nullptr; // FIXME: This must be changed by either a std::shared_ptr<Entity> or a EntityId.
+    std::vector<std::shared_ptr<Entity>> m_children;
     Transform3D m_transform;
     AABB m_aabb;
 
@@ -209,8 +238,8 @@ protected:
     bool m_blocked_z = false;
 
     template <typename T>
-    static void expose_rpc(String name, RpcTarget target = RpcTarget::Both) { expose_rpc(T::get_static_hash_code(), name, target); }
-    static void expose_rpc(ClassHashCode cls, String name, RpcTarget target = RpcTarget::Both);
+    static void expose_rpc(std::string_view name, RpcTarget target = RpcTarget::Both) { expose_rpc(T::get_static_hash_code(), name, target); }
+    static void expose_rpc(ClassHashCode cls, std::string_view name, RpcTarget target = RpcTarget::Both);
 
-    void call_rpci(StringView name, View<Variant> args);
+    void call_rpci(std::string_view name, std::span<const Variant> args);
 };

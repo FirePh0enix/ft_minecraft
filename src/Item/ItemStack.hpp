@@ -15,7 +15,7 @@ public:
     {
     }
 
-    ItemStack(Id<Item> item, size_t count = 1, const Map<String, Variant>& tags = {})
+    ItemStack(Id<Item> item, size_t count = 1, const std::map<std::string, Variant>& tags = {})
         : m_item(item), m_count(count), m_tags(tags)
     {
     }
@@ -39,16 +39,16 @@ public:
 
     void sub(size_t count);
 
-    void set_tag(const StringView& name, Variant variant) { m_tags.put(name, variant); }
-    void remove_tag(const StringView& name) { m_tags.erase(name); }
+    void set_tag(const std::string& name, Variant variant) { m_tags[name] = variant; }
+    void remove_tag(const std::string& name) { m_tags.erase(m_tags.find(name)); }
 
     template <typename T>
-    Option<T> get_tag(const StringView& name) const { return m_tags.get(name); }
+    Option<T> get_tag(const std::string& name) const { return m_tags.find(name)->second; }
 
-    Map<String, Variant> get_tags() const { return m_tags; }
+    const std::map<std::string, Variant>& get_tags() const { return m_tags; }
 
 private:
     Id<Item> m_item;
     size_t m_count;
-    Map<String, Variant> m_tags;
+    std::map<std::string, Variant> m_tags;
 };

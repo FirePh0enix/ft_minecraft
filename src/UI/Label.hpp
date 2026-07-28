@@ -8,9 +8,9 @@ class Label : public UI
     CLASS(Label, UI);
 
 public:
-    Label(Ref<Font> font);
+    Label(std::shared_ptr<Font> font);
 
-    void set_text(String text);
+    void set_text(const std::string& text);
 
     virtual void update(float d) override;
     virtual void process_event(Event& event) override;

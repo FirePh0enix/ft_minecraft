@@ -1,10 +1,8 @@
 #include "Engine.hpp"
 
 #include "Console.hpp"
-#include "Core/Alloc.hpp"
 #include "Core/Filesystem.hpp"
 #include "Core/Logger.hpp"
-#include "Core/Ref.hpp"
 #include "Core/Result.hpp"
 #include "Core/Types.hpp"
 #include "Entity/Cow.hpp"
@@ -20,9 +18,13 @@
 #include "World/World.hpp"
 
 #include <backends/imgui_impl_sdl3.h>
+#include <cstdlib>
+#include <imgui.h>
+
 #include <cstddef>
 #include <ctime>
-#include <imgui.h>
+#include <format>
+#include <memory>
 
 constexpr int two_d_to_1d(int x, int y)
 {
@@ -36,7 +38,7 @@ Engine::Engine(bool disable_save)
     : m_disable_save(disable_save)
 {
     singleton = this;
-    m_window = newref<Window>("ft_minecraft", WINDOW_INIT_WIDTH, WINDOW_INIT_HEIGHT);
+    m_window = std::make_shared<Window>("ft_minecraft", WINDOW_INIT_WIDTH, WINDOW_INIT_HEIGHT);
 
     Input::init(*m_window);
     Input::load_config();
@@ -51,14 +53,14 @@ Engine::Engine(bool disable_save)
     EXPECT(Font::init_library());
     m_font = EXPECT(Font::create("assets/fonts/Anonymous.ttf", 32));
 
-    m_console.register_command("tp", Vector<CmdArgInfo>::create(CmdArgInfo(CmdArgKind::Int, "x"), CmdArgInfo(CmdArgKind::Int, "y"), CmdArgInfo(CmdArgKind::Int, "z")),
+    m_console.register_command("tp", {CmdArgInfo(CmdArgKind::Int, "x"), CmdArgInfo(CmdArgKind::Int, "y"), CmdArgInfo(CmdArgKind::Int, "z")},
                                [](const Command& cmd)
                                { Engine::get().get_player()->set_position(glm::vec3(cmd.get_arg_int("x"), cmd.get_arg_int("y"), cmd.get_arg_int("z"))); });
 
-    m_console.register_command("gamemode", Vector<CmdArgInfo>::create(CmdArgInfo(CmdArgKind::String, "gamemode")),
+    m_console.register_command("gamemode", {CmdArgInfo(CmdArgKind::String, "gamemode")},
                                [](const Command& cmd)
                                {
-                                   String mode = cmd.get_arg_string("gamemode");
+                                   std::string_view mode = cmd.get_arg_string("gamemode");
                                    if (mode == "survival")
                                    {
                                        Engine::get().get_player()->set_gamemode(GameMode::Survival);
@@ -87,6 +89,7 @@ void Engine::register_entities()
 }
 
 // TODO: Create a helper for creating recipe maybe ?
+// TODO: YAML should do the trick.
 void Engine::register_recipes()
 {
     Recipe crafting_table;
@@ -95,7 +98,7 @@ void Engine::register_recipes()
     crafting_table.height = 2;
 
     for (size_t i = 0; i < 9; i++)
-        crafting_table.pattern.push_back(Id<Item>());
+        crafting_table.pattern[i] = Id<Item>();
 
     crafting_table.pattern[two_d_to_1d(0, 0)] = Items::stone_block;
     crafting_table.pattern[two_d_to_1d(1, 0)] = Items::stone_block;
@@ -174,7 +177,7 @@ void Engine::tick(float delta)
     m_current_tps++;
     if (m_last_second_timer_time >= 1.0)
     {
-        m_current_memory_usage = core::get_memory_usage();
+        m_current_memory_usage = 0; // TODO
         m_tps = m_current_tps;
         m_current_tps = 0;
         m_last_second_timer_time -= 1.0;
@@ -304,12 +307,12 @@ void Engine::create_world_and_start()
     m_connection.set_disconnect_handler(&Engine::disconnect_server, this);
     m_connection.set_packet_handler(&Engine::receive_server, this);
 
-    uint64_t seed = StringView(m_world_seed_buf).parse_int<uint64_t>();
-    String name = "unamed";
+    uint64_t seed = std::stoull(m_world_seed_buf);
+    std::string name = "unamed";
 
     m_ticks_since_start_of_day = ticks_per_day / 2;
 
-    if (Filesystem::exists(format("{}saves/{}", Filesystem::get_data_directory(), name)))
+    if (Filesystem::exists(std::format("{}saves/{}", Filesystem::get_data_directory(), name)))
     {
         info("loading existing world `{}`", name);
         m_world = EXPECT(World::load(name));
@@ -321,24 +324,24 @@ void Engine::create_world_and_start()
     }
 
     // TODO: Add way to personalize username.
-    String username = "john";
+    std::string username = "john";
 
-    m_player = newref<Player>();
+    m_player = std::make_shared<Player>();
     m_player->set_username(username);
     m_world->add_entity(World::overworld, m_player);
 
     if (m_world->is_player_saved(username))
-	m_world->load_player(username, m_player);
+        m_world->load_player(username, m_player);
     else
         m_player->get_transform().position() = m_world->get_spawn_position();
 
     m_world->force_load_chunk_for(m_player->get_position());
 
-    // Ref<Entity> cow = EXPECT(newref<Cow>());
+    // std::shared_ptr<Entity> cow = EXPECT(std::make_shared<Cow>());
     // cow->get_transform().position() = m_player->get_position();
     // m_world->add_entity(World::overworld, cow);
 
-    // Ref<Entity> zombie = newref<Zombie>();
+    // std::shared_ptr<Entity> zombie = std::make_shared<Zombie>();
     // zombie->get_transform().position() = m_player->get_position();
     // m_world->add_entity(World::overworld, zombie);
 
@@ -370,15 +373,16 @@ void Engine::receive_client(void *user, NetworkConnection& conn, ENetPacket *pac
 
     switch (type)
     {
-    case PacketType::Refused: {
-	RefusedPacket p;
-	EXPECT(deserialize(buffer, p));
+    case PacketType::Refused:
+    {
+        RefusedPacket p;
+        EXPECT(deserialize(buffer, p));
 
-	info("Connection error: {}", p.message);
+        info("Connection error: {}", p.message);
 
-	conn.close();
-	self->m_world = nullptr;
-	self->m_scene = GameScene::MainMenu;
+        conn.close();
+        self->m_world = nullptr;
+        self->m_scene = GameScene::MainMenu;
     };
     break;
     case PacketType::Init:
@@ -389,13 +393,13 @@ void Engine::receive_client(void *user, NetworkConnection& conn, ENetPacket *pac
         self->m_world = EXPECT(World::create_proxy(p.seed));
         self->m_scene = GameScene::World;
 
-        self->m_player = newref<Player>();
+        self->m_player = std::make_shared<Player>();
         self->m_player->set_id(p.id);
         self->m_player->get_transform().position() = p.position;
 
         self->m_world->add_entity(0, self->m_player);
 
-        debug("Init packet received, entity id is {}, spawn at [{}, {}, {}]", p.id, p.position.x, p.position.y, p.position.z);
+        debug("Init packet received, entity id is {}, spawn at [{}, {}, {}]", p.id.value(), p.position.x, p.position.y, p.position.z);
     }
     break;
     case PacketType::AddEntity:
@@ -405,12 +409,12 @@ void Engine::receive_client(void *user, NetworkConnection& conn, ENetPacket *pac
 
         debug("new entity (class_id = {}, id = {})", p.class_id.value, (uint32_t)p.id);
 
-        Ref<Entity> entity = EXPECT(self->m_entity_registry.create_entity(p.class_id));
+        std::shared_ptr<Entity> entity = EXPECT(self->m_entity_registry.create_entity(p.class_id));
         entity->set_id(p.id);
         entity->get_transform().position() = p.position;
         entity->get_transform().rotation() = p.rotation;
 
-        if (Ref<Player> player = entity)
+        if (std::shared_ptr<Player> player = std::dynamic_pointer_cast<Player>(entity))
             player->set_remote();
 
         self->m_world->add_entity(World::overworld, entity);
@@ -430,12 +434,12 @@ void Engine::receive_client(void *user, NetworkConnection& conn, ENetPacket *pac
         UpdateEntityPacket p;
         EXPECT(deserialize(buffer, p));
 
-        Ref<Entity> entity = self->m_world->get_entity(p.id);
-        if (entity.is_null())
+        std::shared_ptr<Entity> entity = self->m_world->get_entity(p.id);
+        if (entity == nullptr)
             break;
 
-	// debug("update entity (id = {})", (uint32_t)p.id);
-	
+        // debug("update entity (id = {})", (uint32_t)p.id);
+
         entity->get_transform().position() = p.position;
         entity->get_transform().rotation() = p.rotation;
     }
@@ -447,20 +451,20 @@ void Engine::receive_client(void *user, NetworkConnection& conn, ENetPacket *pac
 
         debug("call `{}` with {} args on entity {}", p.name, p.args.size(), (uint32_t)p.id);
 
-        Ref<Entity> entity = self->m_world->get_entity(p.id);
-        if (entity.is_null())
+        std::shared_ptr<Entity> entity = self->m_world->get_entity(p.id);
+        if (entity == nullptr)
             break;
 
-        Vector<Variant> variants;
+        std::vector<Variant> variants;
         variants.reserve(p.args.size());
         for (const Variant& v : p.args)
-            variants.append(v);
+            variants.push_back(v);
 
         Option<RpcTarget> rpc = entity->get_rpc(p.name);
         if (!rpc.has_value())
             break;
 
-	// We are on the client, so skip call to server RPCs.
+        // We are on the client, so skip call to server RPCs.
         if (rpc == RpcTarget::Server)
             break;
 
@@ -471,8 +475,8 @@ void Engine::receive_client(void *user, NetworkConnection& conn, ENetPacket *pac
     {
         ChunkDataPacket p;
         EXPECT(deserialize(buffer, p));
-	
-	self->m_world->deferred_receive_chunk(p);
+
+        self->m_world->deferred_receive_chunk(p);
     }
     break;
     default:
@@ -514,45 +518,48 @@ void Engine::receive_server(void *user, NetworkConnection& conn, ENetPacket *pac
 
     switch (type)
     {
-    case PacketType::Bonjour: {
-	BonjourPacket p;
-	EXPECT(deserialize(buffer, p));
-	
-	if (self->has_player_with_name(p.username)) {
-	    RefusedPacket p2;
-	    p2.message = format("`{}` is already connected", p.username);
-	    conn.send(client.peer(), conn.create_packet(p2));
-	    break;
-	}
-	
-	EntityId id = World::next_id();
+    case PacketType::Bonjour:
+    {
+        BonjourPacket p;
+        EXPECT(deserialize(buffer, p));
 
-	Ref<Player> player = newref<Player>();
-	player->set_remote();
-	player->set_id(id);
-	player->get_transform().position() = self->m_world->get_spawn_position();
-	player->set_username(p.username);
-	
-	// TODO: Send inventory content, maybe with a separate packet.
-	if (self->m_world->is_player_saved(p.username)) {
-	    self->m_world->load_player(p.username, player);
-	}
+        if (self->has_player_with_name(p.username))
+        {
+            RefusedPacket p2;
+            p2.message = std::format("`{}` is already connected", p.username);
+            conn.send(client.peer(), conn.create_packet(p2));
+            break;
+        }
 
-	InitPacket init_p(self->m_world->seed(), id, player->get_transform().position());
-	conn.send(client.peer(), conn.create_packet(init_p));
+        EntityId id = World::next_id();
 
-	for (Ref<Entity> entity : self->m_world->get_dimension(0).get_entities())
-	    {
-		Transform3D transform = entity->get_transform();
-		AddEntityPacket p2(transform.position(), transform.rotation(), entity->id(), entity->get_class_hash_code());
-		conn.send(client.peer(), conn.create_packet(p2));
-	    }
+        std::shared_ptr<Player> player = std::make_shared<Player>();
+        player->set_remote();
+        player->set_id(id);
+        player->get_transform().position() = self->m_world->get_spawn_position();
+        player->set_username(p.username);
 
-	self->m_world->add_entity(0, player);
-	self->m_players.put(client.peer(), player);
+        // TODO: Send inventory content, maybe with a separate packet.
+        if (self->m_world->is_player_saved(p.username))
+        {
+            self->m_world->load_player(p.username, player);
+        }
 
-	AddEntityPacket p2(player->get_transform().position(), player->get_transform().rotation(), id, player->get_class_hash_code());
-	conn.broadcast(conn.create_packet(p2), client.peer());
+        InitPacket init_p(self->m_world->seed(), id, player->get_transform().position());
+        conn.send(client.peer(), conn.create_packet(init_p));
+
+        for (std::shared_ptr<Entity> entity : self->m_world->get_dimension(0).get_entities())
+        {
+            Transform3D transform = entity->get_transform();
+            AddEntityPacket p2(transform.position(), transform.rotation(), entity->id(), entity->get_class_hash_code());
+            conn.send(client.peer(), conn.create_packet(p2));
+        }
+
+        self->m_world->add_entity(0, player);
+        self->m_players[client.peer()] = player;
+
+        AddEntityPacket p2(player->get_transform().position(), player->get_transform().rotation(), id, player->get_class_hash_code());
+        conn.broadcast(conn.create_packet(p2), client.peer());
     };
     break;
     case PacketType::SendPlayerTransform:
@@ -560,8 +567,8 @@ void Engine::receive_server(void *user, NetworkConnection& conn, ENetPacket *pac
         SendPlayerTransformPacket p;
         EXPECT(deserialize(buffer, p));
 
-        Ref<Entity> entity = self->m_world->get_entity(p.id);
-        if (entity.is_null())
+        std::shared_ptr<Entity> entity = self->m_world->get_entity(p.id);
+        if (entity == nullptr)
             break;
 
         entity->get_transform().position() = p.position;
@@ -570,11 +577,11 @@ void Engine::receive_server(void *user, NetworkConnection& conn, ENetPacket *pac
     break;
     case PacketType::RequestChunk:
     {
-	RequestChunkPacket p;
-	EXPECT(deserialize(buffer, p));
+        RequestChunkPacket p{};
+        EXPECT(deserialize(buffer, p));
 
-	// TODO: handle different dimension here.
-	self->m_world->request_chunk(client.peer(), 0, p.x, p.z);
+        // TODO: handle different dimension here.
+        self->m_world->request_chunk(client.peer(), 0, p.x, p.z);
     };
     break;
     case PacketType::RpcCall:
@@ -582,9 +589,9 @@ void Engine::receive_server(void *user, NetworkConnection& conn, ENetPacket *pac
         RpcCallPacket p;
         EXPECT(deserialize(buffer, p));
 
-        Ref<Entity> entity = self->m_world->get_entity(p.id);
-	debug("received RPC call on {}", (uint32_t)p.id);
-        if (entity.is_null())
+        std::shared_ptr<Entity> entity = self->m_world->get_entity(p.id);
+        debug("received RPC call on {}", (uint32_t)p.id);
+        if (entity == nullptr)
             break;
 
         Option<RpcTarget> rpc = entity->get_rpc(p.name);
@@ -616,7 +623,7 @@ void Engine::disconnect_server(void *user, NetworkConnection& conn, const Client
     (void)client;
     Engine *self = (Engine *)user;
 
-    Ref<Player> player = self->m_players.get(client.peer()).value();
+    std::shared_ptr<Player> player = std::dynamic_pointer_cast<Player>(self->m_players.at(client.peer()));
 
     RemoveEntityPacket p(player->id());
     conn.broadcast(conn.create_packet(p), client.peer());

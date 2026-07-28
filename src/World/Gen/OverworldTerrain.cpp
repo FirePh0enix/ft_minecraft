@@ -7,7 +7,7 @@ void OverworldTerrainPass::init(GenDesc& desc)
     (void)desc;
 }
 
-void OverworldTerrainPass::gen(const Gen& gen, int64_t x, int64_t y, int64_t z, BlockState& state, BlockTags& tags, Biome& biome)
+void OverworldTerrainPass::gen(Gen& gen, int64_t x, int64_t y, int64_t z, BlockState& state, BlockTags& tags, Biome& biome)
 {
     (void)x;
     (void)z;
@@ -43,6 +43,6 @@ void OverworldTerrainPass::gen(const Gen& gen, int64_t x, int64_t y, int64_t z, 
     }
     else if (y <= ocean_level)
     {
-        tags.tags.put("water", int64_t(1));
+        tags.tags["water"] = int64_t(1);
     }
 }

@@ -6,7 +6,7 @@ void MountainPass::init(GenDesc& desc)
     desc.add_buffer("mountain", sizeof(float));
 }
 
-void MountainPass::gen(const Gen& gen, int64_t x, int64_t y, int64_t z, BlockState& state, BlockTags& tags, Biome& biome)
+void MountainPass::gen(Gen& gen, int64_t x, int64_t y, int64_t z, BlockState& state, BlockTags& tags, Biome& biome)
 {
     (void)y;
     (void)state;

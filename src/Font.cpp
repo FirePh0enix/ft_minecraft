@@ -1,21 +1,19 @@
 #include "Font.hpp"
-#include "Core/Containers/Array.hpp"
-#include "Core/Containers/Vector.hpp"
 #include "Render/Renderer.hpp"
-#include "Render/Types.hpp"
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
 
-static FT_Library g_lib;
-static Ref<Mesh> g_mesh;
-// static Ref<Shader> g_shader;
+#include <memory>
 
-Result<Ref<Font>> Font::create(const StringView& font_name, uint32_t font_size)
+static FT_Library g_lib;
+static std::shared_ptr<Mesh> g_mesh;
+
+Result<std::shared_ptr<Font>> Font::create(std::string_view font_name, uint32_t font_size)
 {
     uint32_t bmp_height = 0;
     uint32_t bmp_width = 0;
-    HashMap<uint8_t, Vector<char>> data;
+    std::map<uint8_t, std::vector<char>> data;
 
     FT_Face face;
 
@@ -26,7 +24,7 @@ Result<Ref<Font>> Font::create(const StringView& font_name, uint32_t font_size)
 
     FT_Set_Pixel_Sizes(face, 0, font_size);
 
-    Ref<Font> font = newref<Font>();
+    std::shared_ptr<Font> font = std::make_shared<Font>();
 
     for (uint8_t c = 0; c < 128; c++)
     {
@@ -44,21 +42,21 @@ Result<Ref<Font>> Font::create(const StringView& font_name, uint32_t font_size)
             .advance = (uint32_t)face->glyph->advance.x,
         };
 
-        font->m_characters.put(c, character);
+        font->m_characters[c] = character;
 
         if (face->glyph->bitmap.width > 0)
         {
-            Vector<char> char_data;
+            std::vector<char> char_data;
             char_data.resize(face->glyph->bitmap.width * face->glyph->bitmap.rows);
             auto glyph_buffer = face->glyph->bitmap.buffer;
 
             memcpy(char_data.data(), glyph_buffer, face->glyph->bitmap.width * face->glyph->bitmap.rows);
-            data.put(c, char_data);
+            data[c] = char_data;
         }
         bmp_width += face->glyph->bitmap.width;
     }
 
-    LocalVector<uint8_t> buffer;
+    std::vector<uint8_t> buffer;
     buffer.resize(bmp_height * bmp_width);
 
     uint32_t xpos = 0;
@@ -70,8 +68,8 @@ Result<Ref<Font>> Font::create(const StringView& font_name, uint32_t font_size)
             continue;
         }
 
-        const Font::Character character = font->m_characters.get(i).value();
-        const Vector<char>& char_data = *data.get_ptr(i).value();
+        const Font::Character character = font->m_characters[i];
+        const std::vector<char>& char_data = data[i];
 
         const int width = character.size.x;
         const int height = character.size.y;
@@ -80,8 +78,8 @@ Result<Ref<Font>> Font::create(const StringView& font_name, uint32_t font_size)
         {
             for (int j = 0; j < height; j++)
             {
-                const char byte = char_data.get_unchecked(i + j * width);
-                buffer.get_unchecked((i + xpos) + j * bmp_width) = byte;
+                const char byte = char_data[i + j * width];
+                buffer[(i + xpos) + j * bmp_width] = byte;
             }
         }
         xpos += width;
@@ -91,7 +89,7 @@ Result<Ref<Font>> Font::create(const StringView& font_name, uint32_t font_size)
     font->m_height = bmp_height;
 
     font->m_bitmap = TRY(Texture::create(bmp_width, bmp_height, WGPUTextureFormat_R8Unorm, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding));
-    font->m_bitmap->update(buffer);
+    font->m_bitmap->update(std::as_bytes(std::span(buffer)));
 
     return font;
 }
@@ -107,27 +105,27 @@ Result<void> Font::init_library()
     if (res != 0)
         return Error(ErrorKind::FileNotFound);
 
-    Array<uint16_t, 6> indices = {0, 1, 2, 0, 2, 3};
-    Array<glm::vec3, 4> vertices = {
+    std::array<uint16_t, 6> indices = {0, 1, 2, 0, 2, 3};
+    std::array<glm::vec3, 4> vertices = {
         glm::vec3(-0.5, 0.0, -1.0),
         glm::vec3(0.5, 0.0, -1.0),
         glm::vec3(0.5, -1.0, -1.0),
         glm::vec3(-0.5, -1.0, -1.0)};
-    Array<glm::vec3, 4> normals = {
+    std::array<glm::vec3, 4> normals = {
         glm::vec3(),
         glm::vec3(),
         glm::vec3(),
         glm::vec3(),
 
     };
-    Array<glm::vec2, 4> uvs = {
+    std::array<glm::vec2, 4> uvs = {
         glm::vec2(0.0, 0.0),
         glm::vec2(1.0, 0.0),
         glm::vec2(1.0, 1.0),
         glm::vec2(0.0, 1.0),
     };
 
-    g_mesh = EXPECT(Mesh::create_from_data(View(indices).as_bytes(), vertices, normals, View(uvs).as_bytes(), WGPUIndexFormat_Uint16));
+    g_mesh = EXPECT(Mesh::create_from_data(std::as_bytes(std::span(indices)), vertices, normals, std::as_bytes(std::span(uvs)), WGPUIndexFormat_Uint16));
     return Result<void>();
 }
 
@@ -137,7 +135,7 @@ void Font::deinit_library()
     FT_Done_FreeType(g_lib);
 }
 
-Text::Text(Ref<Font> font)
+Text::Text(std::shared_ptr<Font> font)
     : m_font(font), m_instance_buffer(nullptr), m_capacity(0), m_size(0)
 {
     m_uniform.color = glm::vec4(0.0, 0.0, 0.0, 1.0);
@@ -152,7 +150,7 @@ Text::Text(Ref<Font> font)
     m_bg->set_param("bitmap", font->get_bitmap());
 }
 
-Text::Text(size_t capacity, Ref<Font> font)
+Text::Text(size_t capacity, std::shared_ptr<Font> font)
     : Text(font)
 {
     m_uniform.color = glm::vec4(0.0, 0.0, 0.0, 1.0);
@@ -163,7 +161,7 @@ Text::Text(size_t capacity, Ref<Font> font)
     m_instance_buffer = EXPECT(Buffer::create(m_capacity * sizeof(Font::Instance), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Vertex));
 }
 
-void Text::set(const String& text)
+void Text::set(const std::string& text)
 {
     float offset_x = 0;
 
@@ -177,7 +175,7 @@ void Text::set(const String& text)
     }
 
     constexpr size_t batch_size = 32;
-    Array<Font::Instance, batch_size> instances{};
+    std::array<Font::Instance, batch_size> instances{};
 
     for (size_t i = 0; i < text.size(); i++)
     {
@@ -203,8 +201,8 @@ void Text::set(const String& text)
         if (i % batch_size == batch_size - 1 || i == text.size() - 1)
         {
             const size_t size = i + batch_size < text.size() ? batch_size : i - (i / batch_size) * batch_size + 1;
-            View<Font::Instance> span(instances.data(), size);
-            m_instance_buffer->update(span.as_bytes(), batch_size * sizeof(Font::Instance) * (i / batch_size));
+            std::span<Font::Instance> span(instances.data(), size);
+            m_instance_buffer->update(std::as_bytes(span), batch_size * sizeof(Font::Instance) * (i / batch_size));
         }
 
         offset_x += float(ch.advance >> 6) / float(height);
@@ -233,11 +231,10 @@ void Text::set_color(glm::vec4 color)
 
 void Text::draw(const RenderPass& pass)
 {
-    // TODO
     Renderer::get().draw(pass, g_mesh, Renderer::get().get_fw_text_mat(), m_bg, m_instance_buffer, m_size);
 }
 
 void Text::update_uniform_buffer()
 {
-    m_uniform_buffer->update(View<Font::Uniform>(m_uniform).as_bytes());
+    m_uniform_buffer->update_struct(m_uniform);
 }

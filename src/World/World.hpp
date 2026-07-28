@@ -1,9 +1,7 @@
 #pragma once
 
-#include "Core/Definitions.hpp"
 #include "Core/IO.hpp"
-#include "Core/Ref.hpp"
-#include "Core/ThreadPool.hpp"
+#include "Core/Types.hpp"
 #include "Entity/Camera.hpp"
 #include "Entity/Entity.hpp"
 #include "Network/Packet.hpp"
@@ -73,7 +71,7 @@ struct RaycastResult
     bool hit_entity;
 
     glm::i64vec3 block_pos;
-    Ref<Entity> entity;
+    std::shared_ptr<Entity> entity;
 };
 
 struct WorldSaveInfo
@@ -91,10 +89,8 @@ struct ChunkLoadRequest
     int64_t z;
 };
 
-class World : public Object
+class World
 {
-    CLASS(World, Object);
-
     friend class Generator;
     friend class Chunk;
 
@@ -106,9 +102,9 @@ public:
     World();
     ~World();
 
-    static Result<Ref<World>> create(String name, uint64_t seed, int type);
-    static Result<Ref<World>> create_proxy(uint64_t seed);
-    static Result<Ref<World>> load(StringView name);
+    static Result<std::shared_ptr<World>> create(std::string name, uint64_t seed, int type);
+    static Result<std::shared_ptr<World>> create_proxy(uint64_t seed);
+    static Result<std::shared_ptr<World>> load(std::string name);
 
     void tick(float delta);
 
@@ -117,17 +113,17 @@ public:
 
     int64_t get_render_distance() const { return m_load_distance; }
 
-    Option<Ref<Chunk>> get_chunk(int64_t x, int64_t z) const;
-    Option<Ref<Chunk>> get_chunk(int64_t x, int64_t z);
+    Option<std::shared_ptr<Chunk>> get_chunk(int64_t x, int64_t z) const;
+    Option<std::shared_ptr<Chunk>> get_chunk(int64_t x, int64_t z);
 
-    StringView get_name() const { return m_name; }
+    std::string_view get_name() const { return m_name; }
 
     void remove_chunk(int64_t x, int64_t z)
     {
         m_dims[0].remove_chunk(x, z);
     }
 
-    void remove_entity(size_t dim, Ref<Entity> entity)
+    void remove_entity(size_t dim, std::shared_ptr<Entity> entity)
     {
         m_dims[dim].remove_entity(entity);
     }
@@ -137,7 +133,7 @@ public:
         m_dims[dim].remove_entity(entity);
     }
 
-    void add_chunk(int64_t x, int64_t z, Ref<Chunk> chunk)
+    void add_chunk(int64_t x, int64_t z, std::shared_ptr<Chunk> chunk)
     {
         m_dims[0].add_chunk(x, z, chunk);
     }
@@ -159,10 +155,10 @@ public:
         return m_dims[index];
     }
 
-    void set_active_camera(Ref<Camera> camera);
-    ALWAYS_INLINE Ref<Camera> get_active_camera() const { return m_camera; }
+    void set_active_camera(std::shared_ptr<Camera> camera);
+    ALWAYS_INLINE std::shared_ptr<Camera> get_active_camera() const { return m_camera; }
 
-    void add_entity(size_t dimension, Ref<Entity> entity)
+    void add_entity(size_t dimension, std::shared_ptr<Entity> entity)
     {
         entity->m_world = this;
         entity->m_dimension = dimension;
@@ -172,7 +168,7 @@ public:
         m_dims[dimension].add_entity(entity);
     }
 
-    Ref<Entity> get_entity(EntityId id) const
+    std::shared_ptr<Entity> get_entity(EntityId id) const
     {
         return m_dims[0].get_entity(id);
     }
@@ -196,24 +192,24 @@ public:
     /**
      * Save chunk to the disk.
      */
-    Result<void> save_chunk(Ref<Chunk> chunk);
+    Result<void> save_chunk(std::shared_ptr<Chunk> chunk);
 
-    Result<void> save_entity(const Ref<Entity>& entity);
-    Result<void> save_player(const Ref<Player>& player);
+    Result<void> save_entity(const std::shared_ptr<Entity>& entity);
+    Result<void> save_player(const std::shared_ptr<Player>& player);
 
     /**
      * Load player data from the disk.
      */
-    void load_player(const StringView& name, Ref<Player>& player);
+    void load_player(std::string_view name, std::shared_ptr<Player>& player);
 
     void deferred_receive_chunk(const ChunkDataPacket& p);
 
-    void send_chunk(ENetPeer *peer, const Ref<Chunk>& chunk) const;
+    void send_chunk(ENetPeer *peer, const std::shared_ptr<Chunk>& chunk) const;
     void receive_chunk(const ChunkDataPacket& p);
 
     void force_load_chunk_for(glm::vec3 position);
 
-    bool is_player_saved(const StringView& name) const;
+    bool is_player_saved(std::string_view name) const;
 
     void request_chunk(ENetPeer *peer, int dimension, int64_t x, int64_t z);
 
@@ -226,16 +222,16 @@ public:
 
 private:
     uint64_t m_seed = 0;
-    String m_name;
+    std::string m_name;
 
-    Array<Dimension, max_dimensions> m_dims;
+    std::array<Dimension, max_dimensions> m_dims;
 
     // TODO: needs to be 16
     int32_t m_load_distance = 16;
 
-    LocalVector<ChunkLoadRequest> m_load_requests;
+    std::vector<ChunkLoadRequest> m_load_requests;
 
-    Ref<Camera> m_camera;
+    std::shared_ptr<Camera> m_camera;
     bool m_proxy = false;
 
     glm::vec3 m_spawn_position = glm::vec3();
@@ -247,8 +243,8 @@ private:
     void load_one_chunk(ChunkPos pos);
     void unload_one_chunk(ChunkPos pos);
 
-    void write_tags(Writer& writer, const Ref<Chunk>& chunk) const;
-    void read_tags(Reader& reader, Ref<Chunk>& chunk) const;
+    void write_tags(Writer& writer, const std::shared_ptr<Chunk>& chunk) const;
+    void read_tags(Reader& reader, std::shared_ptr<Chunk>& chunk) const;
 
     void deflate_data(const uint8_t *data, size_t size, std::vector<uint8_t>& compressed_data) const;
     void inflate_data(const uint8_t *compressed_data, size_t compressed_data_size, std::vector<uint8_t>& uncompressed_data) const;

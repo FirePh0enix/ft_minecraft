@@ -20,7 +20,7 @@ public:
 protected:
     float m_stopping_dst = 0.1f;
 
-    Ref<Entity> m_threat_entity;
+    std::shared_ptr<Entity> m_threat_entity;
 
     float m_attack_range = 1.0f;
     float m_attack_cooldown = 1.5f;

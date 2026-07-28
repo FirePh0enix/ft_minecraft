@@ -48,7 +48,7 @@ class GenDesc
 public:
     struct Buffer
     {
-        String name;
+        std::string name;
         size_t element_size;
         bool flat;
     };
@@ -58,29 +58,31 @@ public:
     {
     }
 
-    void add_pass(Ref<GenPass> pass);
-    void add_struct_pass(Ref<StructurePass> pass);
+    GenDesc(const GenDesc&) = delete;
 
-    void add_buffer(const String& name, size_t element_size, bool flat = false)
+    void add_pass(std::shared_ptr<GenPass> pass);
+    void add_struct_pass(std::shared_ptr<StructurePass> pass);
+
+    void add_buffer(const std::string& name, size_t element_size, bool flat = false)
     {
         m_buffers.push_back(Buffer(name, element_size, flat));
     }
 
-    View<Ref<GenPass>> passes() const
+    std::span<std::shared_ptr<GenPass>> passes()
     {
-        return View(m_passes.data(), m_passes.size());
+        return std::span<std::shared_ptr<GenPass>>(m_passes);
     }
 
-    View<Ref<StructurePass>> spasses() const
+    std::span<std::shared_ptr<StructurePass>> spasses()
     {
-        return View(m_struct_passes.data(), m_struct_passes.size());
+        return std::span<std::shared_ptr<StructurePass>>(m_struct_passes);
     }
 
     WorldSettings settings() const { return m_settings; }
 
 private:
-    std::vector<Ref<GenPass>> m_passes;
-    std::vector<Ref<StructurePass>> m_struct_passes;
+    std::vector<std::shared_ptr<GenPass>> m_passes;
+    std::vector<std::shared_ptr<StructurePass>> m_struct_passes;
     std::vector<Buffer> m_buffers;
     WorldSettings m_settings;
 };
@@ -91,42 +93,38 @@ private:
 class Gen
 {
 public:
-    Gen(GenDesc& desc)
+    Gen(std::shared_ptr<GenDesc> desc)
         : m_desc(desc)
     {
-        for (const GenDesc::Buffer& desc : desc.m_buffers)
-        {
-            m_buffers.put(desc.name, alloc_array<uint8_t>(desc.element_size));
-        }
+        for (const GenDesc::Buffer& desc : desc->m_buffers)
+            m_buffers[desc.name] = new uint8_t[desc.element_size];
     }
 
     ~Gen()
     {
-        for (const auto& [_, name, buf] : m_buffers)
-        {
-            destroy((uint8_t *)buf);
-        }
+        for (const auto& [name, buf] : m_buffers)
+            delete[] (uint8_t *)buf;
     }
 
-    const GenDesc& desc() const
+    std::shared_ptr<GenDesc> desc()
     {
         return m_desc;
     }
 
-    WorldSettings settings() const
+    WorldSettings settings()
     {
-        return desc().settings();
+        return desc()->settings();
     }
 
     template <typename T>
-    T *get_buffer(const StringView& name) const
+    T *get_buffer(std::string_view name) const
     {
-        return static_cast<T *>(m_buffers.get(name).value());
+        return static_cast<T *>(m_buffers.find(name)->second);
     }
 
 private:
-    GenDesc m_desc;
-    HashMap<String, void *> m_buffers;
+    std::shared_ptr<GenDesc> m_desc;
+    stdext::string_map<void *> m_buffers;
 };
 
 /**
@@ -141,7 +139,7 @@ public:
     {
         (void)desc;
     }
-    virtual void gen(const Gen& gen, int64_t x, int64_t y, int64_t z, BlockState& state, BlockTags& tags, Biome& biome) = 0;
+    virtual void gen(Gen& gen, int64_t x, int64_t y, int64_t z, BlockState& state, BlockTags& tags, Biome& biome) = 0;
 
     bool is_flat() const
     {
@@ -162,7 +160,7 @@ class OverworldOceanPass : public GenPass
 
 public:
     virtual void init(GenDesc& desc) override;
-    virtual void gen(const Gen& gen, int64_t x, int64_t y, int64_t z, BlockState& state, BlockTags& tags, Biome& biome) override;
+    virtual void gen(Gen& gen, int64_t x, int64_t y, int64_t z, BlockState& state, BlockTags& tags, Biome& biome) override;
 };
 
 class MountainPass : public GenPass
@@ -171,7 +169,7 @@ class MountainPass : public GenPass
 
 public:
     virtual void init(GenDesc& desc) override;
-    virtual void gen(const Gen& gen, int64_t x, int64_t y, int64_t z, BlockState& state, BlockTags& tags, Biome& biome) override;
+    virtual void gen(Gen& gen, int64_t x, int64_t y, int64_t z, BlockState& state, BlockTags& tags, Biome& biome) override;
 };
 
 class OverworldBiomePass : public GenPass
@@ -180,7 +178,7 @@ class OverworldBiomePass : public GenPass
 
 public:
     virtual void init(GenDesc& desc) override;
-    virtual void gen(const Gen& gen, int64_t x, int64_t y, int64_t z, BlockState& state, BlockTags& tags, Biome& biome) override;
+    virtual void gen(Gen& gen, int64_t x, int64_t y, int64_t z, BlockState& state, BlockTags& tags, Biome& biome) override;
 };
 
 class HeightPass : public GenPass
@@ -189,7 +187,7 @@ class HeightPass : public GenPass
 
 public:
     virtual void init(GenDesc& desc) override;
-    virtual void gen(const Gen& gen, int64_t x, int64_t y, int64_t z, BlockState& state, BlockTags& tags, Biome& biome) override;
+    virtual void gen(Gen& gen, int64_t x, int64_t y, int64_t z, BlockState& state, BlockTags& tags, Biome& biome) override;
 
 private:
     tk::spline m_spline;
@@ -203,7 +201,7 @@ class OverworldTerrainPass : public GenPass
 
 public:
     virtual void init(GenDesc& desc) override;
-    virtual void gen(const Gen& gen, int64_t x, int64_t y, int64_t z, BlockState& state, BlockTags& tags, Biome& biome) override;
+    virtual void gen(Gen& gen, int64_t x, int64_t y, int64_t z, BlockState& state, BlockTags& tags, Biome& biome) override;
 };
 
 class StructurePass : public Object
@@ -215,7 +213,7 @@ public:
     {
         (void)desc;
     }
-    virtual void gen(const Gen& gen, Ref<Chunk> chunk) = 0;
+    virtual void gen(const Gen& gen, std::shared_ptr<Chunk> chunk) = 0;
 };
 
 class TreePass : public StructurePass
@@ -224,7 +222,7 @@ class TreePass : public StructurePass
 
 public:
     virtual void init(GenDesc& desc) override;
-    virtual void gen(const Gen& gen, Ref<Chunk> chunk) override;
+    virtual void gen(const Gen& gen, std::shared_ptr<Chunk> chunk) override;
 
 private:
     std::shared_ptr<Structure> m_tree_struct;

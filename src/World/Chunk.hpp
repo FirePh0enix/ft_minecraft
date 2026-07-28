@@ -1,18 +1,20 @@
 #pragma once
 
 #include "Block/Block.hpp"
-#include "Core/Containers/HashMap.hpp"
-#include "Core/Containers/Map.hpp"
-#include "Core/Definitions.hpp"
-#include "Core/String.hpp"
-#include "Render/Renderer.hpp"
+#include "Core/Result.hpp"
+#include "Core/Types.hpp"
 #include "Variant.hpp"
 #include "World/Biome.hpp"
+#include "stdext.hpp"
 
 #include <cstdint>
 
 class World;
 class Dimension;
+
+class Mesh;
+class BindGroup;
+class Buffer;
 
 class ChunkPos
 {
@@ -23,43 +25,31 @@ public:
     constexpr ChunkPos() : x(0), z(0) {}
     constexpr ChunkPos(int64_t x, int64_t z) : x(x), z(z) {}
 
-    bool operator<(const ChunkPos& other) const
+    bool operator<(ChunkPos other) const
     {
         return std::tie(x, z) < std::tie(other.x, other.z);
-    }
-
-    bool operator>(const ChunkPos& other) const
-    {
-        return std::tie(x, z) > std::tie(other.x, other.z);
-    }
-
-    bool operator==(const ChunkPos& other) const
-    {
-        return std::tie(x, z) == std::tie(other.x, other.z);
     }
 };
 
 struct BlockTags
 {
-    HashMap<String, Variant> tags;
+    stdext::string_map<Variant> tags;
 };
 
-class Chunk : public Object
+class Chunk
 {
-    CLASS(Chunk, Object);
-
 public:
     friend class World;
     friend class Dimension;
 
     struct Slice
     {
-        Ref<Mesh> mesh = nullptr;
-        Ref<Mesh> water_mesh = nullptr;
+        std::shared_ptr<Mesh> mesh = nullptr;
+        std::shared_ptr<Mesh> water_mesh = nullptr;
 
-        Ref<BindGroup> mesh_bg;
-        Ref<BindGroup> mesh_shadowmap_bg;
-        Ref<BindGroup> water_bg;
+        std::shared_ptr<BindGroup> mesh_bg;
+        std::shared_ptr<BindGroup> mesh_shadowmap_bg;
+        std::shared_ptr<BindGroup> water_bg;
     };
 
     static constexpr int64_t width = 16;
@@ -88,18 +78,18 @@ public:
     const Slice *get_slices() const { return m_slices; }
     Slice *get_slices() { return m_slices; }
 
-    ALWAYS_INLINE Ref<Buffer> get_instance_buffer() const { return m_uniform_buffer; }
+    ALWAYS_INLINE std::shared_ptr<Buffer> get_instance_buffer() const { return m_uniform_buffer; }
 
-    Result<void> build_simple_mesh(size_t slice, const Map<ChunkPos, Ref<Chunk>>& chunks);
-    Result<void> build_water_mesh(size_t slice, const Map<ChunkPos, Ref<Chunk>>& chunks);
+    Result<void> build_simple_mesh(size_t slice, const std::map<ChunkPos, std::shared_ptr<Chunk>>& chunks);
+    Result<void> build_water_mesh(size_t slice, const std::map<ChunkPos, std::shared_ptr<Chunk>>& chunks);
 
     bool is_modified() const { return m_modified; }
     void clear_modified() { m_modified = false; }
 
-    void set_tag(glm::i64vec3 pos, const StringView& name, Variant v, bool rebuild = true);
-    void remove_tag(glm::i64vec3 pos, const StringView& name, bool rebuild = true);
-    Option<Variant> get_tag(glm::i64vec3 pos, const StringView& name) const;
-    Option<Variant> get_tag(uint16_t index, const StringView& name) const;
+    void set_tag(glm::i64vec3 pos, std::string_view name, Variant v, bool rebuild = true);
+    void remove_tag(glm::i64vec3 pos, std::string_view name, bool rebuild = true);
+    Option<Variant> get_tag(glm::i64vec3 pos, std::string_view name) const;
+    Option<Variant> get_tag(uint16_t index, std::string_view name) const;
 
     void merge_tag(uint16_t index, const BlockTags& tags);
 
@@ -112,9 +102,9 @@ private:
 
     Dimension *m_dim;
 
-    Map<int64_t, BlockTags> m_tags;
+    std::map<int64_t, BlockTags> m_tags;
 
-    Ref<Buffer> m_uniform_buffer;
+    std::shared_ptr<Buffer> m_uniform_buffer;
 
     int64_t m_x;
     int64_t m_z;

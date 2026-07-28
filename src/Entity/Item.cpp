@@ -25,7 +25,7 @@ ItemEntity::ItemEntity(Id<Item> item)
     m_bg->set_param("images", Engine::get().registry().get_texture_array());
     m_bg->set_param("shadowmap", Renderer::get().get_fw_shadowmap());
 
-    Ref<Block> block = Engine::get().registry().block_from_item(item);
+    std::shared_ptr<Block> block = Engine::get().registry().block_from_item(item);
     m_textures = glm::uvec3(block->get_texture_ids()[0] | (block->get_texture_ids()[1] << 16), block->get_texture_ids()[2] | (block->get_texture_ids()[3] << 16), block->get_texture_ids()[4] | (block->get_texture_ids()[5] << 16));
 }
 
@@ -42,6 +42,6 @@ void ItemEntity::draw(const RenderPass& pass)
 
     ItemBlockModel matrix(get_transform().to_matrix(), m_textures);
 
-    m_model_buffer->update(View(matrix).as_bytes());
+    m_model_buffer->update_struct(matrix);
     Renderer::get().draw(pass, Renderer::get().get_cube_mesh(), Renderer::get().get_fw_item_block_mat(), m_bg);
 }

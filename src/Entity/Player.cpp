@@ -2,14 +2,12 @@
 
 #include "AABB.hpp"
 #include "Block/Inventory.hpp"
-#include "Core/Containers/LocalVector.hpp"
-#include "Core/Format.hpp"
 #include "Core/Math.hpp"
 #include "Core/Types.hpp"
 #include "Engine.hpp"
 #include "Entity/Entity.hpp"
 #include "Entity/Item.hpp"
-#include "Entity/Mob.hpp"
+#include "Entity/LivingEntity.hpp"
 #include "Input.hpp"
 #include "Inventory/Inventory.hpp"
 #include "Item/ItemStack.hpp"
@@ -18,32 +16,34 @@
 #include "World/Registry.hpp"
 #include "World/World.hpp"
 
+#include <format>
 #include <imgui.h>
+#include <memory>
 
 DebugMenuContainer::DebugMenuContainer(Player *player)
     : m_player(player)
 {
-    m_memory_label = newref<Label>(Engine::get().get_font());
+    m_memory_label = std::make_shared<Label>(Engine::get().get_font());
     m_memory_label->set_scale(glm::vec2(0.06f));
     m_memory_label->set_position(glm::vec2(-1.7f, 0.9f));
     add_child(m_memory_label);
 
-    m_gpu_objects_label = newref<Label>(Engine::get().get_font());
+    m_gpu_objects_label = std::make_shared<Label>(Engine::get().get_font());
     m_gpu_objects_label->set_scale(glm::vec2(0.06f));
     m_gpu_objects_label->set_position(glm::vec2(-1.7f, 0.84f));
     add_child(m_gpu_objects_label);
 
-    m_perfomance_label = newref<Label>(Engine::get().get_font());
+    m_perfomance_label = std::make_shared<Label>(Engine::get().get_font());
     m_perfomance_label->set_scale(glm::vec2(0.06f));
     m_perfomance_label->set_position(glm::vec2(-1.7f, 0.79f));
     add_child(m_perfomance_label);
 
-    m_position_label = newref<Label>(Engine::get().get_font());
+    m_position_label = std::make_shared<Label>(Engine::get().get_font());
     m_position_label->set_scale(glm::vec2(0.06f));
     m_position_label->set_position(glm::vec2(-1.7f, 0.74f));
     add_child(m_position_label);
 
-    m_time_label = newref<Label>(Engine::get().get_font());
+    m_time_label = std::make_shared<Label>(Engine::get().get_font());
     m_time_label->set_scale(glm::vec2(0.06f));
     m_time_label->set_position(glm::vec2(-1.7f, 0.69f));
     add_child(m_time_label);
@@ -52,17 +52,17 @@ DebugMenuContainer::DebugMenuContainer(Player *player)
 void DebugMenuContainer::update(float d)
 {
     (void)d;
-    m_memory_label->set_text(format("Memory: cpu: {} | device: {}", FormatBin(Engine::get().get_memory_usage()), FormatBin(Renderer::get().get_device_memory_usage())));
-    m_gpu_objects_label->set_text(format("Pipeline: {}", Renderer::get().get_pipeline_count()));
-    m_perfomance_label->set_text(format("Perf: {} TPS | {} FPS | {} ms", Engine::get().get_fps(), Engine::get().get_tps(), d));
+    m_memory_label->set_text(std::format("Memory: cpu: {} | device: {}", Engine::get().get_memory_usage(), Renderer::get().get_device_memory_usage()));
+    m_gpu_objects_label->set_text(std::format("Pipeline: {}", Renderer::get().get_pipeline_count()));
+    m_perfomance_label->set_text(std::format("Perf: {} TPS | {} FPS | {} ms", Engine::get().get_fps(), Engine::get().get_tps(), d));
 
     glm::vec3 position = m_player->get_position();
-    m_position_label->set_text(format("XYZ: {} | {} | {}", position.x, position.y, position.z));
+    m_position_label->set_text(std::format("XYZ: {} | {} | {}", position.x, position.y, position.z));
 
     int64_t time_of_day = Engine::get().time_of_day();
     int64_t hours = time_of_day / (60 * 60);
     int64_t minutes = (time_of_day - hours) % (60 * 60) / 60;
-    m_time_label->set_text(format("time: {}:{} ({} ticks)", hours, minutes, time_of_day));
+    m_time_label->set_text(std::format("time: {}:{} ({} ticks)", hours, minutes, time_of_day));
 
     Container::update(d);
 }
@@ -89,7 +89,7 @@ void Player::bind_methods()
 
 void Player::on_ready()
 {
-    m_inventory_container = newref<InventoryContainer>();
+    m_inventory_container = std::make_shared<InventoryContainer>();
     EXPECT(m_inventory_container->add_layer(27)); // main inventory
     EXPECT(m_inventory_container->add_layer(9));  // toolbar
     EXPECT(m_inventory_container->add_layer(4));  // Crafting Ingredients
@@ -113,12 +113,12 @@ void Player::on_ready()
 
     if (m_local_player)
     {
-        m_inventory = newref<PlayerInventory>(m_inventory_container);
+        m_inventory = std::make_shared<PlayerInventory>(m_inventory_container);
 
-        m_chat = newref<Chat>();
-        m_debug_menu = newref<DebugMenuContainer>(this);
+        m_chat = std::make_shared<Chat>();
+        m_debug_menu = std::make_shared<DebugMenuContainer>(this);
 
-        m_camera = newref<Camera>();
+        m_camera = std::make_shared<Camera>();
         m_camera->get_transform().position() = glm::vec3(0, 0.85, 0);
         add_child(m_camera);
         m_world->set_active_camera(m_camera);
@@ -218,10 +218,10 @@ void Player::tick(float delta)
     }
 
     AABB item_box = get_aabb().translate(get_position()).grow(glm::vec3(0.5));
-    Vector<Ref<Entity>> entities = m_world->get_dimension(World::overworld).cast_box(item_box);
-    for (const Ref<Entity>& entity : entities)
+    std::vector<std::shared_ptr<Entity>> entities = m_world->get_dimension(World::overworld).cast_box(item_box);
+    for (const std::shared_ptr<Entity>& entity : entities)
     {
-        if (Ref<ItemEntity> item = entity.cast_to<ItemEntity>())
+        if (std::shared_ptr<ItemEntity> item = std::dynamic_pointer_cast<ItemEntity>(entity))
         {
             m_inventory->add_stack(ItemStack(item->item(), 1));
             m_world->remove_entity(World::overworld, item);
@@ -242,7 +242,7 @@ void Player::tick(float delta)
         transform.rotation() *= q_yaw;
         m_transform = transform;
 
-        Ref<Camera> camera = m_children.get_unchecked(0).cast_to<Camera>();
+        std::shared_ptr<Camera> camera = std::dynamic_pointer_cast<Camera>(m_children[0]);
         Transform3D camera_transform = camera->get_transform();
 
         const glm::quat q_pitch = glm::angleAxis(relative.y * mouse_sensibility, glm::vec3(1.0, 0.0, 0.0));
@@ -263,12 +263,12 @@ void Player::tick(float delta)
 
             if (Input::is_action_just_pressed("attack") && result.hit_entity)
             {
-		if (auto mob = result.entity.cast_to<Mob>())
+                if (auto mob = std::dynamic_pointer_cast<LivingEntity>(result.entity))
                     mob->damage(1, id()); // TODO: different tool deals different damages.
             }
             else if (m_gamemode == GameMode::Creative && !result.hit_entity && Input::is_action_just_pressed("attack"))
             {
-		call_rpc("break_block", result.block_pos.x, result.block_pos.y, result.block_pos.z);
+                call_rpc("break_block", result.block_pos.x, result.block_pos.y, result.block_pos.z);
             }
             else if (m_gamemode == GameMode::Survival && !result.hit_entity)
             {
@@ -288,7 +288,7 @@ void Player::tick(float delta)
                     m_destroy_ticks += 1;
                     if (m_destroy_ticks >= max_destroy_ticks)
                     {
-			call_rpc("break_block", result.block_pos.x, result.block_pos.y, result.block_pos.z);
+                        call_rpc("break_block", result.block_pos.x, result.block_pos.y, result.block_pos.z);
                         m_is_destroing = false;
                         m_destroy_ticks = 0;
                     }
@@ -303,17 +303,17 @@ void Player::tick(float delta)
             if (Input::is_action_just_pressed("interact"))
             {
                 BlockState state = m_world->get_block_state(result.block_pos.x, result.block_pos.y, result.block_pos.z);
-                Ref<Block> block = Engine::get().registry().get_block(state.id);
+                std::shared_ptr<Block> block = Engine::get().registry().get_block(state.id);
 
-                if (Ref<InventoryBlock> ib = block.cast_to<InventoryBlock>())
+                if (std::shared_ptr<InventoryBlock> ib = std::dynamic_pointer_cast<InventoryBlock>(block))
                 {
-		    // TODO: How to handle this with an RPC ?
+                    // TODO: How to handle this with an RPC ?
                     ib->open_inventory(result.block_pos, this);
                 }
                 else
                 {
                     ItemStack stack = m_inventory_container->get_stack(1, m_slot);
-		    call_rpc("place_block", result.block_pos.x, result.block_pos.y, result.block_pos.z, result.normal, stack);
+                    call_rpc("place_block", result.block_pos.x, result.block_pos.y, result.block_pos.z, result.normal, stack);
                 }
             }
         }
@@ -404,8 +404,8 @@ void Player::tick(float delta)
     }
     else if (!m_local_player)
     {
-	m_animator.play("idle");
-	m_animator.tick(delta);
+        m_animator.play("idle");
+        m_animator.tick(delta);
     }
 
     if (m_local_player)
@@ -455,43 +455,43 @@ void Player::draw(const RenderPass& pass)
     if (m_local_player && m_inventory_container->get_stack(1, m_inventory->selected_slot()).item().valid())
     {
         Id<Item> id = m_inventory_container->get_stack(1, m_inventory->selected_slot()).item();
-        Ref<Item> item = Engine::get().registry().get_item(id);
-        if (Ref<ItemBlock> ib = item.cast_to<ItemBlock>())
+        std::shared_ptr<Item> item = Engine::get().registry().get_item(id);
+        if (std::shared_ptr<ItemBlock> ib = std::dynamic_pointer_cast<ItemBlock>(item))
         {
-            Ref<Block> block = Engine::get().registry().block_from_item(m_inventory_container->get_stack(1, m_inventory->selected_slot()).item());
+            std::shared_ptr<Block> block = Engine::get().registry().block_from_item(m_inventory_container->get_stack(1, m_inventory->selected_slot()).item());
 
-	    Transform3D transform;
-	    transform.scale() = glm::vec3(0.2);
-	    transform.position() = glm::vec3(0.32, -0.3, -0.4);
+            Transform3D transform;
+            transform.scale() = glm::vec3(0.2);
+            transform.position() = glm::vec3(0.32, -0.3, -0.4);
 
-	    glm::mat4 matrix = transform.to_matrix();
+            glm::mat4 matrix = transform.to_matrix();
 
-	    Ref<BindGroup> bg = BindGroup::create(Renderer::get().get_fw_item_block_shader());
-	    bg->set_param("camera", Renderer::get().get_fw_camera_rel());
-	    bg->set_param("model", m_model_buffer);
-	    bg->set_param("world_env", Renderer::get().get_fw_world_env());
-	    bg->set_param("images", Engine::get().registry().get_texture_array());
-	    bg->set_param("shadowmap", Renderer::get().get_fw_shadowmap());
+            std::shared_ptr<BindGroup> bg = BindGroup::create(Renderer::get().get_fw_item_block_shader());
+            bg->set_param("camera", Renderer::get().get_fw_camera_rel());
+            bg->set_param("model", m_model_buffer);
+            bg->set_param("world_env", Renderer::get().get_fw_world_env());
+            bg->set_param("images", Engine::get().registry().get_texture_array());
+            bg->set_param("shadowmap", Renderer::get().get_fw_shadowmap());
 
             ItemBlockModel model(matrix,
-                glm::uvec3(block->get_texture_ids()[0] | (block->get_texture_ids()[1] << 16), block->get_texture_ids()[2] | (block->get_texture_ids()[3] << 16), block->get_texture_ids()[4] | (block->get_texture_ids()[5] << 16)));
-            m_model_buffer->update(View(model).as_bytes());
+                                 glm::uvec3(block->get_texture_ids()[0] | (block->get_texture_ids()[1] << 16), block->get_texture_ids()[2] | (block->get_texture_ids()[3] << 16), block->get_texture_ids()[4] | (block->get_texture_ids()[5] << 16)));
+            m_model_buffer->update_struct(model);
 
             Renderer::get().draw(pass, Renderer::get().get_cube_mesh(), Renderer::get().get_fw_item_block_mat(), bg);
         }
         else
         {
-            Ref<Texture> texture = item->get_texture();
+            std::shared_ptr<Texture> texture = item->get_texture();
 
             Transform3D transform;
             transform.scale() = glm::vec3(0.2);
-	    transform.position() = glm::vec3(0.32, -0.18, -0.4);
-	    transform.set_euler_angles(glm::vec3(0, 90.0, 0));
+            transform.position() = glm::vec3(0.32, -0.18, -0.4);
+            transform.set_euler_angles(glm::vec3(0, 90.0, 0));
 
             ItemBlockModel matrix(transform.to_matrix());
-            m_model_buffer->update(View(matrix).as_bytes());
+            m_model_buffer->update_struct(matrix);
 
-            Ref<BindGroup> bg = BindGroup::create(Renderer::get().get_fw_item_shader());
+            std::shared_ptr<BindGroup> bg = BindGroup::create(Renderer::get().get_fw_item_shader());
             bg->set_param("camera", Renderer::get().get_fw_camera_rel());
             bg->set_param("model", m_model_buffer);
             bg->set_param("image", texture);
@@ -526,32 +526,32 @@ void Player::process_event(Event& event)
 
 void Player::save(EntitySerializer& ser) const
 {
-    LocalVector<ItemStack> stacks;
+    std::vector<ItemStack> stacks;
     stacks.resize(27 + 9);
 
     const InventoryContainer::Layer& layer = m_inventory_container->get_layer(0);
     for (size_t i = 0; i < 27; i++)
-        stacks.get_unchecked(i) = layer.stacks.get_unchecked(i);
+        stacks[i] = layer.stacks[i];
 
     const InventoryContainer::Layer& toolbar_layer = m_inventory_container->get_layer(1);
     for (size_t i = 0; i < 9; i++)
-        stacks.get_unchecked(i + 27) = toolbar_layer.stacks.get_unchecked(i);
+        stacks[i + 27] = toolbar_layer.stacks[i];
 
-    Variant array = View(stacks);
+    Variant array = std::span(stacks);
     ser.set("inventory_data", array);
 }
 
 void Player::load(const EntitySerializer& deser)
 {
-    Vector<ItemStack> stacks = deser.get_array<ItemStack>("inventory_data").value();
+    std::vector<ItemStack> stacks = deser.get_array<ItemStack>("inventory_data").value();
 
     InventoryContainer::Layer& layer = m_inventory_container->get_layer(0);
     for (size_t i = 0; i < 27; i++)
-        layer.stacks.get_unchecked(i) = stacks.get_unchecked(i);
+        layer.stacks[i] = stacks[i];
 
     InventoryContainer::Layer& toolbar_layer = m_inventory_container->get_layer(1);
     for (size_t i = 0; i < 9; i++)
-        toolbar_layer.stacks.get_unchecked(i) = stacks.get_unchecked(i + 27);
+        toolbar_layer.stacks[i] = stacks[i + 27];
 }
 
 void Player::die()
@@ -560,10 +560,13 @@ void Player::die()
 
 void Player::break_block(int64_t x, int64_t y, int64_t z)
 {
-    if (m_gamemode == GameMode::Survival) {
-	m_world->break_block(x, y, z);
-    } else {
-	m_world->set_block_state(x, y, z, BlockState());
+    if (m_gamemode == GameMode::Survival)
+    {
+        m_world->break_block(x, y, z);
+    }
+    else
+    {
+        m_world->set_block_state(x, y, z, BlockState());
     }
 }
 
@@ -571,13 +574,14 @@ void Player::place_block(int64_t x, int64_t y, int64_t z, glm::vec3 normal, Item
 {
     if (stack.item().valid())
     {
-	Ref<Item> item = Engine::get().registry().get_item(stack.item());
+        std::shared_ptr<Item> item = Engine::get().registry().get_item(stack.item());
         item->interact(*m_world, m_dimension, stack, glm::i64vec3(x, y, z), normal);
-	if (m_local_player) m_inventory_container->set_stack(1, m_slot, stack);
+        if (m_local_player)
+            m_inventory_container->set_stack(1, m_slot, stack);
     }
 }
 
-void Player::open_inventory(Ref<Inventory> inventory)
+void Player::open_inventory(std::shared_ptr<Inventory> inventory)
 {
     m_opened_inventory = inventory;
     Input::set_mouse_grabbed(false);

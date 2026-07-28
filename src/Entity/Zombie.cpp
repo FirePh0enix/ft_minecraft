@@ -26,12 +26,12 @@ void Zombie::tick(float delta)
     AABB search_box = AABB::from_center_extent(get_global_transform().position(), glm::vec3(DETECTION_RADIUS));
     const auto entities = m_world->get_dimension(m_dimension).cast_box(search_box);
 
-    Ref<Player> target;
+    std::shared_ptr<Player> target;
     float best_dist_sq = std::numeric_limits<float>::max();
 
-    for (Ref<Entity>& entity : entities)
+    for (std::shared_ptr<Entity> entity : entities)
     {
-        Ref<Player> player = entity.cast_to<Player>();
+        std::shared_ptr<Player> player = std::dynamic_pointer_cast<Player>(entity);
         if (!player)
             continue;
 
@@ -85,12 +85,12 @@ void Zombie::tick(float delta)
     {
         if (!verify_if_path_still_valid())
         {
-            const glm::ivec3& to = m_path.value().look_points.get_unchecked(m_path.value().finish_line_index);
+            const glm::ivec3& to = m_path.value().look_points[m_path.value().finish_line_index];
             const int remaining_jump = m_on_ground ? 1 : 0;
             const bool is_final_pos_reachable = m_pathfinding->is_walkable(to, remaining_jump);
 
             if (is_final_pos_reachable)
-                flee_to(m_path.value().look_points.get_unchecked(m_path.value().finish_line_index));
+                flee_to(m_path.value().look_points[m_path.value().finish_line_index]);
             else
                 m_following_path = false;
         }
@@ -118,7 +118,7 @@ void Zombie::attack()
     if (!m_threat_entity || m_attack_timer > 0.0f)
         return;
 
-    Ref<LivingEntity> mob = m_threat_entity.cast_to<LivingEntity>();
+    std::shared_ptr<LivingEntity> mob = std::dynamic_pointer_cast<LivingEntity>(m_threat_entity);
     if (!mob)
         return;
 

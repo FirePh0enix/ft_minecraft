@@ -22,6 +22,6 @@ void TextureRect::process_event(Event& event)
 
 void TextureRect::draw(const RenderPass& pass)
 {
-    m_uniforms->update(View(TextureRectUniforms(matrix())).as_bytes());
+    m_uniforms->update_struct(TextureRectUniforms(matrix()));
     Renderer::get().draw(pass, Renderer::get().get_square_mesh(), Renderer::get().get_fw_texture_rect_mat(), m_bg);
 }

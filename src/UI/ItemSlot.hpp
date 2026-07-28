@@ -32,9 +32,9 @@ public:
     InventoryContainer *container() const { return m_container; }
 
 private:
-    Ref<ColorRect> m_background;
-    Ref<TextureRect> m_item_rect;
-    Ref<Label> m_label;
+    std::shared_ptr<ColorRect> m_background;
+    std::shared_ptr<TextureRect> m_item_rect;
+    std::shared_ptr<Label> m_label;
     Id<Item> m_item;
     size_t m_count;
     uint32_t m_layer;

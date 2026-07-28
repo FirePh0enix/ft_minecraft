@@ -1,20 +1,21 @@
 #include "UI/ItemSlot.hpp"
 
-#include "Core/Format.hpp"
 #include "Engine.hpp"
 #include "Inventory/Inventory.hpp"
 #include "Item/ItemStack.hpp"
 #include "World/Registry.hpp"
+
 #include <cstddef>
+#include <format>
 
 ItemSlot::ItemSlot(uint32_t layer, uint32_t index, Inventory *inventory, InventoryContainer *container)
     : m_count(0), m_layer(layer), m_index(index), m_container(container), m_inventory(inventory)
 {
-    m_background = newref<ColorRect>();
+    m_background = std::make_shared<ColorRect>();
     set_scale(glm::vec2(0.12));
 
-    m_item_rect = newref<TextureRect>();
-    m_label = newref<Label>(Engine::get().get_font());
+    m_item_rect = std::make_shared<TextureRect>();
+    m_label = std::make_shared<Label>(Engine::get().get_font());
 }
 
 void ItemSlot::update(float d)
@@ -73,24 +74,24 @@ void ItemSlot::update(float d)
     }
     else if (is_mouse_hovering() && Input::is_action_just_pressed("ui_rclick"))
     {
-	Option<ItemStack> grabbed = m_inventory->get_grabbed();
-	if (grabbed.has_value())
-	{
-	    bool allow_change = m_inventory->on_place(m_layer, m_count, grabbed.value(), m_container);
-	    ItemStack gs = grabbed.value();
-	    if (allow_change && m_item.valid() && m_item == gs.item())
-	    {
-		m_container->set_stack(m_layer, m_index, ItemStack(gs.item(), m_count + 1));
-		gs.sub(1);
-		m_inventory->grab(gs);
-	    }
-	    else if (allow_change && !m_item.valid())
-	    {
-		m_container->set_stack(m_layer, m_index, ItemStack(gs.item(), 1));
-		gs.sub(1);
-		m_inventory->grab(gs);
-	    }
-	}
+        Option<ItemStack> grabbed = m_inventory->get_grabbed();
+        if (grabbed.has_value())
+        {
+            bool allow_change = m_inventory->on_place(m_layer, m_count, grabbed.value(), m_container);
+            ItemStack gs = grabbed.value();
+            if (allow_change && m_item.valid() && m_item == gs.item())
+            {
+                m_container->set_stack(m_layer, m_index, ItemStack(gs.item(), m_count + 1));
+                gs.sub(1);
+                m_inventory->grab(gs);
+            }
+            else if (allow_change && !m_item.valid())
+            {
+                m_container->set_stack(m_layer, m_index, ItemStack(gs.item(), 1));
+                gs.sub(1);
+                m_inventory->grab(gs);
+            }
+        }
     }
 }
 
@@ -121,7 +122,7 @@ void ItemSlot::set_item(Id<Item> item)
 
 void ItemSlot::set_count(size_t count)
 {
-    String text = format("{}", count);
+    std::string text = std::format("{}", count);
     m_label->set_text(text);
     m_count = count;
 }

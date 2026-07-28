@@ -17,6 +17,7 @@ struct Id
 
     bool operator==(const Id& k) const { return value == k.value; }
     bool operator>(const Id& k) const { return value > k.value; }
+    bool operator<(const Id& k) const { return value < k.value; }
 
     constexpr bool valid() const { return value != 0; }
 

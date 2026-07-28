@@ -1,7 +1,6 @@
 #include "World/Chunk.hpp"
 
 #include "Block/Block.hpp"
-#include "Core/Alloc.hpp"
 #include "Engine.hpp"
 #include "Render/Renderer.hpp"
 #include "Render/Types.hpp"
@@ -12,12 +11,12 @@
 Chunk::Chunk(Dimension *dim, int64_t x, int64_t z)
     : m_dim(dim), m_x(x), m_z(z)
 {
-    m_blocks = alloc_array_uninitialized<BlockState>(block_count);
-    m_biomes = alloc_array_uninitialized<Biome>(16 * 16);
-    m_slices = alloc_array<Slice>(slice_count);
+    m_blocks = new BlockState[block_count];
+    m_biomes = new Biome[16 * 16];
+    m_slices = new Slice[slice_count];
 
     m_uniform_buffer = EXPECT(Buffer::create(sizeof(FwChunkUniforms) * slice_count, WGPUBufferUsage_Uniform | WGPUBufferUsage_Vertex | WGPUBufferUsage_CopyDst));
-    Array<glm::vec3, slice_count> uniform_data{};
+    std::array<glm::vec3, slice_count> uniform_data{};
 
     for (size_t i = 0; i < slice_count; i++)
     {
@@ -39,14 +38,14 @@ Chunk::Chunk(Dimension *dim, int64_t x, int64_t z)
         uniform_data[i] = glm::vec3(x * Chunk::width, i * Chunk::width, z * Chunk::width);
     }
 
-    m_uniform_buffer->update(View(uniform_data).as_bytes());
+    m_uniform_buffer->update(std::as_bytes(std::span(uniform_data)));
 }
 
 Chunk::~Chunk()
 {
-    destroy_array_nodestruct(m_blocks, block_count);
-    destroy_array_nodestruct(m_biomes, 16 * 16);
-    destroy_array(m_slices, slice_count);
+    delete[] m_blocks;
+    delete[] m_biomes;
+    delete[] m_slices;
 }
 
 void Chunk::set_block(int64_t x, int64_t y, int64_t z, BlockState state)
@@ -77,7 +76,7 @@ struct ChunkBlockFace
                    uint32_t texture_index) : x(x), y(y), z(z), axis(axis), positive(positive), texture_index(texture_index) {}
 };
 
-static Array<glm::vec3, 4> vertex_from_axis(Axis axis, bool positive, glm::vec3 offset)
+static std::array<glm::vec3, 4> vertex_from_axis(Axis axis, bool positive, glm::vec3 offset)
 {
     glm::vec3 v[24]{
         glm::vec3(-0.5 + offset.x, -0.5 + offset.y, 0.5 + offset.z), // front 0
@@ -136,13 +135,13 @@ static glm::vec3 normal_from_axis(Axis axis, bool positive)
     return glm::vec3();
 }
 
-Result<void> Chunk::build_simple_mesh(size_t slice_index, const Map<ChunkPos, Ref<Chunk>>& chunks)
+Result<void> Chunk::build_simple_mesh(size_t slice_index, const std::map<ChunkPos, std::shared_ptr<Chunk>>& chunks)
 {
     Slice& slice = m_slices[slice_index];
     int64_t slice_y_offset = int64_t(slice_index) * width;
 
     // Let's detect which faces are not hidden.
-    LocalVector<ChunkBlockFace> faces;
+    std::vector<ChunkBlockFace> faces;
 
     for (int64_t x = 0; x < Chunk::width; x++)
     {
@@ -155,26 +154,24 @@ Result<void> Chunk::build_simple_mesh(size_t slice_index, const Map<ChunkPos, Re
                 if (m_blocks[index].is_air())
                     continue;
 
-                Ref<Block> block = Engine::get().registry().get_block(m_blocks[index].id);
-                if (block.is_null())
-                {
+                std::shared_ptr<Block> block = Engine::get().registry().get_block(m_blocks[index].id);
+                if (block == nullptr)
                     return Result<void>();
-                }
 
-                if ((x > 0 && m_blocks[linearize(x - 1, y, z)].is_air()) || (x == 0 && chunks.contains(ChunkPos(m_x - 1, m_z)) && chunks.get(ChunkPos(m_x - 1, m_z)).value()->get_block(15, y, z).is_air()))
-                    faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::X, false, block->get_texture_index(Axis::X, false)));
-                if ((x < 15 && m_blocks[linearize(x + 1, y, z)].is_air()) || (x == 15 && chunks.contains(ChunkPos(m_x + 1, m_z)) && chunks.get(ChunkPos(m_x + 1, m_z)).value()->get_block(0, y, z).is_air()))
-                    faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::X, true, block->get_texture_index(Axis::X, true)));
+                if ((x > 0 && m_blocks[linearize(x - 1, y, z)].is_air()) || (x == 0 && chunks.contains(ChunkPos(m_x - 1, m_z)) && chunks.at(ChunkPos(m_x - 1, m_z))->get_block(15, y, z).is_air()))
+                    faces.push_back(ChunkBlockFace(x, y - slice_y_offset, z, Axis::X, false, block->get_texture_index(Axis::X, false)));
+                if ((x < 15 && m_blocks[linearize(x + 1, y, z)].is_air()) || (x == 15 && chunks.contains(ChunkPos(m_x + 1, m_z)) && chunks.at(ChunkPos(m_x + 1, m_z))->get_block(0, y, z).is_air()))
+                    faces.push_back(ChunkBlockFace(x, y - slice_y_offset, z, Axis::X, true, block->get_texture_index(Axis::X, true)));
 
                 if (y == 0 || m_blocks[linearize(x, y - 1, z)].is_air())
-                    faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Y, false, block->get_texture_index(Axis::Y, false)));
+                    faces.push_back(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Y, false, block->get_texture_index(Axis::Y, false)));
                 if (y == height - 1 || m_blocks[linearize(x, y + 1, z)].is_air())
-                    faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Y, true, block->get_texture_index(Axis::Y, true)));
+                    faces.push_back(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Y, true, block->get_texture_index(Axis::Y, true)));
 
-                if ((z > 0 && m_blocks[linearize(x, y, z - 1)].is_air()) || (z == 0 && chunks.contains(ChunkPos(m_x, m_z - 1)) && chunks.get(ChunkPos(m_x, m_z - 1)).value()->get_block(x, y, 15).is_air()))
-                    faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Z, false, block->get_texture_index(Axis::Z, false)));
-                if ((z < 15 && m_blocks[linearize(x, y, z + 1)].is_air()) || (z == 15 && chunks.contains(ChunkPos(m_x, m_z + 1)) && chunks.get(ChunkPos(m_x, m_z + 1)).value()->get_block(x, y, 0).is_air()))
-                    faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Z, true, block->get_texture_index(Axis::Z, true)));
+                if ((z > 0 && m_blocks[linearize(x, y, z - 1)].is_air()) || (z == 0 && chunks.contains(ChunkPos(m_x, m_z - 1)) && chunks.at(ChunkPos(m_x, m_z - 1))->get_block(x, y, 15).is_air()))
+                    faces.push_back(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Z, false, block->get_texture_index(Axis::Z, false)));
+                if ((z < 15 && m_blocks[linearize(x, y, z + 1)].is_air()) || (z == 15 && chunks.contains(ChunkPos(m_x, m_z + 1)) && chunks.at(ChunkPos(m_x, m_z + 1))->get_block(x, y, 0).is_air()))
+                    faces.push_back(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Z, true, block->get_texture_index(Axis::Z, true)));
             }
         }
     }
@@ -187,10 +184,10 @@ Result<void> Chunk::build_simple_mesh(size_t slice_index, const Map<ChunkPos, Re
     }
 
     // Now we build a mesh from the faces.
-    Vector<uint16_t> indices;
-    Vector<glm::vec3> vertices;
-    Vector<glm::vec3> uvs;
-    Vector<glm::vec3> normals;
+    std::vector<uint16_t> indices;
+    std::vector<glm::vec3> vertices;
+    std::vector<glm::vec3> uvs;
+    std::vector<glm::vec3> normals;
 
     for (const ChunkBlockFace& face : faces)
     {
@@ -199,44 +196,44 @@ Result<void> Chunk::build_simple_mesh(size_t slice_index, const Map<ChunkPos, Re
         uint16_t i2 = vertices.size() + 2;
         uint16_t i3 = vertices.size() + 3;
 
-        indices.append(i0);
-        indices.append(i1);
-        indices.append(i2);
+        indices.push_back(i0);
+        indices.push_back(i1);
+        indices.push_back(i2);
 
-        indices.append(i2);
-        indices.append(i3);
-        indices.append(i0);
+        indices.push_back(i2);
+        indices.push_back(i3);
+        indices.push_back(i0);
 
-        const Array<glm::vec3, 4> new_vertices = vertex_from_axis(face.axis, face.positive, glm::vec3(face.x, face.y, face.z));
-        vertices.append(new_vertices[0]);
-        vertices.append(new_vertices[1]);
-        vertices.append(new_vertices[2]);
-        vertices.append(new_vertices[3]);
+        const std::array<glm::vec3, 4> new_vertices = vertex_from_axis(face.axis, face.positive, glm::vec3(face.x, face.y, face.z));
+        vertices.push_back(new_vertices[0]);
+        vertices.push_back(new_vertices[1]);
+        vertices.push_back(new_vertices[2]);
+        vertices.push_back(new_vertices[3]);
 
-        uvs.append(glm::vec3(0.0, 0.0, (double)face.texture_index));
-        uvs.append(glm::vec3(1.0, 0.0, (double)face.texture_index));
-        uvs.append(glm::vec3(1.0, 1.0, (double)face.texture_index));
-        uvs.append(glm::vec3(0.0, 1.0, (double)face.texture_index));
+        uvs.push_back(glm::vec3(0.0, 0.0, (double)face.texture_index));
+        uvs.push_back(glm::vec3(1.0, 0.0, (double)face.texture_index));
+        uvs.push_back(glm::vec3(1.0, 1.0, (double)face.texture_index));
+        uvs.push_back(glm::vec3(0.0, 1.0, (double)face.texture_index));
 
         const glm::vec3 normal = normal_from_axis(face.axis, face.positive);
-        normals.append(normal);
-        normals.append(normal);
-        normals.append(normal);
-        normals.append(normal);
+        normals.push_back(normal);
+        normals.push_back(normal);
+        normals.push_back(normal);
+        normals.push_back(normal);
     }
 
-    slice.mesh = EXPECT(Mesh::create_from_data(View(indices).as_bytes(), vertices, normals, View(uvs).as_bytes(), WGPUIndexFormat_Uint16, UVType::UVT));
+    slice.mesh = EXPECT(Mesh::create_from_data(std::as_bytes(std::span(indices)), vertices, normals, std::as_bytes(std::span(uvs)), WGPUIndexFormat_Uint16, UVType::UVT));
 
     return Result<void>();
 }
 
-Result<void> Chunk::build_water_mesh(size_t slice_index, const Map<ChunkPos, Ref<Chunk>>& chunks)
+Result<void> Chunk::build_water_mesh(size_t slice_index, const std::map<ChunkPos, std::shared_ptr<Chunk>>& chunks)
 {
     Slice& slice = m_slices[slice_index];
     int64_t slice_y_offset = int64_t(slice_index) * width;
 
     // Let's detect which faces are not hidden.
-    Vector<ChunkBlockFace> faces;
+    std::vector<ChunkBlockFace> faces;
 
     for (int64_t x = 0; x < Chunk::width; x++)
     {
@@ -249,20 +246,20 @@ Result<void> Chunk::build_water_mesh(size_t slice_index, const Map<ChunkPos, Ref
                 if (!get_tag(index, "water").has_value())
                     continue;
 
-                if ((x > 0 && !get_tag(glm::i64vec3(x - 1, y, z), "water").has_value()) || (x == 0 && chunks.contains(ChunkPos(m_x - 1, m_z)) && !chunks.get(ChunkPos(m_x - 1, m_z)).value()->get_tag(glm::i64vec3(15, y, z), "water").has_value()))
-                    faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::X, false, 0));
-                if ((x < 15 && !get_tag(glm::i64vec3(x + 1, y, z), "water").has_value()) || (x == 15 && chunks.contains(ChunkPos(m_x + 1, m_z)) && !chunks.get(ChunkPos(m_x + 1, m_z)).value()->get_tag(glm::i64vec3(0, y, z), "water")))
-                    faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::X, true, 0));
+                if ((x > 0 && !get_tag(glm::i64vec3(x - 1, y, z), "water").has_value()) || (x == 0 && chunks.contains(ChunkPos(m_x - 1, m_z)) && !chunks.at(ChunkPos(m_x - 1, m_z))->get_tag(glm::i64vec3(15, y, z), "water").has_value()))
+                    faces.push_back(ChunkBlockFace(x, y - slice_y_offset, z, Axis::X, false, 0));
+                if ((x < 15 && !get_tag(glm::i64vec3(x + 1, y, z), "water").has_value()) || (x == 15 && chunks.contains(ChunkPos(m_x + 1, m_z)) && !chunks.at(ChunkPos(m_x + 1, m_z))->get_tag(glm::i64vec3(0, y, z), "water")))
+                    faces.push_back(ChunkBlockFace(x, y - slice_y_offset, z, Axis::X, true, 0));
 
                 if (y == 0 || (!get_tag(glm::i64vec3(x, y - 1, z), "water").has_value()))
-                    faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Y, false, 0));
+                    faces.push_back(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Y, false, 0));
                 if (y == height - 1 || (!get_tag(glm::i64vec3(x, y + 1, z), "water").has_value()))
-                    faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Y, true, 0));
+                    faces.push_back(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Y, true, 0));
 
-                if ((z > 0 && !get_tag(glm::i64vec3(x, y, z - 1), "water").has_value()) || (z == 0 && chunks.contains(ChunkPos(m_x, m_z - 1)) && !chunks.get(ChunkPos(m_x, m_z - 1)).value()->get_tag(glm::i64vec3(x, y, 0), "water")))
-                    faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Z, false, 0));
-                if ((z < 15 && !get_tag(glm::i64vec3(x, y, z + 1), "water").has_value()) || (z == 15 && chunks.contains(ChunkPos(m_x, m_z + 1)) && !chunks.get(ChunkPos(m_x, m_z + 1)).value()->get_tag(glm::i64vec3(x, y, 0), "water")))
-                    faces.append(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Z, true, 0));
+                if ((z > 0 && !get_tag(glm::i64vec3(x, y, z - 1), "water").has_value()) || (z == 0 && chunks.contains(ChunkPos(m_x, m_z - 1)) && !chunks.at(ChunkPos(m_x, m_z - 1))->get_tag(glm::i64vec3(x, y, 0), "water")))
+                    faces.push_back(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Z, false, 0));
+                if ((z < 15 && !get_tag(glm::i64vec3(x, y, z + 1), "water").has_value()) || (z == 15 && chunks.contains(ChunkPos(m_x, m_z + 1)) && !chunks.at(ChunkPos(m_x, m_z + 1))->get_tag(glm::i64vec3(x, y, 0), "water")))
+                    faces.push_back(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Z, true, 0));
             }
         }
     }
@@ -275,10 +272,10 @@ Result<void> Chunk::build_water_mesh(size_t slice_index, const Map<ChunkPos, Ref
     }
 
     // Now we build a mesh from the faces.
-    Vector<uint16_t> indices;
-    Vector<glm::vec3> vertices;
-    Vector<glm::vec2> uvs;
-    Vector<glm::vec3> normals;
+    std::vector<uint16_t> indices;
+    std::vector<glm::vec3> vertices;
+    std::vector<glm::vec2> uvs;
+    std::vector<glm::vec3> normals;
 
     for (const ChunkBlockFace& face : faces)
     {
@@ -287,56 +284,57 @@ Result<void> Chunk::build_water_mesh(size_t slice_index, const Map<ChunkPos, Ref
         uint16_t i2 = vertices.size() + 2;
         uint16_t i3 = vertices.size() + 3;
 
-        indices.append(i0);
-        indices.append(i1);
-        indices.append(i2);
+        indices.push_back(i0);
+        indices.push_back(i1);
+        indices.push_back(i2);
 
-        indices.append(i2);
-        indices.append(i3);
-        indices.append(i0);
+        indices.push_back(i2);
+        indices.push_back(i3);
+        indices.push_back(i0);
 
-        const Array<glm::vec3, 4> new_vertices = vertex_from_axis(face.axis, face.positive, glm::vec3(face.x, face.y, face.z));
-        vertices.append(new_vertices[0]);
-        vertices.append(new_vertices[1]);
-        vertices.append(new_vertices[2]);
-        vertices.append(new_vertices[3]);
+        const std::array<glm::vec3, 4> new_vertices = vertex_from_axis(face.axis, face.positive, glm::vec3(face.x, face.y, face.z));
+        vertices.push_back(new_vertices[0]);
+        vertices.push_back(new_vertices[1]);
+        vertices.push_back(new_vertices[2]);
+        vertices.push_back(new_vertices[3]);
 
-        uvs.append(glm::vec2(0.0, 0.0));
-        uvs.append(glm::vec2(1.0, 0.0));
-        uvs.append(glm::vec2(1.0, 1.0));
-        uvs.append(glm::vec2(0.0, 1.0));
+        uvs.push_back(glm::vec2(0.0, 0.0));
+        uvs.push_back(glm::vec2(1.0, 0.0));
+        uvs.push_back(glm::vec2(1.0, 1.0));
+        uvs.push_back(glm::vec2(0.0, 1.0));
 
         const glm::vec3 normal = normal_from_axis(face.axis, face.positive);
-        normals.append(normal);
-        normals.append(normal);
-        normals.append(normal);
-        normals.append(normal);
+        normals.push_back(normal);
+        normals.push_back(normal);
+        normals.push_back(normal);
+        normals.push_back(normal);
     }
 
-    slice.water_mesh = EXPECT(Mesh::create_from_data(View(indices).as_bytes(), vertices, normals, View(uvs).as_bytes(), WGPUIndexFormat_Uint16, UVType::UV));
+    slice.water_mesh = EXPECT(Mesh::create_from_data(std::as_bytes(std::span(indices)), vertices, normals, std::as_bytes(std::span(uvs)), WGPUIndexFormat_Uint16, UVType::UV));
 
     return Result<void>();
 }
 
-void Chunk::set_tag(glm::i64vec3 pos, const StringView& name, Variant v, bool rebuild)
+void Chunk::set_tag(glm::i64vec3 pos, std::string_view name, Variant v, bool rebuild)
 {
     uint16_t key = linearize(pos.x, pos.y, pos.z);
-    BlockTags *tags = m_tags.get_or_put(key, BlockTags());
-    tags->tags.put(name, v);
+    m_tags[key] = BlockTags();
+    m_tags[key].tags[std::string(name)] = v;
 
     m_dim->queue_rebuild(ChunkPos(m_x, m_z));
 }
 
-void Chunk::remove_tag(glm::i64vec3 pos, const StringView& name, bool rebuild)
+void Chunk::remove_tag(glm::i64vec3 pos, std::string_view name, bool rebuild)
 {
     uint16_t key = linearize(pos.x, pos.y, pos.z);
-    Option<BlockTags *> tags = m_tags.get_ptr(key);
+    auto tags = m_tags.find(key);
 
-    if (tags.has_value())
+    if (tags != m_tags.end())
     {
-        tags.value()->tags.erase(name);
+        BlockTags& block_tags = tags->second;
+        block_tags.tags.erase(block_tags.tags.find(name));
 
-        if (tags.value()->tags.size() == 0)
+        if (tags->second.tags.size() == 0)
         {
             m_tags.erase(key);
             m_dim->queue_rebuild(ChunkPos(m_x, m_z)); // TODO: Add a way to rebuild one slice ? (pos.y / 16)
@@ -344,15 +342,15 @@ void Chunk::remove_tag(glm::i64vec3 pos, const StringView& name, bool rebuild)
     }
 }
 
-Option<Variant> Chunk::get_tag(uint16_t index, const StringView& name) const
+Option<Variant> Chunk::get_tag(uint16_t index, std::string_view name) const
 {
-    Option<const BlockTags *> tags = m_tags.get_ptr(index);
-    if (tags.has_value())
-        return tags.value()->tags.get(name);
+    auto tags = m_tags.find(index);
+    if (tags != m_tags.end())
+        return tags->second.tags.find(name)->second;
     return None;
 }
 
-Option<Variant> Chunk::get_tag(glm::i64vec3 pos, const StringView& name) const
+Option<Variant> Chunk::get_tag(glm::i64vec3 pos, std::string_view name) const
 {
     return get_tag(linearize(pos.x, pos.y, pos.z), name);
 }
@@ -360,14 +358,10 @@ Option<Variant> Chunk::get_tag(glm::i64vec3 pos, const StringView& name) const
 void Chunk::merge_tag(uint16_t index, const BlockTags& tags)
 {
     if (tags.tags.size() == 0)
-    {
         return;
-    }
 
-    BlockTags *t = m_tags.get_or_put(index, BlockTags());
+    m_tags[index] = BlockTags();
 
-    for (const auto& [_, name, value] : tags.tags)
-    {
-        t->tags.put(name, value);
-    }
+    for (const auto& [name, value] : tags.tags)
+        m_tags[index].tags[name] = value;
 }

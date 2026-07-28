@@ -20,7 +20,7 @@ void HeightPass::init(GenDesc& desc)
     m_rspline = tk::spline(xa3, ya3);
 }
 
-void HeightPass::gen(const Gen& gen, int64_t x, int64_t y, int64_t z, BlockState& state, BlockTags& tags, Biome& biome)
+void HeightPass::gen(Gen& gen, int64_t x, int64_t y, int64_t z, BlockState& state, BlockTags& tags, Biome& biome)
 {
     (void)y;
     (void)state;

@@ -7,6 +7,8 @@
 #include "UI/ItemSlot.hpp"
 #include "World/Registry.hpp"
 
+#include <format>
+
 constexpr int CRAFTING_GRID_SIZE = 4;
 constexpr int INGREDIENTS_LAYER = 2;
 constexpr int RESULT_LAYER = 3;
@@ -14,11 +16,11 @@ constexpr int RESULT_LAYER = 3;
 QuickSlot::QuickSlot()
     : m_count(0)
 {
-    m_background = newref<ColorRect>();
+    m_background = std::make_shared<ColorRect>();
     set_scale(glm::vec2(0.12));
 
-    m_item_rect = newref<TextureRect>();
-    m_label = newref<Label>(Engine::get().get_font());
+    m_item_rect = std::make_shared<TextureRect>();
+    m_label = std::make_shared<Label>(Engine::get().get_font());
 }
 
 void QuickSlot::update(float d)
@@ -60,19 +62,19 @@ void QuickSlot::set_item(Id<Item> item)
 
     if (item.valid())
     {
-        Ref<Texture> texture = Engine::get().registry().get_texture(item);
+        std::shared_ptr<Texture> texture = Engine::get().registry().get_texture(item);
         m_item_rect->set_texture(texture);
     }
 }
 
 void QuickSlot::set_count(size_t count)
 {
-    String text = format("{}", count);
+    std::string text = std::format("{}", count);
     m_label->set_text(text);
     m_count = count;
 }
 
-PlayerInventory::PlayerInventory(Ref<InventoryContainer> container)
+PlayerInventory::PlayerInventory(std::shared_ptr<InventoryContainer> container)
     : Inventory(container)
 {
     add_background();
@@ -89,10 +91,10 @@ PlayerInventory::PlayerInventory(Ref<InventoryContainer> container)
     float offset_x = -(slot_tsize * inventory_width) / 2.0f + slot_tsize / 2.0f;
     float offset_y = -(slot_tsize * inventory_height) / 2.0f + slot_tsize / 2.0f;
 
-    m_quick_slots_container = newref<Container>();
+    m_quick_slots_container = std::make_shared<Container>();
     for (size_t x = 0; x < inventory_width; x++)
     {
-        Ref<QuickSlot> quick_slot = newref<QuickSlot>();
+        std::shared_ptr<QuickSlot> quick_slot = std::make_shared<QuickSlot>();
         quick_slot->set_position(glm::vec2(offset_x, offset_y) + glm::vec2(float(x) * slot_tsize, -slot_tsize * 4.0f));
         m_quick_slots_container->add_child(quick_slot);
         m_quick_slots[x] = quick_slot;
@@ -151,7 +153,6 @@ void PlayerInventory::add_stack(ItemStack stack)
             Option<ItemStack> excess = current_stack.merge(stack);
             m_container->set_stack(1, x, current_stack);
 
-
             if (excess.has_value())
                 add_stack(excess.value());
             return;
@@ -189,7 +190,7 @@ bool PlayerInventory::on_place(uint32_t layer, uint32_t index, ItemStack stack, 
     (void)index;
     (void)stack;
 
-    if (layer == RESULT_LAYER && container == m_container.ptr())
+    if (layer == RESULT_LAYER && container == m_container.get())
         return false;
 
     if (layer == INGREDIENTS_LAYER)
@@ -222,11 +223,11 @@ bool PlayerInventory::on_pick(uint32_t layer, uint32_t index, ItemStack stack, I
 
 void PlayerInventory::update_recipe()
 {
-    InplaceVector<Id<Item>, RECIPE_SIZE> grid;
+    std::array<Id<Item>, MAX_RECIPE_SIZE> grid;
     for (size_t i = 0; i < CRAFTING_GRID_SIZE; i++)
     {
         ItemStack s = m_container->get_stack(INGREDIENTS_LAYER, i);
-        grid.push_back(s.item());
+        grid[i] = s.item();
     }
 
     Option<ItemStack> result = Engine::get().registry().match(grid, 2, 2);

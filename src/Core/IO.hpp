@@ -1,6 +1,5 @@
 #pragma once
 
-#include "Core/Containers/LocalVector.hpp"
 #include "Core/Result.hpp"
 #include "Variant.hpp"
 
@@ -13,8 +12,8 @@ public:
     virtual size_t size() = 0;
     virtual bool eof() = 0;
 
-    Result<String> read_to_string();
-    Result<void> read_to_buffer(LocalVector<char>& buf);
+    Result<std::string> read_to_string();
+    Result<void> read_to_buffer(std::vector<char>& buf);
     Result<Option<Variant>> read_variant();
 };
 
@@ -30,7 +29,7 @@ class BufferReader : public Reader
 {
 public:
     BufferReader(const uint8_t *buffer, size_t size) : m_buffer(buffer), m_size(size) {}
-    
+
     virtual Result<size_t> read_raw(void *buf, size_t size) override;
     virtual size_t size() override;
     virtual bool eof() override;
@@ -49,8 +48,8 @@ class BufferWriter : public Writer
 public:
     virtual Result<size_t> write_raw(const void *buf, size_t size) override;
 
-    View<uint8_t> buffer() const { return m_buffer; }
-    
+    std::span<const uint8_t> buffer() const { return m_buffer; }
+
 private:
-    LocalVector<uint8_t> m_buffer;
+    std::vector<uint8_t> m_buffer;
 };

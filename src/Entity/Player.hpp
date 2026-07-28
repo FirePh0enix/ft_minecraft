@@ -1,7 +1,5 @@
 #pragma once
 
-#include "Core/Containers/Array.hpp"
-#include "Core/Ref.hpp"
 #include "Entity/Camera.hpp"
 #include "Entity/Entity.hpp"
 #include "Entity/LivingEntity.hpp"
@@ -31,11 +29,11 @@ public:
 private:
     Player *m_player;
 
-    Ref<Label> m_memory_label;
-    Ref<Label> m_gpu_objects_label;
-    Ref<Label> m_perfomance_label;
-    Ref<Label> m_time_label;
-    Ref<Label> m_position_label;
+    std::shared_ptr<Label> m_memory_label;
+    std::shared_ptr<Label> m_gpu_objects_label;
+    std::shared_ptr<Label> m_perfomance_label;
+    std::shared_ptr<Label> m_time_label;
+    std::shared_ptr<Label> m_position_label;
 };
 
 class Player : public LivingEntity
@@ -63,8 +61,8 @@ public:
 
     virtual void die() override;
 
-    void set_username(const String& username) { m_username = username; }
-    String get_username() const { return m_username; }
+    void set_username(std::string_view username) { m_username = username; }
+    std::string_view get_username() const { return m_username; }
 
     void break_block(int64_t x, int64_t y, int64_t z);
     void place_block(int64_t x, int64_t y, int64_t z, glm::vec3 normal, ItemStack stack);
@@ -86,50 +84,49 @@ public:
         m_inventory->set_selected_slot(slot);
     }
 
-    Ref<PlayerInventory> get_inventory() const { return m_inventory; }
-    Ref<InventoryContainer> get_inventory_container() const { return m_inventory_container; }
+    std::shared_ptr<PlayerInventory> get_inventory() const { return m_inventory; }
+    std::shared_ptr<InventoryContainer> get_inventory_container() const { return m_inventory_container; }
 
-    void open_inventory(Ref<Inventory> inventory);
+    void open_inventory(std::shared_ptr<Inventory> inventory);
     void close_inventory();
 
     bool head_in_water() const;
 
 private:
-    Ref<Camera> m_camera;
-    GameMode m_gamemode = GameMode::Creative; //GameMode::Survival;
+    std::shared_ptr<Camera> m_camera;
+    GameMode m_gamemode = GameMode::Creative; // GameMode::Survival;
 
     float m_speed = 20.0f; // 8.0;
     float m_jump_force = 0.24f;
 
     Option<glm::vec3> m_aimed_block;
-    Ref<Material> m_aim_material;
-    Ref<Buffer> m_aim_buffer;
+    std::shared_ptr<Material> m_aim_material;
+    std::shared_ptr<Buffer> m_aim_buffer;
 
     bool m_previous_frame_in_water = false;
 
     static constexpr glm::vec3 aim_color = glm::vec3(0.94, 0.63, 0.1);
 
-    Ref<Model> m_model;
+    std::shared_ptr<Model> m_model;
     Animator m_animator;
 
-    Ref<InventoryContainer> m_inventory_container;
-    Ref<PlayerInventory> m_inventory;
+    std::shared_ptr<InventoryContainer> m_inventory_container;
+    std::shared_ptr<PlayerInventory> m_inventory;
     size_t m_slot = 0;
 
-    Array<Ref<Texture>, 4> m_breaks_textures;
-    Ref<Buffer> m_model_buffer;
-    Ref<BindGroup> m_hand_item_bg;
-    // Ref<Material> m_material;
+    std::array<std::shared_ptr<Texture>, 4> m_breaks_textures;
+    std::shared_ptr<Buffer> m_model_buffer;
+    std::shared_ptr<BindGroup> m_hand_item_bg;
 
-    Option<Ref<Inventory>> m_opened_inventory;
+    Option<std::shared_ptr<Inventory>> m_opened_inventory;
 
     bool m_open_chat = false;
-    Ref<Chat> m_chat;
+    std::shared_ptr<Chat> m_chat;
 
-    String m_username;
+    std::string m_username;
 
     bool m_open_debug_menu = false;
-    Ref<DebugMenuContainer> m_debug_menu;
+    std::shared_ptr<DebugMenuContainer> m_debug_menu;
 
     /**
      * Player class is a little special since its behavor is different if this is the local or remote.

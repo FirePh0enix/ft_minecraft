@@ -1,11 +1,10 @@
 #pragma once
 
-#include "Core/Containers/LocalVector.hpp"
-#include "Core/Containers/Vector.hpp"
-
 #include <condition_variable>
+#include <functional>
 #include <mutex>
 #include <thread>
+#include <vector>
 
 class ThreadPool
 {
@@ -20,10 +19,10 @@ public:
     void async(std::function<void()> task);
 
 private:
-    LocalVector<std::thread> m_threads;
+    std::vector<std::thread> m_threads;
 
     std::mutex m_queue_mutex;
-    LocalVector<std::function<void()>> m_tasks;
+    std::vector<std::function<void()>> m_tasks;
 
     std::condition_variable m_cv;
     bool m_stop = false;

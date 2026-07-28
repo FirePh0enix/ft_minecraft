@@ -1,12 +1,7 @@
 #include "Model.hpp"
 
-#include "Core/Containers/Array.hpp"
 #include "Core/Filesystem.hpp"
-#include "Core/Json.hpp"
-#include "Core/Ref.hpp"
-#include "Core/String.hpp"
 #include "Render/Renderer.hpp"
-#include "Render/Types.hpp"
 
 #include <cmath>
 
@@ -16,12 +11,12 @@
 
 struct ModelObject
 {
-    String name;
-    Array<float, 3> size;
-    Array<float, 3> position;
-    Array<float, 3> origin;
+    std::string name;
+    std::array<float, 3> size;
+    std::array<float, 3> position;
+    std::array<float, 3> origin;
 
-    Array<Array<uint32_t, 2>, 24> uvs;
+    std::array<std::array<uint32_t, 2>, 24> uvs;
 };
 
 void from_json(const nlohmann::json& j, ModelObject& m)
@@ -39,9 +34,9 @@ void from_json(const nlohmann::json& j, ModelObject& m)
 
 struct Transform
 {
-    String object;
-    Array<float, 3> position;
-    Array<float, 3> rotation;
+    std::string object;
+    std::array<float, 3> position;
+    std::array<float, 3> rotation;
 };
 
 void from_json(const nlohmann::json& j, Transform& m)
@@ -56,7 +51,7 @@ void from_json(const nlohmann::json& j, Transform& m)
 struct Keyframe
 {
     uint32_t frame;
-    Vector<Transform> transforms;
+    std::vector<Transform> transforms;
 };
 
 void from_json(const nlohmann::json& j, Keyframe& m)
@@ -67,10 +62,10 @@ void from_json(const nlohmann::json& j, Keyframe& m)
 
 struct Animation
 {
-    String name;
+    std::string name;
     uint32_t fps;
     uint32_t frames;
-    Vector<Keyframe> keyframes;
+    std::vector<Keyframe> keyframes;
 };
 
 void from_json(const nlohmann::json& j, Animation& m)
@@ -83,11 +78,11 @@ void from_json(const nlohmann::json& j, Animation& m)
 
 struct ModelJSON
 {
-    String name;
-    Array<float, 2> texture_size;
-    String texture_path;
-    Vector<ModelObject> objects;
-    Vector<Animation> animations;
+    std::string name;
+    std::array<float, 2> texture_size;
+    std::string texture_path;
+    std::vector<ModelObject> objects;
+    std::vector<Animation> animations;
 };
 
 void from_json(const nlohmann::json& j, ModelJSON& m)
@@ -103,14 +98,14 @@ void from_json(const nlohmann::json& j, ModelJSON& m)
         j.at("texture_path").get_to(m.texture_path);
 }
 
-Result<Ref<Model>> Model::load(const StringView& path)
+Result<std::shared_ptr<Model>> Model::load(std::string_view path)
 {
     File file = TRY(Filesystem::open_file(path));
-    String source = TRY(file.reader().read_to_string());
+    std::string source = TRY(file.reader().read_to_string());
 
     ModelJSON json = nlohmann::json::parse(std::string(source.data(), source.size()));
 
-    Ref<Model> model = newref<Model>();
+    std::shared_ptr<Model> model = std::make_shared<Model>();
     model->m_name.append(json.name.data(), json.name.size());
     model->m_global_buffer = TRY(Buffer::create(sizeof(Model::Info), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
     model->m_texture = TRY(Texture::load(json.texture_path));
@@ -125,27 +120,27 @@ Result<Ref<Model>> Model::load(const StringView& path)
         obj.origin = glm::vec3(object.origin[0], object.origin[1], object.origin[2]);
         obj.bg = BindGroup::create(Renderer::get().get_fw_model_shader());
 
-        Vector<glm::vec2> uvs;
+        std::vector<glm::vec2> uvs;
         for (uint32_t i = 0; i < 24; i++)
-            uvs.append(glm::vec2(float(object.uvs[i][0]) / float(json.texture_size[0]), float(object.uvs[i][1]) / float(json.texture_size[1])));
+            uvs.push_back(glm::vec2(float(object.uvs[i][0]) / float(json.texture_size[0]), float(object.uvs[i][1]) / float(json.texture_size[1])));
         obj.uv_buffer = TRY(Buffer::create(sizeof(glm::vec2) * 24, WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
-        obj.uv_buffer->update(View(uvs).as_bytes());
+        obj.uv_buffer->update(std::as_bytes(std::span(uvs)));
 
         Model::Info info{
             // TODO: add rotation.
             .model_matrix = glm::rotate(glm::identity<glm::mat4>(), float(M_PI), glm::vec3(0, 1, 0)) * glm::translate(glm::identity<glm::mat4>(), obj.position) * glm::scale(glm::identity<glm::mat4>(), obj.size),
         };
-        obj.model_buffer->update(View(info).as_bytes());
+        obj.model_buffer->update_struct(info);
 
         obj.bg->set_param("camera", Renderer::get().get_fw_camera());
         obj.bg->set_param("model", obj.model_buffer);
         obj.bg->set_param("global_model", model->m_global_buffer);
-	obj.bg->set_param("world_env", Renderer::get().get_fw_world_env());
+        obj.bg->set_param("world_env", Renderer::get().get_fw_world_env());
         obj.bg->set_param("uvs", obj.uv_buffer);
         obj.bg->set_param("texture", model->m_texture);
-	obj.bg->set_param("shadowmap", Renderer::get().get_fw_shadowmap());
+        obj.bg->set_param("shadowmap", Renderer::get().get_fw_shadowmap());
 
-        model->m_objects.append(obj);
+        model->m_objects.push_back(obj);
     }
 
     for (const auto& animation : json.animations)
@@ -167,29 +162,34 @@ Result<Ref<Model>> Model::load(const StringView& path)
                 tran.position = glm::vec3(transform.position[0], transform.position[1], transform.position[2]);
                 tran.rotation = glm::vec3(transform.rotation[0], transform.rotation[1], transform.rotation[2]);
 
-                act.transforms.append(tran);
+                act.transforms.push_back(tran);
             }
 
-            anim.keyframes.append(act);
+            anim.keyframes.push_back(act);
         }
 
-        model->m_animation.append(anim);
+        model->m_animation.push_back(anim);
     }
 
     return model;
 }
 
-View<Model::Object> Model::objects() const
+std::span<const Model::Object> Model::objects() const
 {
     return m_objects;
 }
 
-Ref<Buffer> Model::get_global_buffer() const
+std::span<Model::Object> Model::objects()
+{
+    return m_objects;
+}
+
+std::shared_ptr<Buffer> Model::get_global_buffer() const
 {
     return m_global_buffer;
 }
 
-Option<Model::Object> Model::get_object(String name) const
+Option<Model::Object> Model::get_object(std::string_view name) const
 {
     for (const auto& obj : m_objects)
     {
@@ -201,16 +201,16 @@ Option<Model::Object> Model::get_object(String name) const
 
 void Model::encode(const RenderPass& pass, const Transform3D& transform)
 {
-    const Ref<Mesh>& mesh = Renderer::get().get_cube_mesh();
+    const std::shared_ptr<Mesh>& mesh = Renderer::get().get_cube_mesh();
 
     Info info{.model_matrix = transform.to_matrix()};
-    m_global_buffer->update(View(info).as_bytes());
+    m_global_buffer->update_struct(info);
 
     for (const auto& obj : m_objects)
         Renderer::get().draw(pass, mesh, Renderer::get().get_fw_model_mat(), obj.bg);
 }
 
-void Animator::set_model(Ref<Model> model)
+void Animator::set_model(std::shared_ptr<Model> model)
 {
     m_model = model;
     m_animation_name = "";
@@ -218,7 +218,7 @@ void Animator::set_model(Ref<Model> model)
     m_frame = 0;
 }
 
-void Animator::play(String animation)
+void Animator::play(const std::string& animation)
 {
     if (m_animation_name == animation)
         return;
@@ -294,7 +294,7 @@ void Animator::update_model_animation_buffer()
         Model::Info info{
             .model_matrix = translate_m * rotation_m * origin_m * scale_m,
         };
-        object.model_buffer->update(View(info).as_bytes());
+        object.model_buffer->update_struct(info);
     }
 }
 
@@ -314,7 +314,7 @@ Option<Model::Keyframe> Animator::get_keyframe_for_frame(uint32_t frame) const
     return None;
 }
 
-Option<Animator::TransformWithLength> Animator::get_current_transform(String object_name) const
+Option<Animator::TransformWithLength> Animator::get_current_transform(std::string_view object_name) const
 {
     Option<Model::Animation> animation_maybe = m_model->get_animation(m_animation_name);
     if (!animation_maybe.has_value())
@@ -354,7 +354,7 @@ Option<Animator::TransformWithLength> Animator::get_current_transform(String obj
     return None;
 }
 
-Option<Animator::TransformWithLength> Animator::get_next_transform(String object_name) const
+Option<Animator::TransformWithLength> Animator::get_next_transform(std::string_view object_name) const
 {
     Option<Model::Animation> animation_maybe = m_model->get_animation(m_animation_name);
     if (!animation_maybe.has_value())

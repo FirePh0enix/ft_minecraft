@@ -5,17 +5,16 @@
 #include "Item/Item.hpp"
 #include "World/Registry.hpp"
 
-
 constexpr int CRAFTING_GRID_SIZE = 9;
 constexpr int INGREDIENTS_LAYER = 0;
 constexpr int RESULT_LAYER = 1;
 
-CraftingTableInventory::CraftingTableInventory(Ref<InventoryContainer> inventory, Ref<InventoryContainer> player_inventory)
+CraftingTableInventory::CraftingTableInventory(std::shared_ptr<InventoryContainer> inventory, std::shared_ptr<InventoryContainer> player_inventory)
     : Inventory(inventory), m_player_inventory(player_inventory)
 {
     add_background();
-    add_grid(9, 3, 0, glm::vec2(0, -0.2f), m_player_inventory.ptr());
-    add_grid(9, 1, 1, glm::vec2(0, -0.6f), m_player_inventory.ptr());
+    add_grid(9, 3, 0, glm::vec2(0, -0.2f), m_player_inventory.get());
+    add_grid(9, 1, 1, glm::vec2(0, -0.6f), m_player_inventory.get());
 
     add_grid(3, 3, 0, glm::vec2(-0.2f, 0.3f));
     add_grid(1, 1, 1, glm::vec2(0.3f, 0.3f));
@@ -41,7 +40,7 @@ bool CraftingTableInventory::on_place(uint32_t layer, uint32_t index, ItemStack 
     (void)index;
     (void)stack;
 
-    if (layer == RESULT_LAYER && container == m_container.ptr())
+    if (layer == RESULT_LAYER && container == m_container.get())
         return false;
 
     if (layer == INGREDIENTS_LAYER)
@@ -74,11 +73,11 @@ bool CraftingTableInventory::on_pick(uint32_t layer, uint32_t index, ItemStack s
 
 void CraftingTableInventory::update_recipe()
 {
-    InplaceVector<Id<Item>, RECIPE_SIZE> grid;
+    std::array<Id<Item>, MAX_RECIPE_SIZE> grid;
     for (size_t i = 0; i < CRAFTING_GRID_SIZE; i++)
     {
         ItemStack s = m_container->get_stack(INGREDIENTS_LAYER, i);
-        grid.push_back(s.item());
+        grid[i] = s.item();
     }
 
     Option<ItemStack> result = Engine::get().registry().match(grid, 3, 3);

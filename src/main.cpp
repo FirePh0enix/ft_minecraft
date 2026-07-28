@@ -23,29 +23,30 @@ MAIN(int argc, char *argv[])
 {
     (void)argc;
     (void)argv;
-    
+
 #if !defined(__has_address_sanitizer) && !defined(__platform_web)
     // NOTE: Address sanitizer mess with our custom error handling.
     initialize_error_handling(Filesystem::current_executable_path().c_str());
 #endif
 
     bool disable_save = false;
-    for (int i = 0; i < argc; i++) {
-	if (StringView(argv[i]) == "--disable-save") {
-	    disable_save = true;
-	}
+    for (int i = 0; i < argc; i++)
+    {
+        if (std::string_view(argv[i]) == "--disable-save")
+            disable_save = true;
     }
 
     TracySetThreadName("Main");
 
-    Ref<Engine> engine = newref<Engine>(disable_save);
+    Engine engine(disable_save);
 
     info("using data directory `{}`", Filesystem::get_data_directory());
-    if (disable_save) {
-	info("save are disabled, modification will not be saved");
+    if (disable_save)
+    {
+        info("save are disabled, modification will not be saved");
     }
 
-    while (engine->is_running())
+    while (engine.is_running())
     {
         const float elapsed_time = (float)(clock() - last_update_time) / CLOCKS_PER_SEC;
         if (elapsed_time >= fixed_update_time)
@@ -53,15 +54,13 @@ MAIN(int argc, char *argv[])
             FrameMark;
             last_update_time = clock();
 
-            engine->tick(float(fixed_update_time)); // TODO: change to elapsed time or something
-            //engine->draw(float(fixed_update_time));
+            engine.tick(float(fixed_update_time)); // TODO: change to elapsed time or something
+            // engine.draw(float(fixed_update_time));
             Input::post_events();
         }
 
-	engine->draw(float(fixed_update_time));
+        engine.draw(float(fixed_update_time));
     }
-
-    engine = nullptr;
 
     return 0;
 }

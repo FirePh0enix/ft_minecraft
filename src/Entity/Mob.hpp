@@ -27,7 +27,7 @@ public:
     glm::vec3 safe_normalize(const glm::vec3& v);
 
 protected:
-    Ref<Model> m_model;
+    std::shared_ptr<Model> m_model;
     std::unique_ptr<Pathfinding> m_pathfinding;
     bool m_following_path = false;
     Option<Path> m_path;

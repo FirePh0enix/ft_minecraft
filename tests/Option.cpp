@@ -1,5 +1,4 @@
 #include "Core/Option.hpp"
-#include "Core/String.hpp"
 
 #include <doctest/doctest.h>
 
@@ -17,7 +16,7 @@ TEST_CASE("Simple Option")
 
 TEST_CASE("Option with complex types")
 {
-    Option<String> s = String("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+    Option<std::string> s = std::string("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
     CHECK(s.has_value());
 
     s = None;

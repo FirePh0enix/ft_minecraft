@@ -3,7 +3,6 @@
 #include "Core/Assert.hpp"
 #include "Core/Filesystem.hpp"
 #include "Core/Hash.hpp"
-#include "Core/Print.hpp"
 #include "Render/Renderer.hpp"
 #include "Render/Types.hpp"
 
@@ -15,7 +14,7 @@ Shader::~Shader()
         wgpuPipelineLayoutRelease(m_pipeline_layout);
 }
 
-static Result<String> preprocess(const String& source, StringView basepath)
+static Result<std::string> preprocess(const std::string& source, std::string_view basepath)
 {
     std::string source2(source.data(), source.size());
     std::stringstream ss(source2);
@@ -24,50 +23,50 @@ static Result<String> preprocess(const String& source, StringView basepath)
 
     while (std::getline(ss, line))
     {
-	if (line.starts_with("#include "))
-	{
-	    std::string path = line.substr(10, line.length() - 11);
+        if (line.starts_with("#include "))
+        {
+            std::string path = line.substr(10, line.length() - 11);
 
-	    std::string fpath = basepath.data();
-	    fpath += path;
+            std::string fpath = basepath.data();
+            fpath += path;
 
-	    String include_source = TRY(TRY(Filesystem::open_file(StringView(fpath.data(), fpath.size()))).reader().read_to_string());
-	    
-	    s.append(include_source.data(), include_source.size());
-	    s.append("\n");
-	}
-	else
-	{
-	    s.append(line.data(), line.size());
-	    s.append("\n");
-	}
+            std::string include_source = TRY(TRY(Filesystem::open_file(fpath)).reader().read_to_string());
+
+            s.append(include_source.data(), include_source.size());
+            s.append("\n");
+        }
+        else
+        {
+            s.append(line.data(), line.size());
+            s.append("\n");
+        }
     }
 
-    return String(s.data());
+    return s;
 }
 
-Result<Ref<Shader>> Shader::load(const StringView& source)
+Result<std::shared_ptr<Shader>> Shader::load(std::string_view source)
 {
-    Ref<Shader> shader = newref<Shader>();
+    std::shared_ptr<Shader> shader = std::make_shared<Shader>();
     shader->m_source_code = source;
     shader->m_hash = hash_fnv32(source);
     return shader;
 }
 
-Result<Ref<Shader>> Shader::load_from_path(const StringView& path)
+Result<std::shared_ptr<Shader>> Shader::load_from_path(std::string_view path)
 {
     File file = TRY(Filesystem::open_file(path));
-    String s = TRY(file.reader().read_to_string());
+    std::string s = TRY(file.reader().read_to_string());
     s = TRY(preprocess(s, "assets/shaders/"));
     return load(s);
 }
 
-static Vector<WGPUBindGroupLayoutEntry> convert_bindings(Shader *shader)
+static std::vector<WGPUBindGroupLayoutEntry> convert_bindings(Shader *shader)
 {
-    Vector<WGPUBindGroupLayoutEntry> entries;
+    std::vector<WGPUBindGroupLayoutEntry> entries;
     entries.reserve(shader->get_bindings().size());
 
-    for (const auto& [_, key, binding] : shader->get_bindings())
+    for (const auto& [key, binding] : shader->get_bindings())
     {
         switch (binding.kind)
         {
@@ -81,7 +80,7 @@ static Vector<WGPUBindGroupLayoutEntry> convert_bindings(Shader *shader)
             entry.texture.multisampled = false;
             entry.texture.viewDimension = binding.dimension;
 
-            entries.append(entry);
+            entries.push_back(entry);
 
             WGPUBindGroupLayoutEntry sampler_entry{};
             sampler_entry.binding = binding.binding + 1;
@@ -89,7 +88,7 @@ static Vector<WGPUBindGroupLayoutEntry> convert_bindings(Shader *shader)
             sampler_entry.sampler.nextInChain = nullptr;
             sampler_entry.sampler.type = binding.sampler_binding;
 
-            entries.append(sampler_entry);
+            entries.push_back(sampler_entry);
         }
         break;
         case BindingKind::UniformBuffer:
@@ -99,7 +98,7 @@ static Vector<WGPUBindGroupLayoutEntry> convert_bindings(Shader *shader)
             entry.visibility = binding.shader_stage;
             entry.buffer.type = WGPUBufferBindingType_Uniform;
 
-            entries.append(entry);
+            entries.push_back(entry);
         }
         break;
         default:
@@ -113,7 +112,7 @@ static Vector<WGPUBindGroupLayoutEntry> convert_bindings(Shader *shader)
 
 void Shader::create_bind_group_layout()
 {
-    Vector<WGPUBindGroupLayoutEntry> entries = convert_bindings(this);
+    std::vector<WGPUBindGroupLayoutEntry> entries = convert_bindings(this);
 
     WGPUBindGroupLayoutDescriptor bind_group_desc = WGPU_BIND_GROUP_LAYOUT_DESCRIPTOR_INIT;
     bind_group_desc.entryCount = entries.size();

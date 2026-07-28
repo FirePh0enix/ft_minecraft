@@ -25,6 +25,6 @@ void ColorRect::process_event(Event& event)
 
 void ColorRect::draw(const RenderPass& pass)
 {
-    m_uniforms->update(View(ColorRectUniforms(matrix(), m_color)).as_bytes());
+    m_uniforms->update_struct(ColorRectUniforms(matrix(), m_color));
     Renderer::get().draw(pass, Renderer::get().get_square_mesh(), Renderer::get().get_fw_color_rect_mat(), m_bg);
 }
