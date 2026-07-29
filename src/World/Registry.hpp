@@ -74,7 +74,9 @@ constexpr Id<Block> dirt(2);
 constexpr Id<Block> sand(3);
 constexpr Id<Block> log(4);
 constexpr Id<Block> leaves(5);
-constexpr Id<Block> crafting_table(6);
+constexpr Id<Block> grass(6);
+constexpr Id<Block> snow(7);
+constexpr Id<Block> crafting_table(8);
 } // namespace Blocks
 
 namespace Items
@@ -84,8 +86,10 @@ constexpr Id<Item> dirt_block(2);
 constexpr Id<Item> sand_block(3);
 constexpr Id<Item> log_block(4);
 constexpr Id<Item> leaves_block(5);
-constexpr Id<Item> crafting_table_block(6);
-constexpr Id<Item> water_bucket(7);
+constexpr Id<Item> grass_block(6);
+constexpr Id<Item> snow_block(7);
+constexpr Id<Item> crafting_table_block(8);
+constexpr Id<Item> water_bucket(9);
 }; // namespace Items
 
 namespace Entities

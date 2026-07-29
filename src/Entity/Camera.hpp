@@ -3,20 +3,7 @@
 #include "AABB.hpp"
 #include "Core/Class.hpp"
 #include "Entity/Entity.hpp"
-
-class Frustum
-{
-public:
-    Frustum();
-    Frustum(glm::mat4 mat);
-
-    bool contains(const AABB& aabb) const;
-
-private:
-    glm::vec4 m_planes[6];
-
-    void normalize_plane(size_t side);
-};
+#include "Frustum.hpp"
 
 class Camera : public Entity
 {

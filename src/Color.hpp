@@ -2,6 +2,14 @@
 
 #include <cstdint>
 
+struct __attribute__((aligned(4))) ColorInt
+{
+    uint8_t r;
+    uint8_t g;
+    uint8_t b;
+    uint8_t a;
+};
+
 struct Color
 {
     float r;
@@ -29,9 +37,15 @@ struct Color
         return Color(float(r) / 255.0f, float(g) / 255.0f, float(b) / 255.0f, float(a) / 255.0f);
     }
 
+    /// Returns a color with the same RGB and the specified alpha value.
     constexpr Color alpha(float a) const
     {
         return Color(r, g, b, a);
+    }
+
+    constexpr ColorInt to_int() const
+    {
+        return ColorInt(uint8_t(r * 255.0), uint8_t(g * 255.0), uint8_t(b * 255.0), uint8_t(a * 255.0));
     }
 };
 

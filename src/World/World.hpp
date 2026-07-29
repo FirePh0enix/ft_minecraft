@@ -113,8 +113,8 @@ public:
 
     int64_t get_render_distance() const { return m_load_distance; }
 
-    Option<std::shared_ptr<Chunk>> get_chunk(int64_t x, int64_t z) const;
-    Option<std::shared_ptr<Chunk>> get_chunk(int64_t x, int64_t z);
+    std::optional<std::shared_ptr<Chunk>> get_chunk(int64_t x, int64_t z) const;
+    std::optional<std::shared_ptr<Chunk>> get_chunk(int64_t x, int64_t z);
 
     std::string_view get_name() const { return m_name; }
 
@@ -227,7 +227,7 @@ private:
     std::array<Dimension, max_dimensions> m_dims;
 
     // TODO: needs to be 16
-    int32_t m_load_distance = 16;
+    int32_t m_load_distance = 32;
 
     std::vector<ChunkLoadRequest> m_load_requests;
 

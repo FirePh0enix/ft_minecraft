@@ -15,6 +15,7 @@ class Dimension;
 class Mesh;
 class BindGroup;
 class Buffer;
+class Texture;
 
 class ChunkPos
 {
@@ -86,11 +87,10 @@ public:
     bool is_modified() const { return m_modified; }
     void clear_modified() { m_modified = false; }
 
-    void set_tag(glm::i64vec3 pos, std::string_view name, Variant v, bool rebuild = true);
-    void remove_tag(glm::i64vec3 pos, std::string_view name, bool rebuild = true);
-    Option<Variant> get_tag(glm::i64vec3 pos, std::string_view name) const;
-    Option<Variant> get_tag(uint16_t index, std::string_view name) const;
-
+    void set_tag(glm::i64vec3 pos, std::string_view name, Variant v);
+    void remove_tag(glm::i64vec3 pos, std::string_view name);
+    std::optional<Variant> get_tag(glm::i64vec3 pos, std::string_view name) const;
+    std::optional<Variant> get_tag(uint16_t index, std::string_view name) const;
     void merge_tag(uint16_t index, const BlockTags& tags);
 
     static ALWAYS_INLINE size_t linearize(int64_t x, int64_t y, int64_t z) { return z * width * height + y * width + x; }

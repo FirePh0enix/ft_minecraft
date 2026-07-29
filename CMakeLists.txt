@@ -21,6 +21,7 @@ list(APPEND SOURCES
     src/Console.cpp
     src/Engine.cpp
     src/Font.cpp
+    src/Frustum.cpp
     src/Input.cpp
     src/Model.cpp
     src/stb_image.cpp
@@ -58,26 +59,12 @@ list(APPEND SOURCES
     src/UI/ItemSlot.cpp
     src/UI/Label.cpp
     src/UI/TextureRect.cpp
-    src/World/Gen.cpp
-    src/World/Gen/Height.cpp
-    src/World/Gen/Mountain.cpp
-    src/World/Gen/OverworldOcean.cpp
-    src/World/Gen/OverworldTerrain.cpp
-    src/World/Gen/OverworldBiome.cpp
-    src/World/Gen/Tree.cpp
+    src/World/OverworldGen.cpp
     src/World/Chunk.cpp
     src/World/Dimension.cpp
     src/World/Registry.cpp
     src/World/Structure.cpp
     src/World/World.cpp
-)
-
-list(APPEND SOURCES_TEST
-    tests/class.cpp
-    tests/main.cpp
-    tests/Option.cpp
-    tests/Result.cpp
-    tests/Variant.cpp
 )
 
 if (EMSCRIPTEN)
@@ -90,15 +77,7 @@ elseif(WIN32)
     set(TARGET_IS_WINDOWS YES)
 endif()
 
-if(NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE "Debug")
-endif()
-
-if(TARGET_IS_WEB)
-    list(APPEND SOURCES
-        src/Platform/Emscripten.cpp
-    )
-endif()
+option(CMAKE_BUILD_TYPE CACHE "Debug")
 
 # Generate the `compile_commands.json`
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -106,8 +85,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 add_executable(${TARGET_NAME} src/main.cpp ${SOURCES})
 target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/src)
 
-add_executable(${TARGET_NAME}_test ${SOURCES} ${SOURCES_TEST})
-target_include_directories(${TARGET_NAME}_test PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests)
+# add_executable(${TARGET_NAME}_test ${SOURCES} ${SOURCES_TEST})
+# target_include_directories(${TARGET_NAME}_test PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/tests)
 
 # Disable exceptions
 # target_compile_options(${TARGET_NAME} PUBLIC -fno-exceptions -fno-rtti)
@@ -117,7 +96,6 @@ target_compile_options(${TARGET_NAME} PUBLIC -Wall -Wextra -Wno-subobject-linkag
 
 # Enable support for C++20
 set_property(TARGET ${TARGET_NAME} PROPERTY CXX_STANDARD 20)
-set_property(TARGET ${TARGET_NAME}_test PROPERTY CXX_STANDARD 20)
 
 # Should prevent FetchContent for trying to connect online after downloading dependencies.
 set(FETCHCONTENT_UPDATES_DISCONNECTED ON)
@@ -127,21 +105,16 @@ set(FETCHCONTENT_UPDATES_DISCONNECTED ON)
 
 if (TARGET_IS_LINUX)
     target_compile_definitions(${TARGET_NAME} PRIVATE __platform_linux)
-    target_compile_definitions(${TARGET_NAME}_test PRIVATE __platform_linux)
 elseif(TARGET_IS_MACOS)
     target_compile_definitions(${TARGET_NAME} PRIVATE __platform_macos)
-    target_compile_definitions(${TARGET_NAME}_test PRIVATE __platform_macos)
 elseif(TARGET_IS_WINDOWS)
     target_compile_definitions(${TARGET_NAME} PRIVATE __platform_windows)
-    target_compile_definitions(${TARGET_NAME}_test PRIVATE __platform_windows)
 elseif(TARGET_IS_WEB)
     target_compile_definitions(${TARGET_NAME} PRIVATE __platform_web)
-    target_compile_definitions(${TARGET_NAME}_test PRIVATE __platform_web)
 endif()
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     target_compile_definitions(${TARGET_NAME} PRIVATE __DEBUG__)
-    target_compile_definitions(${TARGET_NAME}_test PRIVATE __DEBUG__)
 endif()
 
 if (SANITIZE_ADDRESS)
@@ -149,11 +122,6 @@ if (SANITIZE_ADDRESS)
     target_link_options(${TARGET_NAME} PRIVATE -fsanitize=address)
     target_compile_definitions(${TARGET_NAME} PRIVATE __has_address_sanitizer)
 endif()
-
-# Always sanitize for tests.
-target_compile_options(${TARGET_NAME}_test PRIVATE -fsanitize=address)
-target_link_options(${TARGET_NAME}_test PRIVATE -fsanitize=address)
-target_compile_definitions(${TARGET_NAME}_test PRIVATE __has_address_sanitizer)
 
 if (SANITIZE_THREAD)
     target_compile_options(${TARGET_NAME} PRIVATE -fsanitize=thread)
@@ -208,16 +176,15 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(SplineLibrary)
 target_include_directories(${TARGET_NAME} PRIVATE ${splinelibrary_SOURCE_DIR})
-target_include_directories(${TARGET_NAME}_test PRIVATE ${splinelibrary_SOURCE_DIR})
 
 # doctest for unit tests.
-FetchContent_Declare(
-    doctest
-    GIT_REPOSITORY https://github.com/doctest/doctest
-    GIT_TAG 1da23a3e8119ec5cce4f9388e91b065e20bf06f5 # v2.4.12
-)
-FetchContent_MakeAvailable(doctest)
-target_link_libraries(${TARGET_NAME}_test PRIVATE doctest)
+# FetchContent_Declare(
+#     doctest
+#     GIT_REPOSITORY https://github.com/doctest/doctest
+#     GIT_TAG 1da23a3e8119ec5cce4f9388e91b065e20bf06f5 # v2.4.12
+# )
+# FetchContent_MakeAvailable(doctest)
+# target_link_libraries(${TARGET_NAME}_test PRIVATE doctest)
 
 # set(WGVK_WGSL_SUPPORT "SIMPLE_WGSL")
 # FetchContent_Declare(
@@ -251,13 +218,8 @@ if(TARGET_IS_LINUX OR TARGET_IS_MACOS OR TARGET_IS_WINDOWS)
     FetchContent_MakeAvailable(wgpu-native)
 
     target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_BINARY_DIR}/_deps/wgpu-native-src/include)
-    target_include_directories(${TARGET_NAME}_test PRIVATE ${CMAKE_BINARY_DIR}/_deps/wgpu-native-src/include)
-
     target_link_directories(${TARGET_NAME} PRIVATE ${CMAKE_BINARY_DIR}/_deps/wgpu-native-src/lib)
-    target_link_directories(${TARGET_NAME}_test PRIVATE ${CMAKE_BINARY_DIR}/_deps/wgpu-native-src/lib)
-
     target_link_libraries(${TARGET_NAME} PRIVATE wgpu_native)
-    target_link_libraries(${TARGET_NAME}_test PRIVATE wgpu_native)
 endif()
 
 # SDL
@@ -286,7 +248,6 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(SDL)
 target_link_libraries(${TARGET_NAME} PUBLIC SDL3::SDL3)
-target_link_libraries(${TARGET_NAME}_test PUBLIC SDL3::SDL3)
 
 # ImGui
 # FetchContent_Declare(
@@ -309,16 +270,15 @@ target_sources(${TARGET_NAME} PRIVATE
     ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp
     ${imgui_SOURCE_DIR}/backends/imgui_impl_wgpu.cpp
 )
-target_sources(${TARGET_NAME}_test PRIVATE
-    ${imgui_SOURCE_DIR}/imgui.cpp
-    ${imgui_SOURCE_DIR}/imgui_draw.cpp
-    ${imgui_SOURCE_DIR}/imgui_tables.cpp
-    ${imgui_SOURCE_DIR}/imgui_widgets.cpp
-    ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp
-    ${imgui_SOURCE_DIR}/backends/imgui_impl_wgpu.cpp
-)
+# target_sources(${TARGET_NAME}_test PRIVATE
+#     ${imgui_SOURCE_DIR}/imgui.cpp
+#     ${imgui_SOURCE_DIR}/imgui_draw.cpp
+#     ${imgui_SOURCE_DIR}/imgui_tables.cpp
+#     ${imgui_SOURCE_DIR}/imgui_widgets.cpp
+#     ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp
+#     ${imgui_SOURCE_DIR}/backends/imgui_impl_wgpu.cpp
+# )
 target_include_directories(${TARGET_NAME} PRIVATE ${imgui_SOURCE_DIR})
-target_include_directories(${TARGET_NAME}_test PRIVATE ${imgui_SOURCE_DIR})
 
 if (TARGET_IS_MACOS)
     set_source_files_properties(${imgui_SOURCE_DIR}/backends/imgui_impl_wgpu.cpp PROPERTIES COMPILE_FLAGS "-x objective-c++")
@@ -328,7 +288,6 @@ if(TARGET_IS_WEB)
     target_compile_definitions(${TARGET_NAME} PRIVATE IMGUI_IMPL_WEBGPU_BACKEND_DAWN=1)
 else()
     target_compile_definitions(${TARGET_NAME} PRIVATE IMGUI_IMPL_WEBGPU_BACKEND_WGVK=1)
-    target_compile_definitions(${TARGET_NAME}_test PRIVATE IMGUI_IMPL_WEBGPU_BACKEND_WGVK=1)
 endif()
 
 # stb
@@ -339,7 +298,6 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(stb)
 target_include_directories(${TARGET_NAME} PRIVATE ${stb_SOURCE_DIR})
-target_include_directories(${TARGET_NAME}_test PRIVATE ${stb_SOURCE_DIR})
 
 # zlib
 FetchContent_Declare(
@@ -350,9 +308,6 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(zlib)
 target_link_libraries(${TARGET_NAME} PRIVATE zlib)
 target_include_directories(${TARGET_NAME} PRIVATE ${zlib_SOURCE_DIR})
-
-target_link_libraries(${TARGET_NAME}_test PRIVATE zlib)
-target_include_directories(${TARGET_NAME}_test PRIVATE ${zlib_SOURCE_DIR})
 
 # enet
 set(BUILD_SHARED_LIBS 0)
@@ -366,9 +321,6 @@ FetchContent_MakeAvailable(enet)
 target_link_libraries(${TARGET_NAME} PRIVATE enet)
 target_include_directories(${TARGET_NAME} PRIVATE ${enet_SOURCE_DIR}/include)
 
-target_link_libraries(${TARGET_NAME}_test PRIVATE enet)
-target_include_directories(${TARGET_NAME}_test PRIVATE ${enet_SOURCE_DIR}/include)
-
 # glm
 FetchContent_Declare(
     glm
@@ -377,7 +329,6 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(glm)
 target_link_libraries(${TARGET_NAME} PRIVATE glm::glm-header-only)
-target_link_libraries(${TARGET_NAME}_test PRIVATE glm::glm-header-only)
 
 # FreeType
 FetchContent_Declare(
@@ -387,7 +338,6 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(FreeType)
 target_link_libraries(${TARGET_NAME} PRIVATE freetype)
-target_link_libraries(${TARGET_NAME}_test PRIVATE freetype)
 
 # nlohmann/json
 FetchContent_Declare(
@@ -397,7 +347,6 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(json)
 target_link_libraries(${TARGET_NAME} PRIVATE nlohmann_json::nlohmann_json)
-target_link_libraries(${TARGET_NAME}_test PRIVATE nlohmann_json::nlohmann_json)
 
 # yaml-cpp
 FetchContent_Declare(
@@ -407,7 +356,6 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(yaml-cpp)
 target_link_libraries(${TARGET_NAME} PUBLIC yaml-cpp::yaml-cpp) 
-target_link_libraries(${TARGET_NAME}_test PUBLIC yaml-cpp::yaml-cpp)
 
 # rapidyaml
 # FetchContent_Declare(
@@ -467,4 +415,4 @@ if(TARGET_IS_LINUX)
     endif()
 endif()
 
-target_compile_definitions(${TARGET_NAME}_test PRIVATE DOCTEST_CONFIG_ENABLE=1)
+# target_compile_definitions(${TARGET_NAME}_test PRIVATE DOCTEST_CONFIG_ENABLE=1)

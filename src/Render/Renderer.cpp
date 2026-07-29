@@ -1334,13 +1334,15 @@ void Renderer::draw_forward(const std::shared_ptr<World>& world)
     camera.view_projection = world->get_active_camera()->get_projection_matrix();
     m_fw_camera_rel->update_struct(camera);
 
-    const float shadowmap_range = float(world->get_render_distance()) * 16.0f + 8.0f;
+    const float shadowmap_range = float(world->get_render_distance()) * 34.0f;
     const glm::vec3 light_target = world->get_active_camera()->get_global_transform().position();
     const glm::vec3 light_dir = glm::normalize(glm::vec3(1, 1, 0));
     const float light_distance = 100.0;
 
     const glm::mat4 shadowmap_proj = glm::ortho(-shadowmap_range, shadowmap_range, -shadowmap_range, shadowmap_range, -1.0f, 300.0f);
-    const glm::mat4 shadowmap_view = glm::lookAt(light_target + light_dir * light_distance, light_target, glm::vec3(0, 1, 0));
+    const glm::mat4 shadowmap_view = glm::lookAt(light_target + glm::vec3(0, 1, 0) * light_distance, light_target, glm::vec3(0, 1, 0));
+
+    world->get_dimension(0).update_sun(shadowmap_proj * shadowmap_view);
 
     FwColored shadowmap_cam(
         glm::inverse(shadowmap_view) * glm::scale(glm::identity<glm::mat4>(), glm::vec3(shadowmap_range) * 2.0f),
@@ -1383,7 +1385,7 @@ void Renderer::draw_forward(const std::shared_ptr<World>& world)
     shadowmap_pass_desc.depthStencilAttachment = &shadowmap_attach;
 
     WGPURenderPassEncoder shadowmap_pass = wgpuCommandEncoderBeginRenderPass(encoder, &shadowmap_pass_desc);
-    draw_world(world, RenderPass(shadowmap_pass, RenderTarget(m_fw_shadowmap->format()), {}), WorldFlagBits::Shadowmap | WorldFlagBits::NoFrustumCheck);
+    draw_world(world, RenderPass(shadowmap_pass, RenderTarget(m_fw_shadowmap->format()), {}), WorldFlagBits::Shadowmap, world->get_dimension(0).get_sun_visible_chunks());
     wgpuRenderPassEncoderEnd(shadowmap_pass);
     wgpuRenderPassEncoderRelease(shadowmap_pass);
 
@@ -1399,7 +1401,7 @@ void Renderer::draw_forward(const std::shared_ptr<World>& world)
     depth_prepass_desc.depthStencilAttachment = &depth_attach;
 
     WGPURenderPassEncoder depth_pass = wgpuCommandEncoderBeginRenderPass(encoder, &depth_prepass_desc);
-    draw_world(world, RenderPass(depth_pass, RenderTarget(m_fw_depth_texture->format()), {}), WorldFlags());
+    draw_world(world, RenderPass(depth_pass, RenderTarget(m_fw_depth_texture->format()), {}), WorldFlags(), world->get_dimension(0).get_visible_chunks());
     wgpuRenderPassEncoderEnd(depth_pass);
     wgpuRenderPassEncoderRelease(depth_pass);
 
@@ -1425,8 +1427,8 @@ void Renderer::draw_forward(const std::shared_ptr<World>& world)
     WGPURenderPassEncoder color_pass = wgpuCommandEncoderBeginRenderPass(encoder, &color_pass_desc);
     const RenderPass color_pass_info(color_pass, RenderTarget(m_fw_depth_texture->format()), {m_surface_format});
     draw_fullscreen(color_pass_info, m_sky_mat, m_sky_bg);
-    draw_world(world, color_pass_info, WorldFlags());
-    draw_world(world, color_pass_info, WorldFlagBits::Water);
+    draw_world(world, color_pass_info, WorldFlags(), world->get_dimension(0).get_visible_chunks());
+    draw_world(world, color_pass_info, WorldFlagBits::Water, world->get_dimension(0).get_visible_chunks());
     for (std::shared_ptr<Entity> entity : world->get_dimension(0).get_entities())
         entity->draw(color_pass_info);
     // draw(color_pass_info, m_quad_mesh, m_fw_shadowmap_cam_mat, m_fw_shadowmap_cam_bg); // Quad placed at the origin of the "sun"
@@ -1434,21 +1436,21 @@ void Renderer::draw_forward(const std::shared_ptr<World>& world)
     wgpuRenderPassEncoderRelease(color_pass);
 
     // Clouds rendering using raymarching as a fullscreen post processing effect.
-    WGPURenderPassColorAttachment clouds_color_attach = WGPU_RENDER_PASS_COLOR_ATTACHMENT_INIT;
-    clouds_color_attach.clearValue = WGPUColor(1.0, 0.0, 0.0, 0.0);
-    clouds_color_attach.loadOp = WGPULoadOp_Load;
-    clouds_color_attach.storeOp = WGPUStoreOp_Store;
-    clouds_color_attach.view = m_fw_color_texture->handle_view();
+    // WGPURenderPassColorAttachment clouds_color_attach = WGPU_RENDER_PASS_COLOR_ATTACHMENT_INIT;
+    // clouds_color_attach.clearValue = WGPUColor(1.0, 0.0, 0.0, 0.0);
+    // clouds_color_attach.loadOp = WGPULoadOp_Load;
+    // clouds_color_attach.storeOp = WGPUStoreOp_Store;
+    // clouds_color_attach.view = m_fw_color_texture->handle_view();
 
-    WGPURenderPassDescriptor clouds_pass_desc = WGPU_RENDER_PASS_DESCRIPTOR_INIT;
-    clouds_pass_desc.colorAttachments = &clouds_color_attach;
-    clouds_pass_desc.colorAttachmentCount = 1;
+    // WGPURenderPassDescriptor clouds_pass_desc = WGPU_RENDER_PASS_DESCRIPTOR_INIT;
+    // clouds_pass_desc.colorAttachments = &clouds_color_attach;
+    // clouds_pass_desc.colorAttachmentCount = 1;
 
-    WGPURenderPassEncoder clouds_pass = wgpuCommandEncoderBeginRenderPass(encoder, &clouds_pass_desc);
-    const RenderPass clouds_pass_info(clouds_pass, None, {m_surface_format});
-    draw_fullscreen(clouds_pass_info, m_fw_clouds_mat, m_fw_clouds_bg);
-    wgpuRenderPassEncoderEnd(clouds_pass);
-    wgpuRenderPassEncoderRelease(clouds_pass);
+    // WGPURenderPassEncoder clouds_pass = wgpuCommandEncoderBeginRenderPass(encoder, &clouds_pass_desc);
+    // const RenderPass clouds_pass_info(clouds_pass, None, {m_surface_format});
+    // draw_fullscreen(clouds_pass_info, m_fw_clouds_mat, m_fw_clouds_bg);
+    // wgpuRenderPassEncoderEnd(clouds_pass);
+    // wgpuRenderPassEncoderRelease(clouds_pass);
 
     // Do post processing effects after the 3D rendering and before IU rendering.
     WGPURenderPassColorAttachment output_color_attach = WGPU_RENDER_PASS_COLOR_ATTACHMENT_INIT;
@@ -1540,7 +1542,45 @@ void Renderer::draw(const RenderPass& pass, const std::shared_ptr<Mesh>& mesh, c
     wgpuRenderPassEncoderDrawIndexed(pass.encoder, mesh->vertex_count(), instance_count, 0, 0, 0);
 }
 
-void Renderer::draw_world(const std::shared_ptr<World>& world, const RenderPass& pass, WorldFlags flags)
+void Renderer::draw_world(const std::shared_ptr<World>& world, const RenderPass& pass, WorldFlags flags, const std::span<const RenderableChunk>& chunks)
+{
+    ZoneScoped;
+
+    const std::shared_ptr<Camera> camera = world->get_active_camera();
+    WGPURenderPassEncoder encoder = pass.encoder;
+
+    if (camera == nullptr)
+        return;
+
+    std::shared_ptr<Material> mat = flags.has_any(WorldFlagBits::Shadowmap) ? m_fw_chunk_shadowmap_mat : (flags.has_any(WorldFlagBits::Water) ? m_fw_water_mat : m_fw_chunk_mat);
+    wgpuRenderPassEncoderSetPipeline(encoder, mat->get_pipeline(pass));
+
+    for (const auto& r : chunks)
+    {
+        const Chunk::Slice& slice = r.chunk->get_slices()[r.slice_index];
+        std::shared_ptr<BindGroup> bg = flags.has_any(WorldFlagBits::Shadowmap) ? slice.mesh_shadowmap_bg : (flags.has_any(WorldFlagBits::Water) ? slice.water_bg : slice.mesh_bg);
+
+        if (flags.has_any(WorldFlagBits::Water) && slice.water_mesh == nullptr)
+            continue;
+
+        wgpuRenderPassEncoderSetBindGroup(encoder, 0, bg->get_bind_group(), 0, nullptr);
+
+        const std::shared_ptr<Mesh>& mesh = flags.has_any(WorldFlagBits::Water) ? slice.water_mesh : slice.mesh;
+        wgpuRenderPassEncoderSetIndexBuffer(encoder, mesh->get_buffer(Mesh::BufferKind::Index)->handle(), mesh->index_type(), 0, mesh->get_buffer(Mesh::BufferKind::Index)->size());
+        wgpuRenderPassEncoderSetVertexBuffer(encoder, 0, mesh->get_buffer(Mesh::BufferKind::Position)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Position)->size());
+
+        size_t buffer_index = 1;
+        if (!mat->flags().has_any(MaterialFlagBits::NoNormal))
+            wgpuRenderPassEncoderSetVertexBuffer(encoder, buffer_index++, mesh->get_buffer(Mesh::BufferKind::Normal)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Normal)->size());
+        if (!mat->flags().has_any(MaterialFlagBits::NoUV))
+            wgpuRenderPassEncoderSetVertexBuffer(encoder, buffer_index++, mesh->get_buffer(Mesh::BufferKind::UV)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::UV)->size());
+
+        wgpuRenderPassEncoderSetVertexBuffer(encoder, buffer_index++, r.chunk->get_instance_buffer()->handle(), 0, r.chunk->get_instance_buffer()->size());
+        wgpuRenderPassEncoderDrawIndexed(encoder, mesh->vertex_count(), 1, 0, 0, r.slice_index);
+    }
+}
+
+void Renderer::draw_all_world(const std::shared_ptr<World>& world, const RenderPass& pass, WorldFlags flags)
 {
     ZoneScoped;
 
@@ -1549,9 +1589,7 @@ void Renderer::draw_world(const std::shared_ptr<World>& world, const RenderPass&
     WGPURenderPassEncoder encoder = pass.encoder;
 
     if (camera == nullptr)
-    {
         return;
-    }
 
     std::shared_ptr<Material> mat = flags.has_any(WorldFlagBits::Shadowmap) ? m_fw_chunk_shadowmap_mat : (flags.has_any(WorldFlagBits::Water) ? m_fw_water_mat : m_fw_chunk_mat);
     wgpuRenderPassEncoderSetPipeline(encoder, mat->get_pipeline(pass));

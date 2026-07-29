@@ -189,14 +189,14 @@ std::shared_ptr<Buffer> Model::get_global_buffer() const
     return m_global_buffer;
 }
 
-Option<Model::Object> Model::get_object(std::string_view name) const
+std::optional<Model::Object> Model::get_object(std::string_view name) const
 {
     for (const auto& obj : m_objects)
     {
         if (obj.name == name)
             return obj;
     }
-    return None;
+    return std::nullopt;
 }
 
 void Model::encode(const RenderPass& pass, const Transform3D& transform)
@@ -230,7 +230,7 @@ void Animator::play(const std::string& animation)
 
 void Animator::tick(float delta)
 {
-    Option<Model::Animation> animation_maybe = m_model->get_animation(m_animation_name);
+    std::optional<Model::Animation> animation_maybe = m_model->get_animation(m_animation_name);
     if (!animation_maybe.has_value())
     {
         return;
@@ -251,7 +251,7 @@ void Animator::tick(float delta)
 
 void Animator::update_model_animation_buffer()
 {
-    Option<Model::Animation> animation_maybe = m_model->get_animation(m_animation_name);
+    std::optional<Model::Animation> animation_maybe = m_model->get_animation(m_animation_name);
     if (!animation_maybe.has_value())
     {
         return;
@@ -261,8 +261,8 @@ void Animator::update_model_animation_buffer()
 
     for (Model::Object& object : m_model->objects())
     {
-        Option<TransformWithLength> current_twl_maybe = get_current_transform(object.name);
-        Option<TransformWithLength> next_twl_maybe = get_next_transform(object.name);
+        std::optional<TransformWithLength> current_twl_maybe = get_current_transform(object.name);
+        std::optional<TransformWithLength> next_twl_maybe = get_next_transform(object.name);
 
         if (!current_twl_maybe.has_value() || !next_twl_maybe.has_value())
         {
@@ -298,11 +298,11 @@ void Animator::update_model_animation_buffer()
     }
 }
 
-Option<Model::Keyframe> Animator::get_keyframe_for_frame(uint32_t frame) const
+std::optional<Model::Keyframe> Animator::get_keyframe_for_frame(uint32_t frame) const
 {
-    Option<Model::Animation> animation_maybe = m_model->get_animation(m_animation_name);
+    std::optional<Model::Animation> animation_maybe = m_model->get_animation(m_animation_name);
     if (!animation_maybe.has_value())
-        return None;
+        return std::nullopt;
     Model::Animation animation = animation_maybe.value();
 
     for (const auto& keyframe : animation.keyframes)
@@ -311,21 +311,21 @@ Option<Model::Keyframe> Animator::get_keyframe_for_frame(uint32_t frame) const
             return keyframe;
     }
 
-    return None;
+    return std::nullopt;
 }
 
-Option<Animator::TransformWithLength> Animator::get_current_transform(std::string_view object_name) const
+std::optional<Animator::TransformWithLength> Animator::get_current_transform(std::string_view object_name) const
 {
-    Option<Model::Animation> animation_maybe = m_model->get_animation(m_animation_name);
+    std::optional<Model::Animation> animation_maybe = m_model->get_animation(m_animation_name);
     if (!animation_maybe.has_value())
-        return None;
+        return std::nullopt;
     Model::Animation animation = animation_maybe.value();
 
     uint32_t current_frame = m_frame;
 
     for (int32_t frame = int32_t(m_frame); frame >= 0; frame--)
     {
-        Option<Model::Keyframe> kf_maybe = get_keyframe_for_frame(frame);
+        std::optional<Model::Keyframe> kf_maybe = get_keyframe_for_frame(frame);
         if (!kf_maybe.has_value())
             continue;
         Model::Keyframe kf = kf_maybe.value();
@@ -339,7 +339,7 @@ Option<Animator::TransformWithLength> Animator::get_current_transform(std::strin
 
     for (uint32_t frame = animation.frames - 1; frame > current_frame; frame--)
     {
-        Option<Model::Keyframe> kf_maybe = get_keyframe_for_frame(frame);
+        std::optional<Model::Keyframe> kf_maybe = get_keyframe_for_frame(frame);
         if (!kf_maybe.has_value())
             continue;
         Model::Keyframe kf = kf_maybe.value();
@@ -351,19 +351,19 @@ Option<Animator::TransformWithLength> Animator::get_current_transform(std::strin
         }
     }
 
-    return None;
+    return std::nullopt;
 }
 
-Option<Animator::TransformWithLength> Animator::get_next_transform(std::string_view object_name) const
+std::optional<Animator::TransformWithLength> Animator::get_next_transform(std::string_view object_name) const
 {
-    Option<Model::Animation> animation_maybe = m_model->get_animation(m_animation_name);
+    std::optional<Model::Animation> animation_maybe = m_model->get_animation(m_animation_name);
     if (!animation_maybe.has_value())
-        return None;
+        return std::nullopt;
     Model::Animation animation = animation_maybe.value();
 
     for (uint32_t frame = m_frame + 1; frame < animation.frames; frame++)
     {
-        Option<Model::Keyframe> kf_maybe = get_keyframe_for_frame(frame);
+        std::optional<Model::Keyframe> kf_maybe = get_keyframe_for_frame(frame);
         if (!kf_maybe.has_value())
             continue;
         Model::Keyframe kf = kf_maybe.value();
@@ -377,7 +377,7 @@ Option<Animator::TransformWithLength> Animator::get_next_transform(std::string_v
 
     for (uint32_t frame = 0; frame < animation.frames + 1; frame++)
     {
-        Option<Model::Keyframe> kf_maybe = get_keyframe_for_frame(frame);
+        std::optional<Model::Keyframe> kf_maybe = get_keyframe_for_frame(frame);
         if (!kf_maybe.has_value())
             continue;
         Model::Keyframe kf = kf_maybe.value();
@@ -389,5 +389,5 @@ Option<Animator::TransformWithLength> Animator::get_next_transform(std::string_v
         }
     }
 
-    return None;
+    return std::nullopt;
 }

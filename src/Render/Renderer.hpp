@@ -33,6 +33,8 @@ class World;
 class Chunk;
 class ChunkPos;
 
+struct RenderableChunk;
+
 enum class InitFlagBits
 {
     None = 0,
@@ -240,11 +242,6 @@ public:
         Option<RenderTarget> depth_format;
         // WGPUCullMode cull_mode;
 
-        // bool operator<(const PipelineKey& k) const
-        // {
-        //     return std::tie(color_formats, depth_format) < std::tie(k.color_formats, k.depth_format);
-        // }
-
         bool operator<(const PipelineKey& k) const
         {
             if (depth_format < k.depth_format)
@@ -253,11 +250,6 @@ public:
                 return false;
             return color_formats < k.color_formats;
         }
-
-        // bool operator==(const PipelineKey& k) const
-        // {
-        //     return depth_format == k.depth_format && color_formats == k.color_formats && cull_mode == k.cull_mode;
-        // }
     };
 
     ~Material();
@@ -434,7 +426,8 @@ public:
     void draw_legacy(std::function<void()> f);
 
     void draw_forward(const std::shared_ptr<World>& world);
-    void draw_world(const std::shared_ptr<World>& world, const RenderPass& pass, WorldFlags flags);
+    void draw_world(const std::shared_ptr<World>& world, const RenderPass& pass, WorldFlags flags, const std::span<const RenderableChunk>& chunks);
+    void draw_all_world(const std::shared_ptr<World>& world, const RenderPass& pass, WorldFlags flags);
     void draw(const RenderPass& pass, const std::shared_ptr<Mesh>& mesh, const std::shared_ptr<Material>& material, const std::shared_ptr<BindGroup>& bg, const std::shared_ptr<Buffer>& instance_buffer = nullptr, size_t instance_count = 1);
     void draw_fullscreen(const RenderPass& pass, std::shared_ptr<Material> material, std::shared_ptr<BindGroup> bg);
 

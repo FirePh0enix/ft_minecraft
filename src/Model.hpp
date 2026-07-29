@@ -1,8 +1,9 @@
 #pragma once
 
-#include "Core/Class.hpp"
 #include "Core/Result.hpp"
 #include "Transform3D.hpp"
+
+#include <memory>
 
 class Buffer;
 class Texture;
@@ -10,10 +11,8 @@ class Material;
 struct RenderPass;
 class BindGroup;
 
-class Model : public Object
+class Model
 {
-    CLASS(Model, Object);
-
 public:
     struct Info
     {
@@ -62,17 +61,17 @@ public:
     std::span<Object> objects();
     std::shared_ptr<Buffer> get_global_buffer() const;
 
-    Option<Animation> get_animation(std::string_view name) const
+    std::optional<Animation> get_animation(std::string_view name) const
     {
         for (const Animation& anim : m_animation)
         {
             if (anim.name == name)
                 return anim;
         }
-        return None;
+        return std::nullopt;
     }
 
-    Option<Object> get_object(std::string_view name) const;
+    std::optional<Object> get_object(std::string_view name) const;
 
     void encode(const RenderPass& pass, const Transform3D& transform);
 
@@ -106,8 +105,8 @@ private:
 
     void update_model_animation_buffer();
 
-    Option<Model::Keyframe> get_keyframe_for_frame(uint32_t frame) const;
+    std::optional<Model::Keyframe> get_keyframe_for_frame(uint32_t frame) const;
 
-    Option<TransformWithLength> get_current_transform(std::string_view object_name) const;
-    Option<TransformWithLength> get_next_transform(std::string_view object_name) const;
+    std::optional<TransformWithLength> get_current_transform(std::string_view object_name) const;
+    std::optional<TransformWithLength> get_next_transform(std::string_view object_name) const;
 };

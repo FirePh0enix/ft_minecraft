@@ -6,12 +6,12 @@
 #include "World/Chunk.hpp"
 #include "World/World.hpp"
 
-Option<std::shared_ptr<Chunk>> Dimension::get_chunk(int64_t x, int64_t z) const
+std::optional<std::shared_ptr<Chunk>> Dimension::get_chunk(int64_t x, int64_t z) const
 {
     auto iter = m_chunks.find(ChunkPos(x, z));
     if (iter != m_chunks.end())
         return iter->second;
-    return None;
+    return std::nullopt;
 }
 
 bool Dimension::has_chunk(int64_t x, int64_t z) const
@@ -126,7 +126,7 @@ void Dimension::set_block(int64_t x, int64_t y, int64_t z, BlockState state)
     int64_t chunk_x = chunk_index(x);
     int64_t chunk_z = chunk_index(z);
 
-    Option<std::shared_ptr<Chunk>> chunk_value = get_chunk(chunk_x, chunk_z);
+    std::optional<std::shared_ptr<Chunk>> chunk_value = get_chunk(chunk_x, chunk_z);
 
     if (!chunk_value.has_value())
     {
@@ -148,7 +148,7 @@ void Dimension::set_tag(glm::i64vec3 pos, std::string_view name, Variant v)
     int64_t chunk_x = chunk_index(pos.x);
     int64_t chunk_z = chunk_index(pos.z);
 
-    Option<std::shared_ptr<Chunk>> chunk_value = get_chunk(chunk_x, chunk_z);
+    std::optional<std::shared_ptr<Chunk>> chunk_value = get_chunk(chunk_x, chunk_z);
 
     if (!chunk_value.has_value())
     {
@@ -170,7 +170,7 @@ void Dimension::remove_tag(glm::i64vec3 pos, std::string_view name)
     int64_t chunk_x = chunk_index(pos.x);
     int64_t chunk_z = chunk_index(pos.z);
 
-    Option<std::shared_ptr<Chunk>> chunk_value = get_chunk(chunk_x, chunk_z);
+    std::optional<std::shared_ptr<Chunk>> chunk_value = get_chunk(chunk_x, chunk_z);
 
     if (!chunk_value.has_value())
     {
@@ -184,20 +184,18 @@ void Dimension::remove_tag(glm::i64vec3 pos, std::string_view name)
     chunk->remove_tag({local_x, pos.y, local_z}, name);
 }
 
-Option<Variant> Dimension::get_tag(glm::i64vec3 pos, std::string_view name) const
+std::optional<Variant> Dimension::get_tag(glm::i64vec3 pos, std::string_view name) const
 {
     if (pos.y < 0 || pos.y >= Chunk::height)
-        return None;
+        return std::nullopt;
 
     int64_t chunk_x = chunk_index(pos.x);
     int64_t chunk_z = chunk_index(pos.z);
 
-    Option<std::shared_ptr<Chunk>> chunk_value = get_chunk(chunk_x, chunk_z);
+    std::optional<std::shared_ptr<Chunk>> chunk_value = get_chunk(chunk_x, chunk_z);
 
     if (!chunk_value.has_value())
-    {
-        return None;
-    }
+        return std::nullopt;
 
     std::shared_ptr<Chunk> chunk = chunk_value.value();
     int64_t local_x = local_coords(pos.x);
@@ -213,48 +211,13 @@ bool Dimension::has_solid_block(int64_t x, int64_t y, int64_t z) const
 
 Result<std::shared_ptr<Chunk>> Dimension::generate_chunk(int64_t cx, int64_t cz)
 {
-    Gen gen(m_gen_desc);
     std::shared_ptr<Chunk> chunk = std::make_shared<Chunk>(this, cx, cz);
     memset((void *)chunk->get_blocks(), 0, sizeof(BlockState) * Chunk::block_count);
 
     for (int i = 0; i < 16 * 16; i++)
         chunk->get_biomes()[i] = Biome::Plain;
 
-    for (int64_t lx = 0; lx < 16; lx++)
-    {
-        for (int64_t lz = 0; lz < 16; lz++)
-        {
-            for (std::shared_ptr<GenPass> pass : gen.desc()->passes())
-            {
-                if (pass->is_flat())
-                {
-                    BlockState state;
-                    BlockTags tags;
-                    Biome biome = chunk->get_biomes()[lx + lz * 16];
-                    pass->gen(gen, cx * 16 + lx, 0, cz * 16 + lz, state, tags, biome);
-                    chunk->get_biomes()[lx + lz * 16] = biome;
-                }
-                else
-                {
-                    for (int64_t y = 0; y < 256; y++)
-                    {
-                        BlockState state = chunk->get_blocks()[Chunk::linearize(lx, y, lz)];
-                        BlockTags tags;
-                        Biome biome = chunk->get_biomes()[lx + lz * 16];
-                        pass->gen(gen, cx * 16 + lx, y, cz * 16 + lz, state, tags, biome);
-                        chunk->get_blocks()[Chunk::linearize(lx, y, lz)] = state;
-                        chunk->merge_tag(Chunk::linearize(lx, y, lz), tags);
-                    }
-                }
-            }
-        }
-    }
-
-    for (std::shared_ptr<StructurePass> pass : gen.desc()->spasses())
-    {
-        pass->gen(gen, chunk);
-    }
-
+    m_gen->generate_chunk(chunk);
     return chunk;
 }
 
@@ -266,7 +229,7 @@ void Dimension::rebuild(ChunkPos pos)
     {
         std::lock_guard<std::mutex> lock(mutex());
 
-        Option<std::shared_ptr<Chunk>> chunk_opt = get_chunk(pos.x, pos.z);
+        std::optional<std::shared_ptr<Chunk>> chunk_opt = get_chunk(pos.x, pos.z);
         if (!chunk_opt.has_value())
         {
             return;
@@ -312,4 +275,9 @@ void Dimension::queue_rebuild(ChunkPos pos)
                                             rebuild(pos);
                                             std::lock_guard<std::mutex> lock(m_chunk_rebuild_mutex);
                                             m_chunk_rebuild_queue.erase(pos); });
+}
+
+void Dimension::update_sun(glm::mat4 matrix)
+{
+    m_sun_frustum = Frustum(matrix);
 }

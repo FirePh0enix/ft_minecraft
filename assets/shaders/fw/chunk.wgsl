@@ -53,8 +53,19 @@ fn vertex_main(in: VertexInput) -> VertexOutput {
 
 #include "lighting.wgsl"
 
+const palette: array<vec4<f32>, 1> = array(
+    vec4<f32>(68.0 / 255.0, 105.0 / 255.0, 61.0 / 255.0, 1.0),
+);
+
+fn isGrayscale(c: vec4<f32>) -> bool {
+    return c.r == c.g && c.g == c.b;
+}
+
 @fragment
 fn fragment_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    let color = textureSample(images, images_sampler, in.uv, in.texture_index);
+    var color = textureSample(images, images_sampler, in.uv, in.texture_index);
+    // if (isGrayscale(color)) {
+    //     color *= palette[0];
+    // }
     return lighting(color, in.normal, in.frag_pos_light_space);
 }

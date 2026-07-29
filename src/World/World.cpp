@@ -6,17 +6,17 @@
 #include "Entity/Item.hpp"
 #include "Profiler.hpp"
 #include "World/Chunk.hpp"
+#include "World/Dimension.hpp"
 #include "World/Settings.hpp"
 
 #include <SDL3/SDL.h>
-
-#include <format>
-#include <memory>
 #include <zlib.h>
 
 #include <algorithm>
 #include <cstdlib>
+#include <format>
 #include <limits>
+#include <memory>
 #include <mutex>
 
 // https://gamedev.stackexchange.com/questions/18436/most-efficient-aabb-vs-ray-collision-algorithms
@@ -116,14 +116,7 @@ Result<std::shared_ptr<World>> World::create(std::string name, uint64_t seed, in
     world->m_seed = seed;
     world->m_name = name;
 
-    world->m_dims[overworld].m_gen_desc = std::make_shared<GenDesc>(WorldSettings{});
-    world->m_dims[overworld].m_gen_desc->add_pass(std::make_shared<OverworldOceanPass>());
-    world->m_dims[overworld].m_gen_desc->add_pass(std::make_shared<MountainPass>());
-    world->m_dims[overworld].m_gen_desc->add_pass(std::make_shared<OverworldBiomePass>());
-    world->m_dims[overworld].m_gen_desc->add_pass(std::make_shared<HeightPass>());
-    world->m_dims[overworld].m_gen_desc->add_pass(std::make_shared<OverworldTerrainPass>());
-
-    world->m_dims[overworld].m_gen_desc->add_struct_pass(std::make_shared<TreePass>());
+    world->m_dims[overworld].m_gen = std::make_shared<OverworldGen>(WorldSettings{});
 
     // world->find_safe_spawn();
 
@@ -172,14 +165,7 @@ Result<std::shared_ptr<World>> World::load(std::string name)
 
     world->m_name = name;
 
-    world->m_dims[overworld].m_gen_desc = std::make_shared<GenDesc>(WorldSettings{});
-    world->m_dims[overworld].m_gen_desc->add_pass(std::make_shared<OverworldOceanPass>());
-    world->m_dims[overworld].m_gen_desc->add_pass(std::make_shared<MountainPass>());
-    world->m_dims[overworld].m_gen_desc->add_pass(std::make_shared<OverworldBiomePass>());
-    world->m_dims[overworld].m_gen_desc->add_pass(std::make_shared<HeightPass>());
-    world->m_dims[overworld].m_gen_desc->add_pass(std::make_shared<OverworldTerrainPass>());
-
-    world->m_dims[overworld].m_gen_desc->add_struct_pass(std::make_shared<TreePass>());
+    world->m_dims[overworld].m_gen = std::make_shared<OverworldGen>(WorldSettings{});
 
     return world;
 }
@@ -284,7 +270,7 @@ void World::tick(float delta)
 
         for (const ChunkLoadRequest& req : m_load_requests)
         {
-            Option<std::shared_ptr<Chunk>> chunk_opt = get_dimension(req.dimension).get_chunk(req.x, req.z);
+            std::optional<std::shared_ptr<Chunk>> chunk_opt = get_dimension(req.dimension).get_chunk(req.x, req.z);
             if (chunk_opt.has_value())
             {
                 std::shared_ptr<Chunk> chunk = chunk_opt.value();
@@ -302,6 +288,52 @@ void World::tick(float delta)
 
     m_dims[0].m_entities_to_remove.clear();
     m_dims[0].m_entities_to_add.clear();
+
+    m_dims[0].m_visible_chunks.resize(0);
+    for (const auto& [key, chunk] : m_dims[0].m_chunks)
+    {
+        ChunkPos pos = chunk->pos();
+        AABB aabb = AABB(-glm::vec3(Chunk::width / 2.0, Chunk::height / 2.0, Chunk::width / 2), glm::vec3(Chunk::width / 2.0, Chunk::height / 2.0, Chunk::width / 2))
+                        .translate(glm::vec3((float)pos.x * Chunk::width + Chunk::width / 2.0, float(Chunk::height) / 2.0, (float)pos.z * Chunk::width + Chunk::width / 2.0));
+
+        if (!m_camera->frustum().contains(aabb))
+            continue;
+
+        for (size_t i = 0; i < Chunk::slice_count; i++)
+        {
+            ChunkPos pos = chunk->pos();
+            AABB aabb = AABB(-glm::vec3(Chunk::width / 2.0, Chunk::width / 2.0, Chunk::width / 2), glm::vec3(Chunk::width / 2.0, Chunk::width / 2.0, Chunk::width / 2))
+                            .translate(glm::vec3((float)pos.x * Chunk::width + Chunk::width / 2.0, (float)i * Chunk::width + Chunk::width / 2.0, (float)pos.z * Chunk::width + Chunk::width / 2.0));
+
+            if (!m_camera->frustum().contains(aabb) || chunk->get_slices()[i].mesh == nullptr)
+                continue;
+
+            m_dims[0].m_visible_chunks.push_back(RenderableChunk(chunk, i));
+        }
+    }
+
+    m_dims[0].m_sun_visible_chunks.resize(0);
+    for (const auto& [key, chunk] : m_dims[0].m_chunks)
+    {
+        ChunkPos pos = chunk->pos();
+        AABB aabb = AABB(-glm::vec3(Chunk::width / 2.0, Chunk::height / 2.0, Chunk::width / 2), glm::vec3(Chunk::width / 2.0, Chunk::height / 2.0, Chunk::width / 2))
+                        .translate(glm::vec3((float)pos.x * Chunk::width + Chunk::width / 2.0, float(Chunk::height) / 2.0, (float)pos.z * Chunk::width + Chunk::width / 2.0));
+
+        if (!m_dims[0].m_sun_frustum.contains(aabb))
+            continue;
+
+        for (size_t i = 0; i < Chunk::slice_count; i++)
+        {
+            ChunkPos pos = chunk->pos();
+            AABB aabb = AABB(-glm::vec3(Chunk::width / 2.0, Chunk::width / 2.0, Chunk::width / 2), glm::vec3(Chunk::width / 2.0, Chunk::width / 2.0, Chunk::width / 2))
+                            .translate(glm::vec3((float)pos.x * Chunk::width + Chunk::width / 2.0, (float)i * Chunk::width + Chunk::width / 2.0, (float)pos.z * Chunk::width + Chunk::width / 2.0));
+
+            if (!m_dims[0].m_sun_frustum.contains(aabb) || chunk->get_slices()[i].mesh == nullptr)
+                continue;
+
+            m_dims[0].m_sun_visible_chunks.push_back(RenderableChunk(chunk, i));
+        }
+    }
 }
 
 BlockState World::get_block_state(int64_t x, int64_t y, int64_t z) const
@@ -314,12 +346,12 @@ void World::set_block_state(int64_t x, int64_t y, int64_t z, BlockState state)
     m_dims[overworld].set_block(x, y, z, state);
 }
 
-Option<std::shared_ptr<Chunk>> World::get_chunk(int64_t x, int64_t z) const
+std::optional<std::shared_ptr<Chunk>> World::get_chunk(int64_t x, int64_t z) const
 {
     return m_dims[overworld].get_chunk(x, z);
 }
 
-Option<std::shared_ptr<Chunk>> World::get_chunk(int64_t x, int64_t z)
+std::optional<std::shared_ptr<Chunk>> World::get_chunk(int64_t x, int64_t z)
 {
     return m_dims[overworld].get_chunk(x, z);
 }
@@ -701,12 +733,6 @@ void World::load_one_chunk(ChunkPos pos)
             BufferReader reader(tags_data.data(), tags_data.size());
             read_tags(reader, chunk);
         }
-
-        // for (size_t i = 0; i < Chunk::slice_count; i++)
-        // {
-        //     EXPECT(chunk->build_simple_mesh(i));
-        //     EXPECT(chunk->build_water_mesh(i));
-        // }
     }
     else
     {
@@ -750,6 +776,7 @@ void World::deflate_data(const uint8_t *data, size_t size, std::vector<uint8_t>&
     while (strm.avail_in != 0)
     {
         int res = deflate(&strm, Z_NO_FLUSH);
+        (void)res;
         assert(res == Z_OK);
 
         if (strm.avail_out == 0)
@@ -793,6 +820,7 @@ void World::inflate_data(const uint8_t *compressed_data, size_t compressed_data_
     while (strm.avail_in != 0)
     {
         int res = inflate(&strm, Z_NO_FLUSH);
+        (void)res;
         assert(res >= 0);
 
         if (strm.avail_out == 0)

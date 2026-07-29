@@ -315,16 +315,15 @@ Result<void> Chunk::build_water_mesh(size_t slice_index, const std::map<ChunkPos
     return Result<void>();
 }
 
-void Chunk::set_tag(glm::i64vec3 pos, std::string_view name, Variant v, bool rebuild)
+void Chunk::set_tag(glm::i64vec3 pos, std::string_view name, Variant v)
 {
     uint16_t key = linearize(pos.x, pos.y, pos.z);
     m_tags[key] = BlockTags();
     m_tags[key].tags[std::string(name)] = v;
-
-    m_dim->queue_rebuild(ChunkPos(m_x, m_z));
+    m_modified = true;
 }
 
-void Chunk::remove_tag(glm::i64vec3 pos, std::string_view name, bool rebuild)
+void Chunk::remove_tag(glm::i64vec3 pos, std::string_view name)
 {
     uint16_t key = linearize(pos.x, pos.y, pos.z);
     auto tags = m_tags.find(key);
@@ -337,20 +336,20 @@ void Chunk::remove_tag(glm::i64vec3 pos, std::string_view name, bool rebuild)
         if (tags->second.tags.size() == 0)
         {
             m_tags.erase(key);
-            m_dim->queue_rebuild(ChunkPos(m_x, m_z)); // TODO: Add a way to rebuild one slice ? (pos.y / 16)
+            m_modified = true;
         }
     }
 }
 
-Option<Variant> Chunk::get_tag(uint16_t index, std::string_view name) const
+std::optional<Variant> Chunk::get_tag(uint16_t index, std::string_view name) const
 {
     auto tags = m_tags.find(index);
     if (tags != m_tags.end())
         return tags->second.tags.find(name)->second;
-    return None;
+    return std::nullopt;
 }
 
-Option<Variant> Chunk::get_tag(glm::i64vec3 pos, std::string_view name) const
+std::optional<Variant> Chunk::get_tag(glm::i64vec3 pos, std::string_view name) const
 {
     return get_tag(linearize(pos.x, pos.y, pos.z), name);
 }

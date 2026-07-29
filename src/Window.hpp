@@ -21,7 +21,7 @@ public:
     Extent2D size() const;
 
     [[nodiscard]]
-    Option<SDL_Event> poll_event() const;
+    std::optional<SDL_Event> poll_event() const;
 
     void set_fullscreen(bool f);
     void close();

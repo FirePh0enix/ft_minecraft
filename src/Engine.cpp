@@ -114,7 +114,7 @@ void Engine::tick(float delta)
 {
     ZoneScoped;
 
-    Option<SDL_Event> event_opt;
+    std::optional<SDL_Event> event_opt;
 
     {
         ZoneScopedN("handle events");

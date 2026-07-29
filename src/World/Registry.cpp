@@ -28,6 +28,8 @@ void GameRegistry::register_all()
     add_block(Blocks::sand, std::make_shared<Block>(TEX("sand")));
     add_block(Blocks::log, std::make_shared<Block>(std::array<std::string, 6>{TEX("log"), TEX("log"), TEX("log"), TEX("log"), TEX("log_top"), TEX("log_top")}));
     add_block(Blocks::leaves, std::make_shared<Block>(TEX("leaves")));
+    add_block(Blocks::grass, std::make_shared<Block>(std::array<std::string, 6>{TEX("grass_side"), TEX("grass_side"), TEX("grass_side"), TEX("grass_side"), TEX("dirt"), TEX("grass_top")}));
+    add_block(Blocks::snow, std::make_shared<Block>(TEX("snow")));
     add_block(Blocks::crafting_table, std::make_shared<CraftingTableBlock>());
 
     // TODO: Ids should be names, numeric ids should be generated at runtime.
@@ -36,6 +38,7 @@ void GameRegistry::register_all()
     m_block_names["sand"] = Blocks::sand;
     m_block_names["log"] = Blocks::log;
     m_block_names["leaves"] = Blocks::leaves;
+    m_block_names["snow"] = Blocks::snow;
     m_block_names["crafting_table"] = Blocks::crafting_table;
 
     add_item(Items::stone_block, std::make_shared<ItemBlock>(Blocks::stone));
@@ -43,6 +46,8 @@ void GameRegistry::register_all()
     add_item(Items::sand_block, std::make_shared<ItemBlock>(Blocks::sand));
     add_item(Items::log_block, std::make_shared<ItemBlock>(Blocks::log));
     add_item(Items::leaves_block, std::make_shared<ItemBlock>(Blocks::leaves));
+    add_item(Items::grass_block, std::make_shared<ItemBlock>(Blocks::grass));
+    add_item(Items::snow_block, std::make_shared<ItemBlock>(Blocks::snow));
     add_item(Items::crafting_table_block, std::make_shared<ItemBlock>(Blocks::crafting_table));
     add_item(Items::water_bucket, std::make_shared<BucketItem>());
 
