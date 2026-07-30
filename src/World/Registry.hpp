@@ -112,9 +112,9 @@ public:
     std::shared_ptr<Item> get_item(Id<Item> key) const { return m_items.at(key); }
     std::shared_ptr<Structure> get_struct(std::string_view name) const { return m_structures.find(name)->second; }
 
-    Option<Id<Block>> to_block(Id<Item> id);
-    Option<Id<Item>> to_item(Id<Block> block) { return m_block_items[block]; }
-    Option<Id<Block>> item_from_name(std::string_view name) { return m_block_names.find(name)->second; }
+    std::optional<Id<Block>> to_block(Id<Item> id);
+    std::optional<Id<Item>> to_item(Id<Block> block) { return m_block_items[block]; }
+    std::optional<Id<Block>> item_from_name(std::string_view name) { return m_block_names.find(name)->second; }
 
     std::shared_ptr<Block> block_from_item(Id<Item> key)
     {
@@ -145,11 +145,11 @@ public:
         m_exposed_rpc[cls][std::string(name)] = target;
     }
 
-    Option<RpcTarget> get_rpc(Entity *entity, std::string_view name) const;
+    std::optional<RpcTarget> get_rpc(Entity *entity, std::string_view name) const;
 
     // Crafting system.
     void add_recipe(const Recipe& recipe) { m_recipes.push_back(recipe); }
-    Option<ItemStack> match(const std::array<Id<Item>, 9>& grid, int width, int height);
+    std::optional<ItemStack> match(const std::array<Id<Item>, 9>& grid, int width, int height);
 
 private:
     std::map<Id<Block>, std::shared_ptr<Block>> m_blocks;
@@ -167,7 +167,7 @@ private:
 
     std::map<ClassHashCode, stdext::string_map<RpcTarget>> m_exposed_rpc;
 
-    Option<size_t> get_image(std::string_view path);
+    std::optional<size_t> get_image(std::string_view path);
 
     std::vector<Recipe> m_recipes;
 };

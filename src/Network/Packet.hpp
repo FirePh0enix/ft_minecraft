@@ -327,7 +327,7 @@ inline Result<void> deserialize(DataBuffer& buffer, RpcCallPacket& p)
     BufferReader reader(data.data(), data.size());
     for (;;)
     {
-        Option<Variant> v = TRY(reader.read_variant());
+        std::optional<Variant> v = TRY(reader.read_variant());
         if (v.has_value())
             p.args.push_back(v.value());
         else

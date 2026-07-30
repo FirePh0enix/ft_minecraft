@@ -89,6 +89,14 @@ struct ChunkLoadRequest
     int64_t z;
 };
 
+struct ChunkLoadElement
+{
+    ChunkPos pos;
+    float distance = 0.0f;
+
+    bool operator<(const ChunkLoadElement& other) const { return distance < other.distance; }
+};
+
 class World
 {
     friend class Generator;
@@ -202,7 +210,8 @@ public:
      */
     void load_player(std::string_view name, std::shared_ptr<Player>& player);
 
-    void deferred_receive_chunk(const ChunkDataPacket& p);
+    void queue_load_chunk(ChunkPos pos);
+    void queue_receive_chunk(const ChunkDataPacket& p);
 
     void send_chunk(ENetPeer *peer, const std::shared_ptr<Chunk>& chunk) const;
     void receive_chunk(const ChunkDataPacket& p);
@@ -227,7 +236,8 @@ private:
     std::array<Dimension, max_dimensions> m_dims;
 
     // TODO: needs to be 16
-    int32_t m_load_distance = 32;
+    int32_t m_load_distance = 20;
+    std::vector<ChunkLoadElement> m_load_buffer;
 
     std::vector<ChunkLoadRequest> m_load_requests;
 

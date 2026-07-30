@@ -80,7 +80,7 @@ void CraftingTableInventory::update_recipe()
         grid[i] = s.item();
     }
 
-    Option<ItemStack> result = Engine::get().registry().match(grid, 3, 3);
+    std::optional<ItemStack> result = Engine::get().registry().match(grid, 3, 3);
     if (result.has_value())
         m_container->set_stack(RESULT_LAYER, 0, result.value());
     else

@@ -99,7 +99,7 @@ private:
     float m_speed = 20.0f; // 8.0;
     float m_jump_force = 0.24f;
 
-    Option<glm::vec3> m_aimed_block;
+    std::optional<glm::vec3> m_aimed_block;
     std::shared_ptr<Material> m_aim_material;
     std::shared_ptr<Buffer> m_aim_buffer;
 
@@ -118,7 +118,7 @@ private:
     std::shared_ptr<Buffer> m_model_buffer;
     std::shared_ptr<BindGroup> m_hand_item_bg;
 
-    Option<std::shared_ptr<Inventory>> m_opened_inventory;
+    std::optional<std::shared_ptr<Inventory>> m_opened_inventory;
 
     bool m_open_chat = false;
     std::shared_ptr<Chat> m_chat;

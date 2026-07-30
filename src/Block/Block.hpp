@@ -47,9 +47,9 @@ class Block
 public:
     virtual ~Block() {}
 
-    Block() : m_transparent(false) {}
-    Block(const std::array<std::string, 6>& textures);
-    Block(std::string_view texture);
+    Block() : m_transparent(false), m_gradient(false) {}
+    Block(const std::array<std::string, 6>& textures, bool gradient = false);
+    Block(std::string_view texture, bool gradient = false);
 
     std::span<const std::string, 6> get_texture_names() const
     {
@@ -77,9 +77,11 @@ public:
     void set_texture(std::string_view path);
 
     bool is_tranparent() const { return m_transparent; }
+    bool has_gradient() const { return m_gradient; }
 
 private:
     std::array<std::string, 6> m_textures{};
     std::array<uint32_t, 6> m_texture_ids{0, 0, 0, 0, 0, 0}; // [+Z, -Z, +X, -X, +Y, -Y]
     bool m_transparent;
+    bool m_gradient;
 };

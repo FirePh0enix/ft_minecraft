@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Core/Class.hpp"
-#include "Core/Option.hpp"
 #include "Core/Types.hpp"
 
 #include <SDL3/SDL.h>

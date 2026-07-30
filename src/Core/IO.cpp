@@ -3,36 +3,37 @@
 #include "Core/Error.hpp"
 #include "Item/ItemStack.hpp"
 #include "Variant.hpp"
+#include <optional>
 
-Result<Option<Variant>> Reader::read_variant()
+Result<std::optional<Variant>> Reader::read_variant()
 {
     uint32_t type_raw;
     size_t n = TRY(read_raw(&type_raw, sizeof(uint32_t)));
     if (n == 0)
-        return Option<Variant>(None);
+        return Result<std::optional<Variant>>(std::nullopt);
 
     VariantType type = VariantType((uint8_t)type_raw);
     if (type == VariantType::Null)
     {
-        return Option(Variant(nullptr));
+        return std::make_optional(Variant(nullptr));
     }
     else if (type == VariantType::Bool)
     {
         uint32_t b;
         TRY(read_raw(&b, sizeof(uint32_t)));
-        return Option(Variant(bool(b)));
+        return std::make_optional(Variant(bool(b)));
     }
     else if (type == VariantType::Double)
     {
         double d;
         TRY(read_raw(&d, sizeof(double)));
-        return Option(Variant(d));
+        return std::make_optional(Variant(d));
     }
     else if (type == VariantType::Integer)
     {
         int64_t i;
         TRY(read_raw(&i, sizeof(int64_t)));
-        return Option(Variant(i));
+        return std::make_optional(Variant(i));
     }
     else if (type == VariantType::String)
     {
@@ -50,25 +51,25 @@ Result<Option<Variant>> Reader::read_variant()
         if (size != aligned_size)
             TRY(read_raw(buf, aligned_size - size));
 
-        return Option(Variant(s));
+        return std::make_optional(Variant(s));
     }
     else if (type == VariantType::Vec2)
     {
         float f[2];
         TRY(read_raw(f, sizeof(f)));
-        return Option(Variant(glm::vec2(f[0], f[1])));
+        return std::make_optional(Variant(glm::vec2(f[0], f[1])));
     }
     else if (type == VariantType::Vec3)
     {
         float f[3];
         TRY(read_raw(f, sizeof(f)));
-        return Option(Variant(glm::vec3(f[0], f[1], f[2])));
+        return std::make_optional(Variant(glm::vec3(f[0], f[1], f[2])));
     }
     else if (type == VariantType::Quat)
     {
         float f[4];
         TRY(read_raw(f, sizeof(f)));
-        return Option(Variant(glm::quat(f[0], f[1], f[2], f[3])));
+        return std::make_optional(Variant(glm::quat(f[0], f[1], f[2], f[3])));
     }
     else if (type == VariantType::ItemStack)
     {
@@ -81,14 +82,14 @@ Result<Option<Variant>> Reader::read_variant()
         //         Variant variant(stack.get_tags());
         // TRY(write_variant(variant));
 
-        Option<Variant> variant = TRY(read_variant());
+        std::optional<Variant> variant = TRY(read_variant());
         Variant v = variant.value();
 
         std::map<std::string, Variant> map = v.to_map<std::string, Variant>();
 
         Id<Item> item(id);
 
-        return Option(Variant(ItemStack(item, size, map)));
+        return std::make_optional(Variant(ItemStack(item, size, map)));
     }
     else if (type == VariantType::Array)
     {
@@ -105,7 +106,7 @@ Result<Option<Variant>> Reader::read_variant()
             array.push_back(variant);
         }
 
-        return Option(Variant(array));
+        return std::make_optional(Variant(array));
     }
     else if (type == VariantType::Map)
     {
@@ -122,7 +123,7 @@ Result<Option<Variant>> Reader::read_variant()
             map[key] = value;
         }
 
-        return Option(Variant(map));
+        return std::make_optional(Variant(map));
     }
 
     println("{}", type_raw);

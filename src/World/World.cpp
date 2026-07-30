@@ -10,6 +10,7 @@
 #include "World/Settings.hpp"
 
 #include <SDL3/SDL.h>
+#include <queue>
 #include <zlib.h>
 
 #include <algorithm>
@@ -305,7 +306,7 @@ void World::tick(float delta)
             AABB aabb = AABB(-glm::vec3(Chunk::width / 2.0, Chunk::width / 2.0, Chunk::width / 2), glm::vec3(Chunk::width / 2.0, Chunk::width / 2.0, Chunk::width / 2))
                             .translate(glm::vec3((float)pos.x * Chunk::width + Chunk::width / 2.0, (float)i * Chunk::width + Chunk::width / 2.0, (float)pos.z * Chunk::width + Chunk::width / 2.0));
 
-            if (!m_camera->frustum().contains(aabb) || chunk->get_slices()[i].mesh == nullptr)
+            if (!m_camera->frustum().contains(aabb) || (chunk->get_slices()[i].mesh == nullptr && chunk->get_slices()[i].water_mesh == nullptr))
                 continue;
 
             m_dims[0].m_visible_chunks.push_back(RenderableChunk(chunk, i));
@@ -361,12 +362,30 @@ void World::set_active_camera(std::shared_ptr<Camera> camera)
     m_camera = camera;
 }
 
+static ChunkPos pop_near(std::vector<ChunkLoadElement>& elements)
+{
+    float min_distance = elements[0].distance;
+    size_t min_index = 0;
+    for (size_t i = 1; i < elements.size(); i++)
+    {
+        if (elements[i].distance > min_distance)
+        {
+            min_distance = elements[i].distance;
+            min_index = i;
+        }
+    }
+    ChunkPos pos = elements[min_index].pos;
+    elements.erase(elements.begin() + (ssize_t)min_index);
+    return pos;
+}
+
 void World::load_around_player()
 {
     const glm::vec3 player_pos = m_camera->get_global_transform().position();
     int64_t player_cx = int64_t(player_pos.x / 16);
     int64_t player_cz = int64_t(player_pos.z / 16);
 
+    m_load_buffer.resize(0);
     for (int64_t cx = -m_load_distance; cx <= m_load_distance; cx++)
         for (int64_t cz = -m_load_distance; cz <= m_load_distance; cz++)
         {
@@ -388,9 +407,15 @@ void World::load_around_player()
                 m_dims[0].m_chunk_loading_queue.insert(pos);
             }
 
-            Engine::get().get_thread_pool().async([this, pos]
-                                                  { load_one_chunk(pos); });
+            m_load_buffer.push_back(ChunkLoadElement(pos, glm::distance2(glm::vec2(player_pos.x, player_pos.z), glm::vec2((float)pos.x * 16.0f + 8.0f, (float)pos.z * 16.0f + 8.0f))));
         }
+
+    const size_t size = m_load_buffer.size();
+    for (size_t i = 0; i < size; i++)
+    {
+        ChunkPos pos = pop_near(m_load_buffer);
+        queue_load_chunk(pos);
+    }
 
     std::lock_guard<std::mutex> lock(m_dims[0].mutex());
     for (const auto& [pos, chunk] : m_dims[0].m_chunks)
@@ -512,7 +537,7 @@ void World::break_block(int64_t x, int64_t y, int64_t z)
     BlockState state = get_block_state(x, y, z);
     set_block_state(x, y, z, BlockState());
 
-    Option<Id<Item>> item_opt = Engine::get().registry().to_item(Id<Block>(state.id));
+    std::optional<Id<Item>> item_opt = Engine::get().registry().to_item(Id<Block>(state.id));
     if (!item_opt.has_value())
         return;
 
@@ -678,7 +703,7 @@ void World::receive_chunk(const ChunkDataPacket& p)
     }
 }
 
-void World::deferred_receive_chunk(const ChunkDataPacket& p)
+void World::queue_receive_chunk(const ChunkDataPacket& p)
 {
     // Maybe I'm dumb and I don't know anything but using `[&]` creates segfaults, but manually specifying captures don't.
     Engine::get().get_thread_pool().async([this, p]()
@@ -750,6 +775,12 @@ void World::load_one_chunk(ChunkPos pos)
         std::lock_guard<std::mutex> lock(m_dims[0].m_chunk_loading_mutex);
         m_dims[0].m_chunk_loading_queue.erase(pos);
     }
+}
+
+void World::queue_load_chunk(ChunkPos pos)
+{
+    Engine::get().get_thread_pool().async([this, pos]
+                                          { load_one_chunk(pos); });
 }
 
 void World::unload_one_chunk(ChunkPos pos)
@@ -852,7 +883,7 @@ void World::write_tags(Writer& writer, const std::shared_ptr<Chunk>& chunk) cons
 
 void World::read_tags(Reader& reader, std::shared_ptr<Chunk>& chunk) const
 {
-    Option<Variant> variant = EXPECT(reader.read_variant());
+    std::optional<Variant> variant = EXPECT(reader.read_variant());
     if (variant.has_value())
     {
         std::map<int64_t, std::map<std::string, Variant>> tags = variant.value().to_map<int64_t, std::map<std::string, Variant>>();

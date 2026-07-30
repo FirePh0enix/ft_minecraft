@@ -25,12 +25,12 @@ public:
         return SamplerDescriptor{};
     }
 
-    Option<Binding> get_binding(std::string_view name) const
+    std::optional<Binding> get_binding(std::string_view name) const
     {
         auto opt = m_bindings.find(name);
         if (opt != m_bindings.end())
             return opt->second;
-        return None;
+        return std::nullopt;
     }
 
     void set_binding(std::string_view name, Binding binding)

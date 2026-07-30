@@ -1,7 +1,8 @@
 #pragma once
 
 #include "Core/Error.hpp"
-#include "Core/Option.hpp"
+
+#include <optional>
 
 // TODO: lots of space could be saved by not using Option here.
 
@@ -58,8 +59,8 @@ public:
     inline E& error() { return m_error.value(); }
 
 private:
-    Option<T> m_value;
-    Option<E> m_error;
+    std::optional<T> m_value;
+    std::optional<E> m_error;
 };
 
 template <typename E>
@@ -105,7 +106,7 @@ public:
     }
 
 private:
-    Option<E> m_error;
+    std::optional<E> m_error;
 };
 
 // Inspired by Ladybird `TRY` and `MUST` macro. This depends on (statement expression)[1] which is non standard but implemented by gcc and clang.

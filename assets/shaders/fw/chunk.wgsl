@@ -19,7 +19,7 @@ struct WorldEnv {
 struct VertexInput {
     @location(0) position: vec3<f32>,
     @location(1) normal: vec3<f32>,
-    @location(2) uvt: vec3<f32>,
+    @location(2) uvtg: vec4<f32>,
 
     @location(3) chunk_pos: vec3<f32>, // per instance
 }
@@ -31,6 +31,7 @@ struct VertexOutput {
     @location(2) inv_normal: vec3f,
     @location(3) normal: vec3f,
     @location(4) frag_pos_light_space: vec4f,
+    @location(5) has_gradient: u32,
 }
 
 @vertex
@@ -41,9 +42,10 @@ fn vertex_main(in: VertexInput) -> VertexOutput {
 			      in.chunk_pos.x, in.chunk_pos.y, in.chunk_pos.z, 1.0);
     
     var out: VertexOutput;
-    out.texture_index = u32(in.uvt.z);
-    out.uv = vec2f(in.uvt.x, 1.0 - in.uvt.y);
+    out.texture_index = u32(in.uvtg.z);
+    out.uv = vec2f(in.uvtg.x, 1.0 - in.uvtg.y);
     out.normal = normalize(in.normal);
+    out.has_gradient = u32(in.uvtg.w);
 
     out.clip_position = camera.view_projection * model_matrix * vec4f(in.position, 1.0);
     out.frag_pos_light_space = world_env.light_view_projection * model_matrix * vec4f(in.position, 1.0);
@@ -64,8 +66,8 @@ fn isGrayscale(c: vec4<f32>) -> bool {
 @fragment
 fn fragment_main(in: VertexOutput) -> @location(0) vec4<f32> {
     var color = textureSample(images, images_sampler, in.uv, in.texture_index);
-    // if (isGrayscale(color)) {
-    //     color *= palette[0];
-    // }
+    if (isGrayscale(color) && in.has_gradient != 0) {
+        color *= palette[0];
+    }
     return lighting(color, in.normal, in.frag_pos_light_space);
 }

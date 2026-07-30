@@ -14,7 +14,7 @@ public:
 
     Result<std::string> read_to_string();
     Result<void> read_to_buffer(std::vector<char>& buf);
-    Result<Option<Variant>> read_variant();
+    Result<std::optional<Variant>> read_variant();
 };
 
 class Writer

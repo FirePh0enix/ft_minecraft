@@ -2,7 +2,6 @@
 
 #include "AABB.hpp"
 #include "Core/Class.hpp"
-#include "Core/Option.hpp"
 #include "Core/Result.hpp"
 #include "Core/Types.hpp"
 #include "Event.hpp"
@@ -88,24 +87,21 @@ public:
     }
 
     template <typename T>
-    Option<T> get(std::string_view attrib) const
+    std::optional<T> get(std::string_view attrib) const
     {
         auto iter = m_variants.find(attrib);
         if (iter != m_variants.end())
             return iter->second.get_unchecked<T>();
-        return None;
+        return std::nullopt;
     }
 
     template <typename T>
-    Option<std::vector<T>> get_array(std::string_view attrib) const
+    std::optional<std::vector<T>> get_array(std::string_view attrib) const
     {
         auto iter = m_variants.find(attrib);
         if (iter != m_variants.end())
             return iter->second.to_array<T>();
-        return None;
-
-        // return m_variants.get(attrib).template map<std::vector<T>>([](const Variant& v) -> std::vector<T>
-        //                                                            { return v.to_array<T>(); });
+        return std::nullopt;
     }
 
     Result<void> save(std::string_view path) const;
@@ -212,7 +208,7 @@ public:
 
     ALWAYS_INLINE bool is_active() const { return m_active; }
 
-    Option<RpcTarget> get_rpc(std::string_view name);
+    std::optional<RpcTarget> get_rpc(std::string_view name);
 
     void move_and_collide();
     bool is_in_water() const;

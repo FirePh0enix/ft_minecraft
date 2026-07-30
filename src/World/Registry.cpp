@@ -6,6 +6,7 @@
 #include "Engine.hpp"
 #include "Item/Bucket.hpp"
 #include "Render/Renderer.hpp"
+#include "webgpu/webgpu.h"
 #include <memory>
 
 constexpr int two_d_to_1d(int x, int y, int w)
@@ -28,7 +29,7 @@ void GameRegistry::register_all()
     add_block(Blocks::sand, std::make_shared<Block>(TEX("sand")));
     add_block(Blocks::log, std::make_shared<Block>(std::array<std::string, 6>{TEX("log"), TEX("log"), TEX("log"), TEX("log"), TEX("log_top"), TEX("log_top")}));
     add_block(Blocks::leaves, std::make_shared<Block>(TEX("leaves")));
-    add_block(Blocks::grass, std::make_shared<Block>(std::array<std::string, 6>{TEX("grass_side"), TEX("grass_side"), TEX("grass_side"), TEX("grass_side"), TEX("dirt"), TEX("grass_top")}));
+    add_block(Blocks::grass, std::make_shared<Block>(std::array<std::string, 6>{TEX("grass_side"), TEX("grass_side"), TEX("grass_side"), TEX("grass_side"), TEX("dirt"), TEX("grass_top")}, true));
     add_block(Blocks::snow, std::make_shared<Block>(TEX("snow")));
     add_block(Blocks::crafting_table, std::make_shared<CraftingTableBlock>());
 
@@ -107,18 +108,18 @@ void GameRegistry::add_structure(std::string_view name, std::shared_ptr<Structur
     m_structures[std::string(name)] = structure;
 }
 
-Option<Id<Block>> GameRegistry::to_block(Id<Item> id)
+std::optional<Id<Block>> GameRegistry::to_block(Id<Item> id)
 {
     if (!id.valid())
-        return None;
+        return std::nullopt;
 
-    Option<std::shared_ptr<Item>> item_opt = m_items[id];
+    std::optional<std::shared_ptr<Item>> item_opt = m_items[id];
     if (!item_opt.has_value())
-        return None;
+        return std::nullopt;
 
     if (std::shared_ptr<ItemBlock> ib = std::dynamic_pointer_cast<ItemBlock>(item_opt.value()))
         return ib->block();
-    return None;
+    return std::nullopt;
 }
 
 std::shared_ptr<Texture> GameRegistry::get_texture(Id<Item> id)
@@ -132,7 +133,7 @@ std::shared_ptr<Texture> GameRegistry::get_texture(Id<Item> id)
 
 size_t GameRegistry::load_texture(std::string_view path)
 {
-    Option<size_t> i = get_image(path);
+    std::optional<size_t> i = get_image(path);
     if (i.has_value())
         return i.value();
 
@@ -183,7 +184,7 @@ std::shared_ptr<Texture> GameRegistry::create_preview_texture(std::shared_ptr<Bl
     constexpr uint32_t preview_size = 128;
 
     std::shared_ptr<Buffer> buffer = THROW(Buffer::create(sizeof(PreviewBlockModel), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform), Renderer::get().get_missing_texture());
-    std::shared_ptr<Material> material = Material::create(Renderer::get().get_preview_block_shader(), MaterialFlagBits::None, WGPUCullMode_Back, UVType::UV);
+    std::shared_ptr<Material> material = Material::create(Renderer::get().get_preview_block_shader(), MaterialFlagBits::None, WGPUCullMode_Back, WGPUVertexFormat_Float32x2);
 
     std::shared_ptr<BindGroup> bg = BindGroup::create(Renderer::get().get_preview_block_shader());
     bg->set_param("model", buffer);
@@ -237,17 +238,17 @@ std::shared_ptr<Texture> GameRegistry::create_preview_texture(std::shared_ptr<Bl
     return color_texture;
 }
 
-Option<size_t> GameRegistry::get_image(std::string_view path)
+std::optional<size_t> GameRegistry::get_image(std::string_view path)
 {
     for (size_t i = 0; i < m_images.size(); i++)
     {
         if (m_images[i].path == path)
             return i + 1;
     }
-    return None;
+    return std::nullopt;
 }
 
-Option<ItemStack> GameRegistry::match(const std::array<Id<Item>, MAX_RECIPE_SIZE>& grid, int width, int height)
+std::optional<ItemStack> GameRegistry::match(const std::array<Id<Item>, MAX_RECIPE_SIZE>& grid, int width, int height)
 {
 
     for (const auto& r : m_recipes)
@@ -302,10 +303,10 @@ Option<ItemStack> GameRegistry::match(const std::array<Id<Item>, MAX_RECIPE_SIZE
         }
     }
 
-    return None;
+    return std::nullopt;
 }
 
-Option<RpcTarget> GameRegistry::get_rpc(Entity *entity, std::string_view name) const
+std::optional<RpcTarget> GameRegistry::get_rpc(Entity *entity, std::string_view name) const
 {
     for (ssize_t i = (ssize_t)entity->get_classes().size() - 1; i >= 0; i--)
     {
@@ -318,5 +319,5 @@ Option<RpcTarget> GameRegistry::get_rpc(Entity *entity, std::string_view name) c
                 return target->second;
         }
     }
-    return None;
+    return std::nullopt;
 }

@@ -460,7 +460,7 @@ void Engine::receive_client(void *user, NetworkConnection& conn, ENetPacket *pac
         for (const Variant& v : p.args)
             variants.push_back(v);
 
-        Option<RpcTarget> rpc = entity->get_rpc(p.name);
+        std::optional<RpcTarget> rpc = entity->get_rpc(p.name);
         if (!rpc.has_value())
             break;
 
@@ -476,7 +476,7 @@ void Engine::receive_client(void *user, NetworkConnection& conn, ENetPacket *pac
         ChunkDataPacket p;
         EXPECT(deserialize(buffer, p));
 
-        self->m_world->deferred_receive_chunk(p);
+        self->m_world->queue_receive_chunk(p);
     }
     break;
     default:
@@ -594,7 +594,7 @@ void Engine::receive_server(void *user, NetworkConnection& conn, ENetPacket *pac
         if (entity == nullptr)
             break;
 
-        Option<RpcTarget> rpc = entity->get_rpc(p.name);
+        std::optional<RpcTarget> rpc = entity->get_rpc(p.name);
         if (!rpc.has_value())
             break;
 

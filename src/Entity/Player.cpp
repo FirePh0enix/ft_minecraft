@@ -259,7 +259,7 @@ void Player::tick(float delta)
             if (!result.hit_entity)
                 m_aimed_block = glm::vec3(result.block_pos);
             else
-                m_aimed_block = None;
+                m_aimed_block = std::nullopt;
 
             if (Input::is_action_just_pressed("attack") && result.hit_entity)
             {
@@ -319,7 +319,7 @@ void Player::tick(float delta)
         }
         else
         {
-            m_aimed_block = None;
+            m_aimed_block = std::nullopt;
         }
     }
 
@@ -589,8 +589,9 @@ void Player::open_inventory(std::shared_ptr<Inventory> inventory)
 
 void Player::close_inventory()
 {
-    m_opened_inventory.value()->grab_cancel();
-    m_opened_inventory = None;
+    if (m_opened_inventory.has_value())
+        m_opened_inventory.value()->grab_cancel();
+    m_opened_inventory = std::nullopt;
     Input::set_mouse_grabbed(true);
 }
 

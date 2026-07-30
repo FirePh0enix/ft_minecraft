@@ -30,7 +30,7 @@ protected:
     std::shared_ptr<Model> m_model;
     std::unique_ptr<Pathfinding> m_pathfinding;
     bool m_following_path = false;
-    Option<Path> m_path;
+    std::optional<Path> m_path;
     size_t m_path_index = 0;
     float m_turn_speed = 10;
     float m_stopping_dst = 2;

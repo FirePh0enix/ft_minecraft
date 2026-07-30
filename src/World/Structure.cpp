@@ -19,10 +19,6 @@ std::shared_ptr<Structure> Structure::load(std::string_view path)
     int64_t l = config["metadata"]["size"]["length"].as<int64_t>();
     const size_t count = w * h * l;
 
-    debug("w = {}", w);
-    debug("h = {}", h);
-    debug("l = {}", l);
-
     self->m_width = w;
     self->m_height = h;
     self->m_length = l;

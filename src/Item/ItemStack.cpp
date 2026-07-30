@@ -1,6 +1,6 @@
 #include "Item/ItemStack.hpp"
 
-Option<ItemStack> ItemStack::merge(const ItemStack& stack)
+std::optional<ItemStack> ItemStack::merge(const ItemStack& stack)
 {
     if (m_item != stack.m_item || m_count >= itemstack_max_size)
         return stack;
@@ -15,7 +15,7 @@ Option<ItemStack> ItemStack::merge(const ItemStack& stack)
     }
     else
     {
-        return None;
+        return std::nullopt;
     }
 }
 

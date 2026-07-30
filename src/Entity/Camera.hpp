@@ -70,6 +70,9 @@ public:
 
     void update_frustum();
 
+    float near_plane() const { return m_near; }
+    float far_plane() const { return m_far; }
+
 private:
     glm::mat4 m_projection_matrix;
     float m_aspect_ratio = 1280.0 / 720.0;
@@ -77,7 +80,7 @@ private:
     Frustum m_frustum;
 
     float m_near = 0.01;
-    float m_far = 500.0;
+    float m_far = 800.0;
 
     glm::mat4 calculate_projection_matrix() const
     {

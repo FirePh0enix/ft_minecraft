@@ -150,7 +150,7 @@ void PlayerInventory::add_stack(ItemStack stack)
         ItemStack current_stack = m_container->get_stack(1, x);
         if (current_stack.item() == stack.item() && current_stack.count() < itemstack_max_size)
         {
-            Option<ItemStack> excess = current_stack.merge(stack);
+            std::optional<ItemStack> excess = current_stack.merge(stack);
             m_container->set_stack(1, x, current_stack);
 
             if (excess.has_value())
@@ -169,7 +169,7 @@ void PlayerInventory::add_stack(ItemStack stack)
         ItemStack current_stack = m_container->get_stack(0, i);
         if (current_stack.item() == stack.item() && current_stack.count() < itemstack_max_size)
         {
-            Option<ItemStack> excess = current_stack.merge(stack);
+            std::optional<ItemStack> excess = current_stack.merge(stack);
             m_container->set_stack(0, i, current_stack);
 
             if (excess.has_value())
@@ -230,7 +230,7 @@ void PlayerInventory::update_recipe()
         grid[i] = s.item();
     }
 
-    Option<ItemStack> result = Engine::get().registry().match(grid, 2, 2);
+    std::optional<ItemStack> result = Engine::get().registry().match(grid, 2, 2);
     if (result.has_value())
         m_container->set_stack(RESULT_LAYER, 0, result.value());
     else

@@ -4,6 +4,8 @@
 #include "World/Chunk.hpp"
 #include "World/Settings.hpp"
 
+#include "spline.hpp"
+
 #include <memory>
 
 class GenPass;
@@ -27,12 +29,10 @@ protected:
 class OverworldGen : public Gen
 {
 public:
-    OverworldGen(WorldSettings settings)
-        : Gen(settings)
-    {
-    }
+    OverworldGen(WorldSettings settings);
 
     virtual void generate_chunk(std::shared_ptr<Chunk> chunk) override;
 
 private:
+    tk::spline m_continent_spline;
 };

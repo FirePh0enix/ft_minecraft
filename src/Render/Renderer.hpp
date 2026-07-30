@@ -123,10 +123,10 @@ public:
         Max,
     };
 
-    static Result<std::shared_ptr<Mesh>> create_from_data(std::span<const std::byte> index, std::span<const glm::vec3> positions, std::span<const glm::vec3> normals, std::span<const std::byte> uvs, WGPUIndexFormat index_type = WGPUIndexFormat_Uint32, UVType uv_type = UVType::UV);
+    static Result<std::shared_ptr<Mesh>> create_from_data(std::span<const std::byte> index, std::span<const glm::vec3> positions, std::span<const glm::vec3> normals, std::span<const std::byte> uvs, WGPUIndexFormat index_type = WGPUIndexFormat_Uint32, WGPUVertexFormat uv_format = WGPUVertexFormat_Float32x2);
 
-    Mesh(uint32_t vertex_count, WGPUIndexFormat index_type, UVType uv_type, const std::shared_ptr<Buffer>& index_buffer, const std::shared_ptr<Buffer>& position_buffer, const std::shared_ptr<Buffer>& normal_buffer, const std::shared_ptr<Buffer>& uv_buffer)
-        : m_vertex_count(vertex_count), m_index_type(index_type), m_uv_type(uv_type)
+    Mesh(uint32_t vertex_count, WGPUIndexFormat index_type, WGPUVertexFormat uv_format, const std::shared_ptr<Buffer>& index_buffer, const std::shared_ptr<Buffer>& position_buffer, const std::shared_ptr<Buffer>& normal_buffer, const std::shared_ptr<Buffer>& uv_buffer)
+        : m_vertex_count(vertex_count), m_index_type(index_type), m_uv_format(uv_format)
     {
         set_buffer(BufferKind::Index, index_buffer);
         set_buffer(BufferKind::Position, position_buffer);
@@ -137,7 +137,7 @@ public:
     ALWAYS_INLINE uint32_t vertex_count() const { return m_vertex_count; }
 
     ALWAYS_INLINE WGPUIndexFormat index_type() const { return m_index_type; }
-    ALWAYS_INLINE UVType uv_type() const { return m_uv_type; }
+    ALWAYS_INLINE WGPUVertexFormat uv_format() const { return m_uv_format; }
 
     ALWAYS_INLINE std::shared_ptr<Buffer> get_buffer(BufferKind kind) const
     {
@@ -152,7 +152,7 @@ public:
 protected:
     uint32_t m_vertex_count;
     WGPUIndexFormat m_index_type;
-    UVType m_uv_type;
+    WGPUVertexFormat m_uv_format;
     std::shared_ptr<Buffer> m_buffers[(size_t)BufferKind::Max];
 };
 
@@ -190,7 +190,7 @@ struct RenderTarget
 struct RenderPass
 {
     WGPURenderPassEncoder encoder;
-    Option<RenderTarget> depth;
+    std::optional<RenderTarget> depth;
     std::vector<RenderTarget> textures;
 };
 
@@ -239,7 +239,7 @@ public:
     struct PipelineKey
     {
         std::vector<RenderTarget> color_formats;
-        Option<RenderTarget> depth_format;
+        std::optional<RenderTarget> depth_format;
         // WGPUCullMode cull_mode;
 
         bool operator<(const PipelineKey& k) const
@@ -254,12 +254,11 @@ public:
 
     ~Material();
 
-    static std::shared_ptr<Material> create(const std::shared_ptr<Shader>& shader, MaterialFlags flags, WGPUCullMode cull_mode, UVType uv_type, Instance instance = {});
+    static std::shared_ptr<Material> create(const std::shared_ptr<Shader>& shader, MaterialFlags flags, WGPUCullMode cull_mode, WGPUVertexFormat uv_format, Instance instance = {});
 
     WGPURenderPipeline get_pipeline(const RenderPass& pass);
 
     std::shared_ptr<Shader> get_shader() const { return m_shader; }
-    UVType get_uv_type() const { return m_uv_type; }
     MaterialFlags flags() const { return m_flags; }
     WGPUCullMode get_cull_mode() const { return m_cull_mode; }
     size_t get_instance_stride() const { return m_instance_stride; }
@@ -271,7 +270,7 @@ private:
 
     MaterialFlags m_flags;
     WGPUCullMode m_cull_mode;
-    UVType m_uv_type;
+    WGPUVertexFormat m_uv_format;
 
     std::vector<InstanceAttribute> m_attributes;
     size_t m_instance_stride;
@@ -496,6 +495,8 @@ private:
 
     std::mutex m_device_mutex;
     std::mutex m_queue_mutex;
+
+    WGPUQuerySet m_occlusion_set = nullptr;
 
     // Forward rendering
     std::shared_ptr<Texture> m_fw_depth_texture;

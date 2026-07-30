@@ -52,12 +52,12 @@ public:
         return m_mesh.get();
     }
 
-    inline Option<Character> get_character(uint8_t c)
+    inline std::optional<Character> get_character(uint8_t c)
     {
         auto iter = m_characters.find(c);
         if (iter == m_characters.end())
             return iter->second;
-        return None;
+        return std::nullopt;
     }
 
     inline std::shared_ptr<Texture> get_bitmap() const

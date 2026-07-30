@@ -32,7 +32,7 @@ Result<void> EntitySerializer::load(std::string_view path)
 
     while (!reader.eof())
     {
-        Option<Variant> vname_opt = TRY(reader.read_variant());
+        std::optional<Variant> vname_opt = TRY(reader.read_variant());
         if (!vname_opt.has_value())
             break;
 
@@ -92,7 +92,7 @@ void Entity::recurse_tick(float delta)
     tick(delta);
 }
 
-Option<RpcTarget> Entity::get_rpc(std::string_view name)
+std::optional<RpcTarget> Entity::get_rpc(std::string_view name)
 {
     return Engine::get().registry().get_rpc(this, name);
 }

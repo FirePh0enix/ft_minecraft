@@ -13,6 +13,8 @@
 #include "World/Dimension.hpp"
 #include "World/Registry.hpp"
 #include "World/World.hpp"
+#include "glm/ext/matrix_transform.hpp"
+#include "webgpu/webgpu.h"
 
 #include <backends/imgui_impl_sdl3.h>
 #include <backends/imgui_impl_wgpu.h>
@@ -94,6 +96,23 @@ size_t size_of(const WGPUIndexFormat& format)
         return 2;
     case WGPUIndexFormat_Uint32:
         return 4;
+    default:
+        return 0;
+    };
+}
+
+size_t size_of(const WGPUVertexFormat& format)
+{
+    switch (format)
+    {
+    case WGPUVertexFormat_Float32:
+        return 1 * sizeof(float);
+    case WGPUVertexFormat_Float32x2:
+        return 2 * sizeof(float);
+    case WGPUVertexFormat_Float32x3:
+        return 3 * sizeof(float);
+    case WGPUVertexFormat_Float32x4:
+        return 4 * sizeof(float);
     default:
         return 0;
     };
@@ -275,7 +294,7 @@ void Texture::update(std::span<const std::byte> view, uint32_t layer)
 #endif
 }
 
-Result<std::shared_ptr<Mesh>> Mesh::create_from_data(std::span<const std::byte> indices, std::span<const glm::vec3> positions, std::span<const glm::vec3> normals, std::span<const std::byte> uvs, WGPUIndexFormat index_type, UVType uv_type)
+Result<std::shared_ptr<Mesh>> Mesh::create_from_data(std::span<const std::byte> indices, std::span<const glm::vec3> positions, std::span<const glm::vec3> normals, std::span<const std::byte> uvs, WGPUIndexFormat index_type, WGPUVertexFormat uv_format)
 {
     const size_t vertex_count = indices.size() / size_of(index_type);
 
@@ -295,7 +314,7 @@ Result<std::shared_ptr<Mesh>> Mesh::create_from_data(std::span<const std::byte> 
         normal_buffer->update(std::as_bytes(normals));
     }
 
-    return std::make_shared<Mesh>(vertex_count, index_type, uv_type, index_buffer, vertex_buffer, normal_buffer, uv_buffer);
+    return std::make_shared<Mesh>(vertex_count, index_type, uv_format, index_buffer, vertex_buffer, normal_buffer, uv_buffer);
 }
 
 static WGPUShaderModule create_shader_module(const std::shared_ptr<Shader>& shader)
@@ -325,13 +344,13 @@ Material::~Material()
         wgpuRenderPipelineRelease(pipeline);
 }
 
-std::shared_ptr<Material> Material::create(const std::shared_ptr<Shader>& shader, MaterialFlags flags, WGPUCullMode cull_mode, UVType uv_type, Instance instance)
+std::shared_ptr<Material> Material::create(const std::shared_ptr<Shader>& shader, MaterialFlags flags, WGPUCullMode cull_mode, WGPUVertexFormat uv_format, Instance instance)
 {
     std::shared_ptr<Material> material = std::make_shared<Material>();
     material->m_shader = shader;
     material->m_flags = flags;
     material->m_cull_mode = cull_mode;
-    material->m_uv_type = uv_type;
+    material->m_uv_format = uv_format;
     material->m_attributes = instance.attribs;
     material->m_instance_stride = instance.stride;
     return material;
@@ -377,20 +396,25 @@ WGPURenderPipeline Material::create_pipeline(const RenderPass& pass)
     WGPUVertexAttribute uv_attrib{};
     if (!m_flags.has_any(MaterialFlagBits::NoUV))
     {
-        if (m_uv_type == UVType::UV)
-        {
-            uv_attrib.format = WGPUVertexFormat_Float32x2;
-            uv_attrib.offset = 0;
-            uv_attrib.shaderLocation = attrib_index++;
-            buffers.push_back(WGPUVertexBufferLayout{.nextInChain = nullptr, .stepMode = WGPUVertexStepMode_Vertex, .arrayStride = sizeof(glm::vec2), .attributeCount = 1, .attributes = &uv_attrib});
-        }
-        else if (m_uv_type == UVType::UVT)
-        {
-            uv_attrib.format = WGPUVertexFormat_Float32x3;
-            uv_attrib.offset = 0;
-            uv_attrib.shaderLocation = attrib_index++;
-            buffers.push_back(WGPUVertexBufferLayout{.nextInChain = nullptr, .stepMode = WGPUVertexStepMode_Vertex, .arrayStride = sizeof(glm::vec3), .attributeCount = 1, .attributes = &uv_attrib});
-        }
+        uv_attrib.format = m_uv_format;
+        uv_attrib.offset = 0;
+        uv_attrib.shaderLocation = attrib_index++;
+        buffers.push_back(WGPUVertexBufferLayout{.nextInChain = nullptr, .stepMode = WGPUVertexStepMode_Vertex, .arrayStride = size_of(m_uv_format), .attributeCount = 1, .attributes = &uv_attrib});
+
+        //     if (m_uv_type == UVType::UV)
+        // {
+        //     uv_attrib.format = WGPUVertexFormat_Float32x2;
+        //     uv_attrib.offset = 0;
+        //     uv_attrib.shaderLocation = attrib_index++;
+        //     buffers.push_back(WGPUVertexBufferLayout{.nextInChain = nullptr, .stepMode = WGPUVertexStepMode_Vertex, .arrayStride = sizeof(glm::vec2), .attributeCount = 1, .attributes = &uv_attrib});
+        // }
+        // else if (m_uv_type == UVType::UVT)
+        // {
+        //     uv_attrib.format = WGPUVertexFormat_Float32x3;
+        //     uv_attrib.offset = 0;
+        //     uv_attrib.shaderLocation = attrib_index++;
+        //     buffers.push_back(WGPUVertexBufferLayout{.nextInChain = nullptr, .stepMode = WGPUVertexStepMode_Vertex, .arrayStride = sizeof(glm::vec3), .attributeCount = 1, .attributes = &uv_attrib});
+        // }
     }
 
     std::vector<WGPUVertexAttribute> attributes;
@@ -493,7 +517,7 @@ std::shared_ptr<BindGroup> BindGroup::create(const std::shared_ptr<Shader>& shad
 
 void BindGroup::set_param(std::string_view name, const std::shared_ptr<Texture>& texture)
 {
-    Option<Binding> binding_result = m_shader->get_binding(name);
+    std::optional<Binding> binding_result = m_shader->get_binding(name);
     ASSERT_V(texture != nullptr, "Texture specified for {} is null", name);
     ASSERT_V(binding_result.has_value(), "Invalid parameter name `{}`", name.data());
 
@@ -503,7 +527,7 @@ void BindGroup::set_param(std::string_view name, const std::shared_ptr<Texture>&
 
 void BindGroup::set_param(std::string_view name, const std::shared_ptr<Buffer>& buffer, size_t offset, size_t size)
 {
-    Option<Binding> binding_result = m_shader->get_binding(name);
+    std::optional<Binding> binding_result = m_shader->get_binding(name);
     ERR_COND_VR(buffer == nullptr, "Buffer specified for {} is null", name);
     ERR_COND_VR(!binding_result.has_value(), "Invalid parameter name `{}`", name.data());
 
@@ -1077,32 +1101,32 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_fw_clouds_shader->set_binding("depth", Binding::Texture(WGPUShaderStage_Fragment, 0, 4, BindingAccess::Read, WGPUTextureViewDimension_2D, WGPUTextureSampleType_Depth, WGPUSamplerBindingType_Filtering));
     m_fw_clouds_shader->create_bind_group_layout();
 
-    m_fw_texture_rect_mat = Material::create(m_texture_rect_shader, MaterialFlagBits::Transparency | MaterialFlagBits::NoNormal, WGPUCullMode_None, UVType::UV);
-    m_fw_model_mat = Material::create(m_fw_model_shader, MaterialFlagBits::None, WGPUCullMode_Back, UVType::UV);
-    m_fw_color_rect_mat = Material::create(m_color_rect_shader, MaterialFlagBits::Transparency | MaterialFlagBits::NoNormal | MaterialFlagBits::NoUV, WGPUCullMode_None, UVType::UV);
-    m_fw_item_block_mat = Material::create(m_fw_item_block_shader, MaterialFlagBits::None, WGPUCullMode_Back, UVType::UV);
-    m_fw_shadowmap_cam_mat = Material::create(m_fw_colored_shader, MaterialFlagBits::None, WGPUCullMode_None, UVType::UV);
-    m_fw_item_block_mat = Material::create(m_fw_item_block_shader, MaterialFlagBits::None, WGPUCullMode_Back, UVType::UV);
-    m_fw_item_mat = Material::create(m_fw_item_shader, MaterialFlagBits::Transparency, WGPUCullMode_None, UVType::UV);
+    m_fw_texture_rect_mat = Material::create(m_texture_rect_shader, MaterialFlagBits::Transparency | MaterialFlagBits::NoNormal, WGPUCullMode_None, WGPUVertexFormat_Float32x2);
+    m_fw_model_mat = Material::create(m_fw_model_shader, MaterialFlagBits::None, WGPUCullMode_Back, WGPUVertexFormat_Float32x2);
+    m_fw_color_rect_mat = Material::create(m_color_rect_shader, MaterialFlagBits::Transparency | MaterialFlagBits::NoNormal | MaterialFlagBits::NoUV, WGPUCullMode_None, WGPUVertexFormat_Float32x2);
+    m_fw_item_block_mat = Material::create(m_fw_item_block_shader, MaterialFlagBits::None, WGPUCullMode_Back, WGPUVertexFormat_Float32x2);
+    m_fw_shadowmap_cam_mat = Material::create(m_fw_colored_shader, MaterialFlagBits::None, WGPUCullMode_None, WGPUVertexFormat_Float32x2);
+    m_fw_item_block_mat = Material::create(m_fw_item_block_shader, MaterialFlagBits::None, WGPUCullMode_Back, WGPUVertexFormat_Float32x2);
+    m_fw_item_mat = Material::create(m_fw_item_shader, MaterialFlagBits::Transparency, WGPUCullMode_None, WGPUVertexFormat_Float32x2);
 
     std::vector<InstanceAttribute> chunk_attribs{InstanceAttribute(0, WGPUVertexFormat_Float32x3)};
-    m_fw_chunk_mat = Material::create(m_fw_chunk_shader, MaterialFlagBits::None, WGPUCullMode_Back, UVType::UVT, Instance(chunk_attribs, sizeof(glm::vec3)));
-    m_fw_chunk_shadowmap_mat = Material::create(m_fw_chunk_shadowmap_shader, MaterialFlagBits::NoNormal | MaterialFlagBits::NoUV, WGPUCullMode_Front, UVType::UVT, Instance(chunk_attribs, sizeof(glm::vec3)));
-    m_fw_water_mat = Material::create(m_fw_water_shader, MaterialFlagBits::Transparency, WGPUCullMode_Back, UVType::UV, Instance(chunk_attribs, sizeof(glm::vec3)));
+    m_fw_chunk_mat = Material::create(m_fw_chunk_shader, MaterialFlagBits::None, WGPUCullMode_Back, WGPUVertexFormat_Float32x4, Instance(chunk_attribs, sizeof(glm::vec3)));
+    m_fw_chunk_shadowmap_mat = Material::create(m_fw_chunk_shadowmap_shader, MaterialFlagBits::NoNormal | MaterialFlagBits::NoUV, WGPUCullMode_Front, WGPUVertexFormat_Float32x4, Instance(chunk_attribs, sizeof(glm::vec3)));
+    m_fw_water_mat = Material::create(m_fw_water_shader, MaterialFlagBits::Transparency, WGPUCullMode_Back, WGPUVertexFormat_Float32x2, Instance(chunk_attribs, sizeof(glm::vec3)));
 
-    m_fw_colored_mat = Material::create(m_fw_colored_shader, MaterialFlagBits::NoUV, WGPUCullMode_Back, UVType::UV);
-    m_fw_colored_shadowmap_mat = Material::create(m_fw_colored_shader, MaterialFlagBits::NoUV, WGPUCullMode_Front, UVType::UV);
+    m_fw_colored_mat = Material::create(m_fw_colored_shader, MaterialFlagBits::NoUV, WGPUCullMode_Back, WGPUVertexFormat_Float32x2);
+    m_fw_colored_shadowmap_mat = Material::create(m_fw_colored_shader, MaterialFlagBits::NoUV, WGPUCullMode_Front, WGPUVertexFormat_Float32x2);
 
-    m_sky_mat = Material::create(m_sky_shader, MaterialFlagBits::DisableDepthTest | MaterialFlagBits::NoData, WGPUCullMode_None, UVType::UV);
+    m_sky_mat = Material::create(m_sky_shader, MaterialFlagBits::DisableDepthTest | MaterialFlagBits::NoData, WGPUCullMode_None, WGPUVertexFormat_Float32x2);
 
-    m_fw_pp_mat = Material::create(m_fw_pp_shader, MaterialFlagBits::NoData, WGPUCullMode_None, UVType::UV);
+    m_fw_pp_mat = Material::create(m_fw_pp_shader, MaterialFlagBits::NoData, WGPUCullMode_None, WGPUVertexFormat_Float32x2);
 
-    m_fw_clouds_mat = Material::create(m_fw_clouds_shader, MaterialFlagBits::Transparency | MaterialFlagBits::NoData, WGPUCullMode_None, UVType::UV);
+    m_fw_clouds_mat = Material::create(m_fw_clouds_shader, MaterialFlagBits::Transparency | MaterialFlagBits::NoData, WGPUCullMode_None, WGPUVertexFormat_Float32x2);
 
     std::vector<InstanceAttribute> attribs{InstanceAttribute(offsetof(Font::Instance, bounds), WGPUVertexFormat_Float32x4),
                                            InstanceAttribute(offsetof(Font::Instance, char_pos), WGPUVertexFormat_Float32x2),
                                            InstanceAttribute(offsetof(Font::Instance, scale), WGPUVertexFormat_Float32x2)};
-    m_fw_text_mat = Material::create(m_fw_text_shader, MaterialFlagBits::Transparency | MaterialFlagBits::NoNormal | MaterialFlagBits::NoUV, WGPUCullMode_None, UVType::UV, Instance(attribs, sizeof(Font::Instance)));
+    m_fw_text_mat = Material::create(m_fw_text_shader, MaterialFlagBits::Transparency | MaterialFlagBits::NoNormal | MaterialFlagBits::NoUV, WGPUCullMode_None, WGPUVertexFormat_Float32x2, Instance(attribs, sizeof(Font::Instance)));
 
     m_cube_mesh = TRY(create_cube_mesh());
 
@@ -1184,7 +1208,12 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_fw_pp.far = 500.0;
     m_fw_pp_buffer->update_struct(m_fw_pp);
 
-    configure_surface(window.size().width, window.size().height, VSync::On);
+    Extent2D window_size = window.size();
+    configure_surface(window_size.width, window_size.height, VSync::On);
+
+    // WGPUQuerySetDescriptor desc{};
+    // desc.type = WGPUQueryType_Occlusion;
+    // m_occlusion_set = wgpuDeviceCreateQuerySet(m_device, &desc);
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -1357,8 +1386,7 @@ void Renderer::draw_forward(const std::shared_ptr<World>& world)
     world_env.light_view_projection = shadowmap_camera.view_projection;
     world_env.light_dir = light_dir;
 
-    std::array<FwWorldEnv, 1> weu{world_env};
-    m_fw_world_env->update(std::as_bytes(std::span(weu)));
+    m_fw_world_env->update_struct(world_env);
 
     CloudsParams clouds_params{};
     clouds_params.camera_projection = world->get_active_camera()->get_projection_matrix();
@@ -1367,11 +1395,10 @@ void Renderer::draw_forward(const std::shared_ptr<World>& world)
     clouds_params.camera_dir = glm::vec4(world->get_active_camera()->get_global_transform().forward(), 1.0);
     clouds_params.aspect_ratio = (float)m_surface_extent.width / (float)m_surface_extent.height;
     clouds_params.time = Engine::get().time();
-    clouds_params.near = 0.01;
-    clouds_params.far = 500.0;
+    clouds_params.near = world->get_active_camera()->near_plane();
+    clouds_params.far = world->get_active_camera()->far_plane();
 
-    std::array<CloudsParams, 1> cpu{clouds_params};
-    m_fw_clouds_buffer->update(std::as_bytes(std::span(cpu)));
+    m_fw_clouds_buffer->update_struct(clouds_params);
 
     // Generate a shadowmap by doing a depth-only pass from the point of view of the "sun".
     WGPURenderPassDepthStencilAttachment shadowmap_attach = WGPU_RENDER_PASS_DEPTH_STENCIL_ATTACHMENT_INIT;
@@ -1431,7 +1458,7 @@ void Renderer::draw_forward(const std::shared_ptr<World>& world)
     draw_world(world, color_pass_info, WorldFlagBits::Water, world->get_dimension(0).get_visible_chunks());
     for (std::shared_ptr<Entity> entity : world->get_dimension(0).get_entities())
         entity->draw(color_pass_info);
-    // draw(color_pass_info, m_quad_mesh, m_fw_shadowmap_cam_mat, m_fw_shadowmap_cam_bg); // Quad placed at the origin of the "sun"
+    draw(color_pass_info, m_quad_mesh, m_fw_shadowmap_cam_mat, m_fw_shadowmap_cam_bg); // Quad placed at the origin of the "sun"
     wgpuRenderPassEncoderEnd(color_pass);
     wgpuRenderPassEncoderRelease(color_pass);
 
@@ -1464,7 +1491,7 @@ void Renderer::draw_forward(const std::shared_ptr<World>& world)
     postprocess_pass_desc.colorAttachmentCount = 1;
 
     WGPURenderPassEncoder postprocess_pass = wgpuCommandEncoderBeginRenderPass(encoder, &postprocess_pass_desc);
-    const RenderPass postprocess_pass_info(postprocess_pass, None, {m_surface_format});
+    const RenderPass postprocess_pass_info(postprocess_pass, std::nullopt, {m_surface_format});
     std::shared_ptr<BindGroup> postprocess_bg = BindGroup::create(m_fw_pp_shader);
     postprocess_bg->set_param("uniforms", m_fw_pp_buffer);
     postprocess_bg->set_param("albedo", m_fw_color_texture);
@@ -1489,7 +1516,7 @@ void Renderer::draw_forward(const std::shared_ptr<World>& world)
         ZoneScopedN("draw ui");
 
         WGPURenderPassEncoder ui_pass = wgpuCommandEncoderBeginRenderPass(encoder, &ui_pass_desc);
-        const RenderPass ui_pass_info(ui_pass, None, {m_surface_format});
+        const RenderPass ui_pass_info(ui_pass, std::nullopt, {m_surface_format});
         for (const std::shared_ptr<Entity>& entity : world->get_dimension(0).get_entities())
             entity->draw_ui(ui_pass_info);
         wgpuRenderPassEncoderEnd(ui_pass);
@@ -1561,6 +1588,9 @@ void Renderer::draw_world(const std::shared_ptr<World>& world, const RenderPass&
         std::shared_ptr<BindGroup> bg = flags.has_any(WorldFlagBits::Shadowmap) ? slice.mesh_shadowmap_bg : (flags.has_any(WorldFlagBits::Water) ? slice.water_bg : slice.mesh_bg);
 
         if (flags.has_any(WorldFlagBits::Water) && slice.water_mesh == nullptr)
+            continue;
+
+        if (!flags.has_any(WorldFlagBits::Water) && slice.mesh == nullptr)
             continue;
 
         wgpuRenderPassEncoderSetBindGroup(encoder, 0, bg->get_bind_group(), 0, nullptr);

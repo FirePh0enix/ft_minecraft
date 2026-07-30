@@ -3,15 +3,15 @@
 #include "Engine.hpp"
 #include "World/Registry.hpp"
 
-Block::Block(const std::array<std::string, 6>& textures)
-    : m_textures(textures), m_transparent(false)
+Block::Block(const std::array<std::string, 6>& textures, bool gradient)
+    : m_textures(textures), m_transparent(false), m_gradient(gradient)
 {
     for (size_t i = 0; i < 6; i++)
         m_texture_ids[i] = Engine::get().registry().load_texture(textures[i]);
 }
 
-Block::Block(std::string_view texture)
-    : m_transparent(false)
+Block::Block(std::string_view texture, bool gradient)
+    : m_transparent(false), m_gradient(gradient)
 {
     set_texture(texture);
 }

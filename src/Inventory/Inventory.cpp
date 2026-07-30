@@ -66,7 +66,7 @@ void Inventory::draw(const RenderPass& pass)
     }
 }
 
-void Inventory::grab(const ItemStack& itemstack, Option<InventoryOrigin> pos)
+void Inventory::grab(const ItemStack& itemstack, std::optional<InventoryOrigin> pos)
 {
     if (itemstack.count() == 0 || !itemstack.item().valid())
     {
@@ -84,10 +84,10 @@ void Inventory::grab(const ItemStack& itemstack, Option<InventoryOrigin> pos)
 
 void Inventory::ungrab()
 {
-    m_grabbed_stack = None;
+    m_grabbed_stack = std::nullopt;
 }
 
-Option<ItemStack> Inventory::get_grabbed()
+std::optional<ItemStack> Inventory::get_grabbed()
 {
     return m_grabbed_stack;
 }
@@ -102,7 +102,7 @@ void Inventory::grab_cancel()
     if (m_grabbed_stack.has_value())
     {
         m_grabbed_from.container->set_stack(m_grabbed_from.layer, m_grabbed_from.i, m_grabbed_stack.value());
-        m_grabbed_stack = None;
+        m_grabbed_stack = std::nullopt;
     }
 }
 

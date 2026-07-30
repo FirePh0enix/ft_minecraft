@@ -35,7 +35,7 @@ public:
      *
      * If `stack` can't merge into `this then stack is returned.
      */
-    Option<ItemStack> merge(const ItemStack& stack);
+    std::optional<ItemStack> merge(const ItemStack& stack);
 
     void sub(size_t count);
 
@@ -43,7 +43,7 @@ public:
     void remove_tag(const std::string& name) { m_tags.erase(m_tags.find(name)); }
 
     template <typename T>
-    Option<T> get_tag(const std::string& name) const { return m_tags.find(name)->second; }
+    std::optional<T> get_tag(const std::string& name) const { return m_tags.find(name)->second; }
 
     const std::map<std::string, Variant>& get_tags() const { return m_tags; }
 

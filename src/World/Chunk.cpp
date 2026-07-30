@@ -3,7 +3,6 @@
 #include "Block/Block.hpp"
 #include "Engine.hpp"
 #include "Render/Renderer.hpp"
-#include "Render/Types.hpp"
 #include "World/Registry.hpp"
 
 #include <cstdint>
@@ -67,13 +66,16 @@ struct ChunkBlockFace
     Axis axis;
     bool positive;
     uint32_t texture_index;
+    bool gradient;
 
     ChunkBlockFace(uint8_t x,
                    uint8_t y,
                    uint8_t z,
                    Axis axis,
                    bool positive,
-                   uint32_t texture_index) : x(x), y(y), z(z), axis(axis), positive(positive), texture_index(texture_index) {}
+                   uint32_t texture_index,
+                   bool gradient)
+        : x(x), y(y), z(z), axis(axis), positive(positive), texture_index(texture_index), gradient(gradient) {}
 };
 
 static std::array<glm::vec3, 4> vertex_from_axis(Axis axis, bool positive, glm::vec3 offset)
@@ -158,20 +160,22 @@ Result<void> Chunk::build_simple_mesh(size_t slice_index, const std::map<ChunkPo
                 if (block == nullptr)
                     return Result<void>();
 
+                const bool gradient = block->has_gradient();
+
                 if ((x > 0 && m_blocks[linearize(x - 1, y, z)].is_air()) || (x == 0 && chunks.contains(ChunkPos(m_x - 1, m_z)) && chunks.at(ChunkPos(m_x - 1, m_z))->get_block(15, y, z).is_air()))
-                    faces.push_back(ChunkBlockFace(x, y - slice_y_offset, z, Axis::X, false, block->get_texture_index(Axis::X, false)));
+                    faces.push_back(ChunkBlockFace(x, y - slice_y_offset, z, Axis::X, false, block->get_texture_index(Axis::X, false), gradient));
                 if ((x < 15 && m_blocks[linearize(x + 1, y, z)].is_air()) || (x == 15 && chunks.contains(ChunkPos(m_x + 1, m_z)) && chunks.at(ChunkPos(m_x + 1, m_z))->get_block(0, y, z).is_air()))
-                    faces.push_back(ChunkBlockFace(x, y - slice_y_offset, z, Axis::X, true, block->get_texture_index(Axis::X, true)));
+                    faces.push_back(ChunkBlockFace(x, y - slice_y_offset, z, Axis::X, true, block->get_texture_index(Axis::X, true), gradient));
 
                 if (y == 0 || m_blocks[linearize(x, y - 1, z)].is_air())
-                    faces.push_back(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Y, false, block->get_texture_index(Axis::Y, false)));
+                    faces.push_back(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Y, false, block->get_texture_index(Axis::Y, false), gradient));
                 if (y == height - 1 || m_blocks[linearize(x, y + 1, z)].is_air())
-                    faces.push_back(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Y, true, block->get_texture_index(Axis::Y, true)));
+                    faces.push_back(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Y, true, block->get_texture_index(Axis::Y, true), gradient));
 
                 if ((z > 0 && m_blocks[linearize(x, y, z - 1)].is_air()) || (z == 0 && chunks.contains(ChunkPos(m_x, m_z - 1)) && chunks.at(ChunkPos(m_x, m_z - 1))->get_block(x, y, 15).is_air()))
-                    faces.push_back(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Z, false, block->get_texture_index(Axis::Z, false)));
+                    faces.push_back(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Z, false, block->get_texture_index(Axis::Z, false), gradient));
                 if ((z < 15 && m_blocks[linearize(x, y, z + 1)].is_air()) || (z == 15 && chunks.contains(ChunkPos(m_x, m_z + 1)) && chunks.at(ChunkPos(m_x, m_z + 1))->get_block(x, y, 0).is_air()))
-                    faces.push_back(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Z, true, block->get_texture_index(Axis::Z, true)));
+                    faces.push_back(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Z, true, block->get_texture_index(Axis::Z, true), gradient));
             }
         }
     }
@@ -186,7 +190,7 @@ Result<void> Chunk::build_simple_mesh(size_t slice_index, const std::map<ChunkPo
     // Now we build a mesh from the faces.
     std::vector<uint16_t> indices;
     std::vector<glm::vec3> vertices;
-    std::vector<glm::vec3> uvs;
+    std::vector<glm::vec4> uvs;
     std::vector<glm::vec3> normals;
 
     for (const ChunkBlockFace& face : faces)
@@ -210,10 +214,10 @@ Result<void> Chunk::build_simple_mesh(size_t slice_index, const std::map<ChunkPo
         vertices.push_back(new_vertices[2]);
         vertices.push_back(new_vertices[3]);
 
-        uvs.push_back(glm::vec3(0.0, 0.0, (double)face.texture_index));
-        uvs.push_back(glm::vec3(1.0, 0.0, (double)face.texture_index));
-        uvs.push_back(glm::vec3(1.0, 1.0, (double)face.texture_index));
-        uvs.push_back(glm::vec3(0.0, 1.0, (double)face.texture_index));
+        uvs.push_back(glm::vec4(0.0, 0.0, (double)face.texture_index, (float)face.gradient));
+        uvs.push_back(glm::vec4(1.0, 0.0, (double)face.texture_index, (float)face.gradient));
+        uvs.push_back(glm::vec4(1.0, 1.0, (double)face.texture_index, (float)face.gradient));
+        uvs.push_back(glm::vec4(0.0, 1.0, (double)face.texture_index, (float)face.gradient));
 
         const glm::vec3 normal = normal_from_axis(face.axis, face.positive);
         normals.push_back(normal);
@@ -222,7 +226,7 @@ Result<void> Chunk::build_simple_mesh(size_t slice_index, const std::map<ChunkPo
         normals.push_back(normal);
     }
 
-    slice.mesh = EXPECT(Mesh::create_from_data(std::as_bytes(std::span(indices)), vertices, normals, std::as_bytes(std::span(uvs)), WGPUIndexFormat_Uint16, UVType::UVT));
+    slice.mesh = EXPECT(Mesh::create_from_data(std::as_bytes(std::span(indices)), vertices, normals, std::as_bytes(std::span(uvs)), WGPUIndexFormat_Uint16, WGPUVertexFormat_Float32x4));
 
     return Result<void>();
 }
@@ -246,20 +250,22 @@ Result<void> Chunk::build_water_mesh(size_t slice_index, const std::map<ChunkPos
                 if (!get_tag(index, "water").has_value())
                     continue;
 
+                // TODO: add water gradient
+
                 if ((x > 0 && !get_tag(glm::i64vec3(x - 1, y, z), "water").has_value()) || (x == 0 && chunks.contains(ChunkPos(m_x - 1, m_z)) && !chunks.at(ChunkPos(m_x - 1, m_z))->get_tag(glm::i64vec3(15, y, z), "water").has_value()))
-                    faces.push_back(ChunkBlockFace(x, y - slice_y_offset, z, Axis::X, false, 0));
+                    faces.push_back(ChunkBlockFace(x, y - slice_y_offset, z, Axis::X, false, 0, false));
                 if ((x < 15 && !get_tag(glm::i64vec3(x + 1, y, z), "water").has_value()) || (x == 15 && chunks.contains(ChunkPos(m_x + 1, m_z)) && !chunks.at(ChunkPos(m_x + 1, m_z))->get_tag(glm::i64vec3(0, y, z), "water")))
-                    faces.push_back(ChunkBlockFace(x, y - slice_y_offset, z, Axis::X, true, 0));
+                    faces.push_back(ChunkBlockFace(x, y - slice_y_offset, z, Axis::X, true, 0, false));
 
                 if (y == 0 || (!get_tag(glm::i64vec3(x, y - 1, z), "water").has_value()))
-                    faces.push_back(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Y, false, 0));
+                    faces.push_back(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Y, false, 0, false));
                 if (y == height - 1 || (!get_tag(glm::i64vec3(x, y + 1, z), "water").has_value()))
-                    faces.push_back(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Y, true, 0));
+                    faces.push_back(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Y, true, 0, false));
 
                 if ((z > 0 && !get_tag(glm::i64vec3(x, y, z - 1), "water").has_value()) || (z == 0 && chunks.contains(ChunkPos(m_x, m_z - 1)) && !chunks.at(ChunkPos(m_x, m_z - 1))->get_tag(glm::i64vec3(x, y, 0), "water")))
-                    faces.push_back(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Z, false, 0));
+                    faces.push_back(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Z, false, 0, false));
                 if ((z < 15 && !get_tag(glm::i64vec3(x, y, z + 1), "water").has_value()) || (z == 15 && chunks.contains(ChunkPos(m_x, m_z + 1)) && !chunks.at(ChunkPos(m_x, m_z + 1))->get_tag(glm::i64vec3(x, y, 0), "water")))
-                    faces.push_back(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Z, true, 0));
+                    faces.push_back(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Z, true, 0, false));
             }
         }
     }
@@ -310,7 +316,7 @@ Result<void> Chunk::build_water_mesh(size_t slice_index, const std::map<ChunkPos
         normals.push_back(normal);
     }
 
-    slice.water_mesh = EXPECT(Mesh::create_from_data(std::as_bytes(std::span(indices)), vertices, normals, std::as_bytes(std::span(uvs)), WGPUIndexFormat_Uint16, UVType::UV));
+    slice.water_mesh = EXPECT(Mesh::create_from_data(std::as_bytes(std::span(indices)), vertices, normals, std::as_bytes(std::span(uvs)), WGPUIndexFormat_Uint16, WGPUVertexFormat_Float32x2));
 
     return Result<void>();
 }

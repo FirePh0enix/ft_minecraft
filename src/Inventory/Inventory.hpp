@@ -74,9 +74,9 @@ public:
         return true;
     }
 
-    void grab(const ItemStack& itemstack, Option<InventoryOrigin> origin = None);
+    void grab(const ItemStack& itemstack, std::optional<InventoryOrigin> origin = std::nullopt);
     void ungrab();
-    Option<ItemStack> get_grabbed();
+    std::optional<ItemStack> get_grabbed();
     InventoryOrigin get_grabbed_origin();
 
     void grab_cancel();
@@ -90,7 +90,7 @@ protected:
 
     std::vector<std::vector<std::shared_ptr<ItemSlot>>> m_grids;
 
-    Option<ItemStack> m_grabbed_stack;
+    std::optional<ItemStack> m_grabbed_stack;
     InventoryOrigin m_grabbed_from;
 
     std::shared_ptr<InventoryContainer> m_container;

@@ -5,19 +5,6 @@
 #include <cstdint>
 #include <tuple>
 
-enum class UVType : uint8_t
-{
-    /**
-     *  Standard texture coordinates.
-     */
-    UV,
-
-    /**
-     *  Texture coordinates also store an index into a texture array as `Z`.
-     */
-    UVT,
-};
-
 struct SamplerDescriptor
 {
     WGPUFilterMode min_filter = WGPUFilterMode_Linear;

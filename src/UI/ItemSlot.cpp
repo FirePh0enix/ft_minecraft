@@ -37,7 +37,7 @@ void ItemSlot::update(float d)
 
     if (is_mouse_hovering() && Input::is_action_just_pressed("ui_click"))
     {
-        Option<ItemStack> grabbed = m_inventory->get_grabbed();
+        std::optional<ItemStack> grabbed = m_inventory->get_grabbed();
         if (grabbed.has_value())
         {
             bool allow_change = m_inventory->on_place(m_layer, m_count, grabbed.value(), m_container);
@@ -52,7 +52,7 @@ void ItemSlot::update(float d)
                 ItemStack stack = m_container->get_stack(m_layer, m_index);
                 if (grabbed.value().item() == stack.item())
                 {
-                    Option<ItemStack> excess = stack.merge(grabbed.value());
+                    std::optional<ItemStack> excess = stack.merge(grabbed.value());
                     m_container->set_stack(m_layer, m_index, stack);
 
                     if (excess.has_value())
@@ -74,7 +74,7 @@ void ItemSlot::update(float d)
     }
     else if (is_mouse_hovering() && Input::is_action_just_pressed("ui_rclick"))
     {
-        Option<ItemStack> grabbed = m_inventory->get_grabbed();
+        std::optional<ItemStack> grabbed = m_inventory->get_grabbed();
         if (grabbed.has_value())
         {
             bool allow_change = m_inventory->on_place(m_layer, m_count, grabbed.value(), m_container);
