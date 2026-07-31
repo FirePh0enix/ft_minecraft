@@ -91,6 +91,15 @@ void OverworldGen::generate_chunk(std::shared_ptr<Chunk> chunk)
             // Fill oceans
             for (; y < m_settings.ocean_level; y++)
                 chunk->set_tag({x, y, z}, "water", int64_t(0));
+
+            y = 0;
+            for (; y < height; y++)
+            {
+                float caves_s0 = m_noise.sample(glm::vec3((float)gx, (float)y, (float)gz) / 100.0f);
+                float caves = caves_s0 * (1.0f - (float)y / ((float)height + 2));
+                if (caves > 0.5f)
+                    blocks[x + y * 16 + z * 16 * 256] = BlockState();
+            }
         }
     }
 }

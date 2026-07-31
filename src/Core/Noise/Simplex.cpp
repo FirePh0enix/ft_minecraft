@@ -185,10 +185,10 @@ float SimplexNoise::sample(glm::vec3 coords) const
     float y3 = y0 - 1.0f + 3.0f * g3;
     float z3 = z0 - 1.0f + 3.0f * g3;
 
-    int gi0 = int(m_perms[i + m_perms[j + m_perms[k]]]);
-    int gi1 = int(m_perms[i + i1 + m_perms[j + j1 + m_perms[k + k1]]]);
-    int gi2 = int(m_perms[i + i2 + m_perms[j + j2 + m_perms[k + k2]]]);
-    int gi3 = int(m_perms[i + 1 + m_perms[j + 1 + m_perms[k + 1]]]);
+    int gi0 = int(hash(i + hash(j + hash(k))));
+    int gi1 = int(hash(i + i1 + hash(j + j1 + hash(k + k1))));
+    int gi2 = int(hash(i + i2 + hash(j + j2 + hash(k + k2))));
+    int gi3 = int(hash(i + 1 + hash(j + 1 + hash(k + 1))));
 
     float t0 = 0.6f - glm::dot(glm::vec3(x0, y0, z0), glm::vec3(x0, y0, z0));
     n0 = (t0 < 0.0) ? 0.0f : glm::pow(t0, 4.0f) * gradient(gi0, x0, y0, z0);
