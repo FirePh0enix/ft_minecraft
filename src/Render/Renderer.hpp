@@ -9,6 +9,8 @@
 #include "Window.hpp"
 #include "stdext.hpp"
 
+#include <bitset>
+#include <set>
 #include <webgpu/webgpu.h>
 
 #include <limits>
@@ -392,6 +394,8 @@ struct GPU_ATTRIBUTE SkyUniforms
 
 struct GPU_ATTRIBUTE PostProcessUniforms
 {
+    glm::mat4 inverse_camera_proj;
+    glm::mat4 camera_proj;
     glm::vec4 fog_color;
     float fog_distance;
     float near;
@@ -556,12 +560,14 @@ private:
     // Clouds
     std::vector<Cloud> m_clouds;
     SimplexNoise m_clouds_noise;
+    std::set<ChunkPos> m_clouds_set;
 
     // Post processing
     std::shared_ptr<Shader> m_fw_pp_shader;
     std::shared_ptr<Material> m_fw_pp_mat;
     PostProcessUniforms m_fw_pp{};
     std::shared_ptr<Buffer> m_fw_pp_buffer;
+    std::shared_ptr<BindGroup> m_fw_pp_bg;
 
     WGPUTextureFormat m_surface_format = WGPUTextureFormat_Undefined;
     Extent2D m_surface_extent;

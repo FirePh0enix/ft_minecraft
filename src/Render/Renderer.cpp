@@ -1090,8 +1090,9 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
 
     m_fw_pp_shader = TRY(Shader::load_from_path("assets/shaders/fw/postprocess.wgsl"));
     m_fw_pp_shader->set_binding("uniforms", Binding::UniformBuffer(WGPUShaderStage_Fragment, 0, 0, BindingAccess::Read));
-    m_fw_pp_shader->set_binding("albedo", Binding::Texture(WGPUShaderStage_Fragment, 0, 1, BindingAccess::Read, WGPUTextureViewDimension_2D));
-    m_fw_pp_shader->set_binding("depth", Binding::Texture(WGPUShaderStage_Fragment, 0, 3, BindingAccess::Read, WGPUTextureViewDimension_2D, WGPUTextureSampleType_Depth, WGPUSamplerBindingType_Filtering));
+    m_fw_pp_shader->set_binding("ssao", Binding::UniformBuffer(WGPUShaderStage_Fragment, 0, 1, BindingAccess::Read));
+    m_fw_pp_shader->set_binding("albedo", Binding::Texture(WGPUShaderStage_Fragment, 0, 2, BindingAccess::Read, WGPUTextureViewDimension_2D));
+    m_fw_pp_shader->set_binding("depth", Binding::Texture(WGPUShaderStage_Fragment, 0, 4, BindingAccess::Read, WGPUTextureViewDimension_2D, WGPUTextureSampleType_Depth, WGPUSamplerBindingType_Filtering));
     m_fw_pp_shader->create_bind_group_layout();
 
     m_fw_texture_rect_mat = Material::create(m_texture_rect_shader, MaterialFlagBits::Transparency | MaterialFlagBits::NoNormal, WGPUCullMode_None, WGPUVertexFormat_Float32x2);
@@ -1186,6 +1187,10 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     };
     m_quad_mesh = TRY(Mesh::create_from_data(std::as_bytes(std::span(quad_indices)), quad_vertices, quad_normals, std::as_bytes(std::span(quad_uvs)), WGPUIndexFormat_Uint16));
 
+    m_fw_pp_bg = BindGroup::create(m_fw_pp_shader);
+    m_fw_pp_bg->set_param("uniforms", m_fw_pp_buffer);
+    m_fw_pp_bg->set_param("ssao", m_ssao_uniform_buffer);
+
     m_fw_water_texture = Engine::get().registry().create_texture("assets/textures/water.png");
 
     Extent2D window_size = window.size();
@@ -1254,6 +1259,9 @@ void Renderer::configure_surface(size_t width, size_t height, VSync vsync)
     float ratio = float(width) / float(height);
     glm::mat4 ortho_matrix = glm::ortho(-1.0f * ratio, 1.0f * ratio, -1.0f, 1.0f, -1.0f, 1.0f);
     m_env_2d_buffer->update_struct(ortho_matrix);
+
+    m_fw_pp_bg->set_param("albedo", m_fw_color_texture);
+    m_fw_pp_bg->set_param("depth", m_fw_depth_texture);
 }
 
 void Renderer::draw_legacy(std::function<void()> f)
@@ -1332,12 +1340,13 @@ Result<Cloud> Renderer::create_cloud()
 
 bool Renderer::has_cloud(int64_t x, int64_t z)
 {
-    for (size_t i = 0; i < m_clouds.size(); i++)
-    {
-        if (m_clouds[i].grid_x == x && m_clouds[i].grid_z == z)
-            return true;
-    }
-    return false;
+    // for (size_t i = 0; i < m_clouds.size(); i++)
+    // {
+    //     if (m_clouds[i].grid_x == x && m_clouds[i].grid_z == z)
+    //         return true;
+    // }
+    // return false;
+    return m_clouds_set.contains(ChunkPos(x, z));
 }
 
 void Renderer::update_clouds(std::shared_ptr<Camera> camera)
@@ -1350,7 +1359,9 @@ void Renderer::update_clouds(std::shared_ptr<Camera> camera)
         float distance = glm::distance2(glm::vec2(camera_position.x, camera_position.z), glm::vec2(float(m_clouds[i].grid_x) * 32.0f, float(m_clouds[i].grid_z) * 32.0f) + glm::vec2(time, 0));
         if (distance > 16.0f * 32.0f)
         {
+            const Cloud& cloud = m_clouds[i];
             m_clouds.erase(m_clouds.begin() + (ssize_t)i);
+            m_clouds_set.erase(ChunkPos(cloud.grid_x, cloud.grid_z));
             if (i > 0)
                 i -= 1;
             i--;
@@ -1366,19 +1377,19 @@ void Renderer::update_clouds(std::shared_ptr<Camera> camera)
             if (has_cloud(x, z))
                 continue;
 
-            Cloud cloud = EXPECT(create_cloud());
-            cloud.uniform.model = glm::translate(glm::identity<glm::mat4>(), glm::vec3(x, 0.0f, z) * 32.0f + glm::vec3(0, 270.0f, 0) + glm::vec3(time, 0, 0)) *
-                                  glm::scale(glm::identity<glm::mat4>(), glm::vec3(32.0f, 4.0f, 32.0f));
-
             float density = m_clouds_noise.sample(glm::vec2(x, z)) / 2.0f + 0.5f;
             if (density > 0.7f)
             {
-                cloud.buffer->update_struct(cloud.uniform);
-            }
+                Cloud cloud = EXPECT(create_cloud());
+                cloud.uniform.model = glm::translate(glm::identity<glm::mat4>(), glm::vec3(x, 0.0f, z) * 32.0f + glm::vec3(0, 270.0f, 0) + glm::vec3(time, 0, 0)) *
+                                      glm::scale(glm::identity<glm::mat4>(), glm::vec3(32.0f, 4.0f, 32.0f));
 
-            cloud.grid_x = x;
-            cloud.grid_z = z;
-            m_clouds.push_back(cloud);
+                cloud.buffer->update_struct(cloud.uniform);
+                cloud.grid_x = x;
+                cloud.grid_z = z;
+                m_clouds.push_back(cloud);
+                m_clouds_set.insert(ChunkPos(x, z));
+            }
         }
 }
 
@@ -1434,6 +1445,8 @@ void Renderer::draw_forward(const std::shared_ptr<World>& world)
 
     m_fw_world_env->update_struct(world_env);
 
+    m_fw_pp.camera_proj = active_camera->get_projection_matrix();
+    m_fw_pp.inverse_camera_proj = glm::inverse(m_fw_pp.camera_proj);
     m_fw_pp.near = active_camera->near_plane();
     m_fw_pp.far = active_camera->far_plane();
     m_fw_pp_buffer->update_struct(m_fw_pp);
@@ -1517,11 +1530,7 @@ void Renderer::draw_forward(const std::shared_ptr<World>& world)
 
     WGPURenderPassEncoder postprocess_pass = wgpuCommandEncoderBeginRenderPass(encoder, &postprocess_pass_desc);
     const RenderPass postprocess_pass_info(postprocess_pass, std::nullopt, {m_surface_format});
-    std::shared_ptr<BindGroup> postprocess_bg = BindGroup::create(m_fw_pp_shader);
-    postprocess_bg->set_param("uniforms", m_fw_pp_buffer);
-    postprocess_bg->set_param("albedo", m_fw_color_texture);
-    postprocess_bg->set_param("depth", m_fw_depth_texture);
-    draw_fullscreen(postprocess_pass_info, m_fw_pp_mat, postprocess_bg);
+    draw_fullscreen(postprocess_pass_info, m_fw_pp_mat, m_fw_pp_bg);
     wgpuRenderPassEncoderEnd(postprocess_pass);
     wgpuRenderPassEncoderRelease(postprocess_pass);
 
