@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Core/Flags.hpp"
+#include "Core/Noise/Simplex.hpp"
 #include "Core/Result.hpp"
 #include "Core/Types.hpp"
 #include "Render/Shader.hpp"
@@ -32,6 +33,7 @@
 class World;
 class Chunk;
 class ChunkPos;
+class Camera;
 
 struct RenderableChunk;
 
@@ -397,16 +399,13 @@ struct GPU_ATTRIBUTE PostProcessUniforms
     uint32_t underwater;
 };
 
-struct GPU_ATTRIBUTE CloudsParams
+struct Cloud
 {
-    glm::mat4 camera_projection;
-    glm::mat4 camera_rot;
-    glm::vec4 camera_position;
-    glm::vec4 camera_dir;
-    float aspect_ratio;
-    float time;
-    float near;
-    float far;
+    FwColored uniform;
+    std::shared_ptr<Buffer> buffer;
+    std::shared_ptr<BindGroup> bg;
+    int64_t grid_x;
+    int64_t grid_z;
 };
 
 class Renderer
@@ -555,11 +554,8 @@ private:
     std::shared_ptr<BindGroup> m_sky_bg;
 
     // Clouds
-    std::shared_ptr<Buffer> m_fw_clouds_buffer;
-    std::shared_ptr<Shader> m_fw_clouds_shader;
-    std::shared_ptr<Material> m_fw_clouds_mat;
-    std::shared_ptr<BindGroup> m_fw_clouds_bg;
-    std::shared_ptr<Texture> m_fw_clouds_noise;
+    std::vector<Cloud> m_clouds;
+    SimplexNoise m_clouds_noise;
 
     // Post processing
     std::shared_ptr<Shader> m_fw_pp_shader;
@@ -590,4 +586,8 @@ private:
     bool m_underwater_effect = false;
 
     static inline Renderer *singleton;
+
+    void update_clouds(std::shared_ptr<Camera> camera);
+    Result<Cloud> create_cloud();
+    bool has_cloud(int64_t x, int64_t z);
 };
