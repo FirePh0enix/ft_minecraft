@@ -221,7 +221,7 @@ Result<std::shared_ptr<Chunk>> Dimension::generate_chunk(int64_t cx, int64_t cz)
     return chunk;
 }
 
-void Dimension::rebuild(ChunkPos pos)
+void Dimension::rebuild(ChunkPos pos, size_t slice_index, size_t slice_count)
 {
     std::shared_ptr<Chunk> chunk;
     std::map<ChunkPos, std::shared_ptr<Chunk>> nchunks;
@@ -254,14 +254,14 @@ void Dimension::rebuild(ChunkPos pos)
         }
     }
 
-    for (size_t i = 0; i < Chunk::slice_count; i++)
+    for (size_t i = slice_index; i < slice_count; i++)
     {
         EXPECT(chunk->build_simple_mesh(i, nchunks));
         EXPECT(chunk->build_water_mesh(i, nchunks));
     }
 }
 
-void Dimension::queue_rebuild(ChunkPos pos)
+void Dimension::queue_rebuild(ChunkPos pos, size_t slice_index, size_t slice_count)
 {
     std::lock_guard<std::mutex> lock(m_chunk_rebuild_mutex);
     if (m_chunk_rebuild_queue.contains(pos))
@@ -270,9 +270,9 @@ void Dimension::queue_rebuild(ChunkPos pos)
     }
     m_chunk_rebuild_queue.insert(pos);
 
-    Engine::get().get_thread_pool().async([this, pos]
+    Engine::get().get_thread_pool().async([this, pos, slice_index, slice_count]
                                           {
-                                            rebuild(pos);
+                                            rebuild(pos, slice_index, slice_count);
                                             std::lock_guard<std::mutex> lock(m_chunk_rebuild_mutex);
                                             m_chunk_rebuild_queue.erase(pos); });
 }

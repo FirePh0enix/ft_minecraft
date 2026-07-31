@@ -51,11 +51,31 @@ void Chunk::set_block(int64_t x, int64_t y, int64_t z, BlockState state)
 {
     if (y < 0 || y > Chunk::height)
         return;
-    m_blocks[linearize(x, y, z)] = state;
 
+    m_blocks[linearize(x, y, z)] = state;
     m_modified = true;
 
     m_dim->queue_rebuild(ChunkPos(m_x, m_z));
+
+    if (x == 0)
+        m_dim->queue_rebuild(ChunkPos(m_x - 1, m_z));
+    else if (x == 15)
+        m_dim->queue_rebuild(ChunkPos(m_x + 1, m_z));
+    else if (z == 0)
+        m_dim->queue_rebuild(ChunkPos(m_x, m_z - 1));
+    else if (z == 15)
+        m_dim->queue_rebuild(ChunkPos(m_x, m_z + 1));
+
+    // if (y == 0)
+    //     m_dim->queue_rebuild(ChunkPos(m_x, m_z), 0, 1);
+    // else if (y == 255)
+    //     m_dim->queue_rebuild(ChunkPos(m_x, m_z), 15, 1);
+    // else if (y % 16 == 0)
+    //     m_dim->queue_rebuild(ChunkPos(m_x, m_z), y / 16 - 1, 2);
+    // else if (y % 16 == 15)
+    //     m_dim->queue_rebuild(ChunkPos(m_x, m_z), y / 16, 2);
+    // else
+    //     m_dim->queue_rebuild(ChunkPos(m_x, m_z), y / 16, 1);
 }
 
 struct ChunkBlockFace

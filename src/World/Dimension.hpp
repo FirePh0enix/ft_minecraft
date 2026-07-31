@@ -57,9 +57,8 @@ public:
     Result<std::shared_ptr<Chunk>> generate_chunk(int64_t cx, int64_t cz);
     BlockState generate_block(int64_t x, int64_t y, int64_t z, std::shared_ptr<Chunk>& chunk);
 
-    void rebuild(ChunkPos pos);
-
-    void queue_rebuild(ChunkPos pos);
+    void rebuild(ChunkPos pos, size_t slice_index = 0, size_t slice_count = Chunk::slice_count);
+    void queue_rebuild(ChunkPos pos, size_t slice_index = 0, size_t slice_count = Chunk::slice_count);
 
 private:
     std::mutex m_chunk_mutex;
