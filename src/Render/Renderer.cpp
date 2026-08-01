@@ -1035,8 +1035,8 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_fw_model_shader->set_binding("uvs", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 4, BindingAccess::Read));
     m_fw_model_shader->set_binding("texture", Binding::Texture(WGPUShaderStage_Fragment, 0, 5, BindingAccess::Read, WGPUTextureViewDimension_2D));
     m_fw_model_shader->set_sampler("texture", SamplerDescriptor(WGPUFilterMode_Nearest, WGPUFilterMode_Nearest));
-    m_fw_model_shader->set_binding("shadowmap", Binding::Texture(WGPUShaderStage_Fragment, 0, 7, BindingAccess::Read, WGPUTextureViewDimension_2D, WGPUTextureSampleType_Depth, WGPUSamplerBindingType_Filtering));
-    m_fw_model_shader->set_sampler("shadowmap", SamplerDescriptor{.compare = WGPUCompareFunction_Undefined, .address_mode = {.u = WGPUAddressMode_ClampToEdge, .v = WGPUAddressMode_ClampToEdge}});
+    m_fw_model_shader->set_binding("shadowmap", Binding::Texture(WGPUShaderStage_Fragment, 0, 7, BindingAccess::Read, WGPUTextureViewDimension_2D, WGPUTextureSampleType_Depth, WGPUSamplerBindingType_Comparison));
+    m_fw_model_shader->set_sampler("shadowmap", SamplerDescriptor{.compare = WGPUCompareFunction_LessEqual, .address_mode = {.u = WGPUAddressMode_ClampToEdge, .v = WGPUAddressMode_ClampToEdge}});
     m_fw_model_shader->create_bind_group_layout();
 
     m_fw_item_block_shader = TRY(Shader::load_from_path("assets/shaders/fw/itemblock.wgsl"));
@@ -1045,8 +1045,8 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_fw_item_block_shader->set_binding("world_env", Binding::UniformBuffer(WGPUShaderStage_Vertex | WGPUShaderStage_Fragment, 0, 2, BindingAccess::Read));
     m_fw_item_block_shader->set_binding("images", Binding::Texture(WGPUShaderStage_Fragment, 0, 3, BindingAccess::Read, WGPUTextureViewDimension_2DArray));
     m_fw_item_block_shader->set_sampler("images", {.min_filter = WGPUFilterMode_Nearest, .mag_filter = WGPUFilterMode_Nearest});
-    m_fw_item_block_shader->set_binding("shadowmap", Binding::Texture(WGPUShaderStage_Fragment, 0, 5, BindingAccess::Read, WGPUTextureViewDimension_2D, WGPUTextureSampleType_Depth, WGPUSamplerBindingType_Filtering));
-    m_fw_item_block_shader->set_sampler("shadowmap", SamplerDescriptor{.compare = WGPUCompareFunction_Undefined, .address_mode = {.u = WGPUAddressMode_ClampToEdge, .v = WGPUAddressMode_ClampToEdge}});
+    m_fw_item_block_shader->set_binding("shadowmap", Binding::Texture(WGPUShaderStage_Fragment, 0, 5, BindingAccess::Read, WGPUTextureViewDimension_2D, WGPUTextureSampleType_Depth, WGPUSamplerBindingType_Comparison));
+    m_fw_item_block_shader->set_sampler("shadowmap", SamplerDescriptor{.compare = WGPUCompareFunction_LessEqual, .address_mode = {.u = WGPUAddressMode_ClampToEdge, .v = WGPUAddressMode_ClampToEdge}});
     m_fw_item_block_shader->create_bind_group_layout();
 
     m_fw_item_shader = TRY(Shader::load_from_path("assets/shaders/fw/item.wgsl"));
@@ -1061,8 +1061,8 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_fw_chunk_shader->set_binding("world_env", Binding::UniformBuffer(WGPUShaderStage_Vertex | WGPUShaderStage_Fragment, 0, 2, BindingAccess::Read));
     m_fw_chunk_shader->set_binding("images", Binding::Texture(WGPUShaderStage_Fragment, 0, 3, BindingAccess::Read, WGPUTextureViewDimension_2DArray));
     m_fw_chunk_shader->set_sampler("images", {.min_filter = WGPUFilterMode_Nearest, .mag_filter = WGPUFilterMode_Nearest});
-    m_fw_chunk_shader->set_binding("shadowmap", Binding::Texture(WGPUShaderStage_Fragment, 0, 5, BindingAccess::Read, WGPUTextureViewDimension_2D, WGPUTextureSampleType_Depth, WGPUSamplerBindingType_Filtering));
-    m_fw_chunk_shader->set_sampler("shadowmap", SamplerDescriptor{.compare = WGPUCompareFunction_Undefined, .address_mode = {.u = WGPUAddressMode_ClampToEdge, .v = WGPUAddressMode_ClampToEdge}});
+    m_fw_chunk_shader->set_binding("shadowmap", Binding::Texture(WGPUShaderStage_Fragment, 0, 5, BindingAccess::Read, WGPUTextureViewDimension_2D, WGPUTextureSampleType_Depth, WGPUSamplerBindingType_Comparison));
+    m_fw_chunk_shader->set_sampler("shadowmap", SamplerDescriptor{.compare = WGPUCompareFunction_LessEqual, .address_mode = {.u = WGPUAddressMode_ClampToEdge, .v = WGPUAddressMode_ClampToEdge}});
     m_fw_chunk_shader->create_bind_group_layout();
 
     m_fw_water_shader = TRY(Shader::load_from_path("assets/shaders/fw/water.wgsl"));
@@ -1070,8 +1070,8 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_fw_water_shader->set_binding("world_env", Binding::UniformBuffer(WGPUShaderStage_Vertex | WGPUShaderStage_Fragment, 0, 2, BindingAccess::Read));
     m_fw_water_shader->set_binding("image", Binding::Texture(WGPUShaderStage_Fragment, 0, 3, BindingAccess::Read, WGPUTextureViewDimension_2D));
     m_fw_water_shader->set_sampler("image", {.min_filter = WGPUFilterMode_Nearest, .mag_filter = WGPUFilterMode_Nearest});
-    m_fw_water_shader->set_binding("shadowmap", Binding::Texture(WGPUShaderStage_Fragment, 0, 5, BindingAccess::Read, WGPUTextureViewDimension_2D, WGPUTextureSampleType_Depth, WGPUSamplerBindingType_Filtering));
-    m_fw_water_shader->set_sampler("shadowmap", SamplerDescriptor{.compare = WGPUCompareFunction_Undefined, .address_mode = {.u = WGPUAddressMode_ClampToEdge, .v = WGPUAddressMode_ClampToEdge}});
+    m_fw_water_shader->set_binding("shadowmap", Binding::Texture(WGPUShaderStage_Fragment, 0, 5, BindingAccess::Read, WGPUTextureViewDimension_2D, WGPUTextureSampleType_Depth, WGPUSamplerBindingType_Comparison));
+    m_fw_water_shader->set_sampler("shadowmap", SamplerDescriptor{.compare = WGPUCompareFunction_LessEqual, .address_mode = {.u = WGPUAddressMode_ClampToEdge, .v = WGPUAddressMode_ClampToEdge}});
     m_fw_water_shader->create_bind_group_layout();
 
     m_fw_chunk_shadowmap_shader = TRY(Shader::load_from_path("assets/shaders/fw/chunk_shadowmap.wgsl"));
@@ -1105,7 +1105,7 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
 
     std::vector<InstanceAttribute> chunk_attribs{InstanceAttribute(0, WGPUVertexFormat_Float32x3)};
     m_fw_chunk_mat = Material::create(m_fw_chunk_shader, MaterialFlagBits::None, WGPUCullMode_Back, WGPUVertexFormat_Float32x4, Instance(chunk_attribs, sizeof(glm::vec3)));
-    m_fw_chunk_shadowmap_mat = Material::create(m_fw_chunk_shadowmap_shader, MaterialFlagBits::NoNormal | MaterialFlagBits::NoUV, WGPUCullMode_Front, WGPUVertexFormat_Float32x4, Instance(chunk_attribs, sizeof(glm::vec3)));
+    m_fw_chunk_shadowmap_mat = Material::create(m_fw_chunk_shadowmap_shader, MaterialFlagBits::NoNormal | MaterialFlagBits::NoUV, WGPUCullMode_Back, WGPUVertexFormat_Float32x4, Instance(chunk_attribs, sizeof(glm::vec3)));
     m_fw_water_mat = Material::create(m_fw_water_shader, MaterialFlagBits::Transparency, WGPUCullMode_Back, WGPUVertexFormat_Float32x2, Instance(chunk_attribs, sizeof(glm::vec3)));
 
     m_fw_colored_mat = Material::create(m_fw_colored_shader, MaterialFlagBits::NoUV, WGPUCullMode_Back, WGPUVertexFormat_Float32x2);
@@ -1340,12 +1340,6 @@ Result<Cloud> Renderer::create_cloud()
 
 bool Renderer::has_cloud(int64_t x, int64_t z)
 {
-    // for (size_t i = 0; i < m_clouds.size(); i++)
-    // {
-    //     if (m_clouds[i].grid_x == x && m_clouds[i].grid_z == z)
-    //         return true;
-    // }
-    // return false;
     return m_clouds_set.contains(ChunkPos(x, z));
 }
 
@@ -1393,6 +1387,64 @@ void Renderer::update_clouds(std::shared_ptr<Camera> camera)
         }
 }
 
+struct LightMatrices
+{
+    glm::mat4 view;
+    glm::mat4 projection;
+};
+
+LightMatrices getStableLightMatrices(const glm::vec3& lightDir,
+                                     const glm::vec3& mainCameraTarget,
+                                     float frustumSize,
+                                     float shadowMapResolution)
+{
+    // Ensure the light direction vector is normalized
+    glm::vec3 normalizedLightDir = glm::normalize(lightDir);
+
+    // 1. Establish a temporary, un-snapped light view matrix.
+    // We use a temporary position along the light ray relative to our camera target.
+    glm::vec3 tempLightPos = mainCameraTarget + (normalizedLightDir * (frustumSize * 0.5f));
+
+    // Choose a stable up vector. If the light points straight down/up, shift the up vector.
+    glm::vec3 upVector = glm::vec3(0.0f, 1.0f, 0.0f);
+    if (std::abs(glm::dot(normalizedLightDir, upVector)) > 0.99f)
+    {
+        upVector = glm::vec3(0.0f, 0.0f, 1.0f);
+    }
+
+    glm::mat4 rawLightView = glm::lookAt(tempLightPos, mainCameraTarget, upVector);
+
+    // 2. Project the world-space camera target into this temporary light space
+    glm::vec4 targetInLightSpace = rawLightView * glm::vec4(mainCameraTarget, 1.0f);
+
+    // 3. Calculate how many world units are represented by a single shadow map texel
+    float texelSize = frustumSize / shadowMapResolution;
+
+    // 4. Snap the X and Y coordinates to whole texel units to eliminate sub-texel shifting
+    targetInLightSpace.x = std::floor(targetInLightSpace.x / texelSize) * texelSize;
+    targetInLightSpace.y = std::floor(targetInLightSpace.y / texelSize) * texelSize;
+
+    // 5. Invert the raw view matrix to transform our snapped light-space coordinate back to world space
+    glm::mat4 invRawLightView = glm::inverse(rawLightView);
+    glm::vec4 stableTargetWorld = invRawLightView * targetInLightSpace;
+
+    // 6. Regenerate the final locked View and Orthographic Projection matrices
+    LightMatrices output{};
+
+    // Recalculate stable light position using the snapped world target
+    glm::vec3 stableLightPos = glm::vec3(stableTargetWorld) + (normalizedLightDir * (frustumSize * 0.5f));
+    output.view = glm::lookAt(stableLightPos, glm::vec3(stableTargetWorld), upVector);
+
+    // Generate standard WebGPU-aligned orthographic bounds [0.0, 1.0] depth distribution
+    float halfSize = frustumSize * 0.5f;
+
+    // Note: GLM defaults to Vulkan/WebGPU depth conventions [0.0, 1.0] when GLM_FORCE_DEPTH_ZERO_TO_ONE is defined.
+    // If you haven't defined that macro globally, use glm::orthoLH_ZO or glm::orthoRH_ZO based on your coordinate system.
+    output.projection = glm::ortho(-halfSize, halfSize, -halfSize, halfSize, 0.0f, frustumSize);
+
+    return output;
+}
+
 void Renderer::draw_forward(const std::shared_ptr<World>& world)
 {
     ZoneScoped;
@@ -1421,22 +1473,24 @@ void Renderer::draw_forward(const std::shared_ptr<World>& world)
     const float shadowmap_range = float(world->get_render_distance()) * 34.0f;
     const glm::vec3 light_target = active_camera->get_global_transform().position();
     const glm::vec3 light_dir = glm::normalize(glm::vec3(1, 1, 0));
-    const float light_distance = 100.0;
+    // const float light_distance = 100.0;
 
-    const glm::mat4 shadowmap_proj = glm::ortho(-shadowmap_range, shadowmap_range, -shadowmap_range, shadowmap_range, -1.0f, 300.0f);
-    const glm::mat4 shadowmap_view = glm::lookAt(light_target + glm::vec3(0, 1, 0) * light_distance, light_target, glm::vec3(0, 1, 0));
+    // const glm::mat4 shadowmap_proj = glm::ortho(-shadowmap_range, shadowmap_range, -shadowmap_range, shadowmap_range, -1.0f, 300.0f);
+    // const glm::mat4 shadowmap_view = glm::lookAt(light_target + light_dir * light_distance, light_target, glm::vec3(0, 1, 0));
+
+    LightMatrices light = getStableLightMatrices(light_dir, light_target, shadowmap_range, SHADOWMAP_RESOLUTION);
 
     update_clouds(active_camera);
 
-    world->get_dimension(0).update_sun(shadowmap_proj * shadowmap_view);
+    world->get_dimension(0).update_sun(light.projection * light.view);
 
     FwColored shadowmap_cam(
-        glm::inverse(shadowmap_view) * glm::scale(glm::identity<glm::mat4>(), glm::vec3(shadowmap_range) * 2.0f),
+        glm::inverse(light.view) * glm::scale(glm::identity<glm::mat4>(), glm::vec3(100.0) * 2.0f),
         glm::vec4(1.0, 1.0, 1.0, 1.0));
     m_fw_shadowmap_cam_buffer->update_struct(shadowmap_cam);
 
     FwCamera shadowmap_camera{};
-    shadowmap_camera.view_projection = shadowmap_proj * shadowmap_view;
+    shadowmap_camera.view_projection = light.projection * light.view;
     m_fw_shadowmap_camera->update_struct(shadowmap_camera);
 
     FwWorldEnv world_env{};
@@ -1513,7 +1567,7 @@ void Renderer::draw_forward(const std::shared_ptr<World>& world)
     for (size_t i = 0; i < m_clouds.size(); i++)
         draw(color_pass_info, m_cube_mesh, m_fw_colored_mat, m_clouds[i].bg);
 
-    // draw(color_pass_info, m_quad_mesh, m_fw_shadowmap_cam_mat, m_fw_shadowmap_cam_bg); // Quad placed at the origin of the "sun"
+    draw(color_pass_info, m_quad_mesh, m_fw_shadowmap_cam_mat, m_fw_shadowmap_cam_bg); // Quad placed at the origin of the "sun"
     wgpuRenderPassEncoderEnd(color_pass);
     wgpuRenderPassEncoderRelease(color_pass);
 

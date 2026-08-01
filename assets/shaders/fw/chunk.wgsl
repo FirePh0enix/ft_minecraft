@@ -14,7 +14,7 @@ struct WorldEnv {
 @group(0) @binding(4) var images_sampler: sampler;
 
 @group(0) @binding(5) var shadowmap: texture_depth_2d;
-@group(0) @binding(6) var shadowmap_sampler: sampler;
+@group(0) @binding(6) var shadowmap_sampler: sampler_comparison;
 
 struct VertexInput {
     @location(0) position: vec3<f32>,

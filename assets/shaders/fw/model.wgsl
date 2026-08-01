@@ -35,7 +35,7 @@ struct VertexOutput
 @group(0) @binding(6) var image_sampler: sampler;
 
 @group(0) @binding(7) var shadowmap: texture_depth_2d;
-@group(0) @binding(8) var shadowmap_sampler: sampler;
+@group(0) @binding(8) var shadowmap_sampler: sampler_comparison;
 
 @vertex
 fn vertex_main(
