@@ -111,19 +111,13 @@ void Mob::follow_path(float delta_time)
             flat = glm::normalize(flat);
 
             glm::quat target_rot = glm::quatLookAt(flat, glm::vec3(0, 1, 0));
-            m_transform.rotation() = glm::slerp(
-                m_transform.rotation(),
-                target_rot,
-                delta_time * m_turn_speed);
+            m_transform.rotation() = glm::slerp(m_transform.rotation(), target_rot, delta_time * m_turn_speed);
         }
     }
     else
     {
         glm::quat target_rot = glm::quatLookAt(target_dir_norm, glm::vec3(0, 1, 0));
-        m_transform.rotation() = glm::slerp(
-            m_transform.rotation(),
-            target_rot,
-            delta_time * m_turn_speed);
+        m_transform.rotation() = glm::slerp(m_transform.rotation(), target_rot, delta_time * m_turn_speed);
     }
 
     glm::vec3 move = target_dir_norm * m_speed * speed_percent * delta_time;
