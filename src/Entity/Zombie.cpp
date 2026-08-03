@@ -59,7 +59,7 @@ void Zombie::tick(float delta)
     {
         const glm::ivec3 target_rounded_pos = glm::round(m_threat_entity->get_global_transform().position());
 
-        bool is_target_reachable = m_pathfinding->is_walkable(target_rounded_pos, 0);
+        bool is_target_reachable = m_pathfinding->is_walkable(target_rounded_pos, 0, m_dimension);
 
         if (is_target_reachable && m_path_update_timer <= 0.0f)
         {
@@ -94,7 +94,7 @@ void Zombie::tick(float delta)
         {
             const glm::ivec3& to = m_path.value().look_points.get_unchecked(m_path.value().finish_line_index);
             const int remaining_jump = m_on_ground ? 1 : 0;
-            const bool is_final_pos_reachable = m_pathfinding->is_walkable(to, remaining_jump);
+            const bool is_final_pos_reachable = m_pathfinding->is_walkable(to, remaining_jump, m_dimension);
 
             if (is_final_pos_reachable)
                 flee_to(m_path.value().look_points.get_unchecked(m_path.value().finish_line_index));

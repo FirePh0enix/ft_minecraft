@@ -23,9 +23,9 @@ class Pathfinding
 public:
     Pathfinding(World *world) : m_world(world) {};
 
-    void find_path(const glm::vec3& start_pos, const glm::vec3& target_pos);
+    void find_path(const glm::vec3& start_pos, const glm::vec3& target_pos, size_t dimension);
     Vector<glm::vec3> simplify_path(const Vector<size_t>& path);
-    bool is_walkable(const glm::ivec3& to, int jump_height);
+    bool is_walkable(const glm::ivec3& to, int jump_height, size_t dimension);
 
     Vector<size_t> m_path;
     Vector<size_t> m_open_set;
@@ -38,6 +38,6 @@ private:
 
     void retrace_path(size_t start_index, size_t end_index);
     int get_distance(const PathNode& node_a, const PathNode& node_b);
-    Vector<size_t> get_neighbors(size_t node_index);
+    Vector<size_t> get_neighbors(size_t node_index, size_t dimension);
     size_t node_from_world_point(const glm::ivec3& world_position);
 };
