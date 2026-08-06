@@ -5,12 +5,11 @@
 
 #include <format>
 
-Result<void> InventoryContainer::add_layer(size_t size)
+void InventoryContainer::add_layer(size_t size)
 {
     std::vector<ItemStack> stacks;
     stacks.resize(size);
     m_layers.push_back(Layer(stacks));
-    return Result<void>();
 }
 
 void InventoryContainer::set_stack(uint32_t layer, uint32_t i, ItemStack stack)

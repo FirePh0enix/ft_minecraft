@@ -16,7 +16,7 @@ public:
         std::vector<ItemStack> stacks;
     };
 
-    Result<void> add_layer(size_t size);
+    void add_layer(size_t size);
 
     void set_stack(uint32_t layer, uint32_t i, ItemStack stack);
 
