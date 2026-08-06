@@ -3,27 +3,15 @@
 #include "Engine.hpp"
 #include "Input.hpp"
 #include "Profiler.hpp"
+#include "UI/Widget.hpp"
 
 #include <imgui.h>
-
-#ifdef __platform_web
-#include <emscripten/html5.h>
-#endif
-
-#ifdef __platform_web
-#define MAIN(...) __attribute__((used, visibility("default"))) extern "C" int emscripten_main(__VA_ARGS__)
-#else
-#define MAIN(...) int main(__VA_ARGS__)
-#endif
 
 static constexpr double fixed_update_time = 1.0 / 60.0;
 static clock_t last_update_time;
 
-MAIN(int argc, char *argv[])
+int main(int argc, char *argv[])
 {
-    (void)argc;
-    (void)argv;
-
 #if !defined(__has_address_sanitizer) && !defined(__platform_web)
     // NOTE: Address sanitizer mess with our custom error handling.
     initialize_error_handling(Filesystem::current_executable_path().c_str());
@@ -39,6 +27,11 @@ MAIN(int argc, char *argv[])
     TracySetThreadName("Main");
 
     Engine engine(disable_save);
+
+    Widget::bind_static();
+    ColorRectWidget::bind_static();
+    TextureRectWidget::bind_static();
+    LabelWidget::bind_static();
 
     info("using data directory `{}`", Filesystem::get_data_directory());
     if (disable_save)

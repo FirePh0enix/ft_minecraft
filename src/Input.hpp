@@ -55,6 +55,7 @@ public:
      * Mouse coordinates in the same range as the UI with X in [-w/h, +w/h] and Y [-1, 1].
      */
     static glm::vec2 get_mouse_absolute();
+    static glm::i32vec2 get_mouse_coordinates();
 
     static void post_events();
 

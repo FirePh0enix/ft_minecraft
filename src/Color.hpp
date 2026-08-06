@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Core/Math.hpp"
+
 #include <cstdint>
 
 struct __attribute__((aligned(4))) ColorInt
@@ -46,6 +48,11 @@ struct Color
     constexpr ColorInt to_int() const
     {
         return ColorInt(uint8_t(r * 255.0), uint8_t(g * 255.0), uint8_t(b * 255.0), uint8_t(a * 255.0));
+    }
+
+    constexpr glm::vec4 to_vec() const
+    {
+        return glm::vec4(r, g, b, a);
     }
 };
 

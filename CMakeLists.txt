@@ -54,11 +54,8 @@ list(APPEND SOURCES
     src/Network/Packet.cpp
     src/Render/Shader.cpp
     src/Render/Renderer.cpp
-    src/UI/Chat.cpp
-    src/UI/ColorRect.cpp
     src/UI/ItemSlot.cpp
-    src/UI/Label.cpp
-    src/UI/TextureRect.cpp
+    src/UI/Widget.cpp
     src/World/OverworldGen.cpp
     src/World/Chunk.cpp
     src/World/Dimension.cpp
@@ -270,14 +267,6 @@ target_sources(${TARGET_NAME} PRIVATE
     ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp
     ${imgui_SOURCE_DIR}/backends/imgui_impl_wgpu.cpp
 )
-# target_sources(${TARGET_NAME}_test PRIVATE
-#     ${imgui_SOURCE_DIR}/imgui.cpp
-#     ${imgui_SOURCE_DIR}/imgui_draw.cpp
-#     ${imgui_SOURCE_DIR}/imgui_tables.cpp
-#     ${imgui_SOURCE_DIR}/imgui_widgets.cpp
-#     ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp
-#     ${imgui_SOURCE_DIR}/backends/imgui_impl_wgpu.cpp
-# )
 target_include_directories(${TARGET_NAME} PRIVATE ${imgui_SOURCE_DIR})
 
 if (TARGET_IS_MACOS)
@@ -356,14 +345,6 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(yaml-cpp)
 target_link_libraries(${TARGET_NAME} PUBLIC yaml-cpp::yaml-cpp) 
-
-# rapidyaml
-# FetchContent_Declare(
-#     rapidyaml
-#     GIT_REPOSITORY https://github.com/biojppm/rapidyaml
-#     GIT_TAG v0.16.9
-# )
-# FetchContent_MakeAvailable(rapidyaml)
 
 # tracy
 if (ENABLE_TRACING)

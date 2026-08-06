@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Color.hpp"
 #include "Core/Math.hpp"
 
 #include <nlohmann/json.hpp>
@@ -50,9 +51,12 @@ enum class VariantType : uint32_t
      * Key value storage.
      */
     Map,
+    Color,
+    Point,
 };
 
 class ItemStack;
+struct Point;
 
 struct __attribute__((aligned(16))) Variant
 {
@@ -71,6 +75,8 @@ struct __attribute__((aligned(16))) Variant
     Variant(glm::vec3 v) : tag(VariantType::Vec3) { *((glm::vec3 *)data) = v; }
     Variant(glm::quat q) : tag(VariantType::Quat) { *((glm::quat *)data) = q; }
     Variant(ItemStack is);
+    Variant(Color color) : tag(VariantType::Color) { *((Color *)data) = color; }
+    Variant(Point point);
 
     template <typename T>
     Variant(const std::span<T>& values)

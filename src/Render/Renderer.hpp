@@ -9,7 +9,6 @@
 #include "Window.hpp"
 #include "stdext.hpp"
 
-#include <bitset>
 #include <set>
 #include <webgpu/webgpu.h>
 

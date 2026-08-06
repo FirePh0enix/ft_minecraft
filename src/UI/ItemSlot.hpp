@@ -3,21 +3,17 @@
 #include "Core/Class.hpp"
 #include "Id.hpp"
 #include "Item/Item.hpp"
-#include "UI/ColorRect.hpp"
-#include "UI/Label.hpp"
-#include "UI/TextureRect.hpp"
-#include "UI/UI.hpp"
+#include "UI/Widget.hpp"
 
 class Inventory;
 class InventoryContainer;
 
-class ItemSlot : public UI
+class ItemSlotWidget : public Widget
 {
-    CLASS(ItemSlot, UI);
+    CLASS(ItemSlot, Widget);
 
 public:
-    ItemSlot(uint32_t layer, uint32_t index, Inventory *inventory, InventoryContainer *container);
-    virtual ~ItemSlot() {}
+    ItemSlotWidget(uint32_t layer, uint32_t index, Inventory *inventory, InventoryContainer *container);
 
     void set_item(Id<Item> item);
     void set_count(size_t count);
@@ -32,9 +28,9 @@ public:
     InventoryContainer *container() const { return m_container; }
 
 private:
-    std::shared_ptr<ColorRect> m_background;
-    std::shared_ptr<TextureRect> m_item_rect;
-    std::shared_ptr<Label> m_label;
+    std::shared_ptr<ColorRectWidget> m_background;
+    std::shared_ptr<TextureRectWidget> m_item_rect;
+    std::shared_ptr<LabelWidget> m_label;
     Id<Item> m_item;
     size_t m_count;
     uint32_t m_layer;

@@ -3,8 +3,8 @@
 #include "Color.hpp"
 #include "Engine.hpp"
 #include "Item/ItemStack.hpp"
-#include "UI/ColorRect.hpp"
 #include "UI/ItemSlot.hpp"
+#include "UI/Widget.hpp"
 #include "World/Registry.hpp"
 
 #include <format>
@@ -13,27 +13,29 @@ constexpr int CRAFTING_GRID_SIZE = 4;
 constexpr int INGREDIENTS_LAYER = 2;
 constexpr int RESULT_LAYER = 3;
 
-QuickSlot::QuickSlot()
+QuickSlotWidget::QuickSlotWidget()
     : m_count(0)
 {
-    m_background = std::make_shared<ColorRect>();
-    set_scale(glm::vec2(0.12));
+    set_alignment(ContainerAlignment::Center);
+    set_layout(ContainerLayout::Stack);
 
-    m_item_rect = std::make_shared<TextureRect>();
-    m_label = std::make_shared<Label>(Engine::get().get_font());
+    m_background = std::make_shared<ColorRectWidget>();
+    m_background->set_color(Colors::blue);
+    m_background->set_size(Point(Size::px(80), Size::px(80)));
+    add_child(m_background);
+
+    m_item_rect = std::make_shared<TextureRectWidget>();
+    m_item_rect->set_size(Point(Size::px(72), Size::px(72)));
+    m_item_rect->set_visible(false);
+    add_child(m_item_rect);
+
+    m_label = std::make_shared<LabelWidget>(Engine::get().get_font());
+    add_child(m_label);
 }
 
-void QuickSlot::update(float d)
+void QuickSlotWidget::update(float d)
 {
-    m_background->set_position(m_position);
-    m_background->set_scale(m_scale);
-
-    m_item_rect->set_position(m_position);
-    m_item_rect->set_scale(m_scale * 0.9f);
-
-    m_label->set_position(m_position + glm::vec2(0.01f, -0.03f));
-    m_label->set_scale(m_scale * 0.5f);
-    m_label->update(d);
+    Widget::update(d);
 
     if (m_selected)
     {
@@ -45,7 +47,7 @@ void QuickSlot::update(float d)
     }
 }
 
-void QuickSlot::draw(const RenderPass& pass)
+void QuickSlotWidget::draw(const RenderPass& pass)
 {
     m_background->draw(pass);
 
@@ -56,7 +58,7 @@ void QuickSlot::draw(const RenderPass& pass)
     }
 }
 
-void QuickSlot::set_item(Id<Item> item)
+void QuickSlotWidget::set_item(Id<Item> item)
 {
     m_item = item;
 
@@ -64,10 +66,15 @@ void QuickSlot::set_item(Id<Item> item)
     {
         std::shared_ptr<Texture> texture = Engine::get().registry().get_texture(item);
         m_item_rect->set_texture(texture);
+        m_item_rect->set_visible(true);
+    }
+    else
+    {
+        m_item_rect->set_visible(false);
     }
 }
 
-void QuickSlot::set_count(size_t count)
+void QuickSlotWidget::set_count(size_t count)
 {
     std::string text = std::format("{}", count);
     m_label->set_text(text);
@@ -78,27 +85,29 @@ PlayerInventory::PlayerInventory(std::shared_ptr<InventoryContainer> container)
     : Inventory(container)
 {
     add_background();
-    add_grid(9, 3, 0, glm::vec2(0, -0.2f));
-    add_grid(9, 1, 1, glm::vec2(0, -0.6f));
+    add_grid(9, 3, 0, Point(Size::px(0), Size::px(40)));
+    add_grid(9, 1, 1, Point(Size::px(0), Size::px(300)));
 
-    add_grid(2, 2, 2, glm::vec2(-0.2f, 0.3f));
-    add_grid(1, 1, 3, glm::vec2(0.3f, 0.3f));
+    add_grid(2, 2, 2, Point(Size::px(60), Size::px(-200)));
+    add_grid(1, 1, 3, Point(Size::px(240), Size::px(-200)));
 
-    constexpr float slot_size = 0.12f;
-    constexpr float slot_margin = 0.04f;
-    constexpr float slot_tsize = slot_size + slot_margin;
+    m_quick_slots_container = std::make_shared<Widget>();
+    m_quick_slots_container->set_layout(ContainerLayout::Horizontal);
+    m_quick_slots_container->set_alignment(ContainerAlignment::CenterX | ContainerAlignment::Bottom);
+    m_quick_slots_container->set_expand_horizontal(true);
+    m_quick_slots_container->set_expand_vertical(true);
 
-    float offset_x = -(slot_tsize * inventory_width) / 2.0f + slot_tsize / 2.0f;
-    float offset_y = -(slot_tsize * inventory_height) / 2.0f + slot_tsize / 2.0f;
+    std::shared_ptr<Widget> subcontainer = std::make_shared<Widget>();
 
-    m_quick_slots_container = std::make_shared<Container>();
-    for (size_t x = 0; x < inventory_width; x++)
+    for (int32_t x = 0; x < int32_t(inventory_width); x++)
     {
-        std::shared_ptr<QuickSlot> quick_slot = std::make_shared<QuickSlot>();
-        quick_slot->set_position(glm::vec2(offset_x, offset_y) + glm::vec2(float(x) * slot_tsize, -slot_tsize * 4.0f));
-        m_quick_slots_container->add_child(quick_slot);
+        std::shared_ptr<QuickSlotWidget> quick_slot = std::make_shared<QuickSlotWidget>();
+
+        subcontainer->add_child(quick_slot);
         m_quick_slots[x] = quick_slot;
     }
+
+    m_quick_slots_container->add_child(subcontainer);
 }
 
 void PlayerInventory::update(float d)
@@ -117,8 +126,6 @@ void PlayerInventory::update(float d)
         m_quick_slots[x]->set_count(stack.count());
     }
 
-    m_quick_slots_container->update(d);
-
     if (m_dirty)
     {
         update_recipe();
@@ -126,14 +133,9 @@ void PlayerInventory::update(float d)
     }
 }
 
-void PlayerInventory::draw(const RenderPass& pass)
-{
-    Inventory::draw(pass);
-}
-
 void PlayerInventory::draw_toolbar(const RenderPass& pass)
 {
-    m_quick_slots_container->draw(pass);
+    m_quick_slots_container->draw_everything(pass);
 }
 
 void PlayerInventory::set_selected_slot(size_t slot)

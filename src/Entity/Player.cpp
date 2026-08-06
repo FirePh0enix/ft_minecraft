@@ -16,56 +16,8 @@
 #include "World/Registry.hpp"
 #include "World/World.hpp"
 
-#include <format>
 #include <imgui.h>
 #include <memory>
-
-DebugMenuContainer::DebugMenuContainer(Player *player)
-    : m_player(player)
-{
-    m_memory_label = std::make_shared<Label>(Engine::get().get_font());
-    m_memory_label->set_scale(glm::vec2(0.06f));
-    m_memory_label->set_position(glm::vec2(-1.7f, 0.9f));
-    add_child(m_memory_label);
-
-    m_gpu_objects_label = std::make_shared<Label>(Engine::get().get_font());
-    m_gpu_objects_label->set_scale(glm::vec2(0.06f));
-    m_gpu_objects_label->set_position(glm::vec2(-1.7f, 0.84f));
-    add_child(m_gpu_objects_label);
-
-    m_perfomance_label = std::make_shared<Label>(Engine::get().get_font());
-    m_perfomance_label->set_scale(glm::vec2(0.06f));
-    m_perfomance_label->set_position(glm::vec2(-1.7f, 0.79f));
-    add_child(m_perfomance_label);
-
-    m_position_label = std::make_shared<Label>(Engine::get().get_font());
-    m_position_label->set_scale(glm::vec2(0.06f));
-    m_position_label->set_position(glm::vec2(-1.7f, 0.74f));
-    add_child(m_position_label);
-
-    m_time_label = std::make_shared<Label>(Engine::get().get_font());
-    m_time_label->set_scale(glm::vec2(0.06f));
-    m_time_label->set_position(glm::vec2(-1.7f, 0.69f));
-    add_child(m_time_label);
-}
-
-void DebugMenuContainer::update(float d)
-{
-    (void)d;
-    m_memory_label->set_text(std::format("Memory: cpu: {} | device: {}", Engine::get().get_memory_usage(), Renderer::get().get_device_memory_usage()));
-    m_gpu_objects_label->set_text(std::format("Pipeline: {}", Renderer::get().get_pipeline_count()));
-    m_perfomance_label->set_text(std::format("Perf: {} TPS | {} FPS | {} ms", Engine::get().get_fps(), Engine::get().get_tps(), d));
-
-    glm::vec3 position = m_player->get_position();
-    m_position_label->set_text(std::format("XYZ: {} | {} | {}", position.x, position.y, position.z));
-
-    int64_t time_of_day = Engine::get().time_of_day();
-    int64_t hours = time_of_day / (60 * 60);
-    int64_t minutes = (time_of_day - hours) % (60 * 60) / 60;
-    m_time_label->set_text(std::format("time: {}:{} ({} ticks)", hours, minutes, time_of_day));
-
-    Container::update(d);
-}
 
 struct GPU_ATTRIBUTE ItemBlockModel
 {
@@ -115,9 +67,6 @@ void Player::on_ready()
     {
         m_inventory = std::make_shared<PlayerInventory>(m_inventory_container);
 
-        m_chat = std::make_shared<Chat>();
-        m_debug_menu = std::make_shared<DebugMenuContainer>(this);
-
         m_camera = std::make_shared<Camera>();
         m_camera->get_transform().position() = glm::vec3(0, 0.85, 0);
         add_child(m_camera);
@@ -145,11 +94,11 @@ void Player::on_ready()
 
 void Player::tick(float delta)
 {
-    if (Input::is_action_pressed("attack") && !Input::is_mouse_grabbed() && !m_opened_inventory.has_value() && m_local_player && !m_open_chat)
+    if (Input::is_action_pressed("attack") && !Input::is_mouse_grabbed() && !m_opened_inventory.has_value() && m_local_player)
     {
         Input::set_mouse_grabbed(true);
     }
-    else if (Input::is_action_pressed("escape") && Input::is_mouse_grabbed() && !m_opened_inventory.has_value() && m_local_player && !m_open_chat)
+    else if (Input::is_action_pressed("escape") && Input::is_mouse_grabbed() && !m_opened_inventory.has_value() && m_local_player)
     {
         Input::set_mouse_grabbed(false);
     }
@@ -157,30 +106,14 @@ void Player::tick(float delta)
     {
         close_inventory();
     }
-    else if (Input::is_action_pressed("escape") && m_local_player && m_open_chat)
-    {
-        m_open_chat = false;
-        Input::set_mouse_grabbed(true);
-    }
 
-    if (Input::is_action_just_pressed("toggle_chat") && m_local_player && !m_open_chat)
-    {
-        m_open_chat = true;
-        Input::set_mouse_grabbed(false);
-    }
-
-    if (Input::is_action_just_pressed("open_inventory") && !m_open_chat && m_local_player)
+    if (Input::is_action_just_pressed("open_inventory") && m_local_player)
     {
         if (!m_opened_inventory.has_value())
             open_inventory(m_inventory);
         else
             close_inventory();
         Input::set_mouse_grabbed(!m_opened_inventory.has_value());
-    }
-
-    if (Input::is_action_just_pressed("toggle_debug_menu") && m_local_player)
-    {
-        m_open_debug_menu = !m_open_debug_menu;
     }
 
     if (m_local_player)
@@ -413,20 +346,12 @@ void Player::tick(float delta)
         m_inventory->set_selected_slot(m_slot);
 
         if (m_opened_inventory.has_value())
-            m_opened_inventory.value()->update(delta);
+            m_opened_inventory.value()->update_everything(delta);
         else
-            m_inventory->update(delta);
-
-        if (m_open_chat)
-            m_chat->update(delta);
+            m_inventory->update_everything(delta);
     }
 
     m_previous_frame_in_water = in_water;
-
-    if (m_open_debug_menu)
-    {
-        m_debug_menu->update(delta);
-    }
 
     if (m_local_player && Engine::get().is_online() && !Engine::get().is_server())
     {
@@ -506,22 +431,15 @@ void Player::draw_ui(const RenderPass& pass)
     if (m_local_player)
     {
         if (m_opened_inventory.has_value())
-            m_opened_inventory.value()->draw(pass);
+            m_opened_inventory.value()->draw_everything(pass);
         else
             m_inventory->draw_toolbar(pass);
-
-        if (m_open_chat)
-            m_chat->draw(pass);
-
-        if (m_open_debug_menu)
-            m_debug_menu->draw(pass);
     }
 }
 
 void Player::process_event(Event& event)
 {
-    if (m_open_chat)
-        m_chat->process_event(event);
+    (void)event;
 }
 
 void Player::save(EntitySerializer& ser) const

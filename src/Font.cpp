@@ -1,4 +1,5 @@
 #include "Font.hpp"
+#include "Engine.hpp"
 #include "Render/Renderer.hpp"
 
 #include <ft2build.h>
@@ -29,9 +30,7 @@ Result<std::shared_ptr<Font>> Font::create(std::string_view font_name, uint32_t 
     for (uint8_t c = 0; c < 128; c++)
     {
         if (FT_Load_Char(face, c, FT_LOAD_RENDER) != 0)
-        {
             return Error(ErrorKind::Unknown);
-        }
 
         bmp_height = std::max(bmp_height, face->glyph->bitmap.rows);
 
@@ -136,7 +135,7 @@ void Font::deinit_library()
 }
 
 Text::Text(std::shared_ptr<Font> font)
-    : m_font(font), m_instance_buffer(nullptr), m_capacity(0), m_size(0)
+    : m_font(font), m_instance_buffer(nullptr), m_capacity(0), m_size(0), m_width_x(0)
 {
     m_uniform.color = glm::vec4(0.0, 0.0, 0.0, 1.0);
     m_uniform.position = glm::vec3();
@@ -161,9 +160,9 @@ Text::Text(size_t capacity, std::shared_ptr<Font> font)
     m_instance_buffer = EXPECT(Buffer::create(m_capacity * sizeof(Font::Instance), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Vertex));
 }
 
-void Text::set(const std::string& text)
+void Text::set(std::string_view text)
 {
-    float offset_x = 0;
+    m_width_x = 0;
 
     const size_t width = m_font->get_width();
     const size_t height = m_font->get_height();
@@ -174,38 +173,35 @@ void Text::set(const std::string& text)
         m_instance_buffer = EXPECT(Buffer::create(m_capacity * sizeof(Font::Instance), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Vertex));
     }
 
+    const Extent2D window_size = Engine::get().window()->size();
+
     constexpr size_t batch_size = 32;
-    std::array<Font::Instance, batch_size> instances{};
+    Font::Instance instances[batch_size]{};
 
     for (size_t i = 0; i < text.size(); i++)
     {
         const uint8_t c = text[i];
         const Font::Character ch = m_font->get_character(c).value_or(Font::Character{});
 
-        const float offset = (float)ch.offset / (float)width;
-        const float char_width = (float)ch.size.x / (float)width;
-        const float char_height = (float)ch.size.y / (float)height;
-
-        const float bx = (float)ch.bearing.x / (float)width;
-        const float by = (float)(ch.size.y - ch.bearing.y) / (float)height;
-
-        const float scale_x = (float)ch.size.x / (float)height;
-        const float scale_y = (float)ch.size.y / (float)height;
-
         instances[i % batch_size] = {
-            .bounds = glm::vec4(offset, offset + char_width, char_height, 0.0f),
-            .char_pos = glm::vec3(bx + offset_x, by, 0.0),
-            .scale = glm::vec2(scale_x, scale_y),
+            .bounds = glm::vec4(float(ch.offset) / float(width),
+                                float(ch.offset + ch.size.x) / float(width),
+                                float(ch.size.y) / float(height),
+                                0.0f),
+            .char_pos = glm::vec3(float(ch.bearing.x + m_width_x) / float(window_size.width - 1),
+                                  float(-ch.bearing.y) / float(window_size.width - 1),
+                                  0.1),
+            .scale = glm::vec2(float(ch.size.x) / float(window_size.width),
+                               float(ch.size.y) / float(window_size.width)),
         };
 
         if (i % batch_size == batch_size - 1 || i == text.size() - 1)
         {
             const size_t size = i + batch_size < text.size() ? batch_size : i - (i / batch_size) * batch_size + 1;
-            std::span<Font::Instance> span(instances.data(), size);
-            m_instance_buffer->update(std::as_bytes(span), batch_size * sizeof(Font::Instance) * (i / batch_size));
+            m_instance_buffer->update(std::as_bytes(std::span<Font::Instance>(instances, size)), batch_size * sizeof(Font::Instance) * (i / batch_size));
         }
 
-        offset_x += float(ch.advance >> 6) / float(height);
+        m_width_x += int32_t(ch.advance >> 6);
     }
 
     m_size = text.size();
@@ -229,9 +225,20 @@ void Text::set_color(glm::vec4 color)
     update_uniform_buffer();
 }
 
+int32_t Text::get_width() const
+{
+    return m_width_x;
+}
+
+int32_t Text::get_height() const
+{
+    return (int32_t)m_font->get_height();
+}
+
 void Text::draw(const RenderPass& pass)
 {
-    Renderer::get().draw(pass, g_mesh, Renderer::get().get_fw_text_mat(), m_bg, m_instance_buffer, m_size);
+    if (m_size > 0)
+        Renderer::get().draw(pass, g_mesh, Renderer::get().get_fw_text_mat(), m_bg, m_instance_buffer, m_size);
 }
 
 void Text::update_uniform_buffer()

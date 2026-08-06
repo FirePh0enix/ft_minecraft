@@ -4,9 +4,7 @@
 
 void Input::init(const Window& window)
 {
-#ifndef __platform_web
     s_window = window.get_window_ptr();
-#endif
 }
 
 void Input::load_config()
@@ -157,6 +155,14 @@ glm::vec2 Input::get_mouse_absolute()
     return ((glm::vec2(x, y) / glm::vec2(w - 1, h - 1)) * 2.0f - 1.0f) * glm::vec2(float(w) / float(h), -1.0f);
 }
 
+glm::i32vec2 Input::get_mouse_coordinates()
+{
+    float x, y;
+    SDL_GetMouseState(&x, &y);
+
+    return {int32_t(x), int32_t(y)};
+}
+
 void Input::post_events()
 {
     s_mouse_relative = glm::vec2();
@@ -176,6 +182,11 @@ void Input::post_events()
 
 void Input::process_event(SDL_Event event)
 {
+    // if (event.type == SDL_EVENT_KEY_DOWN)
+    // {
+    //     println("{} -> {}", event.key.key, SDLK_S);
+    // }
+
     for (const auto& [key, value] : s_mappings)
     {
         for (const auto& mapping : value)

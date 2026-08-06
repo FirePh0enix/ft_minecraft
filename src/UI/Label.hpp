@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Font.hpp"
+#include "../Font.hpp"
 #include "UI/UI.hpp"
 
 class Label : public UI

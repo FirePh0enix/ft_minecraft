@@ -13,11 +13,11 @@ CraftingTableInventory::CraftingTableInventory(std::shared_ptr<InventoryContaine
     : Inventory(inventory), m_player_inventory(player_inventory)
 {
     add_background();
-    add_grid(9, 3, 0, glm::vec2(0, -0.2f), m_player_inventory.get());
-    add_grid(9, 1, 1, glm::vec2(0, -0.6f), m_player_inventory.get());
+    add_grid(9, 3, 0, Point(Size::px(0), Size::px(40)), m_player_inventory.get());
+    add_grid(9, 1, 1, Point(Size::px(0), Size::px(300)), m_player_inventory.get());
 
-    add_grid(3, 3, 0, glm::vec2(-0.2f, 0.3f));
-    add_grid(1, 1, 1, glm::vec2(0.3f, 0.3f));
+    add_grid(3, 3, 0, Point(Size::px(60), Size::px(-200)));
+    add_grid(1, 1, 1, Point(Size::px(280), Size::px(-200)));
 }
 
 void CraftingTableInventory::update(float d)

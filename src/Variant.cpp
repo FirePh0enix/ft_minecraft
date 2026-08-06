@@ -1,6 +1,7 @@
 #include "Variant.hpp"
 
 #include "Item/ItemStack.hpp"
+#include "UI/Widget.hpp"
 
 #include <compare>
 
@@ -8,6 +9,12 @@ Variant::Variant(ItemStack is)
     : tag(VariantType::ItemStack)
 {
     new (data) ItemStack(is);
+}
+
+Variant::Variant(Point point)
+    : tag(VariantType::Point)
+{
+    *((Point *)data) = point;
 }
 
 Variant::Variant(const Variant& v)
@@ -35,7 +42,7 @@ Variant::Variant(const Variant& v)
     }
     else
     {
-        memcpy(data, v.data, 32);
+        memcpy(data, v.data, sizeof(data));
     }
 }
 
@@ -77,13 +84,16 @@ std::strong_ordering Variant::operator<=>(const Variant& variant) const
         return get_unchecked<int64_t>() <=> variant.get_unchecked<int64_t>();
     case VariantType::String:
         return get_unchecked<std::string>() <=> variant.get_unchecked<std::string>();
+
     case VariantType::Vec2: // TODO: implement this
     case VariantType::Vec3:
     case VariantType::Quat:
     case VariantType::ItemStack:
     case VariantType::Array:
     case VariantType::Map:
-        std::abort();
+    case VariantType::Color:
+    case VariantType::Point:
+        return std::strong_ordering::less;
     }
 
     return std::strong_ordering::equal;

@@ -1,5 +1,6 @@
 #include "Window.hpp"
 #include "Core/Logger.hpp"
+#include "SDL3/SDL_video.h"
 
 #include <SDL3/SDL.h>
 
@@ -28,18 +29,21 @@ Window::Window(std::string_view title, uint32_t width, uint32_t height, bool res
     flags |= SDL_WINDOW_METAL;
 #endif
 
-    // flags |= SDL_WINDOW_RESIZABLE;
+    flags |= SDL_WINDOW_RESIZABLE;
 
-    int display_count = 0;
-    SDL_DisplayID *displays = SDL_GetDisplays(&display_count);
-    assert(display_count > 0);
+    // int display_count = 0;
+    // SDL_DisplayID *displays = SDL_GetDisplays(&display_count);
+    // assert(display_count > 0);
 
-    const SDL_DisplayMode *dm = SDL_GetDesktopDisplayMode(displays[0]);
-    constexpr float factor = 0.9;
-    int w = int(float(dm->w) * factor);
-    int h = int(float(dm->h) * factor);
+    // const SDL_DisplayMode *dm = SDL_GetDesktopDisplayMode(displays[0]);
+    // constexpr float factor = 0.9;
+    // int w = int(float(dm->w) * factor);
+    // int h = int(float(dm->h) * factor);
 
-    SDL_free(displays);
+    // SDL_free(displays);
+
+    constexpr int w = 1280;
+    constexpr int h = 720;
 
     m_window = SDL_CreateWindow(title.data(), w, h, flags);
 

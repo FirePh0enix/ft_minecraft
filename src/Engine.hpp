@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Console.hpp"
-#include "Core/Class.hpp"
 #include "Core/ThreadPool.hpp"
 #include "Entity/Entity.hpp"
 #include "Entity/Player.hpp"
@@ -28,10 +27,8 @@ constexpr int64_t ticks_noon = ticks_per_day / 2;
 constexpr int64_t ticks_sunrise = ticks_per_day / 4;
 constexpr int64_t ticks_sunset = ticks_noon + ticks_per_day / 4;
 
-class Engine : public Object
+class Engine
 {
-    CLASS(Engine, Object);
-
 public:
     Engine(bool disable_save);
     ~Engine();
@@ -49,6 +46,8 @@ public:
     {
         return m_world;
     }
+
+    std::shared_ptr<Window> window() const { return m_window; }
 
     NetworkConnection& connection()
     {

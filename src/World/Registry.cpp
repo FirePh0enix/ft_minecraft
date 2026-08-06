@@ -3,10 +3,11 @@
 #include "Block/Block.hpp"
 #include "Block/CraftingTable.hpp"
 #include "Core/Filesystem.hpp"
+#include "Core/Logger.hpp"
 #include "Engine.hpp"
 #include "Item/Bucket.hpp"
 #include "Render/Renderer.hpp"
-#include "webgpu/webgpu.h"
+
 #include <memory>
 
 constexpr int two_d_to_1d(int x, int y, int w)
@@ -124,9 +125,12 @@ std::optional<Id<Block>> GameRegistry::to_block(Id<Item> id)
 
 std::shared_ptr<Texture> GameRegistry::get_texture(Id<Item> id)
 {
-    ASSERT_V(id.valid() && id.value <= m_items.size(), "Trying to get texture for invalid id `{}`", id.value);
+    if (!m_items.contains(id))
+    {
+        warn("GameRegistry::get_texture(): invalid item Id: {}", id.value);
+        return Renderer::get().get_missing_texture();
+    }
 
-    // TODO: Add error handling.
     std::shared_ptr<Item> item = m_items[id];
     return item->get_texture();
 }
@@ -142,7 +146,7 @@ size_t GameRegistry::load_texture(std::string_view path)
         return 0;
 
     std::vector<char> buffer;
-    Result<void> res = file_opt.value().reader().read_to_buffer(buffer);
+    EXPECT(file_opt.value().reader().read_to_buffer(buffer));
     file_opt.value().close();
 
     int w, h, channels;

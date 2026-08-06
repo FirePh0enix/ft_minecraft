@@ -1,6 +1,7 @@
 #include "Inventory/Inventory.hpp"
 
 #include "Engine.hpp"
+#include "UI/Widget.hpp"
 
 #include <format>
 
@@ -20,20 +21,24 @@ void InventoryContainer::set_stack(uint32_t layer, uint32_t i, ItemStack stack)
 Inventory::Inventory(std::shared_ptr<InventoryContainer> container)
     : m_container(container)
 {
-    m_grabbed_item_rect = std::make_shared<TextureRect>();
-    m_grabbed_item_rect->set_scale(glm::vec2(0.12) * 0.9f);
+    set_layout(ContainerLayout::Stack);
+    set_expand_vertical(true);
+    set_expand_horizontal(true);
 
-    m_grabbed_item_label = std::make_shared<Label>(Engine::get().get_font());
-    m_grabbed_item_label->set_scale(glm::vec2(0.12) * 0.8f);
+    m_grabbed_item_rect = std::make_shared<TextureRectWidget>();
+    m_grabbed_item_rect->set_size(Point(Size::px(90), Size::px(90)));
+
+    m_grabbed_item_label = std::make_shared<LabelWidget>(Engine::get().get_font());
+    // m_grabbed_item_label->set_scale(glm::vec2(0.12) * 0.8f);
 }
 
 void Inventory::update(float d)
 {
-    Container::update(d);
+    Widget::update(d);
 
     for (const auto& slots : m_grids)
     {
-        for (std::shared_ptr<ItemSlot> is : slots)
+        for (std::shared_ptr<ItemSlotWidget> is : slots)
         {
             ItemStack stack = is->container()->get_stack(is->layer(), is->index());
             if (!stack.item().valid())
@@ -44,25 +49,6 @@ void Inventory::update(float d)
             is->set_item(stack.item());
             is->set_count(stack.count());
         }
-    }
-
-    if (get_grabbed().has_value())
-    {
-        m_grabbed_item_label->update(d);
-    }
-}
-
-void Inventory::draw(const RenderPass& pass)
-{
-    Container::draw(pass);
-
-    if (m_grabbed_stack.has_value())
-    {
-        m_grabbed_item_rect->set_position(Input::get_mouse_absolute());
-        m_grabbed_item_label->set_position(Input::get_mouse_absolute());
-
-        m_grabbed_item_rect->draw(pass);
-        m_grabbed_item_label->draw(pass);
     }
 }
 
@@ -106,38 +92,48 @@ void Inventory::grab_cancel()
     }
 }
 
-void Inventory::add_grid(uint32_t w, uint32_t h, uint32_t layer, glm::vec2 pos, InventoryContainer *container)
+void Inventory::add_grid(uint32_t w, uint32_t h, uint32_t layer, Point offset, InventoryContainer *container)
 {
     if (container == nullptr)
     {
         container = m_container.get();
     }
 
-    std::vector<std::shared_ptr<ItemSlot>> slots;
+    std::vector<std::shared_ptr<ItemSlotWidget>> slots;
     slots.reserve(w * h);
 
-    constexpr float slot_size = 0.12f;
-    constexpr float slot_margin = 0.04f;
-    constexpr float slot_tsize = slot_size + slot_margin;
+    std::shared_ptr<Widget> super_container = std::make_shared<Widget>();
+    super_container->set_size(Point(Size::percent(100.0), Size::percent(100.0)));
+    super_container->set_alignment(ContainerAlignment::Center);
 
-    float offset_x = -(slot_tsize * float(w)) / 2.0f + slot_tsize / 2.0f + pos.x;
-    float offset_y = -(slot_tsize * float(h)) / 2.0f + slot_tsize / 2.0f + pos.y;
-    for (size_t x = 0; x < w; x++)
-        for (size_t y = 0; y < h; y++)
+    std::shared_ptr<Widget> grid_container = std::make_shared<Widget>();
+    grid_container->set_layout(ContainerLayout::Vertical);
+    grid_container->set_spacing(Point(Size::px(0), Size::px(10)));
+    grid_container->set_offset(offset);
+    super_container->add_child(grid_container);
+
+    for (int32_t y = 0; y < int32_t(h); y++)
+    {
+        std::shared_ptr<Widget> line_container = std::make_shared<Widget>();
+        line_container->set_spacing(Point(Size::px(10), Size::px(0)));
+
+        for (int32_t x = 0; x < int32_t(w); x++)
         {
-            std::shared_ptr<ItemSlot> item_slot = std::make_shared<ItemSlot>(layer, x + y * w, this, container);
-            item_slot->set_position(glm::vec2(offset_x, offset_y) + glm::vec2(float(x) * slot_tsize, float(y) * slot_tsize));
-            add_child(item_slot);
+            std::shared_ptr<ItemSlotWidget> item_slot = std::make_shared<ItemSlotWidget>(layer, x + y * w, this, container);
+            line_container->add_child(item_slot);
             slots.push_back(item_slot);
         }
 
+        grid_container->add_child(line_container);
+    }
+
     m_grids.push_back(slots);
+    add_child(super_container);
 }
 
 void Inventory::add_background()
 {
-    std::shared_ptr<ColorRect> background = std::make_shared<ColorRect>();
-    background->set_scale(glm::vec2(2.5, 1.5));
+    std::shared_ptr<ColorRectWidget> background = std::make_shared<ColorRectWidget>();
     background->set_color(Color(0.15));
     add_child(background);
 }

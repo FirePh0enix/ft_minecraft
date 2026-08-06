@@ -3,11 +3,10 @@
 #include "Entity/Camera.hpp"
 #include "Entity/Entity.hpp"
 #include "Entity/LivingEntity.hpp"
+#include "Input.hpp"
 #include "Inventory/Inventory.hpp"
 #include "Inventory/PlayerInventory.hpp"
 #include "Model.hpp"
-#include "UI/Chat.hpp"
-#include "UI/Container.hpp"
 
 enum class GameMode
 {
@@ -16,25 +15,6 @@ enum class GameMode
 };
 
 class Player;
-
-class DebugMenuContainer : public Container
-{
-    CLASS(DebugMenuContainer, Container);
-
-public:
-    DebugMenuContainer(Player *player);
-
-    virtual void update(float d) override;
-
-private:
-    Player *m_player;
-
-    std::shared_ptr<Label> m_memory_label;
-    std::shared_ptr<Label> m_gpu_objects_label;
-    std::shared_ptr<Label> m_perfomance_label;
-    std::shared_ptr<Label> m_time_label;
-    std::shared_ptr<Label> m_position_label;
-};
 
 class Player : public LivingEntity
 {
@@ -120,13 +100,7 @@ private:
 
     std::optional<std::shared_ptr<Inventory>> m_opened_inventory;
 
-    bool m_open_chat = false;
-    std::shared_ptr<Chat> m_chat;
-
     std::string m_username;
-
-    bool m_open_debug_menu = false;
-    std::shared_ptr<DebugMenuContainer> m_debug_menu;
 
     /**
      * Player class is a little special since its behavor is different if this is the local or remote.
@@ -138,5 +112,8 @@ private:
     glm::i64vec3 m_destroy_block_pos = glm::i64vec3();
     bool m_is_destroing = false;
 
-    bool are_input_available() { return Input::is_mouse_grabbed() && !m_opened_inventory.has_value() && !m_open_chat; }
+    bool are_input_available()
+    {
+        return Input::is_mouse_grabbed() && !m_opened_inventory.has_value();
+    }
 };

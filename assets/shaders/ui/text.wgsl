@@ -31,19 +31,19 @@ struct VertexOutput {
 @vertex
 fn vertex_main(in: VertexInput) -> VertexOutput {
     var uvs: array<vec2f, 4>;
-    uvs[0] = vec2f(in.bounds.x, in.bounds.z);
-    uvs[1] = vec2f(in.bounds.y, in.bounds.z);
-    uvs[2] = vec2f(in.bounds.y, in.bounds.w);
-    uvs[3] = vec2f(in.bounds.x, in.bounds.w);
+    uvs[3] = vec2f(in.bounds.x, in.bounds.z);
+    uvs[2] = vec2f(in.bounds.y, in.bounds.z);
+    uvs[1] = vec2f(in.bounds.y, in.bounds.w);
+    uvs[0] = vec2f(in.bounds.x, in.bounds.w);
 
     let matrix = mat4x4f(
         in.scale.x * uniforms.scale.x, 0.0, 0.0, 0.0,
         0.0, -in.scale.y * uniforms.scale.y, 0.0, 0.0,
         0.0, 0.0, 1.0, 0.0,
-        in.char_pos.x * uniforms.scale.x + uniforms.position.x, in.char_pos.y * uniforms.scale.x + uniforms.position.y - (in.char_pos.y * uniforms.scale.x) / 2.0, uniforms.position.z, 1.0
+        in.char_pos.x + uniforms.position.x, in.char_pos.y + uniforms.position.y, uniforms.position.z, 1.0
     );
     var out: VertexOutput;
-    out.position = env.matrix * matrix * vec4f(in.pos, 1.0);
+    out.position = env.matrix * matrix * vec4f(in.pos.xy, 0.1, 1.0);
     out.tex_coords = uvs[in.vertex_index];
     out.color = uniforms.color;
     return out;

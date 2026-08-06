@@ -51,7 +51,7 @@ Engine::Engine(bool disable_save)
     EXPECT(m_renderer.init(*m_window, flags));
 
     EXPECT(Font::init_library());
-    m_font = EXPECT(Font::create("assets/fonts/Anonymous.ttf", 32));
+    m_font = EXPECT(Font::create("assets/fonts/Anonymous.ttf", 64));
 
     m_console.register_command("tp", {CmdArgInfo(CmdArgKind::Int, "x"), CmdArgInfo(CmdArgKind::Int, "y"), CmdArgInfo(CmdArgKind::Int, "z")},
                                [](const Command& cmd)

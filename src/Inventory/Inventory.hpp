@@ -2,7 +2,6 @@
 
 #include "Core/Class.hpp"
 #include "Item/ItemStack.hpp"
-#include "UI/Container.hpp"
 #include "UI/ItemSlot.hpp"
 
 class Inventory;
@@ -36,15 +35,14 @@ struct InventoryOrigin
     InventoryContainer *container;
 };
 
-class Inventory : public Container
+class Inventory : public Widget
 {
-    CLASS(Inventory, Container);
+    CLASS(Inventory, Widget);
 
 public:
     Inventory(std::shared_ptr<InventoryContainer> container);
 
     virtual void update(float d) override;
-    virtual void draw(const RenderPass& pass) override;
 
     /**
      * Callback for when a itemstack is placed into a slot. This functions is called before modifying the content of the
@@ -81,14 +79,14 @@ public:
 
     void grab_cancel();
 
-    void add_grid(uint32_t w, uint32_t h, uint32_t layer, glm::vec2 pos = glm::vec2(), InventoryContainer *container = nullptr);
+    void add_grid(uint32_t w, uint32_t h, uint32_t layer, Point offset = Point(), InventoryContainer *container = nullptr);
     void add_background();
 
 protected:
-    std::shared_ptr<TextureRect> m_grabbed_item_rect;
-    std::shared_ptr<Label> m_grabbed_item_label;
+    std::shared_ptr<TextureRectWidget> m_grabbed_item_rect;
+    std::shared_ptr<LabelWidget> m_grabbed_item_label;
 
-    std::vector<std::vector<std::shared_ptr<ItemSlot>>> m_grids;
+    std::vector<std::vector<std::shared_ptr<ItemSlotWidget>>> m_grids;
 
     std::optional<ItemStack> m_grabbed_stack;
     InventoryOrigin m_grabbed_from;

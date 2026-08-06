@@ -4,6 +4,7 @@ struct Env {
 
 struct Uniforms {
     matrix: mat4x4f,
+    color: vec4f,
 }
 
 struct VertexOutput {
@@ -24,12 +25,12 @@ fn vertex_main(
 ) -> VertexOutput {
     var out: VertexOutput;
     out.position = env.matrix * uniforms.matrix * vec4(position, 1.0);
-    out.uv = vec2f(uv.x, 1.0 - uv.y);
+    out.uv = vec2f(uv.x, uv.y);
     return out;
 }
 
 @fragment
 fn fragment_main(in: VertexOutput) -> @location(0) vec4f {
     var color = textureSample(image, image_sampler, in.uv);
-    return color;
+    return color * uniforms.color;
 }

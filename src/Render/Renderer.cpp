@@ -5,6 +5,7 @@
 #include "Core/Filesystem.hpp"
 #include "Core/Math.hpp"
 #include "Core/Result.hpp"
+#include "Core/Stacktrace.hpp"
 #include "Engine.hpp"
 #include "Entity/Entity.hpp"
 #include "Profiler.hpp"
@@ -939,9 +940,10 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
         .nextInChain = nullptr,
         .callback = [](const WGPUDevice *, WGPUErrorType, WGPUStringView message, void *, void *)
         {
-            std::string s;
-            s.append(message.data, message.length);
-            println("{}", s);
+            println("{}", std::string_view(message.data, message.length));
+
+            Stacktrace::record();
+            Stacktrace::current().print();
         },
         .userdata1 = nullptr,
         .userdata2 = nullptr,
@@ -977,7 +979,7 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
 
     m_texture_rect_shader = TRY(Shader::load_from_path("assets/shaders/ui/texture_rect.wgsl"));
     m_texture_rect_shader->set_binding("env", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
-    m_texture_rect_shader->set_binding("uniforms", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 1, BindingAccess::Read));
+    m_texture_rect_shader->set_binding("uniforms", Binding::UniformBuffer(WGPUShaderStage_Vertex | WGPUShaderStage_Fragment, 0, 1, BindingAccess::Read));
     m_texture_rect_shader->set_binding("image", Binding::Texture(WGPUShaderStage_Fragment, 0, 2, BindingAccess::Read, WGPUTextureViewDimension_2D));
     m_texture_rect_shader->set_sampler("image", {.min_filter = WGPUFilterMode_Nearest, .mag_filter = WGPUFilterMode_Nearest});
     m_texture_rect_shader->create_bind_group_layout();
@@ -995,7 +997,7 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_preview_block_shader->create_bind_group_layout();
 
     m_missing_texture = TRY(Texture::create(16, 16, WGPUTextureFormat_RGBA8UnormSrgb, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding));
-    m_missing_texture->update(std::span((std::byte *)missing_texture_data, 16 * 16));
+    m_missing_texture->update(std::span((std::byte *)missing_texture_data, 16 * 16 * sizeof(uint32_t)));
 
     // Create resources for SSAO
     std::uniform_real_distribution<float> random_floats(0.0, 1.0);
@@ -1257,7 +1259,7 @@ void Renderer::configure_surface(size_t width, size_t height, VSync vsync)
     m_fw_color_texture = EXPECT(Texture::create(m_surface_extent.width, m_surface_extent.height, WGPUTextureFormat_BGRA8Unorm, WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_TextureBinding));
 
     float ratio = float(width) / float(height);
-    glm::mat4 ortho_matrix = glm::ortho(-1.0f * ratio, 1.0f * ratio, -1.0f, 1.0f, -1.0f, 1.0f);
+    glm::mat4 ortho_matrix = glm::ortho(0.0f, 1.0f * ratio, 1.0f, 0.0f, -1.0f, 1.0f);
     m_env_2d_buffer->update_struct(ortho_matrix);
 
     m_fw_pp_bg->set_param("albedo", m_fw_color_texture);
@@ -1517,7 +1519,7 @@ void Renderer::draw_forward(const std::shared_ptr<World>& world)
     shadowmap_pass_desc.depthStencilAttachment = &shadowmap_attach;
 
     WGPURenderPassEncoder shadowmap_pass = wgpuCommandEncoderBeginRenderPass(encoder, &shadowmap_pass_desc);
-    draw_world(world, RenderPass(shadowmap_pass, RenderTarget(m_fw_shadowmap->format()), {}), WorldFlagBits::Shadowmap, world->get_dimension(0).get_sun_visible_chunks());
+    // draw_world(world, RenderPass(shadowmap_pass, RenderTarget(m_fw_shadowmap->format()), {}), WorldFlagBits::Shadowmap, world->get_dimension(0).get_sun_visible_chunks());
     wgpuRenderPassEncoderEnd(shadowmap_pass);
     wgpuRenderPassEncoderRelease(shadowmap_pass);
 

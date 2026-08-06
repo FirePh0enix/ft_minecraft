@@ -1,34 +1,37 @@
 #include "UI/ItemSlot.hpp"
 
+#include "Color.hpp"
 #include "Engine.hpp"
 #include "Inventory/Inventory.hpp"
 #include "Item/ItemStack.hpp"
+#include "UI/Widget.hpp"
 #include "World/Registry.hpp"
 
 #include <cstddef>
 #include <format>
 
-ItemSlot::ItemSlot(uint32_t layer, uint32_t index, Inventory *inventory, InventoryContainer *container)
+ItemSlotWidget::ItemSlotWidget(uint32_t layer, uint32_t index, Inventory *inventory, InventoryContainer *container)
     : m_count(0), m_layer(layer), m_index(index), m_container(container), m_inventory(inventory)
 {
-    m_background = std::make_shared<ColorRect>();
-    set_scale(glm::vec2(0.12));
+    set_alignment(ContainerAlignment::Center);
+    set_layout(ContainerLayout::Stack);
 
-    m_item_rect = std::make_shared<TextureRect>();
-    m_label = std::make_shared<Label>(Engine::get().get_font());
+    m_background = std::make_shared<ColorRectWidget>();
+    m_background->set_color(Colors::blue);
+    m_background->set_size(Point(Size::px(80), Size::px(80)));
+    add_child(m_background);
+
+    m_item_rect = std::make_shared<TextureRectWidget>();
+    m_item_rect->set_size(Point(Size::px(72), Size::px(72)));
+    add_child(m_item_rect);
+
+    m_label = std::make_shared<LabelWidget>(Engine::get().get_font());
+    add_child(m_label);
 }
 
-void ItemSlot::update(float d)
+void ItemSlotWidget::update(float d)
 {
-    m_background->set_position(m_position);
-    m_background->set_scale(m_scale);
-
-    m_item_rect->set_position(m_position);
-    m_item_rect->set_scale(m_scale * 0.9f);
-
-    m_label->set_position(m_position + glm::vec2(0.01f, -0.03f));
-    m_label->set_scale(m_scale * 0.5f);
-    m_label->update(d);
+    Widget::update(d);
 
     if (is_mouse_hovering())
         m_background->set_color(Colors::red);
@@ -95,13 +98,13 @@ void ItemSlot::update(float d)
     }
 }
 
-void ItemSlot::process_event(Event& event)
+void ItemSlotWidget::process_event(Event& event)
 {
     if (event.handled)
         return;
 }
 
-void ItemSlot::draw(const RenderPass& pass)
+void ItemSlotWidget::draw(const RenderPass& pass)
 {
     m_background->draw(pass);
 
@@ -112,15 +115,22 @@ void ItemSlot::draw(const RenderPass& pass)
     }
 }
 
-void ItemSlot::set_item(Id<Item> item)
+void ItemSlotWidget::set_item(Id<Item> item)
 {
     m_item = item;
 
     if (item.valid())
+    {
         m_item_rect->set_texture(Engine::get().registry().get_texture(item));
+        m_item_rect->set_visible(true);
+    }
+    else
+    {
+        m_item_rect->set_visible(false);
+    }
 }
 
-void ItemSlot::set_count(size_t count)
+void ItemSlotWidget::set_count(size_t count)
 {
     std::string text = std::format("{}", count);
     m_label->set_text(text);

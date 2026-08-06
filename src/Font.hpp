@@ -55,7 +55,7 @@ public:
     inline std::optional<Character> get_character(uint8_t c)
     {
         auto iter = m_characters.find(c);
-        if (iter == m_characters.end())
+        if (iter != m_characters.end())
             return iter->second;
         return std::nullopt;
     }
@@ -81,7 +81,7 @@ public:
     Text(std::shared_ptr<Font> font);
     Text(size_t capacity, std::shared_ptr<Font> font);
 
-    Text(const std::string& text, std::shared_ptr<Font> font)
+    Text(std::string_view text, std::shared_ptr<Font> font)
         : Text(text.size(), font)
     {
         set(text);
@@ -91,13 +91,16 @@ public:
     {
     }
 
-    void set(const std::string& text);
+    void set(std::string_view text);
 
     void set_position(glm::vec3 position);
     void set_scale(glm::vec2 scale);
     void set_color(glm::vec4 color);
 
     void draw(const RenderPass& pass);
+
+    int32_t get_width() const;
+    int32_t get_height() const;
 
 private:
     std::shared_ptr<Font> m_font;
@@ -107,6 +110,8 @@ private:
     std::shared_ptr<BindGroup> m_bg;
     Font::Uniform m_uniform;
     std::shared_ptr<Buffer> m_uniform_buffer;
+
+    int32_t m_width_x;
 
     void update_uniform_buffer();
 };

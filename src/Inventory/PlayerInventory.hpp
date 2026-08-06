@@ -2,19 +2,18 @@
 
 #include "Inventory/Inventory.hpp"
 #include "Item/ItemStack.hpp"
-#include "UI/Container.hpp"
 #include "UI/ItemSlot.hpp"
-#include "UI/UI.hpp"
+#include "UI/Widget.hpp"
 
 constexpr size_t inventory_width = 9;
 constexpr size_t inventory_height = 3;
 
-class QuickSlot : public UI
+class QuickSlotWidget : public Widget
 {
-    CLASS(QuickSlot, UI);
+    CLASS(QuickSlot, Widget);
 
 public:
-    QuickSlot();
+    QuickSlotWidget();
 
     virtual void update(float d) override;
     virtual void process_event(Event& event) override { (void)event; }
@@ -26,9 +25,9 @@ public:
     void set_selected(bool b) { m_selected = b; }
 
 private:
-    std::shared_ptr<ColorRect> m_background;
-    std::shared_ptr<TextureRect> m_item_rect;
-    std::shared_ptr<Label> m_label;
+    std::shared_ptr<ColorRectWidget> m_background;
+    std::shared_ptr<TextureRectWidget> m_item_rect;
+    std::shared_ptr<LabelWidget> m_label;
     Id<Item> m_item;
     size_t m_count;
     bool m_selected = false;
@@ -43,7 +42,6 @@ public:
 
     virtual void update(float d) override;
     virtual void process_event(Event& event) override { (void)event; }
-    virtual void draw(const RenderPass& pass) override;
 
     void draw_toolbar(const RenderPass& pass);
 
@@ -60,8 +58,8 @@ public:
     void consume_ingredients();
 
 private:
-    std::array<std::shared_ptr<QuickSlot>, inventory_width> m_quick_slots;
-    std::shared_ptr<Container> m_quick_slots_container;
+    std::array<std::shared_ptr<QuickSlotWidget>, inventory_width> m_quick_slots;
+    std::shared_ptr<Widget> m_quick_slots_container;
 
     size_t m_selected_slot = 0;
     bool m_dirty = false;

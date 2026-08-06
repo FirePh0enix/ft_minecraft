@@ -60,7 +60,7 @@ void from_json(const nlohmann::json& j, Keyframe& m)
     j.at("transforms").get_to(m.transforms);
 }
 
-struct Animation
+struct ModelAnimation
 {
     std::string name;
     uint32_t fps;
@@ -68,7 +68,7 @@ struct Animation
     std::vector<Keyframe> keyframes;
 };
 
-void from_json(const nlohmann::json& j, Animation& m)
+void from_json(const nlohmann::json& j, ModelAnimation& m)
 {
     j.at("name").get_to(m.name);
     j.at("fps").get_to(m.fps);
@@ -82,7 +82,7 @@ struct ModelJSON
     std::array<float, 2> texture_size;
     std::string texture_path;
     std::vector<ModelObject> objects;
-    std::vector<Animation> animations;
+    std::vector<ModelAnimation> animations;
 };
 
 void from_json(const nlohmann::json& j, ModelJSON& m)
