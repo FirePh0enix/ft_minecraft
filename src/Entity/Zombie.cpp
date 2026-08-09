@@ -115,7 +115,7 @@ void Zombie::tick(float delta)
 
 void Zombie::on_ready()
 {
-    m_model = EXPECT(Model::load("assets/models/player.json"));
+    m_model = EXPECT(Model::load("assets/models/zombie.json"));
     m_id = World::next_id();
     m_pathfinding = std::make_unique<Pathfinding>(m_world);
 }
