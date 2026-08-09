@@ -629,10 +629,10 @@ void World::load_player(std::string_view username, std::shared_ptr<Player>& play
     EXPECT(serializer.load(path));
 
     glm::vec3 position = serializer.get<glm::vec3>("position").value_or(get_spawn_position());
-    glm::quat rotation = serializer.get<glm::quat>("rotation").value_or({});
+    // glm::quat rotation = serializer.get<glm::quat>("rotation").value_or({});
 
     player->set_position(position);
-    player->set_rotation(rotation);
+    // player->set_rotation(rotation);
     player->load(serializer);
 }
 

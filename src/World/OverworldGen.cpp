@@ -51,7 +51,7 @@ void OverworldGen::generate_chunk(std::shared_ptr<Chunk> chunk)
             elevation -= lakes_s0 * 15.0f;
 
             int64_t height = int64_t(elevation);
-            height = std::min(height, 255l);
+            height = std::min(height, (int64_t)255l);
 
             int64_t y = 0;
             for (; y < height - 3; y++)
