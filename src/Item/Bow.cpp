@@ -5,6 +5,11 @@
 #include "Entity/Arrow.hpp"
 #include "World/Registry.hpp"
 #include "World/World.hpp"
+#include <memory>
+
+constexpr float ARROW_SPEED = 2.0f;
+
+
 
 BowItem::BowItem()
 {
@@ -40,10 +45,15 @@ void BowItem::on_release(World& world, size_t dimension, ItemStack& stack, glm::
         return;
     }
 
-    Ref<ArrowEntity> arrow = newref<ArrowEntity>(Items::stone_block);
+    std::shared_ptr<ArrowEntity> arrow = std::make_shared<ArrowEntity>(Items::arrow);
     auto arrow_pos = pos;
     arrow_pos.z += 1.0f;
+    arrow_pos.y += 1.0f;
     arrow->get_transform().position() = arrow_pos;
-    arrow->m_dir = dir * power;
+    const glm::vec3 norm_dir = safe_normalize(dir);
+    const glm::vec3 velocity = norm_dir * (ARROW_SPEED * power);
+    arrow->set_velocity(velocity);
+    arrow->get_transform().rotation() = glm::quatLookAt(norm_dir, glm::vec3(0.0f, 1.0f, 0.0f));
+
     world.add_entity(dimension, arrow);
 }

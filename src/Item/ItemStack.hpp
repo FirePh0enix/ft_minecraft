@@ -43,7 +43,15 @@ public:
     void remove_tag(const std::string& name) { m_tags.erase(m_tags.find(name)); }
 
     template <typename T>
-    std::optional<T> get_tag(const std::string& name) const { return m_tags.find(name)->second; }
+    std::optional<T> get_tag(const std::string& name) const
+    {
+        auto opt = m_tags.find(name);
+
+        if (opt == m_tags.end())
+            return {};
+
+        return opt->second.get_unchecked<T>();
+    }
 
     const std::map<std::string, Variant>& get_tags() const { return m_tags; }
 

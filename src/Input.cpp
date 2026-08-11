@@ -99,13 +99,13 @@ bool Input::is_action_just_pressed(std::string_view action)
     return status_opt->second.value > 0.0 && !status_opt->second.repeat;
 }
 
-bool Input::is_action_just_released(const StringView& action)
+bool Input::is_action_just_released(const std::string_view& action)
 {
-    Option<Status> status_opt = s_actions.get(action);
-    if (!status_opt.has_value())
+    auto status_opt = s_actions.find(action);
+    if (status_opt == s_actions.end())
         return false;
 
-    return status_opt.value().released;
+    return status_opt->second.released;
 }
 
 float Input::get_action_value(std::string_view action)
@@ -118,10 +118,15 @@ float Input::get_action_value(std::string_view action)
 
 void Input::set_action_value(std::string_view action, float value)
 {
-    s_actions[std::string(action)].value = value;
+    auto& status = s_actions[std::string(action)];
 
-    if (value == 0.0)
-        s_actions[std::string(action)].repeat = false;
+    if (status.value > 0.0f && value == 0.0f)
+        status.released = true;
+
+    status.value = value;
+
+    if (value == 0.0f)
+        status.repeat = false;
 }
 
 glm::vec2 Input::get_vector(std::string_view x_negative, std::string_view x_positive, std::string_view y_negative, std::string_view y_positive)

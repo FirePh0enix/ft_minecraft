@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Item/Item.hpp"
+#include "Core/Math.hpp"
 
 class BowItem : public Item
 {

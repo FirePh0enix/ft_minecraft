@@ -24,7 +24,6 @@ public:
     void flee_to(const glm::ivec3& to);
     bool verify_if_path_still_valid();
     glm::ivec3 find_random_walkable_position(int radius, const glm::vec3& preferred_dir = glm::vec3(0.0f));
-    glm::vec3 safe_normalize(const glm::vec3& v);
 
 protected:
     std::shared_ptr<Model> m_model;

@@ -40,7 +40,7 @@ public:
 
     static bool is_action_pressed(std::string_view action);
     static bool is_action_just_pressed(std::string_view action);
-    static bool is_action_just_released(const StringView& action);
+    static bool is_action_just_released(const std::string_view& action);
 
     static float get_action_value(std::string_view action);
 
