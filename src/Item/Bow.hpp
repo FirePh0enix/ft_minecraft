@@ -5,7 +5,7 @@
 
 class BowItem : public Item
 {
-    CLASS(Bow, Item);
+    CLASS(BowItem, Item);
 
 public:
     BowItem();

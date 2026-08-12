@@ -13,7 +13,7 @@ constexpr float ARROW_SPEED = 2.0f;
 
 BowItem::BowItem()
 {
-    set_texture(Engine::get().registry().create_texture("assets/textures/snow.png"));
+    set_texture(Engine::get().registry().create_texture("assets/textures/bow.png"));
 }
 
 void BowItem::interact(World& world, size_t dimension, ItemStack& stack, glm::i64vec3 pos, glm::i64vec3 normal, InventoryContainer& inventory)

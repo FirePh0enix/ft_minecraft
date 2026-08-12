@@ -52,6 +52,7 @@ list(APPEND SOURCES
     src/Item/Item.cpp
     src/Item/ItemStack.cpp
     src/Item/Bow.cpp
+    src/Item/Arrow.cpp
     src/Network/Network.cpp
     src/Network/Packet.cpp
     src/Render/Shader.cpp
