@@ -35,6 +35,7 @@ list(APPEND SOURCES
     src/Core/Filesystem.cpp
     src/Core/IO.cpp
     src/Core/ThreadPool.cpp
+    src/Core/ZLib.cpp
     src/Entity/Camera.cpp
     src/Entity/Entity.cpp
     src/Entity/Item.cpp

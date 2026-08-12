@@ -324,7 +324,7 @@ void Engine::create_world_and_start()
     }
 
     // TODO: Add way to personalize username.
-    std::string username = "john";
+    const std::string_view username = "john";
 
     m_player = std::make_shared<Player>();
     m_player->set_username(username);
@@ -335,7 +335,7 @@ void Engine::create_world_and_start()
     else
         m_player->get_transform().position() = m_world->get_spawn_position();
 
-    m_world->force_load_chunk_for(m_player->get_position());
+    // m_world->force_load_chunk_for(m_player->get_position());
 
     // std::shared_ptr<Entity> cow = EXPECT(std::make_shared<Cow>());
     // cow->get_transform().position() = m_player->get_position();

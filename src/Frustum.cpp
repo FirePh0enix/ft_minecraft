@@ -48,7 +48,7 @@ void Frustum::normalize_plane(size_t side)
     m_planes[side][3] /= magnitude;
 }
 
-bool Frustum::contains(const AABB& aabb) const
+bool Frustum::contains(const AABBf& aabb) const
 {
     for (size_t i = 0; i < 6; i++)
     {

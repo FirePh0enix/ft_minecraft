@@ -11,10 +11,11 @@ struct CollisionResult
 /**
  * Axis-Aligned Bounding Box.
  */
+template <typename T>
 struct AABB
 {
-    glm::vec3 min;
-    glm::vec3 max;
+    glm::vec<3, T> min;
+    glm::vec<3, T> max;
 
     AABB()
         : min(0.0), max(0.0)
@@ -144,3 +145,6 @@ struct AABB
         return d;
     }
 };
+
+using AABBf = AABB<float>;
+using AABBi = AABB<int64_t>;

@@ -1,6 +1,5 @@
 #pragma once
 
-#include "Core/IO.hpp"
 #include "Core/Types.hpp"
 #include "Entity/Camera.hpp"
 #include "Entity/Entity.hpp"
@@ -89,14 +88,6 @@ struct ChunkLoadRequest
     int64_t z;
 };
 
-struct ChunkLoadElement
-{
-    ChunkPos pos;
-    float distance = 0.0f;
-
-    bool operator<(const ChunkLoadElement& other) const { return distance < other.distance; }
-};
-
 class World
 {
     friend class Generator;
@@ -139,16 +130,6 @@ public:
     void remove_entity(size_t dim, EntityId entity)
     {
         m_dims[dim].remove_entity(entity);
-    }
-
-    void add_chunk(int64_t x, int64_t z, std::shared_ptr<Chunk> chunk)
-    {
-        m_dims[0].add_chunk(x, z, chunk);
-    }
-
-    bool is_chunk_loaded(int64_t x, int64_t z) const
-    {
-        return m_dims[0].has_chunk(x, z);
     }
 
     uint64_t seed() const { return m_seed; }
@@ -210,13 +191,10 @@ public:
      */
     void load_player(std::string_view name, std::shared_ptr<Player>& player);
 
-    void queue_load_chunk(ChunkPos pos);
     void queue_receive_chunk(const ChunkDataPacket& p);
 
     void send_chunk(ENetPeer *peer, const std::shared_ptr<Chunk>& chunk) const;
     void receive_chunk(const ChunkDataPacket& p);
-
-    void force_load_chunk_for(glm::vec3 position);
 
     bool is_player_saved(std::string_view name) const;
 
@@ -236,8 +214,8 @@ private:
     std::array<Dimension, max_dimensions> m_dims;
 
     // TODO: needs to be 16
-    int32_t m_load_distance = 20;
-    std::vector<ChunkLoadElement> m_load_buffer;
+    int64_t m_load_distance = 20;
+    // std::vector<ChunkLoadElement> m_load_buffer;
 
     std::vector<ChunkLoadRequest> m_load_requests;
 
@@ -249,13 +227,4 @@ private:
     void find_safe_spawn();
     void load_around_player();
     void request_load_around();
-
-    void load_one_chunk(ChunkPos pos);
-    void unload_one_chunk(ChunkPos pos);
-
-    void write_tags(Writer& writer, const std::shared_ptr<Chunk>& chunk) const;
-    void read_tags(Reader& reader, std::shared_ptr<Chunk>& chunk) const;
-
-    void deflate_data(const uint8_t *data, size_t size, std::vector<uint8_t>& compressed_data) const;
-    void inflate_data(const uint8_t *compressed_data, size_t compressed_data_size, std::vector<uint8_t>& uncompressed_data) const;
 };

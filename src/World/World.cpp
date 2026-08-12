@@ -1,6 +1,7 @@
 #include "World/World.hpp"
 #include "AABB.hpp"
 #include "Core/Filesystem.hpp"
+#include "Core/ZLib.hpp"
 #include "Engine.hpp"
 #include "Entity/Entity.hpp"
 #include "Entity/Item.hpp"
@@ -10,8 +11,6 @@
 #include "World/Settings.hpp"
 
 #include <SDL3/SDL.h>
-#include <queue>
-#include <zlib.h>
 
 #include <algorithm>
 #include <cstdlib>
@@ -21,7 +20,7 @@
 #include <mutex>
 
 // https://gamedev.stackexchange.com/questions/18436/most-efficient-aabb-vs-ray-collision-algorithms
-static bool ray_intersect_aabb(const Ray& ray, const AABB& aabb, float& t_min, glm::vec3& normal)
+static bool ray_intersect_aabb(const Ray& ray, const AABBf& aabb, float& t_min, glm::vec3& normal)
 {
     glm::vec3 inv_dir = 1.0f / ray.dir();
     glm::vec3 t0s = (aabb.min - ray.origin()) * inv_dir;
@@ -117,6 +116,7 @@ Result<std::shared_ptr<World>> World::create(std::string name, uint64_t seed, in
     world->m_seed = seed;
     world->m_name = name;
 
+    world->m_dims[overworld].m_world = world.get();
     world->m_dims[overworld].m_gen = std::make_shared<OverworldGen>(WorldSettings{});
 
     // world->find_safe_spawn();
@@ -144,6 +144,7 @@ Result<std::shared_ptr<World>> World::create_proxy(uint64_t seed)
     std::shared_ptr<World> world = std::make_shared<World>();
     world->m_seed = seed;
     world->m_proxy = true;
+    world->m_dims[overworld].m_world = world.get();
     return world;
 }
 
@@ -166,6 +167,7 @@ Result<std::shared_ptr<World>> World::load(std::string name)
 
     world->m_name = name;
 
+    world->m_dims[overworld].m_world = world.get();
     world->m_dims[overworld].m_gen = std::make_shared<OverworldGen>(WorldSettings{});
 
     return world;
@@ -234,7 +236,7 @@ void World::tick(float delta)
     std::set<ChunkPos> chunk_modified;
 
     {
-        std::lock_guard<std::mutex> lock(m_dims[0].mutex());
+        std::lock_guard<std::mutex> lock(m_dims[0].m_chunk_mutex);
 
         for (auto& [pos, chunk] : m_dims[0].m_chunks_to_flush)
         {
@@ -294,8 +296,8 @@ void World::tick(float delta)
     for (const auto& [key, chunk] : m_dims[0].m_chunks)
     {
         ChunkPos pos = chunk->pos();
-        AABB aabb = AABB(-glm::vec3(Chunk::width / 2.0, Chunk::height / 2.0, Chunk::width / 2), glm::vec3(Chunk::width / 2.0, Chunk::height / 2.0, Chunk::width / 2))
-                        .translate(glm::vec3((float)pos.x * Chunk::width + Chunk::width / 2.0, float(Chunk::height) / 2.0, (float)pos.z * Chunk::width + Chunk::width / 2.0));
+        AABBf aabb = AABBf(-glm::vec3(Chunk::width / 2.0, Chunk::height / 2.0, Chunk::width / 2), glm::vec3(Chunk::width / 2.0, Chunk::height / 2.0, Chunk::width / 2))
+                         .translate(glm::vec3((float)pos.x * Chunk::width + Chunk::width / 2.0, float(Chunk::height) / 2.0, (float)pos.z * Chunk::width + Chunk::width / 2.0));
 
         if (!m_camera->frustum().contains(aabb))
             continue;
@@ -303,8 +305,8 @@ void World::tick(float delta)
         for (size_t i = 0; i < Chunk::slice_count; i++)
         {
             ChunkPos pos = chunk->pos();
-            AABB aabb = AABB(-glm::vec3(Chunk::width / 2.0, Chunk::width / 2.0, Chunk::width / 2), glm::vec3(Chunk::width / 2.0, Chunk::width / 2.0, Chunk::width / 2))
-                            .translate(glm::vec3((float)pos.x * Chunk::width + Chunk::width / 2.0, (float)i * Chunk::width + Chunk::width / 2.0, (float)pos.z * Chunk::width + Chunk::width / 2.0));
+            AABBf aabb = AABBf(-glm::vec3(Chunk::width / 2.0, Chunk::width / 2.0, Chunk::width / 2), glm::vec3(Chunk::width / 2.0, Chunk::width / 2.0, Chunk::width / 2))
+                             .translate(glm::vec3((float)pos.x * Chunk::width + Chunk::width / 2.0, (float)i * Chunk::width + Chunk::width / 2.0, (float)pos.z * Chunk::width + Chunk::width / 2.0));
 
             if (!m_camera->frustum().contains(aabb) || (chunk->get_slices()[i].mesh == nullptr && chunk->get_slices()[i].water_mesh == nullptr))
                 continue;
@@ -317,8 +319,8 @@ void World::tick(float delta)
     for (const auto& [key, chunk] : m_dims[0].m_chunks)
     {
         ChunkPos pos = chunk->pos();
-        AABB aabb = AABB(-glm::vec3(Chunk::width / 2.0, Chunk::height / 2.0, Chunk::width / 2), glm::vec3(Chunk::width / 2.0, Chunk::height / 2.0, Chunk::width / 2))
-                        .translate(glm::vec3((float)pos.x * Chunk::width + Chunk::width / 2.0, float(Chunk::height) / 2.0, (float)pos.z * Chunk::width + Chunk::width / 2.0));
+        AABBf aabb = AABBf(-glm::vec3(Chunk::width / 2.0, Chunk::height / 2.0, Chunk::width / 2), glm::vec3(Chunk::width / 2.0, Chunk::height / 2.0, Chunk::width / 2))
+                         .translate(glm::vec3((float)pos.x * Chunk::width + Chunk::width / 2.0, float(Chunk::height) / 2.0, (float)pos.z * Chunk::width + Chunk::width / 2.0));
 
         if (!m_dims[0].m_sun_frustum.contains(aabb))
             continue;
@@ -326,8 +328,8 @@ void World::tick(float delta)
         for (size_t i = 0; i < Chunk::slice_count; i++)
         {
             ChunkPos pos = chunk->pos();
-            AABB aabb = AABB(-glm::vec3(Chunk::width / 2.0, Chunk::width / 2.0, Chunk::width / 2), glm::vec3(Chunk::width / 2.0, Chunk::width / 2.0, Chunk::width / 2))
-                            .translate(glm::vec3((float)pos.x * Chunk::width + Chunk::width / 2.0, (float)i * Chunk::width + Chunk::width / 2.0, (float)pos.z * Chunk::width + Chunk::width / 2.0));
+            AABBf aabb = AABBf(-glm::vec3(Chunk::width / 2.0, Chunk::width / 2.0, Chunk::width / 2), glm::vec3(Chunk::width / 2.0, Chunk::width / 2.0, Chunk::width / 2))
+                             .translate(glm::vec3((float)pos.x * Chunk::width + Chunk::width / 2.0, (float)i * Chunk::width + Chunk::width / 2.0, (float)pos.z * Chunk::width + Chunk::width / 2.0));
 
             if (!m_dims[0].m_sun_frustum.contains(aabb) || chunk->get_slices()[i].mesh == nullptr)
                 continue;
@@ -362,72 +364,10 @@ void World::set_active_camera(std::shared_ptr<Camera> camera)
     m_camera = camera;
 }
 
-static ChunkPos pop_near(std::vector<ChunkLoadElement>& elements)
-{
-    float min_distance = elements[0].distance;
-    size_t min_index = 0;
-    for (size_t i = 1; i < elements.size(); i++)
-    {
-        if (elements[i].distance > min_distance)
-        {
-            min_distance = elements[i].distance;
-            min_index = i;
-        }
-    }
-    ChunkPos pos = elements[min_index].pos;
-    elements.erase(elements.begin() + (ssize_t)min_index);
-    return pos;
-}
-
 void World::load_around_player()
 {
-    const glm::vec3 player_pos = m_camera->get_global_transform().position();
-    int64_t player_cx = int64_t(player_pos.x / 16);
-    int64_t player_cz = int64_t(player_pos.z / 16);
-
-    m_load_buffer.resize(0);
-    for (int64_t cx = -m_load_distance; cx <= m_load_distance; cx++)
-        for (int64_t cz = -m_load_distance; cz <= m_load_distance; cz++)
-        {
-            int64_t x = player_cx + cx;
-            int64_t z = player_cz + cz;
-            ChunkPos pos(x, z);
-
-            {
-                std::lock_guard<std::mutex> lock(m_dims[0].mutex());
-                if (m_dims[0].has_chunk(x, z) || m_dims[0].m_chunks_to_flush.contains(pos))
-                    continue;
-            }
-
-            {
-                std::lock_guard<std::mutex> lock(m_dims[0].m_chunk_loading_mutex);
-                if (m_dims[0].m_chunk_loading_queue.contains(pos))
-                    continue;
-
-                m_dims[0].m_chunk_loading_queue.insert(pos);
-            }
-
-            m_load_buffer.push_back(ChunkLoadElement(pos, glm::distance2(glm::vec2(player_pos.x, player_pos.z), glm::vec2((float)pos.x * 16.0f + 8.0f, (float)pos.z * 16.0f + 8.0f))));
-        }
-
-    const size_t size = m_load_buffer.size();
-    for (size_t i = 0; i < size; i++)
-    {
-        ChunkPos pos = pop_near(m_load_buffer);
-        queue_load_chunk(pos);
-    }
-
-    std::lock_guard<std::mutex> lock(m_dims[0].mutex());
-    for (const auto& [pos, chunk] : m_dims[0].m_chunks)
-    {
-        if (pos.x >= player_cx - m_load_distance && pos.x <= player_cx + m_load_distance && pos.z >= player_cz - m_load_distance && pos.z <= player_cz + m_load_distance)
-        {
-            continue;
-        }
-
-        Engine::get().get_thread_pool().async([this, pos]
-                                              { unload_one_chunk(pos); });
-    }
+    const glm::vec3 camera_pos = m_camera->get_global_transform().position();
+    m_dims[World::overworld].load((int64_t)std::round(camera_pos.x), (int64_t)std::round(camera_pos.y), (int64_t)std::round(camera_pos.z), m_load_distance);
 }
 
 void World::request_load_around()
@@ -445,7 +385,7 @@ void World::request_load_around()
             ChunkPos pos(x, z);
 
             {
-                std::lock_guard<std::mutex> lock(m_dims[0].mutex());
+                std::lock_guard<std::mutex> lock(m_dims[0].m_chunk_mutex);
                 if (m_dims[0].has_chunk(x, z) || m_dims[0].m_chunks_to_flush.contains(pos))
                     continue;
             }
@@ -509,7 +449,7 @@ bool World::raycast(const Ray& ray, float range, RaycastResult& result, const En
         glm::vec3 pos = ray.at(d);
         glm::i64vec3 ipos(glm::round(pos));
         float t;
-        if (!get_block_state(ipos.x, ipos.y, ipos.z).is_air() && ray_intersect_aabb(ray, AABB(-glm::vec3(0.5), glm::vec3(0.5)).translate(pos), t, normal) && t < t_min)
+        if (!get_block_state(ipos.x, ipos.y, ipos.z).is_air() && ray_intersect_aabb(ray, AABBf(-glm::vec3(0.5), glm::vec3(0.5)).translate(pos), t, normal) && t < t_min)
         {
             t_min = t;
             hit = true;
@@ -561,7 +501,7 @@ Result<void> World::save_chunk(std::shared_ptr<Chunk> chunk)
     File file = TRY(Filesystem::open_file(path, true));
 
     std::vector<uint8_t> compressed_data;
-    deflate_data((uint8_t *)chunk->get_blocks(), sizeof(BlockState) * Chunk::block_count, compressed_data);
+    TRY(ZLib::deflate(std::as_bytes(std::span((uint8_t *)chunk->get_blocks(), sizeof(BlockState) * Chunk::block_count)), compressed_data));
 
     TRY(file.writer().write_raw(compressed_data.data(), compressed_data.size()));
 
@@ -571,10 +511,10 @@ Result<void> World::save_chunk(std::shared_ptr<Chunk> chunk)
     file = TRY(Filesystem::open_file(path, true));
 
     BufferWriter writer;
-    write_tags(writer, chunk);
+    Dimension::write_tags(writer, chunk);
 
     std::vector<uint8_t> tags_data;
-    deflate_data(writer.buffer().data(), writer.buffer().size(), tags_data);
+    TRY(ZLib::deflate(std::as_bytes(writer.buffer()), tags_data));
 
     TRY(file.writer().write_raw(tags_data.data(), tags_data.size()));
 
@@ -639,12 +579,12 @@ void World::load_player(std::string_view username, std::shared_ptr<Player>& play
 void World::send_chunk(ENetPeer *peer, const std::shared_ptr<Chunk>& chunk) const
 {
     std::vector<uint8_t> blocks_data;
-    deflate_data((uint8_t *)chunk->get_blocks(), sizeof(BlockState) * Chunk::block_count, blocks_data);
+    EXPECT(ZLib::deflate(std::as_bytes(std::span((uint8_t *)chunk->get_blocks(), sizeof(BlockState) * Chunk::block_count)), blocks_data));
 
     BufferWriter writer;
-    write_tags(writer, chunk);
+    Dimension::write_tags(writer, chunk);
     std::vector<uint8_t> tags_data;
-    deflate_data(writer.buffer().data(), writer.buffer().size(), tags_data);
+    EXPECT(ZLib::deflate(std::as_bytes(writer.buffer()), tags_data));
 
     ChunkDataPacket p;
     p.x = chunk->x();
@@ -676,7 +616,7 @@ void World::receive_chunk(const ChunkDataPacket& p)
     }
 
     std::vector<uint8_t> blocks_data;
-    inflate_data(p.blocks.data(), p.blocks.size(), blocks_data);
+    EXPECT(ZLib::inflate(std::as_bytes(std::span(p.blocks)), blocks_data));
     if (blocks_data.size() != sizeof(BlockState) * Chunk::block_count)
     {
         debug("received bad or corrupted blocks data for {} {}", p.x, p.z);
@@ -685,12 +625,12 @@ void World::receive_chunk(const ChunkDataPacket& p)
     memcpy(chunk->get_blocks(), blocks_data.data(), blocks_data.size());
 
     std::vector<uint8_t> tags_data;
-    inflate_data(p.tags.data(), p.tags.size(), tags_data);
+    EXPECT(ZLib::inflate(std::as_bytes(std::span(p.tags)), tags_data));
 
     // debug("tags received = {}", tags_data.size());
 
     BufferReader reader(tags_data.data(), tags_data.size());
-    read_tags(reader, chunk);
+    Dimension::read_tags(reader, chunk);
 
     // for (size_t i = 0; i < Chunk::slice_count; i++) {
     //  	EXPECT(chunk->build_simple_mesh(i));
@@ -698,9 +638,7 @@ void World::receive_chunk(const ChunkDataPacket& p)
     // }
 
     if (!has_chunk)
-    {
-        dimension.add_chunk(p.x, p.z, chunk);
-    }
+        dimension.add_chunk(chunk);
 }
 
 void World::queue_receive_chunk(const ChunkDataPacket& p)
@@ -710,191 +648,10 @@ void World::queue_receive_chunk(const ChunkDataPacket& p)
                                           { receive_chunk(p); });
 }
 
-void World::force_load_chunk_for(glm::vec3 position)
-{
-    int64_t chunk_x = chunk_index(int64_t(position.x));
-    int64_t chunk_z = chunk_index(int64_t(position.z));
-    load_one_chunk(ChunkPos(chunk_x, chunk_z));
-}
-
 bool World::is_player_saved(std::string_view name) const
 {
     std::string path = std::format("{}saves/{}/players/{}.dat", Filesystem::get_data_directory(), m_name, name);
     return Filesystem::exists(path);
-}
-
-void World::load_one_chunk(ChunkPos pos)
-{
-    std::shared_ptr<Chunk> chunk;
-
-    std::string path = std::format("{}saves/{}/DIM0/{}${}/blocks.dat", Filesystem::get_data_directory(), m_name, pos.x, pos.z);
-    if (!Engine::get().is_save_disabled() && Filesystem::exists(path))
-    {
-        chunk = std::make_shared<Chunk>(&m_dims[0], pos.x, pos.z);
-
-        std::vector<char> data;
-        // TODO: how to handle errors from loading chunks ?
-        File file = EXPECT(Filesystem::open_file(path));
-        EXPECT(file.reader().read_to_buffer(data));
-        file.close();
-
-        std::vector<uint8_t> blocks_data;
-        inflate_data((uint8_t *)data.data(), data.size(), blocks_data);
-
-        assert(blocks_data.size() == sizeof(BlockState) * Chunk::block_count);
-        memcpy(chunk->get_blocks(), blocks_data.data(), blocks_data.size());
-
-        std::string path = std::format("{}saves/{}/DIM0/{}${}/tags.dat", Filesystem::get_data_directory(), m_name, pos.x, pos.z);
-        if (Filesystem::exists(path))
-        {
-            File file = EXPECT(Filesystem::open_file(path));
-            std::vector<char> tags_compressed_data;
-            EXPECT(file.reader().read_to_buffer(tags_compressed_data));
-            file.close();
-
-            std::vector<uint8_t> tags_data;
-            inflate_data((uint8_t *)tags_compressed_data.data(), tags_compressed_data.size(), tags_data);
-
-            BufferReader reader(tags_data.data(), tags_data.size());
-            read_tags(reader, chunk);
-        }
-    }
-    else
-    {
-        Result<std::shared_ptr<Chunk>> result = m_dims[0].generate_chunk(pos.x, pos.z);
-        if (result.has_error())
-            return;
-        chunk = result.value();
-
-        EXPECT(save_chunk(chunk));
-    }
-
-    m_dims[0].add_chunk(pos.x, pos.z, chunk);
-
-    {
-        std::lock_guard<std::mutex> lock(m_dims[0].m_chunk_loading_mutex);
-        m_dims[0].m_chunk_loading_queue.erase(pos);
-    }
-}
-
-void World::queue_load_chunk(ChunkPos pos)
-{
-    Engine::get().get_thread_pool().async([this, pos]
-                                          { load_one_chunk(pos); });
-}
-
-void World::unload_one_chunk(ChunkPos pos)
-{
-    m_dims[0].remove_chunk(pos.x, pos.z);
-}
-
-#define DEFLATE_BUFFER_SIZE (sizeof(BlockState) * 1024)
-#define INFLATE_BUFFER_SIZE (sizeof(BlockState) * 1024)
-
-void World::deflate_data(const uint8_t *data, size_t size, std::vector<uint8_t>& compressed_data) const
-{
-    uint8_t tmp[DEFLATE_BUFFER_SIZE];
-
-    z_stream strm;
-    strm.zalloc = 0;
-    strm.zfree = 0;
-    strm.next_in = (uint8_t *)data;
-    strm.avail_in = size;
-    strm.next_out = tmp;
-    strm.avail_out = DEFLATE_BUFFER_SIZE;
-    deflateInit(&strm, Z_BEST_COMPRESSION);
-
-    while (strm.avail_in != 0)
-    {
-        int res = deflate(&strm, Z_NO_FLUSH);
-        (void)res;
-        assert(res == Z_OK);
-
-        if (strm.avail_out == 0)
-        {
-            compressed_data.insert(compressed_data.end(), tmp, tmp + DEFLATE_BUFFER_SIZE);
-            strm.next_out = tmp;
-            strm.avail_out = DEFLATE_BUFFER_SIZE;
-        }
-    }
-
-    int deflate_res = Z_OK;
-    while (deflate_res == Z_OK)
-    {
-        if (strm.avail_out == 0)
-        {
-            compressed_data.insert(compressed_data.end(), tmp, tmp + DEFLATE_BUFFER_SIZE);
-            strm.next_out = tmp;
-            strm.avail_out = DEFLATE_BUFFER_SIZE;
-        }
-        deflate_res = deflate(&strm, Z_FINISH);
-    }
-
-    assert(deflate_res == Z_STREAM_END);
-    compressed_data.insert(compressed_data.end(), tmp, tmp + DEFLATE_BUFFER_SIZE - strm.avail_out);
-    deflateEnd(&strm);
-}
-
-void World::inflate_data(const uint8_t *compressed_data, size_t compressed_data_size, std::vector<uint8_t>& uncompressed_data) const
-{
-    uint8_t tmp[INFLATE_BUFFER_SIZE];
-
-    z_stream strm;
-    strm.zalloc = 0;
-    strm.zfree = 0;
-    strm.next_in = (uint8_t *)compressed_data;
-    strm.avail_in = compressed_data_size;
-    strm.next_out = tmp;
-    strm.avail_out = INFLATE_BUFFER_SIZE;
-    inflateInit(&strm);
-
-    while (strm.avail_in != 0)
-    {
-        int res = inflate(&strm, Z_NO_FLUSH);
-        (void)res;
-        assert(res >= 0);
-
-        if (strm.avail_out == 0)
-        {
-            uncompressed_data.insert(uncompressed_data.end(), tmp, tmp + INFLATE_BUFFER_SIZE);
-            strm.next_out = tmp;
-            strm.avail_out = INFLATE_BUFFER_SIZE;
-        }
-    }
-
-    uncompressed_data.insert(uncompressed_data.end(), tmp, tmp + INFLATE_BUFFER_SIZE - strm.avail_out);
-    inflateEnd(&strm);
-
-    // TODO: Obsiously we don't want to crash on errors.
-}
-
-void World::write_tags(Writer& writer, const std::shared_ptr<Chunk>& chunk) const
-{
-    std::map<int64_t, std::map<std::string, Variant>> tags;
-    for (const auto& [key, value] : chunk->m_tags)
-    {
-        std::map<std::string, Variant> tags2;
-        for (const auto& [key2, value2] : value.tags)
-            tags2[key2] = value2;
-        tags[key] = tags2;
-    }
-    EXPECT(writer.write_variant(Variant(tags)));
-}
-
-void World::read_tags(Reader& reader, std::shared_ptr<Chunk>& chunk) const
-{
-    std::optional<Variant> variant = EXPECT(reader.read_variant());
-    if (variant.has_value())
-    {
-        std::map<int64_t, std::map<std::string, Variant>> tags = variant.value().to_map<int64_t, std::map<std::string, Variant>>();
-        for (const auto& [key, value] : tags)
-        {
-            BlockTags btags;
-            for (const auto& [key2, value2] : value)
-                btags.tags[key2] = value2;
-            chunk->m_tags[key] = btags;
-        }
-    }
 }
 
 void World::request_chunk(ENetPeer *peer, int dimension, int64_t x, int64_t z)

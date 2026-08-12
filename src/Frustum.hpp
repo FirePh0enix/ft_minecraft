@@ -9,7 +9,7 @@ public:
     Frustum();
     Frustum(glm::mat4 mat);
 
-    bool contains(const AABB& aabb) const;
+    bool contains(const AABBf& aabb) const;
 
 private:
     glm::vec4 m_planes[6];

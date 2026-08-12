@@ -1,7 +1,57 @@
-#include "World/Biome.hpp"
 #include "World/Gen.hpp"
 
+#include "Core/Math.hpp"
+#include "Engine.hpp"
+#include "World/Biome.hpp"
 #include "World/Registry.hpp"
+
+#include <random>
+
+void TreePass::place(ChunkPos pos, std::shared_ptr<PreLoadedChunk> chunk, Dimension& dim)
+{
+    int64_t x = pos.x * 16;
+    int64_t z = pos.z * 16;
+
+    std::random_device dev;
+    std::mt19937 rng(dev());
+    rng.seed((pos.x * 73856093) ^ (pos.z * 19349663));
+    std::uniform_int_distribution<std::mt19937::result_type> dist016(0, 15);
+    int64_t lx = (int64_t)dist016(rng);
+    int64_t lz = (int64_t)dist016(rng);
+
+    std::uniform_int_distribution<std::mt19937::result_type> dist_tree_height(5, 7);
+    int64_t tree_height = (int64_t)dist_tree_height(rng);
+
+    int64_t height = tree_height + 3;
+    int64_t width = 9;
+
+    if (chunk->biomes[lx + lz * 16] != Biome::Plain)
+        return;
+
+    int64_t elevation = chunk->heights[lx + lz * 16];
+    const int64_t log_xz = 4;
+
+    BlockState *blocks = new BlockState[width * height * width](); // TODO: free this
+    for (int64_t y = 0; y < tree_height; y++)
+        blocks[log_xz + y * width + log_xz * width * height] = BlockState(Blocks::log);
+
+    const int64_t core_x = 4;
+    const int64_t core_y = tree_height - 2;
+    const int64_t core_z = 4;
+    for (int64_t leave_x = -3; leave_x <= 3; leave_x++)
+        for (int64_t leave_z = -3; leave_z <= 3; leave_z++)
+            for (int64_t leave_y = -2; leave_y <= 2; leave_y++)
+            {
+                // float distance = glm::distance2(glm::vec3(core_x, core_y, core_z), glm::vec3(core_x + leave_x, core_y + leave_y, core_z + leave_y));
+                // if (core_z + leave_z >= height || core_z + leave_z < 0)
+                //     println("NOOOOO!");
+                const int64_t index = (core_x + leave_x) + (core_y + leave_y) * width + (core_z + leave_z) * width * height;
+                // if (blocks[index].is_air())
+                blocks[index] = BlockState(Blocks::leaves);
+            }
+
+    dim.place_structure(glm::i64vec3(x + lx - width / 2, elevation, z + lz - width / 2), blocks, width, height, width);
+}
 
 OverworldGen::OverworldGen(WorldSettings settings)
     : Gen(settings)
@@ -9,16 +59,15 @@ OverworldGen::OverworldGen(WorldSettings settings)
     std::vector<double> x{0.0f, 0.45f, 0.55f, 1.0f};
     std::vector<double> y{0.0f, 0.1f, 0.9f, 1.0f};
     m_continent_spline = tk::spline(x, y);
+
+    m_tree = Engine::get().registry().get_struct("tree");
+
+    m_structure_passes.push_back(std::make_shared<TreePass>());
 }
 
-void OverworldGen::generate_chunk(std::shared_ptr<Chunk> chunk)
+void OverworldGen::preload(int64_t cx, int64_t cz, std::shared_ptr<PreLoadedChunk> chunk)
 {
-    BlockState *blocks = chunk->get_blocks();
-    Biome *biomes = chunk->get_biomes();
-    int64_t cx = chunk->x();
-    int64_t cz = chunk->z();
-
-    float ocean_amplitude = float(m_settings.ocean_level) - float(m_settings.ocean_floor) + 3.0f;
+    const float ocean_amplitude = float(m_settings.ocean_level) - float(m_settings.ocean_floor) + 3.0f;
 
     for (int64_t x = 0; x < 16; x++)
     {
@@ -53,11 +102,29 @@ void OverworldGen::generate_chunk(std::shared_ptr<Chunk> chunk)
             int64_t height = int64_t(elevation);
             height = std::min(height, 255l);
 
+            chunk->heights[x + z * 16] = height;
+            chunk->biomes[x + z * 16] = biome;
+        }
+    }
+}
+
+void OverworldGen::generate_chunk(std::shared_ptr<Chunk> chunk, std::shared_ptr<PreLoadedChunk> preloaded_chunk, Dimension& dim)
+{
+    BlockState *blocks = chunk->get_blocks();
+
+    std::vector<StructureGen> structures;
+    dim.get_structures_overlap(chunk->pos(), structures);
+
+    for (int64_t x = 0; x < 16; x++)
+    {
+        for (int64_t z = 0; z < 16; z++)
+        {
+            Biome biome = preloaded_chunk->biomes[x + z * 16];
+            int64_t height = preloaded_chunk->heights[x + z * 16];
+
             int64_t y = 0;
             for (; y < height - 3; y++)
                 blocks[x + y * 16 + z * 16 * 256] = BlockState(Blocks::stone);
-
-            biomes[x + z * 16] = biome;
 
             BlockState ground;
             BlockState surface;
@@ -85,21 +152,31 @@ void OverworldGen::generate_chunk(std::shared_ptr<Chunk> chunk)
             blocks[x + (y++) * 16 + z * 16 * 256] = surface;
 
             // Add snow on top of mountains
-            if (mountain * mountain_mask > 90.0)
+            if (height > 160 && biome == Biome::Mountain)
                 blocks[x + y * 16 + z * 16 * 256] = BlockState(Blocks::snow);
 
             // Fill oceans
             for (; y < m_settings.ocean_level; y++)
                 chunk->set_tag({x, y, z}, "water", int64_t(0));
-
-            y = 0;
-            for (; y < height; y++)
-            {
-                float caves_s0 = m_noise.sample(glm::vec3((float)gx, (float)y, (float)gz) / 100.0f);
-                float caves = caves_s0 * (1.0f - (float)y / ((float)height + 2));
-                if (caves > 0.5f)
-                    blocks[x + y * 16 + z * 16 * 256] = BlockState();
-            }
         }
+    }
+
+    for (const StructureGen& gen : structures)
+    {
+        for (int64_t sx = 0; sx < gen.w; sx++)
+            for (int64_t sy = 0; sy < gen.h; sy++)
+                for (int64_t sz = 0; sz < gen.l; sz++)
+                {
+                    int64_t lx = local_coords(gen.pos.x);
+                    int64_t lz = local_coords(gen.pos.z);
+                    glm::i64vec3 pos = glm::i64vec3(lx, gen.pos.y, lz) + glm::i64vec3(sx, sy, sz);
+
+                    if (pos.x < 0 || pos.x > 15 || pos.y < 0 || pos.y > 255 || pos.z < 0 || pos.z > 15)
+                        continue;
+
+                    BlockState block = gen.blocks[sx + sy * gen.w + sz * gen.w * gen.h];
+                    if (!block.is_air())
+                        blocks[pos.x + pos.y * 16 + pos.z * 16 * 256] = block;
+                }
     }
 }

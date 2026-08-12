@@ -23,7 +23,7 @@ void Zombie::tick(float delta)
         m_velocity.y -= 9.81f * delta;
 
     // Tracking.
-    AABB search_box = AABB::from_center_extent(get_global_transform().position(), glm::vec3(DETECTION_RADIUS));
+    AABBf search_box = AABBf::from_center_extent(get_global_transform().position(), glm::vec3(DETECTION_RADIUS));
     const auto entities = m_world->get_dimension(m_dimension).cast_box(search_box);
 
     std::shared_ptr<Player> target;

@@ -13,7 +13,7 @@ struct GPU_ATTRIBUTE ItemBlockModel
 ItemEntity::ItemEntity(Id<Item> item)
     : m_item(item), m_time(0)
 {
-    m_aabb = AABB(-glm::vec3(0.2, 0.2, 0.2), glm::vec3(0.2, 0.2, 0.2));
+    m_aabb = AABBf(-glm::vec3(0.2, 0.2, 0.2), glm::vec3(0.2, 0.2, 0.2));
     get_transform().scale() = glm::vec3(0.2, 0.2, 0.2);
 
     m_model_buffer = EXPECT(Buffer::create(sizeof(ItemBlockModel), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform));

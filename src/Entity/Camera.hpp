@@ -1,6 +1,5 @@
 #pragma once
 
-#include "AABB.hpp"
 #include "Core/Class.hpp"
 #include "Entity/Entity.hpp"
 #include "Frustum.hpp"

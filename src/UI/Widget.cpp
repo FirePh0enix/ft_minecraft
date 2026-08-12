@@ -247,9 +247,9 @@ GlobalPoint Widget::get_global_size() const
     else
     {
         if (m_expand_horizontal)
-            p.x = m_parent->get_width(Size::percent(100.0));
+            p.x = get_width(Size::percent(100.0));
         if (m_expand_vertical)
-            p.y = m_parent->get_height(Size::percent(100.0));
+            p.y = get_height(Size::percent(100.0));
     }
 
     return p;

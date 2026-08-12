@@ -20,7 +20,7 @@ void ItemBlock::interact(World& world, size_t dimension, ItemStack& stack, glm::
         return;
     }
 
-    std::vector<std::shared_ptr<Entity>> entities = world.get_dimension(dimension).cast_box(AABB(-glm::vec3(0.5), glm::vec3(0.5)).translate(pos + normal));
+    std::vector<std::shared_ptr<Entity>> entities = world.get_dimension(dimension).cast_box(AABBf(-glm::vec3(0.5), glm::vec3(0.5)).translate(pos + normal));
     if (has_major_entities(entities))
     {
         return;

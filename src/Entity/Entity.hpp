@@ -202,7 +202,7 @@ public:
 
     void call_rpc(std::string_view name) { call_rpci(name, {}); }
 
-    const AABB& get_aabb() const { return m_aabb; }
+    const AABBf& get_aabb() const { return m_aabb; }
 
     void recurse_tick(float delta);
 
@@ -219,7 +219,7 @@ protected:
     Entity *m_parent = nullptr; // FIXME: This must be changed by either a std::shared_ptr<Entity> or a EntityId.
     std::vector<std::shared_ptr<Entity>> m_children;
     Transform3D m_transform;
-    AABB m_aabb;
+    AABBf m_aabb;
 
     float m_gravity_value = 9.81 / 10.0;
     bool m_on_ground = false;
