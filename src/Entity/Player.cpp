@@ -3,7 +3,7 @@
 #include "AABB.hpp"
 #include "Block/Inventory.hpp"
 #include "Core/Math.hpp"
-#include "Core/Types.hpp"
+#include "Core/Print.hpp"
 #include "Engine.hpp"
 #include "Entity/Entity.hpp"
 #include "Entity/Item.hpp"
@@ -56,6 +56,9 @@ void Player::on_ready()
     m_inventory_container->set_stack(1, 5, ItemStack(Items::stone_block, 16));
     m_inventory_container->set_stack(1, 6, ItemStack(Items::stone_block, 16));
     m_inventory_container->set_stack(1, 7, ItemStack(Items::stone_block, 16));
+
+    m_inventory_container->set_stack(1, 8, ItemStack(Items::bow, 1));
+    m_inventory_container->set_stack(0, 0, ItemStack(Items::arrow, 64));
 
     m_model_buffer = EXPECT(Buffer::create(sizeof(ItemBlockModel), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform));
     m_hand_item_bg = BindGroup::create(Renderer::get().get_fw_item_block_shader());
@@ -207,14 +210,14 @@ void Player::tick(float delta)
             {
                 if (Input::is_action_pressed("attack"))
                 {
-                    if (!m_is_destroing)
+                    if (!m_is_destroying)
                     {
-                        m_is_destroing = true;
+                        m_is_destroying = true;
                         m_destroy_block_pos = result.block_pos;
                     }
                     else if (m_destroy_block_pos != result.block_pos)
                     {
-                        m_is_destroing = false;
+                        m_is_destroying = false;
                         m_destroy_ticks = 0;
                     }
 
@@ -222,7 +225,7 @@ void Player::tick(float delta)
                     if (m_destroy_ticks >= max_destroy_ticks)
                     {
                         call_rpc("break_block", result.block_pos.x, result.block_pos.y, result.block_pos.z);
-                        m_is_destroing = false;
+                        m_is_destroying = false;
                         m_destroy_ticks = 0;
                     }
                 }
@@ -230,7 +233,7 @@ void Player::tick(float delta)
             else
             {
                 m_destroy_ticks = 0;
-                m_is_destroing = false;
+                m_is_destroying = false;
             }
 
             if (Input::is_action_just_pressed("interact"))
@@ -253,6 +256,24 @@ void Player::tick(float delta)
         else
         {
             m_aimed_block = std::nullopt;
+            // Bow can be interacted even though he is not aiming at a block, can do better.
+            if (Input::is_action_just_pressed("interact"))
+            {
+                ItemStack stack = m_inventory_container->get_stack(1, m_slot);
+                if (stack.item().valid() && stack.item() == Items::bow)
+                {
+                    std::shared_ptr<Item> item = Engine::get().registry().get_item(stack.item());
+                    item->interact(*m_world, m_dimension, stack, result.block_pos, result.normal, *m_inventory_container);
+                    m_inventory_container->set_stack(1, m_slot, stack);
+                }
+            }
+        }
+
+        if (Input::is_action_just_released("interact"))
+        {
+            ItemStack stack = m_inventory_container->get_stack(1, m_slot);
+            std::shared_ptr<Item> item = Engine::get().registry().get_item(stack.item());
+            item->on_release(*m_world, m_dimension, stack, m_camera->get_global_transform().position(), m_camera->get_global_transform().forward(), *m_inventory_container);
         }
     }
 
@@ -493,7 +514,7 @@ void Player::place_block(int64_t x, int64_t y, int64_t z, glm::vec3 normal, Item
     if (stack.item().valid())
     {
         std::shared_ptr<Item> item = Engine::get().registry().get_item(stack.item());
-        item->interact(*m_world, m_dimension, stack, glm::i64vec3(x, y, z), normal);
+        item->interact(*m_world, m_dimension, stack, glm::i64vec3(x, y, z), normal, *m_inventory_container);
         if (m_local_player)
             m_inventory_container->set_stack(1, m_slot, stack);
     }

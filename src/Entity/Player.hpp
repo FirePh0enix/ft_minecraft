@@ -110,7 +110,7 @@ private:
     static constexpr size_t max_destroy_ticks = 35;
     size_t m_destroy_ticks = 0;
     glm::i64vec3 m_destroy_block_pos = glm::i64vec3();
-    bool m_is_destroing = false;
+    bool m_is_destroying = false;
 
     bool are_input_available()
     {

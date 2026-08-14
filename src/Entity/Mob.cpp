@@ -13,14 +13,6 @@ void Mob::die()
     m_world->remove_entity(World::overworld, id());
 }
 
-glm::vec3 Mob::safe_normalize(const glm::vec3& v)
-{
-    float len2 = glm::length2(v);
-    if (len2 < 1e-8f)
-        return glm::vec3(0.0f);
-    return v / std::sqrt(len2);
-}
-
 void Mob::follow_path(float delta_time)
 {
     if (!m_following_path || !m_path || m_path.value().look_points.empty())

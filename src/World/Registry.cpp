@@ -5,6 +5,8 @@
 #include "Core/Filesystem.hpp"
 #include "Core/Logger.hpp"
 #include "Engine.hpp"
+#include "Item/Arrow.hpp"
+#include "Item/Bow.hpp"
 #include "Item/Bucket.hpp"
 #include "Render/Renderer.hpp"
 
@@ -54,6 +56,8 @@ void GameRegistry::register_all()
     add_item(Items::water_bucket, std::make_shared<BucketItem>());
 
     add_structure("tree", Structure::load(STRUCT("tree")));
+    add_item(Items::bow, std::make_shared<BowItem>());
+    add_item(Items::arrow, std::make_shared<ArrowItem>());
 }
 
 Result<void> GameRegistry::post_register()

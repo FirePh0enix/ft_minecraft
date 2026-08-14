@@ -90,6 +90,9 @@ constexpr Id<Item> grass_block(6);
 constexpr Id<Item> snow_block(7);
 constexpr Id<Item> crafting_table_block(8);
 constexpr Id<Item> water_bucket(9);
+constexpr Id<Item> bow(10);
+constexpr Id<Item> arrow(11);
+
 }; // namespace Items
 
 namespace Entities

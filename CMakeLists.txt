@@ -44,6 +44,7 @@ list(APPEND SOURCES
     src/Entity/Cow.cpp
     src/Entity/Zombie.cpp
     src/Entity/Player.cpp
+    src/Entity/Arrow.cpp
     src/Entity/Pathfinding/Pathfinding.cpp
     src/Inventory/CraftingTable.cpp
     src/Inventory/Inventory.cpp
@@ -51,6 +52,8 @@ list(APPEND SOURCES
     src/Item/Bucket.cpp
     src/Item/Item.cpp
     src/Item/ItemStack.cpp
+    src/Item/Bow.cpp
+    src/Item/Arrow.cpp
     src/Network/Network.cpp
     src/Network/Packet.cpp
     src/Render/Shader.cpp
