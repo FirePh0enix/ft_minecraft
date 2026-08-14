@@ -11,6 +11,7 @@
 #include <set>
 
 class World;
+class Dimension;
 
 struct RenderableChunk
 {
@@ -43,15 +44,51 @@ struct PreLoadedChunk
     }
 };
 
+/// When generating chunks on multiple threads, we need to guarantee that each pass are generated one after the other, otherwise we will cut structures that overlap
+/// multiple chunks.
+class GenScheduler
+{
+public:
+    GenScheduler(Dimension& dimension)
+        : m_dimension(dimension)
+    {
+    }
+
+    void terrain_pass(ChunkPos middle);
+    void chunk_pass(ChunkPos middle);
+
+private:
+    Dimension& m_dimension;
+
+    int64_t m_chunk_distance = 20;
+    int64_t m_gen_distance = 15;
+
+    std::mutex m_pregen_queue_mutex;
+    std::atomic_size_t m_pregen_count = 0;
+    std::set<ChunkPos> m_pregen_queue;
+
+    std::vector<ChunkPos> m_pregen_unload_queue;
+
+    void terrain_and_struct_chunk(ChunkPos pos);
+    void realize_chunk(ChunkPos pos);
+};
+
 class Dimension
 {
     friend class World;
     friend class OverworldGen;
+    friend class GenScheduler;
 
 public:
+    Dimension()
+        : m_scheduler(*this)
+    {
+    }
+
     std::optional<std::shared_ptr<Chunk>> get_chunk(int64_t x, int64_t z) const;
 
     bool has_chunk(int64_t x, int64_t z) const;
+    bool has_pregen_chunk(int64_t x, int64_t z) const;
 
     void add_chunk(const std::shared_ptr<Chunk>& chunk);
     void remove_chunk(int64_t x, int64_t z);
@@ -106,11 +143,13 @@ public:
     void get_structures_overlap(ChunkPos pos, std::vector<StructureGen>& structures);
 
 private:
-    World *m_world;
+    World *m_world = nullptr;
 
     std::mutex m_chunk_mutex;
     std::map<ChunkPos, std::shared_ptr<Chunk>> m_chunks;
     std::vector<RenderableChunk> m_visible_chunks;
+
+    GenScheduler m_scheduler;
 
     // TODO: move this somewhere else.
     Frustum m_sun_frustum;

@@ -7,17 +7,13 @@
 
 #include <random>
 
-void TreePass::place(ChunkPos pos, std::shared_ptr<PreLoadedChunk> chunk, Dimension& dim)
+#define TREE_TYPE_SHORT 0
+#define TREE_TYPE_BIG 1
+
+void TreePass::place_short_tree(ChunkPos pos, std::shared_ptr<PreLoadedChunk> chunk, Dimension& dim, std::mt19937& rng, int64_t lx, int64_t lz)
 {
     int64_t x = pos.x * 16;
     int64_t z = pos.z * 16;
-
-    std::random_device dev;
-    std::mt19937 rng(dev());
-    rng.seed((pos.x * 73856093) ^ (pos.z * 19349663));
-    std::uniform_int_distribution<std::mt19937::result_type> dist016(0, 15);
-    int64_t lx = (int64_t)dist016(rng);
-    int64_t lz = (int64_t)dist016(rng);
 
     std::uniform_int_distribution<std::mt19937::result_type> dist_tree_height(5, 7);
     int64_t tree_height = (int64_t)dist_tree_height(rng);
@@ -29,28 +25,81 @@ void TreePass::place(ChunkPos pos, std::shared_ptr<PreLoadedChunk> chunk, Dimens
         return;
 
     int64_t elevation = chunk->heights[lx + lz * 16];
-    const int64_t log_xz = 4;
+    const int64_t log_xz = width / 2 + 1;
 
     BlockState *blocks = new BlockState[width * height * width](); // TODO: free this
     for (int64_t y = 0; y < tree_height; y++)
         blocks[log_xz + y * width + log_xz * width * height] = BlockState(Blocks::log);
 
-    const int64_t core_x = 4;
+    const int64_t core_x = log_xz;
     const int64_t core_y = tree_height - 2;
-    const int64_t core_z = 4;
+    const int64_t core_z = log_xz;
     for (int64_t leave_x = -3; leave_x <= 3; leave_x++)
         for (int64_t leave_z = -3; leave_z <= 3; leave_z++)
             for (int64_t leave_y = -2; leave_y <= 2; leave_y++)
             {
-                // float distance = glm::distance2(glm::vec3(core_x, core_y, core_z), glm::vec3(core_x + leave_x, core_y + leave_y, core_z + leave_y));
-                // if (core_z + leave_z >= height || core_z + leave_z < 0)
-                //     println("NOOOOO!");
+                float distance = glm::distance2(glm::vec3(core_x, core_y, core_z), glm::vec3(core_x + leave_x, core_y + leave_y, core_z + leave_z));
                 const int64_t index = (core_x + leave_x) + (core_y + leave_y) * width + (core_z + leave_z) * width * height;
-                // if (blocks[index].is_air())
-                blocks[index] = BlockState(Blocks::leaves);
+                if (blocks[index].is_air() && distance < 3 * 3)
+                    blocks[index] = BlockState(Blocks::leaves);
             }
 
     dim.place_structure(glm::i64vec3(x + lx - width / 2, elevation, z + lz - width / 2), blocks, width, height, width);
+}
+
+void TreePass::place_big_tree(ChunkPos pos, std::shared_ptr<PreLoadedChunk> chunk, Dimension& dim, std::mt19937& rng, int64_t lx, int64_t lz)
+{
+    int64_t x = pos.x * 16;
+    int64_t z = pos.z * 16;
+
+    std::uniform_int_distribution<std::mt19937::result_type> dist_tree_height(8, 14);
+    int64_t tree_height = (int64_t)dist_tree_height(rng);
+
+    int64_t height = tree_height + 3;
+    int64_t width = 13;
+
+    if (chunk->biomes[lx + lz * 16] != Biome::Plain)
+        return;
+
+    int64_t elevation = chunk->heights[lx + lz * 16];
+    const int64_t log_xz = width / 2 + 1;
+
+    BlockState *blocks = new BlockState[width * height * width](); // TODO: free this
+    for (int64_t y = 0; y < tree_height; y++)
+        blocks[log_xz + y * width + log_xz * width * height] = BlockState(Blocks::log);
+
+    const int64_t core_x = log_xz;
+    const int64_t core_y = tree_height - 3;
+    const int64_t core_z = log_xz;
+    for (int64_t leave_x = -5; leave_x <= 5; leave_x++)
+        for (int64_t leave_z = -5; leave_z <= 5; leave_z++)
+            for (int64_t leave_y = -4; leave_y <= 4; leave_y++)
+            {
+                float distance = glm::distance2(glm::vec3(core_x, core_y, core_z), glm::vec3(core_x + leave_x, core_y + leave_y, core_z + leave_z));
+                const int64_t index = (core_x + leave_x) + (core_y + leave_y) * width + (core_z + leave_z) * width * height;
+                if (blocks[index].is_air() && distance < 5 * 5)
+                    blocks[index] = BlockState(Blocks::leaves);
+            }
+
+    dim.place_structure(glm::i64vec3(x + lx - width / 2, elevation, z + lz - width / 2), blocks, width, height, width);
+}
+
+void TreePass::place(ChunkPos pos, std::shared_ptr<PreLoadedChunk> chunk, Dimension& dim)
+{
+    std::random_device dev;
+    std::mt19937 rng(dev());
+    rng.seed((pos.x * 73856093) ^ (pos.z * 19349663));
+    std::uniform_int_distribution<std::mt19937::result_type> dist016(0, 15);
+    int64_t lx = (int64_t)dist016(rng);
+    int64_t lz = (int64_t)dist016(rng);
+
+    std::uniform_int_distribution<std::mt19937::result_type> dist_tree_type(0, 1);
+    uint64_t tree_type = dist_tree_type(rng);
+
+    if (tree_type == TREE_TYPE_SHORT)
+        place_short_tree(pos, chunk, dim, rng, lx, lz);
+    else if (tree_type == TREE_TYPE_BIG)
+        place_big_tree(pos, chunk, dim, rng, lx, lz);
 }
 
 OverworldGen::OverworldGen(WorldSettings settings)
@@ -88,11 +137,15 @@ void OverworldGen::preload(int64_t cx, int64_t cz, std::shared_ptr<PreLoadedChun
 
             float mountain_mask = m_noise.sample(glm::vec2((float)gx, (float)gz) / 800.0f) / 2.0f + 0.5f;
 
+            float forest_mask = m_noise.sample(glm::vec2((float)gx, (float)gz) / 900.0f) / 2.0f + 0.5f;
+
             Biome biome = Biome::Plain;
             if (mountain * mountain_mask > 52.0)
                 biome = Biome::Mountain;
             else if (continent_s0 < 0.62f)
                 biome = Biome::Beach;
+            else if (forest_mask > 0.2)
+                biome = Biome::Forest;
 
             float elevation = float(m_settings.ocean_floor);
             elevation += continent * (ocean_amplitude);
@@ -111,9 +164,10 @@ void OverworldGen::preload(int64_t cx, int64_t cz, std::shared_ptr<PreLoadedChun
 void OverworldGen::generate_chunk(std::shared_ptr<Chunk> chunk, std::shared_ptr<PreLoadedChunk> preloaded_chunk, Dimension& dim)
 {
     BlockState *blocks = chunk->get_blocks();
+    ChunkPos cpos = chunk->pos();
 
     std::vector<StructureGen> structures;
-    dim.get_structures_overlap(chunk->pos(), structures);
+    dim.get_structures_overlap(cpos, structures);
 
     for (int64_t x = 0; x < 16; x++)
     {
@@ -164,19 +218,29 @@ void OverworldGen::generate_chunk(std::shared_ptr<Chunk> chunk, std::shared_ptr<
     for (const StructureGen& gen : structures)
     {
         for (int64_t sx = 0; sx < gen.w; sx++)
-            for (int64_t sy = 0; sy < gen.h; sy++)
-                for (int64_t sz = 0; sz < gen.l; sz++)
-                {
-                    int64_t lx = local_coords(gen.pos.x);
-                    int64_t lz = local_coords(gen.pos.z);
-                    glm::i64vec3 pos = glm::i64vec3(lx, gen.pos.y, lz) + glm::i64vec3(sx, sy, sz);
+        {
+            if (chunk_index(gen.pos.x + sx) != cpos.x)
+                continue;
 
-                    if (pos.x < 0 || pos.x > 15 || pos.y < 0 || pos.y > 255 || pos.z < 0 || pos.z > 15)
+            int64_t lx = local_coords(gen.pos.x + sx);
+            for (int64_t sz = 0; sz < gen.l; sz++)
+            {
+                if (chunk_index(gen.pos.z + sz) != cpos.z)
+                    continue;
+
+                int64_t lz = local_coords(gen.pos.z + sz);
+                for (int64_t sy = 0; sy < gen.h; sy++)
+                {
+                    if (gen.pos.y + sy < 0 || gen.pos.y + sy > 255)
                         continue;
+
+                    glm::i64vec3 pos = glm::i64vec3(lx, gen.pos.y + sy, lz);
 
                     BlockState block = gen.blocks[sx + sy * gen.w + sz * gen.w * gen.h];
                     if (!block.is_air())
-                        blocks[pos.x + pos.y * 16 + pos.z * 16 * 256] = block;
+                        blocks[pos.x + pos.y * Chunk::width + pos.z * Chunk::width * Chunk::height] = block;
                 }
+            }
+        }
     }
 }

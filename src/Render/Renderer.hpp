@@ -257,7 +257,7 @@ public:
 
     ~Material();
 
-    static std::shared_ptr<Material> create(const std::shared_ptr<Shader>& shader, MaterialFlags flags, WGPUCullMode cull_mode, WGPUVertexFormat uv_format, Instance instance = {});
+    static std::shared_ptr<Material> create(const std::shared_ptr<Shader>& shader, MaterialFlags flags, WGPUCullMode cull_mode, WGPUVertexFormat uv_format, Instance instance = {}, WGPUPrimitiveTopology topology = WGPUPrimitiveTopology_TriangleList);
 
     WGPURenderPipeline get_pipeline(const RenderPass& pass);
 
@@ -274,6 +274,7 @@ private:
     MaterialFlags m_flags;
     WGPUCullMode m_cull_mode;
     WGPUVertexFormat m_uv_format;
+    WGPUPrimitiveTopology m_topology;
 
     std::vector<InstanceAttribute> m_attributes;
     size_t m_instance_stride;
@@ -383,7 +384,7 @@ struct GPU_ATTRIBUTE FwWorldEnv
 struct GPU_ATTRIBUTE FwColored
 {
     glm::mat4 model;
-    glm::vec4 color;
+    Color color;
 };
 
 struct GPU_ATTRIBUTE SkyUniforms
@@ -531,6 +532,9 @@ private:
     std::shared_ptr<Material> m_fw_item_block_mat;
     std::shared_ptr<Material> m_fw_item_mat;
 
+    std::shared_ptr<Mesh> m_wireframe_chunk_slice_mesh;
+    std::shared_ptr<Material> m_wireframe_dbg_mat;
+
     std::shared_ptr<Buffer> m_fw_colored_buffer;
     std::shared_ptr<Material> m_fw_colored_mat;
     std::shared_ptr<Material> m_fw_colored_shadowmap_mat;
@@ -588,6 +592,7 @@ private:
     std::atomic_size_t m_device_memory_allocated = 0;
     std::atomic_size_t m_device_memory_freed = 0;
 
+    bool m_chunk_debug = false; // TODO
     bool m_underwater_effect = false;
 
     static inline Renderer *singleton;

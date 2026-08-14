@@ -28,22 +28,22 @@
 
 // clang-format off
 static const uint32_t missing_texture_data[16 * 16]{
-    0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,
-    0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,
-    0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,
-    0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,
-    0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,
-    0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,
-    0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,
-    0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,
-    0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF,
-    0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF,
-    0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF,
-    0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF,
-    0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF,
-    0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF,
-    0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF,
-    0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF,
+    0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF,
+    0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF,
+    0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF,
+    0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF,
+    0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF,
+    0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF,
+    0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF,
+    0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF,
+    0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF,
+    0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF,
+    0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF,
+    0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF,
+    0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF,
+    0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF,
+    0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF,
+    0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF,
 };
 // clang-format on
 
@@ -345,7 +345,7 @@ Material::~Material()
         wgpuRenderPipelineRelease(pipeline);
 }
 
-std::shared_ptr<Material> Material::create(const std::shared_ptr<Shader>& shader, MaterialFlags flags, WGPUCullMode cull_mode, WGPUVertexFormat uv_format, Instance instance)
+std::shared_ptr<Material> Material::create(const std::shared_ptr<Shader>& shader, MaterialFlags flags, WGPUCullMode cull_mode, WGPUVertexFormat uv_format, Instance instance, WGPUPrimitiveTopology topology)
 {
     std::shared_ptr<Material> material = std::make_shared<Material>();
     material->m_shader = shader;
@@ -354,6 +354,7 @@ std::shared_ptr<Material> Material::create(const std::shared_ptr<Shader>& shader
     material->m_uv_format = uv_format;
     material->m_attributes = instance.attribs;
     material->m_instance_stride = instance.stride;
+    material->m_topology = topology;
     return material;
 }
 
@@ -401,21 +402,6 @@ WGPURenderPipeline Material::create_pipeline(const RenderPass& pass)
         uv_attrib.offset = 0;
         uv_attrib.shaderLocation = attrib_index++;
         buffers.push_back(WGPUVertexBufferLayout{.nextInChain = nullptr, .stepMode = WGPUVertexStepMode_Vertex, .arrayStride = size_of(m_uv_format), .attributeCount = 1, .attributes = &uv_attrib});
-
-        //     if (m_uv_type == UVType::UV)
-        // {
-        //     uv_attrib.format = WGPUVertexFormat_Float32x2;
-        //     uv_attrib.offset = 0;
-        //     uv_attrib.shaderLocation = attrib_index++;
-        //     buffers.push_back(WGPUVertexBufferLayout{.nextInChain = nullptr, .stepMode = WGPUVertexStepMode_Vertex, .arrayStride = sizeof(glm::vec2), .attributeCount = 1, .attributes = &uv_attrib});
-        // }
-        // else if (m_uv_type == UVType::UVT)
-        // {
-        //     uv_attrib.format = WGPUVertexFormat_Float32x3;
-        //     uv_attrib.offset = 0;
-        //     uv_attrib.shaderLocation = attrib_index++;
-        //     buffers.push_back(WGPUVertexBufferLayout{.nextInChain = nullptr, .stepMode = WGPUVertexStepMode_Vertex, .arrayStride = sizeof(glm::vec3), .attributeCount = 1, .attributes = &uv_attrib});
-        // }
     }
 
     std::vector<WGPUVertexAttribute> attributes;
@@ -485,7 +471,7 @@ WGPURenderPipeline Material::create_pipeline(const RenderPass& pass)
     WGPUPrimitiveState primitive_state = WGPU_PRIMITIVE_STATE_INIT;
     primitive_state.cullMode = m_cull_mode;
     primitive_state.frontFace = WGPUFrontFace_CCW; // FIXME
-    primitive_state.topology = WGPUPrimitiveTopology_TriangleList;
+    primitive_state.topology = m_topology;
     primitive_state.stripIndexFormat = WGPUIndexFormat_Undefined;
 
     WGPURenderPipelineDescriptor desc = WGPU_RENDER_PIPELINE_DESCRIPTOR_INIT;
@@ -887,6 +873,56 @@ static Result<std::shared_ptr<Mesh>> create_cube_mesh(glm::vec3 size = glm::vec3
     return Mesh::create_from_data(std::as_bytes(std::span(indices)), vertices, normals, std::as_bytes(std::span(uvs)), WGPUIndexFormat_Uint16);
 }
 
+static Result<std::shared_ptr<Mesh>> create_wireframe_cube_mesh(glm::vec3 size = glm::vec3(1.0), glm::vec3 offset = glm::vec3())
+{
+    const glm::vec3 hs = size / glm::vec3(2.0);
+
+    // clang-format off
+    std::array<uint16_t, 48> indices{
+        0, 1, 1, 2, 2, 3, 3, 0, // front
+        4, 5, 5, 6, 6, 7, 7, 4, // back
+        8, 9, 9, 10, 10, 11, 11, 8, // left
+        12, 13, 13, 14, 14, 15, 15, 12, // right
+        16, 17, 17, 18, 18, 19, 19, 16, // top
+        20, 21, 21, 22, 22, 23, 23, 20, // bottom
+    };
+    // clang-format on
+
+    std::array<glm::vec3, 24> vertices{
+        glm::vec3(-hs.x + offset.x, -hs.y + offset.y, hs.z + offset.z), // front
+        glm::vec3(hs.x + offset.x, -hs.y + offset.y, hs.z + offset.z),
+        glm::vec3(hs.x + offset.x, hs.y + offset.y, hs.z + offset.z),
+        glm::vec3(-hs.x + offset.x, hs.y + offset.y, hs.z + offset.z),
+
+        glm::vec3(hs.x + offset.x, -hs.y + offset.y, -hs.z + offset.z), // back
+        glm::vec3(-hs.x + offset.x, -hs.y + offset.y, -hs.z + offset.z),
+        glm::vec3(-hs.x + offset.x, hs.y + offset.y, -hs.z + offset.z),
+        glm::vec3(hs.x + offset.x, hs.y + offset.y, -hs.z + offset.z),
+
+        glm::vec3(-hs.x + offset.x, -hs.y + offset.y, -hs.z + offset.z), // left
+        glm::vec3(-hs.x + offset.x, -hs.y + offset.y, hs.z + offset.z),
+        glm::vec3(-hs.x + offset.x, hs.y + offset.y, hs.z + offset.z),
+        glm::vec3(-hs.x + offset.x, hs.y + offset.y, -hs.z + offset.z),
+
+        glm::vec3(hs.x + offset.x, -hs.y + offset.y, hs.z + offset.z), // right
+        glm::vec3(hs.x + offset.x, -hs.y + offset.y, -hs.z + offset.z),
+        glm::vec3(hs.x + offset.x, hs.y + offset.y, -hs.z + offset.z),
+        glm::vec3(hs.x + offset.x, hs.y + offset.y, hs.z + offset.z),
+
+        glm::vec3(-hs.x + offset.x, hs.y + offset.y, hs.z + offset.z), // top
+        glm::vec3(hs.x + offset.x, hs.y + offset.y, hs.z + offset.z),
+        glm::vec3(hs.x + offset.x, hs.y + offset.y, -hs.z + offset.z),
+        glm::vec3(-hs.x + offset.x, hs.y + offset.y, -hs.z + offset.z),
+
+        glm::vec3(-hs.x + offset.x, -hs.y + offset.y, -hs.z + offset.z), // bottom
+        glm::vec3(hs.x + offset.x, -hs.y + offset.y, -hs.z + offset.z),
+        glm::vec3(hs.x + offset.x, -hs.y + offset.y, hs.z + offset.z),
+        glm::vec3(-hs.x + offset.x, -hs.y + offset.y, hs.z + offset.z),
+    };
+
+    return Mesh::create_from_data(std::as_bytes(std::span(indices)), vertices, std::span<glm::vec3>(), std::span<std::byte>(), WGPUIndexFormat_Uint16);
+}
+
 #define SHADOWMAP_RESOLUTION 2048
 
 Result<void> Renderer::init(const Window& window, InitFlags flags)
@@ -1122,7 +1158,10 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
                                            InstanceAttribute(offsetof(Font::Instance, scale), WGPUVertexFormat_Float32x2)};
     m_fw_text_mat = Material::create(m_fw_text_shader, MaterialFlagBits::Transparency | MaterialFlagBits::NoNormal | MaterialFlagBits::NoUV, WGPUCullMode_None, WGPUVertexFormat_Float32x2, Instance(attribs, sizeof(Font::Instance)));
 
+    m_wireframe_dbg_mat = Material::create(m_fw_colored_shader, MaterialFlagBits::NoNormal | MaterialFlagBits::NoUV, WGPUCullMode_None, WGPUVertexFormat_Float32x2, Instance(), WGPUPrimitiveTopology_LineList);
+
     m_cube_mesh = TRY(create_cube_mesh());
+    m_wireframe_chunk_slice_mesh = TRY(create_wireframe_cube_mesh(glm::vec3(16.0)));
 
     Engine::get().registry().register_all();       // TODO: I dont really like having this here but it needs to be before calling `get_texture_array` and after initializing WebGPU.
     TRY(Engine::get().registry().post_register()); //       Maybe split this function in two (initializing/creating resources).
@@ -1130,7 +1169,7 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_fw_colored_buffer = TRY(Buffer::create(sizeof(FwColored), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
     FwColored colored(
         glm::translate(glm::identity<glm::mat4>(), glm::vec3(0, 78, 0)),
-        glm::vec4(1.0, 1.0, 1.0, 1.0));
+        Color(1.0, 1.0, 1.0, 1.0));
     m_fw_colored_buffer->update_struct(colored);
 
     m_fw_shadowmap_cam_buffer = TRY(Buffer::create(sizeof(FwColored), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
@@ -1331,7 +1370,7 @@ void Renderer::draw_legacy(std::function<void()> f)
 Result<Cloud> Renderer::create_cloud()
 {
     Cloud cloud;
-    cloud.uniform.color = glm::vec4(0.92, 0.92, 0.92, 1.0);
+    cloud.uniform.color = Color(0.92, 0.92, 0.92, 1.0);
     cloud.buffer = TRY(Buffer::create(sizeof(FwColored), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform));
     cloud.bg = BindGroup::create(m_fw_colored_shader);
     cloud.bg->set_param("model", cloud.buffer);
@@ -1488,7 +1527,7 @@ void Renderer::draw_forward(const std::shared_ptr<World>& world)
 
     FwColored shadowmap_cam(
         glm::inverse(light.view) * glm::scale(glm::identity<glm::mat4>(), glm::vec3(100.0) * 2.0f),
-        glm::vec4(1.0, 1.0, 1.0, 1.0));
+        Colors::white);
     m_fw_shadowmap_cam_buffer->update_struct(shadowmap_cam);
 
     FwCamera shadowmap_camera{};
@@ -1697,6 +1736,26 @@ void Renderer::draw_world(const std::shared_ptr<World>& world, const RenderPass&
 
         wgpuRenderPassEncoderSetVertexBuffer(encoder, buffer_index++, r.chunk->get_instance_buffer()->handle(), 0, r.chunk->get_instance_buffer()->size());
         wgpuRenderPassEncoderDrawIndexed(encoder, mesh->vertex_count(), 1, 0, 0, r.slice_index);
+    }
+
+    if (m_chunk_debug)
+    {
+        for (const auto& r : chunks)
+        {
+            std::shared_ptr<BindGroup> dbg_bg = BindGroup::create(m_fw_colored_shader);
+            dbg_bg->set_param("camera", m_fw_camera);
+            dbg_bg->set_param("world_env", m_fw_world_env);
+
+            FwColored colored{};
+            colored.color = Colors::yellow;
+            colored.model = glm::translate(glm::identity<glm::mat4>(), glm::vec3(float(r.chunk->pos().x) * 16.0f + 8.0f - 0.5f, float(r.slice_index) * 16.0f + 8.0f - 0.5f, float(r.chunk->pos().z) * 16.0f + 8.0f - 0.5f));
+
+            std::shared_ptr<Buffer> dbg_buffer = EXPECT(Buffer::create(sizeof(FwColored), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
+            dbg_buffer->update_struct(colored);
+            dbg_bg->set_param("model", dbg_buffer);
+
+            draw(pass, m_wireframe_chunk_slice_mesh, m_wireframe_dbg_mat, dbg_bg);
+        }
     }
 }
 

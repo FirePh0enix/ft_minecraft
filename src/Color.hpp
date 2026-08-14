@@ -12,7 +12,7 @@ struct __attribute__((aligned(4))) ColorInt
     uint8_t a;
 };
 
-struct Color
+struct __attribute__((aligned(16))) Color
 {
     float r;
     float g;

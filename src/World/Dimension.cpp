@@ -12,6 +12,185 @@
 
 #include <mutex>
 
+void GenScheduler::terrain_pass(ChunkPos middle)
+{
+    std::set<ChunkPos> chunks;
+
+    for (int64_t x = -(m_chunk_distance + m_gen_distance); x <= m_chunk_distance + m_gen_distance; x++)
+        for (int64_t z = -(m_chunk_distance + m_gen_distance); z <= m_chunk_distance + m_gen_distance; z++)
+        {
+            const ChunkPos pos(x + middle.x, z + middle.z);
+
+            {
+                std::lock_guard<std::mutex> lock(m_dimension.m_preload_mutex);
+                if (m_dimension.has_pregen_chunk(x + middle.x, z + middle.z))
+                    continue;
+            }
+
+            {
+                std::lock_guard<std::mutex> lock(m_pregen_queue_mutex);
+                if (m_pregen_queue.contains(pos))
+                    continue;
+                m_pregen_queue.insert(pos);
+            }
+
+            chunks.insert(pos);
+        }
+
+    m_pregen_count.fetch_add(chunks.size());
+
+    for (const ChunkPos& pos : chunks)
+    {
+        Engine::get().get_thread_pool().async([this, pos]()
+                                              { terrain_and_struct_chunk(pos); });
+    }
+
+    std::lock_guard<std::mutex> lock(m_dimension.m_preload_mutex);
+    for (auto iter : m_dimension.m_preloaded_chunks)
+    {
+        const ChunkPos pos = iter.first;
+        if (std::abs(pos.x - middle.x) > m_chunk_distance + m_gen_distance || std::abs(pos.z - middle.z) > m_chunk_distance + m_gen_distance)
+            m_pregen_unload_queue.push_back(pos);
+    }
+    for (const ChunkPos& pos : m_pregen_unload_queue)
+    {
+        m_dimension.m_preloaded_chunks.erase(pos);
+    }
+}
+
+void GenScheduler::chunk_pass(ChunkPos middle)
+{
+    if (m_pregen_count.load() > 0)
+    {
+        return;
+    }
+
+    std::set<ChunkPos> chunks;
+
+    for (int64_t x = -m_chunk_distance; x <= m_chunk_distance; x++)
+        for (int64_t z = -m_chunk_distance; z <= m_chunk_distance; z++)
+        {
+            const ChunkPos pos(x + middle.x, z + middle.z);
+
+            {
+                std::lock_guard<std::mutex> lock(m_dimension.m_preload_mutex);
+                if (!m_dimension.has_pregen_chunk(x + middle.x, z + middle.z))
+                    continue;
+            }
+
+            {
+                std::lock_guard<std::mutex> lock(m_dimension.m_chunk_loading_mutex);
+                if (m_dimension.m_chunk_loading_queue.contains(pos))
+                    continue;
+                m_dimension.m_chunk_loading_queue.insert(pos);
+            }
+
+            {
+                std::lock_guard<std::mutex> lock(m_dimension.m_chunk_mutex);
+                if (m_dimension.m_chunks_to_flush.contains(pos))
+                    continue;
+                m_pregen_queue.insert(pos);
+            }
+
+            chunks.insert(pos);
+        }
+
+    for (const ChunkPos& pos : chunks)
+    {
+        Engine::get().get_thread_pool().async([this, pos]()
+                                              { realize_chunk(pos); });
+    }
+
+    // Unload chunks too far from the camera.
+    std::lock_guard<std::mutex> lock(m_dimension.m_preload_mutex);
+    for (auto iter : m_dimension.m_preloaded_chunks)
+    {
+        const ChunkPos pos = iter.first;
+        if (std::abs(pos.x - middle.x) > m_chunk_distance + m_gen_distance || std::abs(pos.z - middle.z) > m_chunk_distance + m_gen_distance)
+            m_pregen_unload_queue.push_back(pos);
+    }
+    for (const ChunkPos& pos : m_pregen_unload_queue)
+    {
+        m_dimension.m_preloaded_chunks.erase(pos);
+    }
+}
+
+void GenScheduler::terrain_and_struct_chunk(ChunkPos pos)
+{
+    std::shared_ptr<PreLoadedChunk> chunk = std::make_shared<PreLoadedChunk>();
+    m_dimension.m_gen->preload(pos.x, pos.z, chunk);
+    m_dimension.m_gen->structure_pass(pos.x, pos.z, chunk, m_dimension);
+
+    m_pregen_count.fetch_sub(1);
+
+    std::lock_guard<std::mutex> lock(m_dimension.m_preload_mutex);
+    m_dimension.m_preloaded_chunks[pos] = chunk;
+}
+
+void GenScheduler::realize_chunk(ChunkPos pos)
+{
+    std::string path = std::format("{}saves/{}/DIM0/{}${}/blocks.dat", Filesystem::get_data_directory(), m_dimension.m_world->get_name(), pos.x, pos.z);
+    if (!Engine::get().is_save_disabled() && Filesystem::exists(path))
+    {
+        std::shared_ptr<Chunk> chunk = std::make_shared<Chunk>(&m_dimension, pos.x, pos.z);
+
+        std::vector<char> data;
+        // TODO: how to handle errors from loading chunks ?
+        File file = EXPECT(Filesystem::open_file(path));
+        EXPECT(file.reader().read_to_buffer(data));
+        file.close();
+
+        std::vector<uint8_t> blocks_data;
+        EXPECT(ZLib::inflate(std::as_bytes(std::span(data)), blocks_data));
+
+        assert(blocks_data.size() == sizeof(BlockState) * Chunk::block_count);
+        memcpy(chunk->get_blocks(), blocks_data.data(), blocks_data.size());
+
+        std::string path = std::format("{}saves/{}/DIM0/{}${}/tags.dat", Filesystem::get_data_directory(), m_dimension.m_world->get_name(), pos.x, pos.z);
+        if (Filesystem::exists(path))
+        {
+            File file = EXPECT(Filesystem::open_file(path));
+            std::vector<char> tags_compressed_data;
+            EXPECT(file.reader().read_to_buffer(tags_compressed_data));
+            file.close();
+
+            std::vector<uint8_t> tags_data;
+            EXPECT(ZLib::inflate(std::as_bytes(std::span(tags_compressed_data)), tags_data));
+
+            BufferReader reader(tags_data.data(), tags_data.size());
+            Dimension::read_tags(reader, chunk);
+        }
+
+        std::lock_guard<std::mutex> lock(m_dimension.m_chunk_mutex);
+        m_dimension.m_chunks_to_flush[pos] = chunk;
+    }
+    else
+    {
+        std::shared_ptr<Chunk> chunk = std::make_shared<Chunk>(&m_dimension, pos.x, pos.z);
+        memset((void *)chunk->get_blocks(), 0, sizeof(BlockState) * Chunk::block_count);
+
+        for (int i = 0; i < 16 * 16; i++)
+            chunk->get_biomes()[i] = Biome::Plain;
+
+        std::shared_ptr<PreLoadedChunk> preloaded_chunk;
+        {
+            std::lock_guard<std::mutex> lock(m_dimension.m_preload_mutex);
+            auto iter = m_dimension.m_preloaded_chunks.find(pos);
+            if (iter == m_dimension.m_preloaded_chunks.end())
+                return; // TODO: ERROR
+            preloaded_chunk = iter->second;
+        }
+
+        m_dimension.m_gen->generate_chunk(chunk, preloaded_chunk, m_dimension);
+
+        // Save the initial version of the chunk.
+        EXPECT(m_dimension.m_world->save_chunk(chunk));
+
+        std::lock_guard<std::mutex> lock(m_dimension.m_chunk_mutex);
+        m_dimension.m_chunks_to_flush[pos] = chunk;
+    }
+}
+
 std::optional<std::shared_ptr<Chunk>> Dimension::get_chunk(int64_t x, int64_t z) const
 {
     auto iter = m_chunks.find(ChunkPos(x, z));
@@ -23,6 +202,11 @@ std::optional<std::shared_ptr<Chunk>> Dimension::get_chunk(int64_t x, int64_t z)
 bool Dimension::has_chunk(int64_t x, int64_t z) const
 {
     return m_chunks.contains(ChunkPos(x, z));
+}
+
+bool Dimension::has_pregen_chunk(int64_t x, int64_t z) const
+{
+    return m_preloaded_chunks.contains(ChunkPos(x, z));
 }
 
 void Dimension::add_chunk(const std::shared_ptr<Chunk>& chunk)
@@ -83,86 +267,12 @@ static ChunkPos pop_near(std::vector<ChunkLoadWithDistance>& elements)
 void Dimension::load(int64_t x, int64_t y, int64_t z, int64_t distance)
 {
     const glm::i64vec3 player_pos(x, y, z);
-    int64_t player_cx = int64_t(player_pos.x / 16);
-    int64_t player_cz = int64_t(player_pos.z / 16);
+    const int64_t player_cx = int64_t(player_pos.x / 16);
+    const int64_t player_cz = int64_t(player_pos.z / 16);
+    const ChunkPos player_cpos(player_cx, player_cz);
 
-    const int64_t preload_distance = std::max(distance * 2, 32l);
-
-    for (int64_t cx = -preload_distance * 2; cx <= preload_distance * 2; cx++)
-        for (int64_t cz = -preload_distance * 2; cz <= preload_distance * 2; cz++)
-        {
-            int64_t x = player_cx + cx;
-            int64_t z = player_cz + cz;
-            ChunkPos pos(x, z);
-
-            // FIXME: Lock a mutex to do a simple check is not ideal
-            {
-                std::lock_guard<std::mutex> lock(m_preload_mutex);
-                if (m_preloaded_chunks.contains(pos))
-                    continue;
-            }
-
-            queue_preload_chunk(pos);
-        }
-
-    m_load_buffer.resize(0);
-    for (int64_t cx = -distance; cx <= distance; cx++)
-        for (int64_t cz = -distance; cz <= distance; cz++)
-        {
-            int64_t x = player_cx + cx;
-            int64_t z = player_cz + cz;
-            ChunkPos pos(x, z);
-
-            if (has_chunk(x, z))
-                continue;
-
-            // TODO: needs biome data only when generating the biome, not when loading it.
-            //       find a way to only generate this data if its not saved to the disk.
-            {
-                std::lock_guard<std::mutex> lock(m_preload_mutex);
-                if (!m_preloaded_chunks.contains(pos))
-                    continue;
-            }
-
-            {
-                std::lock_guard<std::mutex> lock(m_chunk_mutex);
-                if (m_chunks_to_flush.contains(pos))
-                    continue;
-            }
-
-            {
-                std::lock_guard<std::mutex> lock(m_chunk_loading_mutex);
-                if (m_chunk_loading_queue.contains(pos))
-                    continue;
-
-                m_chunk_loading_queue.insert(pos);
-            }
-
-            m_load_buffer.push_back(ChunkLoadWithDistance(pos, glm::distance2(glm::vec2(player_pos.x, player_pos.z), glm::vec2((float)pos.x * 16.0f + 8.0f, (float)pos.z * 16.0f + 8.0f))));
-        }
-
-    const size_t size = m_load_buffer.size();
-    for (size_t i = 0; i < size; i++)
-    {
-        ChunkPos pos = pop_near(m_load_buffer);
-        queue_load_chunk(pos);
-    }
-
-    std::lock_guard<std::mutex> lock(m_chunk_mutex);
-    for (const auto& [pos, chunk] : m_chunks)
-    {
-        if (pos.x >= player_cx - distance && pos.x <= player_cx + distance && pos.z >= player_cz - distance && pos.z <= player_cz + distance)
-            continue;
-        queue_unload_chunk(pos);
-    }
-
-    // std::lock_guard<std::mutex> lock2(m_preload_mutex);
-    // for (const auto& [pos, chunk] : m_preloaded_chunks)
-    // {
-    //     if (pos.x >= player_cx - preload_distance * 2 && pos.x <= player_cx + preload_distance * 2 && pos.z >= player_cz - preload_distance * 2 && pos.z <= player_cz + preload_distance * 2)
-    //         continue;
-    //     remove_preload(pos);
-    // }
+    m_scheduler.terrain_pass(player_cpos);
+    m_scheduler.chunk_pass(player_cpos);
 }
 
 std::vector<AABBf> Dimension::get_boxes_that_may_collide(const AABBf& box) const

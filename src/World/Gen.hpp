@@ -7,34 +7,15 @@
 #include "spline.hpp"
 
 #include <memory>
+#include <random>
 
 struct StructureGen
 {
-    // struct Part
-    // {
-    //     int64_t w;
-    //     int64_t h;
-    //     int64_t l;
-    //     BlockState *blocks;
-
-    //     Part(int64_t w, int64_t h, int64_t l)
-    //         : w(w), h(h), l(l)
-    //     {
-    //         blocks = new BlockState[w * h * l]();
-    //     }
-
-    //     ~Part()
-    //     {
-    //         delete[] blocks;
-    //     }
-    // };
-
     glm::i64vec3 pos;
     int64_t w;
     int64_t h;
     int64_t l;
     BlockState *blocks;
-    // std::map<ChunkPos, Part> parts;
 
     StructureGen(glm::i64vec3 pos, BlockState *blocks, int64_t w, int64_t h, int64_t l)
         : pos(pos), w(w), h(h), l(l), blocks(blocks)
@@ -56,6 +37,9 @@ public:
 class TreePass : public StructurePass
 {
 public:
+    void place_short_tree(ChunkPos pos, std::shared_ptr<PreLoadedChunk> chunk, Dimension& dim, std::mt19937& rng, int64_t lx, int64_t lz);
+    void place_big_tree(ChunkPos pos, std::shared_ptr<PreLoadedChunk> chunk, Dimension& dim, std::mt19937& rng, int64_t lx, int64_t lz);
+
     virtual void place(ChunkPos pos, std::shared_ptr<PreLoadedChunk> chunk, Dimension& dim) override;
 };
 
