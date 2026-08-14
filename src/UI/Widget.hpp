@@ -67,8 +67,8 @@ struct WidgetRect
 
 struct GlobalPoint
 {
-    int32_t x;
-    int32_t y;
+    int32_t x = -1;
+    int32_t y = -1;
 };
 
 enum class ContainerLayout
@@ -185,15 +185,15 @@ public:
     void set_expand_horizontal(bool b) { m_expand_horizontal = b; }
     bool is_expanding_horizontal() const { return m_expand_horizontal; }
 
-    GlobalPoint get_global_pos() const;
-    GlobalPoint get_global_size() const;
+    GlobalPoint get_global_pos();
+    GlobalPoint get_global_size();
 
     void draw_everything(const RenderPass& pass);
     void update_everything(float delta);
 
     Animation& animate(AnimationType type, std::string_view property);
 
-    bool is_mouse_hovering() const;
+    bool is_mouse_hovering();
 
     bool is_visible() const { return m_visible; }
     void set_visible(bool visible) { m_visible = visible; }
@@ -231,6 +231,9 @@ protected:
     std::vector<RuntimeAnimation> m_runtime_animations;
     uint64_t m_anim_id = 0;
     bool m_was_hovering = false;
+
+    // Cache size and positions.
+    GlobalPoint m_cached_size;
 
     int32_t get_width(Size size) const;
     int32_t get_height(Size size) const;

@@ -2,6 +2,7 @@
 
 #include "Core/Types.hpp"
 #include "Engine.hpp"
+#include "Profiler.hpp"
 #include "Variant.hpp"
 
 #include <cmath>
@@ -40,6 +41,8 @@ static Variant lerp(const Variant& a, const Variant& b, float t)
 
 void Widget::update(float delta)
 {
+    ZoneScoped;
+
     std::set<uint64_t> ids;
     for (RuntimeAnimation& anim : m_runtime_animations)
     {
@@ -91,7 +94,7 @@ void Widget::add_child(std::shared_ptr<Widget> widget)
     m_children.push_back(widget);
 }
 
-GlobalPoint Widget::get_global_pos() const
+GlobalPoint Widget::get_global_pos()
 {
     GlobalPoint p{};
 
@@ -171,8 +174,13 @@ GlobalPoint Widget::get_global_pos() const
     return p;
 }
 
-GlobalPoint Widget::get_global_size() const
+GlobalPoint Widget::get_global_size()
 {
+    // TODO: Invalidate the cache if new children are added, if the size changed with animation.
+    //       invalidation must be recursived, all parents.
+    if (m_cached_size.x >= 0 && m_cached_size.y >= 0)
+        return m_cached_size;
+
     GlobalPoint p{};
 
     Point self_size = size();
@@ -252,6 +260,8 @@ GlobalPoint Widget::get_global_size() const
             p.y = get_height(Size::percent(100.0));
     }
 
+    m_cached_size = p;
+
     return p;
 }
 
@@ -317,7 +327,7 @@ Animation& Widget::animate(AnimationType type, std::string_view property)
     return *animation.get();
 }
 
-bool Widget::is_mouse_hovering() const
+bool Widget::is_mouse_hovering()
 {
     if (Input::is_mouse_grabbed())
         return false;
