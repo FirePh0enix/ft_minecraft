@@ -36,7 +36,9 @@ void Mob::follow_path(float delta_time)
     glm::vec3 pos = m_transform.position();
     glm::vec3 target = m_path.value().look_points[m_path_index];
     glm::vec3 to_target = target - pos;
-    to_target.y = 0.0f;
+
+    if (!is_in_water())
+        to_target.y = 0.0f;
 
     // Slow down when reaching last waypoint.
     float speed_percent = 1.0f;
@@ -95,12 +97,36 @@ void Mob::follow_path(float delta_time)
         }
     }
 
-    glm::quat target_rot = glm::quatLookAt(target_dir_norm, glm::vec3(0, 1, 0));
-    m_transform.rotation() = glm::slerp(m_transform.rotation(), target_rot, delta_time * m_turn_speed);
+    if (is_in_water())
+    {
+        glm::vec3 flat = target_dir_norm;
+        // Ignoring pitch rotation because sometimes he was rotating so much that body was straight like ----- instead of   |
+        //                                                                                                                  |
+        //                                                                                                                  |
+        // So he cannot move forward anymore xD.
+        flat.y = 0.0f;
+
+        if (glm::length2(flat) > 1e-6f)
+        {
+            flat = glm::normalize(flat);
+
+            glm::quat target_rot = glm::quatLookAt(flat, glm::vec3(0, 1, 0));
+            m_transform.rotation() = glm::slerp(m_transform.rotation(), target_rot, delta_time * m_turn_speed);
+        }
+    }
+    else
+    {
+        glm::quat target_rot = glm::quatLookAt(target_dir_norm, glm::vec3(0, 1, 0));
+        m_transform.rotation() = glm::slerp(m_transform.rotation(), target_rot, delta_time * m_turn_speed);
+    }
+
     glm::vec3 move = target_dir_norm * m_speed * speed_percent * delta_time;
 
     m_velocity.x = move.x;
     m_velocity.z = move.z;
+
+    if (is_in_water())
+        m_velocity.y = move.y;
 
     // Jump.
     float dy = m_path.value().look_points[m_path_index].y - pos.y;
@@ -123,7 +149,7 @@ void Mob::flee_to(const glm::ivec3& to)
 
     glm::ivec3 grid_pos = glm::ivec3(glm::round(m_transform.position()));
 
-    m_pathfinding->find_path(grid_pos, to);
+    m_pathfinding->find_path(grid_pos, to, m_dimension);
     if (m_pathfinding->m_path.empty())
     {
         m_following_path = false;
@@ -162,7 +188,7 @@ bool Mob::verify_if_path_still_valid()
         size_t node_index = full_path[i];
         const auto& node = m_pathfinding->m_node_pool[node_index];
 
-        if (!m_pathfinding->is_walkable(node.m_gridPos, 1))
+        if (!m_pathfinding->is_walkable(node.m_gridPos, 1, m_dimension))
             return false;
     }
 
@@ -191,7 +217,7 @@ glm::ivec3 Mob::find_random_walkable_position(int radius, const glm::vec3& prefe
         glm::ivec3 pos = start + glm::ivec3(horizontal.x, dy, horizontal.z);
         glm::ivec3 below(pos.x, pos.y - 1, pos.z);
 
-        if (m_pathfinding->is_walkable(pos, 1) && !m_pathfinding->is_walkable(below, 1))
+        if (m_pathfinding->is_walkable(pos, 1, m_dimension) && !m_pathfinding->is_walkable(below, 1, m_dimension))
         {
             result = pos;
             break;

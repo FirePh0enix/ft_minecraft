@@ -20,7 +20,14 @@ void Zombie::tick(float delta)
     m_path_update_timer -= delta;
 
     if (!m_on_ground)
-        m_velocity.y -= 9.81f * delta;
+    {
+        float gravity = m_gravity_value;
+
+        if (is_in_water())
+            gravity = 0.0f;
+
+        m_velocity.y -= gravity * delta;
+    }
 
     // Tracking.
     AABBf search_box = AABBf::from_center_extent(get_global_transform().position(), glm::vec3(DETECTION_RADIUS));
@@ -52,7 +59,7 @@ void Zombie::tick(float delta)
     {
         const glm::ivec3 target_rounded_pos = glm::round(m_threat_entity->get_global_transform().position());
 
-        bool is_target_reachable = m_pathfinding->is_walkable(target_rounded_pos, 0);
+        bool is_target_reachable = m_pathfinding->is_walkable(target_rounded_pos, 0, m_dimension);
 
         if (is_target_reachable && m_path_update_timer <= 0.0f)
         {
@@ -87,7 +94,7 @@ void Zombie::tick(float delta)
         {
             const glm::ivec3& to = m_path.value().look_points[m_path.value().finish_line_index];
             const int remaining_jump = m_on_ground ? 1 : 0;
-            const bool is_final_pos_reachable = m_pathfinding->is_walkable(to, remaining_jump);
+            const bool is_final_pos_reachable = m_pathfinding->is_walkable(to, remaining_jump, m_dimension);
 
             if (is_final_pos_reachable)
                 flee_to(m_path.value().look_points[m_path.value().finish_line_index]);
@@ -108,7 +115,7 @@ void Zombie::tick(float delta)
 
 void Zombie::on_ready()
 {
-    m_model = EXPECT(Model::load("assets/models/player.json"));
+    m_model = EXPECT(Model::load("assets/models/zombie.json"));
     m_id = World::next_id();
     m_pathfinding = std::make_unique<Pathfinding>(m_world);
 }

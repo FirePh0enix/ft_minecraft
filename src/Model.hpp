@@ -4,6 +4,7 @@
 #include "Transform3D.hpp"
 
 #include <memory>
+#include <span>
 
 class Buffer;
 class Texture;

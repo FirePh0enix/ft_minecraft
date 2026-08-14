@@ -12,7 +12,7 @@ void Cow::tick(float delta)
 {
 
     if (!m_on_ground)
-        m_velocity.y -= 9.81f * delta;
+         m_velocity.y -= m_gravity_value * delta;
 
     if (m_following_path)
     {
@@ -20,7 +20,7 @@ void Cow::tick(float delta)
         {
             const glm::ivec3& to = m_path.value().look_points[m_path.value().finish_line_index];
             const int remaining_jump = m_on_ground ? 1 : 0;
-            bool is_final_pos_reachable = m_pathfinding->is_walkable(to, remaining_jump);
+            bool is_final_pos_reachable = m_pathfinding->is_walkable(to, remaining_jump, m_dimension);
 
             if (is_final_pos_reachable)
                 flee_to(m_path.value().look_points[m_path.value().finish_line_index]);
@@ -50,7 +50,7 @@ void Cow::tick(float delta)
 
 void Cow::on_ready()
 {
-    m_model = EXPECT(Model::load("assets/models/player.json"));
+    m_model = EXPECT(Model::load("assets/models/cow.json"));
     m_id = World::next_id();
     m_pathfinding = std::make_unique<Pathfinding>(m_world);
 }
@@ -79,7 +79,7 @@ void Cow::flee_from(int radius)
     glm::vec3 flee_dir = safe_normalize(glm::vec3(cow_grid - threat_grid));
     glm::ivec3 flee_position = find_random_walkable_position(radius, flee_dir);
 
-    m_pathfinding->find_path(cow_grid, flee_position);
+    m_pathfinding->find_path(cow_grid, flee_position, m_dimension);
 
     if (m_pathfinding->m_path.empty())
     {

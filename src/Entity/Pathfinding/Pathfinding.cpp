@@ -31,11 +31,21 @@ size_t Pathfinding::node_from_world_point(const glm::ivec3& pos)
     return index;
 }
 
-bool Pathfinding::is_walkable(const glm::ivec3& to, int max_jump_height)
+bool Pathfinding::is_walkable(const glm::ivec3& to, int max_jump_height, size_t dimension)
 {
 
     bool block_at_to = !m_world->get_block_state(to.x, to.y, to.z).is_air();
     bool block_below_to = !m_world->get_block_state(to.x, to.y - 1, to.z).is_air();
+
+    auto at_water = m_world->get_dimension(dimension).get_tag(to, "water").has_value();
+    const glm::i64vec3 below = glm::i64vec3(to.x, to.y - 1, to.z);
+    auto below_water = m_world->get_dimension(dimension).get_tag(below, "water").has_value();
+
+    if (at_water)
+        return true;
+
+    if (below_water && !block_at_to)
+        return true;
 
     // Ensure he can stand on.
     if (!block_at_to && block_below_to)
@@ -48,7 +58,7 @@ bool Pathfinding::is_walkable(const glm::ivec3& to, int max_jump_height)
     return false;
 }
 
-std::vector<size_t> Pathfinding::get_neighbors(size_t node_index)
+std::vector<size_t> Pathfinding::get_neighbors(size_t node_index, size_t dimension)
 {
     std::vector<size_t> neighbors;
 
@@ -72,12 +82,18 @@ std::vector<size_t> Pathfinding::get_neighbors(size_t node_index)
     {
         glm::ivec3 neighbor_pos = node.m_gridPos + dir;
 
+        bool in_water = m_world->get_dimension(dimension).get_tag(node.m_gridPos, "water").has_value();
         bool on_ground = !m_world->get_block_state(node.m_gridPos.x, node.m_gridPos.y - 1, node.m_gridPos.z).is_air();
-        int air_time = on_ground ? 0 : 1;
+        int remaining_jump = 0;
 
-        int remaining_jump = 1 - air_time;
+        // Being in water do not increase jump, so pathfinding can generate right path.
+        if (!in_water)
+        {
+            int air_time = on_ground ? 0 : 1;
+            remaining_jump = 1 - air_time;
+        }
 
-        if (!is_walkable(neighbor_pos, remaining_jump))
+        if (!is_walkable(neighbor_pos, remaining_jump, dimension))
             continue;
 
         glm::ivec3 d = neighbor_pos - node.m_gridPos;
@@ -137,7 +153,7 @@ void Pathfinding::retrace_path(size_t start_index, size_t end_index)
     }
 }
 
-void Pathfinding::find_path(const glm::vec3& start_pos, const glm::vec3& target_pos)
+void Pathfinding::find_path(const glm::vec3& start_pos, const glm::vec3& target_pos, size_t dimension)
 {
     m_open_set.clear();
     m_close_set.clear();
@@ -189,7 +205,7 @@ void Pathfinding::find_path(const glm::vec3& start_pos, const glm::vec3& target_
             return;
         }
 
-        for (size_t neighbor_index : get_neighbors(current_index))
+        for (size_t neighbor_index : get_neighbors(current_index, dimension))
         {
             auto& neighbor = m_node_pool[neighbor_index];
 
@@ -197,6 +213,12 @@ void Pathfinding::find_path(const glm::vec3& start_pos, const glm::vec3& target_
                 continue;
 
             int new_cost = current.m_g_cost + get_distance(current, neighbor);
+
+            bool water = m_world->get_dimension(dimension).get_tag(neighbor.m_gridPos, "water").has_value() ||
+                         m_world->get_dimension(dimension).get_tag(glm::i64vec3(neighbor.m_gridPos.x, neighbor.m_gridPos.y - 1, neighbor.m_gridPos.z), "water").has_value();
+
+            if (water)
+                new_cost += 10;
 
             if (new_cost < neighbor.m_g_cost || std::find(m_open_set.begin(), m_open_set.end(), neighbor_index) == m_open_set.end())
             {
@@ -209,8 +231,6 @@ void Pathfinding::find_path(const glm::vec3& start_pos, const glm::vec3& target_
             }
         }
     }
-
-    // println("Cannot find path. Start_pos: [{} {} {}], target_pos: [{} {} {}]", start_pos.x, start_pos.y, start_pos.z, target_pos.x, target_pos.y, target_pos.z);
 }
 
 std::vector<glm::vec3> Pathfinding::simplify_path(const std::vector<size_t>& path)

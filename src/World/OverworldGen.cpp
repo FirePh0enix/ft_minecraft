@@ -153,7 +153,7 @@ void OverworldGen::preload(int64_t cx, int64_t cz, std::shared_ptr<PreLoadedChun
             elevation -= lakes_s0 * 15.0f;
 
             int64_t height = int64_t(elevation);
-            height = std::min(height, 255l);
+            height = std::min(height, (int64_t)255l);
 
             chunk->heights[x + z * 16] = height;
             chunk->biomes[x + z * 16] = biome;
