@@ -199,6 +199,8 @@ void OverworldGen::generate_chunk(std::shared_ptr<Chunk> chunk, std::shared_ptr<
                 ground = BlockState(Blocks::sand);
                 surface = BlockState(Blocks::sand);
                 break;
+            case Biome::Underworld:
+                break;
             }
 
             for (; y < height - 1; y++)

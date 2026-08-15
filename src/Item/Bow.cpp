@@ -5,18 +5,17 @@
 #include "Entity/Arrow.hpp"
 #include "World/Registry.hpp"
 #include "World/World.hpp"
+
 #include <memory>
 
 constexpr float ARROW_SPEED = 2.0f;
-
-
 
 BowItem::BowItem()
 {
     set_texture(Engine::get().registry().create_texture("assets/textures/bow.png"));
 }
 
-void BowItem::interact(World& world, size_t dimension, ItemStack& stack, glm::i64vec3 pos, glm::i64vec3 normal, InventoryContainer& inventory)
+void BowItem::interact(World& world, int dimension, ItemStack& stack, glm::i64vec3 pos, glm::i64vec3 normal, InventoryContainer& inventory)
 {
     (void)world;
     (void)dimension;
@@ -28,7 +27,7 @@ void BowItem::interact(World& world, size_t dimension, ItemStack& stack, glm::i6
     stack.set_tag("draw_start", now_ms);
 }
 
-void BowItem::on_release(World& world, size_t dimension, ItemStack& stack, glm::i64vec3 pos, glm::vec3 dir, InventoryContainer& inventory)
+void BowItem::on_release(World& world, int dimension, ItemStack& stack, glm::i64vec3 pos, glm::vec3 dir, InventoryContainer& inventory)
 {
     float power = 0.1f;
     auto start = stack.get_tag<int64_t>("draw_start");

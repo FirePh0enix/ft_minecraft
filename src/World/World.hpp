@@ -107,8 +107,10 @@ public:
 
     void tick(float delta);
 
-    BlockState get_block_state(int64_t x, int64_t y, int64_t z) const;
-    void set_block_state(int64_t x, int64_t y, int64_t z, BlockState state);
+    void tick_dimension(float delta, int dimension);
+
+    BlockState get_block_state(int dimension, int64_t x, int64_t y, int64_t z) const;
+    void set_block_state(int dimension, int64_t x, int64_t y, int64_t z, BlockState state);
 
     int64_t get_render_distance() const { return m_load_distance; }
 
@@ -116,11 +118,6 @@ public:
     std::optional<std::shared_ptr<Chunk>> get_chunk(int64_t x, int64_t z);
 
     std::string_view get_name() const { return m_name; }
-
-    void remove_chunk(int64_t x, int64_t z)
-    {
-        m_dims[0].remove_chunk(x, z);
-    }
 
     void remove_entity(size_t dim, std::shared_ptr<Entity> entity)
     {
@@ -144,10 +141,13 @@ public:
         return m_dims[index];
     }
 
-    void set_active_camera(std::shared_ptr<Camera> camera);
-    ALWAYS_INLINE std::shared_ptr<Camera> get_active_camera() const { return m_camera; }
+    // void set_active_camera(std::shared_ptr<Camera> camera);
+    // ALWAYS_INLINE std::shared_ptr<Camera> get_active_camera() const { return m_camera; }
 
-    void add_entity(size_t dimension, std::shared_ptr<Entity> entity)
+    void set_player(Player *player) { m_player = player; }
+    Player *get_player() const { return m_player; }
+
+    void add_entity(int dimension, std::shared_ptr<Entity> entity)
     {
         entity->m_world = this;
         entity->m_dimension = dimension;
@@ -162,6 +162,16 @@ public:
         return m_dims[0].get_entity(id);
     }
 
+    void change_dimension(EntityId id, int new_dimension)
+    {
+        std::shared_ptr<Entity> entity = get_entity(id);
+        int current_dimension = entity->m_dimension;
+        entity->m_dimension = new_dimension;
+
+        remove_entity(current_dimension, id);
+        add_entity(new_dimension, entity);
+    }
+
     glm::vec3 get_spawn_position() const { return m_spawn_position; }
 
     /**
@@ -171,12 +181,12 @@ public:
      * @param range Size of the ray
      * @return true if the ray hit something
      */
-    bool raycast(const Ray& ray, float range, RaycastResult& result, const Entity *ignore = nullptr);
+    bool raycast(int dimension, const Ray& ray, float range, RaycastResult& result, const Entity *ignore = nullptr);
 
     /**
      * Break the block and drop an item corresponding to it.
      */
-    void break_block(int64_t x, int64_t y, int64_t z);
+    void break_block(int dimension, int64_t x, int64_t y, int64_t z);
 
     /**
      * Save chunk to the disk.
@@ -219,12 +229,13 @@ private:
 
     std::vector<ChunkLoadRequest> m_load_requests;
 
-    std::shared_ptr<Camera> m_camera;
     bool m_proxy = false;
+
+    Player *m_player;
 
     glm::vec3 m_spawn_position = glm::vec3();
 
     void find_safe_spawn();
-    void load_around_player();
-    void request_load_around();
+    void load_around_player(int dimension);
+    void request_load_around(int dimension);
 };

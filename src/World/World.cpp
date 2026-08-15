@@ -116,8 +116,11 @@ Result<std::shared_ptr<World>> World::create(std::string name, uint64_t seed, in
     world->m_seed = seed;
     world->m_name = name;
 
+    // TODO: find a common place to put this.
     world->m_dims[overworld].m_world = world.get();
     world->m_dims[overworld].m_gen = std::make_shared<OverworldGen>(WorldSettings{});
+    world->m_dims[underworld].m_world = world.get();
+    world->m_dims[underworld].m_gen = std::make_shared<UnderworldGen>(WorldSettings{});
 
     // world->find_safe_spawn();
 
@@ -169,6 +172,8 @@ Result<std::shared_ptr<World>> World::load(std::string name)
 
     world->m_dims[overworld].m_world = world.get();
     world->m_dims[overworld].m_gen = std::make_shared<OverworldGen>(WorldSettings{});
+    world->m_dims[underworld].m_world = world.get();
+    world->m_dims[underworld].m_gen = std::make_shared<UnderworldGen>(WorldSettings{});
 
     return world;
 }
@@ -194,9 +199,15 @@ static void add_neighbour_chunk(ChunkPos pos, std::set<ChunkPos>& chunks)
 
 void World::tick(float delta)
 {
+    tick_dimension(delta, overworld);
+    tick_dimension(delta, underworld);
+}
+
+void World::tick_dimension(float delta, int dimension)
+{
     ZoneScoped;
 
-    for (std::shared_ptr<Entity> entity : m_dims[overworld].get_entities())
+    for (std::shared_ptr<Entity> entity : m_dims[dimension].get_entities())
     {
         if (entity->is_active())
             entity->recurse_tick(delta);
@@ -204,14 +215,14 @@ void World::tick(float delta)
             remove_entity(entity->m_dimension, entity);
     }
 
-    for (std::shared_ptr<Entity> entity : m_dims[0].m_entities_to_remove)
-        m_dims[0].m_entities.erase(std::find(m_dims[0].m_entities.begin(), m_dims[0].m_entities.end(), entity));
-    for (std::shared_ptr<Entity> entity : m_dims[0].m_entities_to_add)
-        m_dims[0].m_entities.push_back(entity);
+    for (std::shared_ptr<Entity> entity : m_dims[dimension].m_entities_to_remove)
+        m_dims[dimension].m_entities.erase(std::find(m_dims[dimension].m_entities.begin(), m_dims[dimension].m_entities.end(), entity));
+    for (std::shared_ptr<Entity> entity : m_dims[dimension].m_entities_to_add)
+        m_dims[dimension].m_entities.push_back(entity);
 
     if (!m_proxy)
     {
-        for (auto& [pos, chunk] : m_dims[0].m_chunks)
+        for (auto& [pos, chunk] : m_dims[dimension].m_chunks)
         {
             if (chunk->is_modified())
                 EXPECT(save_chunk(chunk));
@@ -219,50 +230,50 @@ void World::tick(float delta)
         }
 
         // TODO: Don't save every players each frames.
-        for (const std::shared_ptr<Entity>& entity : m_dims[World::overworld].get_entities())
+        for (const std::shared_ptr<Entity>& entity : m_dims[dimension].get_entities())
         {
             if (std::shared_ptr<Player> player = std::dynamic_pointer_cast<Player>(entity))
                 EXPECT(save_player(player));
         }
 
-        load_around_player();
+        load_around_player(dimension);
     }
     else if (Engine::get().is_online() && !Engine::get().is_server())
     {
-        request_load_around();
+        request_load_around(dimension);
     }
 
     // Flush all new chunks.
     std::set<ChunkPos> chunk_modified;
 
     {
-        std::lock_guard<std::mutex> lock(m_dims[0].m_chunk_mutex);
+        std::lock_guard<std::mutex> lock(m_dims[dimension].m_chunk_mutex);
 
-        for (auto& [pos, chunk] : m_dims[0].m_chunks_to_flush)
+        for (auto& [pos, chunk] : m_dims[dimension].m_chunks_to_flush)
         {
-            m_dims[0].m_chunks[pos] = chunk;
+            m_dims[dimension].m_chunks[pos] = chunk;
             chunk_modified.insert(pos);
             add_neighbour_chunk(pos, chunk_modified);
         }
-        m_dims[0].m_chunks_to_flush.clear();
+        m_dims[dimension].m_chunks_to_flush.clear();
 
-        for (auto pos : m_dims[0].m_chunks_to_remove)
+        for (auto pos : m_dims[dimension].m_chunks_to_remove)
         {
-            m_dims[0].m_chunks.erase(pos);
+            m_dims[dimension].m_chunks.erase(pos);
             chunk_modified.insert(pos);
             add_neighbour_chunk(pos, chunk_modified);
         }
-        m_dims[0].m_chunks_to_remove.clear();
+        m_dims[dimension].m_chunks_to_remove.clear();
     }
 
     for (ChunkPos pos : chunk_modified)
     {
-        m_dims[World::overworld].queue_rebuild(pos);
+        m_dims[dimension].queue_rebuild(pos);
     }
 
     if (!m_proxy && Engine::get().is_online() && Engine::get().is_server())
     {
-        for (std::shared_ptr<Entity> entity : m_dims[World::overworld].get_entities())
+        for (std::shared_ptr<Entity> entity : m_dims[dimension].get_entities())
         {
             UpdateEntityPacket p{};
             p.id = entity->id();
@@ -289,17 +300,19 @@ void World::tick(float delta)
         m_load_requests.clear();
     }
 
-    m_dims[0].m_entities_to_remove.clear();
-    m_dims[0].m_entities_to_add.clear();
+    m_dims[dimension].m_entities_to_remove.clear();
+    m_dims[dimension].m_entities_to_add.clear();
 
-    m_dims[0].m_visible_chunks.resize(0);
-    for (const auto& [key, chunk] : m_dims[0].m_chunks)
+    std::shared_ptr<Camera> camera = m_player->get_camera();
+
+    m_dims[dimension].m_visible_chunks.resize(0);
+    for (const auto& [key, chunk] : m_dims[dimension].m_chunks)
     {
         ChunkPos pos = chunk->pos();
         AABBf aabb = AABBf(-glm::vec3(Chunk::width / 2.0, Chunk::height / 2.0, Chunk::width / 2), glm::vec3(Chunk::width / 2.0, Chunk::height / 2.0, Chunk::width / 2))
                          .translate(glm::vec3((float)pos.x * Chunk::width + Chunk::width / 2.0, float(Chunk::height) / 2.0, (float)pos.z * Chunk::width + Chunk::width / 2.0));
 
-        if (!m_camera->frustum().contains(aabb))
+        if (!camera->frustum().contains(aabb))
             continue;
 
         for (size_t i = 0; i < Chunk::slice_count; i++)
@@ -308,21 +321,21 @@ void World::tick(float delta)
             AABBf aabb = AABBf(-glm::vec3(Chunk::width / 2.0, Chunk::width / 2.0, Chunk::width / 2), glm::vec3(Chunk::width / 2.0, Chunk::width / 2.0, Chunk::width / 2))
                              .translate(glm::vec3((float)pos.x * Chunk::width + Chunk::width / 2.0, (float)i * Chunk::width + Chunk::width / 2.0, (float)pos.z * Chunk::width + Chunk::width / 2.0));
 
-            if (!m_camera->frustum().contains(aabb) || (chunk->get_slices()[i].mesh == nullptr && chunk->get_slices()[i].water_mesh == nullptr))
+            if (!camera->frustum().contains(aabb) || (chunk->get_slices()[i].mesh == nullptr && chunk->get_slices()[i].water_mesh == nullptr))
                 continue;
 
-            m_dims[0].m_visible_chunks.push_back(RenderableChunk(chunk, i));
+            m_dims[dimension].m_visible_chunks.push_back(RenderableChunk(chunk, i));
         }
     }
 
-    m_dims[0].m_sun_visible_chunks.resize(0);
-    for (const auto& [key, chunk] : m_dims[0].m_chunks)
+    m_dims[dimension].m_sun_visible_chunks.resize(0);
+    for (const auto& [key, chunk] : m_dims[dimension].m_chunks)
     {
         ChunkPos pos = chunk->pos();
         AABBf aabb = AABBf(-glm::vec3(Chunk::width / 2.0, Chunk::height / 2.0, Chunk::width / 2), glm::vec3(Chunk::width / 2.0, Chunk::height / 2.0, Chunk::width / 2))
                          .translate(glm::vec3((float)pos.x * Chunk::width + Chunk::width / 2.0, float(Chunk::height) / 2.0, (float)pos.z * Chunk::width + Chunk::width / 2.0));
 
-        if (!m_dims[0].m_sun_frustum.contains(aabb))
+        if (!m_dims[dimension].m_sun_frustum.contains(aabb))
             continue;
 
         for (size_t i = 0; i < Chunk::slice_count; i++)
@@ -331,22 +344,22 @@ void World::tick(float delta)
             AABBf aabb = AABBf(-glm::vec3(Chunk::width / 2.0, Chunk::width / 2.0, Chunk::width / 2), glm::vec3(Chunk::width / 2.0, Chunk::width / 2.0, Chunk::width / 2))
                              .translate(glm::vec3((float)pos.x * Chunk::width + Chunk::width / 2.0, (float)i * Chunk::width + Chunk::width / 2.0, (float)pos.z * Chunk::width + Chunk::width / 2.0));
 
-            if (!m_dims[0].m_sun_frustum.contains(aabb) || chunk->get_slices()[i].mesh == nullptr)
+            if (!m_dims[dimension].m_sun_frustum.contains(aabb) || chunk->get_slices()[i].mesh == nullptr)
                 continue;
 
-            m_dims[0].m_sun_visible_chunks.push_back(RenderableChunk(chunk, i));
+            m_dims[dimension].m_sun_visible_chunks.push_back(RenderableChunk(chunk, i));
         }
     }
 }
 
-BlockState World::get_block_state(int64_t x, int64_t y, int64_t z) const
+BlockState World::get_block_state(int dimension, int64_t x, int64_t y, int64_t z) const
 {
-    return m_dims[overworld].get_block(x, y, z);
+    return m_dims[dimension].get_block(x, y, z);
 }
 
-void World::set_block_state(int64_t x, int64_t y, int64_t z, BlockState state)
+void World::set_block_state(int dimension, int64_t x, int64_t y, int64_t z, BlockState state)
 {
-    m_dims[overworld].set_block(x, y, z, state);
+    m_dims[dimension].set_block(x, y, z, state);
 }
 
 std::optional<std::shared_ptr<Chunk>> World::get_chunk(int64_t x, int64_t z) const
@@ -359,20 +372,15 @@ std::optional<std::shared_ptr<Chunk>> World::get_chunk(int64_t x, int64_t z)
     return m_dims[overworld].get_chunk(x, z);
 }
 
-void World::set_active_camera(std::shared_ptr<Camera> camera)
+void World::load_around_player(int dimension)
 {
-    m_camera = camera;
+    const glm::vec3 camera_pos = m_player->get_global_transform().position();
+    m_dims[dimension].load((int64_t)std::round(camera_pos.x), (int64_t)std::round(camera_pos.y), (int64_t)std::round(camera_pos.z), m_load_distance);
 }
 
-void World::load_around_player()
+void World::request_load_around(int dimension)
 {
-    const glm::vec3 camera_pos = m_camera->get_global_transform().position();
-    m_dims[World::overworld].load((int64_t)std::round(camera_pos.x), (int64_t)std::round(camera_pos.y), (int64_t)std::round(camera_pos.z), m_load_distance);
-}
-
-void World::request_load_around()
-{
-    const glm::vec3 player_pos = m_camera->get_global_transform().position();
+    const glm::vec3 player_pos = m_player->get_global_transform().position();
     int64_t player_cx = int64_t(player_pos.x / 16);
     int64_t player_cz = int64_t(player_pos.z / 16);
 
@@ -385,22 +393,23 @@ void World::request_load_around()
             ChunkPos pos(x, z);
 
             {
-                std::lock_guard<std::mutex> lock(m_dims[0].m_chunk_mutex);
-                if (m_dims[0].has_chunk(x, z) || m_dims[0].m_chunks_to_flush.contains(pos))
+                std::lock_guard<std::mutex> lock(m_dims[dimension].m_chunk_mutex);
+                if (m_dims[dimension].has_chunk(x, z) || m_dims[dimension].m_chunks_to_flush.contains(pos))
                     continue;
             }
 
             {
-                std::lock_guard<std::mutex> lock(m_dims[0].m_chunk_loading_mutex);
-                if (m_dims[0].m_chunk_loading_queue.contains(pos))
+                std::lock_guard<std::mutex> lock(m_dims[dimension].m_chunk_loading_mutex);
+                if (m_dims[dimension].m_chunk_loading_queue.contains(pos))
                     continue;
 
-                m_dims[0].m_chunk_loading_queue.insert(pos);
+                m_dims[dimension].m_chunk_loading_queue.insert(pos);
             }
 
             RequestChunkPacket p{};
             p.x = x;
             p.z = z;
+            // TODO: dimension
             Engine::get().connection().send(Engine::get().connection().create_packet(p));
         }
     }
@@ -414,7 +423,7 @@ inline void adjust_on_boundary(double rcomp, int64_t& vcomp, double dcomp, doubl
     }
 }
 
-bool World::raycast(const Ray& ray, float range, RaycastResult& result, const Entity *ignore)
+bool World::raycast(int dimension, const Ray& ray, float range, RaycastResult& result, const Entity *ignore)
 {
     bool hit = false;
     bool is_entiy = false;
@@ -423,7 +432,7 @@ bool World::raycast(const Ray& ray, float range, RaycastResult& result, const En
     std::shared_ptr<Entity> entity;
     glm::vec3 normal;
 
-    for (const std::shared_ptr<Entity>& e : m_dims[overworld].get_entities())
+    for (const std::shared_ptr<Entity>& e : m_dims[dimension].get_entities())
     {
         if (e.get() == ignore)
             continue;
@@ -449,7 +458,7 @@ bool World::raycast(const Ray& ray, float range, RaycastResult& result, const En
         glm::vec3 pos = ray.at(d);
         glm::i64vec3 ipos(glm::round(pos));
         float t;
-        if (!get_block_state(ipos.x, ipos.y, ipos.z).is_air() && ray_intersect_aabb(ray, AABBf(-glm::vec3(0.5), glm::vec3(0.5)).translate(pos), t, normal) && t < t_min)
+        if (!get_block_state(dimension, ipos.x, ipos.y, ipos.z).is_air() && ray_intersect_aabb(ray, AABBf(-glm::vec3(0.5), glm::vec3(0.5)).translate(pos), t, normal) && t < t_min)
         {
             t_min = t;
             hit = true;
@@ -472,10 +481,10 @@ bool World::raycast(const Ray& ray, float range, RaycastResult& result, const En
     return false;
 }
 
-void World::break_block(int64_t x, int64_t y, int64_t z)
+void World::break_block(int dimension, int64_t x, int64_t y, int64_t z)
 {
-    BlockState state = get_block_state(x, y, z);
-    set_block_state(x, y, z, BlockState());
+    BlockState state = get_block_state(dimension, x, y, z);
+    set_block_state(dimension, x, y, z, BlockState());
 
     std::optional<Id<Item>> item_opt = Engine::get().registry().to_item(Id<Block>(state.id));
     if (!item_opt.has_value())

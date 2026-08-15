@@ -101,6 +101,7 @@ public:
 
     int32_t get_width() const;
     int32_t get_height() const;
+    std::string_view get_text() const { return m_text; }
 
 private:
     std::shared_ptr<Font> m_font;
@@ -110,6 +111,7 @@ private:
     std::shared_ptr<BindGroup> m_bg;
     Font::Uniform m_uniform;
     std::shared_ptr<Buffer> m_uniform_buffer;
+    std::string m_text;
 
     int32_t m_width_x;
 

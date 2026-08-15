@@ -3,7 +3,6 @@
 #include "AABB.hpp"
 #include "Block/Inventory.hpp"
 #include "Core/Math.hpp"
-#include "Core/Print.hpp"
 #include "Engine.hpp"
 #include "Entity/Entity.hpp"
 #include "Entity/Item.hpp"
@@ -13,11 +12,85 @@
 #include "Item/ItemStack.hpp"
 #include "Model.hpp"
 #include "Render/Renderer.hpp"
+#include "UI/TextInput.hpp"
 #include "World/Registry.hpp"
 #include "World/World.hpp"
 
 #include <imgui.h>
+
 #include <memory>
+
+void BetterConsole::process_command(Player *player, std::string_view str)
+{
+    const struct
+    {
+        std::string_view name;
+        void (BetterConsole::*fn)(Player *, const std::vector<std::string>& args);
+    } commands[]{
+        {.name = "dim", .fn = &BetterConsole::chgdim},
+    };
+
+    std::vector<std::string> args;
+
+    std::stringstream ss(str.data());
+    std::string arg;
+    while (std::getline(ss, arg, ' '))
+        args.push_back(arg);
+
+    if (args.size() == 0)
+    {
+        error("unknown command ``");
+        return;
+    }
+
+    for (const auto& command : commands)
+    {
+        if (command.name == args[0])
+        {
+            auto fn = command.fn;
+            (this->*fn)(player, args);
+            return;
+        }
+    }
+
+    error("unknown command `{}`", args[0]);
+}
+
+void BetterConsole::chgdim(Player *player, const std::vector<std::string>& args)
+{
+    (void)player;
+
+    if (args.size() != 2)
+    {
+        println("usage `/dim <dimension>`");
+        return;
+    }
+
+    if (args[1] == "overworld" || args[1] == "0")
+    {
+        if (player->get_dimension() != World::overworld)
+        {
+            player->get_world()->change_dimension(player->id(), World::overworld);
+            println("switched to `overworld`");
+        }
+        else
+            println("already in the `overworld` dimension");
+    }
+    else if (args[1] == "underworld" || args[1] == "1")
+    {
+        if (player->get_dimension() != World::underworld)
+        {
+            player->get_world()->change_dimension(player->id(), World::underworld);
+            println("switched to `underworld`");
+        }
+        else
+            println("already in the `underworld` dimension");
+    }
+    else
+    {
+        println("Unknown dimension `{}`", args[1]);
+    }
+}
 
 struct GPU_ATTRIBUTE ItemBlockModel
 {
@@ -73,7 +146,23 @@ void Player::on_ready()
         m_camera = std::make_shared<Camera>();
         m_camera->get_transform().position() = glm::vec3(0, 0.85, 0);
         add_child(m_camera);
-        m_world->set_active_camera(m_camera);
+        // m_world->set_active_camera(m_camera);
+        m_world->set_player(this);
+
+        m_chat = std::make_shared<Widget>();
+        m_chat->set_expand_horizontal(true);
+        m_chat->set_expand_vertical(true);
+        m_chat->set_alignment(ContainerAlignment::Left | ContainerAlignment::Bottom);
+
+        std::shared_ptr<ColorRectWidget> color_rect = std::make_shared<ColorRectWidget>();
+        color_rect->set_color(Colors::red);
+        color_rect->set_alignment(ContainerAlignment::CenterY);
+        m_chat->add_child(color_rect);
+
+        std::shared_ptr<TextInput> chat_input = std::make_shared<TextInput>(Engine::get().get_font());
+        chat_input->set_size(Point(Size::percent(45), Size::px(40)));
+        chat_input->done_callback().connect(std::bind_front(&Player::on_text_message, this));
+        color_rect->add_child(chat_input);
 
         // m_aim_buffer = EXPECT(Buffer::create(sizeof(SimpleUniforms), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform));
         // m_aim_material = EXPECT(Material::create(Renderer::get().get_simple_shader(), MaterialFlagBits::Transparency | MaterialFlagBits::Priority, WGPUCullMode_Back, UVType::UV));
@@ -95,13 +184,31 @@ void Player::on_ready()
     }
 }
 
+void Player::on_text_message(TextInput& input, std::string_view message)
+{
+    std::string msg(message);
+
+    input.clear();
+
+    if (msg.starts_with("/"))
+    {
+        m_console.process_command(this, msg.substr(1));
+    }
+    else
+    {
+        println("message is `{}`", message);
+    }
+}
+
 void Player::tick(float delta)
 {
-    if (Input::is_action_pressed("attack") && !Input::is_mouse_grabbed() && !m_opened_inventory.has_value() && m_local_player)
+    // println("{} {} {} {} {}", Input::is_action_pressed("attack"), Input::is_mouse_grabbed(), m_opened_inventory.has_value(), m_local_player, m_chat_opened);
+
+    if (Input::is_action_pressed("attack") && !Input::is_mouse_grabbed() && !m_opened_inventory.has_value() && m_local_player && !m_chat_opened)
     {
         Input::set_mouse_grabbed(true);
     }
-    else if (Input::is_action_pressed("escape") && Input::is_mouse_grabbed() && !m_opened_inventory.has_value() && m_local_player)
+    else if (Input::is_action_pressed("escape") && Input::is_mouse_grabbed() && !m_opened_inventory.has_value() && m_local_player && !m_chat_opened)
     {
         Input::set_mouse_grabbed(false);
     }
@@ -109,8 +216,13 @@ void Player::tick(float delta)
     {
         close_inventory();
     }
+    else if (Input::is_action_pressed("escape") && m_local_player && m_chat_opened)
+    {
+        m_chat_opened = false;
+        Input::set_mouse_grabbed(true);
+    }
 
-    if (Input::is_action_just_pressed("open_inventory") && m_local_player)
+    if (Input::is_action_just_pressed("open_inventory") && m_local_player && !m_chat_opened)
     {
         if (!m_opened_inventory.has_value())
             open_inventory(m_inventory);
@@ -119,7 +231,13 @@ void Player::tick(float delta)
         Input::set_mouse_grabbed(!m_opened_inventory.has_value());
     }
 
-    if (m_local_player)
+    if (Input::is_action_just_pressed("toggle_chat") && !m_chat_opened)
+    {
+        m_chat_opened = true;
+        Input::set_mouse_grabbed(false);
+    }
+
+    if (m_local_player && !m_chat_opened)
     {
         if (Input::is_action_just_pressed("1"))
             set_slot(0);
@@ -178,19 +296,18 @@ void Player::tick(float delta)
         transform.rotation() *= q_yaw;
         m_transform = transform;
 
-        std::shared_ptr<Camera> camera = std::dynamic_pointer_cast<Camera>(m_children[0]);
-        Transform3D camera_transform = camera->get_transform();
+        Transform3D camera_transform = m_camera->get_transform();
 
         const glm::quat q_pitch = glm::angleAxis(relative.y * mouse_sensibility, glm::vec3(1.0, 0.0, 0.0));
         camera_transform.rotation() *= q_pitch;
 
-        camera->get_transform() = camera_transform;
+        m_camera->get_transform() = camera_transform;
     }
 
     if (m_local_player && are_input_available())
     {
         RaycastResult result;
-        if (m_world->raycast(Ray(m_camera->get_global_transform().position(), m_camera->get_global_transform().forward()), 4.0f, result, this))
+        if (m_world->raycast(m_dimension, Ray(m_camera->get_global_transform().position(), m_camera->get_global_transform().forward()), 4.0f, result, this))
         {
             if (!result.hit_entity)
                 m_aimed_block = glm::vec3(result.block_pos);
@@ -238,7 +355,7 @@ void Player::tick(float delta)
 
             if (Input::is_action_just_pressed("interact"))
             {
-                BlockState state = m_world->get_block_state(result.block_pos.x, result.block_pos.y, result.block_pos.z);
+                BlockState state = m_world->get_block_state(m_dimension, result.block_pos.x, result.block_pos.y, result.block_pos.z);
                 std::shared_ptr<Block> block = Engine::get().registry().get_block(state.id);
 
                 if (std::shared_ptr<InventoryBlock> ib = std::dynamic_pointer_cast<InventoryBlock>(block))
@@ -374,6 +491,11 @@ void Player::tick(float delta)
 
     m_previous_frame_in_water = in_water;
 
+    if (m_chat_opened)
+    {
+        m_chat->update_everything(delta);
+    }
+
     if (m_local_player && Engine::get().is_online() && !Engine::get().is_server())
     {
         SendPlayerTransformPacket p{};
@@ -455,12 +577,18 @@ void Player::draw_ui(const RenderPass& pass)
             m_opened_inventory.value()->draw_everything(pass);
         else
             m_inventory->draw_toolbar(pass);
+
+        if (m_chat_opened)
+        {
+            m_chat->draw_everything(pass);
+        }
     }
 }
 
 void Player::process_event(Event& event)
 {
-    (void)event;
+    if (m_chat_opened)
+        m_chat->process_everyting(event);
 }
 
 void Player::save(EntitySerializer& ser) const
@@ -501,11 +629,11 @@ void Player::break_block(int64_t x, int64_t y, int64_t z)
 {
     if (m_gamemode == GameMode::Survival)
     {
-        m_world->break_block(x, y, z);
+        m_world->break_block(m_dimension, x, y, z);
     }
     else
     {
-        m_world->set_block_state(x, y, z, BlockState());
+        m_world->set_block_state(m_dimension, x, y, z, BlockState());
     }
 }
 

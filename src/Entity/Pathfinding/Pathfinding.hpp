@@ -49,5 +49,5 @@ private:
     void retrace_path(size_t start_index, size_t end_index);
     int get_distance(const PathNode& node_a, const PathNode& node_b);
     std::vector<size_t> get_neighbors(size_t node_index, size_t dimension);
-    size_t node_from_world_point(const glm::ivec3& world_position);
+    size_t node_from_world_point(const glm::ivec3& world_position, int dimension);
 };

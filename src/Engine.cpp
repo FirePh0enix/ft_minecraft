@@ -1,6 +1,5 @@
 #include "Engine.hpp"
 
-#include "Console.hpp"
 #include "Core/Filesystem.hpp"
 #include "Core/Logger.hpp"
 #include "Core/Result.hpp"
@@ -52,24 +51,6 @@ Engine::Engine(bool disable_save)
 
     EXPECT(Font::init_library());
     m_font = EXPECT(Font::create("assets/fonts/Anonymous.ttf", 64));
-
-    m_console.register_command("tp", {CmdArgInfo(CmdArgKind::Int, "x"), CmdArgInfo(CmdArgKind::Int, "y"), CmdArgInfo(CmdArgKind::Int, "z")},
-                               [](const Command& cmd)
-                               { Engine::get().get_player()->set_position(glm::vec3(cmd.get_arg_int("x"), cmd.get_arg_int("y"), cmd.get_arg_int("z"))); });
-
-    m_console.register_command("gamemode", {CmdArgInfo(CmdArgKind::String, "gamemode")},
-                               [](const Command& cmd)
-                               {
-                                   std::string_view mode = cmd.get_arg_string("gamemode");
-                                   if (mode == "survival")
-                                   {
-                                       Engine::get().get_player()->set_gamemode(GameMode::Survival);
-                                   }
-                                   else if (mode == "creative")
-                                   {
-                                       Engine::get().get_player()->set_gamemode(GameMode::Creative);
-                                   }
-                               });
 }
 
 Engine::~Engine()
@@ -137,7 +118,7 @@ void Engine::tick(float delta)
                 Renderer::get().configure_surface(w, h, VSync::On);
 
                 if (m_scene == GameScene::World)
-                    m_world->get_active_camera()->update_projection((float)w / (float)h);
+                    m_world->get_player()->get_camera()->update_projection((float)w / (float)h);
             }
             break;
             case SDL_EVENT_KEY_DOWN:

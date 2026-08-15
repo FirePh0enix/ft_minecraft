@@ -214,6 +214,9 @@ public:
     bool is_in_water() const;
     bool chunk_is_loaded() const;
 
+    World *get_world() { return m_world; }
+    int get_dimension() const { return m_dimension; }
+
 protected:
     EntityId m_id;
     Entity *m_parent = nullptr; // FIXME: This must be changed by either a std::shared_ptr<Entity> or a EntityId.
@@ -228,7 +231,7 @@ protected:
     World *m_world = nullptr;
 
     bool m_active = true;
-    size_t m_dimension = 0;
+    int m_dimension = 0;
 
     bool m_blocked_x = false;
     bool m_blocked_z = false;

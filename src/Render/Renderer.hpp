@@ -428,6 +428,7 @@ public:
     void draw_legacy(std::function<void()> f);
 
     void draw_forward(const std::shared_ptr<World>& world);
+    void draw_dimension_forward(WGPUCommandEncoder encoder, const std::shared_ptr<World>& world, int dimension, WGPUTextureView output_view);
     void draw_world(const std::shared_ptr<World>& world, const RenderPass& pass, WorldFlags flags, const std::span<const RenderableChunk>& chunks);
     void draw_all_world(const std::shared_ptr<World>& world, const RenderPass& pass, WorldFlags flags);
     void draw(const RenderPass& pass, const std::shared_ptr<Mesh>& mesh, const std::shared_ptr<Material>& material, const std::shared_ptr<BindGroup>& bg, const std::shared_ptr<Buffer>& instance_buffer = nullptr, size_t instance_count = 1);

@@ -205,6 +205,7 @@ void Text::set(std::string_view text)
     }
 
     m_size = text.size();
+    m_text = text;
 }
 
 void Text::set_position(glm::vec3 position)

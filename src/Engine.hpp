@@ -1,6 +1,5 @@
 #pragma once
 
-#include "Console.hpp"
 #include "Core/ThreadPool.hpp"
 #include "Entity/Entity.hpp"
 #include "Entity/Player.hpp"
@@ -122,9 +121,6 @@ private:
     char m_connect_ip[32] = "127.0.0.1";
     int m_connect_port = NetworkConnection::default_port;
     char m_username[32] = "steve";
-
-    // Debug Menu
-    Console m_console;
 
     bool has_player_with_name(std::string_view name) const
     {

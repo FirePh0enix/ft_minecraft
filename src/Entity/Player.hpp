@@ -7,6 +7,7 @@
 #include "Inventory/Inventory.hpp"
 #include "Inventory/PlayerInventory.hpp"
 #include "Model.hpp"
+#include "UI/TextInput.hpp"
 
 enum class GameMode
 {
@@ -15,6 +16,15 @@ enum class GameMode
 };
 
 class Player;
+
+class BetterConsole
+{
+public:
+    void process_command(Player *player, std::string_view str);
+
+    // Commands
+    void chgdim(Player *player, const std::vector<std::string>& args);
+};
 
 class Player : public LivingEntity
 {
@@ -67,6 +77,8 @@ public:
     std::shared_ptr<PlayerInventory> get_inventory() const { return m_inventory; }
     std::shared_ptr<InventoryContainer> get_inventory_container() const { return m_inventory_container; }
 
+    std::shared_ptr<Camera> get_camera() const { return m_camera; }
+
     void open_inventory(std::shared_ptr<Inventory> inventory);
     void close_inventory();
 
@@ -102,6 +114,12 @@ private:
 
     std::string m_username;
 
+    std::shared_ptr<Widget> m_chat;
+    bool m_chat_opened = false;
+    BetterConsole m_console;
+
+    void on_text_message(TextInput& input, std::string_view message);
+
     /**
      * Player class is a little special since its behavor is different if this is the local or remote.
      */
@@ -114,6 +132,6 @@ private:
 
     bool are_input_available()
     {
-        return Input::is_mouse_grabbed() && !m_opened_inventory.has_value();
+        return Input::is_mouse_grabbed() && !m_opened_inventory.has_value() && !m_chat_opened;
     }
 };

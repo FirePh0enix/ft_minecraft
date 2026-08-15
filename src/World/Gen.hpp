@@ -81,3 +81,14 @@ private:
     tk::spline m_continent_spline;
     std::shared_ptr<Structure> m_tree;
 };
+
+class UnderworldGen : public Gen
+{
+public:
+    UnderworldGen(WorldSettings settings);
+
+    virtual void preload(int64_t cx, int64_t cz, std::shared_ptr<PreLoadedChunk> chunk) override;
+    virtual void generate_chunk(std::shared_ptr<Chunk> chunk, std::shared_ptr<PreLoadedChunk> preloaded_chunk, Dimension& dim) override;
+
+private:
+};

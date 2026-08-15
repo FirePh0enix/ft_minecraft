@@ -13,7 +13,7 @@ static bool has_major_entities(const std::vector<std::shared_ptr<Entity>>& entit
     return false;
 }
 
-void ItemBlock::interact(World& world, size_t dimension, ItemStack& stack, glm::i64vec3 pos, glm::i64vec3 normal, InventoryContainer& inventory)
+void ItemBlock::interact(World& world, int dimension, ItemStack& stack, glm::i64vec3 pos, glm::i64vec3 normal, InventoryContainer& inventory)
 {
 
     (void)inventory;
@@ -29,7 +29,7 @@ void ItemBlock::interact(World& world, size_t dimension, ItemStack& stack, glm::
         return;
     }
 
-    BlockState state = world.get_block_state(pos.x + int64_t(normal.x), pos.y + int64_t(normal.y), pos.z + int64_t(normal.z));
+    BlockState state = world.get_block_state(dimension, pos.x + int64_t(normal.x), pos.y + int64_t(normal.y), pos.z + int64_t(normal.z));
     if (!state.is_air())
     {
         return;
@@ -37,7 +37,7 @@ void ItemBlock::interact(World& world, size_t dimension, ItemStack& stack, glm::
 
     world.get_dimension(dimension).remove_tag(pos + normal, "water");
 
-    world.set_block_state(pos.x + int64_t(normal.x), pos.y + int64_t(normal.y), pos.z + int64_t(normal.z),
+    world.set_block_state(dimension, pos.x + int64_t(normal.x), pos.y + int64_t(normal.y), pos.z + int64_t(normal.z),
                           BlockState(Engine::get().registry().to_block(stack.item()).value()));
     stack.set_count(stack.count() - 1);
 }

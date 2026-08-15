@@ -15,7 +15,7 @@ public:
     /**
      * Callback used when a player is interacting with the world with an item in its hand.
      */
-    virtual void interact(World& world, size_t dimension, ItemStack& stack, glm::i64vec3 pos, glm::i64vec3 normal, InventoryContainer& inventory)
+    virtual void interact(World& world, int dimension, ItemStack& stack, glm::i64vec3 pos, glm::i64vec3 normal, InventoryContainer& inventory)
     {
         (void)world;
         (void)dimension;
@@ -25,7 +25,7 @@ public:
         (void)inventory;
     }
 
-    virtual void on_release(World& world, size_t dimension, ItemStack& stack, glm::i64vec3 pos, glm::vec3 dir, InventoryContainer& inventory)
+    virtual void on_release(World& world, int dimension, ItemStack& stack, glm::i64vec3 pos, glm::vec3 dir, InventoryContainer& inventory)
     {
         (void)world;
         (void)dimension;
@@ -52,7 +52,7 @@ public:
     {
     }
 
-    virtual void interact(World& world, size_t dimension, ItemStack& stack, glm::i64vec3 pos, glm::i64vec3 normal, InventoryContainer& inventory) override;
+    virtual void interact(World& world, int dimension, ItemStack& stack, glm::i64vec3 pos, glm::i64vec3 normal, InventoryContainer& inventory) override;
 
     Id<Block> block() const { return m_block; }
 

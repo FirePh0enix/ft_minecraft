@@ -198,11 +198,6 @@ void Input::post_events()
 
 void Input::process_event(SDL_Event event)
 {
-    // if (event.type == SDL_EVENT_KEY_DOWN)
-    // {
-    //     println("{} -> {}", event.key.key, SDLK_S);
-    // }
-
     for (const auto& [key, value] : s_mappings)
     {
         for (const auto& mapping : value)

@@ -10,4 +10,6 @@ enum class Biome : uint16_t
     Beach,
     Mountain,
     Ocean,
+
+    Underworld,
 };

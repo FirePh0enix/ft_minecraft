@@ -18,7 +18,6 @@ option(SANITIZE_ADDRESS "Enable AddressSanitizer" OFF)
 option(SANITIZE_THREAD "Enable ThreadSanitizer" OFF)
 
 list(APPEND SOURCES
-    src/Console.cpp
     src/Engine.cpp
     src/Font.cpp
     src/Frustum.cpp
@@ -59,6 +58,7 @@ list(APPEND SOURCES
     src/Render/Shader.cpp
     src/Render/Renderer.cpp
     src/UI/ItemSlot.cpp
+    src/UI/TextInput.cpp
     src/UI/Widget.cpp
     src/World/OverworldGen.cpp
     src/World/Chunk.cpp
@@ -66,6 +66,7 @@ list(APPEND SOURCES
     src/World/Registry.cpp
     src/World/Structure.cpp
     src/World/World.cpp
+    src/World/UnderworldGen.cpp
 )
 
 if (EMSCRIPTEN)

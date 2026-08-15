@@ -320,6 +320,17 @@ void Widget::update_everything(float delta)
         m_children[i]->update_everything(delta);
 }
 
+void Widget::process_everyting(Event& event)
+{
+    if (!m_enabled)
+        return;
+
+    process_event(event);
+
+    for (size_t i = 0; i < m_children.size(); i++)
+        m_children[i]->process_everyting(event);
+}
+
 Animation& Widget::animate(AnimationType type, std::string_view property)
 {
     std::shared_ptr<Animation> animation = std::make_shared<Animation>(std::string(property));

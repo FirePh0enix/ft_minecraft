@@ -1502,7 +1502,61 @@ void Renderer::draw_forward(const std::shared_ptr<World>& world)
 
     WGPUCommandEncoder encoder = wgpuDeviceCreateCommandEncoder(m_device, nullptr);
 
-    std::shared_ptr<Camera> active_camera = world->get_active_camera();
+    draw_dimension_forward(encoder, world, world->get_player()->get_dimension(), surface_view);
+
+    // Finally one last pass for rendering the UI.
+    WGPURenderPassColorAttachment color_load_attach = WGPU_RENDER_PASS_COLOR_ATTACHMENT_INIT;
+    color_load_attach.clearValue = WGPUColor(0.0, 0.0, 0.0, 0.0);
+    color_load_attach.loadOp = WGPULoadOp_Load;
+    color_load_attach.storeOp = WGPUStoreOp_Store;
+    color_load_attach.view = surface_view;
+
+    WGPURenderPassDescriptor ui_pass_desc = WGPU_RENDER_PASS_DESCRIPTOR_INIT;
+    ui_pass_desc.label = WGPU_STRING_VIEW("Color pass");
+    ui_pass_desc.colorAttachmentCount = 1;
+    ui_pass_desc.colorAttachments = &color_load_attach;
+
+    {
+        ZoneScopedN("draw ui");
+
+        WGPURenderPassEncoder ui_pass = wgpuCommandEncoderBeginRenderPass(encoder, &ui_pass_desc);
+        const RenderPass ui_pass_info(ui_pass, std::nullopt, {m_surface_format});
+        for (const std::shared_ptr<Entity>& entity : world->get_dimension(world->get_player()->get_dimension()).get_entities())
+            entity->draw_ui(ui_pass_info);
+        wgpuRenderPassEncoderEnd(ui_pass);
+        wgpuRenderPassEncoderRelease(ui_pass);
+    }
+
+    // Submit everything to the GPU.
+    WGPUCommandBuffer command_buffer;
+    {
+        ZoneScopedN("finish encoder");
+
+        command_buffer = wgpuCommandEncoderFinish(encoder, nullptr);
+        wgpuCommandEncoderRelease(encoder);
+    }
+
+    {
+        ZoneScopedN("submit");
+        std::lock_guard<std::mutex> guard(Renderer::get().get_queue_mutex());
+        wgpuQueueSubmit(m_queue, 1, &command_buffer);
+    }
+
+#ifdef __platform_web
+    emscripten_request_animation_frame([](double, void *)
+                                       { return true; }, nullptr);
+#else
+    wgpuSurfacePresent(m_surface);
+#endif
+
+    wgpuCommandBufferRelease(command_buffer);
+    wgpuTextureViewRelease(surface_view);
+    wgpuTextureRelease(surface_texture.texture);
+}
+
+void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::shared_ptr<World>& world, int dimension, WGPUTextureView output_view)
+{
+    std::shared_ptr<Camera> active_camera = world->get_player()->get_camera();
 
     FwCamera camera{};
     camera.view_projection = active_camera->get_view_proj_matrix();
@@ -1523,7 +1577,7 @@ void Renderer::draw_forward(const std::shared_ptr<World>& world)
 
     update_clouds(active_camera);
 
-    world->get_dimension(0).update_sun(light.projection * light.view);
+    world->get_dimension(dimension).update_sun(light.projection * light.view);
 
     FwColored shadowmap_cam(
         glm::inverse(light.view) * glm::scale(glm::identity<glm::mat4>(), glm::vec3(100.0) * 2.0f),
@@ -1574,7 +1628,7 @@ void Renderer::draw_forward(const std::shared_ptr<World>& world)
     depth_prepass_desc.depthStencilAttachment = &depth_attach;
 
     WGPURenderPassEncoder depth_pass = wgpuCommandEncoderBeginRenderPass(encoder, &depth_prepass_desc);
-    draw_world(world, RenderPass(depth_pass, RenderTarget(m_fw_depth_texture->format()), {}), WorldFlags(), world->get_dimension(0).get_visible_chunks());
+    draw_world(world, RenderPass(depth_pass, RenderTarget(m_fw_depth_texture->format()), {}), WorldFlags(), world->get_dimension(dimension).get_visible_chunks());
     wgpuRenderPassEncoderEnd(depth_pass);
     wgpuRenderPassEncoderRelease(depth_pass);
 
@@ -1600,9 +1654,9 @@ void Renderer::draw_forward(const std::shared_ptr<World>& world)
     WGPURenderPassEncoder color_pass = wgpuCommandEncoderBeginRenderPass(encoder, &color_pass_desc);
     const RenderPass color_pass_info(color_pass, RenderTarget(m_fw_depth_texture->format()), {m_surface_format});
     draw_fullscreen(color_pass_info, m_sky_mat, m_sky_bg);
-    draw_world(world, color_pass_info, WorldFlags(), world->get_dimension(0).get_visible_chunks());
-    draw_world(world, color_pass_info, WorldFlagBits::Water, world->get_dimension(0).get_visible_chunks());
-    for (std::shared_ptr<Entity> entity : world->get_dimension(0).get_entities())
+    draw_world(world, color_pass_info, WorldFlags(), world->get_dimension(dimension).get_visible_chunks());
+    draw_world(world, color_pass_info, WorldFlagBits::Water, world->get_dimension(dimension).get_visible_chunks());
+    for (std::shared_ptr<Entity> entity : world->get_dimension(dimension).get_entities())
         entity->draw(color_pass_info);
 
     for (size_t i = 0; i < m_clouds.size(); i++)
@@ -1617,7 +1671,7 @@ void Renderer::draw_forward(const std::shared_ptr<World>& world)
     output_color_attach.clearValue = WGPUColor(0.0, 0.0, 0.0, 0.0);
     output_color_attach.loadOp = WGPULoadOp_Clear;
     output_color_attach.storeOp = WGPUStoreOp_Store;
-    output_color_attach.view = surface_view;
+    output_color_attach.view = output_view;
 
     WGPURenderPassDescriptor postprocess_pass_desc = WGPU_RENDER_PASS_DESCRIPTOR_INIT;
     postprocess_pass_desc.colorAttachments = &output_color_attach;
@@ -1628,55 +1682,6 @@ void Renderer::draw_forward(const std::shared_ptr<World>& world)
     draw_fullscreen(postprocess_pass_info, m_fw_pp_mat, m_fw_pp_bg);
     wgpuRenderPassEncoderEnd(postprocess_pass);
     wgpuRenderPassEncoderRelease(postprocess_pass);
-
-    // Finally one last pass for rendering the UI.
-    WGPURenderPassColorAttachment color_load_attach = WGPU_RENDER_PASS_COLOR_ATTACHMENT_INIT;
-    color_load_attach.clearValue = WGPUColor(0.0, 0.0, 0.0, 0.0);
-    color_load_attach.loadOp = WGPULoadOp_Load;
-    color_load_attach.storeOp = WGPUStoreOp_Store;
-    color_load_attach.view = surface_view;
-
-    WGPURenderPassDescriptor ui_pass_desc = WGPU_RENDER_PASS_DESCRIPTOR_INIT;
-    ui_pass_desc.label = WGPU_STRING_VIEW("Color pass");
-    ui_pass_desc.colorAttachmentCount = 1;
-    ui_pass_desc.colorAttachments = &color_load_attach;
-
-    {
-        ZoneScopedN("draw ui");
-
-        WGPURenderPassEncoder ui_pass = wgpuCommandEncoderBeginRenderPass(encoder, &ui_pass_desc);
-        const RenderPass ui_pass_info(ui_pass, std::nullopt, {m_surface_format});
-        for (const std::shared_ptr<Entity>& entity : world->get_dimension(0).get_entities())
-            entity->draw_ui(ui_pass_info);
-        wgpuRenderPassEncoderEnd(ui_pass);
-        wgpuRenderPassEncoderRelease(ui_pass);
-    }
-
-    // Submit everything to the GPU.
-    WGPUCommandBuffer command_buffer;
-    {
-        ZoneScopedN("finish encoder");
-
-        command_buffer = wgpuCommandEncoderFinish(encoder, nullptr);
-        wgpuCommandEncoderRelease(encoder);
-    }
-
-    {
-        ZoneScopedN("submit");
-        std::lock_guard<std::mutex> guard(Renderer::get().get_queue_mutex());
-        wgpuQueueSubmit(m_queue, 1, &command_buffer);
-    }
-
-#ifdef __platform_web
-    emscripten_request_animation_frame([](double, void *)
-                                       { return true; }, nullptr);
-#else
-    wgpuSurfacePresent(m_surface);
-#endif
-
-    wgpuCommandBufferRelease(command_buffer);
-    wgpuTextureViewRelease(surface_view);
-    wgpuTextureRelease(surface_texture.texture);
 }
 
 void Renderer::draw(const RenderPass& pass, const std::shared_ptr<Mesh>& mesh, const std::shared_ptr<Material>& material, const std::shared_ptr<BindGroup>& bg, const std::shared_ptr<Buffer>& instance_buffer, size_t instance_count)
@@ -1702,7 +1707,7 @@ void Renderer::draw_world(const std::shared_ptr<World>& world, const RenderPass&
 {
     ZoneScoped;
 
-    const std::shared_ptr<Camera> camera = world->get_active_camera();
+    const std::shared_ptr<Camera> camera = world->get_player()->get_camera();
     WGPURenderPassEncoder encoder = pass.encoder;
 
     if (camera == nullptr)
@@ -1764,7 +1769,7 @@ void Renderer::draw_all_world(const std::shared_ptr<World>& world, const RenderP
     ZoneScoped;
 
     const Dimension& dim = world->get_dimension(0);
-    const std::shared_ptr<Camera> camera = world->get_active_camera();
+    const std::shared_ptr<Camera> camera = world->get_player()->get_camera();
     WGPURenderPassEncoder encoder = pass.encoder;
 
     if (camera == nullptr)

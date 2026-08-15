@@ -190,6 +190,7 @@ public:
 
     void draw_everything(const RenderPass& pass);
     void update_everything(float delta);
+    void process_everyting(Event& event);
 
     Animation& animate(AnimationType type, std::string_view property);
 
