@@ -1,7 +1,11 @@
 #pragma once
 
+#include "Audio/AudioClip.hpp"
+#include "Audio/AudioSource.hpp"
 #include "Entity/Entity.hpp"
 #include "Mob.hpp"
+
+constexpr float GROAN_INTERVAL = 5.0f;
 
 class Zombie : public Mob
 {
@@ -25,4 +29,10 @@ protected:
     float m_attack_cooldown = 1.5f;
     float m_attack_timer = 0.0f;
     float m_path_update_timer = 0.0f;
+
+    float m_groan_timer = 0.0f;
+
+    // Audio
+    std::optional<AudioClip> m_groan_clip;
+    std::optional<AudioSource> m_audio_source;
 };

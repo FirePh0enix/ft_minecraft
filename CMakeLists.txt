@@ -72,6 +72,11 @@ list(APPEND SOURCES
     src/World/Structure.cpp
     src/World/World.cpp
     src/World/UnderworldGen.cpp
+    src/audio/AudioMixer.cpp
+    src/audio/AudioClip.cpp
+    src/audio/AudioSource.cpp
+    src/audio/MusicPlayer.cpp
+
 )
 
 if (EMSCRIPTEN)
@@ -222,11 +227,21 @@ endif()
 FetchContent_Declare(
     SDL
     GIT_REPOSITORY https://github.com/libsdl-org/SDL
-    GIT_TAG 96292a5b464258a2b926e0a3d72f8b98c2a81aa6 # 3.2.20
+    GIT_TAG 147a8ee32dbf9ac02f3794964490687b6bbda1bc # 3.4.14
     GIT_SHALLOW 1 # we only need the last commit
 )
 FetchContent_MakeAvailable(SDL)
 target_link_libraries(${TARGET_NAME} PUBLIC SDL3::SDL3)
+
+FetchContent_Declare(
+    SDL_mixer
+    GIT_REPOSITORY https://github.com/libsdl-org/SDL_mixer
+    GIT_TAG 72a81869b45e249e8e67102db4e98dd2441f05a1 # 3.2.4
+    GIT_SHALLOW 1
+)
+FetchContent_MakeAvailable(SDL_mixer)
+
+target_link_libraries(${TARGET_NAME} PUBLIC SDL3_mixer::SDL3_mixer)
 
 # ImGui
 # FetchContent_Declare(
