@@ -5,7 +5,12 @@
 
 MusicPlayer::MusicPlayer(MIX_Mixer& mixer) : m_mixer(mixer), m_audio_clips{
                                                                  AudioClip(mixer, std::filesystem::absolute("assets/audio/music/Plains.wav")),
-                                                                 AudioClip(mixer, std::filesystem::absolute("assets/audio/music/Beach.wav"))}
+                                                                 AudioClip(mixer, std::filesystem::absolute("assets/audio/music/Plains.wav")),
+                                                                 AudioClip(mixer, std::filesystem::absolute("assets/audio/music/Plains.wav")),
+                                                                 AudioClip(mixer, std::filesystem::absolute("assets/audio/music/Beach.wav")),
+                                                                 AudioClip(mixer, std::filesystem::absolute("assets/audio/music/Plains.wav")),
+                                                                 AudioClip(mixer, std::filesystem::absolute("assets/audio/music/Plains.wav")),
+                                                                 AudioClip(mixer, std::filesystem::absolute("assets/audio/music/Plains.wav"))}
 {
     m_tracks[0] = MIX_CreateTrack(&m_mixer);
     m_tracks[1] = MIX_CreateTrack(&m_mixer);

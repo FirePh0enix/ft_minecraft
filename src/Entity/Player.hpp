@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Core/Error.hpp"
-#include "Audio/AudioClip.hpp"
 #include "Entity/Camera.hpp"
 #include "Entity/Entity.hpp"
 #include "Entity/LivingEntity.hpp"
@@ -12,6 +11,7 @@
 #include "UI/TextInput.hpp"
 
 #include <expected>
+#include "World/Biome.hpp"
 
 enum class GameMode
 {
@@ -150,5 +150,5 @@ private:
         return Input::is_mouse_grabbed() && !m_opened_inventory.has_value() && !m_chat_opened;
     }
 
-    std::unique_ptr<AudioClip> m_test_audio_clip;
+    Biome m_current_biome = Biome::None;
 };

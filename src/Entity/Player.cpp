@@ -1,8 +1,6 @@
 #include "Entity/Player.hpp"
 
 #include "AABB.hpp"
-#include "Audio/AudioClip.hpp"
-#include "Audio/AudioSource.hpp"
 #include "Block/Inventory.hpp"
 #include "Core/Math.hpp"
 #include "Engine.hpp"
@@ -17,7 +15,9 @@
 #include "UI/TextInput.hpp"
 #include "World/Registry.hpp"
 #include "World/World.hpp"
+#include "glm/ext/vector_int3.hpp"
 
+#include <cstdint>
 #include <imgui.h>
 
 #include <memory>
@@ -231,10 +231,6 @@ void Player::on_ready()
         // Model::Info info{.model_matrix = glm::translate(glm::identity<glm::mat4>(), glm::vec3(0.0, 100.0, 0.0))};
         // m_model->get_global_buffer()->update(View(info).as_bytes());
     }
-
-    auto clip = Engine::get().music_player().get_clip(0);
-    Engine::get().music_player().set_volume(0.1f);
-    Engine::get().music_player().play(clip);
 }
 
 void Player::on_text_message(TextInput& input, std::string_view message)
@@ -417,10 +413,6 @@ void Player::tick(float delta)
 
             if (Input::is_action_just_pressed("interact"))
             {
-                static size_t clip_index = 0;
-                clip_index = 1 - clip_index;
-                auto clip = Engine::get().music_player().get_clip(clip_index);
-                Engine::get().music_player().crossfade_to(clip, 2.0f, 1.0f);
 
                 BlockState state = m_world->get_block_state(m_dimension, result.block_pos.x, result.block_pos.y, result.block_pos.z);
                 std::shared_ptr<Block> block = Engine::get().registry().get_block(state.id);
@@ -496,6 +488,26 @@ void Player::tick(float delta)
             const glm::vec4 sky_color = glm::vec4(130.0 / 255.0, 200.0 / 255.0, 229.0 / 255.0, 1.0);
             Renderer::get().set_fog(sky_color, float(m_world->get_render_distance()) * 16.0f - 1.0f);
             Renderer::get().set_sky(sky_color);
+        }
+
+        const glm::ivec3 pos = m_transform.position();
+        const int64_t cx = chunk_index(pos.x);
+        const int64_t cz = chunk_index(pos.z);
+
+        const auto& chunk = m_world->get_chunk(cx, cz);
+
+        if (chunk.has_value())
+        {
+            int64_t x = local_coords(pos.x);
+            int64_t z = local_coords(pos.z);
+
+            Biome biome = chunk->get()->get_biomes()[x + z * 16];
+            if (biome != m_current_biome)
+            {
+                m_current_biome = biome;
+                auto& clip = Engine::get().music_player().get_biome_music(biome);
+                Engine::get().music_player().crossfade_to(&clip, 2.0f, 1.0f);
+            }
         }
     }
 
