@@ -2,6 +2,7 @@
 
 #include "Audio/AudioClip.hpp"
 #include "SDL3_mixer/SDL_mixer.h"
+#include "World/Biome.hpp"
 #include <array>
 #include <cstddef>
 
@@ -20,14 +21,9 @@ public:
 
     void set_volume(float volume);
 
-    AudioClip *get_clip(size_t index)
+    AudioClip& get_biome_music(Biome biome)
     {
-        return &m_audio_clips.at(index);
-    }
-
-    const AudioClip *get_clip(size_t index) const
-    {
-        return &m_audio_clips.at(index);
+        return m_audio_clips.at(static_cast<size_t>(biome));
     }
 
 private:
@@ -42,7 +38,7 @@ private:
     float m_transition_delay = 0.0f;
     float m_transition_duration = 0.0f;
 
-    float m_volume = 1.0f;
+    float m_volume = 0.1f;
 
-    std::array<AudioClip, 2> m_audio_clips;
+    std::array<AudioClip, 7> m_audio_clips;
 };
