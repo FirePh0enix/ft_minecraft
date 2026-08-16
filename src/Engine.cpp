@@ -1,5 +1,7 @@
 #include "Engine.hpp"
 
+#include "Audio/AudioMixer.hpp"
+#include "Audio/MusicPlayer.hpp"
 #include "Core/Filesystem.hpp"
 #include "Core/Logger.hpp"
 #include "Core/Result.hpp"
@@ -38,6 +40,9 @@ Engine::Engine(bool disable_save)
 {
     singleton = this;
     m_window = std::make_shared<Window>("ft_minecraft", WINDOW_INIT_WIDTH, WINDOW_INIT_HEIGHT);
+    // Use of smart ptr because it must be init after window since audio flag are there.
+    m_audio_mixer = std::make_unique<AudioMixer>();
+    m_music_player = std::make_unique<MusicPlayer>(*m_audio_mixer->get_audio_mixer());
 
     Input::init(*m_window);
     Input::load_config();
@@ -188,6 +193,8 @@ void Engine::tick(float delta)
         if (m_ticks_since_start_of_day > ticks_per_day)
             m_ticks_since_start_of_day = 0;
     }
+
+    m_music_player->update(delta);
 }
 
 void Engine::draw(float delta)
@@ -296,12 +303,12 @@ void Engine::create_world_and_start()
     if (Filesystem::exists(std::format("{}saves/{}", Filesystem::get_data_directory(), name)))
     {
         info("loading existing world `{}`", name);
-        m_world = EXPECT(World::load(name));
+        m_world = EXPECT(World::load(name, *m_audio_mixer));
     }
     else
     {
         info("creating world `{}` with seed {}", name, seed);
-        m_world = EXPECT(World::create(name, seed, m_main_menu_world_type));
+        m_world = EXPECT(World::create(name, seed, m_main_menu_world_type, *m_audio_mixer));
     }
 
     // TODO: Add way to personalize username.
@@ -375,7 +382,7 @@ void Engine::receive_client(void *user, NetworkConnection& conn, ENetPacket *pac
         InitPacket p;
         EXPECT(deserialize(buffer, p));
 
-        self->m_world = EXPECT(World::create_proxy(p.seed));
+        self->m_world = EXPECT(World::create_proxy(p.seed, *self->m_audio_mixer));
         self->m_scene = GameScene::World;
 
         self->m_player = std::make_shared<Player>();

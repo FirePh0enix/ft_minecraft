@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Audio/AudioMixer.hpp"
 #include "Core/Types.hpp"
 #include "Entity/Camera.hpp"
 #include "Entity/Entity.hpp"
@@ -98,12 +99,12 @@ public:
     static constexpr size_t underworld = 1;
     static constexpr size_t max_dimensions = 2;
 
-    World();
+    World(AudioMixer& audio);
     ~World();
 
-    static Result<std::shared_ptr<World>> create(std::string name, uint64_t seed, int type);
-    static Result<std::shared_ptr<World>> create_proxy(uint64_t seed);
-    static Result<std::shared_ptr<World>> load(std::string name);
+    static Result<std::shared_ptr<World>> create(std::string name, uint64_t seed, int type, AudioMixer& audio);
+    static Result<std::shared_ptr<World>> create_proxy(uint64_t seed, AudioMixer& audio);
+    static Result<std::shared_ptr<World>> load(std::string name, AudioMixer& audio);
 
     void tick(float delta);
 
@@ -217,6 +218,8 @@ public:
         return EntityId(id);
     }
 
+    AudioMixer& audio() { return m_audio; }
+
 private:
     uint64_t m_seed = 0;
     std::string m_name;
@@ -238,4 +241,6 @@ private:
     void find_safe_spawn();
     void load_around_player(int dimension);
     void request_load_around(int dimension);
+
+    AudioMixer& m_audio;
 };

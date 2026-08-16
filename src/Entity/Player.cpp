@@ -1,6 +1,8 @@
 #include "Entity/Player.hpp"
 
 #include "AABB.hpp"
+#include "Audio/AudioClip.hpp"
+#include "Audio/AudioSource.hpp"
 #include "Block/Inventory.hpp"
 #include "Core/Math.hpp"
 #include "Engine.hpp"
@@ -239,6 +241,10 @@ void Player::on_ready()
         // Model::Info info{.model_matrix = glm::translate(glm::identity<glm::mat4>(), glm::vec3(0.0, 100.0, 0.0))};
         // m_model->get_global_buffer()->update(View(info).as_bytes());
     }
+
+    auto clip = Engine::get().music_player().get_clip(0);
+    Engine::get().music_player().set_volume(0.1f);
+    Engine::get().music_player().play(clip);
 }
 
 void Player::on_text_message(TextInput& input, std::string_view message)
@@ -326,6 +332,13 @@ void Player::tick(float delta)
             else
                 set_slot(m_slot - 1);
         }
+
+        AudioListener& listener = Engine::get().audio_mixer().get_audio_listener();
+        const Transform3D& camera_transform = m_camera->get_global_transform();
+
+        listener.set_position(camera_transform.position());
+        listener.set_forward(camera_transform.forward());
+        listener.set_up(camera_transform.up());
     }
 
     AABB item_box = get_aabb().translate(get_position()).grow(glm::vec3(0.5));
@@ -412,6 +425,11 @@ void Player::tick(float delta)
 
             if (Input::is_action_just_pressed("interact"))
             {
+                static size_t clip_index = 0;
+                clip_index = 1 - clip_index;
+                auto clip = Engine::get().music_player().get_clip(clip_index);
+                Engine::get().music_player().crossfade_to(clip, 2.0f, 1.0f);
+
                 BlockState state = m_world->get_block_state(m_dimension, result.block_pos.x, result.block_pos.y, result.block_pos.z);
                 std::shared_ptr<Block> block = Engine::get().registry().get_block(state.id);
 
