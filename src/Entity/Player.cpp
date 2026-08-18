@@ -3,6 +3,7 @@
 #include "AABB.hpp"
 #include "Block/Inventory.hpp"
 #include "Core/Math.hpp"
+#include "Core/Print.hpp"
 #include "Engine.hpp"
 #include "Entity/Entity.hpp"
 #include "Entity/Item.hpp"
@@ -15,7 +16,9 @@
 #include "UI/TextInput.hpp"
 #include "World/Registry.hpp"
 #include "World/World.hpp"
+#include "glm/ext/vector_int3.hpp"
 
+#include <cstdint>
 #include <imgui.h>
 
 #include <memory>
@@ -326,6 +329,13 @@ void Player::tick(float delta)
             else
                 set_slot(m_slot - 1);
         }
+
+        AudioListener& listener = Engine::get().audio_mixer().get_audio_listener();
+        const Transform3D& camera_transform = m_camera->get_global_transform();
+
+        listener.set_position(camera_transform.position());
+        listener.set_forward(camera_transform.forward());
+        listener.set_up(camera_transform.up());
     }
 
     AABB item_box = get_aabb().translate(get_position()).grow(glm::vec3(0.5));
@@ -412,6 +422,7 @@ void Player::tick(float delta)
 
             if (Input::is_action_just_pressed("interact"))
             {
+
                 BlockState state = m_world->get_block_state(m_dimension, result.block_pos.x, result.block_pos.y, result.block_pos.z);
                 std::shared_ptr<Block> block = Engine::get().registry().get_block(state.id);
 
@@ -475,6 +486,26 @@ void Player::tick(float delta)
             const glm::vec4 sky_color = glm::vec4(130.0 / 255.0, 200.0 / 255.0, 229.0 / 255.0, 1.0);
             Renderer::get().set_fog(sky_color, float(m_world->get_render_distance()) * 16.0f - 1.0f);
             Renderer::get().set_sky(sky_color);
+        }
+
+        const glm::ivec3 pos = m_transform.position();
+        const int64_t cx = chunk_index(pos.x);
+        const int64_t cz = chunk_index(pos.z);
+
+        const auto& chunk = m_world->get_chunk(cx, cz);
+
+        if (chunk.has_value())
+        {
+            int64_t x = local_coords(pos.x);
+            int64_t z = local_coords(pos.z);
+
+            Biome biome = chunk->get()->get_biomes()[x + z * 16];
+            if (biome != m_current_biome)
+            {
+                m_current_biome = biome;
+                auto& clip = Engine::get().music_player().get_biome_music(biome);
+                Engine::get().music_player().crossfade_to(&clip, 2.0f, 1.0f);
+            }
         }
     }
 

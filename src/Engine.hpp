@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Audio/AudioMixer.hpp"
+#include "Audio/MusicPlayer.hpp"
 #include "Core/ThreadPool.hpp"
 #include "Entity/Entity.hpp"
 #include "Entity/Player.hpp"
@@ -83,6 +85,9 @@ public:
 
     static inline Engine *singleton;
 
+    AudioMixer& audio_mixer() { return *m_audio_mixer; }
+    MusicPlayer& music_player() { return *m_music_player; }
+
 private:
     GameScene m_scene = GameScene::MainMenu;
     std::shared_ptr<Window> m_window;
@@ -154,4 +159,7 @@ private:
     static void receive_server(void *, NetworkConnection& conn, ENetPacket *packet, const Client& client);
     static void connect_server(void *, NetworkConnection& conn, const Client& client);
     static void disconnect_server(void *, NetworkConnection& conn, const Client& client);
+
+    std::unique_ptr<AudioMixer> m_audio_mixer;
+    std::unique_ptr<MusicPlayer> m_music_player;
 };

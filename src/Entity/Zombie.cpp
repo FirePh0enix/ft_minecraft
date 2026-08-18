@@ -1,5 +1,6 @@
 #include "Zombie.hpp"
 
+#include "Core/Print.hpp"
 #include "Core/Result.hpp"
 #include "Entity/Entity.hpp"
 #include "Entity/LivingEntity.hpp"
@@ -18,6 +19,7 @@ void Zombie::tick(float delta)
 {
     m_attack_timer -= delta;
     m_path_update_timer -= delta;
+    m_groan_timer -= delta;
 
     if (!m_on_ground)
     {
@@ -61,11 +63,11 @@ void Zombie::tick(float delta)
 
         bool is_target_reachable = m_pathfinding->is_walkable(target_rounded_pos, 0, m_dimension);
 
+        // Tracking.
         if (is_target_reachable && m_path_update_timer <= 0.0f)
         {
             m_path_update_timer = PATH_UPDATE_INTERVAL;
             flee_to(target_rounded_pos);
-            // println("Tracking...");
         }
 
         if (best_dist_sq < m_attack_range * m_attack_range)
@@ -74,17 +76,15 @@ void Zombie::tick(float delta)
             m_velocity.x = 0.0f;
             m_velocity.z = 0.0f;
             attack();
-            // println("Attacking...");
         }
     }
     else
     {
-        // Patrol.
+        // Patrolling.
         if (m_on_ground && !m_following_path)
         {
             const glm::ivec3 to = find_random_walkable_position(DETECTION_RADIUS);
             flee_to(to);
-            // println("Patrolling...");
         }
     }
 
@@ -111,6 +111,20 @@ void Zombie::tick(float delta)
 
     if (m_on_ground && m_velocity.y < 0.0f)
         m_velocity.y = 0.0f;
+
+    m_audio_source->set_position(get_global_transform().position());
+
+    if (m_groan_timer <= 0.0f)
+    {
+        m_groan_timer = GROAN_INTERVAL;
+        m_audio_source->play_one_shot(&m_groan_clip.value(), 0.5f);
+    }
+
+    const bool is_walking = m_on_ground && glm::length2(glm::vec2(m_velocity.x, m_velocity.z)) > 0.001f;
+    if (is_walking)
+        m_audio_source->play();
+    else
+        m_audio_source->stop();
 }
 
 void Zombie::on_ready()
@@ -118,6 +132,15 @@ void Zombie::on_ready()
     m_model = EXPECT(Model::load("assets/models/zombie.json"));
     m_id = World::next_id();
     m_pathfinding = std::make_unique<Pathfinding>(m_world);
+
+    AudioMixer& audio = m_world->audio();
+    auto path = std::filesystem::absolute("assets/audio/zombie/groan.wav");
+    m_groan_clip.emplace(*audio.get_audio_mixer(), path);
+    path = std::filesystem::absolute("assets/audio/zombie/walking.wav");
+    m_walking_clip.emplace(*audio.get_audio_mixer(), path);
+
+    m_audio_source.emplace(audio);
+    m_audio_source->set_clip(&m_walking_clip.value());
 }
 
 void Zombie::attack()

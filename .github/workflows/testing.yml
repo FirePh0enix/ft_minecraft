@@ -13,7 +13,7 @@ jobs:
     - name: Setup dependencies
       run: |
         sudo apt install --yes build-essential cmake ninja-build python3 gcc-14 \
-          libx11-dev libxext-dev
+          libx11-dev libxext-dev libxcursor-dev
     - name: Run tests
       run: |
         mkdir build

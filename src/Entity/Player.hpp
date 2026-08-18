@@ -8,6 +8,7 @@
 #include "Inventory/PlayerInventory.hpp"
 #include "Model.hpp"
 #include "UI/TextInput.hpp"
+#include "World/Biome.hpp"
 
 enum class GameMode
 {
@@ -124,7 +125,7 @@ private:
     void on_text_message(TextInput& input, std::string_view message);
 
     /**
-     * Player class is a little special since its behavor is different if this is the local or remote.
+     * Player class is a little special since its behavior is different if this is the local or remote.
      */
     bool m_local_player = true;
 
@@ -137,4 +138,6 @@ private:
     {
         return Input::is_mouse_grabbed() && !m_opened_inventory.has_value() && !m_chat_opened;
     }
+
+    Biome m_current_biome = Biome::None;
 };
