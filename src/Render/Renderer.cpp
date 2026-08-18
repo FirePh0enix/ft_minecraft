@@ -1727,9 +1727,12 @@ void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::sha
     draw_world(world, color_pass_info, WorldFlags(), world->get_dimension(dimension).get_visible_chunks(), stencil_mask);
     draw_world(world, color_pass_info, WorldFlagBits::Water, world->get_dimension(dimension).get_visible_chunks(), stencil_mask);
 
-    // TODO: differentiate between
-    // for (std::shared_ptr<Entity> entity : world->get_dimension(dimension).get_entities())
-    //     entity->draw(color_pass_info);
+    if (!inside_portal)
+    {
+        // TODO: differentiate between current player rendering and other entities.
+        for (std::shared_ptr<Entity> entity : world->get_dimension(dimension).get_entities())
+            entity->draw(color_pass_info);
+    }
 
     for (size_t i = 0; i < m_clouds.size(); i++)
         draw(color_pass_info, m_cube_mesh, m_fw_colored_mat, m_clouds[i].bg);

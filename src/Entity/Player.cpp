@@ -30,6 +30,7 @@ void BetterConsole::process_command(Player *player, std::string_view str)
         {.name = "dim", .fn = &BetterConsole::chgdim},
         {.name = "tp", .fn = &BetterConsole::tp},
         {.name = "give", .fn = &BetterConsole::give},
+        {.name = "gamemode", .fn = &BetterConsole::gamemode},
     };
 
     std::vector<std::string> args;
@@ -127,6 +128,24 @@ void BetterConsole::give(Player *player, const std::vector<std::string>& args)
     {
         println("usage `/give <item> [count]`");
         return;
+    }
+}
+
+void BetterConsole::gamemode(Player *player, const std::vector<std::string>& args)
+{
+    if (args.size() != 2)
+    {
+        println("usage `/gamemode <survival|creative|0|1>`");
+        return;
+    }
+
+    if (args[1] == "survival" || args[1] == "0")
+    {
+        player->set_gamemode(GameMode::Survival);
+    }
+    else if (args[1] == "creative" || args[1] == "1")
+    {
+        player->set_gamemode(GameMode::Creative);
     }
 }
 
@@ -427,8 +446,11 @@ void Player::tick(float delta)
         if (Input::is_action_just_released("interact"))
         {
             ItemStack stack = m_inventory_container->get_stack(1, m_slot);
-            std::shared_ptr<Item> item = Engine::get().registry().get_item(stack.item());
-            item->on_release(*m_world, m_dimension, stack, m_camera->get_global_transform().position(), m_camera->get_global_transform().forward(), *m_inventory_container);
+            if (stack.item().valid())
+            {
+                std::shared_ptr<Item> item = Engine::get().registry().get_item(stack.item());
+                item->on_release(*m_world, m_dimension, stack, m_camera->get_global_transform().position(), m_camera->get_global_transform().forward(), *m_inventory_container);
+            }
         }
     }
 
@@ -631,6 +653,9 @@ void Player::process_event(Event& event)
 
 void Player::save(EntitySerializer& ser) const
 {
+    int64_t gamemode = (int64_t)m_gamemode;
+    ser.set("gamemode", gamemode);
+
     std::vector<ItemStack> stacks;
     stacks.resize(27 + 9);
 
@@ -648,6 +673,11 @@ void Player::save(EntitySerializer& ser) const
 
 void Player::load(const EntitySerializer& deser)
 {
+    int64_t gamemode = (int64_t)deser.get<int64_t>("gamemode").value_or(0);
+    if (gamemode != 0 && gamemode != 1)
+        gamemode = 0;
+    set_gamemode((GameMode)gamemode);
+
     std::vector<ItemStack> stacks = deser.get_array<ItemStack>("inventory_data").value();
 
     InventoryContainer::Layer& layer = m_inventory_container->get_layer(0);

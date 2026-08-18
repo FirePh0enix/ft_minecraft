@@ -16,7 +16,6 @@ public:
     QuickSlotWidget();
 
     virtual void update(float d) override;
-    virtual void process_event(Event& event) override { (void)event; }
     virtual void draw(const RenderPass& pass) override;
 
     void set_item(Id<Item> item);

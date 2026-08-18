@@ -71,6 +71,7 @@ void QuickSlotWidget::set_item(Id<Item> item)
     else
     {
         m_item_rect->set_visible(false);
+        m_label->set_visible(false);
     }
 }
 
@@ -79,6 +80,11 @@ void QuickSlotWidget::set_count(size_t count)
     std::string text = std::format("{}", count);
     m_label->set_text(text);
     m_count = count;
+
+    if (count == 0)
+        m_label->set_visible(false);
+    else
+        m_label->set_visible(true);
 }
 
 PlayerInventory::PlayerInventory(std::shared_ptr<InventoryContainer> container)

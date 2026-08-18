@@ -124,7 +124,10 @@ public:
         return m_blocks.at(id);
     }
 
-    std::shared_ptr<Item> get_item(Id<Item> key) const { return m_items.at(key); }
+    std::shared_ptr<Item> get_item(Id<Item> key) const
+    {
+        return m_items.at(key);
+    }
     std::shared_ptr<Structure> get_struct(std::string_view name) const { return m_structures.find(name)->second; }
 
     Id<Block> from_runtime_id(RuntimeId<Block> id) const
