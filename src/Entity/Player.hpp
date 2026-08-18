@@ -25,6 +25,7 @@ public:
     // Commands
     void tp(Player *player, const std::vector<std::string>& args);
     void chgdim(Player *player, const std::vector<std::string>& args);
+    void give(Player *player, const std::vector<std::string>& args);
 };
 
 class Player : public LivingEntity

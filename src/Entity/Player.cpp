@@ -29,6 +29,7 @@ void BetterConsole::process_command(Player *player, std::string_view str)
     } commands[]{
         {.name = "dim", .fn = &BetterConsole::chgdim},
         {.name = "tp", .fn = &BetterConsole::tp},
+        {.name = "give", .fn = &BetterConsole::give},
     };
 
     std::vector<std::string> args;
@@ -105,6 +106,27 @@ void BetterConsole::chgdim(Player *player, const std::vector<std::string>& args)
     else
     {
         println("Unknown dimension `{}`", args[1]);
+    }
+}
+
+void BetterConsole::give(Player *player, const std::vector<std::string>& args)
+{
+    if (args.size() == 2)
+    {
+        Id<Item> item = Engine::get().registry().item_from_name(args[1]);
+        ItemStack stack(item, 1);
+        player->get_inventory()->add_stack(stack);
+    }
+    else if (args.size() == 3)
+    {
+        Id<Item> item = Engine::get().registry().item_from_name(args[1]);
+        ItemStack stack(item, std::stol(args[2]));
+        player->get_inventory()->add_stack(stack);
+    }
+    else
+    {
+        println("usage `/give <item> [count]`");
+        return;
     }
 }
 
