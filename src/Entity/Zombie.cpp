@@ -1,5 +1,6 @@
 #include "Zombie.hpp"
 
+#include "Core/Print.hpp"
 #include "Core/Result.hpp"
 #include "Entity/Entity.hpp"
 #include "Entity/LivingEntity.hpp"
@@ -18,6 +19,7 @@ void Zombie::tick(float delta)
 {
     m_attack_timer -= delta;
     m_path_update_timer -= delta;
+    m_groan_timer -= delta;
 
     if (!m_on_ground)
     {
@@ -112,15 +114,17 @@ void Zombie::tick(float delta)
 
     m_audio_source->set_position(get_global_transform().position());
 
-    m_groan_timer -= delta;
-
     if (m_groan_timer <= 0.0f)
     {
-        if (m_audio_source.has_value())
-            m_audio_source->play_one_shot();
-
         m_groan_timer = GROAN_INTERVAL;
+        m_audio_source->play_one_shot(&m_groan_clip.value(), 0.5f);
     }
+
+    const bool is_walking = m_on_ground && glm::length2(glm::vec2(m_velocity.x, m_velocity.z)) > 0.001f;
+    if (is_walking)
+        m_audio_source->play();
+    else
+        m_audio_source->stop();
 }
 
 void Zombie::on_ready()
@@ -129,13 +133,14 @@ void Zombie::on_ready()
     m_id = World::next_id();
     m_pathfinding = std::make_unique<Pathfinding>(m_world);
 
-    auto path = std::filesystem::absolute("assets/audio/zombie/groan.wav");
-
     AudioMixer& audio = m_world->audio();
+    auto path = std::filesystem::absolute("assets/audio/zombie/groan.wav");
     m_groan_clip.emplace(*audio.get_audio_mixer(), path);
-    m_audio_source.emplace(*audio.get_audio_mixer(), audio.get_audio_listener());
-    m_audio_source->set_clip(&m_groan_clip.value());
-    m_audio_source->play_one_shot();
+    path = std::filesystem::absolute("assets/audio/zombie/walking.wav");
+    m_walking_clip.emplace(*audio.get_audio_mixer(), path);
+
+    m_audio_source.emplace(audio);
+    m_audio_source->set_clip(&m_walking_clip.value());
 }
 
 void Zombie::attack()

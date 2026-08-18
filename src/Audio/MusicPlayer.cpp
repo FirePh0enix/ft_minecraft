@@ -1,29 +1,20 @@
 #include "Audio/MusicPlayer.hpp"
+#include "Audio/AudioMixer.hpp"
 #include "SDL3/SDL_stdinc.h"
-
 #include <SDL3/SDL.h>
 
-MusicPlayer::MusicPlayer(MIX_Mixer& mixer) : m_mixer(mixer), m_audio_clips{
-                                                                 AudioClip(mixer, std::filesystem::absolute("assets/audio/music/Plains.wav")),
-                                                                 AudioClip(mixer, std::filesystem::absolute("assets/audio/music/Plains.wav")),
-                                                                 AudioClip(mixer, std::filesystem::absolute("assets/audio/music/Plains.wav")),
-                                                                 AudioClip(mixer, std::filesystem::absolute("assets/audio/music/Beach.wav")),
-                                                                 AudioClip(mixer, std::filesystem::absolute("assets/audio/music/Plains.wav")),
-                                                                 AudioClip(mixer, std::filesystem::absolute("assets/audio/music/Plains.wav")),
-                                                                 AudioClip(mixer, std::filesystem::absolute("assets/audio/music/Plains.wav"))}
+// clang-format off
+MusicPlayer::MusicPlayer(AudioMixer& mixer) : m_mixer(*mixer.get_audio_mixer()), m_tracks(mixer.get_music_tracks_pool()), m_audio_clips{
+    AudioClip(*mixer.get_audio_mixer(), std::filesystem::absolute("assets/audio/music/Plains.wav")),
+    AudioClip(*mixer.get_audio_mixer(), std::filesystem::absolute("assets/audio/music/Plains.wav")),
+    AudioClip(*mixer.get_audio_mixer(), std::filesystem::absolute("assets/audio/music/Plains.wav")),
+    AudioClip(*mixer.get_audio_mixer(), std::filesystem::absolute("assets/audio/music/Beach.wav")),
+    AudioClip(*mixer.get_audio_mixer(), std::filesystem::absolute("assets/audio/music/Plains.wav")),
+    AudioClip(*mixer.get_audio_mixer(), std::filesystem::absolute("assets/audio/music/Plains.wav")),
+    AudioClip(*mixer.get_audio_mixer(), std::filesystem::absolute("assets/audio/music/Plains.wav"))}
 {
-    m_tracks[0] = MIX_CreateTrack(&m_mixer);
-    m_tracks[1] = MIX_CreateTrack(&m_mixer);
 }
-
-MusicPlayer::~MusicPlayer()
-{
-    if (m_tracks[0])
-        MIX_DestroyTrack(m_tracks[0]);
-
-    if (m_tracks[1])
-        MIX_DestroyTrack(m_tracks[1]);
-}
+// clang-format on
 
 void MusicPlayer::play(AudioClip *clip, bool loop)
 {

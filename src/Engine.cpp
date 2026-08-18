@@ -42,7 +42,7 @@ Engine::Engine(bool disable_save)
     m_window = std::make_shared<Window>("ft_minecraft", WINDOW_INIT_WIDTH, WINDOW_INIT_HEIGHT);
     // Use of smart ptr because it must be init after window since audio flag are there.
     m_audio_mixer = std::make_unique<AudioMixer>();
-    m_music_player = std::make_unique<MusicPlayer>(*m_audio_mixer->get_audio_mixer());
+    m_music_player = std::make_unique<MusicPlayer>(*m_audio_mixer);
 
     Input::init(*m_window);
     Input::load_config();
