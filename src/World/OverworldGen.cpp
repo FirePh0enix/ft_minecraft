@@ -207,6 +207,8 @@ void OverworldGen::generate_chunk(std::shared_ptr<Chunk> chunk, std::shared_ptr<
                 break;
             case Biome::Underworld:
                 break;
+            case Biome::None:
+                break;
             }
 
             for (; y < height - 1; y++)
