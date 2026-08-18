@@ -1536,7 +1536,7 @@ void Renderer::draw_forward(const std::shared_ptr<World>& world)
     const int current_dim = world->get_player()->get_dimension();
     const int portal_dim = (current_dim + 1) % 2;
 
-    println("current = {}, portal = {}", current_dim, portal_dim);
+    // println("current = {}, portal = {}", current_dim, portal_dim);
 
     draw_dimension_forward(encoder, world, current_dim, false);
     draw_dimension_forward(encoder, world, portal_dim, true);
@@ -1737,8 +1737,8 @@ void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::sha
     draw(color_pass_info, m_quad_mesh, m_fw_shadowmap_cam_mat, m_fw_shadowmap_cam_bg); // Quad placed at the origin of the "sun"
 
     // Don't draw the portal inside the portal view otherwise it will create problems.
-    if (!inside_portal)
-        draw(color_pass_info, m_quad_mesh, m_portal_mat, m_portal_bg, nullptr, 1, 0x2);
+    // if (!inside_portal)
+    //     draw(color_pass_info, m_quad_mesh, m_portal_mat, m_portal_bg, nullptr, 1, 0x2);
 
     wgpuRenderPassEncoderEnd(color_pass);
     wgpuRenderPassEncoderRelease(color_pass);

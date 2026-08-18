@@ -247,25 +247,26 @@ std::shared_ptr<Entity> Dimension::get_entity(EntityId id) const
     return nullptr;
 }
 
-static ChunkPos pop_near(std::vector<ChunkLoadWithDistance>& elements)
-{
-    float min_distance = elements[0].distance;
-    size_t min_index = 0;
-    for (size_t i = 1; i < elements.size(); i++)
-    {
-        if (elements[i].distance > min_distance)
-        {
-            min_distance = elements[i].distance;
-            min_index = i;
-        }
-    }
-    ChunkPos pos = elements[min_index].pos;
-    elements.erase(elements.begin() + (ssize_t)min_index);
-    return pos;
-}
+// static ChunkPos pop_near(std::vector<ChunkLoadWithDistance>& elements)
+// {
+//     float min_distance = elements[0].distance;
+//     size_t min_index = 0;
+//     for (size_t i = 1; i < elements.size(); i++)
+//     {
+//         if (elements[i].distance > min_distance)
+//         {
+//             min_distance = elements[i].distance;
+//             min_index = i;
+//         }
+//     }
+//     ChunkPos pos = elements[min_index].pos;
+//     elements.erase(elements.begin() + (ssize_t)min_index);
+//     return pos;
+// }
 
 void Dimension::load(int64_t x, int64_t y, int64_t z, int64_t distance)
 {
+    (void)distance;
     const glm::i64vec3 player_pos(x, y, z);
     const int64_t player_cx = int64_t(player_pos.x / 16);
     const int64_t player_cz = int64_t(player_pos.z / 16);

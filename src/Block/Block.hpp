@@ -10,14 +10,14 @@ class Block;
 
 struct BlockState
 {
-    Id<Block> id;
+    RuntimeId<Block> id;
 
     constexpr BlockState()
-        : id(0)
+        : id()
     {
     }
 
-    explicit BlockState(Id<Block> id)
+    explicit BlockState(RuntimeId<Block> id)
         : id(id)
     {
     }
@@ -50,6 +50,10 @@ public:
     Block() : m_transparent(false), m_gradient(false) {}
     Block(const std::array<std::string, 6>& textures, bool gradient = false);
     Block(std::string_view texture, bool gradient = false);
+
+    void set_runtime_id(RuntimeId<Block> id) { m_id = id; }
+
+    virtual BlockState get_default_state() { return BlockState(m_id); }
 
     std::span<const std::string, 6> get_texture_names() const
     {
@@ -84,4 +88,5 @@ private:
     std::array<uint32_t, 6> m_texture_ids{0, 0, 0, 0, 0, 0}; // [+Z, -Z, +X, -X, +Y, -Y]
     bool m_transparent;
     bool m_gradient;
+    RuntimeId<Block> m_id;
 };

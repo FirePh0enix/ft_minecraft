@@ -1,8 +1,10 @@
 #include "Core/IO.hpp"
 
 #include "Core/Error.hpp"
+#include "Engine.hpp"
 #include "Item/ItemStack.hpp"
 #include "Variant.hpp"
+
 #include <optional>
 
 Result<std::optional<Variant>> Reader::read_variant()
@@ -74,20 +76,22 @@ Result<std::optional<Variant>> Reader::read_variant()
     else if (type == VariantType::ItemStack)
     {
         uint32_t size;
-        uint32_t id;
 
         TRY(read_raw(&size, sizeof(uint32_t)));
-        TRY(read_raw(&id, sizeof(uint32_t)));
 
-        //         Variant variant(stack.get_tags());
-        // TRY(write_variant(variant));
+        uint32_t name_length = 0;
+        TRY(read_raw(&name_length, sizeof(uint32_t)));
+
+        char *name = (char *)alloca(name_length + 1);
+        name[name_length] = 0;
+        TRY(read_raw(name, name_length));
 
         std::optional<Variant> variant = TRY(read_variant());
         Variant v = variant.value();
 
         std::map<std::string, Variant> map = v.to_map<std::string, Variant>();
 
-        Id<Item> item(id);
+        Id<Item> item = Engine::get().registry().item_from_name(name);
 
         return std::make_optional(Variant(ItemStack(item, size, map)));
     }
@@ -207,10 +211,13 @@ Result<void> Writer::write_variant(const Variant& variant)
     {
         ItemStack stack = variant.get_unchecked<ItemStack>();
         uint32_t size = stack.count();
-        uint32_t block_id = stack.item().value;
+        const char *block_id = stack.item().str;
 
         TRY(write_raw(&size, sizeof(uint32_t)));
-        TRY(write_raw(&block_id, sizeof(uint32_t)));
+
+        uint32_t name_length = strlen(block_id);
+        TRY(write_raw(&name_length, sizeof(uint32_t)));
+        TRY(write_raw(block_id, name_length));
 
         Variant variant(stack.get_tags());
         TRY(write_variant(variant));

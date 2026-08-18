@@ -486,7 +486,7 @@ void World::break_block(int dimension, int64_t x, int64_t y, int64_t z)
     BlockState state = get_block_state(dimension, x, y, z);
     set_block_state(dimension, x, y, z, BlockState());
 
-    std::optional<Id<Item>> item_opt = Engine::get().registry().to_item(Id<Block>(state.id));
+    std::optional<Id<Item>> item_opt = Engine::get().registry().to_item(Engine::get().registry().from_runtime_id(state.id));
     if (!item_opt.has_value())
         return;
 
@@ -578,10 +578,10 @@ void World::load_player(std::string_view username, std::shared_ptr<Player>& play
     EXPECT(serializer.load(path));
 
     glm::vec3 position = serializer.get<glm::vec3>("position").value_or(get_spawn_position());
-    // glm::quat rotation = serializer.get<glm::quat>("rotation").value_or({});
+    glm::quat rotation = serializer.get<glm::quat>("rotation").value_or({});
 
     player->set_position(position);
-    // player->set_rotation(rotation);
+    player->set_rotation(rotation);
     player->load(serializer);
 }
 

@@ -22,6 +22,11 @@ Result<std::shared_ptr<Entity>> EntityRegistry::create_entity(ClassHashCode clas
     return m_entries[class_hash].c();
 }
 
+GameRegistry::GameRegistry()
+{
+    m_block_runtime_ids.push_back(Id<Block>());
+}
+
 #define TEX(name) ("assets/textures/" name ".png")
 #define STRUCT(name) ("assets/structures/" name ".yml")
 
@@ -36,15 +41,6 @@ void GameRegistry::register_all()
     add_block(Blocks::snow, std::make_shared<Block>(TEX("snow")));
     add_block(Blocks::crafting_table, std::make_shared<CraftingTableBlock>());
 
-    // TODO: Ids should be names, numeric ids should be generated at runtime.
-    m_block_names["stone"] = Blocks::stone;
-    m_block_names["dirt"] = Blocks::dirt;
-    m_block_names["sand"] = Blocks::sand;
-    m_block_names["log"] = Blocks::log;
-    m_block_names["leaves"] = Blocks::leaves;
-    m_block_names["snow"] = Blocks::snow;
-    m_block_names["crafting_table"] = Blocks::crafting_table;
-
     add_item(Items::stone_block, std::make_shared<ItemBlock>(Blocks::stone));
     add_item(Items::dirt_block, std::make_shared<ItemBlock>(Blocks::dirt));
     add_item(Items::sand_block, std::make_shared<ItemBlock>(Blocks::sand));
@@ -55,13 +51,17 @@ void GameRegistry::register_all()
     add_item(Items::crafting_table_block, std::make_shared<ItemBlock>(Blocks::crafting_table));
     add_item(Items::water_bucket, std::make_shared<BucketItem>());
 
-    add_structure("tree", Structure::load(STRUCT("tree")));
     add_item(Items::bow, std::make_shared<BowItem>());
     add_item(Items::arrow, std::make_shared<ArrowItem>());
+
+    add_structure("tree", Structure::load(STRUCT("tree")));
 }
 
 Result<void> GameRegistry::post_register()
 {
+    for (size_t id = 1; id < m_block_runtime_ids.size(); id++)
+        m_blocks[m_block_runtime_ids[id]]->set_runtime_id(RuntimeId<Block>(id));
+
     uint32_t mip_level = 1;
     m_texture_array = TRY(Texture::create(16, 16, WGPUTextureFormat_RGBA8Unorm, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding, WGPUTextureDimension_2D, m_images.size() + 1, mip_level));
     m_texture_array->update(std::as_bytes(Renderer::get().get_missing_texture_data()), 0);
@@ -98,11 +98,16 @@ Result<void> GameRegistry::post_register()
 void GameRegistry::add_block(Id<Block> id, std::shared_ptr<Block> block)
 {
     m_blocks[id] = block;
+
+    m_block_runtime_ids.push_back(id);
+    m_block_ids[id] = RuntimeId<Block>(m_block_runtime_ids.size() - 1);
+    m_block_names[std::string(id.str)] = id;
 }
 
 void GameRegistry::add_item(Id<Item> id, std::shared_ptr<Item> item)
 {
     m_items[id] = item;
+    m_item_names[std::string(id.str)] = id;
 
     if (std::shared_ptr<ItemBlock> ib = std::dynamic_pointer_cast<ItemBlock>(item))
         m_block_items[ib->block()] = id;
@@ -131,7 +136,7 @@ std::shared_ptr<Texture> GameRegistry::get_texture(Id<Item> id)
 {
     if (!m_items.contains(id))
     {
-        warn("GameRegistry::get_texture(): invalid item Id: {}", id.value);
+        warn("GameRegistry::get_texture(): invalid item Id: {}", id.hash);
         return Renderer::get().get_missing_texture();
     }
 
@@ -205,7 +210,7 @@ std::shared_ptr<Texture> GameRegistry::create_preview_texture(std::shared_ptr<Bl
     PreviewBlockModel model(matrix, glm::uvec3(block->get_texture_ids()[0] | (block->get_texture_ids()[1] << 16), block->get_texture_ids()[2] | (block->get_texture_ids()[3] << 16), block->get_texture_ids()[4] | (block->get_texture_ids()[5] << 16)));
     buffer->update_struct(model);
 
-    std::shared_ptr<Texture> depth_texture = THROW(Texture::create(preview_size, preview_size, WGPUTextureFormat_Depth24PlusStencil8, WGPUTextureUsage_RenderAttachment), Renderer::get().get_missing_texture());
+    std::shared_ptr<Texture> depth_texture = THROW(Texture::create(preview_size, preview_size, WGPUTextureFormat_Depth32Float, WGPUTextureUsage_RenderAttachment), Renderer::get().get_missing_texture());
     std::shared_ptr<Texture> color_texture = THROW(Texture::create(preview_size, preview_size, WGPUTextureFormat_RGBA8Unorm, WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_TextureBinding), Renderer::get().get_missing_texture());
 
     WGPUCommandEncoder encoder = wgpuDeviceCreateCommandEncoder(Renderer::get().device(), nullptr);

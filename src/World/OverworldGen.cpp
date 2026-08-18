@@ -29,7 +29,7 @@ void TreePass::place_short_tree(ChunkPos pos, std::shared_ptr<PreLoadedChunk> ch
 
     BlockState *blocks = new BlockState[width * height * width](); // TODO: free this
     for (int64_t y = 0; y < tree_height; y++)
-        blocks[log_xz + y * width + log_xz * width * height] = BlockState(Blocks::log);
+        blocks[log_xz + y * width + log_xz * width * height] = Engine::get().registry().get_default_state(Blocks::log);
 
     const int64_t core_x = log_xz;
     const int64_t core_y = tree_height - 2;
@@ -41,7 +41,7 @@ void TreePass::place_short_tree(ChunkPos pos, std::shared_ptr<PreLoadedChunk> ch
                 float distance = glm::distance2(glm::vec3(core_x, core_y, core_z), glm::vec3(core_x + leave_x, core_y + leave_y, core_z + leave_z));
                 const int64_t index = (core_x + leave_x) + (core_y + leave_y) * width + (core_z + leave_z) * width * height;
                 if (blocks[index].is_air() && distance < 3 * 3)
-                    blocks[index] = BlockState(Blocks::leaves);
+                    blocks[index] = Engine::get().registry().get_default_state(Blocks::leaves);
             }
 
     dim.place_structure(glm::i64vec3(x + lx - width / 2, elevation, z + lz - width / 2), blocks, width, height, width);
@@ -66,7 +66,7 @@ void TreePass::place_big_tree(ChunkPos pos, std::shared_ptr<PreLoadedChunk> chun
 
     BlockState *blocks = new BlockState[width * height * width](); // TODO: free this
     for (int64_t y = 0; y < tree_height; y++)
-        blocks[log_xz + y * width + log_xz * width * height] = BlockState(Blocks::log);
+        blocks[log_xz + y * width + log_xz * width * height] = Engine::get().registry().get_default_state(Blocks::log);
 
     const int64_t core_x = log_xz;
     const int64_t core_y = tree_height - 3;
@@ -78,7 +78,7 @@ void TreePass::place_big_tree(ChunkPos pos, std::shared_ptr<PreLoadedChunk> chun
                 float distance = glm::distance2(glm::vec3(core_x, core_y, core_z), glm::vec3(core_x + leave_x, core_y + leave_y, core_z + leave_z));
                 const int64_t index = (core_x + leave_x) + (core_y + leave_y) * width + (core_z + leave_z) * width * height;
                 if (blocks[index].is_air() && distance < 5 * 5)
-                    blocks[index] = BlockState(Blocks::leaves);
+                    blocks[index] = Engine::get().registry().get_default_state(Blocks::leaves);
             }
 
     dim.place_structure(glm::i64vec3(x + lx - width / 2, elevation, z + lz - width / 2), blocks, width, height, width);
@@ -169,6 +169,12 @@ void OverworldGen::generate_chunk(std::shared_ptr<Chunk> chunk, std::shared_ptr<
     std::vector<StructureGen> structures;
     dim.get_structures_overlap(cpos, structures);
 
+    const BlockState stone = Engine::get().registry().get_default_state(Blocks::stone);
+    const BlockState dirt = Engine::get().registry().get_default_state(Blocks::dirt);
+    const BlockState grass = Engine::get().registry().get_default_state(Blocks::grass);
+    const BlockState sand = Engine::get().registry().get_default_state(Blocks::sand);
+    const BlockState snow = Engine::get().registry().get_default_state(Blocks::snow);
+
     for (int64_t x = 0; x < 16; x++)
     {
         for (int64_t z = 0; z < 16; z++)
@@ -178,7 +184,7 @@ void OverworldGen::generate_chunk(std::shared_ptr<Chunk> chunk, std::shared_ptr<
 
             int64_t y = 0;
             for (; y < height - 3; y++)
-                blocks[x + y * 16 + z * 16 * 256] = BlockState(Blocks::stone);
+                blocks[x + y * 16 + z * 16 * 256] = stone;
 
             BlockState ground;
             BlockState surface;
@@ -186,18 +192,18 @@ void OverworldGen::generate_chunk(std::shared_ptr<Chunk> chunk, std::shared_ptr<
             {
             case Biome::Forest:
             case Biome::Plain:
-                ground = BlockState(Blocks::dirt);
-                surface = BlockState(Blocks::grass);
+                ground = dirt;
+                surface = grass;
                 break;
             case Biome::Mountain:
-                ground = BlockState(Blocks::stone);
-                surface = BlockState(Blocks::stone);
+                ground = stone;
+                surface = stone;
                 break;
             case Biome::Desert:
             case Biome::Beach:
             case Biome::Ocean:
-                ground = BlockState(Blocks::sand);
-                surface = BlockState(Blocks::sand);
+                ground = sand;
+                surface = sand;
                 break;
             case Biome::Underworld:
                 break;
@@ -209,7 +215,7 @@ void OverworldGen::generate_chunk(std::shared_ptr<Chunk> chunk, std::shared_ptr<
 
             // Add snow on top of mountains
             if (height > 160 && biome == Biome::Mountain)
-                blocks[x + y * 16 + z * 16 * 256] = BlockState(Blocks::snow);
+                blocks[x + y * 16 + z * 16 * 256] = snow;
 
             // Fill oceans
             for (; y < m_settings.ocean_level; y++)
