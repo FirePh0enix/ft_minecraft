@@ -1,16 +1,15 @@
 #pragma once
 
 #include "Audio/AudioClip.hpp"
+#include "Audio/AudioMixer.hpp"
 #include "SDL3_mixer/SDL_mixer.h"
 #include "World/Biome.hpp"
 #include <array>
-#include <cstddef>
 
 class MusicPlayer
 {
 public:
-    explicit MusicPlayer(MIX_Mixer& mixer);
-    ~MusicPlayer();
+    explicit MusicPlayer(AudioMixer& mixer);
 
     void update(float delta);
 
@@ -29,7 +28,7 @@ public:
 private:
     MIX_Mixer& m_mixer;
 
-    MIX_Track *m_tracks[2]{};
+    const std::array<MIX_Track *, MUSIC_TRACKS_POOL_SIZE>& m_tracks;
     size_t m_current_track = 0;
 
     AudioClip *m_current_clip = nullptr;
@@ -37,7 +36,6 @@ private:
 
     float m_transition_delay = 0.0f;
     float m_transition_duration = 0.0f;
-
     float m_volume = 0.1f;
 
     std::array<AudioClip, 7> m_audio_clips;

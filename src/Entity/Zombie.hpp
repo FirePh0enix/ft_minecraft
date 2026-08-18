@@ -5,7 +5,7 @@
 #include "Entity/Entity.hpp"
 #include "Mob.hpp"
 
-constexpr float GROAN_INTERVAL = 5.0f;
+constexpr float GROAN_INTERVAL = 10.0f;
 
 class Zombie : public Mob
 {
@@ -30,9 +30,10 @@ protected:
     float m_attack_timer = 0.0f;
     float m_path_update_timer = 0.0f;
 
-    float m_groan_timer = 0.0f;
+    float m_groan_timer = GROAN_INTERVAL;
 
     // Audio
     std::optional<AudioClip> m_groan_clip;
+    std::optional<AudioClip> m_walking_clip;
     std::optional<AudioSource> m_audio_source;
 };
