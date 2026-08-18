@@ -63,7 +63,7 @@ void GameRegistry::register_all()
 Result<void> GameRegistry::post_register()
 {
     uint32_t mip_level = 1;
-    m_texture_array = TRY(Texture::create(16, 16, WGPUTextureFormat_RGBA8Unorm, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding, WGPUTextureViewDimension_2DArray, m_images.size() + 1, mip_level));
+    m_texture_array = TRY(Texture::create(16, 16, WGPUTextureFormat_RGBA8Unorm, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding, WGPUTextureDimension_2D, m_images.size() + 1, mip_level));
     m_texture_array->update(std::as_bytes(Renderer::get().get_missing_texture_data()), 0);
 
     size_t index = 1;
@@ -71,7 +71,7 @@ Result<void> GameRegistry::post_register()
     {
         m_texture_array->update(std::span((std::byte *)image.data, image.w * image.h * 4), index);
 
-        std::shared_ptr<Texture> texture = TRY(Texture::create(16, 16, WGPUTextureFormat_RGBA8Unorm, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding, WGPUTextureViewDimension_2D));
+        std::shared_ptr<Texture> texture = TRY(Texture::create(16, 16, WGPUTextureFormat_RGBA8Unorm, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding, WGPUTextureDimension_2D));
         texture->update(std::span((std::byte *)image.data, image.w * image.h * 4));
 
         // TODO: create textureview instead of duplicating data in memory.
@@ -196,7 +196,7 @@ std::shared_ptr<Texture> GameRegistry::create_preview_texture(std::shared_ptr<Bl
 
     std::shared_ptr<BindGroup> bg = BindGroup::create(Renderer::get().get_preview_block_shader());
     bg->set_param("model", buffer);
-    bg->set_param("images", Engine::get().registry().get_texture_array());
+    bg->set_param("images", EXPECT(Engine::get().registry().get_texture_array()->get_view(WGPUTextureViewDimension_2DArray)));
 
     glm::mat4 matrix = glm::ortho(-1.0f, 1.0f, -1.0f, 1.0f, -1.0f, 10.0f) *
                        glm::translate(glm::identity<glm::mat4>(), glm::vec3(0.f, 0.f, -0.86f)) *
@@ -205,7 +205,7 @@ std::shared_ptr<Texture> GameRegistry::create_preview_texture(std::shared_ptr<Bl
     PreviewBlockModel model(matrix, glm::uvec3(block->get_texture_ids()[0] | (block->get_texture_ids()[1] << 16), block->get_texture_ids()[2] | (block->get_texture_ids()[3] << 16), block->get_texture_ids()[4] | (block->get_texture_ids()[5] << 16)));
     buffer->update_struct(model);
 
-    std::shared_ptr<Texture> depth_texture = THROW(Texture::create(preview_size, preview_size, WGPUTextureFormat_Depth32Float, WGPUTextureUsage_RenderAttachment), Renderer::get().get_missing_texture());
+    std::shared_ptr<Texture> depth_texture = THROW(Texture::create(preview_size, preview_size, WGPUTextureFormat_Depth24PlusStencil8, WGPUTextureUsage_RenderAttachment), Renderer::get().get_missing_texture());
     std::shared_ptr<Texture> color_texture = THROW(Texture::create(preview_size, preview_size, WGPUTextureFormat_RGBA8Unorm, WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_TextureBinding), Renderer::get().get_missing_texture());
 
     WGPUCommandEncoder encoder = wgpuDeviceCreateCommandEncoder(Renderer::get().device(), nullptr);
@@ -219,7 +219,7 @@ std::shared_ptr<Texture> GameRegistry::create_preview_texture(std::shared_ptr<Bl
     color_attach.depthSlice = WGPU_DEPTH_SLICE_UNDEFINED;
     color_attach.loadOp = WGPULoadOp_Clear;
     color_attach.storeOp = WGPUStoreOp_Store;
-    color_attach.view = color_texture->handle_view();
+    color_attach.view = EXPECT(color_texture->get_view());
     rp.colorAttachmentCount = 1;
     rp.colorAttachments = &color_attach;
 
@@ -227,7 +227,10 @@ std::shared_ptr<Texture> GameRegistry::create_preview_texture(std::shared_ptr<Bl
     depth_attach.depthClearValue = 1.0;
     depth_attach.depthLoadOp = WGPULoadOp_Clear;
     depth_attach.depthStoreOp = WGPUStoreOp_Store;
-    depth_attach.view = depth_texture->handle_view();
+    depth_attach.stencilLoadOp = WGPULoadOp_Clear;
+    depth_attach.stencilStoreOp = WGPUStoreOp_Store;
+    depth_attach.stencilClearValue = 1;
+    depth_attach.view = EXPECT(depth_texture->get_view());
     rp.depthStencilAttachment = &depth_attach;
 
     WGPURenderPassEncoder render_encoder = wgpuCommandEncoderBeginRenderPass(encoder, &rp);

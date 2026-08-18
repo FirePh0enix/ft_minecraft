@@ -22,8 +22,8 @@ ItemEntity::ItemEntity(Id<Item> item)
     m_bg->set_param("camera", Renderer::get().get_fw_camera());
     m_bg->set_param("model", m_model_buffer);
     m_bg->set_param("world_env", Renderer::get().get_fw_world_env());
-    m_bg->set_param("images", Engine::get().registry().get_texture_array());
-    m_bg->set_param("shadowmap", Renderer::get().get_fw_shadowmap());
+    m_bg->set_param("images", EXPECT(Engine::get().registry().get_texture_array()->get_view(WGPUTextureViewDimension_2DArray)));
+    m_bg->set_param("shadowmap", EXPECT(Renderer::get().get_fw_shadowmap()->get_view(WGPUTextureViewDimension_2D)));
 
     std::shared_ptr<Block> block = Engine::get().registry().block_from_item(item);
     m_textures = glm::uvec3(block->get_texture_ids()[0] | (block->get_texture_ids()[1] << 16), block->get_texture_ids()[2] | (block->get_texture_ids()[3] << 16), block->get_texture_ids()[4] | (block->get_texture_ids()[5] << 16));

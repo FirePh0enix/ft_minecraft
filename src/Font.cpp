@@ -146,7 +146,7 @@ Text::Text(std::shared_ptr<Font> font)
     m_bg = BindGroup::create(Renderer::get().get_fw_text_shader());
     m_bg->set_param("env", Renderer::get().get_env_2d());
     m_bg->set_param("uniforms", m_uniform_buffer);
-    m_bg->set_param("bitmap", font->get_bitmap());
+    m_bg->set_param("bitmap", EXPECT(font->get_bitmap()->get_view(WGPUTextureViewDimension_2D)));
 }
 
 Text::Text(size_t capacity, std::shared_ptr<Font> font)

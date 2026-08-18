@@ -312,9 +312,13 @@ void Engine::create_world_and_start()
     m_world->add_entity(World::overworld, m_player);
 
     if (m_world->is_player_saved(username))
+    {
         m_world->load_player(username, m_player);
+    }
     else
+    {
         m_player->get_transform().position() = m_world->get_spawn_position();
+    }
 
     // m_world->force_load_chunk_for(m_player->get_position());
 

@@ -444,7 +444,7 @@ TextureRectWidget::TextureRectWidget()
 
 void TextureRectWidget::set_texture(std::shared_ptr<Texture> texture)
 {
-    m_bg->set_param("image", texture);
+    m_bg->set_param("image", EXPECT(texture->get_view()));
     m_texture = texture;
 }
 

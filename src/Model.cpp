@@ -137,8 +137,8 @@ Result<std::shared_ptr<Model>> Model::load(std::string_view path)
         obj.bg->set_param("global_model", model->m_global_buffer);
         obj.bg->set_param("world_env", Renderer::get().get_fw_world_env());
         obj.bg->set_param("uvs", obj.uv_buffer);
-        obj.bg->set_param("texture", model->m_texture);
-        obj.bg->set_param("shadowmap", Renderer::get().get_fw_shadowmap());
+        obj.bg->set_param("texture", EXPECT(model->m_texture->get_view()));
+        obj.bg->set_param("shadowmap", EXPECT(Renderer::get().get_fw_shadowmap()->get_view()));
 
         model->m_objects.push_back(obj);
     }

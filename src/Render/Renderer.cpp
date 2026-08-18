@@ -14,8 +14,6 @@
 #include "World/Dimension.hpp"
 #include "World/Registry.hpp"
 #include "World/World.hpp"
-#include "glm/ext/matrix_transform.hpp"
-#include "webgpu/webgpu.h"
 
 #include <backends/imgui_impl_sdl3.h>
 #include <backends/imgui_impl_wgpu.h>
@@ -46,25 +44,6 @@ static const uint32_t missing_texture_data[16 * 16]{
     0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF,
 };
 // clang-format on
-
-static WGPUTextureDimension convert_texture_dimension(WGPUTextureViewDimension dimension)
-{
-    switch (dimension)
-    {
-    case WGPUTextureViewDimension_1D:
-        return WGPUTextureDimension_1D;
-    case WGPUTextureViewDimension_2D:
-    case WGPUTextureViewDimension_2DArray:
-    case WGPUTextureViewDimension_Cube:
-    case WGPUTextureViewDimension_CubeArray:
-        return WGPUTextureDimension_2D;
-    case WGPUTextureViewDimension_3D:
-        return WGPUTextureDimension_3D;
-    default:
-        break;
-    }
-    return {};
-}
 
 size_t size_of(const WGPUTextureFormat& format)
 {
@@ -175,20 +154,17 @@ Texture::~Texture()
 {
     if (!m_external)
     {
-        wgpuTextureViewRelease(m_view);
         wgpuTextureRelease(m_texture);
     }
 }
 
-Result<std::shared_ptr<Texture>> Texture::create(uint32_t width, uint32_t height, WGPUTextureFormat format, WGPUTextureUsage usage, WGPUTextureViewDimension dimension, uint32_t layers, uint32_t mip_level)
+Result<std::shared_ptr<Texture>> Texture::create(uint32_t width, uint32_t height, WGPUTextureFormat format, WGPUTextureUsage usage, WGPUTextureDimension dimension, uint32_t layers, uint32_t mip_level)
 {
     WGPUTextureDescriptor desc = WGPU_TEXTURE_DESCRIPTOR_INIT;
     desc.usage = usage;
-    desc.dimension = convert_texture_dimension(dimension);
+    desc.dimension = dimension;
     desc.size = WGPUExtent3D{.width = width, .height = height, .depthOrArrayLayers = layers == 0 ? 1 : layers};
     desc.format = format;
-    desc.viewFormatCount = 1;
-    desc.viewFormats = &format;
     desc.mipLevelCount = mip_level;
 
     if (mip_level > 1)
@@ -200,19 +176,8 @@ Result<std::shared_ptr<Texture>> Texture::create(uint32_t width, uint32_t height
     if (!texture)
         return Error(ErrorKind::OutOfDeviceMemory);
 
-    WGPUTextureViewDescriptor view_desc = WGPU_TEXTURE_VIEW_DESCRIPTOR_INIT;
-    view_desc.format = format;
-    view_desc.dimension = dimension;
-    view_desc.mipLevelCount = mip_level;
-    view_desc.arrayLayerCount = layers == 0 ? 1 : layers;
-
-    WGPUTextureView view = wgpuTextureCreateView(texture, &view_desc);
-    if (!view)
-        return Error(ErrorKind::OutOfDeviceMemory);
-
     std::shared_ptr<Texture> tex = std::make_shared<Texture>();
     tex->m_texture = texture;
-    tex->m_view = view;
     tex->m_width = width;
     tex->m_height = height;
     tex->m_layers = layers;
@@ -222,11 +187,10 @@ Result<std::shared_ptr<Texture>> Texture::create(uint32_t width, uint32_t height
     return tex;
 }
 
-std::shared_ptr<Texture> Texture::create_from_handle(WGPUTexture texture, WGPUTextureView view)
+std::shared_ptr<Texture> Texture::create_from_handle(WGPUTexture texture)
 {
     std::shared_ptr<Texture> tex = std::make_shared<Texture>();
     tex->m_texture = texture;
-    tex->m_view = view;
     tex->m_width = wgpuTextureGetWidth(texture);
     tex->m_height = wgpuTextureGetHeight(texture);
     tex->m_layers = wgpuTextureGetDepthOrArrayLayers(texture);
@@ -250,7 +214,7 @@ Result<std::shared_ptr<Texture>> Texture::load(std::string_view path)
     if (data == nullptr)
         return Error(ErrorKind::ReadFailure);
 
-    std::shared_ptr<Texture> texture = TRY(Texture::create(w, h, WGPUTextureFormat_RGBA8Unorm, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding, WGPUTextureViewDimension_2D, 1, 1));
+    std::shared_ptr<Texture> texture = TRY(Texture::create(w, h, WGPUTextureFormat_RGBA8Unorm, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding, WGPUTextureDimension_2D, 1, 1));
     texture->update(std::span((std::byte *)data, w * h * 4));
 
     stbi_image_free(data);
@@ -293,6 +257,37 @@ void Texture::update(std::span<const std::byte> view, uint32_t layer)
 
     wgpuQueueWriteTexture(Renderer::get().m_queue, &copy_info, view.data(), view.size(), &layout, &write_size);
 #endif
+}
+
+Result<WGPUTextureView> Texture::get_view(WGPUTextureViewDimension dimension, WGPUTextureAspect aspect, int base_layer, int layer_count)
+{
+    if (layer_count == -1)
+        layer_count = (int)m_layers;
+
+    ViewDesc desc{};
+    desc.dimension = dimension;
+    desc.aspect = aspect;
+    desc.base_layer = base_layer;
+    desc.layer_count = layer_count;
+
+    auto iter = m_views.find(desc);
+    if (iter != m_views.end())
+        return iter->second;
+
+    WGPUTextureViewDescriptor view_desc = WGPU_TEXTURE_VIEW_DESCRIPTOR_INIT;
+    view_desc.format = WGPUTextureFormat_Undefined;
+    view_desc.dimension = dimension;
+    view_desc.mipLevelCount = m_mip_level;
+    view_desc.baseArrayLayer = base_layer;
+    view_desc.arrayLayerCount = layer_count;
+    view_desc.aspect = aspect;
+
+    WGPUTextureView view = wgpuTextureCreateView(m_texture, &view_desc);
+    if (!view)
+        return Error(ErrorKind::OutOfDeviceMemory);
+
+    m_views[desc] = view;
+    return view;
 }
 
 Result<std::shared_ptr<Mesh>> Mesh::create_from_data(std::span<const std::byte> indices, std::span<const glm::vec3> positions, std::span<const glm::vec3> normals, std::span<const std::byte> uvs, WGPUIndexFormat index_type, WGPUVertexFormat uv_format)
@@ -466,6 +461,25 @@ WGPURenderPipeline Material::create_pipeline(const RenderPass& pass)
         depth_state.format = pass.depth.value().format;
         depth_state.depthWriteEnabled = !m_flags.has_any(MaterialFlagBits::DisableDepthTest) ? WGPUOptionalBool_True : WGPUOptionalBool_False;
         depth_state.depthCompare = WGPUCompareFunction_LessEqual;
+
+        if (m_flags.has_any(MaterialFlagBits::StencilMask))
+        {
+            depth_state.stencilFront.compare = WGPUCompareFunction_Always;
+            depth_state.stencilFront.passOp = WGPUStencilOperation_Replace;
+
+            depth_state.stencilBack.compare = WGPUCompareFunction_Always;
+            depth_state.stencilBack.passOp = WGPUStencilOperation_Replace;
+        }
+        else if (m_flags.has_any(MaterialFlagBits::Stencil))
+        {
+            depth_state.stencilFront.compare = WGPUCompareFunction_Equal;
+            depth_state.stencilFront.passOp = WGPUStencilOperation_Replace;
+            depth_state.stencilFront.failOp = WGPUStencilOperation_Keep;
+
+            depth_state.stencilBack.compare = WGPUCompareFunction_Equal;
+            depth_state.stencilBack.passOp = WGPUStencilOperation_Replace;
+            depth_state.stencilBack.failOp = WGPUStencilOperation_Keep;
+        }
     }
 
     WGPUPrimitiveState primitive_state = WGPU_PRIMITIVE_STATE_INIT;
@@ -502,7 +516,7 @@ std::shared_ptr<BindGroup> BindGroup::create(const std::shared_ptr<Shader>& shad
     return bg;
 }
 
-void BindGroup::set_param(std::string_view name, const std::shared_ptr<Texture>& texture)
+void BindGroup::set_param(std::string_view name, WGPUTextureView texture)
 {
     std::optional<Binding> binding_result = m_shader->get_binding(name);
     ASSERT_V(texture != nullptr, "Texture specified for {} is null", name);
@@ -553,7 +567,7 @@ void BindGroup::create_bind_group()
 
             WGPUBindGroupEntry entry = WGPU_BIND_GROUP_ENTRY_INIT;
             entry.binding = binding.binding;
-            entry.textureView = cache.texture->handle_view();
+            entry.textureView = cache.texture;
 
             entries.push_back(entry);
 
@@ -959,6 +973,7 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
 
     const WGPUFeatureName required_features[] = {
         // (WGPUFeatureName)WGPUNativeFeature_PipelineStatisticsQuery,
+        WGPUFeatureName_Depth32FloatStencil8,
     };
 
     WGPUDeviceDescriptor device_desc = WGPU_DEVICE_DESCRIPTOR_INIT;
@@ -1005,6 +1020,7 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_fw_world_env = TRY(Buffer::create(sizeof(FwWorldEnv), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
     m_fw_shadowmap_camera = TRY(Buffer::create(sizeof(FwCamera), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
     m_fw_pp_buffer = TRY(Buffer::create(sizeof(PostProcessUniforms), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
+    m_portal_buffer = TRY(Buffer::create(sizeof(FwModel), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
 
     m_fw_shadowmap = TRY(Texture::create(SHADOWMAP_RESOLUTION, SHADOWMAP_RESOLUTION, WGPUTextureFormat_Depth32Float, WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_TextureBinding));
 
@@ -1133,6 +1149,12 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_fw_pp_shader->set_binding("depth", Binding::Texture(WGPUShaderStage_Fragment, 0, 4, BindingAccess::Read, WGPUTextureViewDimension_2D, WGPUTextureSampleType_Depth, WGPUSamplerBindingType_Filtering));
     m_fw_pp_shader->create_bind_group_layout();
 
+    m_portal_shader = TRY(Shader::load_from_path("assets/shaders/portal.wgsl"));
+    m_portal_shader->set_binding("model", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
+    m_portal_shader->set_binding("camera", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 1, BindingAccess::Read));
+    m_portal_shader->set_binding("world_env", Binding::UniformBuffer(WGPUShaderStage_Vertex | WGPUShaderStage_Fragment, 0, 2, BindingAccess::Read));
+    m_portal_shader->create_bind_group_layout();
+
     m_fw_texture_rect_mat = Material::create(m_texture_rect_shader, MaterialFlagBits::Transparency | MaterialFlagBits::NoNormal, WGPUCullMode_None, WGPUVertexFormat_Float32x2);
     m_fw_model_mat = Material::create(m_fw_model_shader, MaterialFlagBits::None, WGPUCullMode_Back, WGPUVertexFormat_Float32x2);
     m_fw_color_rect_mat = Material::create(m_color_rect_shader, MaterialFlagBits::Transparency | MaterialFlagBits::NoNormal | MaterialFlagBits::NoUV, WGPUCullMode_None, WGPUVertexFormat_Float32x2);
@@ -1140,16 +1162,17 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_fw_shadowmap_cam_mat = Material::create(m_fw_colored_shader, MaterialFlagBits::None, WGPUCullMode_None, WGPUVertexFormat_Float32x2);
     m_fw_item_block_mat = Material::create(m_fw_item_block_shader, MaterialFlagBits::None, WGPUCullMode_Back, WGPUVertexFormat_Float32x2);
     m_fw_item_mat = Material::create(m_fw_item_shader, MaterialFlagBits::Transparency, WGPUCullMode_None, WGPUVertexFormat_Float32x2);
+    m_portal_mat = Material::create(m_portal_shader, MaterialFlagBits::NoNormal | MaterialFlagBits::NoUV | MaterialFlagBits::StencilMask, WGPUCullMode_None, WGPUVertexFormat_Float32x2);
 
     std::vector<InstanceAttribute> chunk_attribs{InstanceAttribute(0, WGPUVertexFormat_Float32x3)};
-    m_fw_chunk_mat = Material::create(m_fw_chunk_shader, MaterialFlagBits::None, WGPUCullMode_Back, WGPUVertexFormat_Float32x4, Instance(chunk_attribs, sizeof(glm::vec3)));
+    m_fw_chunk_mat = Material::create(m_fw_chunk_shader, MaterialFlagBits::Stencil, WGPUCullMode_Back, WGPUVertexFormat_Float32x4, Instance(chunk_attribs, sizeof(glm::vec3)));
     m_fw_chunk_shadowmap_mat = Material::create(m_fw_chunk_shadowmap_shader, MaterialFlagBits::NoNormal | MaterialFlagBits::NoUV, WGPUCullMode_Back, WGPUVertexFormat_Float32x4, Instance(chunk_attribs, sizeof(glm::vec3)));
     m_fw_water_mat = Material::create(m_fw_water_shader, MaterialFlagBits::Transparency, WGPUCullMode_Back, WGPUVertexFormat_Float32x2, Instance(chunk_attribs, sizeof(glm::vec3)));
 
     m_fw_colored_mat = Material::create(m_fw_colored_shader, MaterialFlagBits::NoUV, WGPUCullMode_Back, WGPUVertexFormat_Float32x2);
     m_fw_colored_shadowmap_mat = Material::create(m_fw_colored_shader, MaterialFlagBits::NoUV, WGPUCullMode_Front, WGPUVertexFormat_Float32x2);
 
-    m_sky_mat = Material::create(m_sky_shader, MaterialFlagBits::DisableDepthTest | MaterialFlagBits::NoData, WGPUCullMode_None, WGPUVertexFormat_Float32x2);
+    m_sky_mat = Material::create(m_sky_shader, MaterialFlagBits::DisableDepthTest | MaterialFlagBits::NoData | MaterialFlagBits::Stencil, WGPUCullMode_None, WGPUVertexFormat_Float32x2);
 
     m_fw_pp_mat = Material::create(m_fw_pp_shader, MaterialFlagBits::NoData, WGPUCullMode_None, WGPUVertexFormat_Float32x2);
 
@@ -1232,6 +1255,11 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_fw_pp_bg->set_param("uniforms", m_fw_pp_buffer);
     m_fw_pp_bg->set_param("ssao", m_ssao_uniform_buffer);
 
+    m_portal_bg = BindGroup::create(m_portal_shader);
+    m_portal_bg->set_param("world_env", m_fw_world_env);
+    m_portal_bg->set_param("camera", m_fw_camera);
+    m_portal_bg->set_param("model", m_portal_buffer);
+
     m_fw_water_texture = Engine::get().registry().create_texture("assets/textures/water.png");
 
     Extent2D window_size = window.size();
@@ -1253,7 +1281,7 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     init_info.Device = m_device;
     init_info.NumFramesInFlight = 3;
     init_info.RenderTargetFormat = m_surface_format;
-    init_info.DepthStencilFormat = WGPUTextureFormat_Depth32Float;
+    init_info.DepthStencilFormat = WGPUTextureFormat_Depth32FloatStencil8;
     ImGui_ImplWGPU_Init(&init_info);
 
     return Result<void>();
@@ -1294,15 +1322,15 @@ void Renderer::configure_surface(size_t width, size_t height, VSync vsync)
     m_surface_extent = surface_extent;
     m_surface_format = config.format;
 
-    m_fw_depth_texture = EXPECT(Texture::create(m_surface_extent.width, m_surface_extent.height, WGPUTextureFormat_Depth32Float, WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_TextureBinding));
+    m_fw_depth_texture = EXPECT(Texture::create(m_surface_extent.width, m_surface_extent.height, WGPUTextureFormat_Depth32FloatStencil8, WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_TextureBinding | WGPUTextureUsage_CopySrc));
     m_fw_color_texture = EXPECT(Texture::create(m_surface_extent.width, m_surface_extent.height, WGPUTextureFormat_BGRA8Unorm, WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_TextureBinding));
 
     float ratio = float(width) / float(height);
     glm::mat4 ortho_matrix = glm::ortho(0.0f, 1.0f * ratio, 1.0f, 0.0f, -1.0f, 1.0f);
     m_env_2d_buffer->update_struct(ortho_matrix);
 
-    m_fw_pp_bg->set_param("albedo", m_fw_color_texture);
-    m_fw_pp_bg->set_param("depth", m_fw_depth_texture);
+    m_fw_pp_bg->set_param("albedo", EXPECT(m_fw_color_texture->get_view()));
+    m_fw_pp_bg->set_param("depth", EXPECT(m_fw_depth_texture->get_view(WGPUTextureViewDimension_2D, WGPUTextureAspect_DepthOnly)));
 }
 
 void Renderer::draw_legacy(std::function<void()> f)
@@ -1334,7 +1362,10 @@ void Renderer::draw_legacy(std::function<void()> f)
     depth_attach.depthClearValue = 1.0;
     depth_attach.depthLoadOp = WGPULoadOp_Clear;
     depth_attach.depthStoreOp = WGPUStoreOp_Store;
-    depth_attach.view = m_fw_depth_texture->handle_view();
+    depth_attach.stencilLoadOp = WGPULoadOp_Clear;
+    depth_attach.stencilStoreOp = WGPUStoreOp_Store;
+    depth_attach.stencilClearValue = 1;
+    depth_attach.view = EXPECT(m_fw_depth_texture->get_view(WGPUTextureViewDimension_2D));
     rp.depthStencilAttachment = &depth_attach;
 
     WGPURenderPassEncoder render_encoder = wgpuCommandEncoderBeginRenderPass(encoder, &rp);
@@ -1498,11 +1529,33 @@ void Renderer::draw_forward(const std::shared_ptr<World>& world)
 
     WGPUTextureView surface_view = wgpuTextureCreateView(surface_texture.texture, nullptr);
     ERR_COND_R(surface_view == nullptr, "Cannot acquire a swapchain image view");
-    std::shared_ptr<Texture> surface_tex = Texture::create_from_handle(surface_texture.texture, surface_view);
+    std::shared_ptr<Texture> surface_tex = Texture::create_from_handle(surface_texture.texture);
 
     WGPUCommandEncoder encoder = wgpuDeviceCreateCommandEncoder(m_device, nullptr);
 
-    draw_dimension_forward(encoder, world, world->get_player()->get_dimension(), surface_view);
+    const int current_dim = world->get_player()->get_dimension();
+    const int portal_dim = (current_dim + 1) % 2;
+
+    println("current = {}, portal = {}", current_dim, portal_dim);
+
+    draw_dimension_forward(encoder, world, current_dim, false);
+    draw_dimension_forward(encoder, world, portal_dim, true);
+
+    WGPURenderPassColorAttachment output_color_attach = WGPU_RENDER_PASS_COLOR_ATTACHMENT_INIT;
+    output_color_attach.clearValue = WGPUColor(0.0, 0.0, 0.0, 0.0);
+    output_color_attach.loadOp = WGPULoadOp_Clear;
+    output_color_attach.storeOp = WGPUStoreOp_Store;
+    output_color_attach.view = surface_view;
+
+    WGPURenderPassDescriptor postprocess_pass_desc = WGPU_RENDER_PASS_DESCRIPTOR_INIT;
+    postprocess_pass_desc.colorAttachments = &output_color_attach;
+    postprocess_pass_desc.colorAttachmentCount = 1;
+
+    WGPURenderPassEncoder postprocess_pass = wgpuCommandEncoderBeginRenderPass(encoder, &postprocess_pass_desc);
+    const RenderPass postprocess_pass_info(postprocess_pass, std::nullopt, {m_surface_format});
+    draw_fullscreen(postprocess_pass_info, m_fw_pp_mat, m_fw_pp_bg, 0);
+    wgpuRenderPassEncoderEnd(postprocess_pass);
+    wgpuRenderPassEncoderRelease(postprocess_pass);
 
     // Finally one last pass for rendering the UI.
     WGPURenderPassColorAttachment color_load_attach = WGPU_RENDER_PASS_COLOR_ATTACHMENT_INIT;
@@ -1554,8 +1607,9 @@ void Renderer::draw_forward(const std::shared_ptr<World>& world)
     wgpuTextureRelease(surface_texture.texture);
 }
 
-void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::shared_ptr<World>& world, int dimension, WGPUTextureView output_view)
+void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::shared_ptr<World>& world, int dimension, bool inside_portal)
 {
+    // bool foreign = world->get_player()->get_dimension() != dimension;
     std::shared_ptr<Camera> active_camera = world->get_player()->get_camera();
 
     FwCamera camera{};
@@ -1600,12 +1654,22 @@ void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::sha
     m_fw_pp.far = active_camera->far_plane();
     m_fw_pp_buffer->update_struct(m_fw_pp);
 
+    FwModel model{};
+    model.model = glm::translate(glm::identity<glm::mat4>(), glm::vec3(0, 100, 0)) *
+                  glm::scale(glm::identity<glm::mat4>(), glm::vec3(100, 100, 100));
+    m_portal_buffer->update_struct(model);
+
+    const uint32_t stencil_mask = inside_portal ? 2 : 1;
+
     // Generate a shadowmap by doing a depth-only pass from the point of view of the "sun".
     WGPURenderPassDepthStencilAttachment shadowmap_attach = WGPU_RENDER_PASS_DEPTH_STENCIL_ATTACHMENT_INIT;
     shadowmap_attach.depthClearValue = 1.0;
     shadowmap_attach.depthLoadOp = WGPULoadOp_Clear;
     shadowmap_attach.depthStoreOp = WGPUStoreOp_Store;
-    shadowmap_attach.view = m_fw_shadowmap->handle_view();
+    shadowmap_attach.stencilLoadOp = WGPULoadOp_Load;
+    shadowmap_attach.stencilStoreOp = WGPUStoreOp_Store;
+    shadowmap_attach.stencilClearValue = 1;
+    shadowmap_attach.view = EXPECT(m_fw_shadowmap->get_view(WGPUTextureViewDimension_2D));
 
     WGPURenderPassDescriptor shadowmap_pass_desc = WGPU_RENDER_PASS_DESCRIPTOR_INIT;
     shadowmap_pass_desc.label = WGPU_STRING_VIEW("Shadowmap");
@@ -1619,31 +1683,37 @@ void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::sha
     // A depth-only pass will optimize the rendering by only processing fragment colors once per pixels. Only opaque objects are preprocessed.
     WGPURenderPassDepthStencilAttachment depth_attach = WGPU_RENDER_PASS_DEPTH_STENCIL_ATTACHMENT_INIT;
     depth_attach.depthClearValue = 1.0;
-    depth_attach.depthLoadOp = WGPULoadOp_Clear;
+    depth_attach.depthLoadOp = inside_portal ? WGPULoadOp_Load : WGPULoadOp_Clear;
     depth_attach.depthStoreOp = WGPUStoreOp_Store;
-    depth_attach.view = m_fw_depth_texture->handle_view();
+    depth_attach.stencilLoadOp = inside_portal ? WGPULoadOp_Load : WGPULoadOp_Clear;
+    depth_attach.stencilStoreOp = WGPUStoreOp_Store;
+    depth_attach.stencilClearValue = 1;
+    depth_attach.view = EXPECT(m_fw_depth_texture->get_view(WGPUTextureViewDimension_2D));
 
     WGPURenderPassDescriptor depth_prepass_desc = WGPU_RENDER_PASS_DESCRIPTOR_INIT;
     depth_prepass_desc.label = WGPU_STRING_VIEW("Depth Prepass");
     depth_prepass_desc.depthStencilAttachment = &depth_attach;
 
     WGPURenderPassEncoder depth_pass = wgpuCommandEncoderBeginRenderPass(encoder, &depth_prepass_desc);
-    draw_world(world, RenderPass(depth_pass, RenderTarget(m_fw_depth_texture->format()), {}), WorldFlags(), world->get_dimension(dimension).get_visible_chunks());
+    draw_world(world, RenderPass(depth_pass, RenderTarget(m_fw_depth_texture->format()), {}), WorldFlags(), world->get_dimension(dimension).get_visible_chunks(), stencil_mask);
     wgpuRenderPassEncoderEnd(depth_pass);
     wgpuRenderPassEncoderRelease(depth_pass);
 
     // The color pass shade each pixels, the depth prepass prevent overshading for opaque objects.
     WGPURenderPassDepthStencilAttachment depth_load_attach = WGPU_RENDER_PASS_DEPTH_STENCIL_ATTACHMENT_INIT;
     depth_load_attach.depthClearValue = 1.0;
-    depth_load_attach.depthLoadOp = WGPULoadOp_Load;
+    depth_load_attach.depthLoadOp = inside_portal ? WGPULoadOp_Load : WGPULoadOp_Load;
     depth_load_attach.depthStoreOp = WGPUStoreOp_Store;
-    depth_load_attach.view = m_fw_depth_texture->handle_view();
+    depth_load_attach.stencilLoadOp = inside_portal ? WGPULoadOp_Load : WGPULoadOp_Clear;
+    depth_load_attach.stencilStoreOp = WGPUStoreOp_Store;
+    depth_load_attach.stencilClearValue = (uint32_t)dimension + 1;
+    depth_load_attach.view = EXPECT(m_fw_depth_texture->get_view(WGPUTextureViewDimension_2D));
 
     WGPURenderPassColorAttachment color_attach = WGPU_RENDER_PASS_COLOR_ATTACHMENT_INIT;
     color_attach.clearValue = WGPUColor(0.0, 0.0, 0.0, 0.0);
-    color_attach.loadOp = WGPULoadOp_Clear;
+    color_attach.loadOp = inside_portal ? WGPULoadOp_Load : WGPULoadOp_Clear;
     color_attach.storeOp = WGPUStoreOp_Store;
-    color_attach.view = m_fw_color_texture->handle_view();
+    color_attach.view = EXPECT(m_fw_color_texture->get_view(WGPUTextureViewDimension_2D));
 
     WGPURenderPassDescriptor color_pass_desc = WGPU_RENDER_PASS_DESCRIPTOR_INIT;
     color_pass_desc.label = WGPU_STRING_VIEW("Color pass");
@@ -1653,43 +1723,36 @@ void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::sha
 
     WGPURenderPassEncoder color_pass = wgpuCommandEncoderBeginRenderPass(encoder, &color_pass_desc);
     const RenderPass color_pass_info(color_pass, RenderTarget(m_fw_depth_texture->format()), {m_surface_format});
-    draw_fullscreen(color_pass_info, m_sky_mat, m_sky_bg);
-    draw_world(world, color_pass_info, WorldFlags(), world->get_dimension(dimension).get_visible_chunks());
-    draw_world(world, color_pass_info, WorldFlagBits::Water, world->get_dimension(dimension).get_visible_chunks());
-    for (std::shared_ptr<Entity> entity : world->get_dimension(dimension).get_entities())
-        entity->draw(color_pass_info);
+    draw_fullscreen(color_pass_info, m_sky_mat, m_sky_bg, stencil_mask);
+    draw_world(world, color_pass_info, WorldFlags(), world->get_dimension(dimension).get_visible_chunks(), stencil_mask);
+    draw_world(world, color_pass_info, WorldFlagBits::Water, world->get_dimension(dimension).get_visible_chunks(), stencil_mask);
+
+    // TODO: differentiate between
+    // for (std::shared_ptr<Entity> entity : world->get_dimension(dimension).get_entities())
+    //     entity->draw(color_pass_info);
 
     for (size_t i = 0; i < m_clouds.size(); i++)
         draw(color_pass_info, m_cube_mesh, m_fw_colored_mat, m_clouds[i].bg);
 
     draw(color_pass_info, m_quad_mesh, m_fw_shadowmap_cam_mat, m_fw_shadowmap_cam_bg); // Quad placed at the origin of the "sun"
+
+    // Don't draw the portal inside the portal view otherwise it will create problems.
+    if (!inside_portal)
+        draw(color_pass_info, m_quad_mesh, m_portal_mat, m_portal_bg, nullptr, 1, 0x2);
+
     wgpuRenderPassEncoderEnd(color_pass);
     wgpuRenderPassEncoderRelease(color_pass);
-
-    // Do post processing effects after the 3D rendering and before IU rendering.
-    WGPURenderPassColorAttachment output_color_attach = WGPU_RENDER_PASS_COLOR_ATTACHMENT_INIT;
-    output_color_attach.clearValue = WGPUColor(0.0, 0.0, 0.0, 0.0);
-    output_color_attach.loadOp = WGPULoadOp_Clear;
-    output_color_attach.storeOp = WGPUStoreOp_Store;
-    output_color_attach.view = output_view;
-
-    WGPURenderPassDescriptor postprocess_pass_desc = WGPU_RENDER_PASS_DESCRIPTOR_INIT;
-    postprocess_pass_desc.colorAttachments = &output_color_attach;
-    postprocess_pass_desc.colorAttachmentCount = 1;
-
-    WGPURenderPassEncoder postprocess_pass = wgpuCommandEncoderBeginRenderPass(encoder, &postprocess_pass_desc);
-    const RenderPass postprocess_pass_info(postprocess_pass, std::nullopt, {m_surface_format});
-    draw_fullscreen(postprocess_pass_info, m_fw_pp_mat, m_fw_pp_bg);
-    wgpuRenderPassEncoderEnd(postprocess_pass);
-    wgpuRenderPassEncoderRelease(postprocess_pass);
 }
 
-void Renderer::draw(const RenderPass& pass, const std::shared_ptr<Mesh>& mesh, const std::shared_ptr<Material>& material, const std::shared_ptr<BindGroup>& bg, const std::shared_ptr<Buffer>& instance_buffer, size_t instance_count)
+void Renderer::draw(const RenderPass& pass, const std::shared_ptr<Mesh>& mesh, const std::shared_ptr<Material>& material, const std::shared_ptr<BindGroup>& bg, const std::shared_ptr<Buffer>& instance_buffer, size_t instance_count, std::optional<uint32_t> stencil)
 {
     wgpuRenderPassEncoderSetPipeline(pass.encoder, material->get_pipeline(pass));
     wgpuRenderPassEncoderSetBindGroup(pass.encoder, 0, bg->get_bind_group(), 0, nullptr);
     wgpuRenderPassEncoderSetIndexBuffer(pass.encoder, mesh->get_buffer(Mesh::BufferKind::Index)->handle(), mesh->index_type(), 0, mesh->get_buffer(Mesh::BufferKind::Index)->size());
     wgpuRenderPassEncoderSetVertexBuffer(pass.encoder, 0, mesh->get_buffer(Mesh::BufferKind::Position)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Position)->size());
+
+    if (stencil.has_value())
+        wgpuRenderPassEncoderSetStencilReference(pass.encoder, stencil.value());
 
     size_t buffer_index = 1;
     if (!material->flags().has_any(MaterialFlagBits::NoNormal))
@@ -1703,7 +1766,7 @@ void Renderer::draw(const RenderPass& pass, const std::shared_ptr<Mesh>& mesh, c
     wgpuRenderPassEncoderDrawIndexed(pass.encoder, mesh->vertex_count(), instance_count, 0, 0, 0);
 }
 
-void Renderer::draw_world(const std::shared_ptr<World>& world, const RenderPass& pass, WorldFlags flags, const std::span<const RenderableChunk>& chunks)
+void Renderer::draw_world(const std::shared_ptr<World>& world, const RenderPass& pass, WorldFlags flags, const std::span<const RenderableChunk>& chunks, uint32_t stencil)
 {
     ZoneScoped;
 
@@ -1715,6 +1778,7 @@ void Renderer::draw_world(const std::shared_ptr<World>& world, const RenderPass&
 
     std::shared_ptr<Material> mat = flags.has_any(WorldFlagBits::Shadowmap) ? m_fw_chunk_shadowmap_mat : (flags.has_any(WorldFlagBits::Water) ? m_fw_water_mat : m_fw_chunk_mat);
     wgpuRenderPassEncoderSetPipeline(encoder, mat->get_pipeline(pass));
+    wgpuRenderPassEncoderSetStencilReference(encoder, stencil);
 
     for (const auto& r : chunks)
     {
@@ -1823,9 +1887,10 @@ void Renderer::draw_all_world(const std::shared_ptr<World>& world, const RenderP
     }
 }
 
-void Renderer::draw_fullscreen(const RenderPass& pass, std::shared_ptr<Material> material, std::shared_ptr<BindGroup> bg)
+void Renderer::draw_fullscreen(const RenderPass& pass, std::shared_ptr<Material> material, std::shared_ptr<BindGroup> bg, uint32_t stencil)
 {
     wgpuRenderPassEncoderSetPipeline(pass.encoder, material->get_pipeline(pass));
+    wgpuRenderPassEncoderSetStencilReference(pass.encoder, stencil);
     wgpuRenderPassEncoderSetBindGroup(pass.encoder, 0, bg->get_bind_group(), 0, nullptr);
     wgpuRenderPassEncoderDraw(pass.encoder, 3, 1, 0, 0);
 }

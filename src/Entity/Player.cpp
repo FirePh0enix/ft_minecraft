@@ -28,6 +28,7 @@ void BetterConsole::process_command(Player *player, std::string_view str)
         void (BetterConsole::*fn)(Player *, const std::vector<std::string>& args);
     } commands[]{
         {.name = "dim", .fn = &BetterConsole::chgdim},
+        {.name = "tp", .fn = &BetterConsole::tp},
     };
 
     std::vector<std::string> args;
@@ -54,6 +55,21 @@ void BetterConsole::process_command(Player *player, std::string_view str)
     }
 
     error("unknown command `{}`", args[0]);
+}
+
+void BetterConsole::tp(Player *player, const std::vector<std::string>& args)
+{
+    if (args.size() != 4)
+    {
+        println("usage `/tp <x> <y> <z>`");
+        return;
+    }
+
+    int64_t x = std::stol(args[1]);
+    int64_t y = std::stol(args[1]);
+    int64_t z = std::stol(args[2]);
+
+    player->set_position(glm::vec3(x, y, z));
 }
 
 void BetterConsole::chgdim(Player *player, const std::vector<std::string>& args)
@@ -137,7 +153,7 @@ void Player::on_ready()
     m_hand_item_bg = BindGroup::create(Renderer::get().get_fw_item_block_shader());
     m_hand_item_bg->set_param("camera", Renderer::get().get_fw_camera());
     m_hand_item_bg->set_param("model", m_model_buffer);
-    m_hand_item_bg->set_param("images", Engine::get().registry().get_texture_array());
+    m_hand_item_bg->set_param("images", EXPECT(Engine::get().registry().get_texture_array()->get_view(WGPUTextureViewDimension_2DArray)));
 
     if (m_local_player)
     {
@@ -538,8 +554,8 @@ void Player::draw(const RenderPass& pass)
             bg->set_param("camera", Renderer::get().get_fw_camera_rel());
             bg->set_param("model", m_model_buffer);
             bg->set_param("world_env", Renderer::get().get_fw_world_env());
-            bg->set_param("images", Engine::get().registry().get_texture_array());
-            bg->set_param("shadowmap", Renderer::get().get_fw_shadowmap());
+            bg->set_param("images", EXPECT(Engine::get().registry().get_texture_array()->get_view(WGPUTextureViewDimension_2DArray)));
+            bg->set_param("shadowmap", EXPECT(Renderer::get().get_fw_shadowmap()->get_view(WGPUTextureViewDimension_2D)));
 
             ItemBlockModel model(matrix,
                                  glm::uvec3(block->get_texture_ids()[0] | (block->get_texture_ids()[1] << 16), block->get_texture_ids()[2] | (block->get_texture_ids()[3] << 16), block->get_texture_ids()[4] | (block->get_texture_ids()[5] << 16)));
@@ -562,7 +578,7 @@ void Player::draw(const RenderPass& pass)
             std::shared_ptr<BindGroup> bg = BindGroup::create(Renderer::get().get_fw_item_shader());
             bg->set_param("camera", Renderer::get().get_fw_camera_rel());
             bg->set_param("model", m_model_buffer);
-            bg->set_param("image", texture);
+            bg->set_param("image", EXPECT(texture->get_view(WGPUTextureViewDimension_2D)));
 
             Renderer::get().draw(pass, Renderer::get().get_quad_mesh(), Renderer::get().get_fw_item_mat(), bg);
         }

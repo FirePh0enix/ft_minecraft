@@ -22,14 +22,14 @@ Chunk::Chunk(Dimension *dim, int64_t x, int64_t z)
         m_slices[i].mesh_bg = BindGroup::create(Renderer::get().get_fw_chunk_shader());
         m_slices[i].mesh_bg->set_param("camera", Renderer::get().get_fw_camera());
         m_slices[i].mesh_bg->set_param("world_env", Renderer::get().get_fw_world_env());
-        m_slices[i].mesh_bg->set_param("images", Engine::get().registry().get_texture_array());
-        m_slices[i].mesh_bg->set_param("shadowmap", Renderer::get().get_fw_shadowmap());
+        m_slices[i].mesh_bg->set_param("images", EXPECT(Engine::get().registry().get_texture_array()->get_view(WGPUTextureViewDimension_2DArray)));
+        m_slices[i].mesh_bg->set_param("shadowmap", EXPECT(Renderer::get().get_fw_shadowmap()->get_view()));
 
         m_slices[i].water_bg = BindGroup::create(Renderer::get().get_fw_water_shader());
         m_slices[i].water_bg->set_param("camera", Renderer::get().get_fw_camera());
         m_slices[i].water_bg->set_param("world_env", Renderer::get().get_fw_world_env());
-        m_slices[i].water_bg->set_param("image", Renderer::get().get_fw_water_texture());
-        m_slices[i].water_bg->set_param("shadowmap", Renderer::get().get_fw_shadowmap());
+        m_slices[i].water_bg->set_param("image", EXPECT(Renderer::get().get_fw_water_texture()->get_view()));
+        m_slices[i].water_bg->set_param("shadowmap", EXPECT(Renderer::get().get_fw_shadowmap()->get_view()));
 
         m_slices[i].mesh_shadowmap_bg = BindGroup::create(Renderer::get().get_fw_shadowmap_shader());
         m_slices[i].mesh_shadowmap_bg->set_param("camera", Renderer::get().get_fw_shadowmap_camera());

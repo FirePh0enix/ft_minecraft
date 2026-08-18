@@ -93,25 +93,41 @@ class Texture
 public:
     ~Texture();
 
-    static Result<std::shared_ptr<Texture>> create(uint32_t width, uint32_t height, WGPUTextureFormat format, WGPUTextureUsage usage = WGPUTextureUsage_None, WGPUTextureViewDimension dimension = WGPUTextureViewDimension_2D, uint32_t layers = 1, uint32_t mip_level = 1);
-    static std::shared_ptr<Texture> create_from_handle(WGPUTexture texture, WGPUTextureView view);
+    static Result<std::shared_ptr<Texture>> create(uint32_t width, uint32_t height, WGPUTextureFormat format, WGPUTextureUsage usage = WGPUTextureUsage_None, WGPUTextureDimension dimension = WGPUTextureDimension_2D, uint32_t layers = 1, uint32_t mip_level = 1);
+    static std::shared_ptr<Texture> create_from_handle(WGPUTexture texture);
     static Result<std::shared_ptr<Texture>> load(std::string_view path);
 
     void update(std::span<const std::byte> view, uint32_t layer = 0);
 
+    Result<WGPUTextureView> get_view(WGPUTextureViewDimension dimension = WGPUTextureViewDimension_2D, WGPUTextureAspect aspect = WGPUTextureAspect_Undefined, int base_layer = 0, int layer_count = -1);
+
     WGPUTexture handle() const { return m_texture; }
-    WGPUTextureView handle_view() const { return m_view; }
     WGPUTextureFormat format() const { return m_format; }
 
 private:
+    struct ViewDesc
+    {
+        WGPUTextureViewDimension dimension;
+        WGPUTextureAspect aspect;
+        int base_layer;
+        int layer_count;
+
+        bool operator<(const ViewDesc& o) const
+        {
+            return std::tie(dimension, aspect, base_layer, layer_count) < std::tie(o.dimension, o.aspect, o.base_layer, o.layer_count);
+        }
+    };
+
     WGPUTexture m_texture = nullptr;
-    WGPUTextureView m_view = nullptr;
+    // WGPUTextureView m_view = nullptr;
     WGPUTextureFormat m_format = WGPUTextureFormat_Undefined;
     uint32_t m_width = 0;
     uint32_t m_height = 0;
     uint32_t m_layers = 0;
     uint32_t m_mip_level = 0;
     bool m_external = false;
+
+    std::map<ViewDesc, WGPUTextureView> m_views;
 };
 
 class Mesh
@@ -212,7 +228,7 @@ struct Instance
 struct MaterialParamCache
 {
     BindingKind kind = BindingKind::Texture;
-    std::shared_ptr<Texture> texture = nullptr;
+    WGPUTextureView texture = nullptr;
     std::shared_ptr<Buffer> buffer = nullptr;
 
     size_t offset = 0;
@@ -230,6 +246,10 @@ enum class MaterialFlagBits
     NoUV = 1 << 4,
 
     DisableDepthTest = 1 << 5,
+
+    Stencil = 1 << 6,
+    /// The object using this flag will override the stencil value. Set this to use the object as a mask for another rendering.
+    StencilMask = 1 << 7,
 
     NoData = NoPosition | NoNormal | NoUV,
 };
@@ -292,7 +312,7 @@ public:
     ~BindGroup();
 
     void set_param(std::string_view name, const std::shared_ptr<Buffer>& buffer, size_t offset = 0, size_t size = std::numeric_limits<size_t>::max());
-    void set_param(std::string_view name, const std::shared_ptr<Texture>& texture);
+    void set_param(std::string_view name, WGPUTextureView texture);
 
     WGPUBindGroup get_bind_group();
 
@@ -381,6 +401,11 @@ struct GPU_ATTRIBUTE FwWorldEnv
     glm::vec3 light_dir;
 };
 
+struct GPU_ATTRIBUTE FwModel
+{
+    glm::mat4 model;
+};
+
 struct GPU_ATTRIBUTE FwColored
 {
     glm::mat4 model;
@@ -428,11 +453,11 @@ public:
     void draw_legacy(std::function<void()> f);
 
     void draw_forward(const std::shared_ptr<World>& world);
-    void draw_dimension_forward(WGPUCommandEncoder encoder, const std::shared_ptr<World>& world, int dimension, WGPUTextureView output_view);
-    void draw_world(const std::shared_ptr<World>& world, const RenderPass& pass, WorldFlags flags, const std::span<const RenderableChunk>& chunks);
+    void draw_dimension_forward(WGPUCommandEncoder encoder, const std::shared_ptr<World>& world, int dimension, bool inside_portal);
+    void draw_world(const std::shared_ptr<World>& world, const RenderPass& pass, WorldFlags flags, const std::span<const RenderableChunk>& chunks, uint32_t stencil);
     void draw_all_world(const std::shared_ptr<World>& world, const RenderPass& pass, WorldFlags flags);
-    void draw(const RenderPass& pass, const std::shared_ptr<Mesh>& mesh, const std::shared_ptr<Material>& material, const std::shared_ptr<BindGroup>& bg, const std::shared_ptr<Buffer>& instance_buffer = nullptr, size_t instance_count = 1);
-    void draw_fullscreen(const RenderPass& pass, std::shared_ptr<Material> material, std::shared_ptr<BindGroup> bg);
+    void draw(const RenderPass& pass, const std::shared_ptr<Mesh>& mesh, const std::shared_ptr<Material>& material, const std::shared_ptr<BindGroup>& bg, const std::shared_ptr<Buffer>& instance_buffer = nullptr, size_t instance_count = 1, std::optional<uint32_t> stencil = std::nullopt);
+    void draw_fullscreen(const RenderPass& pass, std::shared_ptr<Material> material, std::shared_ptr<BindGroup> bg, uint32_t stencil);
 
     void set_fog(glm::vec4 color, float distance);
     void set_sky(glm::vec4 color);
@@ -547,6 +572,12 @@ private:
     std::shared_ptr<Buffer> m_fw_shadowmap_cam_buffer;
 
     std::shared_ptr<Texture> m_fw_water_texture;
+
+    // Portal
+    std::shared_ptr<Shader> m_portal_shader;
+    std::shared_ptr<Material> m_portal_mat;
+    std::shared_ptr<BindGroup> m_portal_bg;
+    std::shared_ptr<Buffer> m_portal_buffer;
 
     // SSAO
     std::shared_ptr<Texture> m_ssao_buffer;

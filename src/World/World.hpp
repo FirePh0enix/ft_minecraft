@@ -231,7 +231,7 @@ private:
 
     bool m_proxy = false;
 
-    Player *m_player;
+    Player *m_player = nullptr;
 
     glm::vec3 m_spawn_position = glm::vec3();
 

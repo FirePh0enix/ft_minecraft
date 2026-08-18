@@ -23,6 +23,7 @@ public:
     void process_command(Player *player, std::string_view str);
 
     // Commands
+    void tp(Player *player, const std::vector<std::string>& args);
     void chgdim(Player *player, const std::vector<std::string>& args);
 };
 
