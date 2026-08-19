@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Core/Types.hpp"
+#include "DebugDisplay.hpp"
 #include "Entity/Camera.hpp"
 #include "Entity/Entity.hpp"
 #include "Network/Packet.hpp"
@@ -191,7 +192,7 @@ public:
     /**
      * Save chunk to the disk.
      */
-    Result<void> save_chunk(std::shared_ptr<Chunk> chunk);
+    Result<void> save_chunk(std::shared_ptr<Chunk> chunk, int dimension);
 
     Result<void> save_entity(const std::shared_ptr<Entity>& entity);
     Result<void> save_player(const std::shared_ptr<Player>& player);
@@ -209,6 +210,9 @@ public:
     bool is_player_saved(std::string_view name) const;
 
     void request_chunk(ENetPeer *peer, int dimension, int64_t x, int64_t z);
+
+    const DebugDisplay& dd() const { return m_debug_display; }
+    DebugDisplay& dd() { return m_debug_display; }
 
     static EntityId next_id()
     {
@@ -234,6 +238,8 @@ private:
     Player *m_player = nullptr;
 
     glm::vec3 m_spawn_position = glm::vec3();
+
+    DebugDisplay m_debug_display;
 
     void find_safe_spawn();
     void load_around_player(int dimension);

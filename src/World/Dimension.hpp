@@ -80,8 +80,8 @@ class Dimension
     friend class GenScheduler;
 
 public:
-    Dimension()
-        : m_scheduler(*this)
+    Dimension(int id)
+        : m_id(id), m_scheduler(*this)
     {
     }
 
@@ -144,6 +144,7 @@ public:
 
 private:
     World *m_world = nullptr;
+    int m_id;
 
     std::mutex m_chunk_mutex;
     std::map<ChunkPos, std::shared_ptr<Chunk>> m_chunks;

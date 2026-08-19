@@ -77,6 +77,7 @@ constexpr Id<Block> leaves("leaves");
 constexpr Id<Block> grass("grass");
 constexpr Id<Block> snow("snow");
 constexpr Id<Block> crafting_table("crafting_table");
+constexpr Id<Block> portal("portal");
 } // namespace Blocks
 
 namespace Items
@@ -89,10 +90,11 @@ constexpr Id<Item> leaves_block("leaves");
 constexpr Id<Item> grass_block("grass");
 constexpr Id<Item> snow_block("snow");
 constexpr Id<Item> crafting_table_block("crafting_table");
+constexpr Id<Item> portal_block("portal");
 constexpr Id<Item> water_bucket("water_bucket");
 constexpr Id<Item> bow("bow");
 constexpr Id<Item> arrow("arrow");
-
+constexpr Id<Item> crystal("crystal");
 }; // namespace Items
 
 namespace Entities
@@ -140,8 +142,21 @@ public:
     RuntimeId<Block> get_runtime_id(Id<Block> block) const { return m_block_ids.at(block); }
     RuntimeId<Block> get_runtime_id(std::string_view block) const { return get_runtime_id(block_from_name(block)); }
 
-    Id<Item> item_from_name(std::string_view name) const { return m_item_names.find(name)->second; }
-    Id<Block> block_from_name(std::string_view name) const { return m_block_names.find(name)->second; }
+    Id<Item> item_from_name(std::string_view name) const
+    {
+        auto iter = m_item_names.find(name);
+        if (iter == m_item_names.end())
+            return Id<Item>();
+        return iter->second;
+    }
+
+    Id<Block> block_from_name(std::string_view name) const
+    {
+        auto iter = m_block_names.find(name);
+        if (iter == m_block_names.end())
+            return Id<Block>();
+        return iter->second;
+    }
 
     std::optional<Id<Block>> to_block(Id<Item> id);
     std::optional<Id<Item>> to_item(Id<Block> block) { return m_block_items[block]; }

@@ -68,8 +68,8 @@ void BetterConsole::tp(Player *player, const std::vector<std::string>& args)
     }
 
     int64_t x = std::stol(args[1]);
-    int64_t y = std::stol(args[1]);
-    int64_t z = std::stol(args[2]);
+    int64_t y = std::stol(args[2]);
+    int64_t z = std::stol(args[3]);
 
     player->set_position(glm::vec3(x, y, z));
 }
@@ -115,12 +115,24 @@ void BetterConsole::give(Player *player, const std::vector<std::string>& args)
     if (args.size() == 2)
     {
         Id<Item> item = Engine::get().registry().item_from_name(args[1]);
+        if (!item.valid())
+        {
+            println("invalid item `{}`", args[1]);
+            return;
+        }
+
         ItemStack stack(item, 1);
         player->get_inventory()->add_stack(stack);
     }
     else if (args.size() == 3)
     {
         Id<Item> item = Engine::get().registry().item_from_name(args[1]);
+        if (!item.valid())
+        {
+            println("invalid item `{}`", args[1]);
+            return;
+        }
+
         ItemStack stack(item, std::stol(args[2]));
         player->get_inventory()->add_stack(stack);
     }
@@ -695,6 +707,11 @@ void Player::die()
 
 void Player::break_block(int64_t x, int64_t y, int64_t z)
 {
+    BlockState state = m_world->get_block_state(m_dimension, x, y, z);
+    std::shared_ptr<Block> block = Engine::get().registry().get_block(state.id);
+    if (block->is_unbreakable())
+        return;
+
     if (m_gamemode == GameMode::Survival)
     {
         m_world->break_block(m_dimension, x, y, z);

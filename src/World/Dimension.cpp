@@ -184,7 +184,7 @@ void GenScheduler::realize_chunk(ChunkPos pos)
         m_dimension.m_gen->generate_chunk(chunk, preloaded_chunk, m_dimension);
 
         // Save the initial version of the chunk.
-        EXPECT(m_dimension.m_world->save_chunk(chunk));
+        EXPECT(m_dimension.m_world->save_chunk(chunk, m_dimension.m_id));
 
         std::lock_guard<std::mutex> lock(m_dimension.m_chunk_mutex);
         m_dimension.m_chunks_to_flush[pos] = chunk;
@@ -569,7 +569,7 @@ void Dimension::load_chunk(ChunkPos pos)
             return;
         chunk = result.value();
 
-        EXPECT(m_world->save_chunk(chunk));
+        EXPECT(m_world->save_chunk(chunk, m_id));
     }
 
     add_chunk(chunk);

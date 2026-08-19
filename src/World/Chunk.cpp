@@ -66,6 +66,16 @@ void Chunk::set_block(int64_t x, int64_t y, int64_t z, BlockState state)
     else if (z == 15)
         m_dim->queue_rebuild(ChunkPos(m_x, m_z + 1));
 
+    std::shared_ptr<Block> block = Engine::get().registry().get_block(state.id);
+    if (block != nullptr && !block->is_conventional())
+    {
+        m_non_conventional_blocks.insert(BlockPos(x, y, z));
+    }
+    else if (m_non_conventional_blocks.contains(BlockPos(x, y, z)))
+    {
+        m_non_conventional_blocks.erase(BlockPos(x, y, z));
+    }
+
     // if (y == 0)
     //     m_dim->queue_rebuild(ChunkPos(m_x, m_z), 0, 1);
     // else if (y == 255)
@@ -179,6 +189,10 @@ Result<void> Chunk::build_simple_mesh(size_t slice_index, const std::map<ChunkPo
                 std::shared_ptr<Block> block = Engine::get().registry().get_block(m_blocks[index].id);
                 if (block == nullptr)
                     return Result<void>();
+
+                // TODO: add this test also to edge detection.
+                if (!block->is_conventional())
+                    continue;
 
                 const bool gradient = block->has_gradient();
 

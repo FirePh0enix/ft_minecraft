@@ -18,6 +18,7 @@ option(SANITIZE_ADDRESS "Enable AddressSanitizer" OFF)
 option(SANITIZE_THREAD "Enable ThreadSanitizer" OFF)
 
 list(APPEND SOURCES
+    src/DebugDisplay.cpp
     src/Engine.cpp
     src/Font.cpp
     src/Frustum.cpp
@@ -29,6 +30,7 @@ list(APPEND SOURCES
     src/Window.cpp
     src/Block/Block.cpp
     src/Block/CraftingTable.cpp
+    src/Block/Portal.cpp
     src/Core/Noise/Simplex.cpp
     src/Core/Error.cpp
     src/Core/Filesystem.cpp
@@ -49,6 +51,7 @@ list(APPEND SOURCES
     src/Inventory/Inventory.cpp
     src/Inventory/PlayerInventory.cpp
     src/Item/Bucket.cpp
+    src/Item/Crystal.cpp
     src/Item/Item.cpp
     src/Item/ItemStack.cpp
     src/Item/Bow.cpp

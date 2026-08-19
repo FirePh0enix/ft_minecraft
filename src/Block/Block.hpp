@@ -1,12 +1,16 @@
 #pragma once
 
+#include "Core/Math.hpp"
 #include "Id.hpp"
 
 #include <array>
+#include <memory>
 #include <span>
 #include <string>
 
 class Block;
+class Mesh;
+struct RenderPass;
 
 struct BlockState
 {
@@ -53,7 +57,15 @@ public:
 
     void set_runtime_id(RuntimeId<Block> id) { m_id = id; }
 
-    virtual BlockState get_default_state() { return BlockState(m_id); }
+    virtual void draw(const RenderPass& pass, glm::i64vec3 position)
+    {
+        (void)pass;
+        (void)position;
+    };
+
+    virtual BlockState get_default_state() const { return BlockState(m_id); }
+    bool is_conventional() const { return m_mesh == nullptr; }
+    bool is_unbreakable() const { return m_unbreakable; }
 
     std::span<const std::string, 6> get_texture_names() const
     {
@@ -83,10 +95,13 @@ public:
     bool is_tranparent() const { return m_transparent; }
     bool has_gradient() const { return m_gradient; }
 
-private:
+protected:
     std::array<std::string, 6> m_textures{};
     std::array<uint32_t, 6> m_texture_ids{0, 0, 0, 0, 0, 0}; // [+Z, -Z, +X, -X, +Y, -Y]
     bool m_transparent;
     bool m_gradient;
     RuntimeId<Block> m_id;
+
+    std::shared_ptr<Mesh> m_mesh;
+    bool m_unbreakable = false;
 };

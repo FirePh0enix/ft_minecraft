@@ -470,6 +470,8 @@ public:
     std::shared_ptr<Shader> get_fw_item_shader() const { return m_fw_item_shader; }
     std::shared_ptr<Shader> get_fw_text_shader() const { return m_fw_text_shader; }
     std::shared_ptr<Shader> get_fw_model_shader() const { return m_fw_model_shader; }
+    std::shared_ptr<Shader> get_fw_colored_shader() const { return m_fw_colored_shader; }
+    std::shared_ptr<Shader> get_portal_shader() const { return m_portal_shader; }
     std::shared_ptr<Material> get_fw_chunk_mat() const { return m_fw_chunk_mat; }
     std::shared_ptr<Material> get_fw_shadowmap_mat() const { return m_fw_chunk_shadowmap_mat; }
     std::shared_ptr<Material> get_fw_texture_rect_mat() const { return m_fw_texture_rect_mat; }
@@ -478,6 +480,7 @@ public:
     std::shared_ptr<Material> get_fw_color_rect_mat() const { return m_fw_color_rect_mat; }
     std::shared_ptr<Material> get_fw_item_block_mat() const { return m_fw_item_block_mat; }
     std::shared_ptr<Material> get_fw_item_mat() const { return m_fw_item_mat; }
+    std::shared_ptr<Material> get_wireframe_mat() const { return m_wireframe_dbg_mat; }
     std::shared_ptr<Texture> get_fw_shadowmap() const { return m_fw_shadowmap; }
     std::shared_ptr<Buffer> get_fw_camera() const { return m_fw_camera; }
     std::shared_ptr<Buffer> get_fw_camera_rel() const { return m_fw_camera_rel; }
@@ -502,6 +505,7 @@ public:
     std::shared_ptr<Mesh> get_cube_mesh() const { return m_cube_mesh; }
     std::shared_ptr<Mesh> get_square_mesh() const { return m_square_mesh; }
     std::shared_ptr<Mesh> get_quad_mesh() const { return m_quad_mesh; }
+    std::shared_ptr<Mesh> get_wireframe_cube_mesh() const { return m_wireframe_chunk_slice_mesh; }
 
     std::shared_ptr<Shader> get_preview_block_shader() const { return m_preview_block_shader; }
     std::shared_ptr<Shader> get_color_rect_shader() const { return m_color_rect_shader; }

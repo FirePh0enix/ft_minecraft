@@ -1184,7 +1184,7 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_wireframe_dbg_mat = Material::create(m_fw_colored_shader, MaterialFlagBits::NoNormal | MaterialFlagBits::NoUV, WGPUCullMode_None, WGPUVertexFormat_Float32x2, Instance(), WGPUPrimitiveTopology_LineList);
 
     m_cube_mesh = TRY(create_cube_mesh());
-    m_wireframe_chunk_slice_mesh = TRY(create_wireframe_cube_mesh(glm::vec3(16.0)));
+    m_wireframe_chunk_slice_mesh = TRY(create_wireframe_cube_mesh(glm::vec3(1.0)));
 
     Engine::get().registry().register_all();       // TODO: I dont really like having this here but it needs to be before calling `get_texture_array` and after initializing WebGPU.
     TRY(Engine::get().registry().post_register()); //       Maybe split this function in two (initializing/creating resources).
@@ -1739,6 +1739,8 @@ void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::sha
 
     draw(color_pass_info, m_quad_mesh, m_fw_shadowmap_cam_mat, m_fw_shadowmap_cam_bg); // Quad placed at the origin of the "sun"
 
+    world->dd().draw(color_pass_info);
+
     // Don't draw the portal inside the portal view otherwise it will create problems.
     // if (!inside_portal)
     //     draw(color_pass_info, m_quad_mesh, m_portal_mat, m_portal_bg, nullptr, 1, 0x2);
@@ -1810,25 +1812,40 @@ void Renderer::draw_world(const std::shared_ptr<World>& world, const RenderPass&
         wgpuRenderPassEncoderDrawIndexed(encoder, mesh->vertex_count(), 1, 0, 0, r.slice_index);
     }
 
-    if (m_chunk_debug)
+    for (const auto& r : chunks)
     {
-        for (const auto& r : chunks)
+        if (!flags.has_any(WorldFlagBits::Water))
         {
-            std::shared_ptr<BindGroup> dbg_bg = BindGroup::create(m_fw_colored_shader);
-            dbg_bg->set_param("camera", m_fw_camera);
-            dbg_bg->set_param("world_env", m_fw_world_env);
+            for (BlockPos pos : r.chunk->get_non_coventional_blocks())
+            {
+                std::shared_ptr<Block> block = Engine::get().registry().get_block(r.chunk->get_blocks()[pos.x + pos.y * Chunk::width + pos.z * Chunk::width * Chunk::height].id);
+                if (block == nullptr)
+                    continue;
 
-            FwColored colored{};
-            colored.color = Colors::yellow;
-            colored.model = glm::translate(glm::identity<glm::mat4>(), glm::vec3(float(r.chunk->pos().x) * 16.0f + 8.0f - 0.5f, float(r.slice_index) * 16.0f + 8.0f - 0.5f, float(r.chunk->pos().z) * 16.0f + 8.0f - 0.5f));
-
-            std::shared_ptr<Buffer> dbg_buffer = EXPECT(Buffer::create(sizeof(FwColored), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
-            dbg_buffer->update_struct(colored);
-            dbg_bg->set_param("model", dbg_buffer);
-
-            draw(pass, m_wireframe_chunk_slice_mesh, m_wireframe_dbg_mat, dbg_bg);
+                block->draw(pass, BlockPos(pos.x + r.chunk->x() * 16, pos.y, pos.z + r.chunk->z() * 16));
+            }
         }
     }
+
+    // if (m_chunk_debug)
+    // {
+    //     for (const auto& r : chunks)
+    //     {
+    //         std::shared_ptr<BindGroup> dbg_bg = BindGroup::create(m_fw_colored_shader);
+    //         dbg_bg->set_param("camera", m_fw_camera);
+    //         dbg_bg->set_param("world_env", m_fw_world_env);
+
+    //         FwColored colored{};
+    //         colored.color = Colors::yellow;
+    //         colored.model = glm::translate(glm::identity<glm::mat4>(), glm::vec3(float(r.chunk->pos().x) * 16.0f + 8.0f - 0.5f, float(r.slice_index) * 16.0f + 8.0f - 0.5f, float(r.chunk->pos().z) * 16.0f + 8.0f - 0.5f));
+
+    //         std::shared_ptr<Buffer> dbg_buffer = EXPECT(Buffer::create(sizeof(FwColored), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
+    //         dbg_buffer->update_struct(colored);
+    //         dbg_bg->set_param("model", dbg_buffer);
+
+    //         draw(pass, m_wireframe_chunk_slice_mesh, m_wireframe_dbg_mat, dbg_bg);
+    //     }
+    // }
 }
 
 void Renderer::draw_all_world(const std::shared_ptr<World>& world, const RenderPass& pass, WorldFlags flags)

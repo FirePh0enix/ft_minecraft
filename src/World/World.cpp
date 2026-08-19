@@ -82,6 +82,7 @@ static bool ray_intersect_aabb(const Ray& ray, const AABBf& aabb, float& t_min, 
 }
 
 World::World()
+    : m_dims{Dimension(0), Dimension(1)}
 {
 }
 
@@ -199,8 +200,13 @@ static void add_neighbour_chunk(ChunkPos pos, std::set<ChunkPos>& chunks)
 
 void World::tick(float delta)
 {
+    // int dimension = m_player->get_dimension();
+
+    // tick_dimension(delta, dimension);
     tick_dimension(delta, overworld);
     tick_dimension(delta, underworld);
+
+    m_debug_display.update(delta);
 }
 
 void World::tick_dimension(float delta, int dimension)
@@ -225,7 +231,7 @@ void World::tick_dimension(float delta, int dimension)
         for (auto& [pos, chunk] : m_dims[dimension].m_chunks)
         {
             if (chunk->is_modified())
-                EXPECT(save_chunk(chunk));
+                EXPECT(save_chunk(chunk, dimension));
             chunk->clear_modified();
         }
 
@@ -496,14 +502,14 @@ void World::break_block(int dimension, int64_t x, int64_t y, int64_t z)
     add_entity(World::overworld, item_entity);
 }
 
-Result<void> World::save_chunk(std::shared_ptr<Chunk> chunk)
+Result<void> World::save_chunk(std::shared_ptr<Chunk> chunk, int dimension)
 {
     if (Engine::get().is_save_disabled())
     {
         return Result<void>();
     }
 
-    std::string path = std::format("{}/saves/{}/DIM0/{}${}/", Filesystem::get_data_directory(), m_name, chunk->x(), chunk->z());
+    std::string path = std::format("{}/saves/{}/DIM{}/{}${}/", Filesystem::get_data_directory(), m_name, dimension, chunk->x(), chunk->z());
     TRY(Filesystem::make_dirs(path));
 
     path.append("blocks.dat");
@@ -516,7 +522,7 @@ Result<void> World::save_chunk(std::shared_ptr<Chunk> chunk)
 
     file.close();
 
-    path = std::format("{}/saves/{}/DIM0/{}${}/tags.dat", Filesystem::get_data_directory(), m_name, chunk->x(), chunk->z());
+    path = std::format("{}/saves/{}/DIM{}/{}${}/tags.dat", Filesystem::get_data_directory(), m_name, dimension, chunk->x(), chunk->z());
     file = TRY(Filesystem::open_file(path, true));
 
     BufferWriter writer;

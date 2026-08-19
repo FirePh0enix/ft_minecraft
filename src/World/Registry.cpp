@@ -2,12 +2,14 @@
 
 #include "Block/Block.hpp"
 #include "Block/CraftingTable.hpp"
+#include "Block/Portal.hpp"
 #include "Core/Filesystem.hpp"
 #include "Core/Logger.hpp"
 #include "Engine.hpp"
 #include "Item/Arrow.hpp"
 #include "Item/Bow.hpp"
 #include "Item/Bucket.hpp"
+#include "Item/Crystal.hpp"
 #include "Render/Renderer.hpp"
 
 #include <memory>
@@ -40,6 +42,7 @@ void GameRegistry::register_all()
     add_block(Blocks::grass, std::make_shared<Block>(std::array<std::string, 6>{TEX("grass_side"), TEX("grass_side"), TEX("grass_side"), TEX("grass_side"), TEX("dirt"), TEX("grass_top")}, true));
     add_block(Blocks::snow, std::make_shared<Block>(TEX("snow")));
     add_block(Blocks::crafting_table, std::make_shared<CraftingTableBlock>());
+    add_block(Blocks::portal, std::make_shared<PortalBlock>());
 
     add_item(Items::stone_block, std::make_shared<ItemBlock>(Blocks::stone));
     add_item(Items::dirt_block, std::make_shared<ItemBlock>(Blocks::dirt));
@@ -49,10 +52,11 @@ void GameRegistry::register_all()
     add_item(Items::grass_block, std::make_shared<ItemBlock>(Blocks::grass));
     add_item(Items::snow_block, std::make_shared<ItemBlock>(Blocks::snow));
     add_item(Items::crafting_table_block, std::make_shared<ItemBlock>(Blocks::crafting_table));
+    add_item(Items::portal_block, std::make_shared<ItemBlock>(Blocks::portal));
     add_item(Items::water_bucket, std::make_shared<BucketItem>());
-
     add_item(Items::bow, std::make_shared<BowItem>());
     add_item(Items::arrow, std::make_shared<ArrowItem>());
+    add_item(Items::crystal, std::make_shared<CrystalItem>());
 
     add_structure("tree", Structure::load(STRUCT("tree")));
 }

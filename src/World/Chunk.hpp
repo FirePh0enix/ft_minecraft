@@ -8,6 +8,7 @@
 #include "stdext.hpp"
 
 #include <cstdint>
+#include <set>
 
 class World;
 class Dimension;
@@ -17,9 +18,8 @@ class BindGroup;
 class Buffer;
 class Texture;
 
-class ChunkPos
+struct ChunkPos
 {
-public:
     int64_t x;
     int64_t z;
 
@@ -29,6 +29,26 @@ public:
     bool operator<(ChunkPos other) const
     {
         return std::tie(x, z) < std::tie(other.x, other.z);
+    }
+};
+
+struct BlockPos
+{
+    int64_t x;
+    int64_t y;
+    int64_t z;
+
+    constexpr BlockPos() : x(0), y(0), z(0) {}
+    constexpr BlockPos(int64_t x, int64_t y, int64_t z) : x(x), y(y), z(z) {}
+
+    bool operator<(BlockPos other) const
+    {
+        return std::tie(x, y, z) < std::tie(other.x, other.y, other.z);
+    }
+
+    operator glm::i64vec3() const
+    {
+        return {x, y, z};
     }
 };
 
@@ -93,6 +113,8 @@ public:
     std::optional<Variant> get_tag(uint16_t index, std::string_view name) const;
     void merge_tag(uint16_t index, const BlockTags& tags);
 
+    const std::set<BlockPos>& get_non_coventional_blocks() const { return m_non_conventional_blocks; }
+
     static ALWAYS_INLINE size_t linearize(int64_t x, int64_t y, int64_t z) { return z * width * height + y * width + x; }
 
 private:
@@ -103,6 +125,7 @@ private:
     Dimension *m_dim;
 
     std::map<int64_t, BlockTags> m_tags;
+    std::set<BlockPos> m_non_conventional_blocks;
 
     std::shared_ptr<Buffer> m_uniform_buffer;
 
