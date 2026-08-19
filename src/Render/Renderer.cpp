@@ -1536,8 +1536,6 @@ void Renderer::draw_forward(const std::shared_ptr<World>& world)
     const int current_dim = world->get_player()->get_dimension();
     const int portal_dim = (current_dim + 1) % 2;
 
-    // println("current = {}, portal = {}", current_dim, portal_dim);
-
     draw_dimension_forward(encoder, world, current_dim, false);
     draw_dimension_forward(encoder, world, portal_dim, true);
 
@@ -1609,7 +1607,6 @@ void Renderer::draw_forward(const std::shared_ptr<World>& world)
 
 void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::shared_ptr<World>& world, int dimension, bool inside_portal)
 {
-    // bool foreign = world->get_player()->get_dimension() != dimension;
     std::shared_ptr<Camera> active_camera = world->get_player()->get_camera();
 
     FwCamera camera{};
@@ -1706,7 +1703,7 @@ void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::sha
     depth_load_attach.depthStoreOp = WGPUStoreOp_Store;
     depth_load_attach.stencilLoadOp = inside_portal ? WGPULoadOp_Load : WGPULoadOp_Clear;
     depth_load_attach.stencilStoreOp = WGPUStoreOp_Store;
-    depth_load_attach.stencilClearValue = (uint32_t)dimension + 1;
+    depth_load_attach.stencilClearValue = 1;
     depth_load_attach.view = EXPECT(m_fw_depth_texture->get_view(WGPUTextureViewDimension_2D));
 
     WGPURenderPassColorAttachment color_attach = WGPU_RENDER_PASS_COLOR_ATTACHMENT_INIT;

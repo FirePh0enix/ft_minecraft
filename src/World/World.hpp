@@ -148,11 +148,11 @@ public:
     void set_player(Player *player) { m_player = player; }
     Player *get_player() const { return m_player; }
 
-    void add_entity(int dimension, std::shared_ptr<Entity> entity)
+    void add_entity(int dimension, std::shared_ptr<Entity> entity, bool reset_id = true)
     {
         entity->m_world = this;
         entity->m_dimension = dimension;
-        if (!m_proxy && (uint32_t)entity->id() == 0)
+        if (!m_proxy && reset_id && (uint32_t)entity->id() == 0)
             entity->m_id = World::next_id();
         entity->on_ready();
         m_dims[dimension].add_entity(entity);
@@ -160,7 +160,10 @@ public:
 
     std::shared_ptr<Entity> get_entity(EntityId id) const
     {
-        return m_dims[0].get_entity(id);
+        std::shared_ptr<Entity> entity = m_dims[overworld].get_entity(id);
+        if (entity == nullptr)
+            return m_dims[underworld].get_entity(id);
+        return entity;
     }
 
     void change_dimension(EntityId id, int new_dimension)
@@ -170,7 +173,7 @@ public:
         entity->m_dimension = new_dimension;
 
         remove_entity(current_dimension, id);
-        add_entity(new_dimension, entity);
+        add_entity(new_dimension, entity, false);
     }
 
     glm::vec3 get_spawn_position() const { return m_spawn_position; }

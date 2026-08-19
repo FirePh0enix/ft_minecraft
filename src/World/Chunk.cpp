@@ -190,25 +190,46 @@ Result<void> Chunk::build_simple_mesh(size_t slice_index, const std::map<ChunkPo
                 if (block == nullptr)
                     return Result<void>();
 
-                // TODO: add this test also to edge detection.
                 if (!block->is_conventional())
                     continue;
 
                 const bool gradient = block->has_gradient();
 
-                if ((x > 0 && m_blocks[linearize(x - 1, y, z)].is_air()) || (x == 0 && chunks.contains(ChunkPos(m_x - 1, m_z)) && chunks.at(ChunkPos(m_x - 1, m_z))->get_block(15, y, z).is_air()))
+                auto match = [](const std::map<ChunkPos, std::shared_ptr<Chunk>>& chunks, int64_t cx, int64_t cz, int64_t x, int64_t y, int64_t z) -> bool
+                { 
+                    auto iter = chunks.find(ChunkPos(cx, cz));
+                    if (iter == chunks.end())
+                        return false;
+                    BlockState state = iter->second->get_block(x, y, z);
+                    if (state.is_air())
+                        return true;
+                    std::shared_ptr<Block> block = Engine::get().registry().get_block(state.id);
+                    if (block != nullptr && !block->is_conventional())
+                        return true;
+                    return false; };
+                auto match2 = [](BlockState *blocks, int64_t x, int64_t y, int64_t z)
+                {
+                    BlockState state = blocks[linearize(x, y, z)];
+                    if (state.is_air())
+                        return true;
+                    std::shared_ptr<Block> block = Engine::get().registry().get_block(state.id);
+                    if (block != nullptr && !block->is_conventional())
+                        return true;
+                    return false; };
+
+                if ((x > 0 && m_blocks[linearize(x - 1, y, z)].is_air()) || (x == 0 && match(chunks, m_x - 1, m_z, 15, y, z)))
                     faces.push_back(ChunkBlockFace(x, y - slice_y_offset, z, Axis::X, false, block->get_texture_index(Axis::X, false), gradient));
-                if ((x < 15 && m_blocks[linearize(x + 1, y, z)].is_air()) || (x == 15 && chunks.contains(ChunkPos(m_x + 1, m_z)) && chunks.at(ChunkPos(m_x + 1, m_z))->get_block(0, y, z).is_air()))
+                if ((x < 15 && m_blocks[linearize(x + 1, y, z)].is_air()) || (x == 15 && match(chunks, m_x + 1, m_z, 0, y, z)))
                     faces.push_back(ChunkBlockFace(x, y - slice_y_offset, z, Axis::X, true, block->get_texture_index(Axis::X, true), gradient));
 
-                if (y == 0 || m_blocks[linearize(x, y - 1, z)].is_air())
+                if (y == 0 || match2(m_blocks, x, y - 1, z))
                     faces.push_back(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Y, false, block->get_texture_index(Axis::Y, false), gradient));
-                if (y == height - 1 || m_blocks[linearize(x, y + 1, z)].is_air())
+                if (y == height - 1 || match2(m_blocks, x, y + 1, z))
                     faces.push_back(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Y, true, block->get_texture_index(Axis::Y, true), gradient));
 
-                if ((z > 0 && m_blocks[linearize(x, y, z - 1)].is_air()) || (z == 0 && chunks.contains(ChunkPos(m_x, m_z - 1)) && chunks.at(ChunkPos(m_x, m_z - 1))->get_block(x, y, 15).is_air()))
+                if ((z > 0 && m_blocks[linearize(x, y, z - 1)].is_air()) || (z == 0 && match(chunks, m_x, m_z - 1, x, y, 15)))
                     faces.push_back(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Z, false, block->get_texture_index(Axis::Z, false), gradient));
-                if ((z < 15 && m_blocks[linearize(x, y, z + 1)].is_air()) || (z == 15 && chunks.contains(ChunkPos(m_x, m_z + 1)) && chunks.at(ChunkPos(m_x, m_z + 1))->get_block(x, y, 0).is_air()))
+                if ((z < 15 && m_blocks[linearize(x, y, z + 1)].is_air()) || (z == 15 && match(chunks, m_x, m_z + 1, x, y, 0)))
                     faces.push_back(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Z, true, block->get_texture_index(Axis::Z, true), gradient));
             }
         }

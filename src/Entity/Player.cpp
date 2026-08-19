@@ -189,19 +189,6 @@ void Player::on_ready()
     m_inventory_container->add_layer(4);  // Crafting Ingredients
     m_inventory_container->add_layer(1);  // Crafting Result
 
-    m_inventory_container->set_stack(1, 0, ItemStack(Items::crafting_table_block, 16));
-    m_inventory_container->set_stack(1, 1, ItemStack(Items::water_bucket, 1));
-    m_inventory_container->set_stack(1, 2, ItemStack(Items::stone_block, 16));
-    m_inventory_container->set_stack(1, 3, ItemStack(Items::dirt_block, 16));
-
-    m_inventory_container->set_stack(1, 4, ItemStack(Items::stone_block, 16));
-    m_inventory_container->set_stack(1, 5, ItemStack(Items::stone_block, 16));
-    m_inventory_container->set_stack(1, 6, ItemStack(Items::stone_block, 16));
-    m_inventory_container->set_stack(1, 7, ItemStack(Items::stone_block, 16));
-
-    m_inventory_container->set_stack(1, 8, ItemStack(Items::bow, 1));
-    m_inventory_container->set_stack(0, 0, ItemStack(Items::arrow, 64));
-
     m_model_buffer = EXPECT(Buffer::create(sizeof(ItemBlockModel), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform));
     m_hand_item_bg = BindGroup::create(Renderer::get().get_fw_item_block_shader());
     m_hand_item_bg->set_param("camera", Renderer::get().get_fw_camera());
@@ -382,6 +369,8 @@ void Player::tick(float delta)
                 m_aimed_block = glm::vec3(result.block_pos);
             else
                 m_aimed_block = std::nullopt;
+
+            m_world->dd().draw_cube(glm::vec3(result.block_pos) + result.normal, glm::vec3(1.0), Colors::yellow, 0.05f);
 
             if (Input::is_action_just_pressed("attack") && result.hit_entity)
             {
