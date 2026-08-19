@@ -425,7 +425,13 @@ std::optional<Variant> Dimension::get_tag(glm::i64vec3 pos, std::string_view nam
 
 bool Dimension::has_solid_block(int64_t x, int64_t y, int64_t z) const
 {
-    return !get_block(x, y, z).is_air();
+    BlockState state = get_block(x, y, z);
+    if (state.is_air())
+        return false;
+    std::shared_ptr<Block> block = Engine::get().registry().get_block(state.id);
+    if (block == nullptr)
+        return true;
+    return block->is_solid();
 }
 
 Result<std::shared_ptr<Chunk>> Dimension::generate_chunk(int64_t cx, int64_t cz)

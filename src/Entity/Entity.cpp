@@ -66,6 +66,22 @@ Transform3D Entity::get_global_transform() const
     return m_parent ? m_transform.with_parent(m_parent->get_global_transform()) : m_transform;
 }
 
+void Entity::tick(float delta)
+{
+    (void)delta;
+
+    BlockState state = m_world->get_block_state(m_dimension, (int64_t)m_transform.position().x, (int64_t)m_transform.position().y, (int64_t)m_transform.position().z);
+    if (Engine::get().registry().from_runtime_id(state.id) == Blocks::portal && !m_inside_portal)
+    {
+        m_inside_portal = true;
+        m_world->change_dimension(m_id, (m_dimension + 1) % 2);
+    }
+    else if (Engine::get().registry().from_runtime_id(state.id) != Blocks::portal)
+    {
+        m_inside_portal = false;
+    }
+}
+
 void Entity::add_child(std::shared_ptr<Entity> entity)
 {
     (void)m_children.push_back(entity);

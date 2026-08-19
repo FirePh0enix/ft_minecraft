@@ -258,6 +258,7 @@ void Player::on_text_message(TextInput& input, std::string_view message)
 
 void Player::tick(float delta)
 {
+    Entity::tick(delta);
     // println("{} {} {} {} {}", Input::is_action_pressed("attack"), Input::is_mouse_grabbed(), m_opened_inventory.has_value(), m_local_player, m_chat_opened);
 
     if (Input::is_action_pressed("attack") && !Input::is_mouse_grabbed() && !m_opened_inventory.has_value() && m_local_player && !m_chat_opened)
@@ -425,6 +426,16 @@ void Player::tick(float delta)
                 {
                     ItemStack stack = m_inventory_container->get_stack(1, m_slot);
                     call_rpc("place_block", result.block_pos.x, result.block_pos.y, result.block_pos.z, result.normal, stack);
+                }
+            }
+            if (Input::is_action_just_pressed("middle_click") && m_gamemode == GameMode::Creative)
+            {
+                BlockState state = m_world->get_block_state(m_dimension, result.block_pos.x, result.block_pos.y, result.block_pos.z);
+                Id<Item> item = Engine::get().registry().to_item(Engine::get().registry().from_runtime_id(state.id)).value_or(Id<Item>());
+                if (item.valid())
+                {
+                    ItemStack stack(item, 64);
+                    m_inventory_container->set_stack(1, m_slot, stack);
                 }
             }
         }

@@ -5,6 +5,7 @@
 PortalBlock::PortalBlock()
 {
     m_unbreakable = true;
+    m_solid = false;
     m_mat = Material::create(Renderer::get().get_portal_shader(), MaterialFlagBits::NoNormal | MaterialFlagBits::NoUV | MaterialFlagBits::StencilMask, WGPUCullMode_Back, WGPUVertexFormat_Float32x2);
     m_mesh = Renderer::get().get_cube_mesh();
 }

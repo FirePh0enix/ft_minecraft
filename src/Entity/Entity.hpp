@@ -127,10 +127,7 @@ public:
     {
     }
 
-    virtual void tick(float delta)
-    {
-        (void)delta;
-    }
+    virtual void tick(float delta);
 
     virtual void draw(const RenderPass& pass)
     {
@@ -235,6 +232,8 @@ protected:
 
     bool m_blocked_x = false;
     bool m_blocked_z = false;
+
+    bool m_inside_portal = false;
 
     template <typename T>
     static void expose_rpc(std::string_view name, RpcTarget target = RpcTarget::Both) { expose_rpc(T::get_static_hash_code(), name, target); }

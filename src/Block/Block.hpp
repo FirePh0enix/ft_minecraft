@@ -92,8 +92,9 @@ public:
 
     void set_texture(std::string_view path);
 
-    bool is_tranparent() const { return m_transparent; }
+    bool is_transparent() const { return m_transparent; }
     bool has_gradient() const { return m_gradient; }
+    bool is_solid() const { return m_solid; }
 
 protected:
     std::array<std::string, 6> m_textures{};
@@ -104,4 +105,5 @@ protected:
 
     std::shared_ptr<Mesh> m_mesh;
     bool m_unbreakable = false;
+    bool m_solid = true;
 };

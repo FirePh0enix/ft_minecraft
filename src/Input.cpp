@@ -33,6 +33,9 @@ void Input::load_config()
     Input::add_action("interact");
     Input::add_action_mapping("interact", ActionMapping(ActionMappingKind::MouseButton, 3));
 
+    Input::add_action("middle_click");
+    Input::add_action_mapping("middle_click", ActionMapping(ActionMappingKind::MouseButton, 2));
+
     Input::add_action("escape");
     Input::add_action_mapping("escape", ActionMapping(ActionMappingKind::Key, SDLK_ESCAPE));
 

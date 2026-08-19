@@ -16,6 +16,8 @@ void CrystalItem::interact(World& world, int dimension, ItemStack& stack, glm::i
     (void)normal;
     (void)inventory;
 
+    const int other_dimension = (dimension + 1) % 2;
+
     // clang-format off
     const Id<Block> blocks[]{
         Id<Block>(), Blocks::log, Blocks::log, Id<Block>(),
@@ -23,6 +25,13 @@ void CrystalItem::interact(World& world, int dimension, ItemStack& stack, glm::i
         Blocks::log, Id<Block>(), Id<Block>(), Blocks::log,
         Blocks::log, Id<Block>(), Id<Block>(), Blocks::log,
         Id<Block>(), Blocks::log, Blocks::log, Id<Block>(),
+    };
+    const Id<Block> blocks2[]{
+        Blocks::log, Blocks::log, Blocks::log, Blocks::log,
+        Blocks::log, Id<Block>(), Id<Block>(), Blocks::log,
+        Blocks::log, Id<Block>(), Id<Block>(), Blocks::log,
+        Blocks::log, Id<Block>(), Id<Block>(), Blocks::log,
+        Blocks::log, Blocks::log, Blocks::log, Blocks::log,
     };
     // clang-format on
 
@@ -72,14 +81,24 @@ void CrystalItem::interact(World& world, int dimension, ItemStack& stack, glm::i
 
     if (match)
     {
-        // println("PORTAL IS OPENING!!!!!");
         const glm::i64vec3 position = positions[i];
+
+        for (int64_t x = 0; x < 4; x++)
+            for (int64_t y = 0; y < 5; y++)
+            {
+                glm::i64vec3 p = global_pos - position + glm::i64vec3(x, y, 0);
+                if (blocks2[x + y * 4].valid())
+                {
+                    world.set_block_state(other_dimension, p.x, p.y, p.z, Engine::get().registry().get_default_state(blocks2[x + y * 4]));
+                }
+            }
 
         for (int64_t x = 1; x < 3; x++)
             for (int64_t y = 1; y < 4; y++)
             {
                 glm::i64vec3 p = global_pos - position + glm::i64vec3(x, y, 0);
                 world.set_block_state(dimension, p.x, p.y, p.z, Engine::get().registry().get_default_state(Blocks::portal));
+                world.set_block_state(other_dimension, p.x, p.y, p.z, Engine::get().registry().get_default_state(Blocks::portal));
             }
     }
 }
