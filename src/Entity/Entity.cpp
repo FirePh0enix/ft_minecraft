@@ -203,5 +203,5 @@ bool Entity::is_in_water() const
 
 bool Entity::chunk_is_loaded() const
 {
-    return m_world->get_dimension(m_dimension).has_chunk(chunk_index(int64_t(std::round(get_position().x))), chunk_index(int64_t(std::round(get_position().z))));
+    return m_world->get_dimension(m_dimension).has_chunk(chunk_index(int64_t(get_position().x)), chunk_index(int64_t(get_position().z)));
 }

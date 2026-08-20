@@ -27,6 +27,9 @@ void Input::load_config()
     Input::add_action("down");
     Input::add_action_mapping("down", ActionMapping(ActionMappingKind::Key, SDLK_LCTRL));
 
+    Input::add_action("sprint");
+    Input::add_action_mapping("sprint", ActionMapping(ActionMappingKind::Key, SDLK_LSHIFT));
+
     Input::add_action("attack");
     Input::add_action_mapping("attack", ActionMapping(ActionMappingKind::MouseButton, 1));
 

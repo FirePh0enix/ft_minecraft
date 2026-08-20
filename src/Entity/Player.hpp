@@ -89,10 +89,18 @@ public:
 
 private:
     std::shared_ptr<Camera> m_camera;
-    GameMode m_gamemode = GameMode::Creative; // GameMode::Survival;
+    GameMode m_gamemode = GameMode::Creative;
 
-    float m_speed = 20.0f; // 8.0;
+    float m_speed = 8.0;
+    float m_sprint_speed = 14.0;
+
+    float m_fly_speed_mult = 2.5f;
+
     float m_jump_force = 0.24f;
+
+    static constexpr float head_height = 0.80;
+    static constexpr float head_bobbing_max = 0.06;
+    float m_target_head_height = head_bobbing_max;
 
     std::optional<glm::vec3> m_aimed_block;
     std::shared_ptr<Material> m_aim_material;

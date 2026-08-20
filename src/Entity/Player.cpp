@@ -200,7 +200,7 @@ void Player::on_ready()
         m_inventory = std::make_shared<PlayerInventory>(m_inventory_container);
 
         m_camera = std::make_shared<Camera>();
-        m_camera->get_transform().position() = glm::vec3(0, 0.85, 0);
+        m_camera->get_transform().position() = glm::vec3(0, 0.80, 0);
         add_child(m_camera);
         // m_world->set_active_camera(m_camera);
         m_world->set_player(this);
@@ -501,7 +501,13 @@ void Player::tick(float delta)
 
     if (are_input_available() && (glm::length2(dir) != 0.0 || updown_dir != 0.0) && m_local_player) //  && chunk_loaded)
     {
-        glm::vec3 move = glm::normalize(forward * dir.y + right * dir.x + up * updown_dir) * glm::vec3(movement_damp, vertical_movement_damp, movement_damp) * m_speed;
+        float speed = m_speed;
+        if (Input::is_action_pressed("sprint"))
+            speed = m_sprint_speed;
+        if (m_gamemode == GameMode::Creative)
+            speed *= m_fly_speed_mult;
+
+        glm::vec3 move = glm::normalize(forward * dir.y + right * dir.x + up * updown_dir) * glm::vec3(movement_damp, vertical_movement_damp, movement_damp) * speed;
         m_velocity += move * delta;
     }
 
@@ -530,6 +536,14 @@ void Player::tick(float delta)
     }
 
     bool has_moved = m_velocity.x != 0 || m_velocity.z != 0;
+
+    // Add some head bobbing
+    if (m_gamemode == GameMode::Survival && (m_velocity.x != 0.0 || m_velocity.z != 0.0))
+    {
+        m_camera->get_transform().position().y = std::lerp(m_camera->get_transform().position().y, head_height + m_target_head_height, 0.5f);
+        if (m_camera->get_transform().position().y == head_height + m_target_head_height)
+            m_target_head_height = -m_target_head_height;
+    }
 
     // Reset velocity after movements.
     m_velocity.x = 0.0;
@@ -703,6 +717,7 @@ void Player::load(const EntitySerializer& deser)
 
 void Player::die()
 {
+    println("`{}` is dead", m_username);
 }
 
 void Player::break_block(int64_t x, int64_t y, int64_t z)

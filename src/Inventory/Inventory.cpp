@@ -20,9 +20,7 @@ void InventoryContainer::set_stack(uint32_t layer, uint32_t i, ItemStack stack)
 std::optional<ItemStack> InventoryContainer::consume(Id<Item> item)
 {
     // Quick Inventory + normal inventory;
-    constexpr size_t layers_to_check[] = {0, 1};
-
-    for (size_t layer_index : layers_to_check)
+    for (size_t layer_index : {1, 0})
     {
         auto& layer = m_layers[layer_index];
         for (size_t i = 0; i < layer.stacks.size(); i++)
@@ -53,6 +51,9 @@ Inventory::Inventory(std::shared_ptr<InventoryContainer> container)
 
     m_grabbed_item_label = std::make_shared<LabelWidget>(Engine::get().get_font());
     // m_grabbed_item_label->set_scale(glm::vec2(0.12) * 0.8f);
+    m_grabbed_item_rect->add_child(m_grabbed_item_label);
+
+    add_child(m_grabbed_item_rect);
 }
 
 void Inventory::update(float d)

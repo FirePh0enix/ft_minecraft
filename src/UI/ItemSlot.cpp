@@ -123,10 +123,12 @@ void ItemSlotWidget::set_item(Id<Item> item)
     {
         m_item_rect->set_texture(Engine::get().registry().get_texture(item));
         m_item_rect->set_visible(true);
+        m_label->set_visible(false);
     }
     else
     {
         m_item_rect->set_visible(false);
+        m_label->set_visible(false);
     }
 }
 

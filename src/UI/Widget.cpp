@@ -450,6 +450,9 @@ void TextureRectWidget::set_texture(std::shared_ptr<Texture> texture)
 
 void TextureRectWidget::draw(const RenderPass& pass)
 {
+    if (m_texture == nullptr)
+        return;
+
     // TODO: cache the value, only update when the widget tree is dirty.
     GlobalPoint pos = get_global_pos();
     GlobalPoint size = get_global_size();
