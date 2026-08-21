@@ -5,7 +5,7 @@
 struct CollisionResult
 {
     glm::vec3 normal = glm::vec3(0.0);
-    float penetration = 0.0;
+    double penetration = 0.0;
 };
 
 /**
@@ -14,30 +14,32 @@ struct CollisionResult
 template <typename T>
 struct AABB
 {
-    glm::vec<3, T> min;
-    glm::vec<3, T> max;
+    using Vec3 = glm::vec<3, T>;
+
+    Vec3 min;
+    Vec3 max;
 
     AABB()
         : min(0.0), max(0.0)
     {
     }
 
-    AABB(glm::vec3 min, glm::vec3 max)
+    AABB(Vec3 min, Vec3 max)
         : min(min), max(max)
     {
     }
 
-    static AABB from_center_extent(glm::vec3 center, glm::vec3 half_extent)
+    static AABB from_center_extent(Vec3 center, Vec3 half_extent)
     {
         return AABB(center - half_extent, center + half_extent);
     }
 
-    glm::vec3 center() const
+    Vec3 center() const
     {
-        return (min + max) / 2.0f;
+        return (min + max) / (T)2.0;
     }
 
-    AABB expand(glm::vec3 v) const
+    AABB expand(Vec3 v) const
     {
         AABB aabb = *this;
 
@@ -59,7 +61,7 @@ struct AABB
         return aabb;
     }
 
-    AABB grow(glm::vec3 v) const
+    AABB grow(Vec3 v) const
     {
         AABB aabb = *this;
         aabb.min -= v;
@@ -67,7 +69,7 @@ struct AABB
         return aabb;
     }
 
-    AABB translate(glm::vec3 v) const
+    AABB translate(Vec3 v) const
     {
         AABB aabb = *this;
         aabb.min += v;
@@ -80,21 +82,21 @@ struct AABB
     bool intersect_z(const AABB& o) const { return min.z < o.max.z && max.z > o.min.z; }
     bool intersect(const AABB& o) const { return intersect_x(o) && intersect_y(o) && intersect_z(o); }
 
-    bool intersect(glm::vec3 position) const { return position.x >= min.x && position.x <= max.x && position.y >= min.y && position.y <= max.y && position.z >= min.z && position.z <= max.z; }
+    bool intersect(Vec3 position) const { return position.x >= min.x && position.x <= max.x && position.y >= min.y && position.y <= max.y && position.z >= min.z && position.z <= max.z; }
 
-    float get_clip_x(const AABB& o, float d) const
+    T get_clip_x(const AABB& o, T d) const
     {
         if (intersect_y(o) && intersect_z(o))
         {
             if (d > 0 && max.x <= o.min.x)
             {
-                float clip = o.min.x - max.x;
+                T clip = o.min.x - max.x;
                 if (d > clip)
                     d = clip;
             }
             if (d < 0 && min.x >= o.max.x)
             {
-                float clip = o.max.x - min.x;
+                T clip = o.max.x - min.x;
                 if (d < clip)
                     d = clip;
             }
@@ -103,19 +105,19 @@ struct AABB
         return d;
     }
 
-    float get_clip_y(const AABB& o, float d) const
+    T get_clip_y(const AABB& o, T d) const
     {
         if (intersect_x(o) && intersect_z(o))
         {
             if (d > 0 && max.y <= o.min.y)
             {
-                float clip = o.min.y - max.y;
+                T clip = o.min.y - max.y;
                 if (d > clip)
                     d = clip;
             }
             if (d < 0 && min.y >= o.max.y)
             {
-                float clip = o.max.y - min.y;
+                T clip = o.max.y - min.y;
                 if (d < clip)
                     d = clip;
             }
@@ -124,19 +126,19 @@ struct AABB
         return d;
     }
 
-    float get_clip_z(const AABB& o, float d) const
+    T get_clip_z(const AABB& o, T d) const
     {
         if (intersect_x(o) && intersect_y(o))
         {
             if (d > 0 && max.z <= o.min.z)
             {
-                float clip = o.min.z - max.z;
+                T clip = o.min.z - max.z;
                 if (d > clip)
                     d = clip;
             }
             if (d < 0 && min.z >= o.max.z)
             {
-                float clip = o.max.z - min.z;
+                T clip = o.max.z - min.z;
                 if (d < clip)
                     d = clip;
             }
@@ -147,4 +149,5 @@ struct AABB
 };
 
 using AABBf = AABB<float>;
+using AABBd = AABB<double>;
 using AABBi = AABB<int64_t>;

@@ -30,11 +30,11 @@ void Zombie::tick(float delta)
     }
 
     // Tracking.
-    AABBf search_box = AABBf::from_center_extent(get_global_transform().position(), glm::vec3(DETECTION_RADIUS));
+    AABBd search_box = AABBd::from_center_extent(get_global_transform().position(), glm::vec3(DETECTION_RADIUS));
     const auto entities = m_world->get_dimension(m_dimension).cast_box(search_box);
 
     std::shared_ptr<Player> target;
-    float best_dist_sq = std::numeric_limits<float>::max();
+    double best_dist_sq = std::numeric_limits<float>::max();
 
     for (std::shared_ptr<Entity> entity : entities)
     {
@@ -42,7 +42,7 @@ void Zombie::tick(float delta)
         if (!player)
             continue;
 
-        float d2 = glm::distance2(glm::vec3(player->get_global_transform().position()), get_global_transform().position());
+        double d2 = glm::distance2(player->get_global_transform().position(), get_global_transform().position());
         if (d2 > DETECTION_RADIUS * DETECTION_RADIUS)
             continue;
 

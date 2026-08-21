@@ -82,6 +82,8 @@ public:
     Chunk(const Chunk&) = delete;
     ~Chunk();
 
+    void update_instance_buffer(glm::dvec3 position);
+
     ALWAYS_INLINE BlockState get_block(int64_t x, int64_t y, int64_t z) const { return m_blocks[linearize(x, y, z)]; }
     void set_block(int64_t x, int64_t y, int64_t z, BlockState state);
 

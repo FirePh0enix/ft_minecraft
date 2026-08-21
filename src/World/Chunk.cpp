@@ -15,7 +15,6 @@ Chunk::Chunk(Dimension *dim, int64_t x, int64_t z)
     m_slices = new Slice[slice_count];
 
     m_uniform_buffer = EXPECT(Buffer::create(sizeof(FwChunkUniforms) * slice_count, WGPUBufferUsage_Uniform | WGPUBufferUsage_Vertex | WGPUBufferUsage_CopyDst));
-    std::array<glm::vec3, slice_count> uniform_data{};
 
     for (size_t i = 0; i < slice_count; i++)
     {
@@ -33,11 +32,7 @@ Chunk::Chunk(Dimension *dim, int64_t x, int64_t z)
 
         m_slices[i].mesh_shadowmap_bg = BindGroup::create(Renderer::get().get_fw_shadowmap_shader());
         m_slices[i].mesh_shadowmap_bg->set_param("camera", Renderer::get().get_fw_shadowmap_camera());
-
-        uniform_data[i] = glm::vec3(x * Chunk::width, i * Chunk::width, z * Chunk::width);
     }
-
-    m_uniform_buffer->update(std::as_bytes(std::span(uniform_data)));
 }
 
 Chunk::~Chunk()
@@ -45,6 +40,14 @@ Chunk::~Chunk()
     delete[] m_blocks;
     delete[] m_biomes;
     delete[] m_slices;
+}
+
+void Chunk::update_instance_buffer(glm::dvec3 position)
+{
+    std::array<glm::vec3, slice_count> uniform_data{};
+    for (size_t i = 0; i < slice_count; i++)
+        uniform_data[i] = glm::vec3((double)m_x * Chunk::width - position.x, (double)i * Chunk::width - position.y, (double)m_z * Chunk::width - position.z);
+    m_uniform_buffer->update(std::as_bytes(std::span(uniform_data)));
 }
 
 void Chunk::set_block(int64_t x, int64_t y, int64_t z, BlockState state)

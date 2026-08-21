@@ -8,7 +8,7 @@ class Zombie : public Mob
 public:
     Zombie() : Mob(3)
     {
-        m_aabb = AABBf(-glm::vec3(0.35, 0.9, 0.35), glm::vec3(0.35, 0.9, 0.35));
+        m_aabb = AABBd(-glm::vec3(0.35, 0.9, 0.35), glm::vec3(0.35, 0.9, 0.35));
     }
 
     void start() override;

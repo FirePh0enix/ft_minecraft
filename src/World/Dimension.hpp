@@ -60,7 +60,7 @@ public:
 private:
     Dimension& m_dimension;
 
-    int64_t m_chunk_distance = 20;
+    int64_t m_chunk_distance = 16;
     int64_t m_gen_distance = 15;
 
     std::mutex m_pregen_queue_mutex;
@@ -110,8 +110,8 @@ public:
 
     const std::vector<std::shared_ptr<Entity>>& get_entities() const { return m_entities; }
 
-    std::vector<AABBf> get_boxes_that_may_collide(const AABBf& box) const;
-    std::vector<std::shared_ptr<Entity>> cast_box(const AABBf& box) const;
+    std::vector<AABBd> get_boxes_that_may_collide(const AABBd& box) const;
+    std::vector<std::shared_ptr<Entity>> cast_box(const AABBd& box) const;
 
     BlockState get_block(int64_t x, int64_t y, int64_t z) const;
     void set_block(int64_t x, int64_t y, int64_t z, BlockState state);

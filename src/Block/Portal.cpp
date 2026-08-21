@@ -14,7 +14,7 @@ void PortalBlock::draw(const RenderPass& pass, glm::i64vec3 position)
 {
     std::shared_ptr<Buffer> buf = EXPECT(Buffer::create(sizeof(FwModel), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
     FwModel model{};
-    model.model = glm::translate(glm::identity<glm::mat4>(), glm::vec3(position)) * glm::scale(glm::identity<glm::mat4>(), glm::vec3(1.0, 1.0, 0.5));
+    model.model = glm::translate(glm::identity<glm::mat4>(), glm::vec3(position)) * glm::scale(glm::identity<glm::mat4>(), glm::vec3(1.0, 1.0, 1.0));
     buf->update_struct(model);
 
     // std::shared_ptr<Buffer> buf = EXPECT(Buffer::create(sizeof(FwColored), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));

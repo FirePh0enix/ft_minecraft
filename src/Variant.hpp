@@ -71,9 +71,9 @@ struct __attribute__((aligned(16))) Variant
     Variant(int64_t i) : tag(VariantType::Integer) { *((int64_t *)data) = i; }
     Variant(std::string_view s) : tag(VariantType::String) { new (data) std::string(s); }
     Variant(const std::string& s) : tag(VariantType::String) { new (data) std::string(s); }
-    Variant(glm::vec2 v) : tag(VariantType::Vec2) { *((glm::vec2 *)data) = v; }
-    Variant(glm::vec3 v) : tag(VariantType::Vec3) { *((glm::vec3 *)data) = v; }
-    Variant(glm::quat q) : tag(VariantType::Quat) { *((glm::quat *)data) = q; }
+    Variant(glm::dvec2 v) : tag(VariantType::Vec2) { *((glm::dvec2 *)data) = v; }
+    Variant(glm::dvec3 v) : tag(VariantType::Vec3) { *((glm::dvec3 *)data) = v; }
+    Variant(glm::dquat q) : tag(VariantType::Quat) { *((glm::dquat *)data) = q; }
     Variant(ItemStack is);
     Variant(Color color) : tag(VariantType::Color) { *((Color *)data) = color; }
     Variant(Point point);

@@ -580,8 +580,6 @@ private:
     // Portal
     std::shared_ptr<Shader> m_portal_shader;
     std::shared_ptr<Material> m_portal_mat;
-    std::shared_ptr<BindGroup> m_portal_bg;
-    std::shared_ptr<Buffer> m_portal_buffer;
 
     // SSAO
     std::shared_ptr<Texture> m_ssao_buffer;

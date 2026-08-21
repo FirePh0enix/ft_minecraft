@@ -39,7 +39,7 @@ public:
     Player()
         : LivingEntity(20)
     {
-        m_aabb = AABBf(-glm::vec3(0.35, 0.9, 0.35), glm::vec3(0.35, 0.9, 0.35));
+        m_aabb = AABBd(-glm::dvec3(0.35, 0.9, 0.35), glm::dvec3(0.35, 0.9, 0.35));
     }
 
     virtual ~Player() {}

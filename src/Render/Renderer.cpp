@@ -1020,7 +1020,6 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_fw_world_env = TRY(Buffer::create(sizeof(FwWorldEnv), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
     m_fw_shadowmap_camera = TRY(Buffer::create(sizeof(FwCamera), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
     m_fw_pp_buffer = TRY(Buffer::create(sizeof(PostProcessUniforms), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
-    m_portal_buffer = TRY(Buffer::create(sizeof(FwModel), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
 
     m_fw_shadowmap = TRY(Texture::create(SHADOWMAP_RESOLUTION, SHADOWMAP_RESOLUTION, WGPUTextureFormat_Depth32Float, WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_TextureBinding));
 
@@ -1254,11 +1253,6 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_fw_pp_bg = BindGroup::create(m_fw_pp_shader);
     m_fw_pp_bg->set_param("uniforms", m_fw_pp_buffer);
     m_fw_pp_bg->set_param("ssao", m_ssao_uniform_buffer);
-
-    m_portal_bg = BindGroup::create(m_portal_shader);
-    m_portal_bg->set_param("world_env", m_fw_world_env);
-    m_portal_bg->set_param("camera", m_fw_camera);
-    m_portal_bg->set_param("model", m_portal_buffer);
 
     m_fw_water_texture = Engine::get().registry().create_texture("assets/textures/water.png");
 
@@ -1626,7 +1620,8 @@ void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::sha
 
     LightMatrices light = getStableLightMatrices(light_dir, light_target, shadowmap_range, SHADOWMAP_RESOLUTION);
 
-    update_clouds(active_camera);
+    // FIXME
+    // update_clouds(active_camera);
 
     world->get_dimension(dimension).update_sun(light.projection * light.view);
 
@@ -1650,11 +1645,6 @@ void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::sha
     m_fw_pp.near = active_camera->near_plane();
     m_fw_pp.far = active_camera->far_plane();
     m_fw_pp_buffer->update_struct(m_fw_pp);
-
-    FwModel model{};
-    model.model = glm::translate(glm::identity<glm::mat4>(), glm::vec3(0, 100, 0)) *
-                  glm::scale(glm::identity<glm::mat4>(), glm::vec3(100, 100, 100));
-    m_portal_buffer->update_struct(model);
 
     const uint32_t stencil_mask = inside_portal ? 2 : 1;
 
@@ -1792,6 +1782,9 @@ void Renderer::draw_world(const std::shared_ptr<World>& world, const RenderPass&
 
         if (!flags.has_any(WorldFlagBits::Water) && slice.mesh == nullptr)
             continue;
+
+        // TODO: Only update one piece of the buffer.
+        r.chunk->update_instance_buffer(camera->get_global_transform().position());
 
         wgpuRenderPassEncoderSetBindGroup(encoder, 0, bg->get_bind_group(), 0, nullptr);
 

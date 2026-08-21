@@ -371,7 +371,7 @@ void Player::tick(float delta)
             else
                 m_aimed_block = std::nullopt;
 
-            m_world->dd().draw_cube(glm::vec3(result.block_pos) + result.normal, glm::vec3(1.0), Colors::yellow, 0.05f);
+            m_world->dd().draw_cube(glm::dvec3(result.block_pos) + result.normal, glm::vec3(1.0), Colors::yellow, 0.05f);
 
             if (Input::is_action_just_pressed("attack") && result.hit_entity)
             {
@@ -550,7 +550,7 @@ void Player::tick(float delta)
     m_velocity.z = 0.0;
 
     if (has_gravity() && !in_water)
-        m_velocity.y = std::clamp(m_velocity.y, -25.0f, 25.0f);
+        m_velocity.y = std::clamp(m_velocity.y, -25.0, 25.0);
     else
         m_velocity.y = 0.0;
 
@@ -764,5 +764,5 @@ void Player::close_inventory()
 
 bool Player::head_in_water() const
 {
-    return m_world->get_dimension(m_dimension).get_tag(get_position() + glm::vec3(0, 1.2, 0.0), "water").has_value();
+    return m_world->get_dimension(m_dimension).get_tag(get_position() + glm::dvec3(0, 1.2, 0.0), "water").has_value();
 }

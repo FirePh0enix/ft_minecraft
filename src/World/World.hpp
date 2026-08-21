@@ -62,9 +62,9 @@ inline glm::vec3 face_normal(Face face)
 
 struct RaycastResult
 {
-    glm::vec3 pos;
-    glm::vec3 normal;
-    float distance;
+    glm::dvec3 pos;
+    glm::dvec3 normal;
+    double distance;
     /**
      * If true, `entity` is a valid reference to an entity else `block_pos` is valid.
      */
@@ -176,7 +176,7 @@ public:
         add_entity(new_dimension, entity, false);
     }
 
-    glm::vec3 get_spawn_position() const { return m_spawn_position; }
+    glm::dvec3 get_spawn_position() const { return m_spawn_position; }
 
     /**
      * Cast a ray through the world and returns the first thing it hit.
@@ -240,7 +240,7 @@ private:
 
     Player *m_player = nullptr;
 
-    glm::vec3 m_spawn_position = glm::vec3();
+    glm::dvec3 m_spawn_position = glm::vec3();
 
     DebugDisplay m_debug_display;
 

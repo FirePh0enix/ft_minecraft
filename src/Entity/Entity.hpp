@@ -183,11 +183,11 @@ public:
     ALWAYS_INLINE void set_id(EntityId id) { m_id = id; }
     ALWAYS_INLINE EntityId id() const { return m_id; }
 
-    void set_position(glm::vec3 position) { get_transform().position() = position; }
-    glm::vec3 get_position() const { return get_transform().position(); }
+    void set_position(glm::dvec3 position) { get_transform().position() = position; }
+    glm::dvec3 get_position() const { return get_transform().position(); }
 
-    void set_rotation(glm::quat rotation) { get_transform().rotation() = rotation; }
-    glm::quat get_rotation() const { return get_transform().rotation(); }
+    void set_rotation(glm::dquat rotation) { get_transform().rotation() = rotation; }
+    glm::dquat get_rotation() const { return get_transform().rotation(); }
 
     template <typename... Args>
     void call_rpc(std::string_view name, Args&&...args)
@@ -199,7 +199,7 @@ public:
 
     void call_rpc(std::string_view name) { call_rpci(name, {}); }
 
-    const AABBf& get_aabb() const { return m_aabb; }
+    const AABBd& get_aabb() const { return m_aabb; }
 
     void recurse_tick(float delta);
 
@@ -219,11 +219,11 @@ protected:
     Entity *m_parent = nullptr; // FIXME: This must be changed by either a std::shared_ptr<Entity> or a EntityId.
     std::vector<std::shared_ptr<Entity>> m_children;
     Transform3D m_transform;
-    AABBf m_aabb;
+    AABBd m_aabb;
 
     float m_gravity_value = 9.81 / 10.0;
     bool m_on_ground = false;
-    glm::vec3 m_velocity = glm::vec3();
+    glm::dvec3 m_velocity = glm::vec3();
 
     World *m_world = nullptr;
 

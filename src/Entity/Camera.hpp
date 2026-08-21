@@ -30,8 +30,9 @@ public:
     {
         const Transform3D global_transform = get_global_transform();
         const glm::mat4 rotation = glm::toMat4(global_transform.rotation());
-        const glm::mat4 translation = glm::translate(glm::mat4(1.0), -global_transform.position());
-        return rotation * translation;
+        // const glm::mat4 translation = glm::translate(glm::mat4(1.0), -glm::vec3(global_transform.position()));
+        // return rotation * translation;
+        return rotation;
     }
 
     glm::mat4 get_rotation_matrix() const
@@ -43,7 +44,7 @@ public:
     {
         const Transform3D global_transform = get_global_transform();
         const glm::mat4 rotation = glm::toMat4(-global_transform.rotation());
-        const glm::mat4 translation = glm::translate(glm::mat4(1.0), global_transform.position());
+        const glm::mat4 translation = glm::translate(glm::mat4(1.0), glm::vec3(global_transform.position()));
         return rotation * translation;
     }
 

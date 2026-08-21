@@ -21,11 +21,11 @@
 #include <mutex>
 
 // https://gamedev.stackexchange.com/questions/18436/most-efficient-aabb-vs-ray-collision-algorithms
-static bool ray_intersect_aabb(const Ray& ray, const AABBf& aabb, float& t_min, glm::vec3& normal)
+static bool ray_intersect_aabb(const Ray& ray, const AABBd& aabb, double& t_min, glm::dvec3& normal)
 {
-    glm::vec3 inv_dir = 1.0f / ray.dir();
-    glm::vec3 t0s = (aabb.min - ray.origin()) * inv_dir;
-    glm::vec3 t1s = (aabb.max - ray.origin()) * inv_dir;
+    glm::dvec3 inv_dir = 1.0 / ray.dir();
+    glm::dvec3 t0s = (aabb.min - ray.origin()) * inv_dir;
+    glm::dvec3 t1s = (aabb.max - ray.origin()) * inv_dir;
 
     glm::vec3 tsmaller = glm::min(t0s, t1s);
     glm::vec3 tbigger = glm::max(t0s, t1s);
@@ -317,7 +317,7 @@ void World::tick_dimension(float delta, int dimension)
     {
         ChunkPos pos = chunk->pos();
         AABBf aabb = AABBf(-glm::vec3(Chunk::width / 2.0, Chunk::height / 2.0, Chunk::width / 2), glm::vec3(Chunk::width / 2.0, Chunk::height / 2.0, Chunk::width / 2))
-                         .translate(glm::vec3((float)pos.x * Chunk::width + Chunk::width / 2.0, float(Chunk::height) / 2.0, (float)pos.z * Chunk::width + Chunk::width / 2.0));
+                         .translate(glm::dvec3((double)pos.x * Chunk::width + Chunk::width / 2.0, double(Chunk::height) / 2.0, (double)pos.z * Chunk::width + Chunk::width / 2.0) - camera->get_global_transform().position());
 
         if (!camera->frustum().contains(aabb))
             continue;
@@ -326,7 +326,7 @@ void World::tick_dimension(float delta, int dimension)
         {
             ChunkPos pos = chunk->pos();
             AABBf aabb = AABBf(-glm::vec3(Chunk::width / 2.0, Chunk::width / 2.0, Chunk::width / 2), glm::vec3(Chunk::width / 2.0, Chunk::width / 2.0, Chunk::width / 2))
-                             .translate(glm::vec3((float)pos.x * Chunk::width + Chunk::width / 2.0, (float)i * Chunk::width + Chunk::width / 2.0, (float)pos.z * Chunk::width + Chunk::width / 2.0));
+                             .translate(glm::dvec3((double)pos.x * Chunk::width + Chunk::width / 2.0, (double)i * Chunk::width + Chunk::width / 2.0, (double)pos.z * Chunk::width + Chunk::width / 2.0) - camera->get_global_transform().position());
 
             if (!camera->frustum().contains(aabb) || (chunk->get_slices()[i].mesh == nullptr && chunk->get_slices()[i].water_mesh == nullptr))
                 continue;
@@ -434,10 +434,10 @@ bool World::raycast(int dimension, const Ray& ray, float range, RaycastResult& r
 {
     bool hit = false;
     bool is_entiy = false;
-    float t_min = std::numeric_limits<float>::infinity();
+    double t_min = std::numeric_limits<double>::infinity();
     glm::i64vec3 block_pos;
     std::shared_ptr<Entity> entity;
-    glm::vec3 normal;
+    glm::dvec3 normal;
 
     for (const std::shared_ptr<Entity>& e : m_dims[dimension].get_entities())
     {
@@ -445,8 +445,8 @@ bool World::raycast(int dimension, const Ray& ray, float range, RaycastResult& r
             continue;
 
         AABB world_aabb = e->get_aabb().translate(e->get_global_transform().position());
-        float t = 0.0f;
-        glm::vec3 normal;
+        double t = 0.0f;
+        glm::dvec3 normal;
         if (ray_intersect_aabb(ray, world_aabb, t, normal) &&
             t >= 0.0f &&
             t <= range &&
@@ -464,8 +464,8 @@ bool World::raycast(int dimension, const Ray& ray, float range, RaycastResult& r
     {
         glm::vec3 pos = ray.at(d);
         glm::i64vec3 ipos(glm::round(pos));
-        float t;
-        if (!get_block_state(dimension, ipos.x, ipos.y, ipos.z).is_air() && ray_intersect_aabb(ray, AABBf(-glm::vec3(0.5), glm::vec3(0.5)).translate(pos), t, normal) && t < t_min)
+        double t;
+        if (!get_block_state(dimension, ipos.x, ipos.y, ipos.z).is_air() && ray_intersect_aabb(ray, AABBd(-glm::dvec3(0.5), glm::dvec3(0.5)).translate(pos), t, normal) && t < t_min)
         {
             t_min = t;
             hit = true;
@@ -584,8 +584,8 @@ void World::load_player(std::string_view username, std::shared_ptr<Player>& play
     EntitySerializer serializer;
     EXPECT(serializer.load(path));
 
-    glm::vec3 position = serializer.get<glm::vec3>("position").value_or(get_spawn_position());
-    glm::quat rotation = serializer.get<glm::quat>("rotation").value_or({});
+    glm::dvec3 position = serializer.get<glm::dvec3>("position").value_or(get_spawn_position());
+    glm::dquat rotation = serializer.get<glm::dquat>("rotation").value_or({});
 
     player->set_position(position);
     player->set_rotation(rotation);

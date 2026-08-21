@@ -17,32 +17,32 @@ public:
         return transform;
     }
 
-    inline const glm::vec3& position() const
+    inline const glm::dvec3& position() const
     {
         return m_position;
     }
 
-    inline glm::vec3& position()
+    inline glm::dvec3& position()
     {
         return m_position;
     }
 
-    inline const glm::quat& rotation() const
+    inline const glm::dquat& rotation() const
     {
         return m_rotation;
     }
 
-    inline glm::quat& rotation()
+    inline glm::dquat& rotation()
     {
         return m_rotation;
     }
 
-    inline const glm::vec3& scale() const
+    inline const glm::dvec3& scale() const
     {
         return m_scale;
     }
 
-    inline glm::vec3& scale()
+    inline glm::dvec3& scale()
     {
         return m_scale;
     }
@@ -50,7 +50,7 @@ public:
     /**
      * @brief Rotate a vector using this transform's rotation.
      */
-    inline glm::vec3 rotate(const glm::vec3& v) const
+    inline glm::dvec3 rotate(const glm::dvec3& v) const
     {
         return glm::conjugate(m_rotation) * v;
     }
@@ -94,24 +94,24 @@ public:
 
     inline glm::mat4 translation_matrix() const
     {
-        return glm::translate(glm::mat4(1.0), m_position);
+        return glm::translate(glm::mat4(1.0), glm::vec3(m_position));
     }
 
     inline glm::mat4 to_matrix() const
     {
-        return glm::translate(glm::mat4(1.0), m_position) * glm::mat4_cast(m_rotation) * glm::scale(glm::mat4(1.0), m_scale);
+        return glm::translate(glm::mat4(1.0), glm::vec3(m_position)) * glm::mat4_cast(glm::quat(m_rotation)) * glm::scale(glm::mat4(1.0), glm::vec3(m_scale));
     }
 
 private:
-    glm::vec3 m_position;
-    glm::quat m_rotation;
-    glm::vec3 m_scale;
+    glm::dvec3 m_position;
+    glm::dquat m_rotation;
+    glm::dvec3 m_scale;
 
     static Transform3D from_matrix(glm::mat4 matrix)
     {
-        glm::vec3 position(matrix[3][0], matrix[3][1], matrix[3][2]);
-        glm::quat rotation = glm::quat_cast(matrix);
-        glm::vec3 scale = glm::vec3(1.0);
+        glm::dvec3 position(matrix[3][0], matrix[3][1], matrix[3][2]);
+        glm::dquat rotation = glm::quat_cast(matrix);
+        glm::dvec3 scale = glm::vec3(1.0);
 
         return Transform3D(position, rotation, scale);
     }

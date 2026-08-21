@@ -58,6 +58,23 @@ void GenScheduler::terrain_pass(ChunkPos middle)
     }
 }
 
+// static ChunkPos pop_near(std::vector<ChunkLoadWithDistance>& elements)
+// {
+//     float min_distance = elements[0].distance;
+//     size_t min_index = 0;
+//     for (size_t i = 1; i < elements.size(); i++)
+//     {
+//         if (elements[i].distance > min_distance)
+//         {
+//             min_distance = elements[i].distance;
+//             min_index = i;
+//         }
+//     }
+//     ChunkPos pos = elements[min_index].pos;
+//     elements.erase(elements.begin() + (ssize_t)min_index);
+//     return pos;
+// }
+
 void GenScheduler::chunk_pass(ChunkPos middle)
 {
     if (m_pregen_count.load() > 0)
@@ -247,23 +264,6 @@ std::shared_ptr<Entity> Dimension::get_entity(EntityId id) const
     return nullptr;
 }
 
-// static ChunkPos pop_near(std::vector<ChunkLoadWithDistance>& elements)
-// {
-//     float min_distance = elements[0].distance;
-//     size_t min_index = 0;
-//     for (size_t i = 1; i < elements.size(); i++)
-//     {
-//         if (elements[i].distance > min_distance)
-//         {
-//             min_distance = elements[i].distance;
-//             min_index = i;
-//         }
-//     }
-//     ChunkPos pos = elements[min_index].pos;
-//     elements.erase(elements.begin() + (ssize_t)min_index);
-//     return pos;
-// }
-
 void Dimension::load(int64_t x, int64_t y, int64_t z, int64_t distance)
 {
     (void)distance;
@@ -276,9 +276,9 @@ void Dimension::load(int64_t x, int64_t y, int64_t z, int64_t distance)
     m_scheduler.chunk_pass(player_cpos);
 }
 
-std::vector<AABBf> Dimension::get_boxes_that_may_collide(const AABBf& box) const
+std::vector<AABBd> Dimension::get_boxes_that_may_collide(const AABBd& box) const
 {
-    std::vector<AABBf> boxes;
+    std::vector<AABBd> boxes;
     int64_t size = 3;
 
     glm::i64vec3 pos = box.center();
@@ -296,7 +296,7 @@ std::vector<AABBf> Dimension::get_boxes_that_may_collide(const AABBf& box) const
                 if (!has_solid_block(x, y, z))
                     continue;
 
-                AABBf block_box = AABBf(-glm::vec3(0.5), glm::vec3(0.5)).translate(glm::vec3(x, y, z));
+                AABBd block_box = AABBd(-glm::dvec3(0.5), glm::dvec3(0.5)).translate(glm::dvec3(x, y, z));
                 boxes.push_back(block_box);
             }
         }
@@ -305,7 +305,7 @@ std::vector<AABBf> Dimension::get_boxes_that_may_collide(const AABBf& box) const
     return boxes;
 }
 
-std::vector<std::shared_ptr<Entity>> Dimension::cast_box(const AABBf& box) const
+std::vector<std::shared_ptr<Entity>> Dimension::cast_box(const AABBd& box) const
 {
     std::vector<std::shared_ptr<Entity>> entities;
 

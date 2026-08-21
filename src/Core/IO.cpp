@@ -57,21 +57,21 @@ Result<std::optional<Variant>> Reader::read_variant()
     }
     else if (type == VariantType::Vec2)
     {
-        float f[2];
+        double f[2];
         TRY(read_raw(f, sizeof(f)));
-        return std::make_optional(Variant(glm::vec2(f[0], f[1])));
+        return std::make_optional(Variant(glm::dvec2(f[0], f[1])));
     }
     else if (type == VariantType::Vec3)
     {
-        float f[3];
+        double f[3];
         TRY(read_raw(f, sizeof(f)));
-        return std::make_optional(Variant(glm::vec3(f[0], f[1], f[2])));
+        return std::make_optional(Variant(glm::dvec3(f[0], f[1], f[2])));
     }
     else if (type == VariantType::Quat)
     {
-        float f[4];
+        double f[4];
         TRY(read_raw(f, sizeof(f)));
-        return std::make_optional(Variant(glm::quat(f[0], f[1], f[2], f[3])));
+        return std::make_optional(Variant(glm::dquat(f[0], f[1], f[2], f[3])));
     }
     else if (type == VariantType::ItemStack)
     {
@@ -188,24 +188,24 @@ Result<void> Writer::write_variant(const Variant& variant)
     }
     else if (variant.has(VariantType::Vec2))
     {
-        glm::vec2 d = variant.get_unchecked<glm::vec2>();
-        TRY(write_raw(&d.x, sizeof(float)));
-        TRY(write_raw(&d.y, sizeof(float)));
+        glm::dvec2 d = variant.get_unchecked<glm::dvec2>();
+        TRY(write_raw(&d.x, sizeof(double)));
+        TRY(write_raw(&d.y, sizeof(double)));
     }
     else if (variant.has(VariantType::Vec3))
     {
-        glm::vec3 d = variant.get_unchecked<glm::vec3>();
-        TRY(write_raw(&d.x, sizeof(float)));
-        TRY(write_raw(&d.y, sizeof(float)));
-        TRY(write_raw(&d.z, sizeof(float)));
+        glm::dvec3 d = variant.get_unchecked<glm::dvec3>();
+        TRY(write_raw(&d.x, sizeof(double)));
+        TRY(write_raw(&d.y, sizeof(double)));
+        TRY(write_raw(&d.z, sizeof(double)));
     }
     else if (variant.has(VariantType::Quat))
     {
-        glm::quat d = variant.get_unchecked<glm::quat>();
-        TRY(write_raw(&d.w, sizeof(float)));
-        TRY(write_raw(&d.x, sizeof(float)));
-        TRY(write_raw(&d.y, sizeof(float)));
-        TRY(write_raw(&d.z, sizeof(float)));
+        glm::dquat d = variant.get_unchecked<glm::dquat>();
+        TRY(write_raw(&d.w, sizeof(double)));
+        TRY(write_raw(&d.x, sizeof(double)));
+        TRY(write_raw(&d.y, sizeof(double)));
+        TRY(write_raw(&d.z, sizeof(double)));
     }
     else if (variant.has(VariantType::ItemStack))
     {
