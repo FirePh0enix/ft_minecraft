@@ -43,8 +43,8 @@ void ThreadPool::thread_worker()
             m_cv.wait(lock, [this]
                       { return !m_tasks.empty() || m_stop; });
 
-            if (m_stop && m_tasks.empty())
-                return;
+            if (m_stop) // && m_tasks.empty())
+                break;
 
             task = m_tasks[m_tasks.size() - 1];
             m_tasks.pop_back();

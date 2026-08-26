@@ -37,7 +37,8 @@ Result<void> EntitySerializer::load(std::string_view path)
             break;
 
         Variant vname = vname_opt.value();
-        ASSERT_V(vname.has(VariantType::String), "");
+        if (!vname.has(VariantType::String))
+            return Error(ErrorKind::ReadFailure);
         std::string s = vname.get_unchecked<std::string>();
 
         Variant value = TRY(reader.read_variant()).value();

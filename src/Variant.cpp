@@ -46,6 +46,31 @@ Variant::Variant(const Variant& v)
     }
 }
 
+Variant::Variant(Variant&& v) noexcept
+    : tag(v.tag)
+{
+    if (has(VariantType::String))
+    {
+        new (data) std::string(v.get_unchecked<std::string>());
+    }
+    else if (has(VariantType::ItemStack))
+    {
+        new (data) ItemStack(v.get_unchecked<ItemStack>());
+    }
+    else if (has(VariantType::Array))
+    {
+        new (data) std::vector<Variant>(v.get_unchecked<std::vector<Variant>>());
+    }
+    else if (has(VariantType::Map))
+    {
+        new (data) std::map<Variant, Variant>(v.get_unchecked<std::map<Variant, Variant>>());
+    }
+    else
+    {
+        memcpy(data, v.data, sizeof(data));
+    }
+}
+
 Variant::~Variant()
 {
     if (has(VariantType::String))

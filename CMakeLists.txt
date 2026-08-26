@@ -12,7 +12,6 @@ project(${TARGET_NAME})
 include(CheckLibraryExists)
 include(FetchContent)
 
-option(BUILD_DOC "Build documentation" OFF)
 option(ENABLE_TRACING "Enable tracing using Tracy" OFF)
 option(SANITIZE_ADDRESS "Enable AddressSanitizer" OFF)
 option(SANITIZE_THREAD "Enable ThreadSanitizer" OFF)
@@ -326,6 +325,21 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(glm)
 target_link_libraries(${TARGET_NAME} PRIVATE glm::glm-header-only)
+
+# jemalloc
+# FetchContent_Declare(
+#     jemalloc
+#     GIT_REPOSITORY https://github.com/jemalloc/jemalloc
+#     GIT_TAG e36a0fa5bc1e1090362505ac4af4408466ba5163
+# )
+# FetchContent_MakeAvailable(jemalloc)
+# execute_process(
+#     OUTPUT_QUIET
+#     COMMAND make -f ${jemalloc_SOURCE_DIR}/Makefile
+#     WORKING_DIRECTORY ${jemalloc_BINARY_DIR}
+# )
+# target_link_libraries(${TARGET_NAME} PRIVATE ${jemalloc_BINARY_DIR})
+# target_link_libraries(${TARGET_NAME} PRIVATE jemalloc)
 
 # FreeType
 FetchContent_Declare(

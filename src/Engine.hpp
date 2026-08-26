@@ -67,7 +67,8 @@ public:
 
     std::shared_ptr<Font> get_font() const { return m_font; }
 
-    float time();
+    /// Returns the current in seconds with a nanosecond precision.
+    double time();
 
     ALWAYS_INLINE int64_t get_fps() const { return m_fps; }
     ALWAYS_INLINE int64_t get_tps() const { return m_tps; }

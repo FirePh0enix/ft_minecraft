@@ -115,8 +115,8 @@ public:
 
     int64_t get_render_distance() const { return m_load_distance; }
 
-    std::optional<std::shared_ptr<Chunk>> get_chunk(int64_t x, int64_t z) const;
-    std::optional<std::shared_ptr<Chunk>> get_chunk(int64_t x, int64_t z);
+    std::optional<Chunk *> get_chunk(int64_t x, int64_t z) const;
+    std::optional<Chunk *> get_chunk(int64_t x, int64_t z);
 
     std::string_view get_name() const { return m_name; }
 
@@ -141,9 +141,6 @@ public:
     {
         return m_dims[index];
     }
-
-    // void set_active_camera(std::shared_ptr<Camera> camera);
-    // ALWAYS_INLINE std::shared_ptr<Camera> get_active_camera() const { return m_camera; }
 
     void set_player(Player *player) { m_player = player; }
     Player *get_player() const { return m_player; }
@@ -192,22 +189,18 @@ public:
      */
     void break_block(int dimension, int64_t x, int64_t y, int64_t z);
 
-    /**
-     * Save chunk to the disk.
-     */
-    Result<void> save_chunk(std::shared_ptr<Chunk> chunk, int dimension);
+    /// Save chunk to the disk.
+    Result<void> save_chunk(Chunk *chunk, int dimension);
 
     Result<void> save_entity(const std::shared_ptr<Entity>& entity);
     Result<void> save_player(const std::shared_ptr<Player>& player);
 
-    /**
-     * Load player data from the disk.
-     */
-    void load_player(std::string_view name, std::shared_ptr<Player>& player);
+    /// Load player data from the disk.
+    [[nodiscard]] bool load_player(std::string_view name, std::shared_ptr<Player>& player);
 
     void queue_receive_chunk(const ChunkDataPacket& p);
 
-    void send_chunk(ENetPeer *peer, const std::shared_ptr<Chunk>& chunk) const;
+    void send_chunk(ENetPeer *peer, const Chunk *chunk) const;
     void receive_chunk(const ChunkDataPacket& p);
 
     bool is_player_saved(std::string_view name) const;

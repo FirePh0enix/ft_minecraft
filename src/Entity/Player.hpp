@@ -49,8 +49,8 @@ public:
     virtual void draw_ui(const RenderPass& pass) override;
     virtual void process_event(Event& event) override;
 
-    virtual void save(EntitySerializer& ser) const override;
-    virtual void load(const EntitySerializer& deser) override;
+    virtual Result<void> save(EntitySerializer& ser) const override;
+    virtual Result<void> load(const EntitySerializer& deser) override;
 
     virtual void die() override;
 

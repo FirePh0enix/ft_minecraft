@@ -8,7 +8,7 @@
 #include <imgui.h>
 
 static constexpr double fixed_update_time = 1.0 / 60.0;
-static clock_t last_update_time;
+static double last_update_time;
 
 int main(int argc, char *argv[])
 {
@@ -41,18 +41,16 @@ int main(int argc, char *argv[])
 
     while (engine.is_running())
     {
-        const float elapsed_time = (float)(clock() - last_update_time) / CLOCKS_PER_SEC;
+        const float elapsed_time = (float)(Engine::get().time() - last_update_time);
         if (elapsed_time >= fixed_update_time)
         {
             FrameMark;
-            last_update_time = clock();
+            last_update_time = Engine::get().time();
 
-            engine.tick(float(fixed_update_time)); // TODO: change to elapsed time or something
-            // engine.draw(float(fixed_update_time));
+            engine.tick(float(fixed_update_time));
+            engine.draw(float(fixed_update_time));
             Input::post_events();
         }
-
-        engine.draw(float(fixed_update_time));
     }
 
     return 0;

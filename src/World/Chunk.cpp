@@ -14,6 +14,7 @@ Chunk::Chunk(Dimension *dim, int64_t x, int64_t z)
     m_biomes = new Biome[16 * 16];
     m_slices = new Slice[slice_count];
 
+    // m_tags = new std::unordered_map<int64_t, std::map<std::string, std::string>>();
     m_uniform_buffer = EXPECT(Buffer::create(sizeof(FwChunkUniforms) * slice_count, WGPUBufferUsage_Uniform | WGPUBufferUsage_Vertex | WGPUBufferUsage_CopyDst));
 
     for (size_t i = 0; i < slice_count; i++)
@@ -42,12 +43,14 @@ Chunk::~Chunk()
     delete[] m_slices;
 }
 
-void Chunk::update_instance_buffer(glm::dvec3 position)
+void Chunk::update_instance_buffer(glm::dvec3 position, uint32_t slice_index)
 {
-    std::array<glm::vec3, slice_count> uniform_data{};
-    for (size_t i = 0; i < slice_count; i++)
-        uniform_data[i] = glm::vec3((double)m_x * Chunk::width - position.x, (double)i * Chunk::width - position.y, (double)m_z * Chunk::width - position.z);
-    m_uniform_buffer->update(std::as_bytes(std::span(uniform_data)));
+    // std::array<glm::vec3, slice_count> uniform_data{};
+    // for (size_t i = 0; i < slice_count; i++)
+    //     uniform_data[i] = glm::vec3((double)m_x * Chunk::width - position.x, (double)i * Chunk::width - position.y, (double)m_z * Chunk::width - position.z);
+
+    glm::vec3 data((double)m_x * Chunk::width - position.x, (double)slice_index * Chunk::width - position.y, (double)m_z * Chunk::width - position.z);
+    m_uniform_buffer->update_struct(data, slice_index * sizeof(glm::vec3));
 }
 
 void Chunk::set_block(int64_t x, int64_t y, int64_t z, BlockState state)
@@ -170,9 +173,9 @@ static glm::vec3 normal_from_axis(Axis axis, bool positive)
     return glm::vec3();
 }
 
-Result<void> Chunk::build_simple_mesh(size_t slice_index, const std::map<ChunkPos, std::shared_ptr<Chunk>>& chunks)
+Result<std::shared_ptr<Mesh>> Chunk::build_simple_mesh(size_t slice_index, const std::map<ChunkPos, Chunk *>& chunks)
 {
-    Slice& slice = m_slices[slice_index];
+    // Slice& slice = m_slices[slice_index];
     int64_t slice_y_offset = int64_t(slice_index) * width;
 
     // Let's detect which faces are not hidden.
@@ -191,14 +194,14 @@ Result<void> Chunk::build_simple_mesh(size_t slice_index, const std::map<ChunkPo
 
                 std::shared_ptr<Block> block = Engine::get().registry().get_block(m_blocks[index].id);
                 if (block == nullptr)
-                    return Result<void>();
+                    return Result<std::shared_ptr<Mesh>>(nullptr);
 
                 if (!block->is_conventional())
                     continue;
 
                 const bool gradient = block->has_gradient();
 
-                auto match_cross_boundary = [](const std::map<ChunkPos, std::shared_ptr<Chunk>>& chunks, int64_t cx, int64_t cz, int64_t x, int64_t y, int64_t z) -> bool
+                auto match_cross_boundary = [](const std::map<ChunkPos, Chunk *>& chunks, int64_t cx, int64_t cz, int64_t x, int64_t y, int64_t z) -> bool
                 { 
                     auto iter = chunks.find(ChunkPos(cx, cz));
                     if (iter == chunks.end())
@@ -241,8 +244,8 @@ Result<void> Chunk::build_simple_mesh(size_t slice_index, const std::map<ChunkPo
     // No faces are visible, let's skip mesh generation.
     if (faces.empty())
     {
-        slice.mesh = nullptr;
-        return Result<void>();
+        // slice.mesh = nullptr;
+        return Result<std::shared_ptr<Mesh>>(nullptr);
     }
 
     // Now we build a mesh from the faces.
@@ -284,14 +287,13 @@ Result<void> Chunk::build_simple_mesh(size_t slice_index, const std::map<ChunkPo
         normals.push_back(normal);
     }
 
-    slice.mesh = EXPECT(Mesh::create_from_data(std::as_bytes(std::span(indices)), vertices, normals, std::as_bytes(std::span(uvs)), WGPUIndexFormat_Uint16, WGPUVertexFormat_Float32x4));
-
-    return Result<void>();
+    std::shared_ptr<Mesh> mesh = EXPECT(Mesh::create_from_data(std::as_bytes(std::span(indices)), vertices, normals, std::as_bytes(std::span(uvs)), WGPUIndexFormat_Uint16, WGPUVertexFormat_Float32x4));
+    return Result<std::shared_ptr<Mesh>>(mesh);
 }
 
-Result<void> Chunk::build_water_mesh(size_t slice_index, const std::map<ChunkPos, std::shared_ptr<Chunk>>& chunks)
+Result<std::shared_ptr<Mesh>> Chunk::build_water_mesh(size_t slice_index, const std::map<ChunkPos, Chunk *>& chunks)
 {
-    Slice& slice = m_slices[slice_index];
+    // Slice& slice = m_slices[slice_index];
     int64_t slice_y_offset = int64_t(slice_index) * width;
 
     // Let's detect which faces are not hidden.
@@ -331,8 +333,8 @@ Result<void> Chunk::build_water_mesh(size_t slice_index, const std::map<ChunkPos
     // No faces are visible, let's skip mesh generation.
     if (faces.empty())
     {
-        slice.water_mesh = nullptr;
-        return Result<void>();
+        // slice.water_mesh = nullptr;
+        return Result<std::shared_ptr<Mesh>>(nullptr);
     }
 
     // Now we build a mesh from the faces.
@@ -374,16 +376,14 @@ Result<void> Chunk::build_water_mesh(size_t slice_index, const std::map<ChunkPos
         normals.push_back(normal);
     }
 
-    slice.water_mesh = EXPECT(Mesh::create_from_data(std::as_bytes(std::span(indices)), vertices, normals, std::as_bytes(std::span(uvs)), WGPUIndexFormat_Uint16, WGPUVertexFormat_Float32x2));
-
-    return Result<void>();
+    std::shared_ptr<Mesh> water_mesh = EXPECT(Mesh::create_from_data(std::as_bytes(std::span(indices)), vertices, normals, std::as_bytes(std::span(uvs)), WGPUIndexFormat_Uint16, WGPUVertexFormat_Float32x2));
+    return Result<std::shared_ptr<Mesh>>(water_mesh);
 }
 
 void Chunk::set_tag(glm::i64vec3 pos, std::string_view name, Variant v)
 {
     uint16_t key = linearize(pos.x, pos.y, pos.z);
-    m_tags[key] = BlockTags();
-    m_tags[key].tags[std::string(name)] = v;
+    m_tags[key][std::string(name)] = v;
     m_modified = true;
 }
 
@@ -394,10 +394,10 @@ void Chunk::remove_tag(glm::i64vec3 pos, std::string_view name)
 
     if (tags != m_tags.end())
     {
-        BlockTags& block_tags = tags->second;
-        block_tags.tags.erase(block_tags.tags.find(name));
+        stdext::string_map<Variant>& block_tags = tags->second;
+        block_tags.erase(block_tags.find(name));
 
-        if (tags->second.tags.size() == 0)
+        if (tags->second.size() == 0)
         {
             m_tags.erase(key);
             m_modified = true;
@@ -409,7 +409,7 @@ std::optional<Variant> Chunk::get_tag(uint16_t index, std::string_view name) con
 {
     auto tags = m_tags.find(index);
     if (tags != m_tags.end())
-        return tags->second.tags.find(name)->second;
+        return tags->second.find(name)->second;
     return std::nullopt;
 }
 
@@ -418,13 +418,11 @@ std::optional<Variant> Chunk::get_tag(glm::i64vec3 pos, std::string_view name) c
     return get_tag(linearize(pos.x, pos.y, pos.z), name);
 }
 
-void Chunk::merge_tag(uint16_t index, const BlockTags& tags)
+void Chunk::merge_tag(uint16_t index, const stdext::string_map<Variant>& tags)
 {
-    if (tags.tags.size() == 0)
+    if (tags.size() == 0)
         return;
 
-    m_tags[index] = BlockTags();
-
-    for (const auto& [name, value] : tags.tags)
-        m_tags[index].tags[name] = value;
+    for (const auto& [name, value] : tags)
+        m_tags[index][name] = value;
 }

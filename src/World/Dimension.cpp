@@ -21,11 +21,8 @@ void GenScheduler::terrain_pass(ChunkPos middle)
         {
             const ChunkPos pos(x + middle.x, z + middle.z);
 
-            {
-                std::lock_guard<std::mutex> lock(m_dimension.m_preload_mutex);
-                if (m_dimension.has_pregen_chunk(x + middle.x, z + middle.z))
-                    continue;
-            }
+            if (m_dimension.has_pregen_chunk(x + middle.x, z + middle.z))
+                continue;
 
             {
                 std::lock_guard<std::mutex> lock(m_pregen_queue_mutex);
@@ -37,15 +34,20 @@ void GenScheduler::terrain_pass(ChunkPos middle)
             chunks.insert(pos);
         }
 
-    m_pregen_count.fetch_add(chunks.size());
-
-    for (const ChunkPos& pos : chunks)
+    if (chunks.size() > 0)
     {
-        Engine::get().get_thread_pool().async([this, pos]()
-                                              { terrain_and_struct_chunk(pos); });
+        m_pregen_count.fetch_add(chunks.size());
+
+        for (const ChunkPos& pos : chunks)
+        {
+            Engine::get().get_thread_pool().async([this, pos]()
+                                                  { terrain_and_struct_chunk(pos); });
+        }
     }
 
-    std::lock_guard<std::mutex> lock(m_dimension.m_preload_mutex);
+    // println("{}", m_pregen_count.load());
+
+    // std::lock_guard<std::mutex> lock(m_dimension.m_preload_mutex);
     for (auto iter : m_dimension.m_preloaded_chunks)
     {
         const ChunkPos pos = iter.first;
@@ -82,75 +84,45 @@ void GenScheduler::chunk_pass(ChunkPos middle)
         return;
     }
 
-    std::set<ChunkPos> chunks;
-
     for (int64_t x = -m_chunk_distance; x <= m_chunk_distance; x++)
         for (int64_t z = -m_chunk_distance; z <= m_chunk_distance; z++)
         {
             const ChunkPos pos(x + middle.x, z + middle.z);
 
-            {
-                std::lock_guard<std::mutex> lock(m_dimension.m_preload_mutex);
-                if (!m_dimension.has_pregen_chunk(x + middle.x, z + middle.z))
-                    continue;
-            }
+            if (m_dimension.m_chunks.contains(pos) || m_dimension.m_chunks_loading_queue.contains(pos))
+                continue;
 
-            {
-                std::lock_guard<std::mutex> lock(m_dimension.m_chunk_loading_mutex);
-                if (m_dimension.m_chunk_loading_queue.contains(pos))
-                    continue;
-                m_dimension.m_chunk_loading_queue.insert(pos);
-            }
+            m_dimension.m_chunks_loading_queue.insert(pos);
 
-            {
-                std::lock_guard<std::mutex> lock(m_dimension.m_chunk_mutex);
-                if (m_dimension.m_chunks_to_flush.contains(pos))
-                    continue;
-                m_pregen_queue.insert(pos);
-            }
-
-            chunks.insert(pos);
+            std::shared_ptr<PreLoadedChunk> preload_chunk = m_dimension.m_preloaded_chunks[pos];
+            Engine::get().get_thread_pool().async([this, pos, preload_chunk]()
+                                                  { realize_chunk(pos, preload_chunk); });
         }
 
-    for (const ChunkPos& pos : chunks)
+    for (const auto& [pos, chunk] : m_dimension.m_chunks)
     {
-        Engine::get().get_thread_pool().async([this, pos]()
-                                              { realize_chunk(pos); });
-    }
-
-    // Unload chunks too far from the camera.
-    std::lock_guard<std::mutex> lock(m_dimension.m_preload_mutex);
-    for (auto iter : m_dimension.m_preloaded_chunks)
-    {
-        const ChunkPos pos = iter.first;
-        if (std::abs(pos.x - middle.x) > m_chunk_distance + m_gen_distance || std::abs(pos.z - middle.z) > m_chunk_distance + m_gen_distance)
-            m_pregen_unload_queue.push_back(pos);
-    }
-    for (const ChunkPos& pos : m_pregen_unload_queue)
-    {
-        m_dimension.m_preloaded_chunks.erase(pos);
+        if (std::abs(middle.x - pos.x) > m_chunk_distance || std::abs(middle.z - pos.z) > m_chunk_distance)
+            m_dimension.queue_unload_chunk(chunk);
     }
 }
 
 void GenScheduler::terrain_and_struct_chunk(ChunkPos pos)
 {
     std::shared_ptr<PreLoadedChunk> chunk = std::make_shared<PreLoadedChunk>();
+    chunk->pos = pos;
     m_dimension.m_gen->preload(pos.x, pos.z, chunk);
     m_dimension.m_gen->structure_pass(pos.x, pos.z, chunk, m_dimension);
 
-    m_pregen_count.fetch_sub(1);
-
-    std::lock_guard<std::mutex> lock(m_dimension.m_preload_mutex);
-    m_dimension.m_preloaded_chunks[pos] = chunk;
+    m_dimension.m_pregen_chunks_lockless.push_wait(chunk);
 }
 
-void GenScheduler::realize_chunk(ChunkPos pos)
+void GenScheduler::realize_chunk(ChunkPos pos, std::shared_ptr<PreLoadedChunk> pregen_chunk)
 {
     std::string path = std::format("{}saves/{}/DIM0/{}${}/blocks.dat", Filesystem::get_data_directory(), m_dimension.m_world->get_name(), pos.x, pos.z);
+    Chunk *chunk = m_dimension.alloc_chunk(pos.x, pos.z).value();
+
     if (!Engine::get().is_save_disabled() && Filesystem::exists(path))
     {
-        std::shared_ptr<Chunk> chunk = std::make_shared<Chunk>(&m_dimension, pos.x, pos.z);
-
         std::vector<char> data;
         // TODO: how to handle errors from loading chunks ?
         File file = EXPECT(Filesystem::open_file(path));
@@ -177,38 +149,31 @@ void GenScheduler::realize_chunk(ChunkPos pos)
             BufferReader reader(tags_data.data(), tags_data.size());
             Dimension::read_tags(reader, chunk);
         }
-
-        std::lock_guard<std::mutex> lock(m_dimension.m_chunk_mutex);
-        m_dimension.m_chunks_to_flush[pos] = chunk;
     }
     else
     {
-        std::shared_ptr<Chunk> chunk = std::make_shared<Chunk>(&m_dimension, pos.x, pos.z);
         memset((void *)chunk->get_blocks(), 0, sizeof(BlockState) * Chunk::block_count);
 
         for (int i = 0; i < 16 * 16; i++)
             chunk->get_biomes()[i] = Biome::Plain;
 
-        std::shared_ptr<PreLoadedChunk> preloaded_chunk;
-        {
-            std::lock_guard<std::mutex> lock(m_dimension.m_preload_mutex);
-            auto iter = m_dimension.m_preloaded_chunks.find(pos);
-            if (iter == m_dimension.m_preloaded_chunks.end())
-                return; // TODO: ERROR
-            preloaded_chunk = iter->second;
-        }
-
-        m_dimension.m_gen->generate_chunk(chunk, preloaded_chunk, m_dimension);
+        m_dimension.m_gen->generate_chunk(chunk, pregen_chunk, m_dimension);
 
         // Save the initial version of the chunk.
         EXPECT(m_dimension.m_world->save_chunk(chunk, m_dimension.m_id));
-
-        std::lock_guard<std::mutex> lock(m_dimension.m_chunk_mutex);
-        m_dimension.m_chunks_to_flush[pos] = chunk;
     }
+
+    m_dimension.m_chunks_lockless.push_wait(chunk);
 }
 
-std::optional<std::shared_ptr<Chunk>> Dimension::get_chunk(int64_t x, int64_t z) const
+Dimension::Dimension(int id)
+    : m_id(id), m_scheduler(*this)
+{
+    m_chunk_pool = new Chunk[4096]();
+    m_chunk_pool_state = new std::atomic_bool[4096]();
+}
+
+std::optional<Chunk *> Dimension::get_chunk(int64_t x, int64_t z) const
 {
     auto iter = m_chunks.find(ChunkPos(x, z));
     if (iter != m_chunks.end())
@@ -224,18 +189,6 @@ bool Dimension::has_chunk(int64_t x, int64_t z) const
 bool Dimension::has_pregen_chunk(int64_t x, int64_t z) const
 {
     return m_preloaded_chunks.contains(ChunkPos(x, z));
-}
-
-void Dimension::add_chunk(const std::shared_ptr<Chunk>& chunk)
-{
-    std::lock_guard<std::mutex> g(m_chunk_mutex);
-    m_chunks_to_flush[chunk->pos()] = chunk;
-}
-
-void Dimension::remove_chunk(int64_t x, int64_t z)
-{
-    std::lock_guard<std::mutex> g(m_chunk_mutex);
-    m_chunks_to_remove.push_back(ChunkPos(x, z));
 }
 
 void Dimension::add_entity(std::shared_ptr<Entity> entity)
@@ -330,7 +283,7 @@ BlockState Dimension::get_block(int64_t x, int64_t y, int64_t z) const
     if (!chunk_maybe)
         return BlockState();
 
-    std::shared_ptr<Chunk> chunk = chunk_maybe.value();
+    Chunk *chunk = chunk_maybe.value();
     int64_t local_x = local_coords(x);
     int64_t local_z = local_coords(z);
 
@@ -345,21 +298,21 @@ void Dimension::set_block(int64_t x, int64_t y, int64_t z, BlockState state)
     int64_t chunk_x = chunk_index(x);
     int64_t chunk_z = chunk_index(z);
 
-    std::optional<std::shared_ptr<Chunk>> chunk_value = get_chunk(chunk_x, chunk_z);
+    std::optional<Chunk *> chunk_value = get_chunk(chunk_x, chunk_z);
 
     if (!chunk_value.has_value())
     {
         return;
     }
 
-    std::shared_ptr<Chunk> chunk = chunk_value.value();
+    Chunk *chunk = chunk_value.value();
     int64_t local_x = local_coords(x);
     int64_t local_z = local_coords(z);
 
     chunk->set_block(local_x, y, local_z, state);
 }
 
-void Dimension::set_tag(glm::i64vec3 pos, std::string_view name, Variant v)
+void Dimension::set_tag(glm::i64vec3 pos, std::string_view name, std::string v)
 {
     if (pos.y < 0 || pos.y >= Chunk::height)
         return;
@@ -367,14 +320,14 @@ void Dimension::set_tag(glm::i64vec3 pos, std::string_view name, Variant v)
     int64_t chunk_x = chunk_index(pos.x);
     int64_t chunk_z = chunk_index(pos.z);
 
-    std::optional<std::shared_ptr<Chunk>> chunk_value = get_chunk(chunk_x, chunk_z);
+    std::optional<Chunk *> chunk_value = get_chunk(chunk_x, chunk_z);
 
     if (!chunk_value.has_value())
     {
         return;
     }
 
-    std::shared_ptr<Chunk> chunk = chunk_value.value();
+    Chunk *chunk = chunk_value.value();
     int64_t local_x = local_coords(pos.x);
     int64_t local_z = local_coords(pos.z);
 
@@ -389,14 +342,14 @@ void Dimension::remove_tag(glm::i64vec3 pos, std::string_view name)
     int64_t chunk_x = chunk_index(pos.x);
     int64_t chunk_z = chunk_index(pos.z);
 
-    std::optional<std::shared_ptr<Chunk>> chunk_value = get_chunk(chunk_x, chunk_z);
+    std::optional<Chunk *> chunk_value = get_chunk(chunk_x, chunk_z);
 
     if (!chunk_value.has_value())
     {
         return;
     }
 
-    std::shared_ptr<Chunk> chunk = chunk_value.value();
+    Chunk *chunk = chunk_value.value();
     int64_t local_x = local_coords(pos.x);
     int64_t local_z = local_coords(pos.z);
 
@@ -411,12 +364,12 @@ std::optional<Variant> Dimension::get_tag(glm::i64vec3 pos, std::string_view nam
     int64_t chunk_x = chunk_index(pos.x);
     int64_t chunk_z = chunk_index(pos.z);
 
-    std::optional<std::shared_ptr<Chunk>> chunk_value = get_chunk(chunk_x, chunk_z);
+    std::optional<Chunk *> chunk_value = get_chunk(chunk_x, chunk_z);
 
     if (!chunk_value.has_value())
         return std::nullopt;
 
-    std::shared_ptr<Chunk> chunk = chunk_value.value();
+    Chunk *chunk = chunk_value.value();
     int64_t local_x = local_coords(pos.x);
     int64_t local_z = local_coords(pos.z);
 
@@ -434,97 +387,62 @@ bool Dimension::has_solid_block(int64_t x, int64_t y, int64_t z) const
     return block->is_solid();
 }
 
-Result<std::shared_ptr<Chunk>> Dimension::generate_chunk(int64_t cx, int64_t cz)
+void Dimension::rebuild(Chunk *chunk, const std::map<ChunkPos, Chunk *>& nchunks, size_t slice_index, size_t slice_count)
 {
-    std::shared_ptr<Chunk> chunk = std::make_shared<Chunk>(this, cx, cz);
-    memset((void *)chunk->get_blocks(), 0, sizeof(BlockState) * Chunk::block_count);
+    MeshRebuildResult results[16];
 
-    for (int i = 0; i < 16 * 16; i++)
-        chunk->get_biomes()[i] = Biome::Plain;
-
-    std::shared_ptr<PreLoadedChunk> preloaded_chunk;
+    for (size_t i = slice_index; i < slice_count; i++)
     {
-        std::lock_guard<std::mutex> lock(m_preload_mutex);
-        auto iter = m_preloaded_chunks.find(ChunkPos(cx, cz));
-        if (iter == m_preloaded_chunks.end())
-            return Error(ErrorKind::Unknown);
-        preloaded_chunk = iter->second;
-    }
-
-    m_gen->generate_chunk(chunk, preloaded_chunk, *this);
-    return chunk;
-}
-
-void Dimension::rebuild(ChunkPos pos, size_t slice_index, size_t slice_count)
-{
-    std::shared_ptr<Chunk> chunk;
-    std::map<ChunkPos, std::shared_ptr<Chunk>> nchunks;
-
-    {
-        std::lock_guard<std::mutex> lock(m_chunk_mutex);
-
-        std::optional<std::shared_ptr<Chunk>> chunk_opt = get_chunk(pos.x, pos.z);
-        if (!chunk_opt.has_value())
-        {
-            return;
-        }
-
-        chunk = chunk_opt.value();
-
-        const std::array<ChunkPos, 4> positions{
-            ChunkPos(pos.x + 1, pos.z),
-            ChunkPos(pos.x - 1, pos.z),
-            ChunkPos(pos.x, pos.z + 1),
-            ChunkPos(pos.x, pos.z - 1),
-        };
-        for (ChunkPos p : positions)
-        {
-            chunk_opt = get_chunk(p.x, p.z);
-            if (!chunk_opt.has_value())
-            {
-                continue;
-            }
-            nchunks[p] = chunk_opt.value();
-        }
+        results[i].pos = chunk->pos();
+        results[i].slice_index = i;
+        results[i].mesh = EXPECT(chunk->build_simple_mesh(i, nchunks));
+        results[i].water_mesh = EXPECT(chunk->build_water_mesh(i, nchunks));
     }
 
     for (size_t i = slice_index; i < slice_count; i++)
     {
-        EXPECT(chunk->build_simple_mesh(i, nchunks));
-        EXPECT(chunk->build_water_mesh(i, nchunks));
+        while (!m_mesh_queue_lockless.push(results[i]))
+            ;
     }
 }
 
 void Dimension::queue_rebuild(ChunkPos pos, size_t slice_index, size_t slice_count)
 {
-    std::lock_guard<std::mutex> lock(m_chunk_rebuild_mutex);
-    if (m_chunk_rebuild_queue.contains(pos))
-    {
+    if (!m_chunks.contains(pos))
         return;
+
+    // TODO: remove this mutex as well.
+    {
+        std::lock_guard<std::mutex> lock(m_chunk_rebuild_mutex);
+        if (m_chunk_rebuild_queue.contains(pos))
+            return;
+        m_chunk_rebuild_queue.insert(pos);
     }
-    m_chunk_rebuild_queue.insert(pos);
 
-    Engine::get().get_thread_pool().async([this, pos, slice_index, slice_count]
+    Chunk *chunk = m_chunks[pos];
+    std::map<ChunkPos, Chunk *> nchunks;
+
+    const std::array<ChunkPos, 4> positions{
+        ChunkPos(pos.x + 1, pos.z),
+        ChunkPos(pos.x - 1, pos.z),
+        ChunkPos(pos.x, pos.z + 1),
+        ChunkPos(pos.x, pos.z - 1),
+    };
+    for (ChunkPos p : positions)
+    {
+        std::optional<Chunk *> chunk_opt = get_chunk(p.x, p.z);
+        if (!chunk_opt.has_value())
+        {
+            continue;
+        }
+        nchunks[p] = chunk_opt.value();
+    }
+
+    Engine::get().get_thread_pool().async([this, chunk, nchunks, slice_index, slice_count]
                                           {
-                                            rebuild(pos, slice_index, slice_count);
+                                            rebuild(chunk, nchunks, slice_index, slice_count);
                                             std::lock_guard<std::mutex> lock(m_chunk_rebuild_mutex);
-                                            m_chunk_rebuild_queue.erase(pos); });
-}
-
-void Dimension::preload_chunk(ChunkPos pos)
-{
-    std::shared_ptr<PreLoadedChunk> chunk = std::make_shared<PreLoadedChunk>();
-    m_gen->preload(pos.x, pos.z, chunk);
-    m_gen->structure_pass(pos.x, pos.z, chunk, *this);
-
-    std::lock_guard<std::mutex> lock(m_preload_mutex);
-    m_preloaded_chunks[pos] = chunk;
-}
-
-void Dimension::queue_preload_chunk(ChunkPos pos)
-{
-    Engine::get().get_thread_pool().async([this, pos]
-                                          { preload_chunk(pos); });
+                                            m_chunk_rebuild_queue.erase(chunk->pos()); });
 }
 
 void Dimension::remove_preload(ChunkPos pos)
@@ -532,75 +450,21 @@ void Dimension::remove_preload(ChunkPos pos)
     m_preloaded_chunks.erase(pos);
 }
 
-void Dimension::load_chunk(ChunkPos pos)
+void Dimension::unload_chunk(Chunk *chunk)
 {
-    std::shared_ptr<Chunk> chunk;
-
-    std::string path = std::format("{}saves/{}/DIM0/{}${}/blocks.dat", Filesystem::get_data_directory(), m_world->get_name(), pos.x, pos.z);
-    if (!Engine::get().is_save_disabled() && Filesystem::exists(path))
+    if (!Engine::get().is_save_disabled())
     {
-        chunk = std::make_shared<Chunk>(this, pos.x, pos.z);
-
-        std::vector<char> data;
-        // TODO: how to handle errors from loading chunks ?
-        File file = EXPECT(Filesystem::open_file(path));
-        EXPECT(file.reader().read_to_buffer(data));
-        file.close();
-
-        std::vector<uint8_t> blocks_data;
-        EXPECT(ZLib::inflate(std::as_bytes(std::span(data)), blocks_data));
-
-        assert(blocks_data.size() == sizeof(BlockState) * Chunk::block_count);
-        memcpy(chunk->get_blocks(), blocks_data.data(), blocks_data.size());
-
-        std::string path = std::format("{}saves/{}/DIM0/{}${}/tags.dat", Filesystem::get_data_directory(), m_world->get_name(), pos.x, pos.z);
-        if (Filesystem::exists(path))
-        {
-            File file = EXPECT(Filesystem::open_file(path));
-            std::vector<char> tags_compressed_data;
-            EXPECT(file.reader().read_to_buffer(tags_compressed_data));
-            file.close();
-
-            std::vector<uint8_t> tags_data;
-            EXPECT(ZLib::inflate(std::as_bytes(std::span(tags_compressed_data)), tags_data));
-
-            BufferReader reader(tags_data.data(), tags_data.size());
-            read_tags(reader, chunk);
-        }
-    }
-    else
-    {
-        Result<std::shared_ptr<Chunk>> result = generate_chunk(pos.x, pos.z);
-        if (result.has_error())
-            return;
-        chunk = result.value();
-
-        EXPECT(m_world->save_chunk(chunk, m_id));
+        Result<void> result = m_world->save_chunk(chunk, m_id);
+        (void)result;
     }
 
-    add_chunk(chunk);
-
-    {
-        std::lock_guard<std::mutex> lock(m_chunk_loading_mutex);
-        m_chunk_loading_queue.erase(pos);
-    }
+    m_chunks_unload_queue.push_wait(chunk);
 }
 
-void Dimension::queue_load_chunk(ChunkPos pos)
+void Dimension::queue_unload_chunk(Chunk *chunk)
 {
-    Engine::get().get_thread_pool().async([this, pos]
-                                          { load_chunk(pos); });
-}
-
-void Dimension::unload_chunk(ChunkPos pos)
-{
-    remove_chunk(pos.x, pos.z);
-}
-
-void Dimension::queue_unload_chunk(ChunkPos pos)
-{
-    Engine::get().get_thread_pool().async([this, pos]
-                                          { unload_chunk(pos); });
+    Engine::get().get_thread_pool().async([this, chunk]
+                                          { unload_chunk(chunk); });
 }
 
 void Dimension::update_sun(glm::mat4 matrix)
@@ -631,20 +495,41 @@ void Dimension::get_structures_overlap(ChunkPos pos, std::vector<StructureGen>& 
     }
 }
 
-void Dimension::write_tags(Writer& writer, const std::shared_ptr<Chunk>& chunk)
+std::optional<Chunk *> Dimension::alloc_chunk(int64_t x, int64_t z)
+{
+    for (size_t i = 0; i < 4096; i++)
+    {
+        bool b = false;
+        if (m_chunk_pool_state[i].compare_exchange_strong(b, true))
+        {
+            new (&m_chunk_pool[i]) Chunk(this, x, z);
+            return std::make_optional(&m_chunk_pool[i]);
+        }
+    }
+    return std::nullopt;
+}
+
+void Dimension::free_chunk(Chunk *chunk)
+{
+    size_t index = chunk - m_chunk_pool;
+    bool b = true;
+    m_chunk_pool_state[index].compare_exchange_strong(b, false);
+}
+
+void Dimension::write_tags(Writer& writer, const Chunk *chunk)
 {
     std::map<int64_t, std::map<std::string, Variant>> tags;
     for (const auto& [key, value] : chunk->m_tags)
     {
         std::map<std::string, Variant> tags2;
-        for (const auto& [key2, value2] : value.tags)
+        for (const auto& [key2, value2] : value)
             tags2[key2] = value2;
         tags[key] = tags2;
     }
     EXPECT(writer.write_variant(Variant(tags)));
 }
 
-void Dimension::read_tags(Reader& reader, std::shared_ptr<Chunk>& chunk)
+void Dimension::read_tags(Reader& reader, Chunk *chunk)
 {
     std::optional<Variant> variant = EXPECT(reader.read_variant());
     if (variant.has_value())
@@ -652,9 +537,9 @@ void Dimension::read_tags(Reader& reader, std::shared_ptr<Chunk>& chunk)
         std::map<int64_t, std::map<std::string, Variant>> tags = variant.value().to_map<int64_t, std::map<std::string, Variant>>();
         for (const auto& [key, value] : tags)
         {
-            BlockTags btags;
+            stdext::string_map<Variant> btags;
             for (const auto& [key2, value2] : value)
-                btags.tags[key2] = value2;
+                btags[key2] = value2;
             chunk->m_tags[key] = btags;
         }
     }

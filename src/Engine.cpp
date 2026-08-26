@@ -276,10 +276,11 @@ void Engine::draw_world_scene()
     m_renderer.draw_forward(m_world);
 }
 
-float Engine::time()
+double Engine::time()
 {
-    // TODO: replace this by the real time.
-    return float(clock()) / float(CLOCKS_PER_SEC);
+    struct timespec tp{};
+    clock_gettime(CLOCK_MONOTONIC, &tp);
+    return (double)(tp.tv_nsec + tp.tv_sec * 1000000000) / 1000000000.0;
 }
 
 void Engine::create_world_and_start()
@@ -311,11 +312,7 @@ void Engine::create_world_and_start()
     m_player->set_username(username);
     m_world->add_entity(World::overworld, m_player);
 
-    if (m_world->is_player_saved(username))
-    {
-        m_world->load_player(username, m_player);
-    }
-    else
+    if (!m_world->is_player_saved(username) || !m_world->load_player(username, m_player))
     {
         m_player->get_transform().position() = m_world->get_spawn_position();
     }

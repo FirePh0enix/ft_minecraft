@@ -12,10 +12,9 @@ public:
     ThreadPool(size_t num_threads = std::thread::hardware_concurrency() - 1);
     ~ThreadPool();
 
-    /**
-     * Starts an asynchronous task.
-     * TODO: Should returns a future that can be canceled.
-     */
+    size_t size() const { return m_threads.size(); }
+
+    /// Starts an asynchronous task.
     void async(std::function<void()> task);
 
 private:

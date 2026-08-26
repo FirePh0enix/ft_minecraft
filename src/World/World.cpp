@@ -186,17 +186,13 @@ World::~World()
 
 static void add_neighbour_chunk(ChunkPos pos, std::set<ChunkPos>& chunks)
 {
-    const std::array<ChunkPos, 4> positions = {
-        ChunkPos(pos.x - 1, pos.z),
-        ChunkPos(pos.x + 1, pos.z),
-        ChunkPos(pos.x, pos.z - 1),
-        ChunkPos(pos.x, pos.z + 1),
-    };
-
-    for (const auto& p : positions)
-    {
+    for (const auto& p : {
+             ChunkPos(pos.x - 1, pos.z),
+             ChunkPos(pos.x + 1, pos.z),
+             ChunkPos(pos.x, pos.z - 1),
+             ChunkPos(pos.x, pos.z + 1),
+         })
         chunks.insert(p);
-    }
 }
 
 void World::tick(float delta)
@@ -205,7 +201,7 @@ void World::tick(float delta)
 
     // tick_dimension(delta, dimension);
     tick_dimension(delta, overworld);
-    tick_dimension(delta, underworld);
+    // tick_dimension(delta, underworld);
 
     m_debug_display.update(delta);
 }
@@ -253,24 +249,41 @@ void World::tick_dimension(float delta, int dimension)
     // Flush all new chunks.
     std::set<ChunkPos> chunk_modified;
 
+    std::shared_ptr<PreLoadedChunk> pregen_chunk;
+    while (m_dims[dimension].m_pregen_chunks_lockless.try_pop(pregen_chunk))
     {
-        std::lock_guard<std::mutex> lock(m_dims[dimension].m_chunk_mutex);
+        m_dims[dimension].m_preloaded_chunks[pregen_chunk->pos] = pregen_chunk;
+        m_dims[dimension].m_scheduler.m_pregen_count.fetch_sub(1);
+    }
 
-        for (auto& [pos, chunk] : m_dims[dimension].m_chunks_to_flush)
-        {
-            m_dims[dimension].m_chunks[pos] = chunk;
-            chunk_modified.insert(pos);
-            add_neighbour_chunk(pos, chunk_modified);
-        }
-        m_dims[dimension].m_chunks_to_flush.clear();
+    Chunk *chunk = nullptr;
+    while (m_dims[dimension].m_chunks_lockless.try_pop(chunk))
+    {
+        const ChunkPos pos = chunk->pos();
+        m_dims[dimension].m_chunks_loading_queue.erase(pos);
+        if (m_dims[dimension].m_chunks.contains(pos))
+            continue;
+        m_dims[dimension].m_chunks[pos] = chunk;
+        chunk_modified.insert(pos);
+        add_neighbour_chunk(pos, chunk_modified);
+    }
 
-        for (auto pos : m_dims[dimension].m_chunks_to_remove)
-        {
-            m_dims[dimension].m_chunks.erase(pos);
-            chunk_modified.insert(pos);
-            add_neighbour_chunk(pos, chunk_modified);
-        }
-        m_dims[dimension].m_chunks_to_remove.clear();
+    MeshRebuildResult result;
+    while (m_dims[dimension].m_mesh_queue_lockless.try_pop(result))
+    {
+        Chunk *chunk = m_dims[dimension].m_chunks[result.pos];
+        chunk->get_slices()[result.slice_index].mesh = result.mesh;
+        chunk->get_slices()[result.slice_index].water_mesh = result.water_mesh;
+    }
+
+    chunk = nullptr;
+    while (m_dims[dimension].m_chunks_unload_queue.try_pop(chunk))
+    {
+        const ChunkPos pos = chunk->pos();
+        m_dims[dimension].m_chunks.erase(chunk->pos());
+        m_dims[dimension].free_chunk(chunk);
+        chunk_modified.insert(pos);
+        add_neighbour_chunk(pos, chunk_modified);
     }
 
     for (ChunkPos pos : chunk_modified)
@@ -291,10 +304,10 @@ void World::tick_dimension(float delta, int dimension)
 
         for (const ChunkLoadRequest& req : m_load_requests)
         {
-            std::optional<std::shared_ptr<Chunk>> chunk_opt = get_dimension(req.dimension).get_chunk(req.x, req.z);
+            std::optional<Chunk *> chunk_opt = get_dimension(req.dimension).get_chunk(req.x, req.z);
             if (chunk_opt.has_value())
             {
-                std::shared_ptr<Chunk> chunk = chunk_opt.value();
+                Chunk *chunk = chunk_opt.value();
                 Engine::get().get_thread_pool().async([this, req, chunk]
                                                       { send_chunk(req.peer, chunk); });
             }
@@ -312,26 +325,32 @@ void World::tick_dimension(float delta, int dimension)
 
     std::shared_ptr<Camera> camera = m_player->get_camera();
 
-    m_dims[dimension].m_visible_chunks.resize(0);
-    for (const auto& [key, chunk] : m_dims[dimension].m_chunks)
     {
-        ChunkPos pos = chunk->pos();
-        AABBf aabb = AABBf(-glm::vec3(Chunk::width / 2.0, Chunk::height / 2.0, Chunk::width / 2), glm::vec3(Chunk::width / 2.0, Chunk::height / 2.0, Chunk::width / 2))
-                         .translate(glm::dvec3((double)pos.x * Chunk::width + Chunk::width / 2.0, double(Chunk::height) / 2.0, (double)pos.z * Chunk::width + Chunk::width / 2.0) - camera->get_global_transform().position());
+        ZoneScopedN("calc visible chunks");
 
-        if (!camera->frustum().contains(aabb))
-            continue;
-
-        for (size_t i = 0; i < Chunk::slice_count; i++)
+        m_dims[dimension].m_visible_chunks.resize(0);
+        for (const auto& [key, chunk] : m_dims[dimension].m_chunks)
         {
-            ChunkPos pos = chunk->pos();
-            AABBf aabb = AABBf(-glm::vec3(Chunk::width / 2.0, Chunk::width / 2.0, Chunk::width / 2), glm::vec3(Chunk::width / 2.0, Chunk::width / 2.0, Chunk::width / 2))
-                             .translate(glm::dvec3((double)pos.x * Chunk::width + Chunk::width / 2.0, (double)i * Chunk::width + Chunk::width / 2.0, (double)pos.z * Chunk::width + Chunk::width / 2.0) - camera->get_global_transform().position());
+            ZoneScopedN("one chunk");
 
-            if (!camera->frustum().contains(aabb) || (chunk->get_slices()[i].mesh == nullptr && chunk->get_slices()[i].water_mesh == nullptr))
+            ChunkPos pos = chunk->pos();
+            AABBf aabb = AABBf(-glm::vec3(Chunk::width / 2.0, Chunk::height / 2.0, Chunk::width / 2), glm::vec3(Chunk::width / 2.0, Chunk::height / 2.0, Chunk::width / 2))
+                             .translate(glm::dvec3((double)pos.x * Chunk::width + Chunk::width / 2.0, double(Chunk::height) / 2.0, (double)pos.z * Chunk::width + Chunk::width / 2.0) - camera->get_global_transform().position());
+
+            if (!camera->frustum().contains(aabb))
                 continue;
 
-            m_dims[dimension].m_visible_chunks.push_back(RenderableChunk(chunk, i));
+            for (size_t i = 0; i < Chunk::slice_count; i++)
+            {
+                ChunkPos pos = chunk->pos();
+                AABBf aabb = AABBf(-glm::vec3(Chunk::width / 2.0, Chunk::width / 2.0, Chunk::width / 2), glm::vec3(Chunk::width / 2.0, Chunk::width / 2.0, Chunk::width / 2))
+                                 .translate(glm::dvec3((double)pos.x * Chunk::width + Chunk::width / 2.0, (double)i * Chunk::width + Chunk::width / 2.0, (double)pos.z * Chunk::width + Chunk::width / 2.0) - camera->get_global_transform().position());
+
+                if (!camera->frustum().contains(aabb) || (chunk->get_slices()[i].mesh == nullptr && chunk->get_slices()[i].water_mesh == nullptr))
+                    continue;
+
+                m_dims[dimension].m_visible_chunks.push_back(RenderableChunk(chunk, i));
+            }
         }
     }
 
@@ -351,7 +370,8 @@ void World::tick_dimension(float delta, int dimension)
             AABBf aabb = AABBf(-glm::vec3(Chunk::width / 2.0, Chunk::width / 2.0, Chunk::width / 2), glm::vec3(Chunk::width / 2.0, Chunk::width / 2.0, Chunk::width / 2))
                              .translate(glm::vec3((float)pos.x * Chunk::width + Chunk::width / 2.0, (float)i * Chunk::width + Chunk::width / 2.0, (float)pos.z * Chunk::width + Chunk::width / 2.0));
 
-            if (!m_dims[dimension].m_sun_frustum.contains(aabb) || chunk->get_slices()[i].mesh == nullptr)
+            std::shared_ptr<Mesh> mesh = chunk->get_slices()[i].mesh;
+            if (!m_dims[dimension].m_sun_frustum.contains(aabb) || mesh == nullptr)
                 continue;
 
             m_dims[dimension].m_sun_visible_chunks.push_back(RenderableChunk(chunk, i));
@@ -369,12 +389,12 @@ void World::set_block_state(int dimension, int64_t x, int64_t y, int64_t z, Bloc
     m_dims[dimension].set_block(x, y, z, state);
 }
 
-std::optional<std::shared_ptr<Chunk>> World::get_chunk(int64_t x, int64_t z) const
+std::optional<Chunk *> World::get_chunk(int64_t x, int64_t z) const
 {
     return m_dims[overworld].get_chunk(x, z);
 }
 
-std::optional<std::shared_ptr<Chunk>> World::get_chunk(int64_t x, int64_t z)
+std::optional<Chunk *> World::get_chunk(int64_t x, int64_t z)
 {
     return m_dims[overworld].get_chunk(x, z);
 }
@@ -399,19 +419,21 @@ void World::request_load_around(int dimension)
             int64_t z = player_cz + cz;
             ChunkPos pos(x, z);
 
-            {
-                std::lock_guard<std::mutex> lock(m_dims[dimension].m_chunk_mutex);
-                if (m_dims[dimension].has_chunk(x, z) || m_dims[dimension].m_chunks_to_flush.contains(pos))
-                    continue;
-            }
+            // {
+            //     std::lock_guard<std::mutex> lock(m_dims[dimension].m_chunk_mutex);
+            //     if (m_dims[dimension].has_chunk(x, z) || m_dims[dimension].m_chunks_to_flush.contains(pos))
+            //         continue;
+            // }
 
-            {
-                std::lock_guard<std::mutex> lock(m_dims[dimension].m_chunk_loading_mutex);
-                if (m_dims[dimension].m_chunk_loading_queue.contains(pos))
-                    continue;
+            // {
+            //     std::lock_guard<std::mutex> lock(m_dims[dimension].m_chunk_loading_mutex);
+            //     if (m_dims[dimension].m_chunk_loading_queue.contains(pos))
+            //         continue;
 
-                m_dims[dimension].m_chunk_loading_queue.insert(pos);
-            }
+            //     m_dims[dimension].m_chunk_loading_queue.insert(pos);
+            // }
+
+            // FIXME: don't request over and over
 
             RequestChunkPacket p{};
             p.x = x;
@@ -503,7 +525,7 @@ void World::break_block(int dimension, int64_t x, int64_t y, int64_t z)
     add_entity(World::overworld, item_entity);
 }
 
-Result<void> World::save_chunk(std::shared_ptr<Chunk> chunk, int dimension)
+Result<void> World::save_chunk(Chunk *chunk, int dimension)
 {
     if (Engine::get().is_save_disabled())
     {
@@ -552,7 +574,7 @@ Result<void> World::save_entity(const std::shared_ptr<Entity>& entity)
     EntitySerializer serializer;
     serializer.set("position", entity->get_position());
     serializer.set("rotation", entity->get_rotation());
-    entity->save(serializer);
+    TRY(entity->save(serializer));
 
     path.append("");
     // TODO: save to disk
@@ -570,29 +592,44 @@ Result<void> World::save_player(const std::shared_ptr<Player>& player)
     EntitySerializer serializer;
     serializer.set("position", player->get_position());
     serializer.set("rotation", player->get_rotation());
-    player->save(serializer);
+    TRY(player->save(serializer));
 
     TRY(serializer.save(path));
 
     return Result<void>();
 }
 
-void World::load_player(std::string_view username, std::shared_ptr<Player>& player)
+bool World::load_player(std::string_view username, std::shared_ptr<Player>& player)
 {
     std::string path = std::format("{}saves/{}/players/{}.dat", Filesystem::get_data_directory(), get_name(), username);
 
     EntitySerializer serializer;
-    EXPECT(serializer.load(path));
+    Result<void> result = serializer.load(path);
+
+    if (result.has_error())
+    {
+        error("player data is corrupted");
+        // TODO: maybe copy corrupted data to a `.backup` file before writing over the data.
+        return false;
+    }
 
     glm::dvec3 position = serializer.get<glm::dvec3>("position").value_or(get_spawn_position());
-    glm::dquat rotation = serializer.get<glm::dquat>("rotation").value_or({});
+    glm::dquat rotation = serializer.get<glm::dquat>("rotation").value_or(glm::identity<glm::dquat>());
 
     player->set_position(position);
     player->set_rotation(rotation);
-    player->load(serializer);
+
+    result = player->load(serializer);
+    if (result.has_error())
+    {
+        error("player data is corrupted");
+        return false;
+    }
+
+    return true;
 }
 
-void World::send_chunk(ENetPeer *peer, const std::shared_ptr<Chunk>& chunk) const
+void World::send_chunk(ENetPeer *peer, const Chunk *chunk) const
 {
     std::vector<uint8_t> blocks_data;
     EXPECT(ZLib::deflate(std::as_bytes(std::span((uint8_t *)chunk->get_blocks(), sizeof(BlockState) * Chunk::block_count)), blocks_data));
@@ -620,7 +657,7 @@ void World::receive_chunk(const ChunkDataPacket& p)
     Dimension& dimension = get_dimension(World::overworld);
     bool has_chunk = dimension.has_chunk(p.x, p.z);
 
-    std::shared_ptr<Chunk> chunk;
+    Chunk *chunk;
     if (has_chunk)
     {
         chunk = dimension.get_chunk(p.x, p.z).value();
@@ -628,7 +665,7 @@ void World::receive_chunk(const ChunkDataPacket& p)
     }
     else
     {
-        chunk = std::make_shared<Chunk>(&dimension, p.x, p.z);
+        chunk = dimension.alloc_chunk(p.x, p.z).value();
     }
 
     std::vector<uint8_t> blocks_data;
@@ -654,7 +691,10 @@ void World::receive_chunk(const ChunkDataPacket& p)
     // }
 
     if (!has_chunk)
-        dimension.add_chunk(chunk);
+    {
+        // TODO: Is there a reason to lock anything here ?
+        dimension.m_chunks[chunk->pos()] = chunk;
+    }
 }
 
 void World::queue_receive_chunk(const ChunkDataPacket& p)

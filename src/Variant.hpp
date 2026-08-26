@@ -10,57 +10,59 @@
 
 enum class VariantType : uint32_t
 {
-    Null,
+    Null = 0,
     /**
      * Boolean primitive, either true or false.
      */
-    Bool,
+    Bool = 1,
     /**
      * 64-bits precision floating point number.
      */
-    Double,
+    Double = 2,
     /**
      * 64-bits signed integer.
      */
-    Integer,
+    Integer = 3,
     /**
      * String of character.
      */
-    String,
+    String = 4,
     /**
      * 2 dimensional vector.
      */
-    Vec2,
+    Vec2 = 5,
     /**
      * 3 dimensional vector.
      */
-    Vec3,
+    Vec3 = 6,
     /**
      * Quaternion.
      */
-    Quat,
+    Quat = 7,
     /**
      * Stack of item.
      */
-    ItemStack,
+    ItemStack = 8,
     /**
      * Array of variants of one specific type.
      */
-    Array,
+    Array = 9,
     /**
      * Key value storage.
      */
-    Map,
-    Color,
-    Point,
+    Map = 10,
+    Color = 11,
+    Point = 12,
 };
 
 class ItemStack;
 struct Point;
 
+constexpr size_t variant_size = 72;
+
 struct __attribute__((aligned(16))) Variant
 {
-    uint8_t data[64]{0};
+    uint8_t data[variant_size]{0};
     VariantType tag;
 
     Variant() : tag(VariantType::Null) {}
@@ -69,8 +71,7 @@ struct __attribute__((aligned(16))) Variant
     Variant(bool b) : tag(VariantType::Bool) { data[0] = (uint8_t)b; }
     Variant(double d) : tag(VariantType::Double) { *((double *)data) = d; }
     Variant(int64_t i) : tag(VariantType::Integer) { *((int64_t *)data) = i; }
-    Variant(std::string_view s) : tag(VariantType::String) { new (data) std::string(s); }
-    Variant(const std::string& s) : tag(VariantType::String) { new (data) std::string(s); }
+    Variant(std::string s) : tag(VariantType::String) { new (data) std::string(s); }
     Variant(glm::dvec2 v) : tag(VariantType::Vec2) { *((glm::dvec2 *)data) = v; }
     Variant(glm::dvec3 v) : tag(VariantType::Vec3) { *((glm::dvec3 *)data) = v; }
     Variant(glm::dquat q) : tag(VariantType::Quat) { *((glm::dquat *)data) = q; }
@@ -112,6 +113,7 @@ struct __attribute__((aligned(16))) Variant
     }
 
     Variant(const Variant& v);
+    Variant(Variant&& v) noexcept;
 
     ~Variant();
 

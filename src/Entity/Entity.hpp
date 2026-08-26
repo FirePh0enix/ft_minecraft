@@ -151,17 +151,19 @@ public:
     /**
      * Called when saving the entity to disk.
      */
-    virtual void save(EntitySerializer& ser) const
+    virtual Result<void> save(EntitySerializer& ser) const
     {
         (void)ser;
+        return Result<void>();
     }
 
     /**
      * Called when loading the entity from the disk.
      */
-    virtual void load(const EntitySerializer& deser)
+    virtual Result<void> load(const EntitySerializer& deser)
     {
         (void)deser;
+        return Result<void>();
     }
 
     const Transform3D& get_transform() const { return m_transform; }

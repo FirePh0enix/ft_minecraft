@@ -160,6 +160,21 @@ bool Mob::verify_if_path_still_valid()
     const size_t path_size = full_path.size();
 
     glm::ivec3 grid_pos = glm::ivec3(glm::round(m_path.value().look_points[m_path_index]));
+    /*
+    FIXME: reported by valgrind
+    ==71250== Invalid read of size 4
+    ==71250==    at 0x492B22: round (cmath:2695)
+    ==71250==    by 0x492B22: call (_vectorize.hpp:32)
+    ==71250==    by 0x492B22: call (func_common.inl:237)
+    ==71250==    by 0x492B22: round<3, float, (glm::qualifier)0> (func_common.inl:413)
+    ==71250==    by 0x492B22: Mob::verify_if_path_still_valid() (Mob.cpp:162)
+    ==71250==    by 0x495EB5: Zombie::tick(float) (Zombie.cpp:93)
+    ==71250==    by 0x507681: World::tick_dimension(float, int) (World.cpp:216)
+    ==71250==    by 0x509764: World::tick(float) (World.cpp:203)
+    ==71250==    by 0x444A0B: Engine::tick(float) (Engine.cpp:178)
+    ==71250==    by 0x411774: main (main.cpp:50)
+    */
+
     size_t start_index = path_size;
 
     // Find which node is actually targeting, since it's unnecessary to check nodes that has been already reached.

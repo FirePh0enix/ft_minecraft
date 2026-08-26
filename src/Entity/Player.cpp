@@ -677,7 +677,7 @@ void Player::process_event(Event& event)
         m_chat->process_everyting(event);
 }
 
-void Player::save(EntitySerializer& ser) const
+Result<void> Player::save(EntitySerializer& ser) const
 {
     int64_t gamemode = (int64_t)m_gamemode;
     ser.set("gamemode", gamemode);
@@ -695,9 +695,11 @@ void Player::save(EntitySerializer& ser) const
 
     Variant array = std::span(stacks);
     ser.set("inventory_data", array);
+
+    return Result<void>();
 }
 
-void Player::load(const EntitySerializer& deser)
+Result<void> Player::load(const EntitySerializer& deser)
 {
     int64_t gamemode = (int64_t)deser.get<int64_t>("gamemode").value_or(0);
     if (gamemode != 0 && gamemode != 1)
@@ -706,6 +708,9 @@ void Player::load(const EntitySerializer& deser)
 
     std::vector<ItemStack> stacks = deser.get_array<ItemStack>("inventory_data").value();
 
+    if (stacks.size() != 27 + 9)
+        return Error(ErrorKind::ReadFailure);
+
     InventoryContainer::Layer& layer = m_inventory_container->get_layer(0);
     for (size_t i = 0; i < 27; i++)
         layer.stacks[i] = stacks[i];
@@ -713,6 +718,8 @@ void Player::load(const EntitySerializer& deser)
     InventoryContainer::Layer& toolbar_layer = m_inventory_container->get_layer(1);
     for (size_t i = 0; i < 9; i++)
         toolbar_layer.stacks[i] = stacks[i + 27];
+
+    return Result<void>();
 }
 
 void Player::die()

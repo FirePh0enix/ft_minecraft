@@ -53,7 +53,8 @@ Result<std::optional<Variant>> Reader::read_variant()
         if (size != aligned_size)
             TRY(read_raw(buf, aligned_size - size));
 
-        return std::make_optional(Variant(s));
+        Variant variant(s);
+        return std::make_optional(variant);
     }
     else if (type == VariantType::Vec2)
     {
@@ -210,14 +211,11 @@ Result<void> Writer::write_variant(const Variant& variant)
     else if (variant.has(VariantType::ItemStack))
     {
         ItemStack stack = variant.get_unchecked<ItemStack>();
+        uint32_t id = stack.item().hash;
         uint32_t size = stack.count();
-        const char *block_id = stack.item().str;
 
+        TRY(write_raw(&id, sizeof(uint32_t)));
         TRY(write_raw(&size, sizeof(uint32_t)));
-
-        uint32_t name_length = strlen(block_id);
-        TRY(write_raw(&name_length, sizeof(uint32_t)));
-        TRY(write_raw(block_id, name_length));
 
         Variant variant(stack.get_tags());
         TRY(write_variant(variant));

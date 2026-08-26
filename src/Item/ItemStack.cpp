@@ -1,5 +1,7 @@
 #include "Item/ItemStack.hpp"
 
+#include "Variant.hpp"
+
 std::optional<ItemStack> ItemStack::merge(const ItemStack& stack)
 {
     if (m_item != stack.m_item || m_count >= itemstack_max_size)
@@ -30,4 +32,9 @@ void ItemStack::sub(size_t count)
     {
         m_count -= count;
     }
+}
+
+void ItemStack::set_tag(const std::string& name, Variant variant)
+{
+    m_tags[name] = variant;
 }

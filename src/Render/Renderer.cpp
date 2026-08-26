@@ -1728,10 +1728,6 @@ void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::sha
 
     world->dd().draw(color_pass_info);
 
-    // Don't draw the portal inside the portal view otherwise it will create problems.
-    // if (!inside_portal)
-    //     draw(color_pass_info, m_quad_mesh, m_portal_mat, m_portal_bg, nullptr, 1, 0x2);
-
     wgpuRenderPassEncoderEnd(color_pass);
     wgpuRenderPassEncoderRelease(color_pass);
 }
@@ -1769,11 +1765,14 @@ void Renderer::draw_world(const std::shared_ptr<World>& world, const RenderPass&
         return;
 
     std::shared_ptr<Material> mat = flags.has_any(WorldFlagBits::Shadowmap) ? m_fw_chunk_shadowmap_mat : (flags.has_any(WorldFlagBits::Water) ? m_fw_water_mat : m_fw_chunk_mat);
+
     wgpuRenderPassEncoderSetPipeline(encoder, mat->get_pipeline(pass));
     wgpuRenderPassEncoderSetStencilReference(encoder, stencil);
 
     for (const auto& r : chunks)
     {
+        ZoneScopedN("record chunk");
+
         const Chunk::Slice& slice = r.chunk->get_slices()[r.slice_index];
         std::shared_ptr<BindGroup> bg = flags.has_any(WorldFlagBits::Shadowmap) ? slice.mesh_shadowmap_bg : (flags.has_any(WorldFlagBits::Water) ? slice.water_bg : slice.mesh_bg);
 
@@ -1783,23 +1782,32 @@ void Renderer::draw_world(const std::shared_ptr<World>& world, const RenderPass&
         if (!flags.has_any(WorldFlagBits::Water) && slice.mesh == nullptr)
             continue;
 
-        // TODO: Only update one piece of the buffer.
-        r.chunk->update_instance_buffer(camera->get_global_transform().position());
+        {
+            ZoneScopedN("instance buffer");
+            r.chunk->update_instance_buffer(camera->get_global_transform().position(), r.slice_index);
+        }
 
-        wgpuRenderPassEncoderSetBindGroup(encoder, 0, bg->get_bind_group(), 0, nullptr);
+        {
+            ZoneScopedN("bindgroup");
+            wgpuRenderPassEncoderSetBindGroup(encoder, 0, bg->get_bind_group(), 0, nullptr);
+        }
 
-        const std::shared_ptr<Mesh>& mesh = flags.has_any(WorldFlagBits::Water) ? slice.water_mesh : slice.mesh;
-        wgpuRenderPassEncoderSetIndexBuffer(encoder, mesh->get_buffer(Mesh::BufferKind::Index)->handle(), mesh->index_type(), 0, mesh->get_buffer(Mesh::BufferKind::Index)->size());
-        wgpuRenderPassEncoderSetVertexBuffer(encoder, 0, mesh->get_buffer(Mesh::BufferKind::Position)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Position)->size());
+        {
+            ZoneScopedN("buffers");
 
-        size_t buffer_index = 1;
-        if (!mat->flags().has_any(MaterialFlagBits::NoNormal))
-            wgpuRenderPassEncoderSetVertexBuffer(encoder, buffer_index++, mesh->get_buffer(Mesh::BufferKind::Normal)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Normal)->size());
-        if (!mat->flags().has_any(MaterialFlagBits::NoUV))
-            wgpuRenderPassEncoderSetVertexBuffer(encoder, buffer_index++, mesh->get_buffer(Mesh::BufferKind::UV)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::UV)->size());
+            const std::shared_ptr<Mesh>& mesh = flags.has_any(WorldFlagBits::Water) ? slice.water_mesh : slice.mesh;
+            wgpuRenderPassEncoderSetIndexBuffer(encoder, mesh->get_buffer(Mesh::BufferKind::Index)->handle(), mesh->index_type(), 0, mesh->get_buffer(Mesh::BufferKind::Index)->size());
+            wgpuRenderPassEncoderSetVertexBuffer(encoder, 0, mesh->get_buffer(Mesh::BufferKind::Position)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Position)->size());
 
-        wgpuRenderPassEncoderSetVertexBuffer(encoder, buffer_index++, r.chunk->get_instance_buffer()->handle(), 0, r.chunk->get_instance_buffer()->size());
-        wgpuRenderPassEncoderDrawIndexed(encoder, mesh->vertex_count(), 1, 0, 0, r.slice_index);
+            size_t buffer_index = 1;
+            if (!mat->flags().has_any(MaterialFlagBits::NoNormal))
+                wgpuRenderPassEncoderSetVertexBuffer(encoder, buffer_index++, mesh->get_buffer(Mesh::BufferKind::Normal)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Normal)->size());
+            if (!mat->flags().has_any(MaterialFlagBits::NoUV))
+                wgpuRenderPassEncoderSetVertexBuffer(encoder, buffer_index++, mesh->get_buffer(Mesh::BufferKind::UV)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::UV)->size());
+
+            wgpuRenderPassEncoderSetVertexBuffer(encoder, buffer_index++, r.chunk->get_instance_buffer()->handle(), 0, r.chunk->get_instance_buffer()->size());
+            wgpuRenderPassEncoderDrawIndexed(encoder, mesh->vertex_count(), 1, 0, 0, r.slice_index);
+        }
     }
 
     for (const auto& r : chunks)
