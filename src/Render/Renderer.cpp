@@ -1528,10 +1528,10 @@ void Renderer::draw_forward(const std::shared_ptr<World>& world)
     WGPUCommandEncoder encoder = wgpuDeviceCreateCommandEncoder(m_device, nullptr);
 
     const int current_dim = world->get_player()->get_dimension();
-    const int portal_dim = (current_dim + 1) % 2;
+    // const int portal_dim = (current_dim + 1) % 2;
 
     draw_dimension_forward(encoder, world, current_dim, false);
-    draw_dimension_forward(encoder, world, portal_dim, true);
+    // draw_dimension_forward(encoder, world, portal_dim, true);
 
     WGPURenderPassColorAttachment output_color_attach = WGPU_RENDER_PASS_COLOR_ATTACHMENT_INIT;
     output_color_attach.clearValue = WGPUColor(0.0, 0.0, 0.0, 0.0);

@@ -124,7 +124,7 @@ Result<void> Font::init_library()
         glm::vec2(0.0, 1.0),
     };
 
-    g_mesh = std::shared_ptr<Mesh>(TRY(Mesh::create_from_data(std::as_bytes(std::span(indices)), vertices, normals, std::as_bytes(std::span(uvs)), WGPUIndexFormat_Uint16)));
+    g_mesh = TRY(Mesh::create_from_data(std::as_bytes(std::span(indices)), vertices, normals, std::as_bytes(std::span(uvs)), WGPUIndexFormat_Uint16));
     return Result<void>();
 }
 

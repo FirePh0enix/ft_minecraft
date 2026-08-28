@@ -42,7 +42,7 @@ void GenScheduler::terrain_pass(ChunkPos middle)
 
     for (const auto& [pos, chunk] : m_dimension.m_preloaded_chunks)
     {
-        if (std::abs(pos.x - middle.x) > m_chunk_distance + m_gen_distance || std::abs(pos.z - middle.z) > m_chunk_distance + m_gen_distance)
+        if (std::abs(pos.x - middle.x) > (m_chunk_distance + m_gen_distance + 1) || std::abs(pos.z - middle.z) > (m_chunk_distance + m_gen_distance + 1))
             m_pregen_unload_queue.push_back(pos);
     }
     for (const ChunkPos& pos : m_pregen_unload_queue)

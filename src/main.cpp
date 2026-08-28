@@ -48,8 +48,9 @@ int main(int argc, char *argv[])
             last_update_time = Engine::get().time();
 
             engine.tick(float(fixed_update_time));
-            engine.draw(float(fixed_update_time));
             Input::post_events();
+
+            engine.draw(float(fixed_update_time));
         }
     }
 
