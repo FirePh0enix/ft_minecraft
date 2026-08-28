@@ -60,8 +60,8 @@ public:
 
     struct Slice
     {
-        std::shared_ptr<Mesh> mesh = nullptr;
-        std::shared_ptr<Mesh> water_mesh = nullptr;
+        std::shared_ptr<Mesh> mesh;
+        std::shared_ptr<Mesh> water_mesh;
 
         std::shared_ptr<BindGroup> mesh_bg;
         std::shared_ptr<BindGroup> mesh_shadowmap_bg;
@@ -99,8 +99,8 @@ public:
 
     ALWAYS_INLINE std::shared_ptr<Buffer> get_instance_buffer() const { return m_uniform_buffer; }
 
-    Result<std::shared_ptr<Mesh>> build_simple_mesh(size_t slice, const std::map<ChunkPos, Chunk *>& chunks);
-    Result<std::shared_ptr<Mesh>> build_water_mesh(size_t slice, const std::map<ChunkPos, Chunk *>& chunks);
+    Result<std::shared_ptr<Mesh>> build_simple_mesh(size_t slice, const std::map<ChunkPos, std::shared_ptr<Chunk>>& chunks);
+    Result<std::shared_ptr<Mesh>> build_water_mesh(size_t slice, const std::map<ChunkPos, std::shared_ptr<Chunk>>& chunks);
 
     bool is_modified() const { return m_modified; }
     void clear_modified() { m_modified = false; }

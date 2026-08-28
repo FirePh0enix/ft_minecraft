@@ -884,7 +884,7 @@ static Result<std::shared_ptr<Mesh>> create_cube_mesh(glm::vec3 size = glm::vec3
         glm::vec3(0.0, -1.0, 0.0),
     };
 
-    return Mesh::create_from_data(std::as_bytes(std::span(indices)), vertices, normals, std::as_bytes(std::span(uvs)), WGPUIndexFormat_Uint16);
+    return std::shared_ptr<Mesh>(TRY(Mesh::create_from_data(std::as_bytes(std::span(indices)), vertices, normals, std::as_bytes(std::span(uvs)), WGPUIndexFormat_Uint16)));
 }
 
 static Result<std::shared_ptr<Mesh>> create_wireframe_cube_mesh(glm::vec3 size = glm::vec3(1.0), glm::vec3 offset = glm::vec3())
@@ -934,7 +934,7 @@ static Result<std::shared_ptr<Mesh>> create_wireframe_cube_mesh(glm::vec3 size =
         glm::vec3(-hs.x + offset.x, -hs.y + offset.y, hs.z + offset.z),
     };
 
-    return Mesh::create_from_data(std::as_bytes(std::span(indices)), vertices, std::span<glm::vec3>(), std::span<std::byte>(), WGPUIndexFormat_Uint16);
+    return std::shared_ptr<Mesh>(TRY(Mesh::create_from_data(std::as_bytes(std::span(indices)), vertices, std::span<glm::vec3>(), std::span<std::byte>(), WGPUIndexFormat_Uint16)));
 }
 
 #define SHADOWMAP_RESOLUTION 2048
@@ -1227,7 +1227,7 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
         glm::vec2(1.0, 1.0),
         glm::vec2(0.0, 1.0),
     };
-    m_square_mesh = TRY(Mesh::create_from_data(std::as_bytes(std::span(indices)), vertices, {}, std::as_bytes(std::span(uvs)), WGPUIndexFormat_Uint16));
+    m_square_mesh = std::shared_ptr<Mesh>(TRY(Mesh::create_from_data(std::as_bytes(std::span(indices)), vertices, {}, std::as_bytes(std::span(uvs)), WGPUIndexFormat_Uint16)));
 
     std::array<uint16_t, 6> quad_indices{0, 1, 2, 0, 2, 3};
     std::array<glm::vec3, 4> quad_vertices{
@@ -1248,7 +1248,7 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
         glm::vec2(1.0, 1.0),
         glm::vec2(0.0, 1.0),
     };
-    m_quad_mesh = TRY(Mesh::create_from_data(std::as_bytes(std::span(quad_indices)), quad_vertices, quad_normals, std::as_bytes(std::span(quad_uvs)), WGPUIndexFormat_Uint16));
+    m_quad_mesh = std::shared_ptr<Mesh>(TRY(Mesh::create_from_data(std::as_bytes(std::span(quad_indices)), quad_vertices, quad_normals, std::as_bytes(std::span(quad_uvs)), WGPUIndexFormat_Uint16)));
 
     m_fw_pp_bg = BindGroup::create(m_fw_pp_shader);
     m_fw_pp_bg->set_param("uniforms", m_fw_pp_buffer);

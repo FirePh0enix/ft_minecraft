@@ -18,7 +18,7 @@ void UnderworldGen::preload(int64_t cx, int64_t cz, std::shared_ptr<PreLoadedChu
         chunk->biomes[i] = Biome::Underworld;
 }
 
-void UnderworldGen::generate_chunk(Chunk *chunk, std::shared_ptr<PreLoadedChunk> preloaded_chunk, Dimension& dim)
+void UnderworldGen::generate_chunk(std::shared_ptr<Chunk> chunk, std::shared_ptr<PreLoadedChunk> preloaded_chunk, Dimension& dim)
 {
     (void)chunk;
     (void)preloaded_chunk;

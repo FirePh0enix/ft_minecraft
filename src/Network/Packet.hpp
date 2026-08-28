@@ -341,6 +341,7 @@ struct RequestChunkPacket
 {
     int64_t x;
     int64_t z;
+    int dimension;
 
     static constexpr PacketType type = PacketType::RequestChunk;
 };

@@ -7,8 +7,8 @@
 #include "World/Chunk.hpp"
 #include "World/Gen.hpp"
 
-// #include "daking/MPSC_queue.hpp"
-#include "MPSCQueue.hpp"
+#include "daking/MPSC_queue.hpp"
+// #include "MPSCQueue.hpp"
 
 #include <mutex>
 #include <set>
@@ -18,7 +18,7 @@ class Dimension;
 
 struct RenderableChunk
 {
-    Chunk *chunk;
+    std::shared_ptr<Chunk> chunk;
     size_t slice_index;
 };
 
@@ -33,18 +33,13 @@ struct ChunkLoadWithDistance
 struct PreLoadedChunk
 {
     ChunkPos pos;
-    Biome *biomes;
-    int64_t *heights;
+    std::vector<Biome> biomes;
+    std::vector<int64_t> heights;
 
     PreLoadedChunk()
-        : biomes(new Biome[16 * 16](Biome::Plain)), heights(new int64_t[16 * 16](0))
     {
-    }
-
-    ~PreLoadedChunk()
-    {
-        delete[] biomes;
-        delete[] heights;
+        biomes.resize(16 * 16);
+        heights.resize(16 * 16);
     }
 };
 
@@ -86,14 +81,14 @@ private:
     int64_t m_chunk_distance = 16;
     int64_t m_gen_distance = 15;
 
-    std::mutex m_pregen_queue_mutex;
-    std::atomic_size_t m_pregen_count = 0;
-    std::set<ChunkPos> m_pregen_queue;
+    // std::mutex m_pregen_queue_mutex;
+    // std::atomic_size_t m_pregen_count = 0;
+    // std::set<ChunkPos> m_pregen_queue;
 
     std::vector<ChunkPos> m_pregen_unload_queue;
 
-    void terrain_and_struct_chunk(ChunkPos pos);
-    void realize_chunk(ChunkPos pos, std::shared_ptr<PreLoadedChunk> pregen_chunk);
+    void terrain_and_struct_chunk(ChunkPos pos, std::shared_ptr<PreLoadedChunk> chunk);
+    void realize_chunk(ChunkPos pos, std::shared_ptr<Chunk> chunk, std::shared_ptr<PreLoadedChunk> pregen_chunk);
 };
 
 class Dimension
@@ -105,7 +100,7 @@ class Dimension
 public:
     Dimension(int id);
 
-    std::optional<Chunk *> get_chunk(int64_t x, int64_t z) const;
+    std::optional<std::shared_ptr<Chunk>> get_chunk(int64_t x, int64_t z) const;
 
     bool has_chunk(int64_t x, int64_t z) const;
     bool has_pregen_chunk(int64_t x, int64_t z) const;
@@ -115,7 +110,7 @@ public:
     void remove_entity(std::shared_ptr<Entity> entity);
     void remove_entity(EntityId id);
 
-    const std::map<ChunkPos, Chunk *>& get_chunks() const { return m_chunks; }
+    const std::map<ChunkPos, std::shared_ptr<Chunk>>& get_chunks() const { return m_chunks; }
     std::span<const RenderableChunk> get_visible_chunks() const { return m_visible_chunks; }
     std::span<const RenderableChunk> get_sun_visible_chunks() const { return m_sun_visible_chunks; }
 
@@ -139,13 +134,13 @@ public:
 
     bool has_solid_block(int64_t x, int64_t y, int64_t z) const;
 
-    void rebuild(Chunk *chunk, const std::map<ChunkPos, Chunk *>& nchunks, size_t slice_index, size_t slice_count);
+    void rebuild(std::shared_ptr<Chunk> chunk, const std::map<ChunkPos, std::shared_ptr<Chunk>>& nchunks, size_t slice_index, size_t slice_count);
     void queue_rebuild(ChunkPos pos, size_t slice_index = 0, size_t slice_count = Chunk::slice_count);
 
     void remove_preload(ChunkPos pos);
 
-    void unload_chunk(Chunk *chunk);
-    void queue_unload_chunk(Chunk *chunk);
+    void unload_chunk(std::shared_ptr<Chunk> chunk);
+    void queue_unload_chunk(std::shared_ptr<Chunk> chunk);
 
     void place_structure(glm::i64vec3 pos, BlockState *blocks, int64_t w, int64_t h, int64_t l);
     void get_structures_overlap(ChunkPos pos, std::vector<StructureGen>& structures);
@@ -154,19 +149,17 @@ private:
     World *m_world = nullptr;
     int m_id;
 
-    Chunk *m_chunk_pool;
-    std::atomic_bool *m_chunk_pool_state;
-
     std::map<ChunkPos, std::shared_ptr<PreLoadedChunk>> m_preloaded_chunks;
-    std::map<ChunkPos, Chunk *> m_chunks;
+    std::map<ChunkPos, std::shared_ptr<Chunk>> m_chunks;
 
     std::vector<RenderableChunk> m_visible_chunks;
 
-    MPSCQueue<Chunk *> m_chunks_lockless;
-    MPSCQueue<std::shared_ptr<PreLoadedChunk>> m_pregen_chunks_lockless;
-    MPSCQueue<MeshRebuildResult> m_mesh_queue_lockless;
-    MPSCQueue<Chunk *> m_chunks_unload_queue;
+    daking::MPSC_queue<std::shared_ptr<PreLoadedChunk>> m_pregen_chunks_lockless;
+    daking::MPSC_queue<std::shared_ptr<Chunk>> m_chunks_lockless;
+    daking::MPSC_queue<MeshRebuildResult> m_mesh_queue_lockless;
+    daking::MPSC_queue<std::shared_ptr<Chunk>> m_chunks_unload_queue;
 
+    std::atomic_size_t m_pregen_queue_count;
     std::set<ChunkPos> m_pregen_loading_queue;
     std::set<ChunkPos> m_chunks_loading_queue;
 
@@ -190,9 +183,6 @@ private:
     std::mutex m_structures_mutex;
     std::vector<StructureGen> m_structures_queue;
 
-    std::optional<Chunk *> alloc_chunk(int64_t x, int64_t z);
-    void free_chunk(Chunk *chunk);
-
-    static void write_tags(Writer& writer, const Chunk *chunk);
-    static void read_tags(Reader& reader, Chunk *chunk);
+    static void write_tags(Writer& writer, std::shared_ptr<Chunk> chunk);
+    static void read_tags(Reader& reader, std::shared_ptr<Chunk> chunk);
 };

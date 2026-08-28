@@ -21,41 +21,34 @@ void GenScheduler::terrain_pass(ChunkPos middle)
         {
             const ChunkPos pos(x + middle.x, z + middle.z);
 
-            if (m_dimension.has_pregen_chunk(x + middle.x, z + middle.z))
+            if (m_dimension.has_pregen_chunk(x + middle.x, z + middle.z) || m_dimension.m_pregen_loading_queue.contains(pos))
                 continue;
-
-            {
-                std::lock_guard<std::mutex> lock(m_pregen_queue_mutex);
-                if (m_pregen_queue.contains(pos))
-                    continue;
-                m_pregen_queue.insert(pos);
-            }
 
             chunks.insert(pos);
         }
 
     if (chunks.size() > 0)
     {
-        m_pregen_count.fetch_add(chunks.size());
+        m_dimension.m_pregen_queue_count.fetch_add(chunks.size());
 
         for (const ChunkPos& pos : chunks)
         {
-            Engine::get().get_thread_pool().async([this, pos]()
-                                                  { terrain_and_struct_chunk(pos); });
+            m_dimension.m_pregen_loading_queue.insert(pos);
+            std::shared_ptr<PreLoadedChunk> chunk = std::make_shared<PreLoadedChunk>();
+            Engine::get().get_thread_pool().async([this, pos, chunk]()
+                                                  { terrain_and_struct_chunk(pos, chunk); });
         }
     }
 
-    // println("{}", m_pregen_count.load());
-
-    // std::lock_guard<std::mutex> lock(m_dimension.m_preload_mutex);
-    for (auto iter : m_dimension.m_preloaded_chunks)
+    for (const auto& [pos, chunk] : m_dimension.m_preloaded_chunks)
     {
-        const ChunkPos pos = iter.first;
         if (std::abs(pos.x - middle.x) > m_chunk_distance + m_gen_distance || std::abs(pos.z - middle.z) > m_chunk_distance + m_gen_distance)
             m_pregen_unload_queue.push_back(pos);
     }
     for (const ChunkPos& pos : m_pregen_unload_queue)
     {
+        if (!m_dimension.m_preloaded_chunks.contains(pos))
+            continue;
         m_dimension.m_preloaded_chunks.erase(pos);
     }
 }
@@ -79,7 +72,7 @@ void GenScheduler::terrain_pass(ChunkPos middle)
 
 void GenScheduler::chunk_pass(ChunkPos middle)
 {
-    if (m_pregen_count.load() > 0)
+    if (m_dimension.m_pregen_queue_count.load() > 0)
     {
         return;
     }
@@ -94,32 +87,38 @@ void GenScheduler::chunk_pass(ChunkPos middle)
 
             m_dimension.m_chunks_loading_queue.insert(pos);
 
+            std::shared_ptr<Chunk> chunk = std::make_shared<Chunk>(&m_dimension, pos.x, pos.z);
             std::shared_ptr<PreLoadedChunk> preload_chunk = m_dimension.m_preloaded_chunks[pos];
-            Engine::get().get_thread_pool().async([this, pos, preload_chunk]()
-                                                  { realize_chunk(pos, preload_chunk); });
+            Engine::get().get_thread_pool().async([this, pos, chunk, preload_chunk]()
+                                                  { realize_chunk(pos, chunk, preload_chunk); });
         }
 
+    std::vector<std::shared_ptr<Chunk>> chunks;
     for (const auto& [pos, chunk] : m_dimension.m_chunks)
     {
         if (std::abs(middle.x - pos.x) > m_chunk_distance || std::abs(middle.z - pos.z) > m_chunk_distance)
-            m_dimension.queue_unload_chunk(chunk);
+            chunks.push_back(chunk);
+    }
+    for (std::shared_ptr<Chunk> chunk : chunks)
+    {
+        m_dimension.m_chunks.erase(chunk->pos());
+        m_dimension.queue_unload_chunk(chunk);
     }
 }
 
-void GenScheduler::terrain_and_struct_chunk(ChunkPos pos)
+void GenScheduler::terrain_and_struct_chunk(ChunkPos pos, std::shared_ptr<PreLoadedChunk> chunk)
 {
-    std::shared_ptr<PreLoadedChunk> chunk = std::make_shared<PreLoadedChunk>();
     chunk->pos = pos;
     m_dimension.m_gen->preload(pos.x, pos.z, chunk);
     m_dimension.m_gen->structure_pass(pos.x, pos.z, chunk, m_dimension);
 
-    m_dimension.m_pregen_chunks_lockless.push_wait(chunk);
+    m_dimension.m_pregen_chunks_lockless.enqueue(chunk);
 }
 
-void GenScheduler::realize_chunk(ChunkPos pos, std::shared_ptr<PreLoadedChunk> pregen_chunk)
+void GenScheduler::realize_chunk(ChunkPos pos, std::shared_ptr<Chunk> chunk, std::shared_ptr<PreLoadedChunk> pregen_chunk)
 {
     std::string path = std::format("{}saves/{}/DIM0/{}${}/blocks.dat", Filesystem::get_data_directory(), m_dimension.m_world->get_name(), pos.x, pos.z);
-    Chunk *chunk = m_dimension.alloc_chunk(pos.x, pos.z).value();
+    // std::shared_ptr<Chunk> chunk = std::make_shared<Chunk>(&m_dimension, pos.x, pos.z); // m_dimension.m_chunk_pool.alloc(&m_dimension, pos.x, pos.z).value();
 
     if (!Engine::get().is_save_disabled() && Filesystem::exists(path))
     {
@@ -163,17 +162,15 @@ void GenScheduler::realize_chunk(ChunkPos pos, std::shared_ptr<PreLoadedChunk> p
         EXPECT(m_dimension.m_world->save_chunk(chunk, m_dimension.m_id));
     }
 
-    m_dimension.m_chunks_lockless.push_wait(chunk);
+    m_dimension.m_chunks_lockless.enqueue(chunk);
 }
 
 Dimension::Dimension(int id)
     : m_id(id), m_scheduler(*this)
 {
-    m_chunk_pool = new Chunk[4096]();
-    m_chunk_pool_state = new std::atomic_bool[4096]();
 }
 
-std::optional<Chunk *> Dimension::get_chunk(int64_t x, int64_t z) const
+std::optional<std::shared_ptr<Chunk>> Dimension::get_chunk(int64_t x, int64_t z) const
 {
     auto iter = m_chunks.find(ChunkPos(x, z));
     if (iter != m_chunks.end())
@@ -283,7 +280,7 @@ BlockState Dimension::get_block(int64_t x, int64_t y, int64_t z) const
     if (!chunk_maybe)
         return BlockState();
 
-    Chunk *chunk = chunk_maybe.value();
+    auto chunk = chunk_maybe.value();
     int64_t local_x = local_coords(x);
     int64_t local_z = local_coords(z);
 
@@ -298,14 +295,14 @@ void Dimension::set_block(int64_t x, int64_t y, int64_t z, BlockState state)
     int64_t chunk_x = chunk_index(x);
     int64_t chunk_z = chunk_index(z);
 
-    std::optional<Chunk *> chunk_value = get_chunk(chunk_x, chunk_z);
+    auto chunk_value = get_chunk(chunk_x, chunk_z);
 
     if (!chunk_value.has_value())
     {
         return;
     }
 
-    Chunk *chunk = chunk_value.value();
+    auto chunk = chunk_value.value();
     int64_t local_x = local_coords(x);
     int64_t local_z = local_coords(z);
 
@@ -320,14 +317,14 @@ void Dimension::set_tag(glm::i64vec3 pos, std::string_view name, std::string v)
     int64_t chunk_x = chunk_index(pos.x);
     int64_t chunk_z = chunk_index(pos.z);
 
-    std::optional<Chunk *> chunk_value = get_chunk(chunk_x, chunk_z);
+    auto chunk_value = get_chunk(chunk_x, chunk_z);
 
     if (!chunk_value.has_value())
     {
         return;
     }
 
-    Chunk *chunk = chunk_value.value();
+    auto chunk = chunk_value.value();
     int64_t local_x = local_coords(pos.x);
     int64_t local_z = local_coords(pos.z);
 
@@ -342,14 +339,14 @@ void Dimension::remove_tag(glm::i64vec3 pos, std::string_view name)
     int64_t chunk_x = chunk_index(pos.x);
     int64_t chunk_z = chunk_index(pos.z);
 
-    std::optional<Chunk *> chunk_value = get_chunk(chunk_x, chunk_z);
+    auto chunk_value = get_chunk(chunk_x, chunk_z);
 
     if (!chunk_value.has_value())
     {
         return;
     }
 
-    Chunk *chunk = chunk_value.value();
+    auto chunk = chunk_value.value();
     int64_t local_x = local_coords(pos.x);
     int64_t local_z = local_coords(pos.z);
 
@@ -364,12 +361,12 @@ std::optional<Variant> Dimension::get_tag(glm::i64vec3 pos, std::string_view nam
     int64_t chunk_x = chunk_index(pos.x);
     int64_t chunk_z = chunk_index(pos.z);
 
-    std::optional<Chunk *> chunk_value = get_chunk(chunk_x, chunk_z);
+    auto chunk_value = get_chunk(chunk_x, chunk_z);
 
     if (!chunk_value.has_value())
         return std::nullopt;
 
-    Chunk *chunk = chunk_value.value();
+    auto chunk = chunk_value.value();
     int64_t local_x = local_coords(pos.x);
     int64_t local_z = local_coords(pos.z);
 
@@ -387,23 +384,34 @@ bool Dimension::has_solid_block(int64_t x, int64_t y, int64_t z) const
     return block->is_solid();
 }
 
-void Dimension::rebuild(Chunk *chunk, const std::map<ChunkPos, Chunk *>& nchunks, size_t slice_index, size_t slice_count)
+void Dimension::rebuild(std::shared_ptr<Chunk> chunk, const std::map<ChunkPos, std::shared_ptr<Chunk>>& nchunks, size_t slice_index, size_t slice_count)
 {
     MeshRebuildResult results[16];
 
-    for (size_t i = slice_index; i < slice_count; i++)
+    for (size_t i = slice_index; i < slice_index + slice_count; i++)
     {
         results[i].pos = chunk->pos();
         results[i].slice_index = i;
         results[i].mesh = EXPECT(chunk->build_simple_mesh(i, nchunks));
         results[i].water_mesh = EXPECT(chunk->build_water_mesh(i, nchunks));
+
+        Result<std::shared_ptr<Mesh>> mesh = chunk->build_simple_mesh(i, nchunks);
+        if (mesh.has_error())
+            return;
+        Result<std::shared_ptr<Mesh>> water_mesh = chunk->build_water_mesh(i, nchunks);
+        if (water_mesh.has_error())
+            return;
+
+        results[i].mesh = mesh.value();
+        results[i].water_mesh = water_mesh.value();
     }
 
-    for (size_t i = slice_index; i < slice_count; i++)
-    {
-        while (!m_mesh_queue_lockless.push(results[i]))
-            ;
-    }
+    m_mesh_queue_lockless.enqueue_bulk(std::begin(results) + slice_index, slice_count);
+    // for (size_t i = slice_index; i < slice_count; i++)
+    // {
+    //     while (!m_mesh_queue_lockless.push(results[i]))
+    //         ;
+    // }
 }
 
 void Dimension::queue_rebuild(ChunkPos pos, size_t slice_index, size_t slice_count)
@@ -419,8 +427,8 @@ void Dimension::queue_rebuild(ChunkPos pos, size_t slice_index, size_t slice_cou
         m_chunk_rebuild_queue.insert(pos);
     }
 
-    Chunk *chunk = m_chunks[pos];
-    std::map<ChunkPos, Chunk *> nchunks;
+    auto chunk = m_chunks[pos];
+    std::map<ChunkPos, std::shared_ptr<Chunk>> nchunks;
 
     const std::array<ChunkPos, 4> positions{
         ChunkPos(pos.x + 1, pos.z),
@@ -430,7 +438,7 @@ void Dimension::queue_rebuild(ChunkPos pos, size_t slice_index, size_t slice_cou
     };
     for (ChunkPos p : positions)
     {
-        std::optional<Chunk *> chunk_opt = get_chunk(p.x, p.z);
+        auto chunk_opt = get_chunk(p.x, p.z);
         if (!chunk_opt.has_value())
         {
             continue;
@@ -450,7 +458,7 @@ void Dimension::remove_preload(ChunkPos pos)
     m_preloaded_chunks.erase(pos);
 }
 
-void Dimension::unload_chunk(Chunk *chunk)
+void Dimension::unload_chunk(std::shared_ptr<Chunk> chunk)
 {
     if (!Engine::get().is_save_disabled())
     {
@@ -458,10 +466,11 @@ void Dimension::unload_chunk(Chunk *chunk)
         (void)result;
     }
 
-    m_chunks_unload_queue.push_wait(chunk);
+    // TODO: only push the ChunkPos.
+    m_chunks_unload_queue.enqueue(chunk);
 }
 
-void Dimension::queue_unload_chunk(Chunk *chunk)
+void Dimension::queue_unload_chunk(std::shared_ptr<Chunk> chunk)
 {
     Engine::get().get_thread_pool().async([this, chunk]
                                           { unload_chunk(chunk); });
@@ -495,28 +504,7 @@ void Dimension::get_structures_overlap(ChunkPos pos, std::vector<StructureGen>& 
     }
 }
 
-std::optional<Chunk *> Dimension::alloc_chunk(int64_t x, int64_t z)
-{
-    for (size_t i = 0; i < 4096; i++)
-    {
-        bool b = false;
-        if (m_chunk_pool_state[i].compare_exchange_strong(b, true))
-        {
-            new (&m_chunk_pool[i]) Chunk(this, x, z);
-            return std::make_optional(&m_chunk_pool[i]);
-        }
-    }
-    return std::nullopt;
-}
-
-void Dimension::free_chunk(Chunk *chunk)
-{
-    size_t index = chunk - m_chunk_pool;
-    bool b = true;
-    m_chunk_pool_state[index].compare_exchange_strong(b, false);
-}
-
-void Dimension::write_tags(Writer& writer, const Chunk *chunk)
+void Dimension::write_tags(Writer& writer, std::shared_ptr<Chunk> chunk)
 {
     std::map<int64_t, std::map<std::string, Variant>> tags;
     for (const auto& [key, value] : chunk->m_tags)
@@ -529,7 +517,7 @@ void Dimension::write_tags(Writer& writer, const Chunk *chunk)
     EXPECT(writer.write_variant(Variant(tags)));
 }
 
-void Dimension::read_tags(Reader& reader, Chunk *chunk)
+void Dimension::read_tags(Reader& reader, std::shared_ptr<Chunk> chunk)
 {
     std::optional<Variant> variant = EXPECT(reader.read_variant());
     if (variant.has_value())

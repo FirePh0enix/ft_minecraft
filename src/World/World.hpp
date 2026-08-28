@@ -1,8 +1,6 @@
 #pragma once
 
-#include "Core/Types.hpp"
 #include "DebugDisplay.hpp"
-#include "Entity/Camera.hpp"
 #include "Entity/Entity.hpp"
 #include "Network/Packet.hpp"
 #include "Ray.hpp"
@@ -115,8 +113,8 @@ public:
 
     int64_t get_render_distance() const { return m_load_distance; }
 
-    std::optional<Chunk *> get_chunk(int64_t x, int64_t z) const;
-    std::optional<Chunk *> get_chunk(int64_t x, int64_t z);
+    std::optional<std::shared_ptr<Chunk>> get_chunk(int64_t x, int64_t z) const;
+    std::optional<std::shared_ptr<Chunk>> get_chunk(int64_t x, int64_t z);
 
     std::string_view get_name() const { return m_name; }
 
@@ -190,7 +188,7 @@ public:
     void break_block(int dimension, int64_t x, int64_t y, int64_t z);
 
     /// Save chunk to the disk.
-    Result<void> save_chunk(Chunk *chunk, int dimension);
+    Result<void> save_chunk(std::shared_ptr<Chunk> chunk, int dimension);
 
     Result<void> save_entity(const std::shared_ptr<Entity>& entity);
     Result<void> save_player(const std::shared_ptr<Player>& player);
@@ -200,7 +198,7 @@ public:
 
     void queue_receive_chunk(const ChunkDataPacket& p);
 
-    void send_chunk(ENetPeer *peer, const Chunk *chunk) const;
+    void send_chunk(ENetPeer *peer, std::shared_ptr<Chunk> chunk) const;
     void receive_chunk(const ChunkDataPacket& p);
 
     bool is_player_saved(std::string_view name) const;

@@ -12,7 +12,7 @@ static double last_update_time;
 
 int main(int argc, char *argv[])
 {
-#if !defined(__has_address_sanitizer) && !defined(__platform_web)
+#if !defined(__has_address_sanitizer) && !defined(__has_thread_sanitizer) && !defined(__platform_web)
     // NOTE: Address sanitizer mess with our custom error handling.
     initialize_error_handling(Filesystem::current_executable_path().c_str());
 #endif

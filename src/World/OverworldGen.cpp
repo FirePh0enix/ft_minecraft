@@ -161,7 +161,7 @@ void OverworldGen::preload(int64_t cx, int64_t cz, std::shared_ptr<PreLoadedChun
     }
 }
 
-void OverworldGen::generate_chunk(Chunk *chunk, std::shared_ptr<PreLoadedChunk> preloaded_chunk, Dimension& dim)
+void OverworldGen::generate_chunk(std::shared_ptr<Chunk> chunk, std::shared_ptr<PreLoadedChunk> preloaded_chunk, Dimension& dim)
 {
     BlockState *blocks = chunk->get_blocks();
     ChunkPos cpos = chunk->pos();

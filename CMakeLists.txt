@@ -341,6 +341,15 @@ target_link_libraries(${TARGET_NAME} PRIVATE glm::glm-header-only)
 # target_link_libraries(${TARGET_NAME} PRIVATE ${jemalloc_BINARY_DIR})
 # target_link_libraries(${TARGET_NAME} PRIVATE jemalloc)
 
+# MPSC_queue
+FetchContent_Declare(
+    MPSC_queue
+    GIT_REPOSITORY https://github.com/dakingffo/MPSC_queue
+    GIT_TAG 1ae95baf9e3bcf92bb755a9be0a13064ca002b46
+)
+FetchContent_MakeAvailable(MPSC_Queue)
+target_include_directories(${TARGET_NAME} PRIVATE ${mpsc_queue_SOURCE_DIR}/include)
+
 # FreeType
 FetchContent_Declare(
     FreeType

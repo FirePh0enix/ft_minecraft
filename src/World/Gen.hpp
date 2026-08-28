@@ -54,7 +54,7 @@ public:
     void add_structure_pass(std::shared_ptr<StructurePass> pass) { m_structure_passes.push_back(pass); }
 
     virtual void preload(int64_t cx, int64_t cz, std::shared_ptr<PreLoadedChunk> chunk) = 0;
-    virtual void generate_chunk(Chunk *chunk, std::shared_ptr<PreLoadedChunk> preloaded_chunk, Dimension& dim) = 0;
+    virtual void generate_chunk(std::shared_ptr<Chunk> chunk, std::shared_ptr<PreLoadedChunk> preloaded_chunk, Dimension& dim) = 0;
 
     void structure_pass(int64_t cx, int64_t cz, std::shared_ptr<PreLoadedChunk> chunk, Dimension& dim)
     {
@@ -75,7 +75,7 @@ public:
     OverworldGen(WorldSettings settings);
 
     virtual void preload(int64_t cx, int64_t cz, std::shared_ptr<PreLoadedChunk> chunk) override;
-    virtual void generate_chunk(Chunk *chunk, std::shared_ptr<PreLoadedChunk> preloaded_chunk, Dimension& dim) override;
+    virtual void generate_chunk(std::shared_ptr<Chunk> chunk, std::shared_ptr<PreLoadedChunk> preloaded_chunk, Dimension& dim) override;
 
 private:
     tk::spline m_continent_spline;
@@ -88,7 +88,7 @@ public:
     UnderworldGen(WorldSettings settings);
 
     virtual void preload(int64_t cx, int64_t cz, std::shared_ptr<PreLoadedChunk> chunk) override;
-    virtual void generate_chunk(Chunk *chunk, std::shared_ptr<PreLoadedChunk> preloaded_chunk, Dimension& dim) override;
+    virtual void generate_chunk(std::shared_ptr<Chunk> chunk, std::shared_ptr<PreLoadedChunk> preloaded_chunk, Dimension& dim) override;
 
 private:
 };
