@@ -249,43 +249,56 @@ void World::tick_dimension(float delta, int dimension)
     // Flush all new chunks.
     std::set<ChunkPos> chunk_modified;
 
-    std::shared_ptr<PreLoadedChunk> pregen_chunk;
-    while (m_dims[dimension].m_pregen_chunks_lockless.try_dequeue(pregen_chunk))
     {
-        m_dims[dimension].m_preloaded_chunks[pregen_chunk->pos] = pregen_chunk;
-        m_dims[dimension].m_pregen_queue_count.fetch_sub(1);
-        m_dims[dimension].m_pregen_loading_queue.erase(pregen_chunk->pos);
+        ZoneScopedN("Pregren flush");
+        std::shared_ptr<PreLoadedChunk> pregen_chunk;
+        while (m_dims[dimension].m_pregen_chunks_lockless.try_dequeue(pregen_chunk))
+        {
+            m_dims[dimension].m_preloaded_chunks[pregen_chunk->pos] = pregen_chunk;
+            m_dims[dimension].m_pregen_queue_count.fetch_sub(1);
+            m_dims[dimension].m_pregen_loading_queue.erase(pregen_chunk->pos);
+        }
     }
 
-    std::shared_ptr<Chunk> chunk;
-    while (m_dims[dimension].m_chunks_lockless.try_dequeue(chunk))
     {
-        const ChunkPos pos = chunk->pos();
-        m_dims[dimension].m_chunks_loading_queue.erase(pos);
-        if (m_dims[dimension].m_chunks.contains(pos))
-            continue;
-        m_dims[dimension].m_chunks[pos] = chunk;
-        chunk_modified.insert(pos);
-        add_neighbour_chunk(pos, chunk_modified);
+        ZoneScopedN("Chunk flush");
+        std::shared_ptr<Chunk> chunk;
+        while (m_dims[dimension].m_chunks_lockless.try_dequeue(chunk))
+        {
+            const ChunkPos pos = chunk->pos();
+            m_dims[dimension].m_chunks_loading_queue.erase(pos);
+            if (m_dims[dimension].m_chunks.contains(pos))
+                continue;
+            m_dims[dimension].m_chunks[pos] = chunk;
+            chunk_modified.insert(pos);
+            add_neighbour_chunk(pos, chunk_modified);
+        }
     }
 
-    MeshRebuildResult result;
-    while (m_dims[dimension].m_mesh_queue_lockless.try_dequeue(result))
     {
-        // A chunk may have been unloaded while the mesh was generated.
-        if (!m_dims[dimension].m_chunks.contains(result.pos))
-            continue;
-
-        std::shared_ptr<Chunk> chunk = m_dims[dimension].m_chunks[result.pos];
-        chunk->get_slices()[result.slice_index].mesh = result.mesh;
-        chunk->get_slices()[result.slice_index].water_mesh = result.water_mesh;
+        ZoneScopedN("Mesh flush");
+        MeshRebuildResult result;
+        while (m_dims[dimension].m_mesh_queue_lockless.try_dequeue(result))
+        {
+            // A chunk may have been unloaded while the mesh was generated.
+            if (!m_dims[dimension].m_chunks.contains(result.pos))
+                continue;
+            std::shared_ptr<Chunk> chunk = m_dims[dimension].m_chunks[result.pos];
+            chunk->get_slices()[result.slice_index].mesh = result.mesh;
+            chunk->get_slices()[result.slice_index].water_mesh = result.water_mesh;
+            m_dims[dimension].m_chunks_rebuild_queue.erase(result.pos);
+        }
     }
 
-    while (m_dims[dimension].m_chunks_unload_queue.try_dequeue(chunk))
     {
-        const ChunkPos pos = chunk->pos();
-        chunk_modified.insert(pos);
-        add_neighbour_chunk(pos, chunk_modified);
+        ZoneScopedN("Chunk unload");
+        std::shared_ptr<Chunk> chunk;
+        while (m_dims[dimension].m_chunks_unload_queue.try_dequeue(chunk))
+        {
+            const ChunkPos pos = chunk->pos();
+            chunk_modified.insert(pos);
+            add_neighbour_chunk(pos, chunk_modified);
+        }
     }
 
     for (ChunkPos pos : chunk_modified)

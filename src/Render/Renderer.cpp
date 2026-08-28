@@ -146,8 +146,17 @@ Result<std::shared_ptr<Buffer>> Buffer::create(size_t size, WGPUBufferUsage usag
 
 void Buffer::update(std::span<const std::byte> view, size_t offset)
 {
-    std::lock_guard<std::mutex> guard(Renderer::get().get_queue_mutex());
-    wgpuQueueWriteBuffer(Renderer::get().m_queue, m_buffer, static_cast<uint64_t>(offset), view.data(), view.size());
+    void *data = malloc(view.size_bytes());
+    memcpy(data, view.data(), view.size_bytes());
+
+    wgpuBufferAddRef(m_buffer); // Make sure the buffer lives long enough.
+
+    Renderer::BufferWrite write{};
+    write.buffer = m_buffer;
+    write.data = data;
+    write.data_size = view.size_bytes();
+    write.offset = offset;
+    Renderer::get().queue_buffer_write(write);
 }
 
 Texture::~Texture()
@@ -1527,6 +1536,15 @@ void Renderer::draw_forward(const std::shared_ptr<World>& world)
 
     WGPUCommandEncoder encoder = wgpuDeviceCreateCommandEncoder(m_device, nullptr);
 
+    // Flush every write calls.
+    BufferWrite write{};
+    while (m_buffer_writes_queue.try_dequeue(write))
+    {
+        wgpuQueueWriteBuffer(m_queue, write.buffer, write.offset, write.data, write.data_size);
+        wgpuBufferRelease(write.buffer);
+        free(write.data);
+    }
+
     const int current_dim = world->get_player()->get_dimension();
     // const int portal_dim = (current_dim + 1) % 2;
 
@@ -1583,7 +1601,7 @@ void Renderer::draw_forward(const std::shared_ptr<World>& world)
 
     {
         ZoneScopedN("submit");
-        std::lock_guard<std::mutex> guard(Renderer::get().get_queue_mutex());
+        // std::lock_guard<std::mutex> guard(Renderer::get().get_queue_mutex());
         wgpuQueueSubmit(m_queue, 1, &command_buffer);
     }
 
@@ -1782,9 +1800,13 @@ void Renderer::draw_world(const std::shared_ptr<World>& world, const RenderPass&
         if (!flags.has_any(WorldFlagBits::Water) && slice.mesh == nullptr)
             continue;
 
+        const ChunkPos pos = r.chunk->pos();
+
         {
             ZoneScopedN("instance buffer");
-            r.chunk->update_instance_buffer(camera->get_global_transform().position(), r.slice_index);
+            const glm::dvec3 position = camera->get_global_transform().position();
+            glm::vec3 data((double)pos.x * Chunk::width - position.x, (double)r.slice_index * Chunk::width - position.y, (double)pos.z * Chunk::width - position.z);
+            wgpuQueueWriteBuffer(m_queue, r.chunk->get_instance_buffer()->handle(), r.slice_index * sizeof(data), &data, sizeof(data));
         }
 
         {

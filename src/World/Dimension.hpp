@@ -162,6 +162,7 @@ private:
     std::atomic_size_t m_pregen_queue_count;
     std::set<ChunkPos> m_pregen_loading_queue;
     std::set<ChunkPos> m_chunks_loading_queue;
+    std::set<ChunkPos> m_chunks_rebuild_queue;
 
     GenScheduler m_scheduler;
 
@@ -172,11 +173,6 @@ private:
     std::vector<std::shared_ptr<Entity>> m_entities;
     std::vector<std::shared_ptr<Entity>> m_entities_to_add;
     std::vector<std::shared_ptr<Entity>> m_entities_to_remove;
-
-    std::vector<ChunkLoadWithDistance> m_load_buffer;
-
-    std::mutex m_chunk_rebuild_mutex;
-    std::set<ChunkPos> m_chunk_rebuild_queue;
 
     std::shared_ptr<Gen> m_gen;
 

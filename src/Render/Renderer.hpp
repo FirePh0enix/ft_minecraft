@@ -9,6 +9,8 @@
 #include "Window.hpp"
 #include "stdext.hpp"
 
+#include "daking/MPSC_queue.hpp"
+
 #include <set>
 #include <webgpu/webgpu.h>
 
@@ -443,6 +445,14 @@ class Renderer
     friend class Texture;
 
 public:
+    struct BufferWrite
+    {
+        void *data;
+        size_t data_size;
+        WGPUBuffer buffer;
+        size_t offset;
+    };
+
     Renderer();
 
     Result<void> init(const Window& window, InitFlags flags);
@@ -462,6 +472,8 @@ public:
     void set_fog(glm::vec4 color, float distance);
     void set_sky(glm::vec4 color);
     void set_underwater(bool v);
+
+    void queue_buffer_write(BufferWrite write) { m_buffer_writes_queue.enqueue(write); }
 
     std::shared_ptr<Shader> get_fw_chunk_shader() const { return m_fw_chunk_shader; }
     std::shared_ptr<Shader> get_fw_water_shader() const { return m_fw_water_shader; }
@@ -529,7 +541,9 @@ private:
     std::mutex m_device_mutex;
     std::mutex m_queue_mutex;
 
-    WGPUQuerySet m_occlusion_set = nullptr;
+    // WGPUQuerySet m_occlusion_set = nullptr;
+
+    daking::MPSC_queue<BufferWrite> m_buffer_writes_queue;
 
     // Forward rendering
     std::shared_ptr<Texture> m_fw_depth_texture;

@@ -407,25 +407,12 @@ void Dimension::rebuild(std::shared_ptr<Chunk> chunk, const std::map<ChunkPos, s
     }
 
     m_mesh_queue_lockless.enqueue_bulk(std::begin(results) + slice_index, slice_count);
-    // for (size_t i = slice_index; i < slice_count; i++)
-    // {
-    //     while (!m_mesh_queue_lockless.push(results[i]))
-    //         ;
-    // }
 }
 
 void Dimension::queue_rebuild(ChunkPos pos, size_t slice_index, size_t slice_count)
 {
-    if (!m_chunks.contains(pos))
+    if (!m_chunks.contains(pos) || m_chunks_rebuild_queue.contains(pos))
         return;
-
-    // TODO: remove this mutex as well.
-    {
-        std::lock_guard<std::mutex> lock(m_chunk_rebuild_mutex);
-        if (m_chunk_rebuild_queue.contains(pos))
-            return;
-        m_chunk_rebuild_queue.insert(pos);
-    }
 
     auto chunk = m_chunks[pos];
     std::map<ChunkPos, std::shared_ptr<Chunk>> nchunks;
@@ -446,11 +433,9 @@ void Dimension::queue_rebuild(ChunkPos pos, size_t slice_index, size_t slice_cou
         nchunks[p] = chunk_opt.value();
     }
 
+    m_chunks_rebuild_queue.insert(pos);
     Engine::get().get_thread_pool().async([this, chunk, nchunks, slice_index, slice_count]
-                                          {
-                                            rebuild(chunk, nchunks, slice_index, slice_count);
-                                            std::lock_guard<std::mutex> lock(m_chunk_rebuild_mutex);
-                                            m_chunk_rebuild_queue.erase(chunk->pos()); });
+                                          { rebuild(chunk, nchunks, slice_index, slice_count); });
 }
 
 void Dimension::remove_preload(ChunkPos pos)
