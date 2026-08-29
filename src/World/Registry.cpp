@@ -63,9 +63,6 @@ void GameRegistry::register_all()
 
 Result<void> GameRegistry::post_register()
 {
-    for (size_t id = 1; id < m_block_runtime_ids.size(); id++)
-        m_blocks[m_block_runtime_ids[id]]->set_runtime_id(RuntimeId<Block>(id));
-
     uint32_t mip_level = 1;
     m_texture_array = TRY(Texture::create(16, 16, WGPUTextureFormat_RGBA8Unorm, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding, WGPUTextureDimension_2D, m_images.size() + 1, mip_level));
     m_texture_array->update(std::as_bytes(Renderer::get().get_missing_texture_data()), 0);
@@ -101,10 +98,10 @@ Result<void> GameRegistry::post_register()
 
 void GameRegistry::add_block(Id<Block> id, std::shared_ptr<Block> block)
 {
+    block->set_runtime_id(id);
     m_blocks[id] = block;
 
     m_block_runtime_ids.push_back(id);
-    m_block_ids[id] = RuntimeId<Block>(m_block_runtime_ids.size() - 1);
     m_block_names[std::string(id.str)] = id;
 }
 

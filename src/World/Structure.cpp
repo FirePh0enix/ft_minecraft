@@ -59,7 +59,7 @@ std::shared_ptr<Structure> Structure::load(std::string_view path)
                 }
                 else
                 {
-                    self->m_blocks[x + y * w + z * w * h] = BlockState(Engine::get().registry().get_runtime_id(name));
+                    self->m_blocks[x + y * w + z * w * h] = BlockState(Engine::get().registry().get_block_id(name).hash);
                 }
 
                 z++;

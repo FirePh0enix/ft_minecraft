@@ -14,21 +14,21 @@ struct RenderPass;
 
 struct BlockState
 {
-    RuntimeId<Block> id;
+    uint32_t id;
 
     constexpr BlockState()
         : id()
     {
     }
 
-    explicit BlockState(RuntimeId<Block> id)
+    explicit BlockState(uint32_t id)
         : id(id)
     {
     }
 
     constexpr bool is_air() const
     {
-        return !id.valid();
+        return id == 0;
     }
 
     bool operator==(BlockState other) const
@@ -37,7 +37,7 @@ struct BlockState
     }
 };
 
-static_assert(sizeof(BlockState) == sizeof(uint16_t));
+static_assert(sizeof(BlockState) == sizeof(uint32_t));
 
 enum class Axis : uint8_t
 {
@@ -55,7 +55,7 @@ public:
     Block(const std::array<std::string, 6>& textures, bool gradient = false);
     Block(std::string_view texture, bool gradient = false);
 
-    void set_runtime_id(RuntimeId<Block> id) { m_id = id; }
+    void set_runtime_id(Id<Block> id) { m_id = id; }
 
     virtual void draw(const RenderPass& pass, glm::i64vec3 position)
     {
@@ -63,7 +63,7 @@ public:
         (void)position;
     };
 
-    virtual BlockState get_default_state() const { return BlockState(m_id); }
+    virtual BlockState get_default_state() const { return BlockState(m_id.hash); }
     bool is_conventional() const { return m_mesh == nullptr; }
     bool is_unbreakable() const { return m_unbreakable; }
 
@@ -101,7 +101,7 @@ protected:
     std::array<uint32_t, 6> m_texture_ids{0, 0, 0, 0, 0, 0}; // [+Z, -Z, +X, -X, +Y, -Y]
     bool m_transparent;
     bool m_gradient;
-    RuntimeId<Block> m_id;
+    Id<Block> m_id;
 
     std::shared_ptr<Mesh> m_mesh;
     bool m_unbreakable = false;

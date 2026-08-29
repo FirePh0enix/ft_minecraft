@@ -4,7 +4,7 @@
 - [x] Fix spurious crashes when loading more chunks
 - [ ] Fix performance problems
 - [x] Compute visibility before rendering to remove anoying visble chunk "lag"
-- [x] Re-enable world save
+- [ ] Re-enable world save
 - [ ] Fix clouds
 - [ ] Fix multiplayer
 - [ ] Spawn mobs

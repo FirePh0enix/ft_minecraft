@@ -431,7 +431,7 @@ void Player::tick(float delta)
             if (Input::is_action_just_pressed("middle_click") && m_gamemode == GameMode::Creative)
             {
                 BlockState state = m_world->get_block_state(m_dimension, result.block_pos.x, result.block_pos.y, result.block_pos.z);
-                Id<Item> item = Engine::get().registry().to_item(Engine::get().registry().from_runtime_id(state.id)).value_or(Id<Item>());
+                Id<Item> item = Engine::get().registry().to_item(state.id).value_or(Id<Item>());
                 if (item.valid())
                 {
                     ItemStack stack(item, 64);
@@ -731,7 +731,7 @@ void Player::break_block(int64_t x, int64_t y, int64_t z)
 {
     BlockState state = m_world->get_block_state(m_dimension, x, y, z);
     std::shared_ptr<Block> block = Engine::get().registry().get_block(state.id);
-    if (block->is_unbreakable())
+    if (!block || block->is_unbreakable())
         return;
 
     if (m_gamemode == GameMode::Survival)

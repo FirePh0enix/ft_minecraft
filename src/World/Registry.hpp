@@ -116,14 +116,17 @@ public:
     void add_item(Id<Item> id, std::shared_ptr<Item> item);
     void add_structure(std::string_view name, std::shared_ptr<Structure> structure);
 
-    std::shared_ptr<Block> get_block(Id<Block> key) const { return m_blocks.at(key); }
-
-    std::shared_ptr<Block> get_block(RuntimeId<Block> key) const
+    std::shared_ptr<Block> get_block(Id<Block> key) const
     {
-        Id<Block> id = from_runtime_id(key);
-        if (!id.valid())
+        if (key.hash == 0)
             return nullptr;
-        return m_blocks.at(id);
+        return m_blocks.at(key);
+    }
+    std::shared_ptr<Block> get_block(uint32_t key) const
+    {
+        if (key == 0)
+            return nullptr;
+        return m_blocks.at(Id<Block>(key));
     }
 
     std::shared_ptr<Item> get_item(Id<Item> key) const
@@ -131,16 +134,6 @@ public:
         return m_items.at(key);
     }
     std::shared_ptr<Structure> get_struct(std::string_view name) const { return m_structures.find(name)->second; }
-
-    Id<Block> from_runtime_id(RuntimeId<Block> id) const
-    {
-        if (id.value >= m_block_runtime_ids.size())
-            return Id<Block>();
-        return m_block_runtime_ids[id.value];
-    }
-
-    RuntimeId<Block> get_runtime_id(Id<Block> block) const { return m_block_ids.at(block); }
-    RuntimeId<Block> get_runtime_id(std::string_view block) const { return get_runtime_id(block_from_name(block)); }
 
     Id<Item> item_from_name(std::string_view name) const
     {
@@ -168,6 +161,15 @@ public:
 
     std::optional<Id<Block>> to_block(Id<Item> id);
     std::optional<Id<Item>> to_item(Id<Block> block) { return m_block_items[block]; }
+    std::optional<Id<Item>> to_item(uint32_t block) { return m_block_items[Id<Block>(block)]; }
+
+    Id<Block> get_block_id(std::string_view name)
+    {
+        auto iter = m_block_names.find(name);
+        if (iter == m_block_names.end())
+            return Id<Block>();
+        return iter->second;
+    }
 
     BlockState get_default_state(Id<Block> id) const { return get_block(id)->get_default_state(); }
 
@@ -215,7 +217,6 @@ private:
     std::map<Id<Block>, Id<Item>> m_block_items;
 
     std::vector<Id<Block>> m_block_runtime_ids;
-    std::map<Id<Block>, RuntimeId<Block>> m_block_ids;
     stdext::string_map<Id<Block>> m_block_names;
 
     stdext::string_map<Id<Item>> m_item_names;

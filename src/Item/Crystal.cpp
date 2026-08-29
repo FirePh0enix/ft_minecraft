@@ -65,7 +65,7 @@ void CrystalItem::interact(World& world, int dimension, ItemStack& stack, glm::i
 
                 // world.dd().draw_cube(p, glm::vec3(1), Colors::yellow, 2.0f);
 
-                if (blocks[x + y * 4].valid() && Engine::get().registry().from_runtime_id(block.id) != blocks[x + y * 4])
+                if (blocks[x + y * 4].valid() && block.id != blocks[x + y * 4].hash)
                 {
                     match = false;
                     goto endloop;

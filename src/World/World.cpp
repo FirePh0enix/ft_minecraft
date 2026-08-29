@@ -516,7 +516,7 @@ void World::break_block(int dimension, int64_t x, int64_t y, int64_t z)
     BlockState state = get_block_state(dimension, x, y, z);
     set_block_state(dimension, x, y, z, BlockState());
 
-    std::optional<Id<Item>> item_opt = Engine::get().registry().to_item(Engine::get().registry().from_runtime_id(state.id));
+    std::optional<Id<Item>> item_opt = Engine::get().registry().to_item(state.id);
     if (!item_opt.has_value())
         return;
 

@@ -13,6 +13,11 @@ struct Id
     {
     }
 
+    explicit constexpr Id(uint32_t id)
+        : hash(id), str(nullptr)
+    {
+    }
+
     constexpr Id()
         : hash(0), str(nullptr)
     {
@@ -26,26 +31,4 @@ struct Id
 
     uint32_t hash;
     const char *str;
-};
-
-template <typename T>
-struct RuntimeId
-{
-    uint16_t value;
-
-    explicit constexpr RuntimeId(uint16_t value)
-        : value(value)
-    {
-    }
-
-    constexpr RuntimeId()
-        : value(0)
-    {
-    }
-
-    bool operator==(const RuntimeId& k) const { return value == k.value; }
-    bool operator>(const RuntimeId& k) const { return value > k.value; }
-    bool operator<(const RuntimeId& k) const { return value < k.value; }
-
-    constexpr bool valid() const { return value != 0; }
 };
