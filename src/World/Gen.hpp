@@ -8,6 +8,7 @@
 
 #include <memory>
 #include <random>
+#include <thread>
 
 struct StructureGen
 {

@@ -105,11 +105,11 @@ public:
     bool is_modified() const { return m_modified; }
     void clear_modified() { m_modified = false; }
 
-    void set_tag(glm::i64vec3 pos, std::string_view name, Variant v);
-    void remove_tag(glm::i64vec3 pos, std::string_view name);
+    void set_tag(glm::i64vec3 pos, std::string_view name, Variant v, bool dont_modify = false);
+    void remove_tag(glm::i64vec3 pos, std::string_view name, bool dont_modify = false);
     std::optional<Variant> get_tag(glm::i64vec3 pos, std::string_view name) const;
     std::optional<Variant> get_tag(uint16_t index, std::string_view name) const;
-    void merge_tag(uint16_t index, const stdext::string_map<Variant>& tags);
+    void merge_tag(uint16_t index, const stdext::string_map<Variant>& tags, bool dont_modify = false);
 
     const std::set<BlockPos>& get_non_coventional_blocks() const { return m_non_conventional_blocks; }
 

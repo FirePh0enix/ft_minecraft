@@ -323,9 +323,9 @@ void Engine::create_world_and_start()
     // cow->get_transform().position() = m_player->get_position();
     // m_world->add_entity(World::overworld, cow);
 
-    std::shared_ptr<Entity> zombie = std::make_shared<Zombie>();
-    zombie->get_transform().position() = m_player->get_position();
-    m_world->add_entity(World::overworld, zombie);
+    // std::shared_ptr<Entity> zombie = std::make_shared<Zombie>();
+    // zombie->get_transform().position() = m_player->get_position();
+    // m_world->add_entity(World::overworld, zombie);
 
     m_scene = GameScene::World;
     m_authority = RpcTarget::Server;

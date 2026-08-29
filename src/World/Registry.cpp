@@ -112,6 +112,7 @@ void GameRegistry::add_item(Id<Item> id, std::shared_ptr<Item> item)
 {
     m_items[id] = item;
     m_item_names[std::string(id.str)] = id;
+    m_item_ids[id.hash] = id;
 
     if (std::shared_ptr<ItemBlock> ib = std::dynamic_pointer_cast<ItemBlock>(item))
         m_block_items[ib->block()] = id;

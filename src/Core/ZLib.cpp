@@ -10,8 +10,8 @@ Result<void> ZLib::deflate(std::span<const std::byte> data, std::vector<uint8_t>
     uint8_t tmp[DEFLATE_BUFFER_SIZE];
 
     z_stream strm;
-    strm.zalloc = 0;
-    strm.zfree = 0;
+    strm.zalloc = nullptr;
+    strm.zfree = nullptr;
     strm.next_in = (uint8_t *)data.data();
     strm.avail_in = data.size_bytes();
     strm.next_out = tmp;
@@ -59,8 +59,8 @@ Result<void> ZLib::inflate(std::span<const std::byte> data, std::vector<uint8_t>
     uint8_t tmp[INFLATE_BUFFER_SIZE];
 
     z_stream strm;
-    strm.zalloc = 0;
-    strm.zfree = 0;
+    strm.zalloc = nullptr;
+    strm.zfree = nullptr;
     strm.next_in = (uint8_t *)data.data();
     strm.avail_in = data.size_bytes();
     strm.next_out = tmp;

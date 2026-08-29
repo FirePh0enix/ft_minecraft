@@ -35,8 +35,8 @@ void GenScheduler::terrain_pass(ChunkPos middle)
         {
             m_dimension.m_pregen_loading_queue.insert(pos);
             std::shared_ptr<PreLoadedChunk> chunk = std::make_shared<PreLoadedChunk>();
-            Engine::get().get_thread_pool().async([this, pos, chunk]()
-                                                  { terrain_and_struct_chunk(pos, chunk); });
+            Engine::get().get_thread_pool().submit([this, pos, chunk]
+                                                   { terrain_and_struct_chunk(pos, chunk); });
         }
     }
 
@@ -89,8 +89,8 @@ void GenScheduler::chunk_pass(ChunkPos middle)
 
             std::shared_ptr<Chunk> chunk = std::make_shared<Chunk>(&m_dimension, pos.x, pos.z);
             std::shared_ptr<PreLoadedChunk> preload_chunk = m_dimension.m_preloaded_chunks[pos];
-            Engine::get().get_thread_pool().async([this, pos, chunk, preload_chunk]()
-                                                  { realize_chunk(pos, chunk, preload_chunk); });
+            Engine::get().get_thread_pool().submit([this, pos, chunk, preload_chunk]
+                                                   { realize_chunk(pos, chunk, preload_chunk); });
         }
 
     std::vector<std::shared_ptr<Chunk>> chunks;
@@ -434,8 +434,8 @@ void Dimension::queue_rebuild(ChunkPos pos, size_t slice_index, size_t slice_cou
     }
 
     m_chunks_rebuild_queue.insert(pos);
-    Engine::get().get_thread_pool().async([this, chunk, nchunks, slice_index, slice_count]
-                                          { rebuild(chunk, nchunks, slice_index, slice_count); });
+    Engine::get().get_thread_pool().submit([this, chunk, nchunks, slice_index, slice_count]
+                                           { rebuild(chunk, nchunks, slice_index, slice_count); });
 }
 
 void Dimension::remove_preload(ChunkPos pos)
@@ -457,8 +457,8 @@ void Dimension::unload_chunk(std::shared_ptr<Chunk> chunk)
 
 void Dimension::queue_unload_chunk(std::shared_ptr<Chunk> chunk)
 {
-    Engine::get().get_thread_pool().async([this, chunk]
-                                          { unload_chunk(chunk); });
+    Engine::get().get_thread_pool().submit([this, chunk]
+                                           { unload_chunk(chunk); });
 }
 
 void Dimension::update_sun(glm::mat4 matrix)

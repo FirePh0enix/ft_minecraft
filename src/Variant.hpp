@@ -11,45 +11,25 @@
 enum class VariantType : uint32_t
 {
     Null = 0,
-    /**
-     * Boolean primitive, either true or false.
-     */
+    /// Boolean primitive, either true or false.
     Bool = 1,
-    /**
-     * 64-bits precision floating point number.
-     */
+    /// 64-bits precision floating point number.
     Double = 2,
-    /**
-     * 64-bits signed integer.
-     */
+    /// 64-bits signed integer.
     Integer = 3,
-    /**
-     * String of character.
-     */
+    /// String of character.
     String = 4,
-    /**
-     * 2 dimensional vector.
-     */
+    /// 2 dimensional vector.
     Vec2 = 5,
-    /**
-     * 3 dimensional vector.
-     */
+    /// 3 dimensional vector.
     Vec3 = 6,
-    /**
-     * Quaternion.
-     */
+    /// Quaternion.
     Quat = 7,
-    /**
-     * Stack of item.
-     */
+    /// Stack of item.
     ItemStack = 8,
-    /**
-     * Array of variants of one specific type.
-     */
+    /// Array of variant.
     Array = 9,
-    /**
-     * Key value storage.
-     */
+    /// Key-Value storage.
     Map = 10,
     Color = 11,
     Point = 12,
@@ -59,6 +39,91 @@ class ItemStack;
 struct Point;
 
 constexpr size_t variant_size = 72;
+
+template <typename T>
+struct TypeTag
+{
+};
+
+template <>
+struct TypeTag<std::nullptr_t>
+{
+    static constexpr VariantType tag = VariantType::Null;
+};
+
+template <>
+struct TypeTag<bool>
+{
+    static constexpr VariantType tag = VariantType::Bool;
+};
+
+template <>
+struct TypeTag<double>
+{
+    static constexpr VariantType tag = VariantType::Double;
+};
+
+template <>
+struct TypeTag<int64_t>
+{
+    static constexpr VariantType tag = VariantType::Integer;
+};
+
+template <>
+struct TypeTag<std::string>
+{
+    static constexpr VariantType tag = VariantType::String;
+};
+
+template <>
+struct TypeTag<glm::dvec2>
+{
+    static constexpr VariantType tag = VariantType::Vec2;
+};
+
+template <>
+struct TypeTag<glm::dvec3>
+{
+    static constexpr VariantType tag = VariantType::Vec3;
+};
+
+template <>
+struct TypeTag<glm::dquat>
+{
+    static constexpr VariantType tag = VariantType::Quat;
+};
+
+template <>
+struct TypeTag<ItemStack>
+{
+    static constexpr VariantType tag = VariantType::ItemStack;
+};
+
+template <typename T>
+struct TypeTag<std::vector<T>>
+{
+    static constexpr VariantType tag = VariantType::Array;
+};
+
+template <typename K, typename V>
+struct TypeTag<std::map<K, V>>
+{
+    static constexpr VariantType tag = VariantType::Map;
+};
+
+template <>
+struct TypeTag<Color>
+{
+    static constexpr VariantType tag = VariantType::Color;
+};
+
+template <>
+struct TypeTag<Point>
+{
+    static constexpr VariantType tag = VariantType::Point;
+};
+
+void assert_bad_variant_access(const char *type_name, VariantType got, VariantType expected);
 
 struct __attribute__((aligned(16))) Variant
 {
@@ -140,12 +205,24 @@ struct __attribute__((aligned(16))) Variant
     template <typename K, typename V>
     std::map<K, V> to_map() const
     {
+        assert_bad_variant_access("", tag, VariantType::Map);
+
         const std::map<Variant, Variant>& map = get_unchecked<std::map<Variant, Variant>>();
         std::map<K, V> v;
-
         for (const auto& [key, value] : map)
-            v[key.get_unchecked<K>()] = value.get_unchecked<V>();
+            v[key.get<K>()] = value.get_unchecked<V>();
+        return v;
+    }
 
+    template <typename K>
+    std::map<K, Variant> to_map() const
+    {
+        assert_bad_variant_access("", tag, VariantType::Map);
+
+        const std::map<Variant, Variant>& map = get_unchecked<std::map<Variant, Variant>>();
+        std::map<K, Variant> v;
+        for (const auto& [key, value] : map)
+            v[key.get<K>()] = value;
         return v;
     }
 
@@ -160,12 +237,28 @@ struct __attribute__((aligned(16))) Variant
     template <typename T>
     const T& get_unchecked() const
     {
+        static_assert(!std::is_same_v<T, Variant>, "Converting Variant to Variant will always be undefined behavour");
         return *(const T *)data;
     }
 
     template <typename T>
     T& get_unchecked()
     {
+        static_assert(!std::is_same_v<T, Variant>, "Converting Variant to Variant will always be undefined behavour");
+        return *(T *)data;
+    }
+
+    template <typename T>
+    const T& get() const
+    {
+        assert_bad_variant_access("", tag, TypeTag<T>::tag);
+        return *(const T *)data;
+    }
+
+    template <typename T>
+    T& get()
+    {
+        assert_bad_variant_access("", tag, TypeTag<T>::tag);
         return *(T *)data;
     }
 };

@@ -326,21 +326,6 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(glm)
 target_link_libraries(${TARGET_NAME} PRIVATE glm::glm-header-only)
 
-# jemalloc
-# FetchContent_Declare(
-#     jemalloc
-#     GIT_REPOSITORY https://github.com/jemalloc/jemalloc
-#     GIT_TAG e36a0fa5bc1e1090362505ac4af4408466ba5163
-# )
-# FetchContent_MakeAvailable(jemalloc)
-# execute_process(
-#     OUTPUT_QUIET
-#     COMMAND make -f ${jemalloc_SOURCE_DIR}/Makefile
-#     WORKING_DIRECTORY ${jemalloc_BINARY_DIR}
-# )
-# target_link_libraries(${TARGET_NAME} PRIVATE ${jemalloc_BINARY_DIR})
-# target_link_libraries(${TARGET_NAME} PRIVATE jemalloc)
-
 # MPSC_queue
 FetchContent_Declare(
     MPSC_queue
@@ -348,7 +333,7 @@ FetchContent_Declare(
     GIT_TAG 1ae95baf9e3bcf92bb755a9be0a13064ca002b46
 )
 FetchContent_MakeAvailable(MPSC_Queue)
-target_include_directories(${TARGET_NAME} PRIVATE ${mpsc_queue_SOURCE_DIR}/include)
+target_include_directories(${TARGET_NAME} SYSTEM PRIVATE ${mpsc_queue_SOURCE_DIR}/include)
 
 # FreeType
 FetchContent_Declare(

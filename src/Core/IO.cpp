@@ -77,22 +77,17 @@ Result<std::optional<Variant>> Reader::read_variant()
     else if (type == VariantType::ItemStack)
     {
         uint32_t size;
-
         TRY(read_raw(&size, sizeof(uint32_t)));
 
-        uint32_t name_length = 0;
-        TRY(read_raw(&name_length, sizeof(uint32_t)));
-
-        char *name = (char *)alloca(name_length + 1);
-        name[name_length] = 0;
-        TRY(read_raw(name, name_length));
+        uint32_t id;
+        TRY(read_raw(&id, sizeof(uint32_t)));
 
         std::optional<Variant> variant = TRY(read_variant());
         Variant v = variant.value();
 
-        std::map<std::string, Variant> map = v.to_map<std::string, Variant>();
+        std::map<std::string, Variant> map = v.to_map<std::string>();
 
-        Id<Item> item = Engine::get().registry().item_from_name(name);
+        Id<Item> item = Engine::get().registry().item_from_id(id);
 
         return std::make_optional(Variant(ItemStack(item, size, map)));
     }

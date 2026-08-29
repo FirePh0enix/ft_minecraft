@@ -150,6 +150,14 @@ public:
         return iter->second;
     }
 
+    Id<Item> item_from_id(uint32_t id) const
+    {
+        auto iter = m_item_ids.find(id);
+        if (iter == m_item_ids.end())
+            return Id<Item>();
+        return iter->second;
+    }
+
     Id<Block> block_from_name(std::string_view name) const
     {
         auto iter = m_block_names.find(name);
@@ -211,6 +219,7 @@ private:
     stdext::string_map<Id<Block>> m_block_names;
 
     stdext::string_map<Id<Item>> m_item_names;
+    std::map<uint32_t, Id<Item>> m_item_ids;
 
     std::vector<Image> m_images;
     std::shared_ptr<Texture> m_texture_array;

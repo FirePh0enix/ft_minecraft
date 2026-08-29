@@ -22,7 +22,7 @@ ThreadPool::~ThreadPool()
     }
 }
 
-void ThreadPool::async(std::function<void()> task)
+void ThreadPool::submit(std::function<void()> task)
 {
     {
         std::unique_lock<std::mutex> lock(m_queue_mutex);

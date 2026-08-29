@@ -370,14 +370,15 @@ Result<std::shared_ptr<Mesh>> Chunk::build_water_mesh(size_t slice_index, const 
     return water_mesh;
 }
 
-void Chunk::set_tag(glm::i64vec3 pos, std::string_view name, Variant v)
+void Chunk::set_tag(glm::i64vec3 pos, std::string_view name, Variant v, bool dont_modify)
 {
     uint16_t key = linearize(pos.x, pos.y, pos.z);
     m_tags[key][std::string(name)] = v;
-    m_modified = true;
+    if (!dont_modify)
+        m_modified = true;
 }
 
-void Chunk::remove_tag(glm::i64vec3 pos, std::string_view name)
+void Chunk::remove_tag(glm::i64vec3 pos, std::string_view name, bool dont_modify)
 {
     uint16_t key = linearize(pos.x, pos.y, pos.z);
     auto tags = m_tags.find(key);
@@ -390,7 +391,8 @@ void Chunk::remove_tag(glm::i64vec3 pos, std::string_view name)
         if (tags->second.size() == 0)
         {
             m_tags.erase(key);
-            m_modified = true;
+            if (!dont_modify)
+                m_modified = true;
         }
     }
 }
@@ -408,11 +410,14 @@ std::optional<Variant> Chunk::get_tag(glm::i64vec3 pos, std::string_view name) c
     return get_tag(linearize(pos.x, pos.y, pos.z), name);
 }
 
-void Chunk::merge_tag(uint16_t index, const stdext::string_map<Variant>& tags)
+void Chunk::merge_tag(uint16_t index, const stdext::string_map<Variant>& tags, bool dont_modify)
 {
     if (tags.size() == 0)
         return;
 
     for (const auto& [name, value] : tags)
         m_tags[index][name] = value;
+
+    if (!dont_modify)
+        m_modified = true;
 }

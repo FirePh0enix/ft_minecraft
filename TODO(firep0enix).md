@@ -3,10 +3,15 @@
 - [x] Optimize chunk multithreading (remove mutex)
 - [x] Fix spurious crashes when loading more chunks
 - [ ] Fix performance problems
-- [ ] Compute visibility before rendering to remove anoying visble chunk "lag"
-- [ ] Re-enable world save
+- [x] Compute visibility before rendering to remove anoying visble chunk "lag"
+- [x] Re-enable world save
 - [ ] Fix clouds
 - [ ] Fix multiplayer
+- [ ] Spawn mobs
+- [ ] Save entities
+
+- [ ] Generate caves
+- [ ] Generate ores
 
 # Less important
 

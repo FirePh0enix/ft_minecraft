@@ -15,7 +15,7 @@ public:
     size_t size() const { return m_threads.size(); }
 
     /// Starts an asynchronous task.
-    void async(std::function<void()> task);
+    void submit(std::function<void()> task);
 
 private:
     std::vector<std::thread> m_threads;

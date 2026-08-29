@@ -323,8 +323,8 @@ void World::tick_dimension(float delta, int dimension)
             if (chunk_opt.has_value())
             {
                 auto chunk = chunk_opt.value();
-                Engine::get().get_thread_pool().async([this, req, chunk]
-                                                      { send_chunk(req.peer, chunk); });
+                Engine::get().get_thread_pool().submit([this, req, chunk]
+                                                       { send_chunk(req.peer, chunk); });
             }
             else
             {
@@ -701,8 +701,8 @@ void World::receive_chunk(const ChunkDataPacket& p)
 void World::queue_receive_chunk(const ChunkDataPacket& p)
 {
     // Maybe I'm dumb and I don't know anything but using `[&]` creates segfaults, but manually specifying captures don't.
-    Engine::get().get_thread_pool().async([this, p]()
-                                          { receive_chunk(p); });
+    Engine::get().get_thread_pool().submit([this, p]
+                                           { receive_chunk(p); });
 }
 
 bool World::is_player_saved(std::string_view name) const

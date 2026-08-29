@@ -1,9 +1,24 @@
 #include "Variant.hpp"
 
+#include "Core/Logger.hpp"
+#include "Core/Stacktrace.hpp"
 #include "Item/ItemStack.hpp"
-#include "UI/Widget.hpp"
+#include "UI/Point.hpp"
 
 #include <compare>
+
+void assert_bad_variant_access(const char *type_name, VariantType got, VariantType expected)
+{
+    (void)type_name;
+
+    if (got != expected)
+    {
+        error("Bad variant access: expected {} but got {}", (uint32_t)expected, (uint32_t)got);
+        Stacktrace::record();
+        Stacktrace::current().print();
+        std::abort();
+    }
+}
 
 Variant::Variant(ItemStack is)
     : tag(VariantType::ItemStack)

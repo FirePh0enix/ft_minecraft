@@ -1537,6 +1537,7 @@ void Renderer::draw_forward(const std::shared_ptr<World>& world)
     WGPUCommandEncoder encoder = wgpuDeviceCreateCommandEncoder(m_device, nullptr);
 
     // Flush every write calls.
+    // TODO: most of the time, mapping the buffer then writing to it should be better.
     BufferWrite write{};
     while (m_buffer_writes_queue.try_dequeue(write))
     {

@@ -86,20 +86,20 @@ void TreePass::place_big_tree(ChunkPos pos, std::shared_ptr<PreLoadedChunk> chun
 
 void TreePass::place(ChunkPos pos, std::shared_ptr<PreLoadedChunk> chunk, Dimension& dim)
 {
-    // std::random_device dev;
-    // std::mt19937 rng(dev());
-    // rng.seed((pos.x * 73856093) ^ (pos.z * 19349663));
-    // std::uniform_int_distribution<std::mt19937::result_type> dist016(0, 15);
-    // int64_t lx = (int64_t)dist016(rng);
-    // int64_t lz = (int64_t)dist016(rng);
+    std::random_device dev;
+    std::mt19937 rng(dev());
+    rng.seed((pos.x * 73856093) ^ (pos.z * 19349663));
+    std::uniform_int_distribution<std::mt19937::result_type> dist016(0, 15);
+    int64_t lx = (int64_t)dist016(rng);
+    int64_t lz = (int64_t)dist016(rng);
 
-    // std::uniform_int_distribution<std::mt19937::result_type> dist_tree_type(0, 1);
-    // uint64_t tree_type = dist_tree_type(rng);
+    std::uniform_int_distribution<std::mt19937::result_type> dist_tree_type(0, 1);
+    uint64_t tree_type = dist_tree_type(rng);
 
-    // if (tree_type == TREE_TYPE_SHORT)
-    //     place_short_tree(pos, chunk, dim, rng, lx, lz);
-    // else if (tree_type == TREE_TYPE_BIG)
-    //     place_big_tree(pos, chunk, dim, rng, lx, lz);
+    if (tree_type == TREE_TYPE_SHORT)
+        place_short_tree(pos, chunk, dim, rng, lx, lz);
+    else if (tree_type == TREE_TYPE_BIG)
+        place_big_tree(pos, chunk, dim, rng, lx, lz);
 }
 
 OverworldGen::OverworldGen(WorldSettings settings)
@@ -179,6 +179,9 @@ void OverworldGen::generate_chunk(std::shared_ptr<Chunk> chunk, std::shared_ptr<
     {
         for (int64_t z = 0; z < 16; z++)
         {
+            // if (st.stop_requested())
+            //     return;
+
             Biome biome = preloaded_chunk->biomes[x + z * 16];
             int64_t height = preloaded_chunk->heights[x + z * 16];
 
@@ -219,7 +222,7 @@ void OverworldGen::generate_chunk(std::shared_ptr<Chunk> chunk, std::shared_ptr<
 
             // Fill oceans
             for (; y < m_settings.ocean_level; y++)
-                chunk->set_tag({x, y, z}, "water", (int64_t)0);
+                chunk->set_tag({x, y, z}, "water", (int64_t)0, true);
         }
     }
 
