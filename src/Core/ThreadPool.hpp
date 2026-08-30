@@ -19,7 +19,6 @@ public:
     void submit(std::function<void(std::stop_token)> task);
 
 private:
-    std::vector<std::jthread> m_threads;
 
     std::mutex m_mutex;
     std::deque<std::function<void(std::stop_token)>> m_tasks;
@@ -28,4 +27,7 @@ private:
     bool m_should_stop = false;
 
     void thread_worker(std::stop_token token);
+    // Thread must be destroyed before mutex.
+    std::vector<std::jthread> m_threads;
+
 };

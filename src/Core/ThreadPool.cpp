@@ -30,6 +30,16 @@ ThreadPool::~ThreadPool()
     }
 
     m_cv.notify_all();
+
+    // Join before this object's mutex/condition variable are destroyed.
+    // std::jthread only joins from its destructor, which runs after the other
+    // members below have already been torn down (members are destroyed in
+    // reverse declaration order).
+    for (auto& thread : m_threads)
+    {
+        if (thread.joinable())
+            thread.join();
+    }
 }
 
 void ThreadPool::submit(std::function<void(std::stop_token)> task)

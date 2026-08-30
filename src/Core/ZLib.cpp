@@ -142,7 +142,7 @@ Result<void> ZLib::inflate(std::span<const std::byte> data, std::vector<uint8_t>
     return Result<void>();
 }
 
-Result<void> inflate_with_cancellation(std::stop_token token, std::span<const std::byte> data, std::vector<uint8_t>& uncompressed_data)
+Result<void> ZLib::inflate_with_cancellation(std::stop_token token, std::span<const std::byte> data, std::vector<uint8_t>& uncompressed_data)
 {
     uint8_t tmp[INFLATE_BUFFER_SIZE];
 
