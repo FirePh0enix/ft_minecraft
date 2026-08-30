@@ -17,8 +17,11 @@ struct Arguments
     T pop()
     {
         ASSERT_V(i <= args.size(), "");
+#ifdef __platform_macos
         return args[i++].get_unchecked<T>();
-
+#else
+        return args[args.size() - (i++) - 1].get_unchecked<T>();
+#endif
     }
 };
 
