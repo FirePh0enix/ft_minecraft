@@ -1420,25 +1420,25 @@ bool Renderer::has_cloud(int64_t x, int64_t z)
 
 void Renderer::update_clouds(std::shared_ptr<Camera> camera)
 {
-    glm::vec3 camera_position = camera->get_global_transform().position();
-    float time = Engine::get().time() * 1.0f;
+    const glm::dvec3 camera_position = camera->get_global_transform().position();
+    double time = Engine::get().time() * 1.0f;
 
-    for (size_t i = 0; i < m_clouds.size(); i++)
-    {
-        float distance = glm::distance2(glm::vec2(camera_position.x, camera_position.z), glm::vec2(float(m_clouds[i].grid_x) * 32.0f, float(m_clouds[i].grid_z) * 32.0f) + glm::vec2(time, 0));
-        if (distance > 16.0f * 32.0f)
-        {
-            const Cloud& cloud = m_clouds[i];
-            m_clouds.erase(m_clouds.begin() + (ssize_t)i);
-            m_clouds_set.erase(ChunkPos(cloud.grid_x, cloud.grid_z));
-            if (i > 0)
-                i -= 1;
-            i--;
-        }
-    }
+    // for (size_t i = 0; i < m_clouds.size(); i++)
+    // {
+    //     double distance = glm::distance2(glm::dvec2(camera_position.x, camera_position.z), glm::dvec2(double(m_clouds[i].grid_x) * 32.0, double(m_clouds[i].grid_z) * 32.0));
+    //     if (distance > 16.0 * 32.0)
+    //     {
+    //         const Cloud& cloud = m_clouds[i];
+    //         m_clouds.erase(m_clouds.begin() + (ssize_t)i);
+    //         m_clouds_set.erase(ChunkPos(cloud.grid_x, cloud.grid_z));
+    //         if (i > 0)
+    //             i -= 1;
+    //         i--;
+    //     }
+    // }
 
-    int64_t cx = int64_t((camera_position.x + time) / 32.0f);
-    int64_t cz = int64_t(camera_position.z / 32.0f);
+    int64_t cx = int64_t(camera_position.x / 32.0);
+    int64_t cz = int64_t(camera_position.z / 32.0);
 
     for (int64_t x = cx - 8; x < cx + 8; x++)
         for (int64_t z = cz - 8; z < cz + 8; z++)
@@ -1446,12 +1446,12 @@ void Renderer::update_clouds(std::shared_ptr<Camera> camera)
             if (has_cloud(x, z))
                 continue;
 
-            float density = m_clouds_noise.sample(glm::vec2(x, z)) / 2.0f + 0.5f;
-            if (density > 0.7f)
+            double density = m_clouds_noise.sample(glm::dvec2(x, z)) / 2.0 + 0.5;
+            if (density > 0.7)
             {
                 Cloud cloud = EXPECT(create_cloud());
-                cloud.uniform.model = glm::translate(glm::identity<glm::mat4>(), glm::vec3(x, 0.0f, z) * 32.0f + glm::vec3(0, 270.0f, 0) + glm::vec3(time, 0, 0)) *
-                                      glm::scale(glm::identity<glm::mat4>(), glm::vec3(32.0f, 4.0f, 32.0f));
+                cloud.uniform.model = glm::translate(glm::identity<glm::dmat4>(), glm::dvec3(x, 0.0f, z) * 32.0 + glm::dvec3(0, 270.0, 0) - camera_position + glm::dvec3(time * 0.001, 0, 0)) *
+                                      glm::scale(glm::identity<glm::dmat4>(), glm::dvec3(32.0, 4.0, 32.0));
 
                 cloud.buffer->update_struct(cloud.uniform);
                 cloud.grid_x = x;
@@ -1640,7 +1640,7 @@ void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::sha
     LightMatrices light = getStableLightMatrices(light_dir, light_target, shadowmap_range, SHADOWMAP_RESOLUTION);
 
     // FIXME
-    // update_clouds(active_camera);
+    update_clouds(active_camera);
 
     world->get_dimension(dimension).update_sun(light.projection * light.view);
 
