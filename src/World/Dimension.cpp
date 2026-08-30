@@ -426,8 +426,8 @@ void Dimension::queue_rebuild(ChunkPos pos, size_t slice_index, size_t slice_cou
     }
 
     m_chunks_rebuild_queue.insert(pos);
-    Engine::get().get_thread_pool().submit([this, chunk, nchunks, slice_index, slice_count](std::stop_token)
-                                           { rebuild(chunk, nchunks, slice_index, slice_count); });
+    Engine::get().get_mesh_thread_pool().submit([this, chunk, nchunks, slice_index, slice_count](std::stop_token)
+                                                { rebuild(chunk, nchunks, slice_index, slice_count); });
 }
 
 void Dimension::remove_preload(ChunkPos pos)

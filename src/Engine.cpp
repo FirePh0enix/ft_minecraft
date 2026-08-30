@@ -34,7 +34,7 @@ constexpr int two_d_to_1d(int x, int y)
 #define WINDOW_INIT_HEIGHT 1080
 
 Engine::Engine(bool disable_save)
-    : m_disable_save(disable_save)
+    : m_disable_save(disable_save), m_thread_pool(9), m_mesh_thread_pool(1)
 {
     singleton = this;
     m_window = std::make_shared<Window>("ft_minecraft", WINDOW_INIT_WIDTH, WINDOW_INIT_HEIGHT);

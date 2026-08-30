@@ -58,6 +58,11 @@ public:
         return m_thread_pool;
     }
 
+    ThreadPool& get_mesh_thread_pool()
+    {
+        return m_mesh_thread_pool;
+    }
+
     bool is_online() const { return m_connection.state() != ConnectionState::Idle; }
 
     GameRegistry& registry() { return m_registry; }
@@ -103,6 +108,7 @@ private:
     std::shared_ptr<Font> m_font;
 
     ThreadPool m_thread_pool;
+    ThreadPool m_mesh_thread_pool;
 
     bool m_time_pass = true;
     int64_t m_tick_scale = 15;
