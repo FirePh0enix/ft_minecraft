@@ -138,7 +138,7 @@ void Entity::call_rpci(std::string_view name, std::span<const Variant> args)
         }
         else
         {
-            const Type::Method& method = get_type()->get_method(name);
+            Type::Method method = get_type()->get_method(name);
             method.func((Object *)this, Arguments{.args = args});
         }
     }

@@ -58,7 +58,7 @@ public:
     std::string_view get_username() const { return m_username; }
 
     void break_block(int64_t x, int64_t y, int64_t z);
-    void place_block(int64_t x, int64_t y, int64_t z, glm::vec3 normal, ItemStack stack);
+    void place_block(int64_t x, int64_t y, int64_t z, glm::dvec3 normal, ItemStack stack);
 
     void on_ready() override;
 

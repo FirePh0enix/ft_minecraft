@@ -17,7 +17,8 @@ struct Arguments
     T pop()
     {
         ASSERT_V(i <= args.size(), "");
-        return args[args.size() - (i++) - 1].get_unchecked<T>();
+        return args[i++].get_unchecked<T>();
+
     }
 };
 

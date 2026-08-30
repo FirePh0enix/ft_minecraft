@@ -4,6 +4,7 @@
 #include "Core/IO.hpp"
 #include "Entity/Entity.hpp"
 #include "Frustum.hpp"
+#include "Variant.hpp"
 #include "World/Chunk.hpp"
 #include "World/Gen.hpp"
 
@@ -128,7 +129,7 @@ public:
     BlockState get_block(int64_t x, int64_t y, int64_t z) const;
     void set_block(int64_t x, int64_t y, int64_t z, BlockState state);
 
-    void set_tag(glm::i64vec3 pos, std::string_view name, std::string v);
+    void set_tag(glm::i64vec3 pos, std::string_view name, Variant v);
     void remove_tag(glm::i64vec3 pos, std::string_view name);
     std::optional<Variant> get_tag(glm::i64vec3 pos, std::string_view name) const;
 
