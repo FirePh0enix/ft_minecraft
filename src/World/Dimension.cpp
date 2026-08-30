@@ -12,6 +12,7 @@
 #include "World/World.hpp"
 
 #include <mutex>
+#include <stop_token>
 
 void GenScheduler::terrain_pass(ChunkPos middle)
 {
@@ -28,8 +29,8 @@ void GenScheduler::terrain_pass(ChunkPos middle)
             std::shared_ptr<PreLoadedChunk> chunk = std::make_shared<PreLoadedChunk>();
             chunk->pos = pos;
 
-            Engine::get().get_thread_pool().submit([this, pos, chunk](std::stop_token) { // println("thread {}: pos {} {}, chunk {}", (void *)pthread_self(), pos.x, pos.z, (void *)chunk.get());
-                terrain_and_struct_chunk(pos, chunk);
+            Engine::get().get_thread_pool().submit([this, pos, chunk](std::stop_token token) {
+                terrain_and_struct_chunk(token, pos, chunk);
             });
         }
 
@@ -99,9 +100,11 @@ void GenScheduler::chunk_pass(ChunkPos middle)
     }
 }
 
-void GenScheduler::terrain_and_struct_chunk(ChunkPos pos, std::shared_ptr<PreLoadedChunk> chunk)
+void GenScheduler::terrain_and_struct_chunk(std::stop_token token, ChunkPos pos, std::shared_ptr<PreLoadedChunk> chunk)
 {
+    if (token.stop_requested()) return;
     m_dimension.m_gen->preload(pos.x, pos.z, chunk);
+    if (token.stop_requested()) return;
     m_dimension.m_gen->structure_pass(pos.x, pos.z, chunk, m_dimension);
 
     m_dimension.m_pregen_chunks_lockless.enqueue(chunk);
@@ -121,7 +124,12 @@ void GenScheduler::realize_chunk(std::stop_token token, ChunkPos pos, std::share
         file.close();
 
         std::vector<uint8_t> blocks_data;
-        EXPECT(ZLib::inflate(std::as_bytes(std::span(data)), blocks_data));
+        auto blocks_result = ZLib::inflate_with_cancellation(token, std::as_bytes(std::span(data)), blocks_data);
+        if (!blocks_result)
+        {
+            if (token.stop_requested()) return;
+            EXPECT(blocks_result);
+        }
 
         assert(blocks_data.size() == sizeof(BlockState) * Chunk::block_count);
         memcpy(chunk->get_blocks(), blocks_data.data(), blocks_data.size());
@@ -135,7 +143,12 @@ void GenScheduler::realize_chunk(std::stop_token token, ChunkPos pos, std::share
             file.close();
 
             std::vector<uint8_t> tags_data;
-            EXPECT(ZLib::inflate(std::as_bytes(std::span(tags_compressed_data)), tags_data));
+            auto tags_result = ZLib::inflate_with_cancellation(token, std::as_bytes(std::span(tags_compressed_data)), tags_data);
+            if (!tags_result)
+            {
+                if (token.stop_requested()) return;
+                EXPECT(tags_result);
+            }
 
             BufferReader reader(tags_data.data(), tags_data.size());
             Dimension::read_tags(reader, chunk);
@@ -376,8 +389,9 @@ bool Dimension::has_solid_block(int64_t x, int64_t y, int64_t z) const
     return block->is_solid();
 }
 
-void Dimension::rebuild(std::shared_ptr<Chunk> chunk, const std::map<ChunkPos, std::shared_ptr<Chunk>>& nchunks, size_t slice_index, size_t slice_count)
+void Dimension::rebuild(std::stop_token token, std::shared_ptr<Chunk> chunk, const std::map<ChunkPos, std::shared_ptr<Chunk>>& nchunks, size_t slice_index, size_t slice_count)
 {
+    if (token.stop_requested()) return;
     MeshRebuildResult results[16];
 
     for (size_t i = slice_index; i < slice_index + slice_count; i++)
@@ -426,8 +440,8 @@ void Dimension::queue_rebuild(ChunkPos pos, size_t slice_index, size_t slice_cou
     }
 
     m_chunks_rebuild_queue.insert(pos);
-    Engine::get().get_mesh_thread_pool().submit([this, chunk, nchunks, slice_index, slice_count](std::stop_token)
-                                                { rebuild(chunk, nchunks, slice_index, slice_count); });
+    Engine::get().get_mesh_thread_pool().submit([this, chunk, nchunks, slice_index, slice_count](std::stop_token token)
+                                                { rebuild(token, chunk, nchunks, slice_index, slice_count); });
 }
 
 void Dimension::remove_preload(ChunkPos pos)
@@ -435,8 +449,9 @@ void Dimension::remove_preload(ChunkPos pos)
     m_preloaded_chunks.erase(pos);
 }
 
-void Dimension::unload_chunk(std::shared_ptr<Chunk> chunk)
+void Dimension::unload_chunk(std::stop_token token, std::shared_ptr<Chunk> chunk)
 {
+    if (token.stop_requested()) return;
     if (!Engine::get().is_save_disabled())
     {
         Result<void> result = m_world->save_chunk({}, chunk, m_id);
@@ -449,8 +464,8 @@ void Dimension::unload_chunk(std::shared_ptr<Chunk> chunk)
 
 void Dimension::queue_unload_chunk(std::shared_ptr<Chunk> chunk)
 {
-    Engine::get().get_thread_pool().submit([this, chunk](std::stop_token)
-                                           { unload_chunk(chunk); });
+    Engine::get().get_thread_pool().submit([this, chunk](std::stop_token token)
+                                           { unload_chunk(token, chunk); });
 }
 
 void Dimension::update_sun(glm::mat4 matrix)

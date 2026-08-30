@@ -88,7 +88,7 @@ private:
 
     std::vector<ChunkPos> m_pregen_unload_queue;
 
-    void terrain_and_struct_chunk(ChunkPos pos, std::shared_ptr<PreLoadedChunk> chunk);
+    void terrain_and_struct_chunk(std::stop_token token, ChunkPos pos, std::shared_ptr<PreLoadedChunk> chunk);
     void realize_chunk(std::stop_token st, ChunkPos pos, std::shared_ptr<Chunk> chunk, std::shared_ptr<PreLoadedChunk> pregen_chunk);
 };
 
@@ -135,12 +135,12 @@ public:
 
     bool has_solid_block(int64_t x, int64_t y, int64_t z) const;
 
-    void rebuild(std::shared_ptr<Chunk> chunk, const std::map<ChunkPos, std::shared_ptr<Chunk>>& nchunks, size_t slice_index, size_t slice_count);
+    void rebuild(std::stop_token token, std::shared_ptr<Chunk> chunk, const std::map<ChunkPos, std::shared_ptr<Chunk>>& nchunks, size_t slice_index, size_t slice_count);
     void queue_rebuild(ChunkPos pos, size_t slice_index = 0, size_t slice_count = Chunk::slice_count);
 
     void remove_preload(ChunkPos pos);
 
-    void unload_chunk(std::shared_ptr<Chunk> chunk);
+    void unload_chunk(std::stop_token token, std::shared_ptr<Chunk> chunk);
     void queue_unload_chunk(std::shared_ptr<Chunk> chunk);
 
     void place_structure(glm::i64vec3 pos, BlockState *blocks, int64_t w, int64_t h, int64_t l);
