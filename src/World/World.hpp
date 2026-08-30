@@ -188,7 +188,7 @@ public:
     void break_block(int dimension, int64_t x, int64_t y, int64_t z);
 
     /// Save chunk to the disk.
-    Result<void> save_chunk(std::shared_ptr<Chunk> chunk, int dimension);
+    Result<void> save_chunk(std::stop_token token, std::shared_ptr<Chunk> chunk, int dimension);
 
     Result<void> save_entity(const std::shared_ptr<Entity>& entity);
     Result<void> save_player(const std::shared_ptr<Player>& player);

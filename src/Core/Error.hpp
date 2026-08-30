@@ -29,6 +29,9 @@ enum class ErrorKind : uint16_t
     WriteFailure = 0x4,
     EndOfFile = 0x5,
 
+    /// @brief Indicate a job was cancelled.
+    Cancelled = 0x6,
+
     /**
      * @brief A generic error to indicate something went wrong while talking to the GPU.
      */
@@ -83,6 +86,9 @@ static inline const char *error_name(const ErrorKind& kind)
         break;
     case ErrorKind::EndOfFile:
         msg = "End of file";
+        break;
+    case ErrorKind::Cancelled:
+        msg = "Cancelled";
         break;
     case ErrorKind::BadDriver:
         msg = "Bad driver";

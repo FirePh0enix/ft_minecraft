@@ -1,4 +1,7 @@
 #include "Core/ThreadPool.hpp"
+
+#include "Logger.hpp"
+
 #include <mutex>
 
 ThreadPool::ThreadPool(size_t num_threads)
@@ -10,46 +13,57 @@ ThreadPool::ThreadPool(size_t num_threads)
 ThreadPool::~ThreadPool()
 {
     {
-        std::unique_lock<std::mutex> lock(m_queue_mutex);
-        m_stop = true;
+        std::lock_guard lock(m_mutex);
+        m_should_stop = true;
+        m_tasks.clear();
     }
-
-    m_cv.notify_all();
 
     for (auto& thread : m_threads)
     {
-        thread.join();
+        thread.request_stop();
     }
+
+    m_cv.notify_all();
 }
 
-void ThreadPool::submit(std::function<void()> task)
+void ThreadPool::submit(std::function<void(std::stop_token)> task)
 {
     {
-        std::unique_lock<std::mutex> lock(m_queue_mutex);
+        std::lock_guard lock(m_mutex);
         m_tasks.push_back(task);
     }
 
     m_cv.notify_one();
 }
 
-void ThreadPool::thread_worker()
+void ThreadPool::thread_worker(std::stop_token token)
 {
-    while (true)
+    while (!token.stop_requested())
     {
-        std::function<void()> task;
+        std::function<void(std::stop_token)> task;
 
         {
-            std::unique_lock<std::mutex> lock(m_queue_mutex);
-            m_cv.wait(lock, [this]
-                      { return !m_tasks.empty() || m_stop; });
+            std::unique_lock lock(m_mutex);
+            m_cv.wait(lock, [this, token]
+                      { return !m_tasks.empty() || m_should_stop || token.stop_requested(); });
 
-            if (m_stop) // && m_tasks.empty())
+            if (m_should_stop && m_tasks.empty())
+                break;
+            if (token.stop_requested())
                 break;
 
-            task = m_tasks[m_tasks.size() - 1];
-            m_tasks.pop_back();
+            task = m_tasks.front();
+            m_tasks.pop_front();
         }
 
-        task();
+        try
+        {
+            task(token);
+        }
+        catch (...)
+        {
+        }
     }
+
+    debug("Thread {} exited normally", (void *)pthread_self());
 }

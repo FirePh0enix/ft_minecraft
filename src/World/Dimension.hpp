@@ -88,7 +88,7 @@ private:
     std::vector<ChunkPos> m_pregen_unload_queue;
 
     void terrain_and_struct_chunk(ChunkPos pos, std::shared_ptr<PreLoadedChunk> chunk);
-    void realize_chunk(ChunkPos pos, std::shared_ptr<Chunk> chunk, std::shared_ptr<PreLoadedChunk> pregen_chunk);
+    void realize_chunk(std::stop_token st, ChunkPos pos, std::shared_ptr<Chunk> chunk, std::shared_ptr<PreLoadedChunk> pregen_chunk);
 };
 
 class Dimension
@@ -159,7 +159,6 @@ private:
     daking::MPSC_queue<MeshRebuildResult> m_mesh_queue_lockless;
     daking::MPSC_queue<std::shared_ptr<Chunk>> m_chunks_unload_queue;
 
-    std::atomic_size_t m_pregen_queue_count;
     std::set<ChunkPos> m_pregen_loading_queue;
     std::set<ChunkPos> m_chunks_loading_queue;
     std::set<ChunkPos> m_chunks_rebuild_queue;

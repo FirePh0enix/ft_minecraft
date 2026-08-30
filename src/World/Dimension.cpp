@@ -14,31 +14,23 @@
 
 void GenScheduler::terrain_pass(ChunkPos middle)
 {
-    std::set<ChunkPos> chunks;
-
     for (int64_t x = -(m_chunk_distance + m_gen_distance); x <= m_chunk_distance + m_gen_distance; x++)
         for (int64_t z = -(m_chunk_distance + m_gen_distance); z <= m_chunk_distance + m_gen_distance; z++)
         {
             const ChunkPos pos(x + middle.x, z + middle.z);
 
-            if (m_dimension.has_pregen_chunk(x + middle.x, z + middle.z) || m_dimension.m_pregen_loading_queue.contains(pos))
+            if (m_dimension.m_preloaded_chunks.contains(pos) || m_dimension.m_pregen_loading_queue.contains(pos))
                 continue;
 
-            chunks.insert(pos);
-        }
-
-    if (chunks.size() > 0)
-    {
-        m_dimension.m_pregen_queue_count.fetch_add(chunks.size());
-
-        for (const ChunkPos& pos : chunks)
-        {
             m_dimension.m_pregen_loading_queue.insert(pos);
+
             std::shared_ptr<PreLoadedChunk> chunk = std::make_shared<PreLoadedChunk>();
-            Engine::get().get_thread_pool().submit([this, pos, chunk]
-                                                   { terrain_and_struct_chunk(pos, chunk); });
+            chunk->pos = pos;
+
+            Engine::get().get_thread_pool().submit([this, pos, chunk](std::stop_token) { // println("thread {}: pos {} {}, chunk {}", (void *)pthread_self(), pos.x, pos.z, (void *)chunk.get());
+                terrain_and_struct_chunk(pos, chunk);
+            });
         }
-    }
 
     for (const auto& [pos, chunk] : m_dimension.m_preloaded_chunks)
     {
@@ -72,7 +64,7 @@ void GenScheduler::terrain_pass(ChunkPos middle)
 
 void GenScheduler::chunk_pass(ChunkPos middle)
 {
-    if (m_dimension.m_pregen_queue_count.load() > 0)
+    if (m_dimension.m_pregen_loading_queue.size() > 0)
     {
         return;
     }
@@ -89,8 +81,8 @@ void GenScheduler::chunk_pass(ChunkPos middle)
 
             std::shared_ptr<Chunk> chunk = std::make_shared<Chunk>(&m_dimension, pos.x, pos.z);
             std::shared_ptr<PreLoadedChunk> preload_chunk = m_dimension.m_preloaded_chunks[pos];
-            Engine::get().get_thread_pool().submit([this, pos, chunk, preload_chunk]
-                                                   { realize_chunk(pos, chunk, preload_chunk); });
+            Engine::get().get_thread_pool().submit([this, pos, chunk, preload_chunk](std::stop_token st)
+                                                   { realize_chunk(st, pos, chunk, preload_chunk); });
         }
 
     std::vector<std::shared_ptr<Chunk>> chunks;
@@ -108,14 +100,13 @@ void GenScheduler::chunk_pass(ChunkPos middle)
 
 void GenScheduler::terrain_and_struct_chunk(ChunkPos pos, std::shared_ptr<PreLoadedChunk> chunk)
 {
-    chunk->pos = pos;
     m_dimension.m_gen->preload(pos.x, pos.z, chunk);
     m_dimension.m_gen->structure_pass(pos.x, pos.z, chunk, m_dimension);
 
     m_dimension.m_pregen_chunks_lockless.enqueue(chunk);
 }
 
-void GenScheduler::realize_chunk(ChunkPos pos, std::shared_ptr<Chunk> chunk, std::shared_ptr<PreLoadedChunk> pregen_chunk)
+void GenScheduler::realize_chunk(std::stop_token token, ChunkPos pos, std::shared_ptr<Chunk> chunk, std::shared_ptr<PreLoadedChunk> pregen_chunk)
 {
     std::string path = std::format("{}saves/{}/DIM0/{}${}/blocks.dat", Filesystem::get_data_directory(), m_dimension.m_world->get_name(), pos.x, pos.z);
     // std::shared_ptr<Chunk> chunk = std::make_shared<Chunk>(&m_dimension, pos.x, pos.z); // m_dimension.m_chunk_pool.alloc(&m_dimension, pos.x, pos.z).value();
@@ -159,7 +150,7 @@ void GenScheduler::realize_chunk(ChunkPos pos, std::shared_ptr<Chunk> chunk, std
         m_dimension.m_gen->generate_chunk(chunk, pregen_chunk, m_dimension);
 
         // Save the initial version of the chunk.
-        EXPECT(m_dimension.m_world->save_chunk(chunk, m_dimension.m_id));
+        EXPECT(m_dimension.m_world->save_chunk(token, chunk, m_dimension.m_id));
     }
 
     m_dimension.m_chunks_lockless.enqueue(chunk);
@@ -434,7 +425,7 @@ void Dimension::queue_rebuild(ChunkPos pos, size_t slice_index, size_t slice_cou
     }
 
     m_chunks_rebuild_queue.insert(pos);
-    Engine::get().get_thread_pool().submit([this, chunk, nchunks, slice_index, slice_count]
+    Engine::get().get_thread_pool().submit([this, chunk, nchunks, slice_index, slice_count](std::stop_token)
                                            { rebuild(chunk, nchunks, slice_index, slice_count); });
 }
 
@@ -447,7 +438,7 @@ void Dimension::unload_chunk(std::shared_ptr<Chunk> chunk)
 {
     if (!Engine::get().is_save_disabled())
     {
-        Result<void> result = m_world->save_chunk(chunk, m_id);
+        Result<void> result = m_world->save_chunk({}, chunk, m_id);
         (void)result;
     }
 
@@ -457,7 +448,7 @@ void Dimension::unload_chunk(std::shared_ptr<Chunk> chunk)
 
 void Dimension::queue_unload_chunk(std::shared_ptr<Chunk> chunk)
 {
-    Engine::get().get_thread_pool().submit([this, chunk]
+    Engine::get().get_thread_pool().submit([this, chunk](std::stop_token)
                                            { unload_chunk(chunk); });
 }
 

@@ -228,7 +228,7 @@ void World::tick_dimension(float delta, int dimension)
         for (auto& [pos, chunk] : m_dims[dimension].m_chunks)
         {
             if (chunk->is_modified())
-                EXPECT(save_chunk(chunk, dimension));
+                EXPECT(save_chunk({}, chunk, dimension));
             chunk->clear_modified();
         }
 
@@ -255,7 +255,6 @@ void World::tick_dimension(float delta, int dimension)
         while (m_dims[dimension].m_pregen_chunks_lockless.try_dequeue(pregen_chunk))
         {
             m_dims[dimension].m_preloaded_chunks[pregen_chunk->pos] = pregen_chunk;
-            m_dims[dimension].m_pregen_queue_count.fetch_sub(1);
             m_dims[dimension].m_pregen_loading_queue.erase(pregen_chunk->pos);
         }
     }
@@ -323,7 +322,7 @@ void World::tick_dimension(float delta, int dimension)
             if (chunk_opt.has_value())
             {
                 auto chunk = chunk_opt.value();
-                Engine::get().get_thread_pool().submit([this, req, chunk]
+                Engine::get().get_thread_pool().submit([this, req, chunk](std::stop_token)
                                                        { send_chunk(req.peer, chunk); });
             }
             else
@@ -526,12 +525,10 @@ void World::break_block(int dimension, int64_t x, int64_t y, int64_t z)
     add_entity(World::overworld, item_entity);
 }
 
-Result<void> World::save_chunk(std::shared_ptr<Chunk> chunk, int dimension)
+Result<void> World::save_chunk(std::stop_token token, std::shared_ptr<Chunk> chunk, int dimension)
 {
     if (Engine::get().is_save_disabled())
-    {
         return Result<void>();
-    }
 
     std::string path = std::format("{}/saves/{}/DIM{}/{}${}/", Filesystem::get_data_directory(), m_name, dimension, chunk->x(), chunk->z());
     TRY(Filesystem::make_dirs(path));
@@ -701,7 +698,7 @@ void World::receive_chunk(const ChunkDataPacket& p)
 void World::queue_receive_chunk(const ChunkDataPacket& p)
 {
     // Maybe I'm dumb and I don't know anything but using `[&]` creates segfaults, but manually specifying captures don't.
-    Engine::get().get_thread_pool().submit([this, p]
+    Engine::get().get_thread_pool().submit([this, p](std::stop_token)
                                            { receive_chunk(p); });
 }
 
