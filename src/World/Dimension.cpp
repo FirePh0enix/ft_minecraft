@@ -6,6 +6,7 @@
 #include "Core/ZLib.hpp"
 #include "Engine.hpp"
 #include "Profiler.hpp"
+#include "Variant.hpp"
 #include "World/Chunk.hpp"
 #include "World/Gen.hpp"
 #include "World/World.hpp"
@@ -300,7 +301,7 @@ void Dimension::set_block(int64_t x, int64_t y, int64_t z, BlockState state)
     chunk->set_block(local_x, y, local_z, state);
 }
 
-void Dimension::set_tag(glm::i64vec3 pos, std::string_view name, std::string v)
+void Dimension::set_tag(glm::i64vec3 pos, std::string_view name, Variant v)
 {
     if (pos.y < 0 || pos.y >= Chunk::height)
         return;

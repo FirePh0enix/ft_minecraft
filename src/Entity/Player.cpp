@@ -3,6 +3,7 @@
 #include "AABB.hpp"
 #include "Block/Inventory.hpp"
 #include "Core/Math.hpp"
+#include "Core/Print.hpp"
 #include "Engine.hpp"
 #include "Entity/Entity.hpp"
 #include "Entity/Item.hpp"
@@ -744,7 +745,7 @@ void Player::break_block(int64_t x, int64_t y, int64_t z)
     }
 }
 
-void Player::place_block(int64_t x, int64_t y, int64_t z, glm::vec3 normal, ItemStack stack)
+void Player::place_block(int64_t x, int64_t y, int64_t z, glm::dvec3 normal, ItemStack stack)
 {
     if (stack.item().valid())
     {

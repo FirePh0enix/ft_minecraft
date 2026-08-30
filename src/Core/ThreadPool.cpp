@@ -7,8 +7,14 @@
 ThreadPool::ThreadPool(size_t num_threads)
 {
     for (size_t i = 0; i < num_threads; i++)
-        m_threads.emplace_back(&ThreadPool::thread_worker, this);
+    {
+        m_threads.emplace_back([this](std::stop_token token)
+        {
+            thread_worker(token);
+        });
+    }
 }
+
 
 ThreadPool::~ThreadPool()
 {
