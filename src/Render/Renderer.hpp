@@ -11,10 +11,10 @@
 
 #include "daking/MPSC_queue.hpp"
 
-#include <set>
 #include <webgpu/webgpu.h>
 
 #include <limits>
+#include <set>
 #include <tuple>
 
 #ifdef __platform_web
@@ -47,12 +47,6 @@ enum class InitFlagBits
 };
 typedef Flags<InitFlagBits> InitFlags;
 DEFINE_FLAG_TRAITS(InitFlagBits);
-
-enum class VSync : uint8_t
-{
-    Off,
-    On,
-};
 
 enum class BufferVisibility : uint8_t
 {
@@ -457,7 +451,7 @@ public:
 
     Result<void> init(const Window& window, InitFlags flags);
 
-    void configure_surface(size_t width, size_t height, VSync vsync);
+    void configure_surface(size_t width, size_t height);
 
     // TODO: Only used by imgui for the main menu, which will be removed.
     void draw_legacy(std::function<void()> f);

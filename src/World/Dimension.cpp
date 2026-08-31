@@ -12,7 +12,6 @@
 #include "World/World.hpp"
 
 #include <mutex>
-#include <stop_token>
 
 void GenScheduler::terrain_pass(ChunkPos middle)
 {
@@ -29,9 +28,8 @@ void GenScheduler::terrain_pass(ChunkPos middle)
             std::shared_ptr<PreLoadedChunk> chunk = std::make_shared<PreLoadedChunk>();
             chunk->pos = pos;
 
-            Engine::get().get_thread_pool().submit([this, pos, chunk](std::stop_token token) {
-                terrain_and_struct_chunk(token, pos, chunk);
-            });
+            Engine::get().get_thread_pool().submit([this, pos, chunk](std::stop_token token)
+                                                   { terrain_and_struct_chunk(token, pos, chunk); });
         }
 
     for (const auto& [pos, chunk] : m_dimension.m_preloaded_chunks)
@@ -102,9 +100,12 @@ void GenScheduler::chunk_pass(ChunkPos middle)
 
 void GenScheduler::terrain_and_struct_chunk(std::stop_token token, ChunkPos pos, std::shared_ptr<PreLoadedChunk> chunk)
 {
-    if (token.stop_requested()) return;
+    if (token.stop_requested())
+        return;
     m_dimension.m_gen->preload(pos.x, pos.z, chunk);
-    if (token.stop_requested()) return;
+
+    if (token.stop_requested())
+        return;
     m_dimension.m_gen->structure_pass(pos.x, pos.z, chunk, m_dimension);
 
     m_dimension.m_pregen_chunks_lockless.enqueue(chunk);
@@ -113,9 +114,8 @@ void GenScheduler::terrain_and_struct_chunk(std::stop_token token, ChunkPos pos,
 void GenScheduler::realize_chunk(std::stop_token token, ChunkPos pos, std::shared_ptr<Chunk> chunk, std::shared_ptr<PreLoadedChunk> pregen_chunk)
 {
     std::string path = std::format("{}saves/{}/DIM0/{}${}/blocks.dat", Filesystem::get_data_directory(), m_dimension.m_world->get_name(), pos.x, pos.z);
-    // std::shared_ptr<Chunk> chunk = std::make_shared<Chunk>(&m_dimension, pos.x, pos.z); // m_dimension.m_chunk_pool.alloc(&m_dimension, pos.x, pos.z).value();
 
-    if (!Engine::get().is_save_disabled() && Filesystem::exists(path))
+    if (false && !Engine::get().is_save_disabled() && Filesystem::exists(path))
     {
         std::vector<char> data;
         // TODO: how to handle errors from loading chunks ?
@@ -127,7 +127,8 @@ void GenScheduler::realize_chunk(std::stop_token token, ChunkPos pos, std::share
         auto blocks_result = ZLib::inflate_with_cancellation(token, std::as_bytes(std::span(data)), blocks_data);
         if (!blocks_result)
         {
-            if (token.stop_requested()) return;
+            if (token.stop_requested())
+                return;
             EXPECT(blocks_result);
         }
 
@@ -146,7 +147,8 @@ void GenScheduler::realize_chunk(std::stop_token token, ChunkPos pos, std::share
             auto tags_result = ZLib::inflate_with_cancellation(token, std::as_bytes(std::span(tags_compressed_data)), tags_data);
             if (!tags_result)
             {
-                if (token.stop_requested()) return;
+                if (token.stop_requested())
+                    return;
                 EXPECT(tags_result);
             }
 
@@ -391,11 +393,13 @@ bool Dimension::has_solid_block(int64_t x, int64_t y, int64_t z) const
 
 void Dimension::rebuild(std::stop_token token, std::shared_ptr<Chunk> chunk, const std::map<ChunkPos, std::shared_ptr<Chunk>>& nchunks, size_t slice_index, size_t slice_count)
 {
-    if (token.stop_requested()) return;
     MeshRebuildResult results[16];
 
     for (size_t i = slice_index; i < slice_index + slice_count; i++)
     {
+        if (token.stop_requested())
+            return;
+
         results[i].pos = chunk->pos();
         results[i].slice_index = i;
         results[i].mesh = EXPECT(chunk->build_simple_mesh(i, nchunks));
@@ -451,7 +455,8 @@ void Dimension::remove_preload(ChunkPos pos)
 
 void Dimension::unload_chunk(std::stop_token token, std::shared_ptr<Chunk> chunk)
 {
-    if (token.stop_requested()) return;
+    if (token.stop_requested())
+        return;
     if (!Engine::get().is_save_disabled())
     {
         Result<void> result = m_world->save_chunk({}, chunk, m_id);

@@ -115,7 +115,7 @@ void Engine::tick(float delta)
             {
                 const uint32_t w = event.window.data1;
                 const uint32_t h = event.window.data2;
-                Renderer::get().configure_surface(w, h, VSync::On);
+                Renderer::get().configure_surface(w, h);
 
                 if (m_scene == GameScene::World)
                     m_world->get_player()->get_camera()->update_projection((float)w / (float)h);

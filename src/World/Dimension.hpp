@@ -62,29 +62,20 @@ public:
     GenScheduler(Dimension& dimension)
         : m_dimension(dimension)
     {
-        // m_chunks.resize(thread_pool_capacity);
     }
 
     ~GenScheduler()
     {
-        // delete[] m_mutexes;
     }
 
     void terrain_pass(ChunkPos middle);
     void chunk_pass(ChunkPos middle);
-
-    /// Flush chunks that have been generated without waiting for a mutex to unlock.
-    void try_flush(std::set<ChunkPos>& chunks);
 
 private:
     Dimension& m_dimension;
 
     int64_t m_chunk_distance = 16;
     int64_t m_gen_distance = 15;
-
-    // std::mutex m_pregen_queue_mutex;
-    // std::atomic_size_t m_pregen_count = 0;
-    // std::set<ChunkPos> m_pregen_queue;
 
     std::vector<ChunkPos> m_pregen_unload_queue;
 

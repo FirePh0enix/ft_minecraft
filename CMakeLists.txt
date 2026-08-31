@@ -173,13 +173,13 @@ endif()
 set(BUILD_SHARED_LIBS 0)
 
 # SplineLibrary
-FetchContent_Declare(
-    SplineLibrary
-    GIT_REPOSITORY https://github.com/ejmahler/SplineLibrary
-    GIT_TAG 1e3f4a2d4fb8db206ab23a0c60192bea8a7c6bfe # master
-)
-FetchContent_MakeAvailable(SplineLibrary)
-target_include_directories(${TARGET_NAME} PRIVATE ${splinelibrary_SOURCE_DIR})
+# FetchContent_Declare(
+#     SplineLibrary
+#     GIT_REPOSITORY https://github.com/ejmahler/SplineLibrary
+#     GIT_TAG 1e3f4a2d4fb8db206ab23a0c60192bea8a7c6bfe # master
+# )
+# FetchContent_MakeAvailable(SplineLibrary)
+# target_include_directories(${TARGET_NAME} PRIVATE ${splinelibrary_SOURCE_DIR})
 
 # doctest for unit tests.
 # FetchContent_Declare(

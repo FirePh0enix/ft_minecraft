@@ -1266,7 +1266,7 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_fw_water_texture = Engine::get().registry().create_texture("assets/textures/water.png");
 
     Extent2D window_size = window.size();
-    configure_surface(window_size.width, window_size.height, VSync::On);
+    configure_surface(window_size.width, window_size.height);
 
     // WGPUQuerySetDescriptor desc{};
     // desc.type = WGPUQueryType_Occlusion;
@@ -1290,10 +1290,8 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     return Result<void>();
 }
 
-void Renderer::configure_surface(size_t width, size_t height, VSync vsync)
+void Renderer::configure_surface(size_t width, size_t height)
 {
-    (void)vsync;
-
     Extent2D surface_extent(width, height);
 
 #ifndef __platform_web
@@ -1306,7 +1304,7 @@ void Renderer::configure_surface(size_t width, size_t height, VSync vsync)
     config.usage = capabilities.usages;
     config.width = surface_extent.width;
     config.height = surface_extent.height;
-    config.presentMode = WGPUPresentMode_Immediate; // vsync == VSync::On ? WGPUPresentMode_Fifo : WGPUPresentMode_Immediate;
+    config.presentMode = WGPUPresentMode_Fifo;
     config.alphaMode = capabilities.alphaModes[0];
 
     wgpuSurfaceCapabilitiesFreeMembers(capabilities);
@@ -1630,27 +1628,30 @@ void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::sha
     m_fw_camera_rel->update_struct(camera);
 
     const float shadowmap_range = float(world->get_render_distance()) * 34.0f;
-    const glm::vec3 light_target = active_camera->get_global_transform().position();
-    const glm::vec3 light_dir = glm::normalize(glm::vec3(1, 1, 0));
+    const glm::dvec3 light_target = active_camera->get_global_transform().position();
+    const glm::dvec3 light_dir = glm::normalize(glm::vec3(1, 1, 0));
     // const float light_distance = 100.0;
 
     // const glm::mat4 shadowmap_proj = glm::ortho(-shadowmap_range, shadowmap_range, -shadowmap_range, shadowmap_range, -1.0f, 300.0f);
     // const glm::mat4 shadowmap_view = glm::lookAt(light_target + light_dir * light_distance, light_target, glm::vec3(0, 1, 0));
 
-    LightMatrices light = getStableLightMatrices(light_dir, light_target, shadowmap_range, SHADOWMAP_RESOLUTION);
+    // LightMatrices light = getStableLightMatrices(light_dir, light_target, shadowmap_range, SHADOWMAP_RESOLUTION);
+
+    const glm::mat4 light_projection = glm::ortho(-shadowmap_range / 2.0f, shadowmap_range / 2.0f, -shadowmap_range / 2.0f, shadowmap_range / 2.0f, 0.0f, shadowmap_range);
+    const glm::mat4 light_view = glm::lookAt(light_target - light_dir * (shadowmap_range / 2.0) - active_camera->get_global_transform().position(), light_target - active_camera->get_global_transform().position(), glm::dvec3(0, 1, 0));
 
     // FIXME
     update_clouds(active_camera);
 
-    world->get_dimension(dimension).update_sun(light.projection * light.view);
+    world->get_dimension(dimension).update_sun(light_projection * light_view);
 
-    FwColored shadowmap_cam(
-        glm::inverse(light.view) * glm::scale(glm::identity<glm::mat4>(), glm::vec3(100.0) * 2.0f),
-        Colors::white);
+    FwColored shadowmap_cam{};
+    shadowmap_cam.model = glm::inverse(light_view) * glm::scale(glm::identity<glm::mat4>(), glm::vec3(100.0) * 2.0f);
+    shadowmap_cam.color = Colors::white;
     m_fw_shadowmap_cam_buffer->update_struct(shadowmap_cam);
 
     FwCamera shadowmap_camera{};
-    shadowmap_camera.view_projection = light.projection * light.view;
+    shadowmap_camera.view_projection = light_projection * light_view;
     m_fw_shadowmap_camera->update_struct(shadowmap_camera);
 
     FwWorldEnv world_env{};
@@ -1682,7 +1683,7 @@ void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::sha
     shadowmap_pass_desc.depthStencilAttachment = &shadowmap_attach;
 
     WGPURenderPassEncoder shadowmap_pass = wgpuCommandEncoderBeginRenderPass(encoder, &shadowmap_pass_desc);
-    // draw_world(world, RenderPass(shadowmap_pass, RenderTarget(m_fw_shadowmap->format()), {}), WorldFlagBits::Shadowmap, world->get_dimension(0).get_sun_visible_chunks());
+    draw_world(world, RenderPass(shadowmap_pass, RenderTarget(m_fw_shadowmap->format()), {}), WorldFlagBits::Shadowmap, world->get_dimension(0).get_sun_visible_chunks(), stencil_mask);
     wgpuRenderPassEncoderEnd(shadowmap_pass);
     wgpuRenderPassEncoderRelease(shadowmap_pass);
 
