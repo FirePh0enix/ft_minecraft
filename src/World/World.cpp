@@ -657,18 +657,7 @@ void World::send_chunk(ENetPeer *peer, std::shared_ptr<Chunk> chunk) const
 void World::receive_chunk(const ChunkDataPacket& p)
 {
     Dimension& dimension = get_dimension(World::overworld);
-    bool has_chunk = dimension.has_chunk(p.x, p.z);
-
-    std::shared_ptr<Chunk> chunk;
-    if (has_chunk)
-    {
-        chunk = dimension.get_chunk(p.x, p.z).value();
-        // TODO: maybe we need a mutex to modify a chunk, for now it only creates new one.
-    }
-    else
-    {
-        chunk = std::make_shared<Chunk>(&dimension, p.x, p.z);
-    }
+    std::shared_ptr<Chunk> chunk = std::make_shared<Chunk>(&dimension, p.x, p.z);
 
     std::vector<uint8_t> blocks_data;
     EXPECT(ZLib::inflate(std::as_bytes(std::span(p.blocks)), blocks_data));
@@ -692,11 +681,9 @@ void World::receive_chunk(const ChunkDataPacket& p)
     // 	EXPECT(chunk->build_water_mesh(i));
     // }
 
-    if (!has_chunk)
-    {
-        // TODO: Is there a reason to lock anything here ?
-        dimension.m_chunks[chunk->pos()] = chunk;
-    }
+    // Publish on the main thread. Direct m_chunks access here races rendering,
+    // visibility calculation and scheduling.
+    dimension.m_chunks_lockless.enqueue(chunk);
 }
 
 void World::queue_receive_chunk(const ChunkDataPacket& p)

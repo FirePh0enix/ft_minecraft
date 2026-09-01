@@ -10,7 +10,9 @@
 class ThreadPool
 {
 public:
-    ThreadPool(size_t num_threads = std::thread::hardware_concurrency() - 2);
+    ThreadPool(size_t num_threads = std::thread::hardware_concurrency() > 2
+                                        ? std::thread::hardware_concurrency() - 2
+                                        : 1);
     ~ThreadPool();
 
     size_t size() const { return m_threads.size(); }

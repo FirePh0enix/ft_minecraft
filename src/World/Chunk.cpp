@@ -43,11 +43,11 @@ void Chunk::set_block(int64_t x, int64_t y, int64_t z, BlockState state)
 
     if (x == 0)
         m_dim->queue_rebuild(ChunkPos(m_x - 1, m_z));
-    else if (x == 15)
+    if (x == 15)
         m_dim->queue_rebuild(ChunkPos(m_x + 1, m_z));
     if (z == 0)
         m_dim->queue_rebuild(ChunkPos(m_x, m_z - 1));
-    else if (z == 15)
+    if (z == 15)
         m_dim->queue_rebuild(ChunkPos(m_x, m_z + 1));
 
     // if (block != nullptr && !block->is_conventional())

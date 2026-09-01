@@ -2,10 +2,12 @@
 
 #include "Logger.hpp"
 
+#include <algorithm>
 #include <mutex>
 
 ThreadPool::ThreadPool(size_t num_threads)
 {
+    num_threads = std::max<size_t>(num_threads, 1);
     for (size_t i = 0; i < num_threads; i++)
     {
         m_threads.emplace_back([this](std::stop_token token)
