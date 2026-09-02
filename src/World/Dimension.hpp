@@ -47,6 +47,7 @@ struct PreLoadedChunk
 struct MeshRebuildResult
 {
     ChunkPos pos;
+    std::shared_ptr<Chunk> chunk;
     size_t slice_index;
     std::shared_ptr<Mesh> opaque_mesh;
     std::shared_ptr<Mesh> water_mesh;
@@ -77,8 +78,6 @@ private:
 
     int64_t m_chunk_distance = 16;
     int64_t m_gen_distance = 15;
-
-    std::vector<ChunkPos> m_pregen_unload_queue;
 
     void terrain_and_struct_chunk(std::stop_token token, ChunkPos pos, std::shared_ptr<PreLoadedChunk> chunk);
     void realize_chunk(std::stop_token st, ChunkPos pos, std::shared_ptr<Chunk> chunk, std::shared_ptr<PreLoadedChunk> pregen_chunk);
@@ -155,6 +154,7 @@ private:
     std::set<ChunkPos> m_pregen_loading_queue;
     std::set<ChunkPos> m_chunks_loading_queue;
     std::set<ChunkPos> m_chunks_rebuild_queue;
+    std::set<ChunkPos> m_chunks_rebuild_pending;
 
     GenScheduler m_scheduler;
 

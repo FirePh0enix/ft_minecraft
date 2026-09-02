@@ -277,17 +277,27 @@ void World::tick_dimension(float delta, int dimension)
 
     {
         ZoneScopedN("Mesh flush");
+        std::vector<ChunkPos> rebuild_completed;
         MeshRebuildResult result;
         while (m_dims[dimension].m_mesh_queue_lockless.try_dequeue(result))
         {
-            // A chunk may have been unloaded while the mesh was generated.
-            if (!m_dims[dimension].m_chunks.contains(result.pos))
+            // A chunk may have been unloaded and another instance loaded at
+            // the same position while this mesh was being generated.
+            auto chunk_iter = m_dims[dimension].m_chunks.find(result.pos);
+            if (chunk_iter == m_dims[dimension].m_chunks.end() || chunk_iter->second != result.chunk)
                 continue;
-            std::shared_ptr<Chunk> chunk = m_dims[dimension].m_chunks[result.pos];
+            std::shared_ptr<Chunk> chunk = chunk_iter->second;
             chunk->get_slices()[result.slice_index].opaque_mesh = result.opaque_mesh;
             chunk->get_slices()[result.slice_index].water_mesh = result.water_mesh;
             chunk->get_slices()[result.slice_index].semitransparent_mesh = result.semitransparent_mesh;
-            m_dims[dimension].m_chunks_rebuild_queue.erase(result.pos);
+            if (m_dims[dimension].m_chunks_rebuild_queue.erase(result.pos) > 0)
+                rebuild_completed.push_back(result.pos);
+        }
+
+        for (const ChunkPos pos : rebuild_completed)
+        {
+            if (m_dims[dimension].m_chunks_rebuild_pending.erase(pos) > 0)
+                m_dims[dimension].queue_rebuild(pos);
         }
     }
 
@@ -657,18 +667,7 @@ void World::send_chunk(ENetPeer *peer, std::shared_ptr<Chunk> chunk) const
 void World::receive_chunk(const ChunkDataPacket& p)
 {
     Dimension& dimension = get_dimension(World::overworld);
-    bool has_chunk = dimension.has_chunk(p.x, p.z);
-
-    std::shared_ptr<Chunk> chunk;
-    if (has_chunk)
-    {
-        chunk = dimension.get_chunk(p.x, p.z).value();
-        // TODO: maybe we need a mutex to modify a chunk, for now it only creates new one.
-    }
-    else
-    {
-        chunk = std::make_shared<Chunk>(&dimension, p.x, p.z);
-    }
+    std::shared_ptr<Chunk> chunk = std::make_shared<Chunk>(&dimension, p.x, p.z);
 
     std::vector<uint8_t> blocks_data;
     EXPECT(ZLib::inflate(std::as_bytes(std::span(p.blocks)), blocks_data));
@@ -692,11 +691,9 @@ void World::receive_chunk(const ChunkDataPacket& p)
     // 	EXPECT(chunk->build_water_mesh(i));
     // }
 
-    if (!has_chunk)
-    {
-        // TODO: Is there a reason to lock anything here ?
-        dimension.m_chunks[chunk->pos()] = chunk;
-    }
+    // Publish on the main thread. Direct m_chunks access here races rendering,
+    // visibility calculation and scheduling.
+    dimension.m_chunks_lockless.enqueue(chunk);
 }
 
 void World::queue_receive_chunk(const ChunkDataPacket& p)
