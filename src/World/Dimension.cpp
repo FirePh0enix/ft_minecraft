@@ -89,7 +89,10 @@ void GenScheduler::chunk_pass(ChunkPos middle)
     }
     for (std::shared_ptr<Chunk> chunk : chunks)
     {
-        m_dimension.m_chunks.erase(chunk->pos());
+        const ChunkPos pos = chunk->pos();
+        m_dimension.m_chunks.erase(pos);
+        m_dimension.m_chunks_rebuild_queue.erase(pos);
+        m_dimension.m_chunks_rebuild_pending.erase(pos);
         m_dimension.queue_unload_chunk(chunk);
     }
 }
@@ -397,6 +400,7 @@ void Dimension::rebuild(std::stop_token token, std::shared_ptr<Chunk> chunk, con
             return;
 
         results[i].pos = chunk->pos();
+        results[i].chunk = chunk;
         results[i].slice_index = i;
 
         Result<std::shared_ptr<Mesh>> opaque_mesh = chunk->build_opaque_mesh(i, nchunks);
@@ -419,8 +423,13 @@ void Dimension::rebuild(std::stop_token token, std::shared_ptr<Chunk> chunk, con
 
 void Dimension::queue_rebuild(ChunkPos pos, size_t slice_index, size_t slice_count)
 {
-    if (!m_chunks.contains(pos) || m_chunks_rebuild_queue.contains(pos))
+    if (!m_chunks.contains(pos))
         return;
+    if (m_chunks_rebuild_queue.contains(pos))
+    {
+        m_chunks_rebuild_pending.insert(pos);
+        return;
+    }
 
     auto chunk = m_chunks[pos];
     std::map<ChunkPos, std::shared_ptr<Chunk>> nchunks;

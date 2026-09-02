@@ -47,6 +47,7 @@ struct PreLoadedChunk
 struct MeshRebuildResult
 {
     ChunkPos pos;
+    std::shared_ptr<Chunk> chunk;
     size_t slice_index;
     std::shared_ptr<Mesh> opaque_mesh;
     std::shared_ptr<Mesh> water_mesh;
@@ -153,6 +154,7 @@ private:
     std::set<ChunkPos> m_pregen_loading_queue;
     std::set<ChunkPos> m_chunks_loading_queue;
     std::set<ChunkPos> m_chunks_rebuild_queue;
+    std::set<ChunkPos> m_chunks_rebuild_pending;
 
     GenScheduler m_scheduler;
 
