@@ -17,6 +17,7 @@ class Mesh;
 class BindGroup;
 class Buffer;
 class Texture;
+class Material;
 
 struct ChunkPos
 {
@@ -52,6 +53,26 @@ struct BlockPos
     }
 };
 
+// struct MeshLayer
+// {
+//     enum class Kind
+//     {
+//         Opaque,
+//         Water,
+//         Semitransparent,
+//     };
+
+//     std::shared_ptr<Mesh> mesh;
+//     std::shared_ptr<BindGroup> bindgroup;
+// };
+
+enum class MeshLayerKind
+{
+    Opaque,
+    Water,
+    Semitransparent,
+};
+
 class Chunk
 {
 public:
@@ -60,12 +81,15 @@ public:
 
     struct Slice
     {
-        std::shared_ptr<Mesh> mesh;
+        std::shared_ptr<Mesh> opaque_mesh;
         std::shared_ptr<Mesh> water_mesh;
+        std::shared_ptr<Mesh> semitransparent_mesh;
 
-        std::shared_ptr<BindGroup> mesh_bg;
-        std::shared_ptr<BindGroup> mesh_shadowmap_bg;
-        std::shared_ptr<BindGroup> water_bg;
+        // std::shared_ptr<BindGroup> bindgroup;
+        // std::shared_ptr<BindGroup> mesh_shadowmap_bg;
+        // std::shared_ptr<BindGroup> water_bg;
+
+        // std::map<MeshLayerKind, std::shared_ptr<Mesh>> layers;
     };
 
     static constexpr int64_t width = 16;
@@ -99,8 +123,9 @@ public:
 
     ALWAYS_INLINE std::shared_ptr<Buffer> get_instance_buffer() const { return m_uniform_buffer; }
 
-    Result<std::shared_ptr<Mesh>> build_simple_mesh(size_t slice, const std::map<ChunkPos, std::shared_ptr<Chunk>>& chunks);
-    Result<std::shared_ptr<Mesh>> build_water_mesh(size_t slice, const std::map<ChunkPos, std::shared_ptr<Chunk>>& chunks);
+    Result<std::shared_ptr<Mesh>> build_opaque_mesh(size_t slice_index, const std::map<ChunkPos, std::shared_ptr<Chunk>>& chunks);
+    Result<std::shared_ptr<Mesh>> build_water_mesh(size_t slice_index, const std::map<ChunkPos, std::shared_ptr<Chunk>>& chunks);
+    Result<std::shared_ptr<Mesh>> build_semitransparent_mesh(size_t slice_index, const std::map<ChunkPos, std::shared_ptr<Chunk>>& chunks);
 
     bool is_modified() const { return m_modified; }
     void clear_modified() { m_modified = false; }
@@ -110,8 +135,6 @@ public:
     std::optional<Variant> get_tag(glm::i64vec3 pos, std::string_view name) const;
     std::optional<Variant> get_tag(uint16_t index, std::string_view name) const;
     void merge_tag(uint16_t index, const stdext::string_map<Variant>& tags, bool dont_modify = false);
-
-    const std::set<BlockPos>& get_non_coventional_blocks() const { return m_non_conventional_blocks; }
 
     static ALWAYS_INLINE size_t linearize(int64_t x, int64_t y, int64_t z) { return z * width * height + y * width + x; }
 

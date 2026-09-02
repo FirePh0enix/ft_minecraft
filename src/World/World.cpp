@@ -284,8 +284,9 @@ void World::tick_dimension(float delta, int dimension)
             if (!m_dims[dimension].m_chunks.contains(result.pos))
                 continue;
             std::shared_ptr<Chunk> chunk = m_dims[dimension].m_chunks[result.pos];
-            chunk->get_slices()[result.slice_index].mesh = result.mesh;
+            chunk->get_slices()[result.slice_index].opaque_mesh = result.opaque_mesh;
             chunk->get_slices()[result.slice_index].water_mesh = result.water_mesh;
+            chunk->get_slices()[result.slice_index].semitransparent_mesh = result.semitransparent_mesh;
             m_dims[dimension].m_chunks_rebuild_queue.erase(result.pos);
         }
     }
@@ -361,7 +362,7 @@ void World::tick_dimension(float delta, int dimension)
                 AABBf aabb = AABBf(-glm::vec3(Chunk::width / 2.0, Chunk::width / 2.0, Chunk::width / 2), glm::vec3(Chunk::width / 2.0, Chunk::width / 2.0, Chunk::width / 2))
                                  .translate(glm::dvec3((double)pos.x * Chunk::width + Chunk::width / 2.0, (double)i * Chunk::width + Chunk::width / 2.0, (double)pos.z * Chunk::width + Chunk::width / 2.0) - camera->get_global_transform().position());
 
-                if (!camera->frustum().contains(aabb) || (chunk->get_slices()[i].mesh == nullptr && chunk->get_slices()[i].water_mesh == nullptr))
+                if (!camera->frustum().contains(aabb) || (chunk->get_slices()[i].opaque_mesh == nullptr && chunk->get_slices()[i].water_mesh == nullptr))
                     continue;
 
                 m_dims[dimension].m_visible_chunks.push_back(RenderableChunk(chunk, i));
@@ -385,7 +386,7 @@ void World::tick_dimension(float delta, int dimension)
             AABBf aabb = AABBf(-glm::vec3(Chunk::width / 2.0, Chunk::width / 2.0, Chunk::width / 2), glm::vec3(Chunk::width / 2.0, Chunk::width / 2.0, Chunk::width / 2))
                              .translate(glm::vec3((float)pos.x * Chunk::width + Chunk::width / 2.0, (float)i * Chunk::width + Chunk::width / 2.0, (float)pos.z * Chunk::width + Chunk::width / 2.0));
 
-            std::shared_ptr<Mesh> mesh = chunk->get_slices()[i].mesh;
+            std::shared_ptr<Mesh> mesh = chunk->get_slices()[i].opaque_mesh;
             if (!m_dims[dimension].m_sun_frustum.contains(aabb) || mesh == nullptr)
                 continue;
 
@@ -528,6 +529,8 @@ void World::break_block(int dimension, int64_t x, int64_t y, int64_t z)
 
 Result<void> World::save_chunk(std::stop_token token, std::shared_ptr<Chunk> chunk, int dimension)
 {
+    (void)token;
+
     if (Engine::get().is_save_disabled())
         return Result<void>();
 

@@ -16,24 +16,6 @@ Chunk::Chunk(Dimension *dim, int64_t x, int64_t z)
 
     // m_tags = new std::unordered_map<int64_t, std::map<std::string, std::string>>();
     m_uniform_buffer = EXPECT(Buffer::create(sizeof(FwChunkUniforms) * slice_count, WGPUBufferUsage_Uniform | WGPUBufferUsage_Vertex | WGPUBufferUsage_CopyDst));
-
-    for (size_t i = 0; i < slice_count; i++)
-    {
-        m_slices[i].mesh_bg = BindGroup::create(Renderer::get().get_fw_chunk_shader());
-        m_slices[i].mesh_bg->set_param("camera", Renderer::get().get_fw_camera());
-        m_slices[i].mesh_bg->set_param("world_env", Renderer::get().get_fw_world_env());
-        m_slices[i].mesh_bg->set_param("images", EXPECT(Engine::get().registry().get_texture_array()->get_view(WGPUTextureViewDimension_2DArray)));
-        m_slices[i].mesh_bg->set_param("shadowmap", EXPECT(Renderer::get().get_fw_shadowmap()->get_view()));
-
-        m_slices[i].water_bg = BindGroup::create(Renderer::get().get_fw_water_shader());
-        m_slices[i].water_bg->set_param("camera", Renderer::get().get_fw_camera());
-        m_slices[i].water_bg->set_param("world_env", Renderer::get().get_fw_world_env());
-        m_slices[i].water_bg->set_param("image", EXPECT(Renderer::get().get_fw_water_texture()->get_view()));
-        m_slices[i].water_bg->set_param("shadowmap", EXPECT(Renderer::get().get_fw_shadowmap()->get_view()));
-
-        m_slices[i].mesh_shadowmap_bg = BindGroup::create(Renderer::get().get_fw_shadowmap_shader());
-        m_slices[i].mesh_shadowmap_bg->set_param("camera", Renderer::get().get_fw_shadowmap_camera());
-    }
 }
 
 Chunk::~Chunk()
@@ -68,15 +50,14 @@ void Chunk::set_block(int64_t x, int64_t y, int64_t z, BlockState state)
     else if (z == 15)
         m_dim->queue_rebuild(ChunkPos(m_x, m_z + 1));
 
-    std::shared_ptr<Block> block = Engine::get().registry().get_block(state.id);
-    if (block != nullptr && !block->is_conventional())
-    {
-        m_non_conventional_blocks.insert(BlockPos(x, y, z));
-    }
-    else if (m_non_conventional_blocks.contains(BlockPos(x, y, z)))
-    {
-        m_non_conventional_blocks.erase(BlockPos(x, y, z));
-    }
+    // if (block != nullptr && !block->is_conventional())
+    // {
+    //     m_non_conventional_blocks.insert(BlockPos(x, y, z));
+    // }
+    // else if (m_non_conventional_blocks.contains(BlockPos(x, y, z)))
+    // {
+    //     m_non_conventional_blocks.erase(BlockPos(x, y, z));
+    // }
 
     // if (y == 0)
     //     m_dim->queue_rebuild(ChunkPos(m_x, m_z), 0, 1);
@@ -169,9 +150,8 @@ static glm::vec3 normal_from_axis(Axis axis, bool positive)
     return glm::vec3();
 }
 
-Result<std::shared_ptr<Mesh>> Chunk::build_simple_mesh(size_t slice_index, const std::map<ChunkPos, std::shared_ptr<Chunk>>& chunks)
+Result<std::shared_ptr<Mesh>> Chunk::build_opaque_mesh(size_t slice_index, const std::map<ChunkPos, std::shared_ptr<Chunk>>& chunks)
 {
-    // Slice& slice = m_slices[slice_index];
     int64_t slice_y_offset = int64_t(slice_index) * width;
 
     // Let's detect which faces are not hidden.
@@ -280,17 +260,17 @@ Result<std::shared_ptr<Mesh>> Chunk::build_simple_mesh(size_t slice_index, const
         normals.push_back(normal);
     }
 
-    std::shared_ptr<Mesh> mesh = TRY(Mesh::create_from_data(std::as_bytes(std::span(indices)), vertices, normals, std::as_bytes(std::span(uvs)), WGPUIndexFormat_Uint16, WGPUVertexFormat_Float32x4));
-    return mesh;
+    std::shared_ptr<Mesh> opaque_mesh = TRY(Mesh::create_from_data(std::as_bytes(std::span(indices)), vertices, normals, std::as_bytes(std::span(uvs)), WGPUIndexFormat_Uint16, WGPUVertexFormat_Float32x4));
+    return opaque_mesh;
 }
 
 Result<std::shared_ptr<Mesh>> Chunk::build_water_mesh(size_t slice_index, const std::map<ChunkPos, std::shared_ptr<Chunk>>& chunks)
 {
-    // Slice& slice = m_slices[slice_index];
     int64_t slice_y_offset = int64_t(slice_index) * width;
 
     // Let's detect which faces are not hidden.
     std::vector<ChunkBlockFace> faces;
+    std::map<BlockPos, std::shared_ptr<Block>> other_blocks;
 
     for (int64_t x = 0; x < Chunk::width; x++)
     {
@@ -299,6 +279,12 @@ Result<std::shared_ptr<Mesh>> Chunk::build_water_mesh(size_t slice_index, const 
             for (int64_t z = 0; z < Chunk::width; z++)
             {
                 const uint32_t index = linearize(x, y, z);
+
+                std::shared_ptr<Block> block = Engine::get().registry().get_block(m_blocks[index].id);
+                if (block != nullptr && !block->is_conventional() && block->is_transparent())
+                {
+                    other_blocks[BlockPos(x, y, z)] = block;
+                }
 
                 if (!get_tag(index, "water").has_value())
                     continue;
@@ -323,14 +309,10 @@ Result<std::shared_ptr<Mesh>> Chunk::build_water_mesh(size_t slice_index, const 
         }
     }
 
-    // No faces are visible, let's skip mesh generation.
-    if (faces.empty())
-        return Result<std::shared_ptr<Mesh>>(nullptr);
-
     // Now we build a mesh from the faces.
     std::vector<uint16_t> indices;
     std::vector<glm::vec3> vertices;
-    std::vector<glm::vec2> uvs;
+    std::vector<glm::vec4> uvs;
     std::vector<glm::vec3> normals;
 
     for (const ChunkBlockFace& face : faces)
@@ -354,10 +336,10 @@ Result<std::shared_ptr<Mesh>> Chunk::build_water_mesh(size_t slice_index, const 
         vertices.push_back(new_vertices[2]);
         vertices.push_back(new_vertices[3]);
 
-        uvs.push_back(glm::vec2(0.0, 0.0));
-        uvs.push_back(glm::vec2(1.0, 0.0));
-        uvs.push_back(glm::vec2(1.0, 1.0));
-        uvs.push_back(glm::vec2(0.0, 1.0));
+        uvs.push_back(glm::vec4(0.0, 0.0, 0.0, 0.0));
+        uvs.push_back(glm::vec4(1.0, 0.0, 0.0, 0.0));
+        uvs.push_back(glm::vec4(1.0, 1.0, 0.0, 0.0));
+        uvs.push_back(glm::vec4(0.0, 1.0, 0.0, 0.0));
 
         const glm::vec3 normal = normal_from_axis(face.axis, face.positive);
         normals.push_back(normal);
@@ -366,8 +348,52 @@ Result<std::shared_ptr<Mesh>> Chunk::build_water_mesh(size_t slice_index, const 
         normals.push_back(normal);
     }
 
-    std::shared_ptr<Mesh> water_mesh = TRY(Mesh::create_from_data(std::as_bytes(std::span(indices)), vertices, normals, std::as_bytes(std::span(uvs)), WGPUIndexFormat_Uint16, WGPUVertexFormat_Float32x2));
-    return water_mesh;
+    if (indices.size() == 0)
+        return Result<std::shared_ptr<Mesh>>(nullptr);
+
+    std::shared_ptr<Mesh> mesh = TRY(Mesh::create_from_data(std::as_bytes(std::span(indices)), vertices, normals, std::as_bytes(std::span(uvs)), WGPUIndexFormat_Uint16, WGPUVertexFormat_Float32x4));
+    return mesh;
+}
+
+Result<std::shared_ptr<Mesh>> Chunk::build_semitransparent_mesh(size_t slice_index, const std::map<ChunkPos, std::shared_ptr<Chunk>>& chunks)
+{
+    (void)chunks;
+
+    int64_t slice_y_offset = int64_t(slice_index) * width;
+
+    // Let's detect which faces are not hidden.
+    std::vector<ChunkBlockFace> faces;
+    std::map<BlockPos, std::shared_ptr<Block>> other_blocks;
+
+    for (int64_t x = 0; x < Chunk::width; x++)
+        for (int64_t y = slice_y_offset; y < slice_y_offset + Chunk::width; y++)
+            for (int64_t z = 0; z < Chunk::width; z++)
+            {
+                const uint32_t index = linearize(x, y, z);
+
+                std::shared_ptr<Block> block = Engine::get().registry().get_block(m_blocks[index].id);
+                if (block != nullptr && !block->is_conventional() && block->is_transparent())
+                {
+                    other_blocks[BlockPos(x, y, z)] = block;
+                }
+            }
+
+    // Now we build a mesh from the faces.
+    std::vector<uint16_t> indices;
+    std::vector<glm::vec3> vertices;
+    std::vector<glm::vec4> uvs;
+    std::vector<glm::vec3> normals;
+
+    for (const auto& [pos, block] : other_blocks)
+    {
+        block->add_to_mesh({pos.x, pos.y - slice_index * 16, pos.z}, indices, vertices, uvs, normals);
+    }
+
+    if (indices.size() == 0)
+        return Result<std::shared_ptr<Mesh>>(nullptr);
+
+    std::shared_ptr<Mesh> transparent_mesh = TRY(Mesh::create_from_data(std::as_bytes(std::span(indices)), vertices, normals, std::as_bytes(std::span(uvs)), WGPUIndexFormat_Uint16, WGPUVertexFormat_Float32x4));
+    return transparent_mesh;
 }
 
 void Chunk::set_tag(glm::i64vec3 pos, std::string_view name, Variant v, bool dont_modify)

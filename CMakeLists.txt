@@ -29,6 +29,7 @@ list(APPEND SOURCES
     src/Window.cpp
     src/Block/Block.cpp
     src/Block/CraftingTable.cpp
+    src/Block/PlantBlock.cpp
     src/Block/Portal.cpp
     src/Core/Noise/Simplex.cpp
     src/Core/Error.cpp

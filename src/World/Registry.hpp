@@ -78,6 +78,7 @@ constexpr Id<Block> grass("grass");
 constexpr Id<Block> snow("snow");
 constexpr Id<Block> crafting_table("crafting_table");
 constexpr Id<Block> portal("portal");
+constexpr Id<Block> dandelion("dandelion");
 } // namespace Blocks
 
 namespace Items
@@ -95,6 +96,7 @@ constexpr Id<Item> water_bucket("water_bucket");
 constexpr Id<Item> bow("bow");
 constexpr Id<Item> arrow("arrow");
 constexpr Id<Item> crystal("crystal");
+constexpr Id<Item> dandelion("dandelion");
 }; // namespace Items
 
 namespace Entities

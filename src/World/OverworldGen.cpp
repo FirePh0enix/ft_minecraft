@@ -179,8 +179,8 @@ void OverworldGen::generate_chunk(std::shared_ptr<Chunk> chunk, std::shared_ptr<
     {
         for (int64_t z = 0; z < 16; z++)
         {
-            // if (st.stop_requested())
-            //     return;
+            const int64_t gx = x + chunk->pos().x * 16;
+            const int64_t gz = z + chunk->pos().z * 16;
 
             Biome biome = preloaded_chunk->biomes[x + z * 16];
             int64_t height = preloaded_chunk->heights[x + z * 16];
@@ -223,6 +223,12 @@ void OverworldGen::generate_chunk(std::shared_ptr<Chunk> chunk, std::shared_ptr<
             // Fill oceans
             for (; y < m_settings.ocean_level; y++)
                 chunk->set_tag({x, y, z}, "water", (int64_t)0, true);
+
+            bool vegetation = (m_noise.sample(glm::vec2((float)gx, (float)gz) / 10.0f) / 2.0f + 0.5f) > 0.8f;
+            if (vegetation && (biome == Biome::Plain || biome == Biome::Forest))
+            {
+                blocks[x + y * 16 + z * 16 * 256] = BlockState(Blocks::dandelion.hash);
+            }
         }
     }
 

@@ -458,8 +458,11 @@ public:
 
     void draw_forward(const std::shared_ptr<World>& world);
     void draw_dimension_forward(WGPUCommandEncoder encoder, const std::shared_ptr<World>& world, int dimension, bool inside_portal);
-    void draw_world(const std::shared_ptr<World>& world, const RenderPass& pass, WorldFlags flags, const std::span<const RenderableChunk>& chunks, uint32_t stencil);
-    void draw_all_world(const std::shared_ptr<World>& world, const RenderPass& pass, WorldFlags flags);
+
+    void draw_opaque_world(const std::shared_ptr<World>& world, const RenderPass& pass, const std::span<const RenderableChunk>& chunks, uint32_t stencil);
+    void draw_water_world(const std::shared_ptr<World>& world, const RenderPass& pass, const std::span<const RenderableChunk>& chunks, uint32_t stencil);
+    void draw_semitransparent_world(const std::shared_ptr<World>& world, const RenderPass& pass, const std::span<const RenderableChunk>& chunks, uint32_t stencil);
+
     void draw(const RenderPass& pass, const std::shared_ptr<Mesh>& mesh, const std::shared_ptr<Material>& material, const std::shared_ptr<BindGroup>& bg, const std::shared_ptr<Buffer>& instance_buffer = nullptr, size_t instance_count = 1, std::optional<uint32_t> stencil = std::nullopt);
     void draw_fullscreen(const RenderPass& pass, std::shared_ptr<Material> material, std::shared_ptr<BindGroup> bg, uint32_t stencil);
 
@@ -477,6 +480,7 @@ public:
     std::shared_ptr<Shader> get_fw_text_shader() const { return m_fw_text_shader; }
     std::shared_ptr<Shader> get_fw_model_shader() const { return m_fw_model_shader; }
     std::shared_ptr<Shader> get_fw_colored_shader() const { return m_fw_colored_shader; }
+    std::shared_ptr<Shader> get_fw_textured_shader() const { return m_fw_textured_shader; }
     std::shared_ptr<Shader> get_portal_shader() const { return m_portal_shader; }
     std::shared_ptr<Material> get_fw_chunk_mat() const { return m_fw_chunk_mat; }
     std::shared_ptr<Material> get_fw_shadowmap_mat() const { return m_fw_chunk_shadowmap_mat; }
@@ -487,6 +491,7 @@ public:
     std::shared_ptr<Material> get_fw_item_block_mat() const { return m_fw_item_block_mat; }
     std::shared_ptr<Material> get_fw_item_mat() const { return m_fw_item_mat; }
     std::shared_ptr<Material> get_wireframe_mat() const { return m_wireframe_dbg_mat; }
+    std::shared_ptr<Material> get_fw_textured_mat() const { return m_fw_textured_mat; }
     std::shared_ptr<Texture> get_fw_shadowmap() const { return m_fw_shadowmap; }
     std::shared_ptr<Buffer> get_fw_camera() const { return m_fw_camera; }
     std::shared_ptr<Buffer> get_fw_camera_rel() const { return m_fw_camera_rel; }
@@ -559,16 +564,19 @@ private:
     std::shared_ptr<Shader> m_fw_text_shader;
     std::shared_ptr<Shader> m_fw_colored_shader;
     std::shared_ptr<Shader> m_fw_model_shader;
+    std::shared_ptr<Shader> m_fw_textured_shader;
 
     std::shared_ptr<Material> m_fw_chunk_mat;
     std::shared_ptr<Material> m_fw_chunk_shadowmap_mat;
     std::shared_ptr<Material> m_fw_water_mat;
+    std::shared_ptr<Material> m_fw_semitransparent_mat;
     std::shared_ptr<Material> m_fw_texture_rect_mat;
     std::shared_ptr<Material> m_fw_text_mat;
     std::shared_ptr<Material> m_fw_model_mat;
     std::shared_ptr<Material> m_fw_color_rect_mat;
     std::shared_ptr<Material> m_fw_item_block_mat;
     std::shared_ptr<Material> m_fw_item_mat;
+    std::shared_ptr<Material> m_fw_textured_mat;
 
     std::shared_ptr<Mesh> m_wireframe_chunk_slice_mesh;
     std::shared_ptr<Material> m_wireframe_dbg_mat;
@@ -584,6 +592,11 @@ private:
     std::shared_ptr<Buffer> m_fw_shadowmap_cam_buffer;
 
     std::shared_ptr<Texture> m_fw_water_texture;
+
+    // Chunks
+    std::shared_ptr<BindGroup> m_chunk_opaque_bg;
+    std::shared_ptr<BindGroup> m_chunk_water_bg;
+    std::shared_ptr<BindGroup> m_chunk_semitransparent_bg;
 
     // Portal
     std::shared_ptr<Shader> m_portal_shader;

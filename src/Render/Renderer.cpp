@@ -146,17 +146,19 @@ Result<std::shared_ptr<Buffer>> Buffer::create(size_t size, WGPUBufferUsage usag
 
 void Buffer::update(std::span<const std::byte> view, size_t offset)
 {
-    void *data = malloc(view.size_bytes());
-    memcpy(data, view.data(), view.size_bytes());
+    // void *data = malloc(view.size_bytes());
+    // memcpy(data, view.data(), view.size_bytes());
 
-    wgpuBufferAddRef(m_buffer); // Make sure the buffer lives long enough.
+    wgpuQueueWriteBuffer(Renderer::get().get_queue(), m_buffer, offset, view.data(), view.size_bytes());
 
-    Renderer::BufferWrite write{};
-    write.buffer = m_buffer;
-    write.data = data;
-    write.data_size = view.size_bytes();
-    write.offset = offset;
-    Renderer::get().queue_buffer_write(write);
+    // wgpuBufferAddRef(m_buffer); // Make sure the buffer lives long enough.
+
+    // Renderer::BufferWrite write{};
+    // write.buffer = m_buffer;
+    // write.data = data;
+    // write.data_size = view.size_bytes();
+    // write.offset = offset;
+    // Renderer::get().queue_buffer_write(write);
 }
 
 Texture::~Texture()
@@ -1163,6 +1165,14 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_portal_shader->set_binding("world_env", Binding::UniformBuffer(WGPUShaderStage_Vertex | WGPUShaderStage_Fragment, 0, 2, BindingAccess::Read));
     m_portal_shader->create_bind_group_layout();
 
+    m_fw_textured_shader = TRY(Shader::load_from_path("assets/shaders/fw/textured.wgsl"));
+    m_fw_textured_shader->set_binding("model", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
+    m_fw_textured_shader->set_binding("camera", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 1, BindingAccess::Read));
+    m_fw_textured_shader->set_binding("world_env", Binding::UniformBuffer(WGPUShaderStage_Vertex | WGPUShaderStage_Fragment, 0, 2, BindingAccess::Read));
+    m_fw_textured_shader->set_binding("texture", Binding::Texture(WGPUShaderStage_Fragment, 0, 3, BindingAccess::Read, WGPUTextureViewDimension_2D));
+    m_fw_textured_shader->set_sampler("texture", SamplerDescriptor{.min_filter = WGPUFilterMode_Nearest, .mag_filter = WGPUFilterMode_Nearest});
+    m_fw_textured_shader->create_bind_group_layout();
+
     m_fw_texture_rect_mat = Material::create(m_texture_rect_shader, MaterialFlagBits::Transparency | MaterialFlagBits::NoNormal, WGPUCullMode_None, WGPUVertexFormat_Float32x2);
     m_fw_model_mat = Material::create(m_fw_model_shader, MaterialFlagBits::None, WGPUCullMode_Back, WGPUVertexFormat_Float32x2);
     m_fw_color_rect_mat = Material::create(m_color_rect_shader, MaterialFlagBits::Transparency | MaterialFlagBits::NoNormal | MaterialFlagBits::NoUV, WGPUCullMode_None, WGPUVertexFormat_Float32x2);
@@ -1174,10 +1184,12 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
 
     std::vector<InstanceAttribute> chunk_attribs{InstanceAttribute(0, WGPUVertexFormat_Float32x3)};
     m_fw_chunk_mat = Material::create(m_fw_chunk_shader, MaterialFlagBits::Stencil, WGPUCullMode_Back, WGPUVertexFormat_Float32x4, Instance(chunk_attribs, sizeof(glm::vec3)));
+    m_fw_semitransparent_mat = Material::create(m_fw_chunk_shader, MaterialFlagBits::Stencil | MaterialFlagBits::Transparency, WGPUCullMode_None, WGPUVertexFormat_Float32x4, Instance(chunk_attribs, sizeof(glm::vec3)));
     m_fw_chunk_shadowmap_mat = Material::create(m_fw_chunk_shadowmap_shader, MaterialFlagBits::NoNormal | MaterialFlagBits::NoUV, WGPUCullMode_Back, WGPUVertexFormat_Float32x4, Instance(chunk_attribs, sizeof(glm::vec3)));
-    m_fw_water_mat = Material::create(m_fw_water_shader, MaterialFlagBits::Transparency, WGPUCullMode_Back, WGPUVertexFormat_Float32x2, Instance(chunk_attribs, sizeof(glm::vec3)));
+    m_fw_water_mat = Material::create(m_fw_water_shader, MaterialFlagBits::Stencil | MaterialFlagBits::Transparency, WGPUCullMode_Back, WGPUVertexFormat_Float32x2, Instance(chunk_attribs, sizeof(glm::vec3)));
 
     m_fw_colored_mat = Material::create(m_fw_colored_shader, MaterialFlagBits::NoUV, WGPUCullMode_Back, WGPUVertexFormat_Float32x2);
+    m_fw_textured_mat = Material::create(m_fw_textured_shader, MaterialFlagBits::Transparency, WGPUCullMode_None, WGPUVertexFormat_Float32x2);
     m_fw_colored_shadowmap_mat = Material::create(m_fw_colored_shader, MaterialFlagBits::NoUV, WGPUCullMode_Front, WGPUVertexFormat_Float32x2);
 
     m_sky_mat = Material::create(m_sky_shader, MaterialFlagBits::DisableDepthTest | MaterialFlagBits::NoData | MaterialFlagBits::Stencil, WGPUCullMode_None, WGPUVertexFormat_Float32x2);
@@ -1264,6 +1276,26 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_fw_pp_bg->set_param("ssao", m_ssao_uniform_buffer);
 
     m_fw_water_texture = Engine::get().registry().create_texture("assets/textures/water.png");
+
+    m_chunk_opaque_bg = BindGroup::create(m_fw_chunk_shader);
+    m_chunk_opaque_bg = BindGroup::create(Renderer::get().get_fw_chunk_shader());
+    m_chunk_opaque_bg->set_param("camera", Renderer::get().get_fw_camera());
+    m_chunk_opaque_bg->set_param("world_env", Renderer::get().get_fw_world_env());
+    m_chunk_opaque_bg->set_param("images", EXPECT(Engine::get().registry().get_texture_array()->get_view(WGPUTextureViewDimension_2DArray)));
+    m_chunk_opaque_bg->set_param("shadowmap", EXPECT(Renderer::get().get_fw_shadowmap()->get_view()));
+
+    m_chunk_water_bg = BindGroup::create(Renderer::get().get_fw_water_shader());
+    m_chunk_water_bg->set_param("camera", Renderer::get().get_fw_camera());
+    m_chunk_water_bg->set_param("world_env", Renderer::get().get_fw_world_env());
+    m_chunk_water_bg->set_param("image", EXPECT(Renderer::get().get_fw_water_texture()->get_view()));
+    m_chunk_water_bg->set_param("shadowmap", EXPECT(Renderer::get().get_fw_shadowmap()->get_view()));
+
+    m_chunk_semitransparent_bg = BindGroup::create(m_fw_chunk_shader);
+    m_chunk_semitransparent_bg = BindGroup::create(Renderer::get().get_fw_chunk_shader());
+    m_chunk_semitransparent_bg->set_param("camera", Renderer::get().get_fw_camera());
+    m_chunk_semitransparent_bg->set_param("world_env", Renderer::get().get_fw_world_env());
+    m_chunk_semitransparent_bg->set_param("images", EXPECT(Engine::get().registry().get_texture_array()->get_view(WGPUTextureViewDimension_2DArray)));
+    m_chunk_semitransparent_bg->set_param("shadowmap", EXPECT(Renderer::get().get_fw_shadowmap()->get_view()));
 
     Extent2D window_size = window.size();
     configure_surface(window_size.width, window_size.height);
@@ -1536,13 +1568,13 @@ void Renderer::draw_forward(const std::shared_ptr<World>& world)
 
     // Flush every write calls.
     // TODO: most of the time, mapping the buffer then writing to it should be better.
-    BufferWrite write{};
-    while (m_buffer_writes_queue.try_dequeue(write))
-    {
-        wgpuQueueWriteBuffer(m_queue, write.buffer, write.offset, write.data, write.data_size);
-        wgpuBufferRelease(write.buffer);
-        free(write.data);
-    }
+    // BufferWrite write{};
+    // while (m_buffer_writes_queue.try_dequeue(write))
+    // {
+    //     wgpuQueueWriteBuffer(m_queue, write.buffer, write.offset, write.data, write.data_size);
+    //     wgpuBufferRelease(write.buffer);
+    //     free(write.data);
+    // }
 
     const int current_dim = world->get_player()->get_dimension();
     // const int portal_dim = (current_dim + 1) % 2;
@@ -1683,7 +1715,7 @@ void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::sha
     shadowmap_pass_desc.depthStencilAttachment = &shadowmap_attach;
 
     WGPURenderPassEncoder shadowmap_pass = wgpuCommandEncoderBeginRenderPass(encoder, &shadowmap_pass_desc);
-    draw_world(world, RenderPass(shadowmap_pass, RenderTarget(m_fw_shadowmap->format()), {}), WorldFlagBits::Shadowmap, world->get_dimension(0).get_sun_visible_chunks(), stencil_mask);
+    // draw_opaque_world(world, RenderPass(shadowmap_pass, RenderTarget(m_fw_shadowmap->format()), {}), WorldFlagBits::Shadowmap, world->get_dimension(0).get_sun_visible_chunks(), stencil_mask);
     wgpuRenderPassEncoderEnd(shadowmap_pass);
     wgpuRenderPassEncoderRelease(shadowmap_pass);
 
@@ -1702,7 +1734,7 @@ void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::sha
     depth_prepass_desc.depthStencilAttachment = &depth_attach;
 
     WGPURenderPassEncoder depth_pass = wgpuCommandEncoderBeginRenderPass(encoder, &depth_prepass_desc);
-    draw_world(world, RenderPass(depth_pass, RenderTarget(m_fw_depth_texture->format()), {}), WorldFlags(), world->get_dimension(dimension).get_visible_chunks(), stencil_mask);
+    draw_opaque_world(world, RenderPass(depth_pass, RenderTarget(m_fw_depth_texture->format()), {}), world->get_dimension(dimension).get_visible_chunks(), stencil_mask);
     wgpuRenderPassEncoderEnd(depth_pass);
     wgpuRenderPassEncoderRelease(depth_pass);
 
@@ -1731,8 +1763,9 @@ void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::sha
     WGPURenderPassEncoder color_pass = wgpuCommandEncoderBeginRenderPass(encoder, &color_pass_desc);
     const RenderPass color_pass_info(color_pass, RenderTarget(m_fw_depth_texture->format()), {m_surface_format});
     draw_fullscreen(color_pass_info, m_sky_mat, m_sky_bg, stencil_mask);
-    draw_world(world, color_pass_info, WorldFlags(), world->get_dimension(dimension).get_visible_chunks(), stencil_mask);
-    draw_world(world, color_pass_info, WorldFlagBits::Water, world->get_dimension(dimension).get_visible_chunks(), stencil_mask);
+    draw_opaque_world(world, color_pass_info, world->get_dimension(dimension).get_visible_chunks(), stencil_mask);
+    draw_water_world(world, color_pass_info, world->get_dimension(dimension).get_visible_chunks(), stencil_mask);
+    draw_semitransparent_world(world, color_pass_info, world->get_dimension(dimension).get_visible_chunks(), stencil_mask);
 
     if (!inside_portal)
     {
@@ -1774,7 +1807,7 @@ void Renderer::draw(const RenderPass& pass, const std::shared_ptr<Mesh>& mesh, c
     wgpuRenderPassEncoderDrawIndexed(pass.encoder, mesh->vertex_count(), instance_count, 0, 0, 0);
 }
 
-void Renderer::draw_world(const std::shared_ptr<World>& world, const RenderPass& pass, WorldFlags flags, const std::span<const RenderableChunk>& chunks, uint32_t stencil)
+void Renderer::draw_opaque_world(const std::shared_ptr<World>& world, const RenderPass& pass, const std::span<const RenderableChunk>& chunks, uint32_t stencil)
 {
     ZoneScoped;
 
@@ -1784,9 +1817,10 @@ void Renderer::draw_world(const std::shared_ptr<World>& world, const RenderPass&
     if (camera == nullptr)
         return;
 
-    std::shared_ptr<Material> mat = flags.has_any(WorldFlagBits::Shadowmap) ? m_fw_chunk_shadowmap_mat : (flags.has_any(WorldFlagBits::Water) ? m_fw_water_mat : m_fw_chunk_mat);
+    std::shared_ptr<Material> mat = m_fw_chunk_mat;
 
     wgpuRenderPassEncoderSetPipeline(encoder, mat->get_pipeline(pass));
+    wgpuRenderPassEncoderSetBindGroup(encoder, 0, m_chunk_opaque_bg->get_bind_group(), 0, nullptr);
     wgpuRenderPassEncoderSetStencilReference(encoder, stencil);
 
     for (const auto& r : chunks)
@@ -1794,12 +1828,8 @@ void Renderer::draw_world(const std::shared_ptr<World>& world, const RenderPass&
         ZoneScopedN("record chunk");
 
         const Chunk::Slice& slice = r.chunk->get_slices()[r.slice_index];
-        std::shared_ptr<BindGroup> bg = flags.has_any(WorldFlagBits::Shadowmap) ? slice.mesh_shadowmap_bg : (flags.has_any(WorldFlagBits::Water) ? slice.water_bg : slice.mesh_bg);
 
-        if (flags.has_any(WorldFlagBits::Water) && slice.water_mesh == nullptr)
-            continue;
-
-        if (!flags.has_any(WorldFlagBits::Water) && slice.mesh == nullptr)
+        if (slice.opaque_mesh == nullptr)
             continue;
 
         const ChunkPos pos = r.chunk->pos();
@@ -1812,14 +1842,9 @@ void Renderer::draw_world(const std::shared_ptr<World>& world, const RenderPass&
         }
 
         {
-            ZoneScopedN("bindgroup");
-            wgpuRenderPassEncoderSetBindGroup(encoder, 0, bg->get_bind_group(), 0, nullptr);
-        }
-
-        {
             ZoneScopedN("buffers");
 
-            const std::shared_ptr<Mesh>& mesh = flags.has_any(WorldFlagBits::Water) ? slice.water_mesh : slice.mesh;
+            const std::shared_ptr<Mesh>& mesh = slice.opaque_mesh;
             wgpuRenderPassEncoderSetIndexBuffer(encoder, mesh->get_buffer(Mesh::BufferKind::Index)->handle(), mesh->index_type(), 0, mesh->get_buffer(Mesh::BufferKind::Index)->size());
             wgpuRenderPassEncoderSetVertexBuffer(encoder, 0, mesh->get_buffer(Mesh::BufferKind::Position)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Position)->size());
 
@@ -1833,87 +1858,46 @@ void Renderer::draw_world(const std::shared_ptr<World>& world, const RenderPass&
             wgpuRenderPassEncoderDrawIndexed(encoder, mesh->vertex_count(), 1, 0, 0, r.slice_index);
         }
     }
-
-    for (const auto& r : chunks)
-    {
-        if (!flags.has_any(WorldFlagBits::Water))
-        {
-            for (BlockPos pos : r.chunk->get_non_coventional_blocks())
-            {
-                std::shared_ptr<Block> block = Engine::get().registry().get_block(r.chunk->get_blocks()[pos.x + pos.y * Chunk::width + pos.z * Chunk::width * Chunk::height].id);
-                if (block == nullptr)
-                    continue;
-
-                block->draw(pass, BlockPos(pos.x + r.chunk->x() * 16, pos.y, pos.z + r.chunk->z() * 16));
-            }
-        }
-    }
-
-    // if (m_chunk_debug)
-    // {
-    //     for (const auto& r : chunks)
-    //     {
-    //         std::shared_ptr<BindGroup> dbg_bg = BindGroup::create(m_fw_colored_shader);
-    //         dbg_bg->set_param("camera", m_fw_camera);
-    //         dbg_bg->set_param("world_env", m_fw_world_env);
-
-    //         FwColored colored{};
-    //         colored.color = Colors::yellow;
-    //         colored.model = glm::translate(glm::identity<glm::mat4>(), glm::vec3(float(r.chunk->pos().x) * 16.0f + 8.0f - 0.5f, float(r.slice_index) * 16.0f + 8.0f - 0.5f, float(r.chunk->pos().z) * 16.0f + 8.0f - 0.5f));
-
-    //         std::shared_ptr<Buffer> dbg_buffer = EXPECT(Buffer::create(sizeof(FwColored), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
-    //         dbg_buffer->update_struct(colored);
-    //         dbg_bg->set_param("model", dbg_buffer);
-
-    //         draw(pass, m_wireframe_chunk_slice_mesh, m_wireframe_dbg_mat, dbg_bg);
-    //     }
-    // }
 }
 
-void Renderer::draw_all_world(const std::shared_ptr<World>& world, const RenderPass& pass, WorldFlags flags)
+void Renderer::draw_water_world(const std::shared_ptr<World>& world, const RenderPass& pass, const std::span<const RenderableChunk>& chunks, uint32_t stencil)
 {
     ZoneScoped;
 
-    const Dimension& dim = world->get_dimension(0);
     const std::shared_ptr<Camera> camera = world->get_player()->get_camera();
     WGPURenderPassEncoder encoder = pass.encoder;
 
     if (camera == nullptr)
         return;
 
-    std::shared_ptr<Material> mat = flags.has_any(WorldFlagBits::Shadowmap) ? m_fw_chunk_shadowmap_mat : (flags.has_any(WorldFlagBits::Water) ? m_fw_water_mat : m_fw_chunk_mat);
+    std::shared_ptr<Material> mat = m_fw_water_mat;
+
     wgpuRenderPassEncoderSetPipeline(encoder, mat->get_pipeline(pass));
+    wgpuRenderPassEncoderSetBindGroup(encoder, 0, m_chunk_water_bg->get_bind_group(), 0, nullptr);
+    wgpuRenderPassEncoderSetStencilReference(encoder, stencil);
 
-    for (const auto& [key, chunk] : dim.get_chunks())
+    for (const auto& r : chunks)
     {
-        ChunkPos pos = chunk->pos();
-        AABBf aabb = AABBf(-glm::vec3(Chunk::width / 2.0, Chunk::height / 2.0, Chunk::width / 2), glm::vec3(Chunk::width / 2.0, Chunk::height / 2.0, Chunk::width / 2))
-                         .translate(glm::vec3((float)pos.x * Chunk::width + Chunk::width / 2.0, float(Chunk::height) / 2.0, (float)pos.z * Chunk::width + Chunk::width / 2.0));
+        ZoneScopedN("record chunk");
 
-        if (!flags.has_any(WorldFlagBits::NoFrustumCheck) && !camera->frustum().contains(aabb))
+        const Chunk::Slice& slice = r.chunk->get_slices()[r.slice_index];
+
+        if (slice.water_mesh == nullptr)
             continue;
 
-        const Chunk::Slice *slices = chunk->get_slices();
+        const ChunkPos pos = r.chunk->pos();
 
-        for (size_t i = 0; i < Chunk::slice_count; i++)
         {
-            Chunk::Slice slice = slices[i];
+            ZoneScopedN("instance buffer");
+            const glm::dvec3 position = camera->get_global_transform().position();
+            glm::vec3 data((double)pos.x * Chunk::width - position.x, (double)r.slice_index * Chunk::width - position.y, (double)pos.z * Chunk::width - position.z);
+            wgpuQueueWriteBuffer(m_queue, r.chunk->get_instance_buffer()->handle(), r.slice_index * sizeof(data), &data, sizeof(data));
+        }
 
-            if ((flags.has_any(WorldFlagBits::Water) && slice.water_mesh == nullptr) || (!flags.has_any(WorldFlagBits::Water) && slice.mesh == nullptr))
-                continue;
+        {
+            ZoneScopedN("buffers");
 
-            ChunkPos pos = chunk->pos();
-            AABBf aabb = AABBf(-glm::vec3(Chunk::width / 2.0, Chunk::width / 2.0, Chunk::width / 2), glm::vec3(Chunk::width / 2.0, Chunk::width / 2.0, Chunk::width / 2))
-                             .translate(glm::vec3((float)pos.x * Chunk::width + Chunk::width / 2.0, (float)i * Chunk::width + Chunk::width / 2.0, (float)pos.z * Chunk::width + Chunk::width / 2.0));
-
-            if (!flags.has_any(WorldFlagBits::NoFrustumCheck) && !camera->frustum().contains(aabb))
-                continue;
-
-            std::shared_ptr<BindGroup> bg = flags.has_any(WorldFlagBits::Shadowmap) ? slice.mesh_shadowmap_bg : (flags.has_any(WorldFlagBits::Water) ? slice.water_bg : slice.mesh_bg);
-
-            wgpuRenderPassEncoderSetBindGroup(encoder, 0, bg->get_bind_group(), 0, nullptr);
-
-            const std::shared_ptr<Mesh>& mesh = flags.has_any(WorldFlagBits::Water) ? slice.water_mesh : slice.mesh;
+            const std::shared_ptr<Mesh>& mesh = slice.water_mesh;
             wgpuRenderPassEncoderSetIndexBuffer(encoder, mesh->get_buffer(Mesh::BufferKind::Index)->handle(), mesh->index_type(), 0, mesh->get_buffer(Mesh::BufferKind::Index)->size());
             wgpuRenderPassEncoderSetVertexBuffer(encoder, 0, mesh->get_buffer(Mesh::BufferKind::Position)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Position)->size());
 
@@ -1923,8 +1907,61 @@ void Renderer::draw_all_world(const std::shared_ptr<World>& world, const RenderP
             if (!mat->flags().has_any(MaterialFlagBits::NoUV))
                 wgpuRenderPassEncoderSetVertexBuffer(encoder, buffer_index++, mesh->get_buffer(Mesh::BufferKind::UV)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::UV)->size());
 
-            wgpuRenderPassEncoderSetVertexBuffer(encoder, buffer_index++, chunk->get_instance_buffer()->handle(), 0, chunk->get_instance_buffer()->size());
-            wgpuRenderPassEncoderDrawIndexed(encoder, mesh->vertex_count(), 1, 0, 0, i);
+            wgpuRenderPassEncoderSetVertexBuffer(encoder, buffer_index++, r.chunk->get_instance_buffer()->handle(), 0, r.chunk->get_instance_buffer()->size());
+            wgpuRenderPassEncoderDrawIndexed(encoder, mesh->vertex_count(), 1, 0, 0, r.slice_index);
+        }
+    }
+}
+
+void Renderer::draw_semitransparent_world(const std::shared_ptr<World>& world, const RenderPass& pass, const std::span<const RenderableChunk>& chunks, uint32_t stencil)
+{
+    ZoneScoped;
+
+    const std::shared_ptr<Camera> camera = world->get_player()->get_camera();
+    WGPURenderPassEncoder encoder = pass.encoder;
+
+    if (camera == nullptr)
+        return;
+
+    std::shared_ptr<Material> mat = m_fw_semitransparent_mat;
+
+    wgpuRenderPassEncoderSetPipeline(encoder, mat->get_pipeline(pass));
+    wgpuRenderPassEncoderSetBindGroup(encoder, 0, m_chunk_semitransparent_bg->get_bind_group(), 0, nullptr);
+    wgpuRenderPassEncoderSetStencilReference(encoder, stencil);
+
+    for (const auto& r : chunks)
+    {
+        ZoneScopedN("record chunk");
+
+        const Chunk::Slice& slice = r.chunk->get_slices()[r.slice_index];
+
+        if (slice.semitransparent_mesh == nullptr)
+            continue;
+
+        const ChunkPos pos = r.chunk->pos();
+
+        {
+            ZoneScopedN("instance buffer");
+            const glm::dvec3 position = camera->get_global_transform().position();
+            glm::vec3 data((double)pos.x * Chunk::width - position.x, (double)r.slice_index * Chunk::width - position.y, (double)pos.z * Chunk::width - position.z);
+            wgpuQueueWriteBuffer(m_queue, r.chunk->get_instance_buffer()->handle(), r.slice_index * sizeof(data), &data, sizeof(data));
+        }
+
+        {
+            ZoneScopedN("buffers");
+
+            const std::shared_ptr<Mesh>& mesh = slice.semitransparent_mesh;
+            wgpuRenderPassEncoderSetIndexBuffer(encoder, mesh->get_buffer(Mesh::BufferKind::Index)->handle(), mesh->index_type(), 0, mesh->get_buffer(Mesh::BufferKind::Index)->size());
+            wgpuRenderPassEncoderSetVertexBuffer(encoder, 0, mesh->get_buffer(Mesh::BufferKind::Position)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Position)->size());
+
+            size_t buffer_index = 1;
+            if (!mat->flags().has_any(MaterialFlagBits::NoNormal))
+                wgpuRenderPassEncoderSetVertexBuffer(encoder, buffer_index++, mesh->get_buffer(Mesh::BufferKind::Normal)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Normal)->size());
+            if (!mat->flags().has_any(MaterialFlagBits::NoUV))
+                wgpuRenderPassEncoderSetVertexBuffer(encoder, buffer_index++, mesh->get_buffer(Mesh::BufferKind::UV)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::UV)->size());
+
+            wgpuRenderPassEncoderSetVertexBuffer(encoder, buffer_index++, r.chunk->get_instance_buffer()->handle(), 0, r.chunk->get_instance_buffer()->size());
+            wgpuRenderPassEncoderDrawIndexed(encoder, mesh->vertex_count(), 1, 0, 0, r.slice_index);
         }
     }
 }

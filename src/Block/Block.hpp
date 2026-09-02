@@ -4,13 +4,13 @@
 #include "Id.hpp"
 
 #include <array>
-#include <memory>
 #include <span>
 #include <string>
 
 class Block;
 class Mesh;
 struct RenderPass;
+struct BlockDisplayData;
 
 struct BlockState
 {
@@ -57,14 +57,17 @@ public:
 
     void set_runtime_id(Id<Block> id) { m_id = id; }
 
-    virtual void draw(const RenderPass& pass, glm::i64vec3 position)
+    virtual void add_to_mesh(glm::i64vec3 position, std::vector<uint16_t>& indices, std::vector<glm::vec3>& vertices, std::vector<glm::vec4>& uvs, std::vector<glm::vec3>& normals)
     {
-        (void)pass;
         (void)position;
-    };
+        (void)indices;
+        (void)vertices;
+        (void)uvs;
+        (void)normals;
+    }
 
     virtual BlockState get_default_state() const { return BlockState(m_id.hash); }
-    bool is_conventional() const { return m_mesh == nullptr; }
+    bool is_conventional() const { return m_conventional; }
     bool is_unbreakable() const { return m_unbreakable; }
 
     std::span<const std::string, 6> get_texture_names() const
@@ -103,7 +106,7 @@ protected:
     bool m_gradient;
     Id<Block> m_id;
 
-    std::shared_ptr<Mesh> m_mesh;
     bool m_unbreakable = false;
     bool m_solid = true;
+    bool m_conventional = true;
 };

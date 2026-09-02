@@ -402,18 +402,20 @@ void Dimension::rebuild(std::stop_token token, std::shared_ptr<Chunk> chunk, con
 
         results[i].pos = chunk->pos();
         results[i].slice_index = i;
-        results[i].mesh = EXPECT(chunk->build_simple_mesh(i, nchunks));
-        results[i].water_mesh = EXPECT(chunk->build_water_mesh(i, nchunks));
 
-        Result<std::shared_ptr<Mesh>> mesh = chunk->build_simple_mesh(i, nchunks);
-        if (mesh.has_error())
+        Result<std::shared_ptr<Mesh>> opaque_mesh = chunk->build_opaque_mesh(i, nchunks);
+        if (opaque_mesh.has_error())
             return;
         Result<std::shared_ptr<Mesh>> water_mesh = chunk->build_water_mesh(i, nchunks);
         if (water_mesh.has_error())
             return;
+        Result<std::shared_ptr<Mesh>> semitransparent_mesh = chunk->build_semitransparent_mesh(i, nchunks);
+        if (semitransparent_mesh.has_error())
+            return;
 
-        results[i].mesh = mesh.value();
+        results[i].opaque_mesh = opaque_mesh.value();
         results[i].water_mesh = water_mesh.value();
+        results[i].semitransparent_mesh = semitransparent_mesh.value();
     }
 
     m_mesh_queue_lockless.enqueue_bulk(std::begin(results) + slice_index, slice_count);
