@@ -45,7 +45,7 @@ void Chunk::set_block(int64_t x, int64_t y, int64_t z, BlockState state)
         m_dim->queue_rebuild(ChunkPos(m_x - 1, m_z));
     else if (x == 15)
         m_dim->queue_rebuild(ChunkPos(m_x + 1, m_z));
-    else if (z == 0)
+    if (z == 0)
         m_dim->queue_rebuild(ChunkPos(m_x, m_z - 1));
     else if (z == 15)
         m_dim->queue_rebuild(ChunkPos(m_x, m_z + 1));
@@ -181,7 +181,7 @@ Result<std::shared_ptr<Mesh>> Chunk::build_opaque_mesh(size_t slice_index, const
                 { 
                     auto iter = chunks.find(ChunkPos(cx, cz));
                     if (iter == chunks.end())
-                        return false;
+                        return true;
                     BlockState state = iter->second->get_block(x, y, z);
                     if (state.is_air())
                         return true;
