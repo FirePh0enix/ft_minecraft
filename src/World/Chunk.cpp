@@ -312,7 +312,7 @@ Result<std::shared_ptr<Mesh>> Chunk::build_water_mesh(size_t slice_index, const 
     // Now we build a mesh from the faces.
     std::vector<uint16_t> indices;
     std::vector<glm::vec3> vertices;
-    std::vector<glm::vec4> uvs;
+    std::vector<glm::vec2> uvs;
     std::vector<glm::vec3> normals;
 
     for (const ChunkBlockFace& face : faces)
@@ -336,10 +336,10 @@ Result<std::shared_ptr<Mesh>> Chunk::build_water_mesh(size_t slice_index, const 
         vertices.push_back(new_vertices[2]);
         vertices.push_back(new_vertices[3]);
 
-        uvs.push_back(glm::vec4(0.0, 0.0, 0.0, 0.0));
-        uvs.push_back(glm::vec4(1.0, 0.0, 0.0, 0.0));
-        uvs.push_back(glm::vec4(1.0, 1.0, 0.0, 0.0));
-        uvs.push_back(glm::vec4(0.0, 1.0, 0.0, 0.0));
+        uvs.push_back(glm::vec2(0.0, 0.0));
+        uvs.push_back(glm::vec2(1.0, 0.0));
+        uvs.push_back(glm::vec2(1.0, 1.0));
+        uvs.push_back(glm::vec2(0.0, 1.0));
 
         const glm::vec3 normal = normal_from_axis(face.axis, face.positive);
         normals.push_back(normal);
@@ -351,7 +351,7 @@ Result<std::shared_ptr<Mesh>> Chunk::build_water_mesh(size_t slice_index, const 
     if (indices.size() == 0)
         return Result<std::shared_ptr<Mesh>>(nullptr);
 
-    std::shared_ptr<Mesh> mesh = TRY(Mesh::create_from_data(std::as_bytes(std::span(indices)), vertices, normals, std::as_bytes(std::span(uvs)), WGPUIndexFormat_Uint16, WGPUVertexFormat_Float32x4));
+    std::shared_ptr<Mesh> mesh = TRY(Mesh::create_from_data(std::as_bytes(std::span(indices)), vertices, normals, std::as_bytes(std::span(uvs)), WGPUIndexFormat_Uint16, WGPUVertexFormat_Float32x2));
     return mesh;
 }
 
