@@ -78,8 +78,6 @@ private:
     int64_t m_chunk_distance = 16;
     int64_t m_gen_distance = 15;
 
-    std::vector<ChunkPos> m_pregen_unload_queue;
-
     void terrain_and_struct_chunk(std::stop_token token, ChunkPos pos, std::shared_ptr<PreLoadedChunk> chunk);
     void realize_chunk(std::stop_token st, ChunkPos pos, std::shared_ptr<Chunk> chunk, std::shared_ptr<PreLoadedChunk> pregen_chunk);
 };

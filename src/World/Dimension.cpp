@@ -32,16 +32,13 @@ void GenScheduler::terrain_pass(ChunkPos middle)
                                                    { terrain_and_struct_chunk(token, pos, chunk); });
         }
 
-    for (const auto& [pos, chunk] : m_dimension.m_preloaded_chunks)
+    for (auto iter = m_dimension.m_preloaded_chunks.begin(); iter != m_dimension.m_preloaded_chunks.end();)
     {
+        const ChunkPos pos = iter->first;
         if (std::abs(pos.x - middle.x) > (m_chunk_distance + m_gen_distance + 1) || std::abs(pos.z - middle.z) > (m_chunk_distance + m_gen_distance + 1))
-            m_pregen_unload_queue.push_back(pos);
-    }
-    for (const ChunkPos& pos : m_pregen_unload_queue)
-    {
-        if (!m_dimension.m_preloaded_chunks.contains(pos))
-            continue;
-        m_dimension.m_preloaded_chunks.erase(pos);
+            iter = m_dimension.m_preloaded_chunks.erase(iter);
+        else
+            ++iter;
     }
 }
 
@@ -64,6 +61,11 @@ void GenScheduler::terrain_pass(ChunkPos middle)
 
 void GenScheduler::chunk_pass(ChunkPos middle)
 {
+    // Structures can overlap multiple chunks, so finish the complete
+    // pre-generation pass before realizing any chunk blocks.
+    if (!m_dimension.m_pregen_loading_queue.empty())
+        return;
+
     for (int64_t x = -m_chunk_distance; x <= m_chunk_distance; x++)
         for (int64_t z = -m_chunk_distance; z <= m_chunk_distance; z++)
         {
@@ -73,13 +75,7 @@ void GenScheduler::chunk_pass(ChunkPos middle)
                 continue;
 
             std::shared_ptr<Chunk> chunk = std::make_shared<Chunk>(&m_dimension, pos.x, pos.z);
-            auto preload_iter = m_dimension.m_preloaded_chunks.find(pos);
-            // Only this chunk's preload result is required. Waiting for every
-            // terrain task can starve realization while the player moves.
-            if (preload_iter == m_dimension.m_preloaded_chunks.end())
-                continue;
-
-            std::shared_ptr<PreLoadedChunk> preload_chunk = preload_iter->second;
+            std::shared_ptr<PreLoadedChunk> preload_chunk = m_dimension.m_preloaded_chunks.at(pos);
             m_dimension.m_chunks_loading_queue.insert(pos);
             Engine::get().get_thread_pool().submit([this, pos, chunk, preload_chunk](std::stop_token st)
                                                    { realize_chunk(st, pos, chunk, preload_chunk); });
