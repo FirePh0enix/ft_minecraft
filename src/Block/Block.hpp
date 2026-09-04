@@ -98,9 +98,10 @@ struct NeighborFlags
 class Block
 {
 public:
-    Block(std::string_view path);
+    Block(std::string_view path, bool collision = true);
 
     bool has_cullface(FaceKind face);
+    bool has_collision() const { return m_collision; }
 
     /// Add the block data to the chunk mesh.
     void add(glm::i64vec3 position, NeighborFlags neighbors, std::vector<uint32_t>& indices, std::vector<glm::vec3>& vertices, std::vector<glm::vec4>& uvs, std::vector<glm::vec3>& normals);
@@ -109,6 +110,8 @@ private:
     std::string m_path;
     BlockStateResource m_blockstate;
     Model m_model;
+
+    bool m_collision = true;
 
     // Cached values for faster access than reading through the model files.
     bool m_cullfaces[6]{false};

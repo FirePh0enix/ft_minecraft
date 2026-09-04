@@ -3,8 +3,8 @@
 #include "Engine.hpp"
 #include "World/Registry.hpp"
 
-Block::Block(std::string_view path)
-    : m_path(path)
+Block::Block(std::string_view path, bool collision)
+    : m_path(path), m_collision(collision)
 {
     m_blockstate = EXPECT(Engine::get().registry().get_blockstate(path));
     m_model = EXPECT(Engine::get().registry().get_model(m_blockstate.variants[""][0].model));

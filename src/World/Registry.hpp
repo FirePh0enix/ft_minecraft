@@ -137,7 +137,7 @@ public:
     Result<Model> get_model(std::string_view path);
     Result<void> add_tint(std::string_view path);
 
-    void register_block(Id<Block> id);
+    void register_block(Id<Block> id, bool collision = true);
     void register_block(Id<Block> id, std::shared_ptr<Block> block);
 
     void add_item(Id<Item> id, std::shared_ptr<Item> item);

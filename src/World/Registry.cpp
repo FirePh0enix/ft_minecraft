@@ -43,7 +43,7 @@ void GameRegistry::register_all()
     register_block(Blocks::oak_leaves);
     register_block(Blocks::oak_log);
 
-    register_block(Blocks::grass);
+    register_block(Blocks::grass, false);
 
     // add_block(Blocks::crafting_table, std::make_shared<CraftingTableBlock>());
     // add_block(Blocks::portal, std::make_shared<PortalBlock>());
@@ -219,9 +219,10 @@ Result<void> GameRegistry::add_tint(std::string_view path)
     return Result<void>();
 }
 
-void GameRegistry::register_block(Id<Block> id)
+void GameRegistry::register_block(Id<Block> id, bool collision)
 {
-    m_blocks[id] = std::make_shared<Block>(id.str);
+    std::shared_ptr<Block> block = std::make_shared<Block>(id.str, collision);
+    m_blocks[id] = block;
 
     m_block_runtime_ids.push_back(id);
     m_block_names[std::string(id.str)] = id;
