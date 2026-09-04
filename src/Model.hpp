@@ -12,7 +12,7 @@ class Material;
 struct RenderPass;
 class BindGroup;
 
-class Model
+class ModelLegacy
 {
 public:
     struct Info
@@ -55,7 +55,7 @@ public:
         std::vector<Keyframe> keyframes;
     };
 
-    static Result<std::shared_ptr<Model>> load(std::string_view path);
+    static Result<std::shared_ptr<ModelLegacy>> load(std::string_view path);
 
     std::string_view name() const { return m_name; }
     std::span<const Object> objects() const;
@@ -87,18 +87,18 @@ private:
 class Animator
 {
 public:
-    void set_model(std::shared_ptr<Model> model);
+    void set_model(std::shared_ptr<ModelLegacy> model);
     void play(const std::string& animation);
     void tick(float delta);
 
     struct TransformWithLength
     {
-        Model::Transform transform;
+        ModelLegacy::Transform transform;
         uint32_t frame_index = 0;
     };
 
 private:
-    std::shared_ptr<Model> m_model;
+    std::shared_ptr<ModelLegacy> m_model;
     std::string m_animation_name;
     float m_time = 0.0;
 
@@ -106,7 +106,7 @@ private:
 
     void update_model_animation_buffer();
 
-    std::optional<Model::Keyframe> get_keyframe_for_frame(uint32_t frame) const;
+    std::optional<ModelLegacy::Keyframe> get_keyframe_for_frame(uint32_t frame) const;
 
     std::optional<TransformWithLength> get_current_transform(std::string_view object_name) const;
     std::optional<TransformWithLength> get_next_transform(std::string_view object_name) const;

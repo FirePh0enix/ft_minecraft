@@ -110,7 +110,7 @@ private:
 
     static constexpr glm::vec3 aim_color = glm::vec3(0.94, 0.63, 0.1);
 
-    std::shared_ptr<Model> m_model;
+    std::shared_ptr<ModelLegacy> m_model;
     Animator m_animator;
 
     std::shared_ptr<InventoryContainer> m_inventory_container;

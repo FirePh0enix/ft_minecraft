@@ -28,9 +28,8 @@ list(APPEND SOURCES
     src/Variant.cpp
     src/Window.cpp
     src/Block/Block.cpp
-    src/Block/CraftingTable.cpp
-    src/Block/PlantBlock.cpp
-    src/Block/Portal.cpp
+    # src/Block/CraftingTable.cpp
+    # src/Block/Portal.cpp
     src/Core/Noise/Simplex.cpp
     src/Core/Error.cpp
     src/Core/Filesystem.cpp
@@ -60,6 +59,8 @@ list(APPEND SOURCES
     src/Network/Packet.cpp
     src/Render/Shader.cpp
     src/Render/Renderer.cpp
+    src/Resource/BlockState.cpp
+    src/Resource/Model.cpp
     src/UI/ItemSlot.cpp
     src/UI/TextInput.cpp
     src/UI/Widget.cpp
@@ -172,34 +173,6 @@ endif()
 
 # Dont build shared libraries
 set(BUILD_SHARED_LIBS 0)
-
-# SplineLibrary
-# FetchContent_Declare(
-#     SplineLibrary
-#     GIT_REPOSITORY https://github.com/ejmahler/SplineLibrary
-#     GIT_TAG 1e3f4a2d4fb8db206ab23a0c60192bea8a7c6bfe # master
-# )
-# FetchContent_MakeAvailable(SplineLibrary)
-# target_include_directories(${TARGET_NAME} PRIVATE ${splinelibrary_SOURCE_DIR})
-
-# doctest for unit tests.
-# FetchContent_Declare(
-#     doctest
-#     GIT_REPOSITORY https://github.com/doctest/doctest
-#     GIT_TAG 1da23a3e8119ec5cce4f9388e91b065e20bf06f5 # v2.4.12
-# )
-# FetchContent_MakeAvailable(doctest)
-# target_link_libraries(${TARGET_NAME}_test PRIVATE doctest)
-
-# set(WGVK_WGSL_SUPPORT "SIMPLE_WGSL")
-# FetchContent_Declare(
-#     wgvk
-#     GIT_REPOSITORY https://github.com/manuel5975p/WGVK
-#     GIT_TAG 76a6b7760cdf5acfeb2d1593982990045199565a # master
-# )
-# FetchContent_MakeAvailable(wgvk)
-# target_link_libraries(${TARGET_NAME} PRIVATE wgvk)
-# target_link_libraries(${TARGET_NAME}_test PRIVATE wgvk)
 
 if(TARGET_IS_LINUX OR TARGET_IS_MACOS OR TARGET_IS_WINDOWS)
     if (TARGET_IS_LINUX)

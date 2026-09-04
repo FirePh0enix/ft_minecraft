@@ -5,5 +5,5 @@
 
 ArrowItem::ArrowItem()
 {
-    set_texture(Engine::get().registry().create_texture("assets/textures/arrow.png"));
+    // set_texture(Engine::get().registry().create_texture("data/resourcepacks/core/assets/minecraft/textures/item/arrow.png"));
 }

@@ -5,18 +5,28 @@
 #include "Item/Item.hpp"
 #include "Item/ItemStack.hpp"
 #include "Render/Renderer.hpp"
+#include "Resource/BlockState.hpp"
+#include "Resource/Model.hpp"
 #include "Structure.hpp"
 
 #include <memory>
 #include <stb_image.h>
 
-struct Image
+struct AtlasTexture
 {
     const stbi_uc *data;
     int w;
     int h;
     int channels;
     std::string path;
+};
+
+struct AtlasTextureData
+{
+    int64_t x;
+    int64_t y;
+    int64_t width;
+    int64_t height;
 };
 
 constexpr int MAX_RECIPE_SIZE = 9;
@@ -72,31 +82,34 @@ namespace Blocks
 constexpr Id<Block> stone("stone");
 constexpr Id<Block> dirt("dirt");
 constexpr Id<Block> sand("sand");
-constexpr Id<Block> log("log");
-constexpr Id<Block> leaves("leaves");
-constexpr Id<Block> grass("grass");
-constexpr Id<Block> snow("snow");
-constexpr Id<Block> crafting_table("crafting_table");
-constexpr Id<Block> portal("portal");
-constexpr Id<Block> dandelion("dandelion");
+constexpr Id<Block> grass_block("grass_block");
+constexpr Id<Block> snow_block("snow_block");
+
+constexpr Id<Block> oak_log("oak_log");
+constexpr Id<Block> oak_leaves("oak_leaves");
+
+// constexpr Id<Block> crafting_table("crafting_table");
+// constexpr Id<Block> portal("portal");
+// constexpr Id<Block> dandelion("dandelion");
 } // namespace Blocks
 
 namespace Items
 {
-constexpr Id<Item> stone_block("stone");
-constexpr Id<Item> dirt_block("dirt");
-constexpr Id<Item> sand_block("sand");
-constexpr Id<Item> log_block("log");
-constexpr Id<Item> leaves_block("leaves");
+constexpr Id<Item> stone("stone");
+constexpr Id<Item> dirt("dirt");
+constexpr Id<Item> sand("sand");
+constexpr Id<Item> oak_log("log");
+constexpr Id<Item> oak_leaves("leaves");
 constexpr Id<Item> grass_block("grass");
-constexpr Id<Item> snow_block("snow");
-constexpr Id<Item> crafting_table_block("crafting_table");
-constexpr Id<Item> portal_block("portal");
-constexpr Id<Item> water_bucket("water_bucket");
-constexpr Id<Item> bow("bow");
-constexpr Id<Item> arrow("arrow");
-constexpr Id<Item> crystal("crystal");
-constexpr Id<Item> dandelion("dandelion");
+constexpr Id<Item> snow("snow");
+
+// constexpr Id<Item> crafting_table_block("crafting_table");
+// constexpr Id<Item> portal_block("portal");
+// constexpr Id<Item> water_bucket("water_bucket");
+// constexpr Id<Item> bow("bow");
+// constexpr Id<Item> arrow("arrow");
+// constexpr Id<Item> crystal("crystal");
+// constexpr Id<Item> dandelion("dandelion");
 }; // namespace Items
 
 namespace Entities
@@ -106,6 +119,8 @@ constexpr Id<Entity> cow("cow");
 constexpr Id<Entity> zombie("zombie");
 }; // namespace Entities
 
+constexpr int64_t atlas_size = 512;
+
 class GameRegistry
 {
 public:
@@ -114,7 +129,13 @@ public:
     void register_all();
     Result<void> post_register();
 
-    void add_block(Id<Block> id, std::shared_ptr<Block> block);
+    Result<BlockStateResource> get_blockstate(std::string_view path);
+    Result<Model> get_model(std::string_view path);
+
+    void register_block(Id<Block> id);
+    void register_block(Id<Block> id, std::shared_ptr<Block> block);
+
+    // void add_block(Id<Block> id, std::shared_ptr<Block> block);
     void add_item(Id<Item> id, std::shared_ptr<Item> item);
     void add_structure(std::string_view name, std::shared_ptr<Structure> structure);
 
@@ -173,8 +194,6 @@ public:
         return iter->second;
     }
 
-    BlockState get_default_state(Id<Block> id) const { return get_block(id)->get_default_state(); }
-
     std::shared_ptr<Block> block_from_item(Id<Item> key)
     {
         std::shared_ptr<Item> item = m_items[key];
@@ -185,9 +204,18 @@ public:
 
     std::shared_ptr<Texture> get_texture(Id<Item> item);
 
-    std::shared_ptr<Texture> get_texture_array() const { return m_texture_array; }
+    AtlasTextureData get_atlas_data(std::string_view path) const
+    {
+        auto iter = m_atlas_data.find(path);
+        if (iter == m_atlas_data.end()) [[unlikely]]
+            return {};
+        return iter->second;
+    }
 
-    size_t load_texture(std::string_view path);
+    std::shared_ptr<Texture> get_atlas() const { return m_atlas; }
+    float get_atlas_size() const { return static_cast<float>(atlas_size); }
+
+    Result<void> add_texture(std::string_view path);
 
     /**
      * Create a texture from a file path. If an error occurs the missing texture is returned.
@@ -211,6 +239,9 @@ public:
     std::optional<ItemStack> match(const std::array<Id<Item>, 9>& grid, int width, int height);
 
 private:
+    stdext::string_map<BlockStateResource> m_blockstates;
+    stdext::string_map<Model> m_models;
+
     std::map<Id<Block>, std::shared_ptr<Block>> m_blocks;
     std::map<Id<Item>, std::shared_ptr<Item>> m_items;
 
@@ -224,13 +255,14 @@ private:
     stdext::string_map<Id<Item>> m_item_names;
     std::map<uint32_t, Id<Item>> m_item_ids;
 
-    std::vector<Image> m_images;
-    std::shared_ptr<Texture> m_texture_array;
-    std::vector<std::shared_ptr<Texture>> m_texture_handles;
+    stdext::string_map<AtlasTexture> m_textures;
+    std::shared_ptr<Texture> m_atlas;
+    stdext::string_map<AtlasTextureData> m_atlas_data;
+
+    // std::shared_ptr<Texture> m_texture_array;
+    // std::vector<std::shared_ptr<Texture>> m_texture_handles;
 
     std::map<ClassHashCode, stdext::string_map<RpcTarget>> m_exposed_rpc;
-
-    std::optional<size_t> get_image(std::string_view path);
 
     std::vector<Recipe> m_recipes;
 };

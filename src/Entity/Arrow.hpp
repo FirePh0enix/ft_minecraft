@@ -25,5 +25,5 @@ private:
     glm::uvec3 m_textures{};
     std::shared_ptr<Material> m_material;
     std::shared_ptr<Buffer> m_model_buffer;
-    std::shared_ptr<Model> m_model;
+    std::shared_ptr<ModelLegacy> m_model;
 };

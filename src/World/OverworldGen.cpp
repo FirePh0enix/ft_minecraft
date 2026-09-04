@@ -29,7 +29,7 @@ void TreePass::place_short_tree(ChunkPos pos, std::shared_ptr<PreLoadedChunk> ch
 
     BlockState *blocks = new BlockState[width * height * width](); // TODO: free this
     for (int64_t y = 0; y < tree_height; y++)
-        blocks[log_xz + y * width + log_xz * width * height] = Engine::get().registry().get_default_state(Blocks::log);
+        blocks[log_xz + y * width + log_xz * width * height] = BlockState(Blocks::oak_log.hash);
 
     const int64_t core_x = log_xz;
     const int64_t core_y = tree_height - 2;
@@ -41,7 +41,7 @@ void TreePass::place_short_tree(ChunkPos pos, std::shared_ptr<PreLoadedChunk> ch
                 float distance = glm::distance2(glm::vec3(core_x, core_y, core_z), glm::vec3(core_x + leave_x, core_y + leave_y, core_z + leave_z));
                 const int64_t index = (core_x + leave_x) + (core_y + leave_y) * width + (core_z + leave_z) * width * height;
                 if (blocks[index].is_air() && distance < 3 * 3)
-                    blocks[index] = Engine::get().registry().get_default_state(Blocks::leaves);
+                    blocks[index] = BlockState(Blocks::oak_leaves.hash);
             }
 
     dim.place_structure(glm::i64vec3(x + lx - width / 2, elevation, z + lz - width / 2), blocks, width, height, width);
@@ -66,7 +66,7 @@ void TreePass::place_big_tree(ChunkPos pos, std::shared_ptr<PreLoadedChunk> chun
 
     BlockState *blocks = new BlockState[width * height * width](); // TODO: free this
     for (int64_t y = 0; y < tree_height; y++)
-        blocks[log_xz + y * width + log_xz * width * height] = Engine::get().registry().get_default_state(Blocks::log);
+        blocks[log_xz + y * width + log_xz * width * height] = BlockState(Blocks::oak_log.hash);
 
     const int64_t core_x = log_xz;
     const int64_t core_y = tree_height - 3;
@@ -78,7 +78,7 @@ void TreePass::place_big_tree(ChunkPos pos, std::shared_ptr<PreLoadedChunk> chun
                 float distance = glm::distance2(glm::vec3(core_x, core_y, core_z), glm::vec3(core_x + leave_x, core_y + leave_y, core_z + leave_z));
                 const int64_t index = (core_x + leave_x) + (core_y + leave_y) * width + (core_z + leave_z) * width * height;
                 if (blocks[index].is_air() && distance < 5 * 5)
-                    blocks[index] = Engine::get().registry().get_default_state(Blocks::leaves);
+                    blocks[index] = BlockState(Blocks::oak_leaves.hash);
             }
 
     dim.place_structure(glm::i64vec3(x + lx - width / 2, elevation, z + lz - width / 2), blocks, width, height, width);
@@ -108,8 +108,6 @@ OverworldGen::OverworldGen(WorldSettings settings)
     std::vector<double> x{0.0f, 0.45f, 0.55f, 1.0f};
     std::vector<double> y{0.0f, 0.1f, 0.9f, 1.0f};
     m_continent_spline = tk::spline(x, y);
-
-    m_tree = Engine::get().registry().get_struct("tree");
 
     m_structure_passes.push_back(std::make_shared<TreePass>());
 }
@@ -169,11 +167,7 @@ void OverworldGen::generate_chunk(std::shared_ptr<Chunk> chunk, std::shared_ptr<
     std::vector<StructureGen> structures;
     dim.get_structures_overlap(cpos, structures);
 
-    const BlockState stone = Engine::get().registry().get_default_state(Blocks::stone);
-    const BlockState dirt = Engine::get().registry().get_default_state(Blocks::dirt);
-    const BlockState grass = Engine::get().registry().get_default_state(Blocks::grass);
-    const BlockState sand = Engine::get().registry().get_default_state(Blocks::sand);
-    const BlockState snow = Engine::get().registry().get_default_state(Blocks::snow);
+    BlockState stone(Blocks::stone.hash);
 
     for (int64_t x = 0; x < 16; x++)
     {
@@ -187,7 +181,7 @@ void OverworldGen::generate_chunk(std::shared_ptr<Chunk> chunk, std::shared_ptr<
 
             int64_t y = 0;
             for (; y < height - 3; y++)
-                blocks[x + y * 16 + z * 16 * 256] = stone;
+                blocks[x + y * 16 + z * 16 * 256] = BlockState(Blocks::stone.hash);
 
             BlockState ground;
             BlockState surface;
@@ -195,18 +189,18 @@ void OverworldGen::generate_chunk(std::shared_ptr<Chunk> chunk, std::shared_ptr<
             {
             case Biome::Forest:
             case Biome::Plain:
-                ground = dirt;
-                surface = grass;
+                ground = BlockState(Blocks::dirt.hash);
+                surface = BlockState(Blocks::grass_block.hash);
                 break;
             case Biome::Mountain:
-                ground = stone;
-                surface = stone;
+                ground = BlockState(Blocks::stone.hash);
+                surface = BlockState(Blocks::stone.hash);
                 break;
             case Biome::Desert:
             case Biome::Beach:
             case Biome::Ocean:
-                ground = sand;
-                surface = sand;
+                ground = BlockState(Blocks::sand.hash);
+                surface = BlockState(Blocks::sand.hash);
                 break;
             case Biome::Underworld:
                 break;
@@ -218,17 +212,17 @@ void OverworldGen::generate_chunk(std::shared_ptr<Chunk> chunk, std::shared_ptr<
 
             // Add snow on top of mountains
             if (height > 160 && biome == Biome::Mountain)
-                blocks[x + y * 16 + z * 16 * 256] = snow;
+                blocks[x + y * 16 + z * 16 * 256] = BlockState(Blocks::snow_block.hash);
 
             // Fill oceans
             for (; y < m_settings.ocean_level; y++)
                 chunk->set_tag({x, y, z}, "water", (int64_t)0, true);
 
-            bool vegetation = (m_noise.sample(glm::vec2((float)gx, (float)gz) / 10.0f) / 2.0f + 0.5f) > 0.8f;
-            if (vegetation && (biome == Biome::Plain || biome == Biome::Forest))
-            {
-                blocks[x + y * 16 + z * 16 * 256] = BlockState(Blocks::dandelion.hash);
-            }
+            // bool vegetation = (m_noise.sample(glm::vec2((float)gx, (float)gz) / 10.0f) / 2.0f + 0.5f) > 0.8f;
+            // if (vegetation && (biome == Biome::Plain || biome == Biome::Forest))
+            // {
+            //     blocks[x + y * 16 + z * 16 * 256] = BlockState(Blocks::dandelion.hash);
+            // }
         }
     }
 

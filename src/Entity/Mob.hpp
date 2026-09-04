@@ -26,7 +26,7 @@ public:
     glm::ivec3 find_random_walkable_position(int radius, const glm::vec3& preferred_dir = glm::vec3(0.0f));
 
 protected:
-    std::shared_ptr<Model> m_model;
+    std::shared_ptr<ModelLegacy> m_model;
     std::unique_ptr<Pathfinding> m_pathfinding;
     bool m_following_path = false;
     std::optional<Path> m_path;

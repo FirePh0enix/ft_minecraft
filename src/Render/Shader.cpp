@@ -57,7 +57,7 @@ Result<std::shared_ptr<Shader>> Shader::load_from_path(std::string_view path)
 {
     File file = TRY(Filesystem::open_file(path));
     std::string s = TRY(file.reader().read_to_string());
-    s = TRY(preprocess(s, "assets/shaders/"));
+    s = TRY(preprocess(s, "data/shaders/"));
     return load(s);
 }
 

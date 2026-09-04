@@ -98,23 +98,23 @@ void from_json(const nlohmann::json& j, ModelJSON& m)
         j.at("texture_path").get_to(m.texture_path);
 }
 
-Result<std::shared_ptr<Model>> Model::load(std::string_view path)
+Result<std::shared_ptr<ModelLegacy>> ModelLegacy::load(std::string_view path)
 {
     File file = TRY(Filesystem::open_file(path));
     std::string source = TRY(file.reader().read_to_string());
 
     ModelJSON json = nlohmann::json::parse(std::string(source.data(), source.size()));
 
-    std::shared_ptr<Model> model = std::make_shared<Model>();
+    std::shared_ptr<ModelLegacy> model = std::make_shared<ModelLegacy>();
     model->m_name.append(json.name.data(), json.name.size());
-    model->m_global_buffer = TRY(Buffer::create(sizeof(Model::Info), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
+    model->m_global_buffer = TRY(Buffer::create(sizeof(ModelLegacy::Info), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
     model->m_texture = TRY(Texture::load(json.texture_path));
 
     for (const auto& object : json.objects)
     {
-        Model::Object obj;
+        ModelLegacy::Object obj;
         obj.name.append(object.name.data(), object.name.size());
-        obj.model_buffer = TRY(Buffer::create(sizeof(Model::Info), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
+        obj.model_buffer = TRY(Buffer::create(sizeof(ModelLegacy::Info), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
         obj.size = glm::vec3(object.size[0], object.size[1], object.size[2]);
         obj.position = glm::vec3(object.position[0], object.position[1], object.position[2]);
         obj.origin = glm::vec3(object.origin[0], object.origin[1], object.origin[2]);
@@ -126,7 +126,7 @@ Result<std::shared_ptr<Model>> Model::load(std::string_view path)
         obj.uv_buffer = TRY(Buffer::create(sizeof(glm::vec2) * 24, WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
         obj.uv_buffer->update(std::as_bytes(std::span(uvs)));
 
-        Model::Info info{
+        ModelLegacy::Info info{
             // TODO: add rotation.
             .model_matrix = glm::rotate(glm::identity<glm::mat4>(), float(M_PI), glm::vec3(0, 1, 0)) * glm::translate(glm::identity<glm::mat4>(), obj.position) * glm::scale(glm::identity<glm::mat4>(), obj.size),
         };
@@ -145,19 +145,19 @@ Result<std::shared_ptr<Model>> Model::load(std::string_view path)
 
     for (const auto& animation : json.animations)
     {
-        Model::Animation anim;
+        ModelLegacy::Animation anim;
         anim.name.append(animation.name.data(), animation.name.size());
         anim.fps = animation.fps;
         anim.frames = animation.frames;
 
         for (const auto& action : animation.keyframes)
         {
-            Model::Keyframe act;
+            ModelLegacy::Keyframe act;
             act.frame = action.frame;
 
             for (const auto& transform : action.transforms)
             {
-                Model::Transform tran;
+                ModelLegacy::Transform tran;
                 tran.object_name.append(transform.object.data(), transform.object.size());
                 tran.position = glm::vec3(transform.position[0], transform.position[1], transform.position[2]);
                 tran.rotation = glm::vec3(transform.rotation[0], transform.rotation[1], transform.rotation[2]);
@@ -174,22 +174,22 @@ Result<std::shared_ptr<Model>> Model::load(std::string_view path)
     return model;
 }
 
-std::span<const Model::Object> Model::objects() const
+std::span<const ModelLegacy::Object> ModelLegacy::objects() const
 {
     return m_objects;
 }
 
-std::span<Model::Object> Model::objects()
+std::span<ModelLegacy::Object> ModelLegacy::objects()
 {
     return m_objects;
 }
 
-std::shared_ptr<Buffer> Model::get_global_buffer() const
+std::shared_ptr<Buffer> ModelLegacy::get_global_buffer() const
 {
     return m_global_buffer;
 }
 
-std::optional<Model::Object> Model::get_object(std::string_view name) const
+std::optional<ModelLegacy::Object> ModelLegacy::get_object(std::string_view name) const
 {
     for (const auto& obj : m_objects)
     {
@@ -199,7 +199,7 @@ std::optional<Model::Object> Model::get_object(std::string_view name) const
     return std::nullopt;
 }
 
-void Model::encode(const RenderPass& pass, const Transform3D& transform)
+void ModelLegacy::encode(const RenderPass& pass, const Transform3D& transform)
 {
     const std::shared_ptr<Mesh>& mesh = Renderer::get().get_cube_mesh();
 
@@ -210,7 +210,7 @@ void Model::encode(const RenderPass& pass, const Transform3D& transform)
         Renderer::get().draw(pass, mesh, Renderer::get().get_fw_model_mat(), obj.bg);
 }
 
-void Animator::set_model(std::shared_ptr<Model> model)
+void Animator::set_model(std::shared_ptr<ModelLegacy> model)
 {
     m_model = model;
     m_animation_name = "";
@@ -230,13 +230,13 @@ void Animator::play(const std::string& animation)
 
 void Animator::tick(float delta)
 {
-    std::optional<Model::Animation> animation_maybe = m_model->get_animation(m_animation_name);
+    std::optional<ModelLegacy::Animation> animation_maybe = m_model->get_animation(m_animation_name);
     if (!animation_maybe.has_value())
     {
         return;
     }
 
-    Model::Animation animation = animation_maybe.value();
+    ModelLegacy::Animation animation = animation_maybe.value();
 
     update_model_animation_buffer();
 
@@ -251,15 +251,15 @@ void Animator::tick(float delta)
 
 void Animator::update_model_animation_buffer()
 {
-    std::optional<Model::Animation> animation_maybe = m_model->get_animation(m_animation_name);
+    std::optional<ModelLegacy::Animation> animation_maybe = m_model->get_animation(m_animation_name);
     if (!animation_maybe.has_value())
     {
         return;
     }
 
-    Model::Animation animation = animation_maybe.value();
+    ModelLegacy::Animation animation = animation_maybe.value();
 
-    for (Model::Object& object : m_model->objects())
+    for (ModelLegacy::Object& object : m_model->objects())
     {
         std::optional<TransformWithLength> current_twl_maybe = get_current_transform(object.name);
         std::optional<TransformWithLength> next_twl_maybe = get_next_transform(object.name);
@@ -291,19 +291,19 @@ void Animator::update_model_animation_buffer()
 
         const glm::mat4 rotation_m = glm::rotate(glm::identity<glm::mat4>(), glm::radians(x), glm::vec3(1.0, 0.0, 0.0)) * glm::rotate(glm::identity<glm::mat4>(), glm::radians(y), glm::vec3(0.0, 1.0, 0.0)) * glm::rotate(glm::identity<glm::mat4>(), glm::radians(z), glm::vec3(0.0, 0.0, 1.0));
         const glm::mat4 origin_m = glm::translate(glm::identity<glm::mat4>(), -object.origin);
-        Model::Info info{
+        ModelLegacy::Info info{
             .model_matrix = translate_m * rotation_m * origin_m * scale_m,
         };
         object.model_buffer->update_struct(info);
     }
 }
 
-std::optional<Model::Keyframe> Animator::get_keyframe_for_frame(uint32_t frame) const
+std::optional<ModelLegacy::Keyframe> Animator::get_keyframe_for_frame(uint32_t frame) const
 {
-    std::optional<Model::Animation> animation_maybe = m_model->get_animation(m_animation_name);
+    std::optional<ModelLegacy::Animation> animation_maybe = m_model->get_animation(m_animation_name);
     if (!animation_maybe.has_value())
         return std::nullopt;
-    Model::Animation animation = animation_maybe.value();
+    ModelLegacy::Animation animation = animation_maybe.value();
 
     for (const auto& keyframe : animation.keyframes)
     {
@@ -316,19 +316,19 @@ std::optional<Model::Keyframe> Animator::get_keyframe_for_frame(uint32_t frame) 
 
 std::optional<Animator::TransformWithLength> Animator::get_current_transform(std::string_view object_name) const
 {
-    std::optional<Model::Animation> animation_maybe = m_model->get_animation(m_animation_name);
+    std::optional<ModelLegacy::Animation> animation_maybe = m_model->get_animation(m_animation_name);
     if (!animation_maybe.has_value())
         return std::nullopt;
-    Model::Animation animation = animation_maybe.value();
+    ModelLegacy::Animation animation = animation_maybe.value();
 
     uint32_t current_frame = m_frame;
 
     for (int32_t frame = int32_t(m_frame); frame >= 0; frame--)
     {
-        std::optional<Model::Keyframe> kf_maybe = get_keyframe_for_frame(frame);
+        std::optional<ModelLegacy::Keyframe> kf_maybe = get_keyframe_for_frame(frame);
         if (!kf_maybe.has_value())
             continue;
-        Model::Keyframe kf = kf_maybe.value();
+        ModelLegacy::Keyframe kf = kf_maybe.value();
 
         for (const auto& transform : kf.transforms)
         {
@@ -339,10 +339,10 @@ std::optional<Animator::TransformWithLength> Animator::get_current_transform(std
 
     for (uint32_t frame = animation.frames - 1; frame > current_frame; frame--)
     {
-        std::optional<Model::Keyframe> kf_maybe = get_keyframe_for_frame(frame);
+        std::optional<ModelLegacy::Keyframe> kf_maybe = get_keyframe_for_frame(frame);
         if (!kf_maybe.has_value())
             continue;
-        Model::Keyframe kf = kf_maybe.value();
+        ModelLegacy::Keyframe kf = kf_maybe.value();
 
         for (const auto& transform : kf.transforms)
         {
@@ -356,17 +356,17 @@ std::optional<Animator::TransformWithLength> Animator::get_current_transform(std
 
 std::optional<Animator::TransformWithLength> Animator::get_next_transform(std::string_view object_name) const
 {
-    std::optional<Model::Animation> animation_maybe = m_model->get_animation(m_animation_name);
+    std::optional<ModelLegacy::Animation> animation_maybe = m_model->get_animation(m_animation_name);
     if (!animation_maybe.has_value())
         return std::nullopt;
-    Model::Animation animation = animation_maybe.value();
+    ModelLegacy::Animation animation = animation_maybe.value();
 
     for (uint32_t frame = m_frame + 1; frame < animation.frames; frame++)
     {
-        std::optional<Model::Keyframe> kf_maybe = get_keyframe_for_frame(frame);
+        std::optional<ModelLegacy::Keyframe> kf_maybe = get_keyframe_for_frame(frame);
         if (!kf_maybe.has_value())
             continue;
-        Model::Keyframe kf = kf_maybe.value();
+        ModelLegacy::Keyframe kf = kf_maybe.value();
 
         for (const auto& transform : kf.transforms)
         {
@@ -377,10 +377,10 @@ std::optional<Animator::TransformWithLength> Animator::get_next_transform(std::s
 
     for (uint32_t frame = 0; frame < animation.frames + 1; frame++)
     {
-        std::optional<Model::Keyframe> kf_maybe = get_keyframe_for_frame(frame);
+        std::optional<ModelLegacy::Keyframe> kf_maybe = get_keyframe_for_frame(frame);
         if (!kf_maybe.has_value())
             continue;
-        Model::Keyframe kf = kf_maybe.value();
+        ModelLegacy::Keyframe kf = kf_maybe.value();
 
         for (const auto& transform : kf.transforms)
         {

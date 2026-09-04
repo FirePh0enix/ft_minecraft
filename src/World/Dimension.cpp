@@ -381,13 +381,14 @@ std::optional<Variant> Dimension::get_tag(glm::i64vec3 pos, std::string_view nam
 
 bool Dimension::has_solid_block(int64_t x, int64_t y, int64_t z) const
 {
-    BlockState state = get_block(x, y, z);
-    if (state.is_air())
-        return false;
-    std::shared_ptr<Block> block = Engine::get().registry().get_block(state.id);
-    if (block == nullptr)
-        return true;
-    return block->is_solid();
+    // BlockState state = get_block(x, y, z);
+    // if (state.is_air())
+    //     return false;
+    // std::shared_ptr<Block> block = Engine::get().registry().get_block(state.id);
+    // if (block == nullptr)
+    //     return true;
+    // return block->is_solid();
+    return false;
 }
 
 void Dimension::rebuild(std::stop_token token, std::shared_ptr<Chunk> chunk, const std::map<ChunkPos, std::shared_ptr<Chunk>>& nchunks, size_t slice_index, size_t slice_count)

@@ -154,8 +154,10 @@ Result<std::shared_ptr<Mesh>> Chunk::build_opaque_mesh(size_t slice_index, const
 {
     int64_t slice_y_offset = int64_t(slice_index) * width;
 
-    // Let's detect which faces are not hidden.
-    std::vector<ChunkBlockFace> faces;
+    std::vector<uint32_t> indices;
+    std::vector<glm::vec3> vertices;
+    std::vector<glm::vec4> uvs;
+    std::vector<glm::vec3> normals;
 
     for (int64_t x = 0; x < Chunk::width; x++)
     {
@@ -172,95 +174,53 @@ Result<std::shared_ptr<Mesh>> Chunk::build_opaque_mesh(size_t slice_index, const
                 if (block == nullptr)
                     return Result<std::shared_ptr<Mesh>>(nullptr);
 
-                if (!block->is_conventional())
-                    continue;
-
-                const bool gradient = block->has_gradient();
-
-                auto match_cross_boundary = [](const std::map<ChunkPos, std::shared_ptr<Chunk>>& chunks, int64_t cx, int64_t cz, int64_t x, int64_t y, int64_t z) -> bool
-                { 
-                    auto iter = chunks.find(ChunkPos(cx, cz));
-                    if (iter == chunks.end())
-                        return true;
-                    BlockState state = iter->second->get_block(x, y, z);
-                    if (state.is_air())
-                        return true;
-                    std::shared_ptr<Block> block = Engine::get().registry().get_block(state.id);
-                    if (block != nullptr && !block->is_conventional())
-                        return true;
-                    return false; };
-                auto match = [](BlockState *blocks, int64_t x, int64_t y, int64_t z)
+                auto match = [](BlockState *blocks, int64_t x, int64_t y, int64_t z, FaceKind face)
                 {
                     BlockState state = blocks[linearize(x, y, z)];
                     if (state.is_air())
-                        return true;
+                        return false;
                     std::shared_ptr<Block> block = Engine::get().registry().get_block(state.id);
-                    if (block != nullptr && !block->is_conventional())
-                        return true;
-                    return false; };
+                    if (block != nullptr && !block->has_cullface(face))
+                        return false;
+                    return true; };
+                auto match_cross_boundary = [](const std::map<ChunkPos, std::shared_ptr<Chunk>>& chunks, int64_t cx, int64_t cz, int64_t x, int64_t y, int64_t z, FaceKind face) -> bool
+                {
+                    auto iter = chunks.find(ChunkPos(cx, cz));
+                    if (iter == chunks.end())
+                        return false;
+                    BlockState state = iter->second->get_block(x, y, z);
+                    if (state.is_air())
+                        return false;
+                    std::shared_ptr<Block> block = Engine::get().registry().get_block(state.id);
+                    if (block != nullptr && !block->has_cullface(face))
+                        return false;
+                    return true; };
 
-                if ((x > 0 && match(m_blocks, x - 1, y, z)) || (x == 0 && match_cross_boundary(chunks, m_x - 1, m_z, 15, y, z)))
-                    faces.push_back(ChunkBlockFace(x, y - slice_y_offset, z, Axis::X, false, block->get_texture_index(Axis::X, false), gradient));
-                if ((x < 15 && match(m_blocks, x + 1, y, z)) || (x == 15 && match_cross_boundary(chunks, m_x + 1, m_z, 0, y, z)))
-                    faces.push_back(ChunkBlockFace(x, y - slice_y_offset, z, Axis::X, true, block->get_texture_index(Axis::X, true), gradient));
+                NeighborFlags flags{0};
+                if ((x > 0 && match(m_blocks, x - 1, y, z, FaceKind::East)) || (x == 0 && match_cross_boundary(chunks, m_x - 1, m_z, 15, y, z, FaceKind::East)))
+                    flags.value |= NeighborFlags::east;
+                if ((x < 15 && match(m_blocks, x + 1, y, z, FaceKind::West)) || (x == 15 && match_cross_boundary(chunks, m_x + 1, m_z, 0, y, z, FaceKind::West)))
+                    flags.value |= NeighborFlags::west;
 
-                if (y == 0 || match(m_blocks, x, y - 1, z))
-                    faces.push_back(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Y, false, block->get_texture_index(Axis::Y, false), gradient));
-                if (y == height - 1 || match(m_blocks, x, y + 1, z))
-                    faces.push_back(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Y, true, block->get_texture_index(Axis::Y, true), gradient));
+                if (y == 0 || match(m_blocks, x, y - 1, z, FaceKind::Up))
+                    flags.value |= NeighborFlags::up;
+                if (y == height - 1 || match(m_blocks, x, y + 1, z, FaceKind::Down))
+                    flags.value |= NeighborFlags::down;
 
-                if ((z > 0 && match(m_blocks, x, y, z - 1)) || (z == 0 && match_cross_boundary(chunks, m_x, m_z - 1, x, y, 15)))
-                    faces.push_back(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Z, false, block->get_texture_index(Axis::Z, false), gradient));
-                if ((z < 15 && match(m_blocks, x, y, z + 1)) || (z == 15 && match_cross_boundary(chunks, m_x, m_z + 1, x, y, 0)))
-                    faces.push_back(ChunkBlockFace(x, y - slice_y_offset, z, Axis::Z, true, block->get_texture_index(Axis::Z, true), gradient));
+                if ((z > 0 && match(m_blocks, x, y, z - 1, FaceKind::South)) || (z == 0 && match_cross_boundary(chunks, m_x, m_z - 1, x, y, 15, FaceKind::South)))
+                    flags.value |= NeighborFlags::south;
+                if ((z < 15 && match(m_blocks, x, y, z + 1, FaceKind::North)) || (z == 15 && match_cross_boundary(chunks, m_x, m_z + 1, x, y, 0, FaceKind::North)))
+                    flags.value |= NeighborFlags::north;
+
+                block->add({x, y - slice_y_offset, z}, flags, indices, vertices, uvs, normals);
             }
         }
     }
 
-    // No faces are visible, let's skip mesh generation.
-    if (faces.empty())
+    if (indices.size() == 0)
         return Result<std::shared_ptr<Mesh>>(nullptr);
 
-    // Now we build a mesh from the faces.
-    std::vector<uint16_t> indices;
-    std::vector<glm::vec3> vertices;
-    std::vector<glm::vec4> uvs;
-    std::vector<glm::vec3> normals;
-
-    for (const ChunkBlockFace& face : faces)
-    {
-        uint16_t i0 = vertices.size() + 0;
-        uint16_t i1 = vertices.size() + 1;
-        uint16_t i2 = vertices.size() + 2;
-        uint16_t i3 = vertices.size() + 3;
-
-        indices.push_back(i0);
-        indices.push_back(i1);
-        indices.push_back(i2);
-
-        indices.push_back(i2);
-        indices.push_back(i3);
-        indices.push_back(i0);
-
-        const std::array<glm::vec3, 4> new_vertices = vertex_from_axis(face.axis, face.positive, glm::vec3(face.x, face.y, face.z));
-        vertices.push_back(new_vertices[0]);
-        vertices.push_back(new_vertices[1]);
-        vertices.push_back(new_vertices[2]);
-        vertices.push_back(new_vertices[3]);
-
-        uvs.push_back(glm::vec4(0.0, 0.0, (double)face.texture_index, (float)face.gradient));
-        uvs.push_back(glm::vec4(1.0, 0.0, (double)face.texture_index, (float)face.gradient));
-        uvs.push_back(glm::vec4(1.0, 1.0, (double)face.texture_index, (float)face.gradient));
-        uvs.push_back(glm::vec4(0.0, 1.0, (double)face.texture_index, (float)face.gradient));
-
-        const glm::vec3 normal = normal_from_axis(face.axis, face.positive);
-        normals.push_back(normal);
-        normals.push_back(normal);
-        normals.push_back(normal);
-        normals.push_back(normal);
-    }
-
-    std::shared_ptr<Mesh> opaque_mesh = TRY(Mesh::create_from_data(std::as_bytes(std::span(indices)), vertices, normals, std::as_bytes(std::span(uvs)), WGPUIndexFormat_Uint16, WGPUVertexFormat_Float32x4));
+    std::shared_ptr<Mesh> opaque_mesh = TRY(Mesh::create_from_data(std::as_bytes(std::span(indices)), vertices, normals, std::as_bytes(std::span(uvs)), WGPUIndexFormat_Uint32, WGPUVertexFormat_Float32x4));
     return opaque_mesh;
 }
 
@@ -270,7 +230,6 @@ Result<std::shared_ptr<Mesh>> Chunk::build_water_mesh(size_t slice_index, const 
 
     // Let's detect which faces are not hidden.
     std::vector<ChunkBlockFace> faces;
-    std::map<BlockPos, std::shared_ptr<Block>> other_blocks;
 
     for (int64_t x = 0; x < Chunk::width; x++)
     {
@@ -279,12 +238,6 @@ Result<std::shared_ptr<Mesh>> Chunk::build_water_mesh(size_t slice_index, const 
             for (int64_t z = 0; z < Chunk::width; z++)
             {
                 const uint32_t index = linearize(x, y, z);
-
-                std::shared_ptr<Block> block = Engine::get().registry().get_block(m_blocks[index].id);
-                if (block != nullptr && !block->is_conventional() && block->is_transparent())
-                {
-                    other_blocks[BlockPos(x, y, z)] = block;
-                }
 
                 if (!get_tag(index, "water").has_value())
                     continue;
@@ -371,11 +324,11 @@ Result<std::shared_ptr<Mesh>> Chunk::build_semitransparent_mesh(size_t slice_ind
             {
                 const uint32_t index = linearize(x, y, z);
 
-                std::shared_ptr<Block> block = Engine::get().registry().get_block(m_blocks[index].id);
-                if (block != nullptr && !block->is_conventional() && block->is_transparent())
-                {
-                    other_blocks[BlockPos(x, y, z)] = block;
-                }
+                // std::shared_ptr<Block> block = Engine::get().registry().get_block(m_blocks[index].id);
+                // if (block != nullptr && !block->is_conventional() && block->is_transparent())
+                // {
+                //     other_blocks[BlockPos(x, y, z)] = block;
+                // }
             }
 
     // Now we build a mesh from the faces.
@@ -386,7 +339,7 @@ Result<std::shared_ptr<Mesh>> Chunk::build_semitransparent_mesh(size_t slice_ind
 
     for (const auto& [pos, block] : other_blocks)
     {
-        block->add_to_mesh({pos.x, pos.y - slice_index * 16, pos.z}, indices, vertices, uvs, normals);
+        // block->add_to_mesh({pos.x, pos.y - slice_index * 16, pos.z}, indices, vertices, uvs, normals);
     }
 
     if (indices.size() == 0)

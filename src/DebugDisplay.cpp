@@ -1,5 +1,6 @@
 #include "DebugDisplay.hpp"
 
+#include "Engine.hpp"
 #include "Render/Renderer.hpp"
 
 DebugCube::DebugCube(glm::mat4 model, Color color, float duration, float creation_time)
@@ -46,8 +47,10 @@ void DebugDisplay::update(float delta)
 
 void DebugDisplay::draw(const RenderPass& pass)
 {
-    for (const auto& iter : m_shapes)
-        iter->draw(pass);
+    (void)pass;
+    // FIXME
+    // for (const auto& iter : m_shapes)
+    //     iter->draw(pass);
 }
 
 void DebugDisplay::draw_cube(glm::vec3 position, glm::vec3 size, Color color, float duration)

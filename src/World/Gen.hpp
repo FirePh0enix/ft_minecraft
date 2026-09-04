@@ -80,7 +80,6 @@ public:
 
 private:
     tk::spline m_continent_spline;
-    std::shared_ptr<Structure> m_tree;
 };
 
 class UnderworldGen : public Gen

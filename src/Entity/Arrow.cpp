@@ -11,12 +11,12 @@ ArrowEntity::ArrowEntity(Id<Item> item) : m_item(item)
 {
     m_aabb = AABBd(-glm::dvec3(0.04f, 0.04f, 0.375f), glm::dvec3(0.04f, 0.04f, 0.375f));
     std::shared_ptr<Block> block = Engine::get().registry().block_from_item(item);
-    m_textures = glm::uvec3(block->get_texture_ids()[0] | (block->get_texture_ids()[1] << 16), block->get_texture_ids()[2] | (block->get_texture_ids()[3] << 16), block->get_texture_ids()[4] | (block->get_texture_ids()[5] << 16));
+    // m_textures = glm::uvec3(block->get_texture_ids()[0] | (block->get_texture_ids()[1] << 16), block->get_texture_ids()[2] | (block->get_texture_ids()[3] << 16), block->get_texture_ids()[4] | (block->get_texture_ids()[5] << 16));
 }
 
 void ArrowEntity::on_ready()
 {
-    m_model = EXPECT(Model::load("assets/models/arrow.json"));
+    m_model = EXPECT(ModelLegacy::load("assets/models/arrow.json"));
 }
 
 void ArrowEntity::tick(float delta)

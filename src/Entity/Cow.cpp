@@ -12,7 +12,7 @@ void Cow::tick(float delta)
 {
 
     if (!m_on_ground)
-         m_velocity.y -= m_gravity_value * delta;
+        m_velocity.y -= m_gravity_value * delta;
 
     if (m_following_path)
     {
@@ -50,7 +50,7 @@ void Cow::tick(float delta)
 
 void Cow::on_ready()
 {
-    m_model = EXPECT(Model::load("assets/models/cow.json"));
+    m_model = EXPECT(ModelLegacy::load("assets/models/cow.json"));
     m_id = World::next_id();
     m_pathfinding = std::make_unique<Pathfinding>(m_world);
 }

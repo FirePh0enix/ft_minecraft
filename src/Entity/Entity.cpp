@@ -71,16 +71,17 @@ void Entity::tick(float delta)
 {
     (void)delta;
 
-    BlockState state = m_world->get_block_state(m_dimension, (int64_t)m_transform.position().x, (int64_t)m_transform.position().y, (int64_t)m_transform.position().z);
-    if (state.id == Blocks::portal.hash && !m_inside_portal)
-    {
-        m_inside_portal = true;
-        m_world->change_dimension(m_id, (m_dimension + 1) % 2);
-    }
-    else if (state.id != Blocks::portal.hash)
-    {
-        m_inside_portal = false;
-    }
+    // FIXME
+    // BlockState state = m_world->get_block_state(m_dimension, (int64_t)m_transform.position().x, (int64_t)m_transform.position().y, (int64_t)m_transform.position().z);
+    // if (state.id == Blocks::portal.hash && !m_inside_portal)
+    // {
+    //     m_inside_portal = true;
+    //     m_world->change_dimension(m_id, (m_dimension + 1) % 2);
+    // }
+    // else if (state.id != Blocks::portal.hash)
+    // {
+    //     m_inside_portal = false;
+    // }
 }
 
 void Entity::add_child(std::shared_ptr<Entity> entity)

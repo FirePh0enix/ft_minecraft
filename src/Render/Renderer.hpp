@@ -498,6 +498,9 @@ public:
     std::shared_ptr<Buffer> get_fw_world_env() const { return m_fw_world_env; }
     std::shared_ptr<Buffer> get_fw_shadowmap_camera() const { return m_fw_shadowmap_camera; }
 
+    std::shared_ptr<Shader> get_model_noshadow_shader() const { return m_model_noshadow_shader; }
+    std::shared_ptr<Material> get_model_noshadow_mat() const { return m_model_noshadow_mat; }
+
     std::shared_ptr<Texture> get_fw_water_texture() const { return m_fw_water_texture; }
 
     WGPUSampler get_sampler(const SamplerDescriptor& desc) { return m_sampler_cache.get(desc); }
@@ -518,7 +521,6 @@ public:
     std::shared_ptr<Mesh> get_quad_mesh() const { return m_quad_mesh; }
     std::shared_ptr<Mesh> get_wireframe_cube_mesh() const { return m_wireframe_chunk_slice_mesh; }
 
-    std::shared_ptr<Shader> get_preview_block_shader() const { return m_preview_block_shader; }
     std::shared_ptr<Shader> get_color_rect_shader() const { return m_color_rect_shader; }
     std::shared_ptr<Shader> get_texture_rect_shader() const { return m_texture_rect_shader; }
 
@@ -578,6 +580,9 @@ private:
     std::shared_ptr<Material> m_fw_item_mat;
     std::shared_ptr<Material> m_fw_textured_mat;
 
+    std::shared_ptr<Shader> m_model_noshadow_shader;
+    std::shared_ptr<Material> m_model_noshadow_mat;
+
     std::shared_ptr<Mesh> m_wireframe_chunk_slice_mesh;
     std::shared_ptr<Material> m_wireframe_dbg_mat;
 
@@ -632,7 +637,6 @@ private:
 
     SamplerCache m_sampler_cache;
 
-    std::shared_ptr<Shader> m_preview_block_shader;
     std::shared_ptr<Shader> m_color_rect_shader;
     std::shared_ptr<Shader> m_texture_rect_shader;
 

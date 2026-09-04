@@ -12,7 +12,7 @@ constexpr float ARROW_SPEED = 2.0f;
 
 BowItem::BowItem()
 {
-    set_texture(Engine::get().registry().create_texture("assets/textures/bow.png"));
+    //    set_texture(Engine::get().registry().create_texture("data/resourcepacks/core/assets/minecraft/textures/item/bow.png"));
 }
 
 void BowItem::interact(World& world, int dimension, ItemStack& stack, glm::i64vec3 pos, glm::i64vec3 normal, InventoryContainer& inventory)
@@ -29,30 +29,30 @@ void BowItem::interact(World& world, int dimension, ItemStack& stack, glm::i64ve
 
 void BowItem::on_release(World& world, int dimension, ItemStack& stack, glm::i64vec3 pos, glm::vec3 dir, InventoryContainer& inventory)
 {
-    float power = 0.1f;
-    auto start = stack.get_tag<int64_t>("draw_start");
-    int64_t now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
-    float held_seconds = (float)(now_ms - start.value()) / 1000.0f;
-    power = std::clamp(held_seconds, 0.1f, 1.0f);
+    // float power = 0.1f;
+    // auto start = stack.get_tag<int64_t>("draw_start");
+    // int64_t now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+    // float held_seconds = (float)(now_ms - start.value()) / 1000.0f;
+    // power = std::clamp(held_seconds, 0.1f, 1.0f);
 
-    stack.remove_tag("draw_start");
+    // stack.remove_tag("draw_start");
 
-    auto result = inventory.consume(Items::arrow);
-    if (!result.has_value())
-    {
-        println("No arrow !");
-        return;
-    }
+    // auto result = inventory.consume(Items::arrow);
+    // if (!result.has_value())
+    // {
+    //     println("No arrow !");
+    //     return;
+    // }
 
-    std::shared_ptr<ArrowEntity> arrow = std::make_shared<ArrowEntity>(Items::arrow);
-    auto arrow_pos = pos;
-    arrow_pos.z += 1.0f;
-    arrow_pos.y += 1.0f;
-    arrow->get_transform().position() = arrow_pos;
-    const glm::vec3 norm_dir = safe_normalize(dir);
-    const glm::vec3 velocity = norm_dir * (ARROW_SPEED * power);
-    arrow->set_velocity(velocity);
-    arrow->get_transform().rotation() = glm::quatLookAt(norm_dir, glm::vec3(0.0f, 1.0f, 0.0f));
+    // std::shared_ptr<ArrowEntity> arrow = std::make_shared<ArrowEntity>(Items::arrow);
+    // auto arrow_pos = pos;
+    // arrow_pos.z += 1.0f;
+    // arrow_pos.y += 1.0f;
+    // arrow->get_transform().position() = arrow_pos;
+    // const glm::vec3 norm_dir = safe_normalize(dir);
+    // const glm::vec3 velocity = norm_dir * (ARROW_SPEED * power);
+    // arrow->set_velocity(velocity);
+    // arrow->get_transform().rotation() = glm::quatLookAt(norm_dir, glm::vec3(0.0f, 1.0f, 0.0f));
 
-    world.add_entity(dimension, arrow);
+    // world.add_entity(dimension, arrow);
 }

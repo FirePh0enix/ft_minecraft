@@ -27,6 +27,6 @@ void UnderworldGen::generate_chunk(std::shared_ptr<Chunk> chunk, std::shared_ptr
     {
         for (int64_t x = 0; x < 16; x++)
             for (int64_t z = 0; z < 16; z++)
-                chunk->get_blocks()[x + y * Chunk::width + z * Chunk::width * Chunk::height] = Engine::get().registry().get_default_state(Blocks::stone);
+                chunk->get_blocks()[x + y * Chunk::width + z * Chunk::width * Chunk::height] = BlockState(Blocks::stone.hash);
     }
 }

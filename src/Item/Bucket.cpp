@@ -6,7 +6,7 @@
 
 BucketItem::BucketItem()
 {
-    set_texture(Engine::get().registry().create_texture("assets/textures/water.png"));
+    //    set_texture(Engine::get().registry().create_texture("data/resourcepacks/core/assets/minecraft/textures/item/water_bucket.png"));
 }
 
 void BucketItem::interact(World& world, int dimension, ItemStack& stack, glm::i64vec3 pos, glm::i64vec3 normal, InventoryContainer& inventory)

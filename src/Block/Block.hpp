@@ -2,6 +2,8 @@
 
 #include "Core/Math.hpp"
 #include "Id.hpp"
+#include "Resource/BlockState.hpp"
+#include "Resource/Model.hpp"
 
 #include <array>
 #include <span>
@@ -39,74 +41,74 @@ struct BlockState
 
 static_assert(sizeof(BlockState) == sizeof(uint32_t));
 
-enum class Axis : uint8_t
+enum class Axis
 {
     X,
     Y,
     Z
 };
 
+enum class FaceKind
+{
+    North = 0,
+    South = 1,
+    Up = 2,
+    Down = 3,
+    West = 4,
+    East = 5,
+};
+
+struct NeighborFlags
+{
+    static constexpr uint8_t north = 1 << 0;
+    static constexpr uint8_t south = 1 << 1;
+    static constexpr uint8_t up = 1 << 2;
+    static constexpr uint8_t down = 1 << 3;
+    static constexpr uint8_t west = 1 << 4;
+    static constexpr uint8_t east = 1 << 5;
+
+    uint8_t value;
+
+    static constexpr uint8_t get_opposite_face(FaceKind face)
+    {
+        switch (face)
+        {
+        case FaceKind::North:
+            return south;
+        case FaceKind::South:
+            return north;
+        case FaceKind::Up:
+            return down;
+        case FaceKind::Down:
+            return up;
+        case FaceKind::West:
+            return east;
+        case FaceKind::East:
+            return west;
+        }
+    }
+
+    constexpr bool has_opposite(FaceKind face) const
+    {
+        return value & get_opposite_face(face);
+    }
+};
+
 class Block
 {
 public:
-    virtual ~Block() {}
+    Block(std::string_view path);
 
-    Block() : m_transparent(false), m_gradient(false) {}
-    Block(const std::array<std::string, 6>& textures, bool gradient = false);
-    Block(std::string_view texture, bool gradient = false);
+    bool has_cullface(FaceKind face);
 
-    void set_runtime_id(Id<Block> id) { m_id = id; }
+    /// Add the block data to the chunk mesh.
+    void add(glm::i64vec3 position, NeighborFlags neighbors, std::vector<uint32_t>& indices, std::vector<glm::vec3>& vertices, std::vector<glm::vec4>& uvs, std::vector<glm::vec3>& normals);
 
-    virtual void add_to_mesh(glm::i64vec3 position, std::vector<uint16_t>& indices, std::vector<glm::vec3>& vertices, std::vector<glm::vec4>& uvs, std::vector<glm::vec3>& normals)
-    {
-        (void)position;
-        (void)indices;
-        (void)vertices;
-        (void)uvs;
-        (void)normals;
-    }
+private:
+    std::string m_path;
+    BlockStateResource m_blockstate;
+    Model m_model;
 
-    virtual BlockState get_default_state() const { return BlockState(m_id.hash); }
-    bool is_conventional() const { return m_conventional; }
-    bool is_unbreakable() const { return m_unbreakable; }
-
-    std::span<const std::string, 6> get_texture_names() const
-    {
-        return m_textures;
-    }
-
-    std::span<const uint32_t, 6> get_texture_ids() const
-    {
-        return m_texture_ids;
-    }
-
-    uint32_t get_texture_index(Axis axis, bool positive) const
-    {
-        uint32_t index = 0;
-        if (axis == Axis::X)
-            index = 2 + positive;
-        else if (axis == Axis::Y)
-            index = 4 + positive;
-        else if (axis == Axis::Z)
-            index = 0 + positive;
-
-        return m_texture_ids[index];
-    }
-
-    void set_texture(std::string_view path);
-
-    bool is_transparent() const { return m_transparent; }
-    bool has_gradient() const { return m_gradient; }
-    bool is_solid() const { return m_solid; }
-
-protected:
-    std::array<std::string, 6> m_textures{};
-    std::array<uint32_t, 6> m_texture_ids{0, 0, 0, 0, 0, 0}; // [+Z, -Z, +X, -X, +Y, -Y]
-    bool m_transparent;
-    bool m_gradient;
-    Id<Block> m_id;
-
-    bool m_unbreakable = false;
-    bool m_solid = true;
-    bool m_conventional = true;
+    // Cached values for faster access than reading through the model files.
+    bool m_cullfaces[6]{false};
 };

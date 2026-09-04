@@ -4,7 +4,7 @@
 
 CrystalItem::CrystalItem()
 {
-    set_texture(Engine::get().registry().create_texture("assets/textures/water.png"));
+    // set_texture(Engine::get().registry().create_texture("data/resourcepacks/core/assets/minecraft/textures/item/emerald.png"));
 }
 
 void CrystalItem::interact(World& world, int dimension, ItemStack& stack, glm::i64vec3 pos, glm::i64vec3 normal, InventoryContainer& inventory)
@@ -20,18 +20,18 @@ void CrystalItem::interact(World& world, int dimension, ItemStack& stack, glm::i
 
     // clang-format off
     const Id<Block> blocks[]{
-        Id<Block>(), Blocks::log, Blocks::log, Id<Block>(),
-        Blocks::log, Id<Block>(), Id<Block>(), Blocks::log,
-        Blocks::log, Id<Block>(), Id<Block>(), Blocks::log,
-        Blocks::log, Id<Block>(), Id<Block>(), Blocks::log,
-        Id<Block>(), Blocks::log, Blocks::log, Id<Block>(),
+        Id<Block>(), Blocks::oak_log, Blocks::oak_log, Id<Block>(),
+        Blocks::oak_log, Id<Block>(), Id<Block>(), Blocks::oak_log,
+        Blocks::oak_log, Id<Block>(), Id<Block>(), Blocks::oak_log,
+        Blocks::oak_log, Id<Block>(), Id<Block>(), Blocks::oak_log,
+        Id<Block>(), Blocks::oak_log, Blocks::oak_log, Id<Block>(),
     };
     const Id<Block> blocks2[]{
-        Blocks::log, Blocks::log, Blocks::log, Blocks::log,
-        Blocks::log, Id<Block>(), Id<Block>(), Blocks::log,
-        Blocks::log, Id<Block>(), Id<Block>(), Blocks::log,
-        Blocks::log, Id<Block>(), Id<Block>(), Blocks::log,
-        Blocks::log, Blocks::log, Blocks::log, Blocks::log,
+        Blocks::oak_log, Blocks::oak_log, Blocks::oak_log, Blocks::oak_log,
+        Blocks::oak_log, Id<Block>(), Id<Block>(), Blocks::oak_log,
+        Blocks::oak_log, Id<Block>(), Id<Block>(), Blocks::oak_log,
+        Blocks::oak_log, Id<Block>(), Id<Block>(), Blocks::oak_log,
+        Blocks::oak_log, Blocks::oak_log, Blocks::oak_log, Blocks::oak_log,
     };
     // clang-format on
 
@@ -79,26 +79,27 @@ void CrystalItem::interact(World& world, int dimension, ItemStack& stack, glm::i
         (void)0;
     }
 
-    if (match)
-    {
-        const glm::i64vec3 position = positions[i];
+    // FIXME
+    // if (match)
+    // {
+    //     const glm::i64vec3 position = positions[i];
 
-        for (int64_t x = 0; x < 4; x++)
-            for (int64_t y = 0; y < 5; y++)
-            {
-                glm::i64vec3 p = global_pos - position + glm::i64vec3(x, y, 0);
-                if (blocks2[x + y * 4].valid())
-                {
-                    world.set_block_state(other_dimension, p.x, p.y, p.z, Engine::get().registry().get_default_state(blocks2[x + y * 4]));
-                }
-            }
+    //     for (int64_t x = 0; x < 4; x++)
+    //         for (int64_t y = 0; y < 5; y++)
+    //         {
+    //             glm::i64vec3 p = global_pos - position + glm::i64vec3(x, y, 0);
+    //             if (blocks2[x + y * 4].valid())
+    //             {
+    //                 world.set_block_state(other_dimension, p.x, p.y, p.z, Engine::get().registry().get_default_state(blocks2[x + y * 4]));
+    //             }
+    //         }
 
-        for (int64_t x = 1; x < 3; x++)
-            for (int64_t y = 1; y < 4; y++)
-            {
-                glm::i64vec3 p = global_pos - position + glm::i64vec3(x, y, 0);
-                world.set_block_state(dimension, p.x, p.y, p.z, Engine::get().registry().get_default_state(Blocks::portal));
-                world.set_block_state(other_dimension, p.x, p.y, p.z, Engine::get().registry().get_default_state(Blocks::portal));
-            }
-    }
+    //     for (int64_t x = 1; x < 3; x++)
+    //         for (int64_t y = 1; y < 4; y++)
+    //         {
+    //             glm::i64vec3 p = global_pos - position + glm::i64vec3(x, y, 0);
+    //             world.set_block_state(dimension, p.x, p.y, p.z, Engine::get().registry().get_default_state(Blocks::portal));
+    //             world.set_block_state(other_dimension, p.x, p.y, p.z, Engine::get().registry().get_default_state(Blocks::portal));
+    //         }
+    // }
 }

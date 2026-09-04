@@ -194,7 +194,7 @@ void Player::on_ready()
     m_hand_item_bg = BindGroup::create(Renderer::get().get_fw_item_block_shader());
     m_hand_item_bg->set_param("camera", Renderer::get().get_fw_camera());
     m_hand_item_bg->set_param("model", m_model_buffer);
-    m_hand_item_bg->set_param("images", EXPECT(Engine::get().registry().get_texture_array()->get_view(WGPUTextureViewDimension_2DArray)));
+    m_hand_item_bg->set_param("image", EXPECT(Engine::get().registry().get_atlas()->get_view()));
 
     if (m_local_player)
     {
@@ -233,7 +233,7 @@ void Player::on_ready()
     }
     else
     {
-        m_model = EXPECT(Model::load("assets/models/player.json"));
+        m_model = EXPECT(ModelLegacy::load("assets/models/player.json"));
         m_animator.set_model(m_model);
 
         // Model::Info info{.model_matrix = glm::translate(glm::identity<glm::mat4>(), glm::vec3(0.0, 100.0, 0.0))};
@@ -418,16 +418,17 @@ void Player::tick(float delta)
                 BlockState state = m_world->get_block_state(m_dimension, result.block_pos.x, result.block_pos.y, result.block_pos.z);
                 std::shared_ptr<Block> block = Engine::get().registry().get_block(state.id);
 
-                if (std::shared_ptr<InventoryBlock> ib = std::dynamic_pointer_cast<InventoryBlock>(block))
-                {
-                    // TODO: How to handle this with an RPC ?
-                    ib->open_inventory(result.block_pos, this);
-                }
-                else
-                {
-                    ItemStack stack = m_inventory_container->get_stack(1, m_slot);
-                    call_rpc("place_block", result.block_pos.x, result.block_pos.y, result.block_pos.z, result.normal, stack);
-                }
+                // FIXME: uncomment when its working again.
+                // if (std::shared_ptr<InventoryBlock> ib = std::dynamic_pointer_cast<InventoryBlock>(block))
+                // {
+                //     // TODO: How to handle this with an RPC ?
+                //     ib->open_inventory(result.block_pos, this);
+                // }
+                // else
+                // {
+                //     ItemStack stack = m_inventory_container->get_stack(1, m_slot);
+                //     call_rpc("place_block", result.block_pos.x, result.block_pos.y, result.block_pos.z, result.normal, stack);
+                // }
             }
             if (Input::is_action_just_pressed("middle_click") && m_gamemode == GameMode::Creative)
             {
@@ -443,17 +444,18 @@ void Player::tick(float delta)
         else
         {
             m_aimed_block = std::nullopt;
-            // Bow can be interacted even though he is not aiming at a block, can do better.
-            if (Input::is_action_just_pressed("interact"))
-            {
-                ItemStack stack = m_inventory_container->get_stack(1, m_slot);
-                if (stack.item().valid() && stack.item() == Items::bow)
-                {
-                    std::shared_ptr<Item> item = Engine::get().registry().get_item(stack.item());
-                    item->interact(*m_world, m_dimension, stack, result.block_pos, result.normal, *m_inventory_container);
-                    m_inventory_container->set_stack(1, m_slot, stack);
-                }
-            }
+            // FIXME: as the comment say: can do better
+            // // Bow can be interacted even though he is not aiming at a block, can do better.
+            // if (Input::is_action_just_pressed("interact"))
+            // {
+            //     ItemStack stack = m_inventory_container->get_stack(1, m_slot);
+            //     if (stack.item().valid() && stack.item() == Items::bow)
+            //     {
+            //         std::shared_ptr<Item> item = Engine::get().registry().get_item(stack.item());
+            //         item->interact(*m_world, m_dimension, stack, result.block_pos, result.normal, *m_inventory_container);
+            //         m_inventory_container->set_stack(1, m_slot, stack);
+            //     }
+            // }
         }
 
         if (Input::is_action_just_released("interact"))
@@ -621,18 +623,18 @@ void Player::draw(const RenderPass& pass)
 
             glm::mat4 matrix = transform.to_matrix();
 
-            std::shared_ptr<BindGroup> bg = BindGroup::create(Renderer::get().get_fw_item_block_shader());
-            bg->set_param("camera", Renderer::get().get_fw_camera_rel());
-            bg->set_param("model", m_model_buffer);
-            bg->set_param("world_env", Renderer::get().get_fw_world_env());
-            bg->set_param("images", EXPECT(Engine::get().registry().get_texture_array()->get_view(WGPUTextureViewDimension_2DArray)));
-            bg->set_param("shadowmap", EXPECT(Renderer::get().get_fw_shadowmap()->get_view(WGPUTextureViewDimension_2D)));
+            // std::shared_ptr<BindGroup> bg = BindGroup::create(Renderer::get().get_fw_item_block_shader());
+            // bg->set_param("camera", Renderer::get().get_fw_camera_rel());
+            // bg->set_param("model", m_model_buffer);
+            // bg->set_param("world_env", Renderer::get().get_fw_world_env());
+            // bg->set_param("images", EXPECT(Engine::get().registry().get_texture_array()->get_view(WGPUTextureViewDimension_2DArray)));
+            // bg->set_param("shadowmap", EXPECT(Renderer::get().get_fw_shadowmap()->get_view(WGPUTextureViewDimension_2D)));
 
-            ItemBlockModel model(matrix,
-                                 glm::uvec3(block->get_texture_ids()[0] | (block->get_texture_ids()[1] << 16), block->get_texture_ids()[2] | (block->get_texture_ids()[3] << 16), block->get_texture_ids()[4] | (block->get_texture_ids()[5] << 16)));
-            m_model_buffer->update_struct(model);
+            // ItemBlockModel model(matrix,
+            //                      glm::uvec3(block->get_texture_ids()[0] | (block->get_texture_ids()[1] << 16), block->get_texture_ids()[2] | (block->get_texture_ids()[3] << 16), block->get_texture_ids()[4] | (block->get_texture_ids()[5] << 16)));
+            // m_model_buffer->update_struct(model);
 
-            Renderer::get().draw(pass, Renderer::get().get_cube_mesh(), Renderer::get().get_fw_item_block_mat(), bg);
+            // Renderer::get().draw(pass, Renderer::get().get_cube_mesh(), Renderer::get().get_fw_item_block_mat(), bg);
         }
         else
         {
@@ -730,19 +732,20 @@ void Player::die()
 
 void Player::break_block(int64_t x, int64_t y, int64_t z)
 {
-    BlockState state = m_world->get_block_state(m_dimension, x, y, z);
-    std::shared_ptr<Block> block = Engine::get().registry().get_block(state.id);
-    if (!block || block->is_unbreakable())
-        return;
+    // FIXME: when block works again
+    // BlockState state = m_world->get_block_state(m_dimension, x, y, z);
+    // std::shared_ptr<Block> block = Engine::get().registry().get_block(state.id);
+    // if (!block || block->is_unbreakable())
+    //     return;
 
-    if (m_gamemode == GameMode::Survival)
-    {
-        m_world->break_block(m_dimension, x, y, z);
-    }
-    else
-    {
-        m_world->set_block_state(m_dimension, x, y, z, BlockState());
-    }
+    // if (m_gamemode == GameMode::Survival)
+    // {
+    //     m_world->break_block(m_dimension, x, y, z);
+    // }
+    // else
+    // {
+    //     m_world->set_block_state(m_dimension, x, y, z, BlockState());
+    // }
 }
 
 void Player::place_block(int64_t x, int64_t y, int64_t z, glm::dvec3 normal, ItemStack stack)
