@@ -4,29 +4,26 @@
 #include "Engine.hpp"
 #include "Render/Renderer.hpp"
 
-struct GPU_ATTRIBUTE ItemBlockModel
-{
-    glm::mat4 model_matrix;
-    glm::uvec3 textures;
-};
-
 ItemEntity::ItemEntity(Id<Item> item)
     : m_item(item), m_time(0)
 {
     m_aabb = AABBd(-glm::vec3(0.2, 0.2, 0.2), glm::vec3(0.2, 0.2, 0.2));
     get_transform().scale() = glm::dvec3(0.2, 0.2, 0.2);
 
-    m_model_buffer = EXPECT(Buffer::create(sizeof(ItemBlockModel), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform));
+    m_model_buffer = EXPECT(Buffer::create(sizeof(FwModel), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform));
 
-    m_bg = BindGroup::create(Renderer::get().get_fw_item_block_shader()); // FIXME
+    // TODO: create the mesh only on time per block not each time I create a new entity.
+    m_bg = BindGroup::create(Renderer::get().get_model_noshadow_shader());
     m_bg->set_param("camera", Renderer::get().get_fw_camera());
     m_bg->set_param("model", m_model_buffer);
     m_bg->set_param("world_env", Renderer::get().get_fw_world_env());
-    m_bg->set_param("image", EXPECT(Engine::get().registry().get_atlas()->get_view()));
-    m_bg->set_param("shadowmap", EXPECT(Renderer::get().get_fw_shadowmap()->get_view()));
+    m_bg->set_param("atlas", EXPECT(Engine::get().registry().get_atlas()->get_view()));
 
     std::shared_ptr<Block> block = Engine::get().registry().block_from_item(item);
-    // m_textures = glm::uvec3(block->get_texture_ids()[0] | (block->get_texture_ids()[1] << 16), block->get_texture_ids()[2] | (block->get_texture_ids()[3] << 16), block->get_texture_ids()[4] | (block->get_texture_ids()[5] << 16));
+
+    MeshBuilder builder;
+    block->add(builder, {}, {});
+    m_mesh = EXPECT(builder.build());
 }
 
 void ItemEntity::tick(float delta)
@@ -40,8 +37,8 @@ void ItemEntity::draw(const RenderPass& pass)
 {
     m_transform.rotation() = glm::rotate(glm::identity<glm::quat>(), m_time, glm::vec3(0.0, 1.0, 0.0));
 
-    ItemBlockModel matrix(get_transform().to_matrix(), m_textures);
+    FwModel matrix(get_transform().to_matrix(Engine::get().get_world()->get_player()->get_position()));
 
     m_model_buffer->update_struct(matrix);
-    Renderer::get().draw(pass, Renderer::get().get_cube_mesh(), Renderer::get().get_fw_item_block_mat(), m_bg);
+    Renderer::get().draw(pass, m_mesh, Renderer::get().get_model_noshadow_mat(), m_bg);
 }

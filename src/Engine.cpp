@@ -81,12 +81,12 @@ void Engine::register_recipes()
     for (size_t i = 0; i < 9; i++)
         crafting_table.pattern[i] = Id<Item>();
 
-    // crafting_table.pattern[two_d_to_1d(0, 0)] = Items::stone_block;
-    // crafting_table.pattern[two_d_to_1d(1, 0)] = Items::stone_block;
-    // crafting_table.pattern[two_d_to_1d(0, 1)] = Items::stone_block;
-    // crafting_table.pattern[two_d_to_1d(1, 1)] = Items::stone_block;
+    crafting_table.pattern[two_d_to_1d(0, 0)] = Items::stone;
+    crafting_table.pattern[two_d_to_1d(1, 0)] = Items::stone;
+    crafting_table.pattern[two_d_to_1d(0, 1)] = Items::stone;
+    crafting_table.pattern[two_d_to_1d(1, 1)] = Items::stone;
 
-    // crafting_table.result = ItemStack(Items::crafting_table_block, 1);
+    crafting_table.result = ItemStack(Items::crafting_table_block, 1);
 
     m_registry.add_recipe(crafting_table);
 }

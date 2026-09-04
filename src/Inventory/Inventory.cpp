@@ -74,6 +74,9 @@ void Inventory::update(float d)
             is->set_count(stack.count());
         }
     }
+
+    glm::ivec2 mouse_pos = Input::get_mouse_coordinates();
+    m_grabbed_item_rect->set_offset(Point(Size::px(mouse_pos.x), Size::px(mouse_pos.y)));
 }
 
 void Inventory::grab(const ItemStack& itemstack, std::optional<InventoryOrigin> pos)
@@ -83,6 +86,8 @@ void Inventory::grab(const ItemStack& itemstack, std::optional<InventoryOrigin> 
         ungrab();
         return;
     }
+    
+    m_grabbed_item_rect->set_visible(true);
 
     m_grabbed_stack = itemstack;
     if (pos.has_value())
@@ -95,6 +100,7 @@ void Inventory::grab(const ItemStack& itemstack, std::optional<InventoryOrigin> 
 void Inventory::ungrab()
 {
     m_grabbed_stack = std::nullopt;
+    m_grabbed_item_rect->set_visible(false);
 }
 
 std::optional<ItemStack> Inventory::get_grabbed()

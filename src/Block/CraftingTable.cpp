@@ -1,10 +1,11 @@
 #include "Block/CraftingTable.hpp"
+#include "Block/Inventory.hpp"
 #include "Inventory/CraftingTable.hpp"
 #include "Inventory/Inventory.hpp"
 
 CraftingTableBlock::CraftingTableBlock()
+    : InventoryBlock("crafting_table")
 {
-    // set_texture("data/resourcepacks/core/assets/minecraft/textures/block/crafting_table_top.png");
 }
 
 void CraftingTableBlock::open_inventory(glm::ivec3 pos, Player *player)

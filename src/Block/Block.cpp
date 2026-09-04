@@ -67,7 +67,7 @@ static FaceKind face_from_string(std::string_view name)
     return FaceKind::North;
 }
 
-void Block::add(glm::i64vec3 position, NeighborFlags neighbors, std::vector<uint32_t>& indices, std::vector<glm::vec3>& vertices, std::vector<glm::vec4>& uvs, std::vector<glm::vec3>& normals)
+void Block::add(MeshBuilder& builder, glm::i64vec3 position, NeighborFlags neighbors)
 {
     for (const auto& element : m_model.elements)
     {
@@ -108,23 +108,23 @@ void Block::add(glm::i64vec3 position, NeighborFlags neighbors, std::vector<uint
                 if (facei->second.cullface.has_value() && neighbors.has_opposite(face_from_string(facei->second.cullface.value())))
                     continue;
 
-                uint32_t i0 = vertices.size() + 0;
-                uint32_t i1 = vertices.size() + 1;
-                uint32_t i2 = vertices.size() + 2;
-                uint32_t i3 = vertices.size() + 3;
+                uint32_t i0 = builder.vertex_count() + 0;
+                uint32_t i1 = builder.vertex_count() + 1;
+                uint32_t i2 = builder.vertex_count() + 2;
+                uint32_t i3 = builder.vertex_count() + 3;
 
-                indices.push_back(i0);
-                indices.push_back(i1);
-                indices.push_back(i2);
+                builder.add_index(i0);
+                builder.add_index(i1);
+                builder.add_index(i2);
 
-                indices.push_back(i2);
-                indices.push_back(i3);
-                indices.push_back(i0);
+                builder.add_index(i2);
+                builder.add_index(i3);
+                builder.add_index(i0);
 
-                vertices.push_back(face.vertices[0]);
-                vertices.push_back(face.vertices[1]);
-                vertices.push_back(face.vertices[2]);
-                vertices.push_back(face.vertices[3]);
+                builder.add_vertex(face.vertices[0]);
+                builder.add_vertex(face.vertices[1]);
+                builder.add_vertex(face.vertices[2]);
+                builder.add_vertex(face.vertices[3]);
 
                 const AtlasTextureData& data = Engine::get().registry().get_atlas_data(facei->second.texture);
                 const float x_min = float(data.x) / Engine::get().registry().get_atlas_size();
@@ -136,16 +136,16 @@ void Block::add(glm::i64vec3 position, NeighborFlags neighbors, std::vector<uint
                 if (facei->second.tintindex.has_value())
                     tint_uv = glm::vec2(0.0, 0.1);
 
-                uvs.push_back(glm::vec4(x_min, y_min, tint_uv)); // TODO: encode tint UVs as z and w + find a way to put the tintindex (maybe in the normal w ?)
-                uvs.push_back(glm::vec4(x_max, y_min, tint_uv));
-                uvs.push_back(glm::vec4(x_max, y_max, tint_uv));
-                uvs.push_back(glm::vec4(x_min, y_max, tint_uv));
+                builder.add_uv(glm::vec4(x_min, y_min, tint_uv)); // TODO: encode tint UVs as z and w + find a way to put the tintindex (maybe in the normal w ?)
+                builder.add_uv(glm::vec4(x_max, y_min, tint_uv));
+                builder.add_uv(glm::vec4(x_max, y_max, tint_uv));
+                builder.add_uv(glm::vec4(x_min, y_max, tint_uv));
 
                 const glm::vec3 normal = cube_normals[(int)face.face];
-                normals.push_back(normal);
-                normals.push_back(normal);
-                normals.push_back(normal);
-                normals.push_back(normal);
+                builder.add_normal(normal);
+                builder.add_normal(normal);
+                builder.add_normal(normal);
+                builder.add_normal(normal);
             }
         }
     }

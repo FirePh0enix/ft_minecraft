@@ -22,13 +22,14 @@ list(APPEND SOURCES
     src/Font.cpp
     src/Frustum.cpp
     src/Input.cpp
+    src/MeshBuilder.cpp
     src/Model.cpp
     src/stb_image.cpp
     src/Type.cpp
     src/Variant.cpp
     src/Window.cpp
     src/Block/Block.cpp
-    # src/Block/CraftingTable.cpp
+    src/Block/CraftingTable.cpp
     # src/Block/Portal.cpp
     src/Core/Noise/Simplex.cpp
     src/Core/Error.cpp

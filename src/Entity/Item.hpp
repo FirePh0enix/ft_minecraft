@@ -18,9 +18,9 @@ public:
 
 private:
     Id<Item> m_item;
-    glm::uvec3 m_textures{};
     std::shared_ptr<BindGroup> m_bg;
     std::shared_ptr<Buffer> m_model_buffer;
+    std::shared_ptr<Mesh> m_mesh;
 
     float m_time;
 };

@@ -118,7 +118,7 @@ private:
     size_t m_slot = 0;
 
     std::array<std::shared_ptr<Texture>, 4> m_breaks_textures;
-    std::shared_ptr<Buffer> m_model_buffer;
+    std::shared_ptr<Buffer> m_hand_model_buffer;
     std::shared_ptr<BindGroup> m_hand_item_bg;
 
     std::optional<std::shared_ptr<Inventory>> m_opened_inventory;

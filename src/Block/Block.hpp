@@ -4,6 +4,7 @@
 #include "Id.hpp"
 #include "Resource/BlockState.hpp"
 #include "Resource/Model.hpp"
+#include "MeshBuilder.hpp"
 
 #include <array>
 #include <span>
@@ -99,12 +100,13 @@ class Block
 {
 public:
     Block(std::string_view path, bool collision = true);
+    virtual ~Block() {}
 
     bool has_cullface(FaceKind face);
     bool has_collision() const { return m_collision; }
 
     /// Add the block data to the chunk mesh.
-    void add(glm::i64vec3 position, NeighborFlags neighbors, std::vector<uint32_t>& indices, std::vector<glm::vec3>& vertices, std::vector<glm::vec4>& uvs, std::vector<glm::vec3>& normals);
+    void add(MeshBuilder& builder, glm::i64vec3 position = {}, NeighborFlags neighbors = {});
 
 private:
     std::string m_path;

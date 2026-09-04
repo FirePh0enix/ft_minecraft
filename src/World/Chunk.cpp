@@ -154,10 +154,11 @@ Result<std::shared_ptr<Mesh>> Chunk::build_opaque_mesh(size_t slice_index, const
 {
     int64_t slice_y_offset = int64_t(slice_index) * width;
 
-    std::vector<uint32_t> indices;
-    std::vector<glm::vec3> vertices;
-    std::vector<glm::vec4> uvs;
-    std::vector<glm::vec3> normals;
+    // std::vector<uint32_t> indices;
+    // std::vector<glm::vec3> vertices;
+    // std::vector<glm::vec4> uvs;
+    // std::vector<glm::vec3> normals;
+    MeshBuilder builder;
 
     for (int64_t x = 0; x < Chunk::width; x++)
     {
@@ -212,16 +213,15 @@ Result<std::shared_ptr<Mesh>> Chunk::build_opaque_mesh(size_t slice_index, const
                 if ((z < 15 && match(m_blocks, x, y, z + 1, FaceKind::North)) || (z == 15 && match_cross_boundary(chunks, m_x, m_z + 1, x, y, 0, FaceKind::North)))
                     flags.value |= NeighborFlags::north;
 
-                block->add({x, y - slice_y_offset, z}, flags, indices, vertices, uvs, normals);
+                block->add(builder, {x, y - slice_y_offset, z}, flags);
             }
         }
     }
 
-    if (indices.size() == 0)
+    if (builder.vertex_count() == 0)
         return Result<std::shared_ptr<Mesh>>(nullptr);
 
-    std::shared_ptr<Mesh> opaque_mesh = TRY(Mesh::create_from_data(std::as_bytes(std::span(indices)), vertices, normals, std::as_bytes(std::span(uvs)), WGPUIndexFormat_Uint32, WGPUVertexFormat_Float32x4));
-    return opaque_mesh;
+    return builder.build();
 }
 
 Result<std::shared_ptr<Mesh>> Chunk::build_water_mesh(size_t slice_index, const std::map<ChunkPos, std::shared_ptr<Chunk>>& chunks)

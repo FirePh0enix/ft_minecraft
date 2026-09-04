@@ -90,7 +90,7 @@ constexpr Id<Block> oak_leaves("oak_leaves");
 
 constexpr Id<Block> grass("grass");
 
-// constexpr Id<Block> crafting_table("crafting_table");
+constexpr Id<Block> crafting_table("crafting_table");
 // constexpr Id<Block> portal("portal");
 // constexpr Id<Block> dandelion("dandelion");
 } // namespace Blocks
@@ -102,12 +102,12 @@ constexpr Id<Item> dirt("dirt");
 constexpr Id<Item> sand("sand");
 constexpr Id<Item> oak_log("log");
 constexpr Id<Item> oak_leaves("leaves");
-constexpr Id<Item> grass_block("grass");
+constexpr Id<Item> grass_block("grass_block");
 constexpr Id<Item> snow("snow");
 
 constexpr Id<Item> grass("grass");
 
-// constexpr Id<Item> crafting_table_block("crafting_table");
+constexpr Id<Item> crafting_table_block("crafting_table");
 // constexpr Id<Item> portal_block("portal");
 // constexpr Id<Item> water_bucket("water_bucket");
 // constexpr Id<Item> bow("bow");

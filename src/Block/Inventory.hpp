@@ -6,6 +6,8 @@
 class InventoryBlock : public Block
 {
 public:
+    InventoryBlock(std::string_view path) : Block(path) {}
+
     virtual void open_inventory(glm::ivec3 pos, Player *player) = 0;
     virtual void close_inventory(glm::ivec3 pos, Player *player) = 0;
 

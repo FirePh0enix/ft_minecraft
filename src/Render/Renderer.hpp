@@ -474,7 +474,6 @@ public:
     std::shared_ptr<Shader> get_fw_chunk_shader() const { return m_fw_chunk_shader; }
     std::shared_ptr<Shader> get_fw_water_shader() const { return m_fw_water_shader; }
     std::shared_ptr<Shader> get_fw_shadowmap_shader() const { return m_fw_chunk_shadowmap_shader; }
-    std::shared_ptr<Shader> get_fw_item_block_shader() const { return m_fw_item_block_shader; }
     std::shared_ptr<Shader> get_fw_item_shader() const { return m_fw_item_shader; }
     std::shared_ptr<Shader> get_fw_text_shader() const { return m_fw_text_shader; }
     std::shared_ptr<Shader> get_fw_model_shader() const { return m_fw_model_shader; }
@@ -487,7 +486,6 @@ public:
     std::shared_ptr<Material> get_fw_model_mat() const { return m_fw_model_mat; }
     std::shared_ptr<Material> get_fw_text_mat() const { return m_fw_text_mat; }
     std::shared_ptr<Material> get_fw_color_rect_mat() const { return m_fw_color_rect_mat; }
-    std::shared_ptr<Material> get_fw_item_block_mat() const { return m_fw_item_block_mat; }
     std::shared_ptr<Material> get_fw_item_mat() const { return m_fw_item_mat; }
     std::shared_ptr<Material> get_wireframe_mat() const { return m_wireframe_dbg_mat; }
     std::shared_ptr<Material> get_fw_textured_mat() const { return m_fw_textured_mat; }
@@ -560,7 +558,6 @@ private:
 
     std::shared_ptr<Shader> m_fw_chunk_shader;
     std::shared_ptr<Shader> m_fw_water_shader;
-    std::shared_ptr<Shader> m_fw_item_block_shader;
     std::shared_ptr<Shader> m_fw_item_shader;
     std::shared_ptr<Shader> m_fw_text_shader;
     std::shared_ptr<Shader> m_fw_colored_shader;
@@ -570,12 +567,10 @@ private:
     std::shared_ptr<Material> m_fw_chunk_mat;
     std::shared_ptr<Material> m_fw_chunk_shadowmap_mat;
     std::shared_ptr<Material> m_fw_water_mat;
-    std::shared_ptr<Material> m_fw_semitransparent_mat;
     std::shared_ptr<Material> m_fw_texture_rect_mat;
     std::shared_ptr<Material> m_fw_text_mat;
     std::shared_ptr<Material> m_fw_model_mat;
     std::shared_ptr<Material> m_fw_color_rect_mat;
-    std::shared_ptr<Material> m_fw_item_block_mat;
     std::shared_ptr<Material> m_fw_item_mat;
     std::shared_ptr<Material> m_fw_textured_mat;
 

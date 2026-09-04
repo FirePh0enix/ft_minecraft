@@ -97,9 +97,9 @@ public:
         return glm::translate(glm::mat4(1.0), glm::vec3(m_position));
     }
 
-    inline glm::mat4 to_matrix() const
+    inline glm::mat4 to_matrix(glm::dvec3 origin = glm::dvec3()) const
     {
-        return glm::translate(glm::mat4(1.0), glm::vec3(m_position)) * glm::mat4_cast(glm::quat(m_rotation)) * glm::scale(glm::mat4(1.0), glm::vec3(m_scale));
+        return glm::translate(glm::mat4(1.0), glm::vec3(m_position - origin)) * glm::mat4_cast(glm::quat(m_rotation)) * glm::scale(glm::mat4(1.0), glm::vec3(m_scale));
     }
 
 private:

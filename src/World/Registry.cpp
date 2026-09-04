@@ -45,7 +45,7 @@ void GameRegistry::register_all()
 
     register_block(Blocks::grass, false);
 
-    // add_block(Blocks::crafting_table, std::make_shared<CraftingTableBlock>());
+    register_block(Blocks::crafting_table, std::make_shared<CraftingTableBlock>());
     // add_block(Blocks::portal, std::make_shared<PortalBlock>());
     // add_block(Blocks::dandelion, std::make_shared<PlantBlock>("data/resourcepacks/core/assets/minecraft/textures/block/dandelion.png"));
 
@@ -60,7 +60,7 @@ void GameRegistry::register_all()
 
     add_item(Items::grass,  std::make_shared<ItemBlock>(Blocks::grass));
 
-    // add_item(Items::crafting_table_block, std::make_shared<ItemBlock>(Blocks::crafting_table));
+    add_item(Items::crafting_table_block, std::make_shared<ItemBlock>(Blocks::crafting_table));
     // add_item(Items::portal_block, std::make_shared<ItemBlock>(Blocks::portal));
     // add_item(Items::water_bucket, std::make_shared<BucketItem>());
     // add_item(Items::bow, std::make_shared<BowItem>());
@@ -327,12 +327,9 @@ std::shared_ptr<Texture> GameRegistry::create_preview_texture(std::shared_ptr<Bl
     constexpr uint32_t preview_size = 128;
 
     NeighborFlags flags{};
-    std::vector<uint32_t> indices;
-    std::vector<glm::vec3> vertices;
-    std::vector<glm::vec4> uvs;
-    std::vector<glm::vec3> normals;
-    block->add({0, 0, 0}, flags, indices, vertices, uvs, normals);
-    std::shared_ptr<Mesh> mesh = THROW(Mesh::create_from_data(std::as_bytes(std::span(indices)), vertices, normals, std::as_bytes(std::span(uvs)), WGPUIndexFormat_Uint32, WGPUVertexFormat_Float32x4), Renderer::get().get_missing_texture());
+    MeshBuilder builder;
+    block->add(builder, {0, 0, 0}, flags);
+    std::shared_ptr<Mesh> mesh = THROW(builder.build(), Renderer::get().get_missing_texture());
 
     std::shared_ptr<Buffer> model_buffer = THROW(Buffer::create(sizeof(FwModel), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform), Renderer::get().get_missing_texture());
     glm::mat4 matrix = glm::ortho(-1.0f, 1.0f, -1.0f, 1.0f, -1.0f, 10.0f) *
