@@ -92,7 +92,7 @@ void Block::add(glm::i64vec3 position, NeighborFlags neighbors, std::vector<uint
             FaceKind face;
             std::array<glm::vec3, 4> vertices;
         } faces[6]{
-            {.name = "north", .face = FaceKind::North, .vertices = {cube_vertices[0], cube_vertices[4], cube_vertices[5], cube_vertices[1]}},
+            {.name = "north", .face = FaceKind::North, .vertices = {cube_vertices[4], cube_vertices[5], cube_vertices[1], cube_vertices[0]}},
             {.name = "south", .face = FaceKind::South, .vertices = {cube_vertices[6], cube_vertices[7], cube_vertices[3], cube_vertices[2]}},
             {.name = "up", .face = FaceKind::Up, .vertices = {cube_vertices[4], cube_vertices[7], cube_vertices[6], cube_vertices[5]}},
             {.name = "down", .face = FaceKind::Down, .vertices = {cube_vertices[0], cube_vertices[1], cube_vertices[2], cube_vertices[3]}},
@@ -132,10 +132,14 @@ void Block::add(glm::i64vec3 position, NeighborFlags neighbors, std::vector<uint
                 const float y_min = float(data.y) / Engine::get().registry().get_atlas_size();
                 const float y_max = float(data.y + data.height) / Engine::get().registry().get_atlas_size();
 
-                uvs.push_back(glm::vec4(x_min, y_min, 0, 0));
-                uvs.push_back(glm::vec4(x_max, y_min, 0, 0));
-                uvs.push_back(glm::vec4(x_max, y_max, 0, 0));
-                uvs.push_back(glm::vec4(x_min, y_max, 0, 0));
+                glm::vec2 tint_uv(-1.0, -1.0);
+                if (facei->second.tintindex.has_value())
+                    tint_uv = glm::vec2(0.0, 0.1);
+
+                uvs.push_back(glm::vec4(x_min, y_min, tint_uv)); // TODO: encode tint UVs as z and w + find a way to put the tintindex (maybe in the normal w ?)
+                uvs.push_back(glm::vec4(x_max, y_min, tint_uv));
+                uvs.push_back(glm::vec4(x_max, y_max, tint_uv));
+                uvs.push_back(glm::vec4(x_min, y_max, tint_uv));
 
                 const glm::vec3 normal = cube_normals[(int)face.face];
                 normals.push_back(normal);

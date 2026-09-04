@@ -51,7 +51,6 @@ struct MeshRebuildResult
     size_t slice_index;
     std::shared_ptr<Mesh> opaque_mesh;
     std::shared_ptr<Mesh> water_mesh;
-    std::shared_ptr<Mesh> semitransparent_mesh;
 };
 
 /// When generating chunks on multiple threads, we need to guarantee that each pass are generated one after the other, otherwise we will cut structures that overlap

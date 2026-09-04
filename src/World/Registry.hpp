@@ -88,6 +88,8 @@ constexpr Id<Block> snow_block("snow_block");
 constexpr Id<Block> oak_log("oak_log");
 constexpr Id<Block> oak_leaves("oak_leaves");
 
+constexpr Id<Block> grass("grass");
+
 // constexpr Id<Block> crafting_table("crafting_table");
 // constexpr Id<Block> portal("portal");
 // constexpr Id<Block> dandelion("dandelion");
@@ -102,6 +104,8 @@ constexpr Id<Item> oak_log("log");
 constexpr Id<Item> oak_leaves("leaves");
 constexpr Id<Item> grass_block("grass");
 constexpr Id<Item> snow("snow");
+
+constexpr Id<Item> grass("grass");
 
 // constexpr Id<Item> crafting_table_block("crafting_table");
 // constexpr Id<Item> portal_block("portal");
@@ -131,11 +135,11 @@ public:
 
     Result<BlockStateResource> get_blockstate(std::string_view path);
     Result<Model> get_model(std::string_view path);
+    Result<void> add_tint(std::string_view path);
 
     void register_block(Id<Block> id);
     void register_block(Id<Block> id, std::shared_ptr<Block> block);
 
-    // void add_block(Id<Block> id, std::shared_ptr<Block> block);
     void add_item(Id<Item> id, std::shared_ptr<Item> item);
     void add_structure(std::string_view name, std::shared_ptr<Structure> structure);
 
@@ -215,6 +219,8 @@ public:
     std::shared_ptr<Texture> get_atlas() const { return m_atlas; }
     float get_atlas_size() const { return static_cast<float>(atlas_size); }
 
+    std::shared_ptr<Texture> get_tintmap() const { return m_tint_texture_array; }
+
     Result<void> add_texture(std::string_view path);
 
     /**
@@ -259,8 +265,8 @@ private:
     std::shared_ptr<Texture> m_atlas;
     stdext::string_map<AtlasTextureData> m_atlas_data;
 
-    // std::shared_ptr<Texture> m_texture_array;
-    // std::vector<std::shared_ptr<Texture>> m_texture_handles;
+    std::vector<AtlasTexture> m_tint_textures;
+    std::shared_ptr<Texture> m_tint_texture_array;
 
     std::map<ClassHashCode, stdext::string_map<RpcTarget>> m_exposed_rpc;
 

@@ -308,47 +308,6 @@ Result<std::shared_ptr<Mesh>> Chunk::build_water_mesh(size_t slice_index, const 
     return mesh;
 }
 
-Result<std::shared_ptr<Mesh>> Chunk::build_semitransparent_mesh(size_t slice_index, const std::map<ChunkPos, std::shared_ptr<Chunk>>& chunks)
-{
-    (void)chunks;
-
-    int64_t slice_y_offset = int64_t(slice_index) * width;
-
-    // Let's detect which faces are not hidden.
-    std::vector<ChunkBlockFace> faces;
-    std::map<BlockPos, std::shared_ptr<Block>> other_blocks;
-
-    for (int64_t x = 0; x < Chunk::width; x++)
-        for (int64_t y = slice_y_offset; y < slice_y_offset + Chunk::width; y++)
-            for (int64_t z = 0; z < Chunk::width; z++)
-            {
-                const uint32_t index = linearize(x, y, z);
-
-                // std::shared_ptr<Block> block = Engine::get().registry().get_block(m_blocks[index].id);
-                // if (block != nullptr && !block->is_conventional() && block->is_transparent())
-                // {
-                //     other_blocks[BlockPos(x, y, z)] = block;
-                // }
-            }
-
-    // Now we build a mesh from the faces.
-    std::vector<uint16_t> indices;
-    std::vector<glm::vec3> vertices;
-    std::vector<glm::vec4> uvs;
-    std::vector<glm::vec3> normals;
-
-    for (const auto& [pos, block] : other_blocks)
-    {
-        // block->add_to_mesh({pos.x, pos.y - slice_index * 16, pos.z}, indices, vertices, uvs, normals);
-    }
-
-    if (indices.size() == 0)
-        return Result<std::shared_ptr<Mesh>>(nullptr);
-
-    std::shared_ptr<Mesh> transparent_mesh = TRY(Mesh::create_from_data(std::as_bytes(std::span(indices)), vertices, normals, std::as_bytes(std::span(uvs)), WGPUIndexFormat_Uint16, WGPUVertexFormat_Float32x4));
-    return transparent_mesh;
-}
-
 void Chunk::set_tag(glm::i64vec3 pos, std::string_view name, Variant v, bool dont_modify)
 {
     uint16_t key = linearize(pos.x, pos.y, pos.z);

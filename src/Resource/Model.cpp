@@ -73,4 +73,6 @@ void from_json(const nlohmann::json& json, ModelFace& face)
     json.at("texture").get_to(face.texture);
     if (json.contains("cullface"))
         face.cullface = json.at("cullface");
+    if (json.contains("tintindex"))
+        face.tintindex = json.at("tintindex");
 }

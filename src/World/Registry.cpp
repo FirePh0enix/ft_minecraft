@@ -11,6 +11,7 @@
 #include "Item/Bucket.hpp"
 #include "Item/Crystal.hpp"
 #include "Render/Renderer.hpp"
+#include "webgpu/webgpu.h"
 
 #include <memory>
 
@@ -31,13 +32,19 @@ GameRegistry::GameRegistry()
 
 void GameRegistry::register_all()
 {
+    EXPECT(add_tint("colormap/grass"));
+
     register_block(Blocks::stone);
     register_block(Blocks::dirt);
     register_block(Blocks::grass_block);
     register_block(Blocks::sand);
+    register_block(Blocks::snow_block);
+
     register_block(Blocks::oak_leaves);
     register_block(Blocks::oak_log);
-    register_block(Blocks::snow_block);
+
+    register_block(Blocks::grass);
+
     // add_block(Blocks::crafting_table, std::make_shared<CraftingTableBlock>());
     // add_block(Blocks::portal, std::make_shared<PortalBlock>());
     // add_block(Blocks::dandelion, std::make_shared<PlantBlock>("data/resourcepacks/core/assets/minecraft/textures/block/dandelion.png"));
@@ -45,14 +52,16 @@ void GameRegistry::register_all()
     add_item(Items::stone, std::make_shared<ItemBlock>(Blocks::stone));
     add_item(Items::dirt, std::make_shared<ItemBlock>(Blocks::dirt));
     add_item(Items::sand, std::make_shared<ItemBlock>(Blocks::sand));
-    add_item(Items::oak_log, std::make_shared<ItemBlock>(Blocks::oak_log));
-    add_item(Items::oak_leaves, std::make_shared<ItemBlock>(Blocks::oak_leaves));
     add_item(Items::grass_block, std::make_shared<ItemBlock>(Blocks::grass_block));
     add_item(Items::snow, std::make_shared<ItemBlock>(Blocks::snow_block));
 
+    add_item(Items::oak_log, std::make_shared<ItemBlock>(Blocks::oak_log));
+    add_item(Items::oak_leaves, std::make_shared<ItemBlock>(Blocks::oak_leaves));
+
+    add_item(Items::grass,  std::make_shared<ItemBlock>(Blocks::grass));
+
     // add_item(Items::crafting_table_block, std::make_shared<ItemBlock>(Blocks::crafting_table));
     // add_item(Items::portal_block, std::make_shared<ItemBlock>(Blocks::portal));
-    // add_item(Items::dandelion, std::make_shared<ItemBlock>(Blocks::dandelion));
     // add_item(Items::water_bucket, std::make_shared<BucketItem>());
     // add_item(Items::bow, std::make_shared<BowItem>());
     // add_item(Items::arrow, std::make_shared<ArrowItem>());
@@ -107,6 +116,14 @@ Result<void> GameRegistry::post_register()
             std::shared_ptr<Block> block = get_block(ib->block());
             ib->set_texture(create_preview_texture(block));
         }
+    }
+
+    m_tint_texture_array = TRY(Texture::create(m_tint_textures[0].w, m_tint_textures[0].h, WGPUTextureFormat_RGBA8Unorm, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding, WGPUTextureDimension_2D, m_tint_textures.size()));
+    for (size_t i = 0; i < m_tint_textures.size(); i++)
+    {
+        const AtlasTexture& texture = m_tint_textures[i];
+        m_tint_texture_array->update(std::span<std::byte>((std::byte *)texture.data, texture.w * texture.h * 4), i);
+        stbi_image_free((stbi_uc *)texture.data);
     }
 
     return Result<void>();
@@ -178,6 +195,28 @@ Result<Model> GameRegistry::get_model(std::string_view path)
 
     m_models[std::string(path)] = model;
     return model;
+}
+
+Result<void> GameRegistry::add_tint(std::string_view path)
+{
+    std::string pathf = "data/resourcepacks/core/assets/minecraft/textures/";
+    pathf += path;
+    pathf += ".png";
+
+    Result<File> file_opt = Filesystem::open_file(pathf);
+    if (file_opt.has_error())
+        return Result<void>();
+
+    std::vector<char> buffer;
+    EXPECT(file_opt.value().reader().read_to_buffer(buffer));
+    file_opt.value().close();
+
+    int w, h, channels;
+    stbi_uc *data = stbi_load_from_memory((const stbi_uc *)buffer.data(), (int)buffer.size(), &w, &h, &channels, 4);
+    ERR_COND_R(data == nullptr, format("Failed to parse image `{}`", path), Result<void>());
+
+    m_tint_textures.push_back(AtlasTexture(data, w, h, channels, std::string(path)));
+    return Result<void>();
 }
 
 void GameRegistry::register_block(Id<Block> id)

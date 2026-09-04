@@ -1,6 +1,25 @@
 {
-    "parent": "block/cube_all",
+    "parent": "block/block",
     "textures": {
-        "all": "block/oak_leaves"
-    }
+        "particle": "block/oak_leaves",
+        "down": "block/oak_leaves",
+        "up": "block/oak_leaves",
+        "north": "block/oak_leaves",
+        "east": "block/oak_leaves",
+        "south": "block/oak_leaves",
+        "west": "block/oak_leaves"
+    },
+    "elements": [
+        {   "from": [ 0, 0, 0 ],
+            "to": [ 16, 16, 16 ],
+            "faces": {
+                "down":  { "texture": "#down", "tintindex": 0 },
+                "up":    { "texture": "#up", "tintindex": 0 },
+                "north": { "texture": "#north", "tintindex": 0 },
+                "south": { "texture": "#south", "tintindex": 0 },
+                "west":  { "texture": "#west", "tintindex": 0 },
+                "east":  { "texture": "#east", "tintindex": 0 }
+            }
+        }
+    ]
 }

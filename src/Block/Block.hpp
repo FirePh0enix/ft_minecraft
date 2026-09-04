@@ -86,6 +86,7 @@ struct NeighborFlags
         case FaceKind::East:
             return west;
         }
+        return south;
     }
 
     constexpr bool has_opposite(FaceKind face) const

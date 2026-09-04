@@ -218,11 +218,11 @@ void OverworldGen::generate_chunk(std::shared_ptr<Chunk> chunk, std::shared_ptr<
             for (; y < m_settings.ocean_level; y++)
                 chunk->set_tag({x, y, z}, "water", (int64_t)0, true);
 
-            // bool vegetation = (m_noise.sample(glm::vec2((float)gx, (float)gz) / 10.0f) / 2.0f + 0.5f) > 0.8f;
-            // if (vegetation && (biome == Biome::Plain || biome == Biome::Forest))
-            // {
-            //     blocks[x + y * 16 + z * 16 * 256] = BlockState(Blocks::dandelion.hash);
-            // }
+            bool vegetation = (m_noise.sample(glm::vec2((float)gx, (float)gz) / 10.0f) / 2.0f + 0.5f) > 0.8f;
+            if (vegetation && (biome == Biome::Plain || biome == Biome::Forest))
+            {
+                blocks[x + y * 16 + z * 16 * 256] = BlockState(Blocks::grass.hash);
+            }
         }
     }
 

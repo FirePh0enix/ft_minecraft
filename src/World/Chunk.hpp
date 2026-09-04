@@ -70,7 +70,6 @@ enum class MeshLayerKind
 {
     Opaque,
     Water,
-    Semitransparent,
 };
 
 class Chunk
@@ -83,13 +82,6 @@ public:
     {
         std::shared_ptr<Mesh> opaque_mesh;
         std::shared_ptr<Mesh> water_mesh;
-        std::shared_ptr<Mesh> semitransparent_mesh;
-
-        // std::shared_ptr<BindGroup> bindgroup;
-        // std::shared_ptr<BindGroup> mesh_shadowmap_bg;
-        // std::shared_ptr<BindGroup> water_bg;
-
-        // std::map<MeshLayerKind, std::shared_ptr<Mesh>> layers;
     };
 
     static constexpr int64_t width = 16;
@@ -125,7 +117,6 @@ public:
 
     Result<std::shared_ptr<Mesh>> build_opaque_mesh(size_t slice_index, const std::map<ChunkPos, std::shared_ptr<Chunk>>& chunks);
     Result<std::shared_ptr<Mesh>> build_water_mesh(size_t slice_index, const std::map<ChunkPos, std::shared_ptr<Chunk>>& chunks);
-    Result<std::shared_ptr<Mesh>> build_semitransparent_mesh(size_t slice_index, const std::map<ChunkPos, std::shared_ptr<Chunk>>& chunks);
 
     bool is_modified() const { return m_modified; }
     void clear_modified() { m_modified = false; }

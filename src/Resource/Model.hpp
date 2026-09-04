@@ -12,13 +12,14 @@ struct ModelFace
     std::array<int64_t, 4> uv;
     std::string texture;
     std::optional<std::string> cullface;
+    std::optional<int64_t> tintindex;
 };
 
 struct ModelElement
 {
     std::string name;
-    std::array<int64_t, 3> from{0, 0, 0};
-    std::array<int64_t, 3> to{0, 0, 0};
+    std::array<double, 3> from{0, 0, 0};
+    std::array<double, 3> to{0, 0, 0};
     std::map<std::string, ModelFace> faces;
 };
 

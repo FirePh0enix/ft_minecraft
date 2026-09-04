@@ -461,7 +461,6 @@ public:
 
     void draw_opaque_world(const std::shared_ptr<World>& world, const RenderPass& pass, const std::span<const RenderableChunk>& chunks, uint32_t stencil);
     void draw_water_world(const std::shared_ptr<World>& world, const RenderPass& pass, const std::span<const RenderableChunk>& chunks, uint32_t stencil);
-    void draw_semitransparent_world(const std::shared_ptr<World>& world, const RenderPass& pass, const std::span<const RenderableChunk>& chunks, uint32_t stencil);
 
     void draw(const RenderPass& pass, const std::shared_ptr<Mesh>& mesh, const std::shared_ptr<Material>& material, const std::shared_ptr<BindGroup>& bg, const std::shared_ptr<Buffer>& instance_buffer = nullptr, size_t instance_count = 1, std::optional<uint32_t> stencil = std::nullopt);
     void draw_fullscreen(const RenderPass& pass, std::shared_ptr<Material> material, std::shared_ptr<BindGroup> bg, uint32_t stencil);

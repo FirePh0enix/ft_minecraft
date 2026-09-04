@@ -289,7 +289,6 @@ void World::tick_dimension(float delta, int dimension)
             std::shared_ptr<Chunk> chunk = chunk_iter->second;
             chunk->get_slices()[result.slice_index].opaque_mesh = result.opaque_mesh;
             chunk->get_slices()[result.slice_index].water_mesh = result.water_mesh;
-            chunk->get_slices()[result.slice_index].semitransparent_mesh = result.semitransparent_mesh;
             if (m_dims[dimension].m_chunks_rebuild_queue.erase(result.pos) > 0)
                 rebuild_completed.push_back(result.pos);
         }

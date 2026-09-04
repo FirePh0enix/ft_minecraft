@@ -16,6 +16,9 @@ struct WorldEnv {
 @group(0) @binding(5) var shadowmap: texture_depth_2d;
 @group(0) @binding(6) var shadowmap_sampler: sampler_comparison;
 
+@group(0) @binding(7) var tintmap: texture_2d_array<f32>;
+@group(0) @binding(8) var tintmap_sampler: sampler;
+
 struct VertexInput {
     @location(0) position: vec3<f32>,
     @location(1) normal: vec3<f32>,
@@ -30,7 +33,7 @@ struct VertexOutput {
     @location(1) inv_normal: vec3f,
     @location(2) normal: vec3f,
     @location(3) frag_pos_light_space: vec4f,
-    @location(4) has_gradient: u32,
+    @location(4) tint_uv: vec2f,
 }
 
 @vertex
@@ -41,9 +44,9 @@ fn vertex_main(in: VertexInput) -> VertexOutput {
 			      in.chunk_pos.x, in.chunk_pos.y, in.chunk_pos.z, 1.0);
     
     var out: VertexOutput;
-    out.uv = vec2f(in.uvtg.x, in.uvtg.y);
+    out.uv = in.uvtg.xy;
+    out.tint_uv = in.uvtg.zw;
     out.normal = normalize(in.normal);
-    out.has_gradient = u32(in.uvtg.w);
 
     out.clip_position = camera.view_projection * model_matrix * vec4f(in.position, 1.0);
     out.frag_pos_light_space = world_env.light_view_projection * model_matrix * vec4f(in.position, 1.0);
@@ -57,15 +60,14 @@ const palette: array<vec4<f32>, 1> = array(
     vec4<f32>(68.0 / 255.0, 105.0 / 255.0, 61.0 / 255.0, 1.0),
 );
 
-fn isGrayscale(c: vec4<f32>) -> bool {
-    return c.r == c.g && c.g == c.b;
-}
-
 @fragment
 fn fragment_main(in: VertexOutput) -> @location(0) vec4<f32> {
     var color = textureSample(image, image_sampler, in.uv);
-    // if (isGrayscale(color) && in.has_gradient != 0) {
-    //     color *= palette[0];
-    // }
+    if (color.a < 1.0) {
+        discard;
+    }
+    if (in.tint_uv.x >= 0.0 && in.tint_uv.x >= 0.0) {
+        color *= textureSample(tintmap, tintmap_sampler, in.tint_uv, 0); // TODO: add tintindex
+    }
     return lighting(color, in.normal, in.frag_pos_light_space);
 }
