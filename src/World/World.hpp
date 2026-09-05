@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Core/Error.hpp"
 #include "DebugDisplay.hpp"
 #include "Entity/Entity.hpp"
 #include "Network/Packet.hpp"
@@ -10,6 +11,7 @@
 #include <enet/enet.h>
 
 #include <cstddef>
+#include <expected>
 
 class Player;
 
@@ -100,9 +102,9 @@ public:
     World();
     ~World();
 
-    static Result<std::shared_ptr<World>> create(std::string name, uint64_t seed, int type);
-    static Result<std::shared_ptr<World>> create_proxy(uint64_t seed);
-    static Result<std::shared_ptr<World>> load(std::string name);
+    static std::expected<std::shared_ptr<World>, Error> create(std::string name, uint64_t seed, int type);
+    static std::expected<std::shared_ptr<World>, Error> create_proxy(uint64_t seed);
+    static std::expected<std::shared_ptr<World>, Error> load(std::string name);
 
     void tick(float delta);
 
@@ -188,10 +190,10 @@ public:
     void break_block(int dimension, int64_t x, int64_t y, int64_t z);
 
     /// Save chunk to the disk.
-    Result<void> save_chunk(std::stop_token token, std::shared_ptr<Chunk> chunk, int dimension);
+    std::expected<void, Error> save_chunk(std::stop_token token, std::shared_ptr<Chunk> chunk, int dimension);
 
-    Result<void> save_entity(const std::shared_ptr<Entity>& entity);
-    Result<void> save_player(const std::shared_ptr<Player>& player);
+    std::expected<void, Error> save_entity(const std::shared_ptr<Entity>& entity);
+    std::expected<void, Error> save_player(const std::shared_ptr<Player>& player);
 
     /// Load player data from the disk.
     [[nodiscard]] bool load_player(std::string_view name, std::shared_ptr<Player>& player);

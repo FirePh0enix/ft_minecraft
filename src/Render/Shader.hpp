@@ -1,10 +1,11 @@
 #pragma once
 
 #include "Core/Class.hpp"
-#include "Core/Result.hpp"
+#include "Core/Error.hpp"
 #include "Render/Types.hpp"
 #include "stdext.hpp"
 
+#include <expected>
 #include <unordered_map>
 
 class Shader : public Object
@@ -12,8 +13,8 @@ class Shader : public Object
     CLASS(Shader, Object);
 
 public:
-    static Result<std::shared_ptr<Shader>> load(std::string_view source);
-    static Result<std::shared_ptr<Shader>> load_from_path(std::string_view path);
+    static std::expected<std::shared_ptr<Shader>, Error> load(std::string_view source);
+    static std::expected<std::shared_ptr<Shader>, Error> load_from_path(std::string_view path);
 
     ~Shader();
 

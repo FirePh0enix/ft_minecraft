@@ -215,75 +215,108 @@ private:
         }                                                      \
     } while (0)
 
-#define ERR_COND_V(COND, MESSAGE, ...)                     \
-    do                                                     \
-    {                                                      \
-        if (COND)                                          \
-        {                                                  \
-            ::print("error: {}:{}: ", __FILE__, __LINE__); \
-            ::println(MESSAGE, __VA_ARGS__);               \
-        }                                                  \
+#define ERR_COND_V(COND, MESSAGE, ...)                        \
+    do                                                        \
+    {                                                         \
+        if (COND)                                             \
+        {                                                     \
+            std::print("error: {}:{}: ", __FILE__, __LINE__); \
+            std::println(MESSAGE, __VA_ARGS__);               \
+        }                                                     \
     } while (0)
 
-#define ERR_COND_VR(COND, MESSAGE, ...)                    \
-    do                                                     \
-    {                                                      \
-        if (COND)                                          \
-        {                                                  \
-            ::print("error: {}:{}: ", __FILE__, __LINE__); \
-            ::println(MESSAGE, __VA_ARGS__);               \
-            return;                                        \
-        }                                                  \
+#define ERR_COND_VR(COND, MESSAGE, ...)                       \
+    do                                                        \
+    {                                                         \
+        if (COND)                                             \
+        {                                                     \
+            std::print("error: {}:{}: ", __FILE__, __LINE__); \
+            std::println(MESSAGE, __VA_ARGS__);               \
+            return;                                           \
+        }                                                     \
     } while (0)
 
-#define ERR_COND_VRV(COND, RETURN_VALUE, MESSAGE, ...)     \
-    do                                                     \
-    {                                                      \
-        if (COND)                                          \
-        {                                                  \
-            ::print("error: {}:{}: ", __FILE__, __LINE__); \
-            ::println(MESSAGE, __VA_ARGS__);               \
-            return RETURN_VALUE;                           \
-        }                                                  \
+#define ERR_COND_VRV(COND, RETURN_VALUE, MESSAGE, ...)        \
+    do                                                        \
+    {                                                         \
+        if (COND)                                             \
+        {                                                     \
+            std::print("error: {}:{}: ", __FILE__, __LINE__); \
+            std::println(MESSAGE, __VA_ARGS__);               \
+            return RETURN_VALUE;                              \
+        }                                                     \
     } while (0)
 
-#define ERR_EXPECT_R(EXPECTED, MESSAGE)                                 \
-    do                                                                  \
-    {                                                                   \
-        auto __result = EXPECTED;                                       \
-        if (!__result.has_value())                                      \
-        {                                                               \
-            ::println("error: {}:{}: {}", __FILE__, __LINE__, MESSAGE); \
-            return;                                                     \
-        }                                                               \
+#define ERR_EXPECT_R(EXPECTED, MESSAGE)                                    \
+    do                                                                     \
+    {                                                                      \
+        auto __result = EXPECTED;                                          \
+        if (!__result.has_value())                                         \
+        {                                                                  \
+            std::println("error: {}:{}: {}", __FILE__, __LINE__, MESSAGE); \
+            return;                                                        \
+        }                                                                  \
     } while (0)
 
-#define ERR_EXPECT_VR(EXPECTED, RET, MESSAGE, ...)         \
-    do                                                     \
-    {                                                      \
-        auto __result = EXPECTED;                          \
-        if (!__result.has_value())                         \
-        {                                                  \
-            ::print("error: {}:{}: ", __FILE__, __LINE__); \
-            ::println(MESSAGE, __VA_ARGS__);               \
-            return RET;                                    \
-        }                                                  \
+#define ERR_EXPECT_VR(EXPECTED, RET, MESSAGE, ...)            \
+    do                                                        \
+    {                                                         \
+        auto __result = EXPECTED;                             \
+        if (!__result.has_value())                            \
+        {                                                     \
+            std::print("error: {}:{}: ", __FILE__, __LINE__); \
+            std::println(MESSAGE, __VA_ARGS__);               \
+            return RET;                                       \
+        }                                                     \
     } while (0)
 
-#define ERR_EXPECT_B(EXPECTED, MESSAGE)                             \
-    auto __result = EXPECTED;                                       \
-    if (!__result.has_value())                                      \
-    {                                                               \
-        ::println("error: {}:{}: {}", __FILE__, __LINE__, MESSAGE); \
-        break;                                                      \
+#define ERR_EXPECT_B(EXPECTED, MESSAGE)                                \
+    auto __result = EXPECTED;                                          \
+    if (!__result.has_value())                                         \
+    {                                                                  \
+        std::println("error: {}:{}: {}", __FILE__, __LINE__, MESSAGE); \
+        break;                                                         \
     }
 
-#define ERR_EXPECT_C(EXPECTED, MESSAGE)                             \
-    auto __result = EXPECTED;                                       \
-    if (!__result.has_value())                                      \
-    {                                                               \
-        ::println("error: {}:{}: {}", __FILE__, __LINE__, MESSAGE); \
-        continue;                                                   \
+#define ERR_EXPECT_C(EXPECTED, MESSAGE)                                \
+    auto __result = EXPECTED;                                          \
+    if (!__result.has_value())                                         \
+    {                                                                  \
+        std::println("error: {}:{}: {}", __FILE__, __LINE__, MESSAGE); \
+        continue;                                                      \
     }
 
 void initialize_error_handling(const char *filename);
+
+// Inspired by Ladybird `TRY` and `MUST` macro. This depends on (statement expression)[1] which is non standard but implemented by gcc and clang.
+//
+// [1]: https://gcc.gnu.org/onlinedocs/gcc/Statement-Exprs.html
+
+#define TRY(...)                                  \
+    ({                                            \
+        auto&& _tmp = (__VA_ARGS__);              \
+        (void)_tmp;                               \
+        if (!_tmp.has_value())                    \
+            return std::unexpected(_tmp.error()); \
+        _tmp.value();                             \
+    })
+
+#define THROW(EXPR, RET)       \
+    ({                         \
+        auto&& _tmp = (EXPR);  \
+        (void)_tmp;            \
+        if (!_tmp.has_value()) \
+            return RET;        \
+        _tmp.value();          \
+    })
+
+#define EXPECT(...)                    \
+    ({                                 \
+        auto __result = (__VA_ARGS__); \
+        if (!__result.has_value())     \
+        {                              \
+            __result.error().print();  \
+            std::abort();              \
+        }                              \
+        __result.value();              \
+    })

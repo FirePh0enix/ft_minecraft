@@ -4,7 +4,6 @@
 #include "Core/Error.hpp"
 #include "Core/Filesystem.hpp"
 #include "Core/Math.hpp"
-#include "Core/Result.hpp"
 #include "Core/Stacktrace.hpp"
 #include "Engine.hpp"
 #include "Entity/Entity.hpp"
@@ -104,7 +103,7 @@ Buffer::~Buffer()
     Renderer::get().m_device_memory_freed += m_size;
 }
 
-Result<std::shared_ptr<Buffer>> Buffer::create(size_t size, WGPUBufferUsage usage, BufferVisibility visibility)
+std::expected<std::shared_ptr<Buffer>, Error> Buffer::create(size_t size, WGPUBufferUsage usage, BufferVisibility visibility)
 {
     WGPUBufferDescriptor desc = WGPU_BUFFER_DESCRIPTOR_INIT;
     desc.size = size;
@@ -121,7 +120,7 @@ Result<std::shared_ptr<Buffer>> Buffer::create(size_t size, WGPUBufferUsage usag
         std::lock_guard<std::mutex> guard(Renderer::get().get_device_mutex());
         wgpuDeviceCreateBuffer(Renderer::get().m_device, &desc);
     });
-    ERR_COND_VRV(wgpu_buffer == nullptr, Error(ErrorKind::OutOfDeviceMemory), "Failed to create buffer of size {}", size);
+    ERR_COND_VRV(wgpu_buffer == nullptr, std::unexpected(Error(ErrorKind::OutOfDeviceMemory)), "Failed to create buffer of size {}", size);
 
     std::shared_ptr<Buffer> buffer = std::make_shared<Buffer>();
     buffer->m_buffer = wgpu_buffer;
@@ -169,7 +168,7 @@ Texture::~Texture()
     }
 }
 
-Result<std::shared_ptr<Texture>> Texture::create(uint32_t width, uint32_t height, WGPUTextureFormat format, WGPUTextureUsage usage, WGPUTextureDimension dimension, uint32_t layers, uint32_t mip_level)
+std::expected<std::shared_ptr<Texture>, Error> Texture::create(uint32_t width, uint32_t height, WGPUTextureFormat format, WGPUTextureUsage usage, WGPUTextureDimension dimension, uint32_t layers, uint32_t mip_level)
 {
     WGPUTextureDescriptor desc = WGPU_TEXTURE_DESCRIPTOR_INIT;
     desc.usage = usage;
@@ -185,7 +184,7 @@ Result<std::shared_ptr<Texture>> Texture::create(uint32_t width, uint32_t height
 
     WGPUTexture texture = wgpuDeviceCreateTexture(Renderer::get().m_device, &desc);
     if (!texture)
-        return Error(ErrorKind::OutOfDeviceMemory);
+        return std::unexpected(Error(ErrorKind::OutOfDeviceMemory));
 
     std::shared_ptr<Texture> tex = std::make_shared<Texture>();
     tex->m_texture = texture;
@@ -211,7 +210,7 @@ std::shared_ptr<Texture> Texture::create_from_handle(WGPUTexture texture)
     return tex;
 }
 
-Result<std::shared_ptr<Texture>> Texture::load(std::string_view path)
+std::expected<std::shared_ptr<Texture>, Error> Texture::load(std::string_view path)
 {
     File file = TRY(Filesystem::open_file(path));
 
@@ -223,7 +222,7 @@ Result<std::shared_ptr<Texture>> Texture::load(std::string_view path)
     stbi_uc *data = stbi_load_from_memory((const stbi_uc *)buffer.data(), (int)buffer.size(), &w, &h, &channels, 4);
     ERR_COND_V(data == nullptr, "Failed to parse image `{}`", path);
     if (data == nullptr)
-        return Error(ErrorKind::ReadFailure);
+        return std::unexpected(Error(ErrorKind::ReadFailure));
 
     std::shared_ptr<Texture> texture = TRY(Texture::create(w, h, WGPUTextureFormat_RGBA8Unorm, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding, WGPUTextureDimension_2D, 1, 1));
     texture->update(std::span((std::byte *)data, w * h * 4));
@@ -270,7 +269,7 @@ void Texture::update(std::span<const std::byte> view, uint32_t layer)
 #endif
 }
 
-Result<WGPUTextureView> Texture::get_view(WGPUTextureViewDimension dimension, WGPUTextureAspect aspect, int base_layer, int layer_count)
+std::expected<WGPUTextureView, Error> Texture::get_view(WGPUTextureViewDimension dimension, WGPUTextureAspect aspect, int base_layer, int layer_count)
 {
     if (layer_count == -1)
         layer_count = (int)m_layers;
@@ -295,13 +294,13 @@ Result<WGPUTextureView> Texture::get_view(WGPUTextureViewDimension dimension, WG
 
     WGPUTextureView view = wgpuTextureCreateView(m_texture, &view_desc);
     if (!view)
-        return Error(ErrorKind::OutOfDeviceMemory);
+        return std::unexpected(Error(ErrorKind::OutOfDeviceMemory));
 
     m_views[desc] = view;
     return view;
 }
 
-Result<std::shared_ptr<Mesh>> Mesh::create_from_data(std::span<const std::byte> indices, std::span<const glm::vec3> positions, std::span<const glm::vec3> normals, std::span<const std::byte> uvs, WGPUIndexFormat index_type, WGPUVertexFormat uv_format)
+std::expected<std::shared_ptr<Mesh>, Error> Mesh::create_from_data(std::span<const std::byte> indices, std::span<const glm::vec3> positions, std::span<const glm::vec3> normals, std::span<const std::byte> uvs, WGPUIndexFormat index_type, WGPUVertexFormat uv_format)
 {
     const size_t vertex_count = indices.size() / size_of(index_type);
 
@@ -773,7 +772,7 @@ static WGPUSurface create_surface(WGPUInstance instance, SDL_Window *window)
 
 #endif
 
-static Result<std::shared_ptr<Mesh>> create_cube_mesh(glm::vec3 size = glm::vec3(1.0), glm::vec3 offset = glm::vec3())
+static std::expected<std::shared_ptr<Mesh>, Error> create_cube_mesh(glm::vec3 size = glm::vec3(1.0), glm::vec3 offset = glm::vec3())
 {
     const glm::vec3 hs = size / glm::vec3(2.0);
 
@@ -898,7 +897,7 @@ static Result<std::shared_ptr<Mesh>> create_cube_mesh(glm::vec3 size = glm::vec3
     return std::shared_ptr<Mesh>(TRY(Mesh::create_from_data(std::as_bytes(std::span(indices)), vertices, normals, std::as_bytes(std::span(uvs)), WGPUIndexFormat_Uint16)));
 }
 
-static Result<std::shared_ptr<Mesh>> create_wireframe_cube_mesh(glm::vec3 size = glm::vec3(1.0), glm::vec3 offset = glm::vec3())
+static std::expected<std::shared_ptr<Mesh>, Error> create_wireframe_cube_mesh(glm::vec3 size = glm::vec3(1.0), glm::vec3 offset = glm::vec3())
 {
     const glm::vec3 hs = size / glm::vec3(2.0);
 
@@ -950,7 +949,7 @@ static Result<std::shared_ptr<Mesh>> create_wireframe_cube_mesh(glm::vec3 size =
 
 #define SHADOWMAP_RESOLUTION 2048
 
-Result<void> Renderer::init(const Window& window, InitFlags flags)
+std::expected<void, Error> Renderer::init(const Window& window, InitFlags flags)
 {
     singleton = this;
 
@@ -971,7 +970,7 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
 #endif
 
     m_surface = create_surface(m_instance, window.get_window_ptr());
-    ERR_COND_R(m_surface == nullptr, "Unable to create the surface", Error(ErrorKind::BadDriver));
+    ERR_COND_R(m_surface == nullptr, "Unable to create the surface", std::unexpected(Error(ErrorKind::BadDriver)));
 
 #ifdef __platform_web
     // On the web we use glue code to acquire a WGPUDevice.
@@ -980,7 +979,7 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
         return Error(ErrorKind::BadDriver);
 #else
     m_adapter = request_adapter_sync(m_instance);
-    ERR_COND_R(m_adapter == nullptr, "Unable to acquire the adapter", Error(ErrorKind::BadDriver));
+    ERR_COND_R(m_adapter == nullptr, "Unable to acquire the adapter", std::unexpected(Error(ErrorKind::BadDriver)));
 
     const WGPUFeatureName required_features[] = {
         // (WGPUFeatureName)WGPUNativeFeature_PipelineStatisticsQuery,
@@ -1017,17 +1016,16 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     device_desc.requiredLimits = &limits;
 
     m_device = request_device_sync(m_instance, m_adapter, device_desc);
-    ERR_COND_R(m_device == nullptr, "Unable to create the device", Error(ErrorKind::NoSuitableDevice));
+    ERR_COND_R(m_device == nullptr, "Unable to create the device", std::unexpected(Error(ErrorKind::NoSuitableDevice)));
 #endif
 
     m_queue = wgpuDeviceGetQueue(m_device);
-    ERR_COND_R(m_queue == nullptr, "Unable to retrieve the queue", Error(ErrorKind::NoSuitableDevice));
+    ERR_COND_R(m_queue == nullptr, "Unable to retrieve the queue", std::unexpected(Error(ErrorKind::NoSuitableDevice)));
 
     m_env_2d_buffer = TRY(Buffer::create(sizeof(glm::mat4), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
     m_sky_buffer = TRY(Buffer::create(sizeof(SkyUniforms), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
 
     m_fw_camera = TRY(Buffer::create(sizeof(FwCamera), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
-    m_fw_camera_rel = TRY(Buffer::create(sizeof(FwCamera), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
     m_fw_world_env = TRY(Buffer::create(sizeof(FwWorldEnv), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
     m_fw_shadowmap_camera = TRY(Buffer::create(sizeof(FwCamera), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
     m_fw_pp_buffer = TRY(Buffer::create(sizeof(PostProcessUniforms), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
@@ -1151,14 +1149,6 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_portal_shader->set_binding("world_env", Binding::UniformBuffer(WGPUShaderStage_Vertex | WGPUShaderStage_Fragment, 0, 2, BindingAccess::Read));
     m_portal_shader->create_bind_group_layout();
 
-    m_fw_textured_shader = TRY(Shader::load_from_path("data/shaders/fw/textured.wgsl"));
-    m_fw_textured_shader->set_binding("model", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
-    m_fw_textured_shader->set_binding("camera", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 1, BindingAccess::Read));
-    m_fw_textured_shader->set_binding("world_env", Binding::UniformBuffer(WGPUShaderStage_Vertex | WGPUShaderStage_Fragment, 0, 2, BindingAccess::Read));
-    m_fw_textured_shader->set_binding("texture", Binding::Texture(WGPUShaderStage_Fragment, 0, 3, BindingAccess::Read, WGPUTextureViewDimension_2D));
-    m_fw_textured_shader->set_sampler("texture", SamplerDescriptor{.min_filter = WGPUFilterMode_Nearest, .mag_filter = WGPUFilterMode_Nearest});
-    m_fw_textured_shader->create_bind_group_layout();
-
     m_model_noshadow_shader = TRY(Shader::load_from_path("data/shaders/model_noshadow.wgsl"));
     m_model_noshadow_shader->set_binding("model", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
     m_model_noshadow_shader->set_binding("camera", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 1, BindingAccess::Read));
@@ -1182,7 +1172,6 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     m_fw_water_mat = Material::create(m_fw_water_shader, MaterialFlagBits::Stencil | MaterialFlagBits::Transparency, WGPUCullMode_Back, WGPUVertexFormat_Float32x2, Instance(chunk_attribs, sizeof(glm::vec3)));
 
     m_fw_colored_mat = Material::create(m_fw_colored_shader, MaterialFlagBits::NoUV, WGPUCullMode_Back, WGPUVertexFormat_Float32x2);
-    m_fw_textured_mat = Material::create(m_fw_textured_shader, MaterialFlagBits::Transparency, WGPUCullMode_None, WGPUVertexFormat_Float32x2);
     m_fw_colored_shadowmap_mat = Material::create(m_fw_colored_shader, MaterialFlagBits::NoUV, WGPUCullMode_Front, WGPUVertexFormat_Float32x2);
 
     m_sky_mat = Material::create(m_sky_shader, MaterialFlagBits::DisableDepthTest | MaterialFlagBits::NoData | MaterialFlagBits::Stencil, WGPUCullMode_None, WGPUVertexFormat_Float32x2);
@@ -1313,7 +1302,7 @@ Result<void> Renderer::init(const Window& window, InitFlags flags)
     init_info.DepthStencilFormat = WGPUTextureFormat_Depth32FloatStencil8;
     ImGui_ImplWGPU_Init(&init_info);
 
-    return Result<void>();
+    return std::expected<void, Error>();
 }
 
 void Renderer::configure_surface(size_t width, size_t height)
@@ -1425,7 +1414,7 @@ void Renderer::draw_legacy(std::function<void()> f)
     wgpuTextureRelease(surface_texture.texture);
 }
 
-Result<Cloud> Renderer::create_cloud()
+std::expected<Cloud, Error> Renderer::create_cloud()
 {
     Cloud cloud;
     cloud.uniform.color = Color(0.92, 0.92, 0.92, 1.0);
@@ -1649,9 +1638,6 @@ void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::sha
     FwCamera camera{};
     camera.view_projection = active_camera->get_view_proj_matrix();
     m_fw_camera->update_struct(camera);
-
-    camera.view_projection = active_camera->get_projection_matrix();
-    m_fw_camera_rel->update_struct(camera);
 
     const float shadowmap_range = float(world->get_render_distance()) * 34.0f;
     const glm::dvec3 light_target = active_camera->get_global_transform().position();

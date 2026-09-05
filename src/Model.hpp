@@ -1,8 +1,9 @@
 #pragma once
 
-#include "Core/Result.hpp"
+#include "Core/Error.hpp"
 #include "Transform3D.hpp"
 
+#include <expected>
 #include <memory>
 #include <span>
 
@@ -55,7 +56,7 @@ public:
         std::vector<Keyframe> keyframes;
     };
 
-    static Result<std::shared_ptr<ModelLegacy>> load(std::string_view path);
+    static std::expected<std::shared_ptr<ModelLegacy>, Error> load(std::string_view path);
 
     std::string_view name() const { return m_name; }
     std::span<const Object> objects() const;

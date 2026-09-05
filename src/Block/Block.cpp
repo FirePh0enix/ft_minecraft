@@ -23,16 +23,16 @@ Block::Block(std::string_view path, bool collision)
     };
 
     for (const auto& element : m_model.elements)
-    {
         for (const auto& face : faces)
         {
             auto facei = element.faces.find(face.name);
             if (facei != element.faces.end() && facei->second.cullface.has_value()) // TODO: check value for unconventional face culling setup.
                 m_cullfaces[(int)face.face] = true;
         }
-    }
 
-    // println("{} {} {} {} {} {}", m_cullfaces[0], m_cullfaces[1], m_cullfaces[2], m_cullfaces[3], m_cullfaces[4], m_cullfaces[5]);
+    MeshBuilder builder;
+    add(builder);
+    m_mesh = EXPECT(builder.build());
 }
 
 bool Block::has_cullface(FaceKind face)

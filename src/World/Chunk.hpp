@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Block/Block.hpp"
-#include "Core/Result.hpp"
+#include "Core/Error.hpp"
 #include "Core/Types.hpp"
 #include "Variant.hpp"
 #include "World/Biome.hpp"
@@ -115,8 +115,8 @@ public:
 
     ALWAYS_INLINE std::shared_ptr<Buffer> get_instance_buffer() const { return m_uniform_buffer; }
 
-    Result<std::shared_ptr<Mesh>> build_opaque_mesh(size_t slice_index, const std::map<ChunkPos, std::shared_ptr<Chunk>>& chunks);
-    Result<std::shared_ptr<Mesh>> build_water_mesh(size_t slice_index, const std::map<ChunkPos, std::shared_ptr<Chunk>>& chunks);
+    std::expected<std::shared_ptr<Mesh>, Error> build_opaque_mesh(size_t slice_index, const std::map<ChunkPos, std::shared_ptr<Chunk>>& chunks);
+    std::expected<std::shared_ptr<Mesh>, Error> build_water_mesh(size_t slice_index, const std::map<ChunkPos, std::shared_ptr<Chunk>>& chunks);
 
     bool is_modified() const { return m_modified; }
     void clear_modified() { m_modified = false; }

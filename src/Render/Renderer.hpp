@@ -1,18 +1,17 @@
 #pragma once
 
+#include "Core/Error.hpp"
 #include "Core/Flags.hpp"
 #include "Core/Noise/Simplex.hpp"
-#include "Core/Result.hpp"
 #include "Core/Types.hpp"
 #include "Render/Shader.hpp"
 #include "Render/Types.hpp"
 #include "Window.hpp"
 #include "stdext.hpp"
 
-#include "daking/MPSC_queue.hpp"
-
 #include <webgpu/webgpu.h>
 
+#include <expected>
 #include <limits>
 #include <set>
 #include <tuple>
@@ -59,7 +58,7 @@ class Buffer
 public:
     ~Buffer();
 
-    static Result<std::shared_ptr<Buffer>> create(size_t size, WGPUBufferUsage usage = WGPUBufferUsage_None, BufferVisibility visibility = BufferVisibility::GPUOnly);
+    static std::expected<std::shared_ptr<Buffer>, Error> create(size_t size, WGPUBufferUsage usage = WGPUBufferUsage_None, BufferVisibility visibility = BufferVisibility::GPUOnly);
 
     template <typename T>
     void update_struct(const T& value, size_t offset = 0)
@@ -89,13 +88,13 @@ class Texture
 public:
     ~Texture();
 
-    static Result<std::shared_ptr<Texture>> create(uint32_t width, uint32_t height, WGPUTextureFormat format, WGPUTextureUsage usage = WGPUTextureUsage_None, WGPUTextureDimension dimension = WGPUTextureDimension_2D, uint32_t layers = 1, uint32_t mip_level = 1);
+    static std::expected<std::shared_ptr<Texture>, Error> create(uint32_t width, uint32_t height, WGPUTextureFormat format, WGPUTextureUsage usage = WGPUTextureUsage_None, WGPUTextureDimension dimension = WGPUTextureDimension_2D, uint32_t layers = 1, uint32_t mip_level = 1);
     static std::shared_ptr<Texture> create_from_handle(WGPUTexture texture);
-    static Result<std::shared_ptr<Texture>> load(std::string_view path);
+    static std::expected<std::shared_ptr<Texture>, Error> load(std::string_view path);
 
     void update(std::span<const std::byte> view, uint32_t layer = 0);
 
-    Result<WGPUTextureView> get_view(WGPUTextureViewDimension dimension = WGPUTextureViewDimension_2D, WGPUTextureAspect aspect = WGPUTextureAspect_Undefined, int base_layer = 0, int layer_count = -1);
+    std::expected<WGPUTextureView, Error> get_view(WGPUTextureViewDimension dimension = WGPUTextureViewDimension_2D, WGPUTextureAspect aspect = WGPUTextureAspect_Undefined, int base_layer = 0, int layer_count = -1);
 
     WGPUTexture handle() const { return m_texture; }
     WGPUTextureFormat format() const { return m_format; }
@@ -138,7 +137,7 @@ public:
         Max,
     };
 
-    static Result<std::shared_ptr<Mesh>> create_from_data(std::span<const std::byte> index, std::span<const glm::vec3> positions, std::span<const glm::vec3> normals, std::span<const std::byte> uvs, WGPUIndexFormat index_type = WGPUIndexFormat_Uint32, WGPUVertexFormat uv_format = WGPUVertexFormat_Float32x2);
+    static std::expected<std::shared_ptr<Mesh>, Error> create_from_data(std::span<const std::byte> index, std::span<const glm::vec3> positions, std::span<const glm::vec3> normals, std::span<const std::byte> uvs, WGPUIndexFormat index_type = WGPUIndexFormat_Uint32, WGPUVertexFormat uv_format = WGPUVertexFormat_Float32x2);
 
     Mesh(uint32_t vertex_count, WGPUIndexFormat index_type, WGPUVertexFormat uv_format, const std::shared_ptr<Buffer>& index_buffer, const std::shared_ptr<Buffer>& position_buffer, const std::shared_ptr<Buffer>& normal_buffer, const std::shared_ptr<Buffer>& uv_buffer)
         : m_vertex_count(vertex_count), m_index_type(index_type), m_uv_format(uv_format)
@@ -439,17 +438,9 @@ class Renderer
     friend class Texture;
 
 public:
-    struct BufferWrite
-    {
-        void *data;
-        size_t data_size;
-        WGPUBuffer buffer;
-        size_t offset;
-    };
-
     Renderer();
 
-    Result<void> init(const Window& window, InitFlags flags);
+    std::expected<void, Error> init(const Window& window, InitFlags flags);
 
     void configure_surface(size_t width, size_t height);
 
@@ -469,8 +460,6 @@ public:
     void set_sky(glm::vec4 color);
     void set_underwater(bool v);
 
-    void queue_buffer_write(BufferWrite write) { m_buffer_writes_queue.enqueue(write); }
-
     std::shared_ptr<Shader> get_fw_chunk_shader() const { return m_fw_chunk_shader; }
     std::shared_ptr<Shader> get_fw_water_shader() const { return m_fw_water_shader; }
     std::shared_ptr<Shader> get_fw_shadowmap_shader() const { return m_fw_chunk_shadowmap_shader; }
@@ -478,7 +467,6 @@ public:
     std::shared_ptr<Shader> get_fw_text_shader() const { return m_fw_text_shader; }
     std::shared_ptr<Shader> get_fw_model_shader() const { return m_fw_model_shader; }
     std::shared_ptr<Shader> get_fw_colored_shader() const { return m_fw_colored_shader; }
-    std::shared_ptr<Shader> get_fw_textured_shader() const { return m_fw_textured_shader; }
     std::shared_ptr<Shader> get_portal_shader() const { return m_portal_shader; }
     std::shared_ptr<Material> get_fw_chunk_mat() const { return m_fw_chunk_mat; }
     std::shared_ptr<Material> get_fw_shadowmap_mat() const { return m_fw_chunk_shadowmap_mat; }
@@ -488,10 +476,8 @@ public:
     std::shared_ptr<Material> get_fw_color_rect_mat() const { return m_fw_color_rect_mat; }
     std::shared_ptr<Material> get_fw_item_mat() const { return m_fw_item_mat; }
     std::shared_ptr<Material> get_wireframe_mat() const { return m_wireframe_dbg_mat; }
-    std::shared_ptr<Material> get_fw_textured_mat() const { return m_fw_textured_mat; }
     std::shared_ptr<Texture> get_fw_shadowmap() const { return m_fw_shadowmap; }
     std::shared_ptr<Buffer> get_fw_camera() const { return m_fw_camera; }
-    std::shared_ptr<Buffer> get_fw_camera_rel() const { return m_fw_camera_rel; }
     std::shared_ptr<Buffer> get_fw_world_env() const { return m_fw_world_env; }
     std::shared_ptr<Buffer> get_fw_shadowmap_camera() const { return m_fw_shadowmap_camera; }
 
@@ -541,14 +527,11 @@ private:
 
     // WGPUQuerySet m_occlusion_set = nullptr;
 
-    daking::MPSC_queue<BufferWrite> m_buffer_writes_queue;
-
     // Forward rendering
     std::shared_ptr<Texture> m_fw_depth_texture;
     std::shared_ptr<Texture> m_fw_color_texture;
 
     std::shared_ptr<Buffer> m_fw_camera;
-    std::shared_ptr<Buffer> m_fw_camera_rel;
     std::shared_ptr<Buffer> m_fw_world_env;
 
     std::shared_ptr<Shader> m_fw_chunk_shadowmap_shader;
@@ -562,7 +545,6 @@ private:
     std::shared_ptr<Shader> m_fw_text_shader;
     std::shared_ptr<Shader> m_fw_colored_shader;
     std::shared_ptr<Shader> m_fw_model_shader;
-    std::shared_ptr<Shader> m_fw_textured_shader;
 
     std::shared_ptr<Material> m_fw_chunk_mat;
     std::shared_ptr<Material> m_fw_chunk_shadowmap_mat;
@@ -572,7 +554,6 @@ private:
     std::shared_ptr<Material> m_fw_model_mat;
     std::shared_ptr<Material> m_fw_color_rect_mat;
     std::shared_ptr<Material> m_fw_item_mat;
-    std::shared_ptr<Material> m_fw_textured_mat;
 
     std::shared_ptr<Shader> m_model_noshadow_shader;
     std::shared_ptr<Material> m_model_noshadow_mat;
@@ -651,6 +632,6 @@ private:
     static inline Renderer *singleton;
 
     void update_clouds(std::shared_ptr<Camera> camera);
-    Result<Cloud> create_cloud();
+    std::expected<Cloud, Error> create_cloud();
     bool has_cloud(int64_t x, int64_t z);
 };

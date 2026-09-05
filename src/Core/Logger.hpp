@@ -1,9 +1,8 @@
 #pragma once
 
-#include "Core/Print.hpp"
-
 #include <cstdint>
 #include <format>
+#include <print>
 
 enum class LogLevel : uint8_t
 {
@@ -28,8 +27,8 @@ inline const char *log_level_str(LogLevel level)
 template <typename... Args>
 inline void log_msg(LogLevel level, std::format_string<Args...> fmt, Args&&...args)
 {
-    print("{} ", log_level_str(level));
-    println(fmt, std::forward<Args>(args)...);
+    std::print("{} ", log_level_str(level));
+    std::println(fmt, std::forward<Args>(args)...);
 }
 
 template <typename... Args>

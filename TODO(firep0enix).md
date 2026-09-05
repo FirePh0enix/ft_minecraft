@@ -5,7 +5,7 @@
 - [ ] Fix performance problems
 - [x] Compute visibility before rendering to remove anoying visble chunk "lag"
 - [ ] Re-enable world save
-- [ ] Fix chunk border when generating mesh
+- [x] Fix chunk border when generating mesh
 - [ ] Fix debug display
 - [ ] Fix clouds
 - [ ] Plants

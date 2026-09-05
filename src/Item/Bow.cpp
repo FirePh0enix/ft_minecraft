@@ -1,6 +1,5 @@
 #include "Item/Bow.hpp"
 
-#include "Core/Print.hpp"
 #include "Engine.hpp"
 #include "Entity/Arrow.hpp"
 #include "World/Registry.hpp"

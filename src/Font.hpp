@@ -1,18 +1,20 @@
 #pragma once
 
-#include "Core/Result.hpp"
+#include "Core/Error.hpp"
 #include "Core/Types.hpp"
 #include "Render/Renderer.hpp"
+
+#include <expected>
 
 class Font : public Object
 {
     CLASS(Font, Object);
 
 public:
-    static Result<std::shared_ptr<Font>> create(std::string_view font_name, uint32_t font_size);
+    static std::expected<std::shared_ptr<Font>, Error> create(std::string_view font_name, uint32_t font_size);
 
     ~Font();
-    static Result<void> init_library();
+    static std::expected<void, Error> init_library();
     static void deinit_library();
 
     struct Character

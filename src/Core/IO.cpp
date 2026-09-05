@@ -7,12 +7,12 @@
 
 #include <optional>
 
-Result<std::optional<Variant>> Reader::read_variant()
+std::expected<std::optional<Variant>, Error> Reader::read_variant()
 {
     uint32_t type_raw;
     size_t n = TRY(read_raw(&type_raw, sizeof(uint32_t)));
     if (n == 0)
-        return Result<std::optional<Variant>>(std::nullopt);
+        return std::nullopt;
 
     VariantType type = VariantType((uint8_t)type_raw);
     if (type == VariantType::Null)
@@ -126,18 +126,17 @@ Result<std::optional<Variant>> Reader::read_variant()
         return std::make_optional(Variant(map));
     }
 
-    println("{}", type_raw);
-    return Error(ErrorKind::ReadFailure);
+    return std::unexpected(Error(ErrorKind::ReadFailure));
 }
 
-Result<void> Reader::read_to_buffer(std::vector<char>& buffer)
+std::expected<void, Error> Reader::read_to_buffer(std::vector<char>& buffer)
 {
     buffer.resize(size());
     TRY(read_raw(buffer.data(), buffer.size()));
-    return Result<void>();
+    return std::expected<void, Error>();
 }
 
-Result<std::string> Reader::read_to_string()
+std::expected<std::string, Error> Reader::read_to_string()
 {
     std::string str;
     str.resize(size());
@@ -145,15 +144,13 @@ Result<std::string> Reader::read_to_string()
     return str;
 }
 
-Result<void> Writer::write_variant(const Variant& variant)
+std::expected<void, Error> Writer::write_variant(const Variant& variant)
 {
     uint32_t type = uint32_t(variant.tag);
     TRY(write_raw(&type, sizeof(uint32_t)));
 
     if (variant.has(VariantType::Null))
-    {
-        return Result<void>();
-    }
+        return std::expected<void, Error>();
 
     if (variant.has(VariantType::Bool))
     {
@@ -237,10 +234,10 @@ Result<void> Writer::write_variant(const Variant& variant)
         }
     }
 
-    return Result<void>();
+    return std::expected<void, Error>();
 }
 
-Result<size_t> BufferReader::read_raw(void *buf, size_t size)
+std::expected<size_t, Error> BufferReader::read_raw(void *buf, size_t size)
 {
     size_t remaining_size = std::min(size, m_size - m_cursor);
     memcpy(buf, m_buffer + m_cursor, remaining_size);
@@ -258,7 +255,7 @@ bool BufferReader::eof()
     return m_cursor >= m_size;
 }
 
-Result<size_t> BufferWriter::write_raw(const void *buf, size_t size)
+std::expected<size_t, Error> BufferWriter::write_raw(const void *buf, size_t size)
 {
     size_t prev_size = m_buffer.size();
     m_buffer.resize(prev_size + size);

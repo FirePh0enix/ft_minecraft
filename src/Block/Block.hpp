@@ -2,9 +2,9 @@
 
 #include "Core/Math.hpp"
 #include "Id.hpp"
+#include "MeshBuilder.hpp"
 #include "Resource/BlockState.hpp"
 #include "Resource/Model.hpp"
-#include "MeshBuilder.hpp"
 
 #include <array>
 #include <span>
@@ -105,6 +105,8 @@ public:
     bool has_cullface(FaceKind face);
     bool has_collision() const { return m_collision; }
 
+    std::shared_ptr<Mesh> get_mesh() const { return m_mesh; }
+
     /// Add the block data to the chunk mesh.
     void add(MeshBuilder& builder, glm::i64vec3 position = {}, NeighborFlags neighbors = {});
 
@@ -117,4 +119,5 @@ private:
 
     // Cached values for faster access than reading through the model files.
     bool m_cullfaces[6]{false};
+    std::shared_ptr<Mesh> m_mesh;
 };

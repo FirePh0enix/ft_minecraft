@@ -1,6 +1,5 @@
 #include "Zombie.hpp"
 
-#include "Core/Result.hpp"
 #include "Entity/Entity.hpp"
 #include "Entity/LivingEntity.hpp"
 #include "Entity/Player.hpp"

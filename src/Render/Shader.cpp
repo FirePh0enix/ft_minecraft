@@ -14,7 +14,7 @@ Shader::~Shader()
         wgpuPipelineLayoutRelease(m_pipeline_layout);
 }
 
-static Result<std::string> preprocess(const std::string& source, std::string_view basepath)
+static std::expected<std::string, Error> preprocess(const std::string& source, std::string_view basepath)
 {
     std::string source2(source.data(), source.size());
     std::stringstream ss(source2);
@@ -45,7 +45,7 @@ static Result<std::string> preprocess(const std::string& source, std::string_vie
     return s;
 }
 
-Result<std::shared_ptr<Shader>> Shader::load(std::string_view source)
+std::expected<std::shared_ptr<Shader>, Error> Shader::load(std::string_view source)
 {
     std::shared_ptr<Shader> shader = std::make_shared<Shader>();
     shader->m_source_code = source;
@@ -53,7 +53,7 @@ Result<std::shared_ptr<Shader>> Shader::load(std::string_view source)
     return shader;
 }
 
-Result<std::shared_ptr<Shader>> Shader::load_from_path(std::string_view path)
+std::expected<std::shared_ptr<Shader>, Error> Shader::load_from_path(std::string_view path)
 {
     File file = TRY(Filesystem::open_file(path));
     std::string s = TRY(file.reader().read_to_string());

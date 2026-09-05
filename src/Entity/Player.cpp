@@ -3,7 +3,6 @@
 #include "AABB.hpp"
 #include "Block/Inventory.hpp"
 #include "Core/Math.hpp"
-#include "Core/Print.hpp"
 #include "Engine.hpp"
 #include "Entity/Entity.hpp"
 #include "Entity/Item.hpp"
@@ -20,6 +19,7 @@
 #include <imgui.h>
 
 #include <memory>
+#include <print>
 
 void BetterConsole::process_command(Player *player, std::string_view str)
 {
@@ -64,7 +64,7 @@ void BetterConsole::tp(Player *player, const std::vector<std::string>& args)
 {
     if (args.size() != 4)
     {
-        println("usage `/tp <x> <y> <z>`");
+        std::println("usage `/tp <x> <y> <z>`");
         return;
     }
 
@@ -81,7 +81,7 @@ void BetterConsole::chgdim(Player *player, const std::vector<std::string>& args)
 
     if (args.size() != 2)
     {
-        println("usage `/dim <dimension>`");
+        std::println("usage `/dim <dimension>`");
         return;
     }
 
@@ -90,20 +90,20 @@ void BetterConsole::chgdim(Player *player, const std::vector<std::string>& args)
         if (player->get_dimension() != World::overworld)
         {
             player->get_world()->change_dimension(player->id(), World::overworld);
-            println("switched to `overworld`");
+            std::println("switched to `overworld`");
         }
         else
-            println("already in the `overworld` dimension");
+            std::println("already in the `overworld` dimension");
     }
     else if (args[1] == "underworld" || args[1] == "1")
     {
         if (player->get_dimension() != World::underworld)
         {
             player->get_world()->change_dimension(player->id(), World::underworld);
-            println("switched to `underworld`");
+            std::println("switched to `underworld`");
         }
         else
-            println("already in the `underworld` dimension");
+            std::println("already in the `underworld` dimension");
     }
     else
     {
@@ -139,7 +139,7 @@ void BetterConsole::give(Player *player, const std::vector<std::string>& args)
     }
     else
     {
-        println("usage `/give <item> [count]`");
+        std::println("usage `/give <item> [count]`");
         return;
     }
 }
@@ -148,7 +148,7 @@ void BetterConsole::gamemode(Player *player, const std::vector<std::string>& arg
 {
     if (args.size() != 2)
     {
-        println("usage `/gamemode <survival|creative|0|1>`");
+        std::println("usage `/gamemode <survival|creative|0|1>`");
         return;
     }
 
@@ -612,23 +612,20 @@ void Player::draw(const RenderPass& pass)
 
             Transform3D transform;
             transform.scale() = glm::vec3(0.2);
-            transform.position() = glm::vec3(0.32, -0.3, -0.4);
+            transform.position() = glm::vec3(glm::dvec3(0.32, -0.3, -0.4) - m_camera->get_position());
 
-            // glm::mat4 matrix = transform.to_matrix();
+            glm::mat4 matrix = transform.to_matrix();
 
-            // FIXME
-            // std::shared_ptr<BindGroup> bg = BindGroup::create(Renderer::get().get_fw_item_block_shader());
-            // bg->set_param("camera", Renderer::get().get_fw_camera_rel());
-            // bg->set_param("model", m_model_buffer);
-            // bg->set_param("world_env", Renderer::get().get_fw_world_env());
-            // bg->set_param("images", EXPECT(Engine::get().registry().get_texture_array()->get_view(WGPUTextureViewDimension_2DArray)));
-            // bg->set_param("shadowmap", EXPECT(Renderer::get().get_fw_shadowmap()->get_view(WGPUTextureViewDimension_2D)));
+            std::shared_ptr<BindGroup> bg = BindGroup::create(Renderer::get().get_model_noshadow_shader());
+            bg->set_param("camera", Renderer::get().get_fw_camera());
+            bg->set_param("model", m_hand_model_buffer);
+            bg->set_param("world_env", Renderer::get().get_fw_world_env());
+            bg->set_param("atlas", EXPECT(Engine::get().registry().get_atlas()->get_view()));
 
-            // ItemBlockModel model(matrix,
-            //                      glm::uvec3(block->get_texture_ids()[0] | (block->get_texture_ids()[1] << 16), block->get_texture_ids()[2] | (block->get_texture_ids()[3] << 16), block->get_texture_ids()[4] | (block->get_texture_ids()[5] << 16)));
-            // m_model_buffer->update_struct(model);
+            FwModel model(matrix);
+            m_hand_model_buffer->update_struct(model);
 
-            // Renderer::get().draw(pass, Renderer::get().get_cube_mesh(), Renderer::get().get_fw_item_block_mat(), bg);
+            Renderer::get().draw(pass, block->get_mesh(), Renderer::get().get_model_noshadow_mat(), bg);
         }
         else
         {
@@ -675,7 +672,7 @@ void Player::process_event(Event& event)
         m_chat->process_everyting(event);
 }
 
-Result<void> Player::save(EntitySerializer& ser) const
+std::expected<void, Error> Player::save(EntitySerializer& ser) const
 {
     int64_t gamemode = (int64_t)m_gamemode;
     ser.set("gamemode", gamemode);
@@ -694,10 +691,10 @@ Result<void> Player::save(EntitySerializer& ser) const
     Variant array = std::span(stacks);
     ser.set("inventory_data", array);
 
-    return Result<void>();
+    return std::expected<void, Error>();
 }
 
-Result<void> Player::load(const EntitySerializer& deser)
+std::expected<void, Error> Player::load(const EntitySerializer& deser)
 {
     int64_t gamemode = (int64_t)deser.get<int64_t>("gamemode").value_or(0);
     if (gamemode != 0 && gamemode != 1)
@@ -707,7 +704,7 @@ Result<void> Player::load(const EntitySerializer& deser)
     std::vector<ItemStack> stacks = deser.get_array<ItemStack>("inventory_data").value();
 
     if (stacks.size() != 27 + 9)
-        return Error(ErrorKind::ReadFailure);
+        return std::unexpected(Error(ErrorKind::ReadFailure));
 
     InventoryContainer::Layer& layer = m_inventory_container->get_layer(0);
     for (size_t i = 0; i < 27; i++)
@@ -717,7 +714,7 @@ Result<void> Player::load(const EntitySerializer& deser)
     for (size_t i = 0; i < 9; i++)
         toolbar_layer.stacks[i] = stacks[i + 27];
 
-    return Result<void>();
+    return std::expected<void, Error>();
 }
 
 void Player::die()

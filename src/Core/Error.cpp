@@ -1,6 +1,4 @@
 #include "Core/Error.hpp"
-#include "Core/Logger.hpp"
-#include "Core/Print.hpp"
 
 #include <cstring>
 
@@ -94,16 +92,16 @@ void Stacktrace::print(FILE *fp, size_t skip_frame) const
     for (size_t i = skip_frame; i < length; i++)
     {
         const Frame& frame = frames[i];
-        println(fp, "{}:{}:1 @ {}", frame.filename ? frame.filename : "???", frame.line, frame.function ? frame.function : "???");
+        std::println(fp, "{}:{}:1 @ {}", frame.filename ? frame.filename : "???", frame.line, frame.function ? frame.function : "???");
     }
 
     if (non_exhaustive)
-        println(fp, "({} frames omitted)", total_length - skip_frame);
+        std::println(fp, "({} frames omitted)", total_length - skip_frame);
 }
 
 void Error::print(FILE *fp)
 {
-    ::print(fp, "error: {} ({:x})", error_name(m_kind), (uint32_t)m_kind);
+    std::print(fp, "error: {} ({:x})", error_name(m_kind), (uint32_t)m_kind);
 
     if (is_graphics())
     {
@@ -115,10 +113,10 @@ void Error::print(FILE *fp)
     else
     {
         if (m_errno_value != 0)
-            ::print(fp, " from {}", strerror(m_errno_value));
+            std::print(fp, " from {}", strerror(m_errno_value));
     }
 
-    println("\n");
+    std::println("\n");
 
 #ifdef __DEBUG__
     Stacktrace::current().print(fp, 1);
@@ -131,7 +129,7 @@ void signal_handler(int sig)
 {
     const char *signal_name = strsignal(sig);
 
-    println(stderr, "Received signal: {}\n", signal_name);
+    std::println(stderr, "Received signal: {}\n", signal_name);
     Stacktrace::record();
     Stacktrace::current().print(stderr, 0);
 

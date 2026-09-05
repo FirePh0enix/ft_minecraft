@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Core/Error.hpp"
 #include "Entity/Camera.hpp"
 #include "Entity/Entity.hpp"
 #include "Entity/LivingEntity.hpp"
@@ -8,6 +9,8 @@
 #include "Inventory/PlayerInventory.hpp"
 #include "Model.hpp"
 #include "UI/TextInput.hpp"
+
+#include <expected>
 
 enum class GameMode
 {
@@ -49,8 +52,8 @@ public:
     virtual void draw_ui(const RenderPass& pass) override;
     virtual void process_event(Event& event) override;
 
-    virtual Result<void> save(EntitySerializer& ser) const override;
-    virtual Result<void> load(const EntitySerializer& deser) override;
+    virtual std::expected<void, Error> save(EntitySerializer& ser) const override;
+    virtual std::expected<void, Error> load(const EntitySerializer& deser) override;
 
     virtual void die() override;
 

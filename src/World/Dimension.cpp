@@ -403,11 +403,11 @@ void Dimension::rebuild(std::stop_token token, std::shared_ptr<Chunk> chunk, con
         results[i].chunk = chunk;
         results[i].slice_index = i;
 
-        Result<std::shared_ptr<Mesh>> opaque_mesh = chunk->build_opaque_mesh(i, nchunks);
-        if (opaque_mesh.has_error())
+        std::expected<std::shared_ptr<Mesh>, Error> opaque_mesh = chunk->build_opaque_mesh(i, nchunks);
+        if (!opaque_mesh.has_value())
             return;
-        Result<std::shared_ptr<Mesh>> water_mesh = chunk->build_water_mesh(i, nchunks);
-        if (water_mesh.has_error())
+        std::expected<std::shared_ptr<Mesh>, Error> water_mesh = chunk->build_water_mesh(i, nchunks);
+        if (!water_mesh.has_value())
             return;
 
         results[i].opaque_mesh = opaque_mesh.value();
@@ -462,7 +462,7 @@ void Dimension::unload_chunk(std::stop_token token, std::shared_ptr<Chunk> chunk
         return;
     if (!Engine::get().is_save_disabled())
     {
-        Result<void> result = m_world->save_chunk({}, chunk, m_id);
+        std::expected<void, Error> result = m_world->save_chunk({}, chunk, m_id);
         (void)result;
     }
 

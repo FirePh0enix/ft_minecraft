@@ -119,19 +119,19 @@ struct BonjourPacket
 
     static constexpr PacketType type = PacketType::Bonjour;
 };
-inline Result<void> serialize(DataBuffer& buffer, const BonjourPacket& p)
+inline std::expected<void, Error> serialize(DataBuffer& buffer, const BonjourPacket& p)
 {
     uint32_t size = p.username.size();
     buffer.write(size);
     buffer.write_array(std::span(p.username.data(), p.username.size()));
-    return Result<void>();
+    return std::expected<void, Error>();
 }
-inline Result<void> deserialize(DataBuffer& buffer, BonjourPacket& p)
+inline std::expected<void, Error> deserialize(DataBuffer& buffer, BonjourPacket& p)
 {
     uint32_t size = buffer.read<uint32_t>();
     std::vector<char> string_buf = buffer.read_array<char>(size);
     p.username.append(string_buf.data(), string_buf.size());
-    return Result<void>();
+    return std::expected<void, Error>();
 }
 
 struct RefusedPacket
@@ -140,19 +140,19 @@ struct RefusedPacket
 
     static constexpr PacketType type = PacketType::Refused;
 };
-inline Result<void> serialize(DataBuffer& buffer, const RefusedPacket& p)
+inline std::expected<void, Error> serialize(DataBuffer& buffer, const RefusedPacket& p)
 {
     uint32_t size = p.message.size();
     buffer.write(size);
     buffer.write_array(std::span(p.message.data(), p.message.size()));
-    return Result<void>();
+    return std::expected<void, Error>();
 }
-inline Result<void> deserialize(DataBuffer& buffer, RefusedPacket& p)
+inline std::expected<void, Error> deserialize(DataBuffer& buffer, RefusedPacket& p)
 {
     uint32_t size = buffer.read<uint32_t>();
     std::vector<char> string_buf = buffer.read_array<char>(size);
     p.message.append(string_buf.data(), string_buf.size());
-    return Result<void>();
+    return std::expected<void, Error>();
 }
 
 struct InitPacket
@@ -163,21 +163,21 @@ struct InitPacket
 
     static constexpr PacketType type = PacketType::Init;
 };
-inline Result<void> serialize(DataBuffer& buffer, const InitPacket& p)
+inline std::expected<void, Error> serialize(DataBuffer& buffer, const InitPacket& p)
 {
     buffer.write(p.seed);
     buffer.write(p.id);
     buffer.write(p.position.x);
     buffer.write(p.position.y);
     buffer.write(p.position.z);
-    return Result<void>();
+    return std::expected<void, Error>();
 }
-inline Result<void> deserialize(DataBuffer& buffer, InitPacket& p)
+inline std::expected<void, Error> deserialize(DataBuffer& buffer, InitPacket& p)
 {
     p.seed = buffer.read<uint64_t>();
     p.id = buffer.read<EntityId>();
     p.position = glm::vec3(buffer.read<float>(), buffer.read<float>(), buffer.read<float>());
-    return Result<void>();
+    return std::expected<void, Error>();
 }
 
 struct SendPlayerTransformPacket
@@ -188,7 +188,7 @@ struct SendPlayerTransformPacket
 
     static constexpr PacketType type = PacketType::SendPlayerTransform;
 };
-inline Result<void> serialize(DataBuffer& buffer, const SendPlayerTransformPacket& p)
+inline std::expected<void, Error> serialize(DataBuffer& buffer, const SendPlayerTransformPacket& p)
 {
     buffer.write(p.id);
     buffer.write(p.position.x);
@@ -198,14 +198,14 @@ inline Result<void> serialize(DataBuffer& buffer, const SendPlayerTransformPacke
     buffer.write(p.rotation.y);
     buffer.write(p.rotation.z);
     buffer.write(p.rotation.w);
-    return Result<void>();
+    return std::expected<void, Error>();
 }
-inline Result<void> deserialize(DataBuffer& buffer, SendPlayerTransformPacket& p)
+inline std::expected<void, Error> deserialize(DataBuffer& buffer, SendPlayerTransformPacket& p)
 {
     p.id = buffer.read<EntityId>();
     p.position = glm::vec3(buffer.read<float>(), buffer.read<float>(), buffer.read<float>());
     p.rotation = glm::quat(buffer.read<float>(), buffer.read<float>(), buffer.read<float>(), buffer.read<float>());
-    return Result<void>();
+    return std::expected<void, Error>();
 }
 
 struct AddEntityPacket
@@ -217,7 +217,7 @@ struct AddEntityPacket
 
     static constexpr PacketType type = PacketType::AddEntity;
 };
-inline Result<void> serialize(DataBuffer& buffer, const AddEntityPacket& p)
+inline std::expected<void, Error> serialize(DataBuffer& buffer, const AddEntityPacket& p)
 {
     buffer.write(p.position.x);
     buffer.write(p.position.y);
@@ -228,15 +228,15 @@ inline Result<void> serialize(DataBuffer& buffer, const AddEntityPacket& p)
     buffer.write(p.rotation.w);
     buffer.write(p.id);
     buffer.write(p.class_id);
-    return Result<void>();
+    return std::expected<void, Error>();
 }
-inline Result<void> deserialize(DataBuffer& buffer, AddEntityPacket& p)
+inline std::expected<void, Error> deserialize(DataBuffer& buffer, AddEntityPacket& p)
 {
     p.position = glm::vec3(buffer.read<float>(), buffer.read<float>(), buffer.read<float>());
     p.rotation = glm::quat(buffer.read<float>(), buffer.read<float>(), buffer.read<float>(), buffer.read<float>());
     p.id = buffer.read<EntityId>();
     p.class_id = buffer.read<ClassHashCode>();
-    return Result<void>();
+    return std::expected<void, Error>();
 }
 
 struct RemoveEntityPacket
@@ -245,15 +245,15 @@ struct RemoveEntityPacket
 
     static constexpr PacketType type = PacketType::RemoveEntity;
 };
-inline Result<void> serialize(DataBuffer& buffer, const RemoveEntityPacket& p)
+inline std::expected<void, Error> serialize(DataBuffer& buffer, const RemoveEntityPacket& p)
 {
     buffer.write(p.id);
-    return Result<void>();
+    return std::expected<void, Error>();
 }
-inline Result<void> deserialize(DataBuffer& buffer, RemoveEntityPacket& p)
+inline std::expected<void, Error> deserialize(DataBuffer& buffer, RemoveEntityPacket& p)
 {
     p.id = buffer.read<EntityId>();
-    return Result<void>();
+    return std::expected<void, Error>();
 }
 
 struct UpdateEntityPacket
@@ -264,7 +264,7 @@ struct UpdateEntityPacket
 
     static constexpr PacketType type = PacketType::UpdateEntity;
 };
-inline Result<void> serialize(DataBuffer& buffer, const UpdateEntityPacket& p)
+inline std::expected<void, Error> serialize(DataBuffer& buffer, const UpdateEntityPacket& p)
 {
     buffer.write(p.id);
     buffer.write(p.position.x);
@@ -274,14 +274,14 @@ inline Result<void> serialize(DataBuffer& buffer, const UpdateEntityPacket& p)
     buffer.write(p.rotation.y);
     buffer.write(p.rotation.z);
     buffer.write(p.rotation.w);
-    return Result<void>();
+    return std::expected<void, Error>();
 }
-inline Result<void> deserialize(DataBuffer& buffer, UpdateEntityPacket& p)
+inline std::expected<void, Error> deserialize(DataBuffer& buffer, UpdateEntityPacket& p)
 {
     p.id = buffer.read<EntityId>();
     p.position = glm::vec3(buffer.read<float>(), buffer.read<float>(), buffer.read<float>());
     p.rotation = glm::quat(buffer.read<float>(), buffer.read<float>(), buffer.read<float>(), buffer.read<float>());
-    return Result<void>();
+    return std::expected<void, Error>();
 }
 
 struct RpcCallPacket
@@ -292,7 +292,7 @@ struct RpcCallPacket
 
     static constexpr PacketType type = PacketType::RpcCall;
 };
-inline Result<void> serialize(DataBuffer& buffer, const RpcCallPacket& p)
+inline std::expected<void, Error> serialize(DataBuffer& buffer, const RpcCallPacket& p)
 {
     buffer.write(p.id);
 
@@ -310,9 +310,9 @@ inline Result<void> serialize(DataBuffer& buffer, const RpcCallPacket& p)
     buffer.write(size);
     buffer.write_array(writer.buffer());
 
-    return Result<void>();
+    return std::expected<void, Error>();
 }
-inline Result<void> deserialize(DataBuffer& buffer, RpcCallPacket& p)
+inline std::expected<void, Error> deserialize(DataBuffer& buffer, RpcCallPacket& p)
 {
     p.id = buffer.read<EntityId>();
 
@@ -334,7 +334,7 @@ inline Result<void> deserialize(DataBuffer& buffer, RpcCallPacket& p)
             break;
     }
 
-    return Result<void>();
+    return std::expected<void, Error>();
 }
 
 struct RequestChunkPacket
@@ -345,17 +345,17 @@ struct RequestChunkPacket
 
     static constexpr PacketType type = PacketType::RequestChunk;
 };
-inline Result<void> serialize(DataBuffer& buffer, const RequestChunkPacket& p)
+inline std::expected<void, Error> serialize(DataBuffer& buffer, const RequestChunkPacket& p)
 {
     buffer.write(p.x);
     buffer.write(p.z);
-    return Result<void>();
+    return std::expected<void, Error>();
 }
-inline Result<void> deserialize(DataBuffer& buffer, RequestChunkPacket& p)
+inline std::expected<void, Error> deserialize(DataBuffer& buffer, RequestChunkPacket& p)
 {
     p.x = buffer.read<int64_t>();
     p.z = buffer.read<int64_t>();
-    return Result<void>();
+    return std::expected<void, Error>();
 }
 
 struct ChunkDataPacket
@@ -367,7 +367,7 @@ struct ChunkDataPacket
 
     static constexpr PacketType type = PacketType::ChunkData;
 };
-inline Result<void> serialize(DataBuffer& buffer, const ChunkDataPacket& p)
+inline std::expected<void, Error> serialize(DataBuffer& buffer, const ChunkDataPacket& p)
 {
     buffer.write(p.x);
     buffer.write(p.z);
@@ -381,9 +381,9 @@ inline Result<void> serialize(DataBuffer& buffer, const ChunkDataPacket& p)
     buffer.write(size);
 
     buffer.write_array(std::span(p.tags));
-    return Result<void>();
+    return std::expected<void, Error>();
 }
-inline Result<void> deserialize(DataBuffer& buffer, ChunkDataPacket& p)
+inline std::expected<void, Error> deserialize(DataBuffer& buffer, ChunkDataPacket& p)
 {
     p.x = buffer.read<int64_t>();
     p.z = buffer.read<int64_t>();
@@ -393,5 +393,5 @@ inline Result<void> deserialize(DataBuffer& buffer, ChunkDataPacket& p)
 
     size = buffer.read<uint32_t>();
     p.tags = buffer.read_array<uint8_t>(size);
-    return Result<void>();
+    return std::expected<void, Error>();
 }

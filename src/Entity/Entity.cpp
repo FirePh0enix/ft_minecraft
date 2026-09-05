@@ -1,7 +1,6 @@
 #include "Entity/Entity.hpp"
 
 #include "Core/Filesystem.hpp"
-#include "Core/Result.hpp"
 #include "Engine.hpp"
 #include "Network/Network.hpp"
 #include "Type.hpp"
@@ -10,7 +9,7 @@
 
 #include <string>
 
-Result<void> EntitySerializer::save(std::string_view path) const
+std::expected<void, Error> EntitySerializer::save(std::string_view path) const
 {
     File file = TRY(Filesystem::open_file(path, true));
     FileWriter writer = file.writer();
@@ -22,10 +21,10 @@ Result<void> EntitySerializer::save(std::string_view path) const
     }
 
     file.close();
-    return Result<void>();
+    return std::expected<void, Error>();
 }
 
-Result<void> EntitySerializer::load(std::string_view path)
+std::expected<void, Error> EntitySerializer::load(std::string_view path)
 {
     File file = TRY(Filesystem::open_file(path));
     FileReader reader = file.reader();
@@ -38,7 +37,7 @@ Result<void> EntitySerializer::load(std::string_view path)
 
         Variant vname = vname_opt.value();
         if (!vname.has(VariantType::String))
-            return Error(ErrorKind::ReadFailure);
+            return std::unexpected(Error(ErrorKind::ReadFailure));
         std::string s = vname.get_unchecked<std::string>();
 
         Variant value = TRY(reader.read_variant()).value();
@@ -46,7 +45,7 @@ Result<void> EntitySerializer::load(std::string_view path)
     }
 
     file.close();
-    return Result<void>();
+    return std::expected<void, Error>();
 }
 
 void Entity::bind_methods()

@@ -1,5 +1,4 @@
 #include "Core/Filesystem.hpp"
-#include "Core/Result.hpp"
 
 #include <fcntl.h>
 #include <filesystem>
@@ -54,12 +53,12 @@ bool Filesystem::exists(std::string_view path)
     return stat(path.data(), &s) != -1;
 }
 
-Result<File> Filesystem::open_file(std::string_view path, bool rw)
+std::expected<File, Error> Filesystem::open_file(std::string_view path, bool rw)
 {
     int fd = open(path.data(), rw ? (O_RDWR | O_CREAT) : O_RDONLY, S_IRUSR | S_IWUSR);
 
     if (fd == -1)
-        return Error(ErrorKind::FileNotFound);
+        return std::unexpected(Error(ErrorKind::FileNotFound));
 
     struct stat st{};
     stat(path.data(), &st);
@@ -71,10 +70,10 @@ Result<File> Filesystem::open_file(std::string_view path, bool rw)
     return file;
 }
 
-Result<void> Filesystem::make_dirs(std::string_view path)
+std::expected<void, Error> Filesystem::make_dirs(std::string_view path)
 {
     std::filesystem::create_directories(path.data());
-    return Result<void>();
+    return std::expected<void, Error>();
 }
 
 void File::close()
@@ -83,7 +82,7 @@ void File::close()
     m_fd = -1;
 }
 
-Result<size_t> FileReader::read_raw(void *buffer, size_t size)
+std::expected<size_t, Error> FileReader::read_raw(void *buffer, size_t size)
 {
     ssize_t r = ::read(m_fp->m_fd, buffer, size);
     if (r == 0)
@@ -92,7 +91,7 @@ Result<size_t> FileReader::read_raw(void *buffer, size_t size)
         return 0;
     }
     if (r < (ssize_t)size)
-        return Error(ErrorKind::ReadFailure);
+        return std::unexpected(Error(ErrorKind::ReadFailure));
     return (size_t)r;
 }
 
@@ -106,10 +105,10 @@ bool FileReader::eof()
     return m_eof;
 }
 
-Result<size_t> FileWriter::write_raw(const void *buffer, size_t len)
+std::expected<size_t, Error> FileWriter::write_raw(const void *buffer, size_t len)
 {
     ssize_t r = write(m_fd, buffer, len);
     if (r == -1)
-        return Error(ErrorKind::WriteFailure);
+        return std::unexpected(Error(ErrorKind::WriteFailure));
     return (size_t)r;
 }

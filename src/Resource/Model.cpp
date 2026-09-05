@@ -1,7 +1,5 @@
 #include "Resource/Model.hpp"
 
-#include "Core/Print.hpp"
-
 #include <nlohmann/json.hpp>
 
 static bool is_ref(std::string_view path)
@@ -17,7 +15,7 @@ void Model::resolve(const Model& parent)
     resolve();
 
     // for (const auto& [name, ref] : textures)
-    //     println("> {}: {}", name, ref);
+    //     std::println("> {}: {}", name, ref);
 }
 
 void Model::resolve()

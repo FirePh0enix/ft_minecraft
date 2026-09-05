@@ -150,14 +150,9 @@ static glm::vec3 normal_from_axis(Axis axis, bool positive)
     return glm::vec3();
 }
 
-Result<std::shared_ptr<Mesh>> Chunk::build_opaque_mesh(size_t slice_index, const std::map<ChunkPos, std::shared_ptr<Chunk>>& chunks)
+std::expected<std::shared_ptr<Mesh>, Error> Chunk::build_opaque_mesh(size_t slice_index, const std::map<ChunkPos, std::shared_ptr<Chunk>>& chunks)
 {
     int64_t slice_y_offset = int64_t(slice_index) * width;
-
-    // std::vector<uint32_t> indices;
-    // std::vector<glm::vec3> vertices;
-    // std::vector<glm::vec4> uvs;
-    // std::vector<glm::vec3> normals;
     MeshBuilder builder;
 
     for (int64_t x = 0; x < Chunk::width; x++)
@@ -173,7 +168,7 @@ Result<std::shared_ptr<Mesh>> Chunk::build_opaque_mesh(size_t slice_index, const
 
                 std::shared_ptr<Block> block = Engine::get().registry().get_block(m_blocks[index].id);
                 if (block == nullptr)
-                    return Result<std::shared_ptr<Mesh>>(nullptr);
+                    return nullptr;
 
                 auto match = [](BlockState *blocks, int64_t x, int64_t y, int64_t z, FaceKind face)
                 {
@@ -219,12 +214,12 @@ Result<std::shared_ptr<Mesh>> Chunk::build_opaque_mesh(size_t slice_index, const
     }
 
     if (builder.vertex_count() == 0)
-        return Result<std::shared_ptr<Mesh>>(nullptr);
+        return nullptr;
 
     return builder.build();
 }
 
-Result<std::shared_ptr<Mesh>> Chunk::build_water_mesh(size_t slice_index, const std::map<ChunkPos, std::shared_ptr<Chunk>>& chunks)
+std::expected<std::shared_ptr<Mesh>, Error> Chunk::build_water_mesh(size_t slice_index, const std::map<ChunkPos, std::shared_ptr<Chunk>>& chunks)
 {
     int64_t slice_y_offset = int64_t(slice_index) * width;
 
@@ -302,7 +297,7 @@ Result<std::shared_ptr<Mesh>> Chunk::build_water_mesh(size_t slice_index, const 
     }
 
     if (indices.size() == 0)
-        return Result<std::shared_ptr<Mesh>>(nullptr);
+        return nullptr;
 
     std::shared_ptr<Mesh> mesh = TRY(Mesh::create_from_data(std::as_bytes(std::span(indices)), vertices, normals, std::as_bytes(std::span(uvs)), WGPUIndexFormat_Uint16, WGPUVertexFormat_Float32x2));
     return mesh;

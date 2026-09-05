@@ -112,7 +112,7 @@ void World::find_safe_spawn()
     // }
 }
 
-Result<std::shared_ptr<World>> World::create(std::string name, uint64_t seed, int type)
+std::expected<std::shared_ptr<World>, Error> World::create(std::string name, uint64_t seed, int type)
 {
     std::shared_ptr<World> world = std::make_shared<World>();
     world->m_seed = seed;
@@ -144,7 +144,7 @@ Result<std::shared_ptr<World>> World::create(std::string name, uint64_t seed, in
     return world;
 }
 
-Result<std::shared_ptr<World>> World::create_proxy(uint64_t seed)
+std::expected<std::shared_ptr<World>, Error> World::create_proxy(uint64_t seed)
 {
     std::shared_ptr<World> world = std::make_shared<World>();
     world->m_seed = seed;
@@ -153,7 +153,7 @@ Result<std::shared_ptr<World>> World::create_proxy(uint64_t seed)
     return world;
 }
 
-Result<std::shared_ptr<World>> World::load(std::string name)
+std::expected<std::shared_ptr<World>, Error> World::load(std::string name)
 {
     std::shared_ptr<World> world = std::make_shared<World>();
 
@@ -536,12 +536,12 @@ void World::break_block(int dimension, int64_t x, int64_t y, int64_t z)
     add_entity(World::overworld, item_entity);
 }
 
-Result<void> World::save_chunk(std::stop_token token, std::shared_ptr<Chunk> chunk, int dimension)
+std::expected<void, Error> World::save_chunk(std::stop_token token, std::shared_ptr<Chunk> chunk, int dimension)
 {
     (void)token;
 
     if (Engine::get().is_save_disabled())
-        return Result<void>();
+        return std::expected<void, Error>();
 
     std::string path = std::format("{}/saves/{}/DIM{}/{}${}/", Filesystem::get_data_directory(), m_name, dimension, chunk->x(), chunk->z());
     TRY(Filesystem::make_dirs(path));
@@ -571,10 +571,10 @@ Result<void> World::save_chunk(std::stop_token token, std::shared_ptr<Chunk> chu
     // write_tags(writer, chunk);
     file.close();
 
-    return Result<void>();
+    return std::expected<void, Error>();
 }
 
-Result<void> World::save_entity(const std::shared_ptr<Entity>& entity)
+std::expected<void, Error> World::save_entity(const std::shared_ptr<Entity>& entity)
 {
     int64_t cx = chunk_index(int64_t(entity->get_position().x));
     int64_t cz = chunk_index(int64_t(entity->get_position().z));
@@ -590,10 +590,10 @@ Result<void> World::save_entity(const std::shared_ptr<Entity>& entity)
     path.append("");
     // TODO: save to disk
 
-    return Result<void>();
+    return std::expected<void, Error>();
 }
 
-Result<void> World::save_player(const std::shared_ptr<Player>& player)
+std::expected<void, Error> World::save_player(const std::shared_ptr<Player>& player)
 {
     std::string path = std::format("{}saves/{}/players/", Filesystem::get_data_directory(), m_name);
     TRY(Filesystem::make_dirs(path));
@@ -607,7 +607,7 @@ Result<void> World::save_player(const std::shared_ptr<Player>& player)
 
     TRY(serializer.save(path));
 
-    return Result<void>();
+    return std::expected<void, Error>();
 }
 
 bool World::load_player(std::string_view username, std::shared_ptr<Player>& player)
@@ -615,9 +615,9 @@ bool World::load_player(std::string_view username, std::shared_ptr<Player>& play
     std::string path = std::format("{}saves/{}/players/{}.dat", Filesystem::get_data_directory(), get_name(), username);
 
     EntitySerializer serializer;
-    Result<void> result = serializer.load(path);
+    std::expected<void, Error> result = serializer.load(path);
 
-    if (result.has_error())
+    if (!result.has_value())
     {
         error("player data is corrupted");
         // TODO: maybe copy corrupted data to a `.backup` file before writing over the data.
@@ -631,7 +631,7 @@ bool World::load_player(std::string_view username, std::shared_ptr<Player>& play
     player->set_rotation(rotation);
 
     result = player->load(serializer);
-    if (result.has_error())
+    if (!result.has_value())
     {
         error("player data is corrupted");
         return false;

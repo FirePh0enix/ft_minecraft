@@ -10,7 +10,7 @@
 static FT_Library g_lib;
 static std::shared_ptr<Mesh> g_mesh;
 
-Result<std::shared_ptr<Font>> Font::create(std::string_view font_name, uint32_t font_size)
+std::expected<std::shared_ptr<Font>, Error> Font::create(std::string_view font_name, uint32_t font_size)
 {
     uint32_t bmp_height = 0;
     uint32_t bmp_width = 0;
@@ -20,7 +20,7 @@ Result<std::shared_ptr<Font>> Font::create(std::string_view font_name, uint32_t 
 
     if (FT_New_Face(g_lib, font_name.data(), 0, &face) != 0)
     {
-        return Error(ErrorKind::FileNotFound);
+        return std::unexpected(Error(ErrorKind::FileNotFound));
     }
 
     FT_Set_Pixel_Sizes(face, 0, font_size);
@@ -30,7 +30,7 @@ Result<std::shared_ptr<Font>> Font::create(std::string_view font_name, uint32_t 
     for (uint8_t c = 0; c < 128; c++)
     {
         if (FT_Load_Char(face, c, FT_LOAD_RENDER) != 0)
-            return Error(ErrorKind::Unknown);
+            return std::unexpected(Error(ErrorKind::Unknown));
 
         bmp_height = std::max(bmp_height, face->glyph->bitmap.rows);
 
@@ -97,12 +97,12 @@ Font::~Font()
 {
 }
 
-Result<void> Font::init_library()
+std::expected<void, Error> Font::init_library()
 {
     const FT_Error res = FT_Init_FreeType(&g_lib);
 
     if (res != 0)
-        return Error(ErrorKind::FileNotFound);
+        return std::unexpected(Error(ErrorKind::FileNotFound));
 
     std::array<uint16_t, 6> indices = {0, 1, 2, 0, 2, 3};
     std::array<glm::vec3, 4> vertices = {
@@ -125,7 +125,7 @@ Result<void> Font::init_library()
     };
 
     g_mesh = TRY(Mesh::create_from_data(std::as_bytes(std::span(indices)), vertices, normals, std::as_bytes(std::span(uvs)), WGPUIndexFormat_Uint16));
-    return Result<void>();
+    return std::expected<void, Error>();
 }
 
 void Font::deinit_library()

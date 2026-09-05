@@ -2,10 +2,12 @@
 
 #include "AABB.hpp"
 #include "Core/Class.hpp"
-#include "Core/Result.hpp"
+#include "Core/Error.hpp"
 #include "Core/Types.hpp"
 #include "Event.hpp"
 #include "Transform3D.hpp"
+
+#include <expected>
 
 // from `World.hpp`
 class World;
@@ -104,8 +106,8 @@ public:
         return std::nullopt;
     }
 
-    Result<void> save(std::string_view path) const;
-    Result<void> load(std::string_view path);
+    std::expected<void, Error> save(std::string_view path) const;
+    std::expected<void, Error> load(std::string_view path);
 
 private:
     stdext::string_map<Variant> m_variants;
@@ -151,19 +153,19 @@ public:
     /**
      * Called when saving the entity to disk.
      */
-    virtual Result<void> save(EntitySerializer& ser) const
+    virtual std::expected<void, Error> save(EntitySerializer& ser) const
     {
         (void)ser;
-        return Result<void>();
+        return std::expected<void, Error>();
     }
 
     /**
      * Called when loading the entity from the disk.
      */
-    virtual Result<void> load(const EntitySerializer& deser)
+    virtual std::expected<void, Error> load(const EntitySerializer& deser)
     {
         (void)deser;
-        return Result<void>();
+        return std::expected<void, Error>();
     }
 
     const Transform3D& get_transform() const { return m_transform; }

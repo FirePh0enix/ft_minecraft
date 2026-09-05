@@ -1,6 +1,5 @@
 #include "Cow.hpp"
-#include "Core/Print.hpp"
-#include "Core/Result.hpp"
+
 #include "Entity/Entity.hpp"
 #include "World/World.hpp"
 
@@ -58,7 +57,7 @@ void Cow::on_ready()
 void Cow::die()
 {
     m_active = false;
-    println("Cow died !");
+    std::println("Cow died !");
 }
 
 void Cow::on_damage(int damage, EntityId damage_source)

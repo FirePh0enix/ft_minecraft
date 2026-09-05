@@ -3,7 +3,6 @@
 #include <filesystem>
 
 #include "Core/IO.hpp"
-#include "Core/Result.hpp"
 
 class File;
 
@@ -15,7 +14,7 @@ public:
     {
     }
 
-    virtual Result<size_t> read_raw(void *buf, size_t size) override;
+    virtual std::expected<size_t, Error> read_raw(void *buf, size_t size) override;
     virtual size_t size() override;
     virtual bool eof() override;
 
@@ -32,7 +31,7 @@ public:
     {
     }
 
-    virtual Result<size_t> write_raw(const void *buf, size_t size) override;
+    virtual std::expected<size_t, Error> write_raw(const void *buf, size_t size) override;
 
 private:
     int m_fd;
@@ -74,6 +73,6 @@ public:
 
     static bool exists(std::string_view path);
 
-    static Result<File> open_file(std::string_view path, bool rw = false);
-    static Result<void> make_dirs(std::string_view path);
+    static std::expected<File, Error> open_file(std::string_view path, bool rw = false);
+    static std::expected<void, Error> make_dirs(std::string_view path);
 };

@@ -101,8 +101,8 @@ target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/src)
 # Enable warnings
 target_compile_options(${TARGET_NAME} PUBLIC -Wall -Wextra -Wno-subobject-linkage)
 
-# Enable support for C++20
-set_property(TARGET ${TARGET_NAME} PROPERTY CXX_STANDARD 20)
+# Enable support for C++23
+set_property(TARGET ${TARGET_NAME} PROPERTY CXX_STANDARD 23)
 
 # Should prevent FetchContent for trying to connect online after downloading dependencies.
 set(FETCHCONTENT_UPDATES_DISCONNECTED ON)

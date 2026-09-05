@@ -71,7 +71,7 @@ public:
                                                      { return std::make_shared<T>(); }};
     }
 
-    Result<std::shared_ptr<Entity>> create_entity(ClassHashCode class_hash);
+    std::expected<std::shared_ptr<Entity>, Error> create_entity(ClassHashCode class_hash);
 
 private:
     std::map<ClassHashCode, Entry> m_entries;
@@ -131,11 +131,11 @@ public:
     GameRegistry();
 
     void register_all();
-    Result<void> post_register();
+    std::expected<void, Error> post_register();
 
-    Result<BlockStateResource> get_blockstate(std::string_view path);
-    Result<Model> get_model(std::string_view path);
-    Result<void> add_tint(std::string_view path);
+    std::expected<BlockStateResource, Error> get_blockstate(std::string_view path);
+    std::expected<Model, Error> get_model(std::string_view path);
+    std::expected<void, Error> add_tint(std::string_view path);
 
     void register_block(Id<Block> id, bool collision = true);
     void register_block(Id<Block> id, std::shared_ptr<Block> block);
@@ -221,7 +221,7 @@ public:
 
     std::shared_ptr<Texture> get_tintmap() const { return m_tint_texture_array; }
 
-    Result<void> add_texture(std::string_view path);
+    std::expected<void, Error> add_texture(std::string_view path);
 
     /**
      * Create a texture from a file path. If an error occurs the missing texture is returned.

@@ -20,7 +20,7 @@ constexpr int two_d_to_1d(int x, int y, int w)
     return y * w + x;
 }
 
-Result<std::shared_ptr<Entity>> EntityRegistry::create_entity(ClassHashCode class_hash)
+std::expected<std::shared_ptr<Entity>, Error> EntityRegistry::create_entity(ClassHashCode class_hash)
 {
     return m_entries[class_hash].c();
 }
@@ -58,7 +58,7 @@ void GameRegistry::register_all()
     add_item(Items::oak_log, std::make_shared<ItemBlock>(Blocks::oak_log));
     add_item(Items::oak_leaves, std::make_shared<ItemBlock>(Blocks::oak_leaves));
 
-    add_item(Items::grass,  std::make_shared<ItemBlock>(Blocks::grass));
+    add_item(Items::grass, std::make_shared<ItemBlock>(Blocks::grass));
 
     add_item(Items::crafting_table_block, std::make_shared<ItemBlock>(Blocks::crafting_table));
     // add_item(Items::portal_block, std::make_shared<ItemBlock>(Blocks::portal));
@@ -68,7 +68,7 @@ void GameRegistry::register_all()
     // add_item(Items::crystal, std::make_shared<CrystalItem>());
 }
 
-Result<void> GameRegistry::post_register()
+std::expected<void, Error> GameRegistry::post_register()
 {
     // TODO: try to guess the most optimal size.
     m_atlas = TRY(Texture::create(atlas_size, atlas_size, WGPUTextureFormat_RGBA8Unorm, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding, WGPUTextureDimension_2D));
@@ -126,10 +126,10 @@ Result<void> GameRegistry::post_register()
         stbi_image_free((stbi_uc *)texture.data);
     }
 
-    return Result<void>();
+    return std::expected<void, Error>();
 }
 
-Result<BlockStateResource> GameRegistry::get_blockstate(std::string_view path)
+std::expected<BlockStateResource, Error> GameRegistry::get_blockstate(std::string_view path)
 {
     auto iter = m_blockstates.find(path);
     if (iter != m_blockstates.end())
@@ -139,11 +139,11 @@ Result<BlockStateResource> GameRegistry::get_blockstate(std::string_view path)
     pathf += path;
     pathf += ".json";
 
-    Result<File> file_res = Filesystem::open_file(pathf);
-    if (file_res.has_error())
+    std::expected<File, Error> file_res = Filesystem::open_file(pathf);
+    if (!file_res.has_value())
     {
         error("cannot open file `{}`", pathf);
-        return file_res.error();
+        return std::unexpected(file_res.error());
     }
     File file = file_res.value();
     std::string text = TRY(file.reader().read_to_string());
@@ -155,7 +155,7 @@ Result<BlockStateResource> GameRegistry::get_blockstate(std::string_view path)
     return blockstate;
 }
 
-Result<Model> GameRegistry::get_model(std::string_view path)
+std::expected<Model, Error> GameRegistry::get_model(std::string_view path)
 {
     auto iter = m_models.find(path);
     if (iter != m_models.end())
@@ -165,11 +165,11 @@ Result<Model> GameRegistry::get_model(std::string_view path)
     pathf += path;
     pathf += ".json";
 
-    Result<File> file_res = Filesystem::open_file(pathf);
-    if (file_res.has_error())
+    std::expected<File, Error> file_res = Filesystem::open_file(pathf);
+    if (!file_res.has_value())
     {
         error("cannot open file `{}`", pathf);
-        return file_res.error();
+        return std::unexpected(file_res.error());
     }
     File file = file_res.value();
     std::string text = TRY(file.reader().read_to_string());
@@ -197,15 +197,15 @@ Result<Model> GameRegistry::get_model(std::string_view path)
     return model;
 }
 
-Result<void> GameRegistry::add_tint(std::string_view path)
+std::expected<void, Error> GameRegistry::add_tint(std::string_view path)
 {
     std::string pathf = "data/resourcepacks/core/assets/minecraft/textures/";
     pathf += path;
     pathf += ".png";
 
-    Result<File> file_opt = Filesystem::open_file(pathf);
-    if (file_opt.has_error())
-        return Result<void>();
+    std::expected<File, Error> file_opt = Filesystem::open_file(pathf);
+    if (!file_opt.has_value())
+        return std::expected<void, Error>();
 
     std::vector<char> buffer;
     EXPECT(file_opt.value().reader().read_to_buffer(buffer));
@@ -213,10 +213,10 @@ Result<void> GameRegistry::add_tint(std::string_view path)
 
     int w, h, channels;
     stbi_uc *data = stbi_load_from_memory((const stbi_uc *)buffer.data(), (int)buffer.size(), &w, &h, &channels, 4);
-    ERR_COND_R(data == nullptr, format("Failed to parse image `{}`", path), Result<void>());
+    ERR_COND_R(data == nullptr, format("Failed to parse image `{}`", path), std::expected<void, Error>());
 
     m_tint_textures.push_back(AtlasTexture(data, w, h, channels, std::string(path)));
-    return Result<void>();
+    return std::expected<void, Error>();
 }
 
 void GameRegistry::register_block(Id<Block> id, bool collision)
@@ -236,19 +236,19 @@ void GameRegistry::register_block(Id<Block> id, std::shared_ptr<Block> block)
     m_block_names[std::string(id.str)] = id;
 }
 
-Result<void> GameRegistry::add_texture(std::string_view path)
+std::expected<void, Error> GameRegistry::add_texture(std::string_view path)
 {
     if (m_textures.contains(path))
-        return Result<void>();
+        return std::expected<void, Error>();
 
     // TODO: allow overrides.
     std::string pathf = "data/resourcepacks/core/assets/minecraft/textures/";
     pathf += path;
     pathf += ".png";
 
-    Result<File> file_opt = Filesystem::open_file(pathf);
-    if (file_opt.has_error())
-        return Result<void>();
+    std::expected<File, Error> file_opt = Filesystem::open_file(pathf);
+    if (!file_opt.has_value())
+        return std::expected<void, Error>();
 
     std::vector<char> buffer;
     EXPECT(file_opt.value().reader().read_to_buffer(buffer));
@@ -256,10 +256,10 @@ Result<void> GameRegistry::add_texture(std::string_view path)
 
     int w, h, channels;
     stbi_uc *data = stbi_load_from_memory((const stbi_uc *)buffer.data(), (int)buffer.size(), &w, &h, &channels, 4);
-    ERR_COND_R(data == nullptr, format("Failed to parse image `{}`", path), Result<void>());
+    ERR_COND_R(data == nullptr, format("Failed to parse image `{}`", path), std::expected<void, Error>());
 
     m_textures[std::string(path)] = (AtlasTexture(data, w, h, channels, std::string(path)));
-    return Result<void>();
+    return std::expected<void, Error>();
 }
 
 void GameRegistry::add_item(Id<Item> id, std::shared_ptr<Item> item)

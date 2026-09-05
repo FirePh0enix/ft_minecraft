@@ -1,6 +1,5 @@
 #include "Entity/Arrow.hpp"
 
-#include "Core/Print.hpp"
 #include "Engine.hpp"
 #include "Entity/Mob.hpp"
 #include "Render/Renderer.hpp"
@@ -45,7 +44,7 @@ void ArrowEntity::tick(float delta)
 
         if (auto mob = std::dynamic_pointer_cast<Mob>(e))
         {
-            println("Arrow hit {}", e->get_class_name());
+            std::println("Arrow hit {}", e->get_class_name());
             mob->damage(1, id());
             m_velocity = glm::vec3(0.0f);
             break;

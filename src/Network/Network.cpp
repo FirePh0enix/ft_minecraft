@@ -11,7 +11,7 @@ NetworkConnection::NetworkConnection()
     ASSERT(enet_initialize() == 0, "failed to initialize ENet");
 }
 
-Result<void> NetworkConnection::connect_to(std::string_view ip, uint16_t port)
+std::expected<void, Error> NetworkConnection::connect_to(std::string_view ip, uint16_t port)
 {
     m_address.port = port;
     enet_address_set_host_ip(&m_address, ip.data());
@@ -20,24 +20,24 @@ Result<void> NetworkConnection::connect_to(std::string_view ip, uint16_t port)
     if (m_host == nullptr)
     {
         error("Failed to create client");
-        return Error(ErrorKind::ConnectionFailed);
+        return std::unexpected(Error(ErrorKind::ConnectionFailed));
     }
 
     m_peer = enet_host_connect(m_host, &m_address, 1, 0);
     if (m_peer == nullptr)
     {
         error("Failed to connect to {}:{}", ip, port);
-        return Error(ErrorKind::ConnectionFailed);
+        return std::unexpected(Error(ErrorKind::ConnectionFailed));
     }
 
     debug("Trying to connect to {}:{}", ip, port);
 
     m_state = ConnectionState::Connection;
     m_is_server = false;
-    return Result<void>();
+    return std::expected<void, Error>();
 }
 
-Result<void> NetworkConnection::host(uint16_t port, std::string_view ip)
+std::expected<void, Error> NetworkConnection::host(uint16_t port, std::string_view ip)
 {
     (void)ip;
     m_address.port = port;
@@ -47,14 +47,14 @@ Result<void> NetworkConnection::host(uint16_t port, std::string_view ip)
     if (m_host == nullptr)
     {
         error("Failed to host on *:{}", port);
-        return Error(ErrorKind::HostCreationFailed);
+        return std::unexpected(Error(ErrorKind::HostCreationFailed));
     }
 
     info("Hosting on *:{}", port);
 
     m_state = ConnectionState::Host;
     m_is_server = true;
-    return Result<void>();
+    return std::expected<void, Error>();
 }
 
 void NetworkConnection::send(ENetPeer *peer, ENetPacket *packet)

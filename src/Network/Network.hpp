@@ -6,6 +6,7 @@
 
 #include <cstdint>
 #include <string>
+#include <string_view>
 
 enum class ConnectionState
 {
@@ -48,8 +49,8 @@ public:
 
     NetworkConnection();
 
-    Result<void> connect_to(std::string_view ip, uint16_t port = default_port);
-    Result<void> host(uint16_t port, std::string_view ip = "0.0.0.0");
+    std::expected<void, Error> connect_to(std::string_view ip, uint16_t port = default_port);
+    std::expected<void, Error> host(uint16_t port, std::string_view ip = "0.0.0.0");
 
     /**
      * Send a packet to a connected peer.

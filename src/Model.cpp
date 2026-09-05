@@ -98,7 +98,7 @@ void from_json(const nlohmann::json& j, ModelJSON& m)
         j.at("texture_path").get_to(m.texture_path);
 }
 
-Result<std::shared_ptr<ModelLegacy>> ModelLegacy::load(std::string_view path)
+std::expected<std::shared_ptr<ModelLegacy>, Error> ModelLegacy::load(std::string_view path)
 {
     File file = TRY(Filesystem::open_file(path));
     std::string source = TRY(file.reader().read_to_string());

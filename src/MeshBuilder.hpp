@@ -1,10 +1,11 @@
 #pragma once
 
+#include "Core/Error.hpp"
 #include "Core/Math.hpp"
-#include "Core/Result.hpp"
 
-#include <vector>
+#include <expected>
 #include <memory>
+#include <vector>
 
 class Mesh;
 
@@ -18,7 +19,7 @@ public:
 
     size_t vertex_count() const { return m_vertices.size(); }
 
-    Result<std::shared_ptr<Mesh>> build();
+    std::expected<std::shared_ptr<Mesh>, Error> build();
 
 private:
     std::vector<uint32_t> m_indices;
