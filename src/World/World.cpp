@@ -83,8 +83,7 @@ static bool ray_intersect_aabb(const Ray& ray, const AABBd& aabb, double& t_min,
     return true;
 }
 
-World::World(AudioMixer& audio) : m_audio(audio)
-    : m_dims{Dimension(0), Dimension(1)}
+World::World(AudioMixer& audio) : m_dims{Dimension(0), Dimension(1)}, m_audio(audio)
 {
 }
 
