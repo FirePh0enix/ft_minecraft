@@ -71,6 +71,7 @@ void Chunk::set_block(int64_t x, int64_t y, int64_t z, BlockState state)
     //     m_dim->queue_rebuild(ChunkPos(m_x, m_z), y / 16, 1);
 }
 
+// TODO: remove this when rewriten water mesh generation.
 struct ChunkBlockFace
 {
     uint8_t x;

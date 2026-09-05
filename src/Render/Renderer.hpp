@@ -478,6 +478,7 @@ public:
     std::shared_ptr<Material> get_wireframe_mat() const { return m_wireframe_dbg_mat; }
     std::shared_ptr<Texture> get_fw_shadowmap() const { return m_fw_shadowmap; }
     std::shared_ptr<Buffer> get_fw_camera() const { return m_fw_camera; }
+    std::shared_ptr<Buffer> get_fw_camera_rel() const { return m_fw_camera_rel; }
     std::shared_ptr<Buffer> get_fw_world_env() const { return m_fw_world_env; }
     std::shared_ptr<Buffer> get_fw_shadowmap_camera() const { return m_fw_shadowmap_camera; }
 
@@ -532,6 +533,7 @@ private:
     std::shared_ptr<Texture> m_fw_color_texture;
 
     std::shared_ptr<Buffer> m_fw_camera;
+    std::shared_ptr<Buffer> m_fw_camera_rel;
     std::shared_ptr<Buffer> m_fw_world_env;
 
     std::shared_ptr<Shader> m_fw_chunk_shadowmap_shader;

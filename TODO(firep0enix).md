@@ -2,10 +2,11 @@
 
 - [x] Optimize chunk multithreading (remove mutex)
 - [x] Fix spurious crashes when loading more chunks
-- [ ] Fix performance problems
-- [x] Compute visibility before rendering to remove anoying visble chunk "lag"
+- [x] Fix performance problems
+- [ ] Compute visibility before rendering to remove anoying visble chunk "lag"
 - [ ] Re-enable world save
 - [x] Fix chunk border when generating mesh
+- [ ] Bug when destroying block when the thread pool is busy mesh are not rebuild right away
 - [ ] Fix debug display
 - [ ] Fix clouds
 - [ ] Plants

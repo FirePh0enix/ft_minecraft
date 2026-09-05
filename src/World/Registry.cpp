@@ -126,6 +126,9 @@ std::expected<void, Error> GameRegistry::post_register()
         stbi_image_free((stbi_uc *)texture.data);
     }
 
+    for (const auto& [id, block] : m_blocks)
+        block->post_register();
+
     return std::expected<void, Error>();
 }
 

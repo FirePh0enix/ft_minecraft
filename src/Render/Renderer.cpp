@@ -145,19 +145,7 @@ std::expected<std::shared_ptr<Buffer>, Error> Buffer::create(size_t size, WGPUBu
 
 void Buffer::update(std::span<const std::byte> view, size_t offset)
 {
-    // void *data = malloc(view.size_bytes());
-    // memcpy(data, view.data(), view.size_bytes());
-
     wgpuQueueWriteBuffer(Renderer::get().get_queue(), m_buffer, offset, view.data(), view.size_bytes());
-
-    // wgpuBufferAddRef(m_buffer); // Make sure the buffer lives long enough.
-
-    // Renderer::BufferWrite write{};
-    // write.buffer = m_buffer;
-    // write.data = data;
-    // write.data_size = view.size_bytes();
-    // write.offset = offset;
-    // Renderer::get().queue_buffer_write(write);
 }
 
 Texture::~Texture()
@@ -1026,6 +1014,7 @@ std::expected<void, Error> Renderer::init(const Window& window, InitFlags flags)
     m_sky_buffer = TRY(Buffer::create(sizeof(SkyUniforms), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
 
     m_fw_camera = TRY(Buffer::create(sizeof(FwCamera), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
+    m_fw_camera_rel = TRY(Buffer::create(sizeof(FwCamera), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
     m_fw_world_env = TRY(Buffer::create(sizeof(FwWorldEnv), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
     m_fw_shadowmap_camera = TRY(Buffer::create(sizeof(FwCamera), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
     m_fw_pp_buffer = TRY(Buffer::create(sizeof(PostProcessUniforms), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
@@ -1549,16 +1538,6 @@ void Renderer::draw_forward(const std::shared_ptr<World>& world)
 
     WGPUCommandEncoder encoder = wgpuDeviceCreateCommandEncoder(m_device, nullptr);
 
-    // Flush every write calls.
-    // TODO: most of the time, mapping the buffer then writing to it should be better.
-    // BufferWrite write{};
-    // while (m_buffer_writes_queue.try_dequeue(write))
-    // {
-    //     wgpuQueueWriteBuffer(m_queue, write.buffer, write.offset, write.data, write.data_size);
-    //     wgpuBufferRelease(write.buffer);
-    //     free(write.data);
-    // }
-
     const int current_dim = world->get_player()->get_dimension();
     // const int portal_dim = (current_dim + 1) % 2;
 
@@ -1638,6 +1617,9 @@ void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::sha
     FwCamera camera{};
     camera.view_projection = active_camera->get_view_proj_matrix();
     m_fw_camera->update_struct(camera);
+
+    camera.view_projection = active_camera->get_projection_matrix();
+    m_fw_camera_rel->update_struct(camera);
 
     const float shadowmap_range = float(world->get_render_distance()) * 34.0f;
     const glm::dvec3 light_target = active_camera->get_global_transform().position();

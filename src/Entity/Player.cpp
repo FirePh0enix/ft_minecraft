@@ -162,11 +162,6 @@ void BetterConsole::gamemode(Player *player, const std::vector<std::string>& arg
     }
 }
 
-struct GPU_ATTRIBUTE ItemModel
-{
-    glm::mat4 model_matrix;
-};
-
 void Player::bind_methods()
 {
     type.add_method("break_block", &Player::break_block);
@@ -612,12 +607,12 @@ void Player::draw(const RenderPass& pass)
 
             Transform3D transform;
             transform.scale() = glm::vec3(0.2);
-            transform.position() = glm::vec3(glm::dvec3(0.32, -0.3, -0.4) - m_camera->get_position());
+            transform.position() = glm::vec3(glm::dvec3(0.32, -0.2, -0.4));
 
             glm::mat4 matrix = transform.to_matrix();
 
             std::shared_ptr<BindGroup> bg = BindGroup::create(Renderer::get().get_model_noshadow_shader());
-            bg->set_param("camera", Renderer::get().get_fw_camera());
+            bg->set_param("camera", Renderer::get().get_fw_camera_rel());
             bg->set_param("model", m_hand_model_buffer);
             bg->set_param("world_env", Renderer::get().get_fw_world_env());
             bg->set_param("atlas", EXPECT(Engine::get().registry().get_atlas()->get_view()));

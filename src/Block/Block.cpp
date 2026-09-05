@@ -29,7 +29,10 @@ Block::Block(std::string_view path, bool collision)
             if (facei != element.faces.end() && facei->second.cullface.has_value()) // TODO: check value for unconventional face culling setup.
                 m_cullfaces[(int)face.face] = true;
         }
+}
 
+void Block::post_register()
+{
     MeshBuilder builder;
     add(builder);
     m_mesh = EXPECT(builder.build());

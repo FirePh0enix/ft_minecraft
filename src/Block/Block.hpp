@@ -6,8 +6,6 @@
 #include "Resource/BlockState.hpp"
 #include "Resource/Model.hpp"
 
-#include <array>
-#include <span>
 #include <string>
 
 class Block;
@@ -26,6 +24,11 @@ struct BlockState
 
     explicit BlockState(uint32_t id)
         : id(id)
+    {
+    }
+
+    explicit BlockState(Id<Block> id)
+        : id(id.hash)
     {
     }
 
@@ -101,6 +104,8 @@ class Block
 public:
     Block(std::string_view path, bool collision = true);
     virtual ~Block() {}
+
+    void post_register();
 
     bool has_cullface(FaceKind face);
     bool has_collision() const { return m_collision; }
