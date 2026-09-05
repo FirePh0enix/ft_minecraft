@@ -1072,17 +1072,17 @@ std::expected<void, Error> Renderer::init(const Window& window, InitFlags flags)
     m_ssao_noise_texture = TRY(Texture::create(4, 4, WGPUTextureFormat_RGBA32Float, WGPUTextureUsage_TextureBinding | WGPUTextureUsage_CopyDst));
     m_ssao_noise_texture->update(std::as_bytes(std::span(ssao_noise)));
 
-    // m_fw_model_shader = TRY(Shader::load_from_path("data/shaders/fw/model.wgsl"));
-    // m_fw_model_shader->set_binding("camera", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
-    // m_fw_model_shader->set_binding("model", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 1, BindingAccess::Read));
-    // m_fw_model_shader->set_binding("global_model", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 2, BindingAccess::Read));
-    // m_fw_model_shader->set_binding("world_env", Binding::UniformBuffer(WGPUShaderStage_Vertex | WGPUShaderStage_Fragment, 0, 3, BindingAccess::Read));
-    // m_fw_model_shader->set_binding("uvs", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 4, BindingAccess::Read));
-    // m_fw_model_shader->set_binding("texture", Binding::Texture(WGPUShaderStage_Fragment, 0, 5, BindingAccess::Read, WGPUTextureViewDimension_2D));
-    // m_fw_model_shader->set_sampler("texture", SamplerDescriptor(WGPUFilterMode_Nearest, WGPUFilterMode_Nearest));
-    // m_fw_model_shader->set_binding("shadowmap", Binding::Texture(WGPUShaderStage_Fragment, 0, 7, BindingAccess::Read, WGPUTextureViewDimension_2D, WGPUTextureSampleType_Depth, WGPUSamplerBindingType_Comparison));
-    // m_fw_model_shader->set_sampler("shadowmap", SamplerDescriptor{.compare = WGPUCompareFunction_LessEqual, .address_mode = {.u = WGPUAddressMode_ClampToEdge, .v = WGPUAddressMode_ClampToEdge}});
-    // m_fw_model_shader->create_bind_group_layout();
+    m_fw_model_shader = TRY(Shader::load_from_path("data/shaders/fw/model.wgsl"));
+    m_fw_model_shader->set_binding("camera", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
+    m_fw_model_shader->set_binding("model", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 1, BindingAccess::Read));
+    m_fw_model_shader->set_binding("global_model", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 2, BindingAccess::Read));
+    m_fw_model_shader->set_binding("world_env", Binding::UniformBuffer(WGPUShaderStage_Vertex | WGPUShaderStage_Fragment, 0, 3, BindingAccess::Read));
+    m_fw_model_shader->set_binding("uvs", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 4, BindingAccess::Read));
+    m_fw_model_shader->set_binding("texture", Binding::Texture(WGPUShaderStage_Fragment, 0, 5, BindingAccess::Read, WGPUTextureViewDimension_2D));
+    m_fw_model_shader->set_sampler("texture", SamplerDescriptor(WGPUFilterMode_Nearest, WGPUFilterMode_Nearest));
+    m_fw_model_shader->set_binding("shadowmap", Binding::Texture(WGPUShaderStage_Fragment, 0, 7, BindingAccess::Read, WGPUTextureViewDimension_2D, WGPUTextureSampleType_Depth, WGPUSamplerBindingType_Comparison));
+    m_fw_model_shader->set_sampler("shadowmap", SamplerDescriptor{.compare = WGPUCompareFunction_LessEqual, .address_mode = {.u = WGPUAddressMode_ClampToEdge, .v = WGPUAddressMode_ClampToEdge}});
+    m_fw_model_shader->create_bind_group_layout();
 
     m_fw_item_shader = TRY(Shader::load_from_path("data/shaders/fw/item.wgsl"));
     m_fw_item_shader->set_binding("camera", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));

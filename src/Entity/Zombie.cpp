@@ -7,6 +7,7 @@
 
 #include <limits>
 #include <memory>
+#include <print>
 
 constexpr float PATH_UPDATE_INTERVAL = 1.0f;
 constexpr float DETECTION_RADIUS = 20.0f;
@@ -17,6 +18,7 @@ void Zombie::tick(float delta)
 {
     m_attack_timer -= delta;
     m_path_update_timer -= delta;
+    m_groan_timer -= delta;
 
     if (!m_on_ground)
     {
@@ -60,11 +62,11 @@ void Zombie::tick(float delta)
 
         bool is_target_reachable = m_pathfinding->is_walkable(target_rounded_pos, 0, m_dimension);
 
+        // Tracking.
         if (is_target_reachable && m_path_update_timer <= 0.0f)
         {
             m_path_update_timer = PATH_UPDATE_INTERVAL;
             flee_to(target_rounded_pos);
-            // println("Tracking...");
         }
 
         if (best_dist_sq < m_attack_range * m_attack_range)
@@ -73,17 +75,15 @@ void Zombie::tick(float delta)
             m_velocity.x = 0.0f;
             m_velocity.z = 0.0f;
             attack();
-            // println("Attacking...");
         }
     }
     else
     {
-        // Patrol.
+        // Patrolling.
         if (m_on_ground && !m_following_path)
         {
             const glm::ivec3 to = find_random_walkable_position(DETECTION_RADIUS);
             flee_to(to);
-            // println("Patrolling...");
         }
     }
 
@@ -105,6 +105,31 @@ void Zombie::tick(float delta)
     follow_path(delta);
     move_and_collide();
 
+    m_audio_source->set_position(get_global_transform().position());
+
+    if (m_groan_timer <= 0.0f)
+    {
+        m_groan_timer = GROAN_INTERVAL;
+        m_audio_source->play_one_shot(&m_groan_clip.value(), 0.5f);
+    }
+
+    const bool is_moving = m_on_ground && glm::length2(glm::vec2(m_velocity.x, m_velocity.z)) > 0.001f;
+
+    if (is_in_water() && is_moving)
+    {
+        m_audio_source->set_clip(&m_swimming_clip.value());
+        m_audio_source->play();
+        std::println("swimming !");
+    }
+    else if (m_on_ground && is_moving)
+    {
+        m_audio_source->set_clip(&m_walking_clip.value());
+        m_audio_source->play();
+        std::println("walking !");
+    }
+    else
+        m_audio_source->stop();
+
     m_velocity.x = 0.0;
     m_velocity.z = 0.0;
 
@@ -114,9 +139,24 @@ void Zombie::tick(float delta)
 
 void Zombie::on_ready()
 {
-    m_model = EXPECT(ModelLegacy::load("assets/models/zombie.json"));
+    auto pathtest = std::filesystem::absolute("data/models/zombie.json");
+
+    m_model = EXPECT(ModelLegacy::load(pathtest.c_str()));
     m_id = World::next_id();
     m_pathfinding = std::make_unique<Pathfinding>(m_world);
+
+    AudioMixer& audio = m_world->audio();
+    auto path = std::filesystem::absolute("assets/audio/zombie/groan.wav");
+    m_groan_clip.emplace(*audio.get_audio_mixer(), path);
+    path = std::filesystem::absolute("assets/audio/zombie/walking.wav");
+    m_walking_clip.emplace(*audio.get_audio_mixer(), path);
+    path = std::filesystem::absolute("assets/audio/zombie/attacking.wav");
+    m_attacking_clip.emplace(*audio.get_audio_mixer(), path);
+    path = std::filesystem::absolute("assets/audio/zombie/swimming.wav");
+    m_swimming_clip.emplace(*audio.get_audio_mixer(), path);
+
+    m_audio_source.emplace(audio);
+    m_audio_source->set_clip(&m_walking_clip.value());
 }
 
 void Zombie::attack()
@@ -130,4 +170,5 @@ void Zombie::attack()
 
     mob->damage(1, id());
     m_attack_timer = m_attack_cooldown;
+    m_audio_source->play_one_shot(&m_attacking_clip.value(), 0.5f);
 }

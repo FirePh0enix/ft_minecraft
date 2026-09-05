@@ -169,6 +169,9 @@ void OverworldGen::generate_chunk(std::shared_ptr<Chunk> chunk, std::shared_ptr<
 
     BlockState stone(Blocks::stone.hash);
 
+    for (size_t i = 0; i < 16 * 16; i++)
+        chunk->get_biomes()[i] = preloaded_chunk->biomes[i];
+
     for (int64_t x = 0; x < 16; x++)
     {
         for (int64_t z = 0; z < 16; z++)
@@ -203,6 +206,8 @@ void OverworldGen::generate_chunk(std::shared_ptr<Chunk> chunk, std::shared_ptr<
                 surface = BlockState(Blocks::sand.hash);
                 break;
             case Biome::Underworld:
+                break;
+            case Biome::None:
                 break;
             }
 

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Audio/AudioClip.hpp"
+#include "Audio/AudioSource.hpp"
 #include "Entity/Entity.hpp"
 #include "Mob.hpp"
 
@@ -19,8 +21,10 @@ public:
     void on_ready() override;
 
 protected:
-    void die() override;
     void flee_from(int radius);
 
     std::shared_ptr<Entity> m_threat_entity;
+    std::optional<AudioClip> m_walking_clip;
+    std::optional<AudioClip> m_swimming_clip;
+    std::optional<AudioSource> m_audio_source;
 };

@@ -1,6 +1,7 @@
 #include "World/World.hpp"
 
 #include "AABB.hpp"
+#include "Audio/AudioMixer.hpp"
 #include "Core/Filesystem.hpp"
 #include "Core/ZLib.hpp"
 #include "Engine.hpp"
@@ -15,6 +16,7 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <expected>
 #include <format>
 #include <limits>
 #include <memory>
@@ -82,8 +84,7 @@ static bool ray_intersect_aabb(const Ray& ray, const AABBd& aabb, double& t_min,
     return true;
 }
 
-World::World()
-    : m_dims{Dimension(0), Dimension(1)}
+World::World(AudioMixer& audio) : m_dims{Dimension(0), Dimension(1)}, m_audio(audio)
 {
 }
 
@@ -112,9 +113,9 @@ void World::find_safe_spawn()
     // }
 }
 
-std::expected<std::shared_ptr<World>, Error> World::create(std::string name, uint64_t seed, int type)
+std::expected<std::shared_ptr<World>, Error> World::create(std::string name, uint64_t seed, int type, AudioMixer& audio)
 {
-    std::shared_ptr<World> world = std::make_shared<World>();
+    std::shared_ptr<World> world = std::make_shared<World>(audio);
     world->m_seed = seed;
     world->m_name = name;
 
@@ -144,18 +145,18 @@ std::expected<std::shared_ptr<World>, Error> World::create(std::string name, uin
     return world;
 }
 
-std::expected<std::shared_ptr<World>, Error> World::create_proxy(uint64_t seed)
+std::expected<std::shared_ptr<World>, Error> World::create_proxy(uint64_t seed, AudioMixer& audio)
 {
-    std::shared_ptr<World> world = std::make_shared<World>();
+    std::shared_ptr<World> world = std::make_shared<World>(audio);
     world->m_seed = seed;
     world->m_proxy = true;
     world->m_dims[overworld].m_world = world.get();
     return world;
 }
 
-std::expected<std::shared_ptr<World>, Error> World::load(std::string name)
+std::expected<std::shared_ptr<World>, Error> World::load(std::string name, AudioMixer& audio)
 {
-    std::shared_ptr<World> world = std::make_shared<World>();
+    std::shared_ptr<World> world = std::make_shared<World>(audio);
 
     if (!Engine::get().is_save_disabled())
     {
