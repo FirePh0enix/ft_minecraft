@@ -16,7 +16,7 @@ struct WorldEnv
 
 struct VertexOutput
 {
-    @builtin(position) position: vec4<f32>,
+    @builtin(position) clip_position: vec4<f32>,
     @location(0) world_position: vec4<f32>,
     @location(1) normal: vec3<f32>,
     @location(2) light_vec: vec3<f32>,
@@ -47,7 +47,7 @@ fn vertex_main(
 ) -> VertexOutput {
     var out: VertexOutput;
     out.world_position = global_model.model_matrix * model.model_matrix * vec4(position, 1.0);
-    out.position = camera.view_matrix * out.world_position;
+    out.clip_position = camera.view_matrix * out.world_position;
     out.normal = normal;
     out.light_vec = normalize(vec3(-1.0, -1.0, 0.0));
     
@@ -57,7 +57,7 @@ fn vertex_main(
         out.uv = uvs[vertex_index / 2].zw;
     }
 
-    out.frag_pos_light_space = world_env.light_view_projection * model.model_matrix * vec4f(position, 1.0);
+    out.frag_pos_light_space = world_env.light_view_projection * out.world_position * vec4f(position, 1.0);
 
     return out;
 }

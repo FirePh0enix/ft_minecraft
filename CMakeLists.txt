@@ -28,6 +28,10 @@ list(APPEND SOURCES
     src/Type.cpp
     src/Variant.cpp
     src/Window.cpp
+    src/Audio/AudioMixer.cpp
+    src/Audio/AudioClip.cpp
+    src/Audio/AudioSource.cpp
+    src/Audio/MusicPlayer.cpp
     src/Block/Block.cpp
     src/Block/CraftingTable.cpp
     # src/Block/Portal.cpp
@@ -72,11 +76,6 @@ list(APPEND SOURCES
     src/World/Structure.cpp
     src/World/World.cpp
     src/World/UnderworldGen.cpp
-    src/audio/AudioMixer.cpp
-    src/audio/AudioClip.cpp
-    src/audio/AudioSource.cpp
-    src/audio/MusicPlayer.cpp
-
 )
 
 if (EMSCRIPTEN)

@@ -1,8 +1,8 @@
 #include "Engine.hpp"
 
-#include "Core/Error.hpp"
 #include "Audio/AudioMixer.hpp"
 #include "Audio/MusicPlayer.hpp"
+#include "Core/Error.hpp"
 #include "Core/Filesystem.hpp"
 #include "Core/Logger.hpp"
 #include "Core/Types.hpp"
@@ -331,7 +331,7 @@ void Engine::create_world_and_start()
     // m_world->add_entity(World::overworld, cow);
 
     std::shared_ptr<Entity> zombie = std::make_shared<Zombie>();
-    zombie->get_transform().position() = m_player->get_position();
+    zombie->get_transform().position() = m_player->get_position() + glm::dvec3(0, 2.0, 0);
     m_world->add_entity(World::overworld, zombie);
 
     m_scene = GameScene::World;

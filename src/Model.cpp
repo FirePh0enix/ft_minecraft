@@ -204,13 +204,11 @@ std::optional<ModelLegacy::Object> ModelLegacy::get_object(std::string_view name
 
 void ModelLegacy::encode(const RenderPass& pass, const Transform3D& transform)
 {
-    const std::shared_ptr<Mesh>& mesh = Renderer::get().get_cube_mesh();
-
-    Info info{.model_matrix = transform.to_matrix(Engine::get().get_world()->get_player()->get_camera()->get_position())};
+    Info info{.model_matrix = transform.to_matrix(Engine::get().get_world()->get_player()->get_camera()->get_global_transform().position())};
     m_global_buffer->update_struct(info);
 
     for (const auto& obj : m_objects)
-        Renderer::get().draw(pass, mesh, Renderer::get().get_fw_model_mat(), obj.bg);
+        Renderer::get().draw(pass, Renderer::get().get_cube_mesh(), Renderer::get().get_fw_model_mat(), obj.bg);
 }
 
 void Animator::set_model(std::shared_ptr<ModelLegacy> model)

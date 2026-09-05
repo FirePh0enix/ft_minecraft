@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Core/Error.hpp"
+#include "Core/Types.hpp"
 #include "Transform3D.hpp"
 
 #include <expected>
@@ -16,7 +17,7 @@ class BindGroup;
 class ModelLegacy
 {
 public:
-    struct Info
+    struct GPU_ATTRIBUTE Info
     {
         glm::mat4 model_matrix;
     };
