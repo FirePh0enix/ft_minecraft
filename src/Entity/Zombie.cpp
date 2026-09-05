@@ -1,6 +1,5 @@
 #include "Zombie.hpp"
 
-#include "Core/Result.hpp"
 #include "Entity/Entity.hpp"
 #include "Entity/LivingEntity.hpp"
 #include "Entity/Player.hpp"
@@ -8,6 +7,7 @@
 
 #include <limits>
 #include <memory>
+#include <print>
 
 constexpr float PATH_UPDATE_INTERVAL = 1.0f;
 constexpr float DETECTION_RADIUS = 20.0f;
@@ -105,12 +105,6 @@ void Zombie::tick(float delta)
     follow_path(delta);
     move_and_collide();
 
-    m_velocity.x = 0.0;
-    m_velocity.z = 0.0;
-
-    if (m_on_ground && m_velocity.y < 0.0f)
-        m_velocity.y = 0.0f;
-
     m_audio_source->set_position(get_global_transform().position());
 
     if (m_groan_timer <= 0.0f)
@@ -125,19 +119,29 @@ void Zombie::tick(float delta)
     {
         m_audio_source->set_clip(&m_swimming_clip.value());
         m_audio_source->play();
+        std::println("swimming !");
     }
     else if (m_on_ground && is_moving)
     {
         m_audio_source->set_clip(&m_walking_clip.value());
         m_audio_source->play();
+        std::println("walking !");
     }
     else
         m_audio_source->stop();
+
+    m_velocity.x = 0.0;
+    m_velocity.z = 0.0;
+
+    if (m_on_ground && m_velocity.y < 0.0f)
+        m_velocity.y = 0.0f;
 }
 
 void Zombie::on_ready()
 {
-    m_model = EXPECT(ModelLegacy::load("assets/models/zombie.json"));
+    auto pathtest = std::filesystem::absolute("data/models/zombie.json");
+
+    m_model = EXPECT(ModelLegacy::load(pathtest.c_str()));
     m_id = World::next_id();
     m_pathfinding = std::make_unique<Pathfinding>(m_world);
 
@@ -166,5 +170,5 @@ void Zombie::attack()
 
     mob->damage(1, id());
     m_attack_timer = m_attack_cooldown;
-    m_audio_source->play_one_shot(&m_attacking_clip.value(), 1.0f);
+    m_audio_source->play_one_shot(&m_attacking_clip.value(), 0.5f);
 }

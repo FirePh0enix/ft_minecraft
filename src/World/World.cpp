@@ -16,6 +16,7 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <expected>
 #include <format>
 #include <limits>
 #include <memory>
@@ -144,7 +145,7 @@ std::expected<std::shared_ptr<World>, Error> World::create(std::string name, uin
     return world;
 }
 
-Result<std::shared_ptr<World>> World::create_proxy(uint64_t seed)
+std::expected<std::shared_ptr<World>, Error> World::create_proxy(uint64_t seed, AudioMixer& audio)
 {
     std::shared_ptr<World> world = std::make_shared<World>(audio);
     world->m_seed = seed;
@@ -153,7 +154,7 @@ Result<std::shared_ptr<World>> World::create_proxy(uint64_t seed)
     return world;
 }
 
-Result<std::shared_ptr<World>> World::load(std::string name)
+std::expected<std::shared_ptr<World>, Error> World::load(std::string name, AudioMixer& audio)
 {
     std::shared_ptr<World> world = std::make_shared<World>(audio);
 
