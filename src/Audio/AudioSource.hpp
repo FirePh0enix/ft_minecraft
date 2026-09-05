@@ -19,7 +19,14 @@ public:
 
     void set_volume(float volume);
     void set_position(const glm::vec3& position);
-    inline void set_clip(AudioClip *clip) { m_clip = clip; }
+    inline void set_clip(AudioClip *clip)
+    {
+        if (m_clip == clip)
+            return;
+
+        stop();
+        m_clip = clip;
+    }
 
 private:
     AudioMixer& m_mixer;

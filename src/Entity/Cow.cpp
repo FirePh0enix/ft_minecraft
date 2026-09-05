@@ -1,5 +1,5 @@
 #include "Cow.hpp"
-
+#include "Core/Result.hpp"
 #include "Entity/Entity.hpp"
 #include "World/World.hpp"
 
@@ -45,6 +45,23 @@ void Cow::tick(float delta)
 
     if (m_on_ground && m_velocity.y < 0.0f)
         m_velocity.y = 0.0f;
+
+    m_audio_source->set_position(get_global_transform().position());
+
+    const bool is_moving = m_on_ground && glm::length2(glm::vec2(m_velocity.x, m_velocity.z)) > 0.001f;
+
+    if (is_in_water() && is_moving)
+    {
+        m_audio_source->set_clip(&m_swimming_clip.value());
+        m_audio_source->play();
+    }
+    else if (m_on_ground && is_moving)
+    {
+        m_audio_source->set_clip(&m_walking_clip.value());
+        m_audio_source->play();
+    }
+    else
+        m_audio_source->stop();
 }
 
 void Cow::on_ready()
@@ -52,12 +69,15 @@ void Cow::on_ready()
     m_model = EXPECT(ModelLegacy::load("assets/models/cow.json"));
     m_id = World::next_id();
     m_pathfinding = std::make_unique<Pathfinding>(m_world);
-}
 
-void Cow::die()
-{
-    m_active = false;
-    std::println("Cow died !");
+    AudioMixer& audio = m_world->audio();
+    auto path = std::filesystem::absolute("assets/audio/cow/walking.wav");
+    m_walking_clip.emplace(*audio.get_audio_mixer(), path);
+    path = std::filesystem::absolute("assets/audio/cow/swimming.wav");
+    m_swimming_clip.emplace(*audio.get_audio_mixer(), path);
+
+    m_audio_source.emplace(audio);
+    m_audio_source->set_clip(&m_walking_clip.value());
 }
 
 void Cow::on_damage(int damage, EntityId damage_source)

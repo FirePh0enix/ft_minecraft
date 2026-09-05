@@ -32,8 +32,9 @@ protected:
 
     float m_groan_timer = GROAN_INTERVAL;
 
-    // Audio
     std::optional<AudioClip> m_groan_clip;
     std::optional<AudioClip> m_walking_clip;
+    std::optional<AudioClip> m_attacking_clip;
+    std::optional<AudioClip> m_swimming_clip;
     std::optional<AudioSource> m_audio_source;
 };
