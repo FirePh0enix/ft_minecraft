@@ -28,6 +28,8 @@ void AudioSource::play_one_shot(AudioClip *clip, float volume)
         return;
     }
 
+    update_track_position(track);
+
     if (!MIX_PlayTrack(track, 0))
     {
         error("MIX_PlayTrack() failed: {}", SDL_GetError());
@@ -82,24 +84,7 @@ void AudioSource::stop()
 
 void AudioSource::update()
 {
-    if (!m_track)
-        return;
-
-    const auto& listener = m_mixer.get_audio_listener();
-
-    const glm::vec3 pos = m_position - listener.get_position();
-    const glm::vec3 forward = glm::normalize(listener.get_forward());
-    const glm::vec3 up = glm::normalize(listener.get_up());
-    const glm::vec3 right = glm::normalize(glm::cross(forward, up));
-
-    MIX_Point3D point{
-        .x = glm::dot(pos, right),
-        .y = glm::dot(pos, up),
-        .z = -glm::dot(pos, forward),
-    };
-
-    if (!MIX_SetTrack3DPosition(m_track, &point))
-        error("MIX_SetTrack3DPosition() failed: {}", SDL_GetError());
+    update_track_position(m_track);
 }
 
 void AudioSource::set_volume(float volume)
@@ -117,4 +102,26 @@ void AudioSource::set_position(const glm::vec3& position)
 {
     m_position = position;
     update();
+}
+
+void AudioSource::update_track_position(MIX_Track *track)
+{
+    if (!track)
+        return;
+
+    const auto& listener = m_mixer.get_audio_listener();
+
+    const glm::vec3 pos = m_position - listener.get_position();
+    const glm::vec3 forward = glm::normalize(listener.get_forward());
+    const glm::vec3 up = glm::normalize(listener.get_up());
+    const glm::vec3 right = glm::normalize(glm::cross(forward, up));
+
+    MIX_Point3D point{
+        .x = glm::dot(pos, right),
+        .y = glm::dot(pos, up),
+        .z = -glm::dot(pos, forward),
+    };
+
+    if (!MIX_SetTrack3DPosition(track, &point))
+        error("MIX_SetTrack3DPosition() failed: {}", SDL_GetError());
 }

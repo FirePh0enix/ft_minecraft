@@ -35,4 +35,6 @@ private:
 
     float m_volume = 1.0f;
     glm::vec3 m_position{};
+
+    void update_track_position(MIX_Track *track);
 };
