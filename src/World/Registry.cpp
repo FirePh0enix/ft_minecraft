@@ -40,6 +40,8 @@ void GameRegistry::register_all()
     register_block(Blocks::sand);
     register_block(Blocks::snow_block);
 
+    register_block(Blocks::coal_ore);
+
     register_block(Blocks::oak_leaves);
     register_block(Blocks::oak_log);
 
@@ -54,6 +56,8 @@ void GameRegistry::register_all()
     add_item(Items::sand, std::make_shared<ItemBlock>(Blocks::sand));
     add_item(Items::grass_block, std::make_shared<ItemBlock>(Blocks::grass_block));
     add_item(Items::snow, std::make_shared<ItemBlock>(Blocks::snow_block));
+
+    add_item(Items::coal_ore, std::make_shared<ItemBlock>(Blocks::coal_ore));
 
     add_item(Items::oak_log, std::make_shared<ItemBlock>(Blocks::oak_log));
     add_item(Items::oak_leaves, std::make_shared<ItemBlock>(Blocks::oak_leaves));
@@ -331,7 +335,7 @@ std::shared_ptr<Texture> GameRegistry::create_preview_texture(std::shared_ptr<Bl
 
     NeighborFlags flags{};
     MeshBuilder builder;
-    block->add(builder, {0, 0, 0}, flags);
+    block->add(builder, 0, {0, 0, 0}, flags);
     std::shared_ptr<Mesh> mesh = THROW(builder.build(), Renderer::get().get_missing_texture());
 
     std::shared_ptr<Buffer> model_buffer = THROW(Buffer::create(sizeof(FwModel), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform), Renderer::get().get_missing_texture());

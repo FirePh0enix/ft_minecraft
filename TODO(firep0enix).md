@@ -14,7 +14,7 @@
 - [ ] Spawn mobs
 - [ ] Save entities
 
-- [ ] Generate caves
+- [x] Generate caves
 - [ ] Generate ores
 
 # Less important

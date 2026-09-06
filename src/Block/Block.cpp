@@ -7,7 +7,10 @@ Block::Block(std::string_view path, bool collision)
     : m_path(path), m_collision(collision)
 {
     m_blockstate = EXPECT(Engine::get().registry().get_blockstate(path));
-    m_model = EXPECT(Engine::get().registry().get_model(m_blockstate.variants[""][0].model));
+
+    std::vector<BlockStateVariant> variants = m_blockstate.variants[""];
+    for (const auto& variant : variants)
+        m_models.push_back(EXPECT(Engine::get().registry().get_model(variant.model)));
 
     const struct
     {
@@ -22,7 +25,7 @@ Block::Block(std::string_view path, bool collision)
         {.name = "east", .face = FaceKind::East},
     };
 
-    for (const auto& element : m_model.elements)
+    for (const auto& element : m_models[0].elements)
         for (const auto& face : faces)
         {
             auto facei = element.faces.find(face.name);
@@ -70,9 +73,11 @@ static FaceKind face_from_string(std::string_view name)
     return FaceKind::North;
 }
 
-void Block::add(MeshBuilder& builder, glm::i64vec3 position, NeighborFlags neighbors)
+void Block::add(MeshBuilder& builder, int64_t variant, glm::i64vec3 position, NeighborFlags neighbors)
 {
-    for (const auto& element : m_model.elements)
+    variant %= (int64_t)m_models.size();
+
+    for (const auto& element : m_models[variant].elements)
     {
         const glm::vec3 offset = glm::vec3(element.from[0], element.from[1], element.from[2]) / 16.0f;
         const glm::vec3 size = glm::vec3(element.to[0] - element.from[0], element.to[1] - element.from[1], element.to[2] - element.from[1]) / 16.0f;

@@ -151,6 +151,42 @@ static glm::vec3 normal_from_axis(Axis axis, bool positive)
     return glm::vec3();
 }
 
+static uint64_t get_3d_seed(int64_t x, int64_t y, int64_t z, uint64_t custom_world_seed = 0)
+{
+    // Large 64-bit primes for bit distribution
+    const uint64_t BIT_MUSH_1 = 0x9e3779b97f4a7c15ULL;
+    const uint64_t BIT_MUSH_2 = 0xbf58476d1ce4e5b9ULL;
+    const uint64_t BIT_MUSH_3 = 0x94d049bb133111ebULL;
+
+    // Incorporate the coordinates and the global world seed
+    uint64_t hash = custom_world_seed;
+    hash ^= static_cast<uint64_t>(x) * BIT_MUSH_1;
+    hash = (hash << 13) | (hash >> (64 - 13)); // Bitwise rotation
+
+    hash ^= static_cast<uint64_t>(y) * BIT_MUSH_2;
+    hash = (hash << 17) | (hash >> (64 - 17));
+
+    hash ^= static_cast<uint64_t>(z) * BIT_MUSH_3;
+
+    // Avalanche step to completely scramble the bits
+    hash ^= hash >> 33;
+    hash *= BIT_MUSH_2;
+    hash ^= hash >> 29;
+    hash *= BIT_MUSH_3;
+    hash ^= hash >> 32;
+
+    return hash; // Returns a pseudo-random 64-bit seed
+}
+
+static uint64_t xorshift(uint64_t seed)
+{
+    uint64_t x = seed;
+    x ^= x >> 12;
+    x ^= x << 25;
+    x ^= x >> 27;
+    return x + 0x9E3779B97F4A7C15ULL;
+}
+
 std::expected<std::shared_ptr<Mesh>, Error> Chunk::build_opaque_mesh(size_t slice_index, const std::map<ChunkPos, std::shared_ptr<Chunk>>& chunks)
 {
     int64_t slice_y_offset = int64_t(slice_index) * width;
@@ -209,7 +245,9 @@ std::expected<std::shared_ptr<Mesh>, Error> Chunk::build_opaque_mesh(size_t slic
                 if ((z < 15 && match(m_blocks, x, y, z + 1, FaceKind::North)) || (z == 15 && match_cross_boundary(chunks, m_x, m_z + 1, x, y, 0, FaceKind::North)))
                     flags.value |= NeighborFlags::north;
 
-                block->add(builder, {x, y - slice_y_offset, z}, flags);
+                uint64_t seed = get_3d_seed(x + m_x * 16, y, z + m_z * 16);
+                int64_t variant_index = int64_t(xorshift(seed) % block->get_variant_count());
+                block->add(builder, variant_index, {x, y - slice_y_offset, z}, flags);
             }
         }
     }

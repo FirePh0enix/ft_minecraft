@@ -85,6 +85,8 @@ constexpr Id<Block> sand("sand");
 constexpr Id<Block> grass_block("grass_block");
 constexpr Id<Block> snow_block("snow_block");
 
+constexpr Id<Block> coal_ore("coal_ore");
+
 constexpr Id<Block> oak_log("oak_log");
 constexpr Id<Block> oak_leaves("oak_leaves");
 
@@ -104,6 +106,8 @@ constexpr Id<Item> oak_log("log");
 constexpr Id<Item> oak_leaves("leaves");
 constexpr Id<Item> grass_block("grass_block");
 constexpr Id<Item> snow("snow");
+
+constexpr Id<Item> coal_ore("coal_ore");
 
 constexpr Id<Item> grass("grass");
 

@@ -112,13 +112,15 @@ public:
 
     std::shared_ptr<Mesh> get_mesh() const { return m_mesh; }
 
+    size_t get_variant_count() const { return m_models.size(); }
+
     /// Add the block data to the chunk mesh.
-    void add(MeshBuilder& builder, glm::i64vec3 position = {}, NeighborFlags neighbors = {});
+    void add(MeshBuilder& builder, int64_t variant = 0, glm::i64vec3 position = {}, NeighborFlags neighbors = {});
 
 private:
     std::string m_path;
     BlockStateResource m_blockstate;
-    Model m_model;
+    std::vector<Model> m_models;
 
     bool m_collision = true;
 
