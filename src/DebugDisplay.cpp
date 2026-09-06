@@ -3,17 +3,16 @@
 #include "Engine.hpp"
 #include "Render/Renderer.hpp"
 
-DebugCube::DebugCube(glm::mat4 model, Color color, float duration, float creation_time)
+DebugCube::DebugCube(glm::dvec3 position, glm::vec3 scale, Color color, float duration, float creation_time)
+    : color(color)
 {
+    this->position = position;
+    this->scale = scale;
+
     this->duration = duration;
     this->creation_time = creation_time;
 
     buffer = EXPECT(Buffer::create(sizeof(FwColored), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
-
-    FwColored colored{};
-    colored.color = color;
-    colored.model = model;
-    buffer->update_struct(colored);
 
     bg = BindGroup::create(Renderer::get().get_fw_colored_shader());
     bg->set_param("world_env", Renderer::get().get_fw_world_env());
@@ -23,6 +22,11 @@ DebugCube::DebugCube(glm::mat4 model, Color color, float duration, float creatio
 
 void DebugCube::draw(const RenderPass& pass) const
 {
+    FwColored colored{};
+    colored.color = color;
+    colored.model = glm::translate(glm::identity<glm::mat4>(), glm::vec3(position - Engine::get().get_world()->get_player()->get_camera()->get_global_transform().position()));
+    buffer->update_struct(colored);
+
     Renderer::get().draw(pass, Renderer::get().get_wireframe_cube_mesh(), Renderer::get().get_wireframe_mat(), bg);
 }
 
@@ -34,26 +38,25 @@ void DebugDisplay::update(float delta)
 {
     m_timer += delta;
 
-    for (size_t i = 0; i < m_shapes.size(); i++)
+    std::vector<uint64_t> to_remove;
+    for (const auto& [id, shape] : m_shapes)
     {
-        const auto& shape = m_shapes[i];
         if (m_timer - shape->creation_time >= shape->duration)
-        {
-            m_shapes.erase(m_shapes.begin() + (ssize_t)i);
-            i--;
-        }
+            to_remove.push_back(id);
+    }
+    for (uint64_t id : to_remove)
+    {
+        m_shapes.erase(id);
     }
 }
 
 void DebugDisplay::draw(const RenderPass& pass)
 {
-    (void)pass;
-    // FIXME
-    // for (const auto& iter : m_shapes)
-    //     iter->draw(pass);
+    for (const auto& [id, iter] : m_shapes)
+        iter->draw(pass);
 }
 
-void DebugDisplay::draw_cube(glm::vec3 position, glm::vec3 size, Color color, float duration)
+void DebugDisplay::draw_cube(glm::dvec3 position, glm::vec3 size, Color color, float duration)
 {
-    m_shapes.push_back(std::make_unique<DebugCube>(glm::translate(glm::identity<glm::mat4>(), position) * glm::scale(glm::identity<glm::mat4>(), size), color, duration, m_timer));
+    m_shapes[m_id++] = std::make_unique<DebugCube>(position, size, color, duration, m_timer);
 }

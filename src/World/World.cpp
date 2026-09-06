@@ -203,8 +203,7 @@ void World::tick(float delta)
     tick_dimension(delta, overworld);
     // tick_dimension(delta, underworld);
 
-    // ! Crash on MacOS when colliding with a block.
-    // m_debug_display.update(delta);
+    m_debug_display.update(delta);
 }
 
 void World::tick_dimension(float delta, int dimension)
