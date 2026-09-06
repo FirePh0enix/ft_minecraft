@@ -1422,8 +1422,10 @@ bool Renderer::has_cloud(int64_t x, int64_t z)
 
 void Renderer::update_clouds(std::shared_ptr<Camera> camera)
 {
-    const glm::dvec3 camera_position = camera->get_global_transform().position();
-    double time = Engine::get().time() * 1.0f;
+    // FIXME
+
+    // const glm::dvec3 camera_position = camera->get_global_transform().position();
+    // double time = Engine::get().time() * 1.0f;
 
     // for (size_t i = 0; i < m_clouds.size(); i++)
     // {
@@ -1439,29 +1441,29 @@ void Renderer::update_clouds(std::shared_ptr<Camera> camera)
     //     }
     // }
 
-    int64_t cx = int64_t(camera_position.x / 32.0);
-    int64_t cz = int64_t(camera_position.z / 32.0);
+    // int64_t cx = int64_t(camera_position.x / 32.0);
+    // int64_t cz = int64_t(camera_position.z / 32.0);
 
-    for (int64_t x = cx - 8; x < cx + 8; x++)
-        for (int64_t z = cz - 8; z < cz + 8; z++)
-        {
-            if (has_cloud(x, z))
-                continue;
+    // for (int64_t x = cx - 8; x < cx + 8; x++)
+    //     for (int64_t z = cz - 8; z < cz + 8; z++)
+    //     {
+    //         if (has_cloud(x, z))
+    //             continue;
 
-            double density = m_clouds_noise.sample(glm::dvec2(x, z)) / 2.0 + 0.5;
-            if (density > 0.7)
-            {
-                Cloud cloud = EXPECT(create_cloud());
-                cloud.uniform.model = glm::translate(glm::identity<glm::dmat4>(), glm::dvec3(x, 0.0f, z) * 32.0 + glm::dvec3(0, 270.0, 0) - camera_position + glm::dvec3(time * 0.001, 0, 0)) *
-                                      glm::scale(glm::identity<glm::dmat4>(), glm::dvec3(32.0, 4.0, 32.0));
+    //         double density = m_clouds_noise.sample(glm::dvec2(x, z)) / 2.0 + 0.5;
+    //         if (density > 0.7)
+    //         {
+    //             Cloud cloud = EXPECT(create_cloud());
+    //             cloud.uniform.model = glm::translate(glm::identity<glm::dmat4>(), glm::dvec3(x, 0.0f, z) * 32.0 + glm::dvec3(0, 270.0, 0) - camera_position + glm::dvec3(time * 0.001, 0, 0)) *
+    //                                   glm::scale(glm::identity<glm::dmat4>(), glm::dvec3(32.0, 4.0, 32.0));
 
-                cloud.buffer->update_struct(cloud.uniform);
-                cloud.grid_x = x;
-                cloud.grid_z = z;
-                m_clouds.push_back(cloud);
-                m_clouds_set.insert(ChunkPos(x, z));
-            }
-        }
+    //             cloud.buffer->update_struct(cloud.uniform);
+    //             cloud.grid_x = x;
+    //             cloud.grid_z = z;
+    //             m_clouds.push_back(cloud);
+    //             m_clouds_set.insert(ChunkPos(x, z));
+    //         }
+    //     }
 }
 
 struct LightMatrices

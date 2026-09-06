@@ -39,6 +39,7 @@ void GameRegistry::register_all()
     register_block(Blocks::grass_block);
     register_block(Blocks::sand);
     register_block(Blocks::snow_block);
+    register_block(Blocks::bedrock);
 
     register_block(Blocks::coal_ore);
 
@@ -56,6 +57,7 @@ void GameRegistry::register_all()
     add_item(Items::sand, std::make_shared<ItemBlock>(Blocks::sand));
     add_item(Items::grass_block, std::make_shared<ItemBlock>(Blocks::grass_block));
     add_item(Items::snow, std::make_shared<ItemBlock>(Blocks::snow_block));
+    add_item(Items::bedrock, std::make_shared<ItemBlock>(Blocks::bedrock));
 
     add_item(Items::coal_ore, std::make_shared<ItemBlock>(Blocks::coal_ore));
 

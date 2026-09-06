@@ -36,11 +36,13 @@ struct PreLoadedChunk
     ChunkPos pos;
     std::vector<Biome> biomes;
     std::vector<int64_t> heights;
+    std::vector<float> mountains;
 
     PreLoadedChunk()
     {
         biomes.resize(16 * 16);
         heights.resize(16 * 16);
+        mountains.resize(16 * 16);
     }
 };
 

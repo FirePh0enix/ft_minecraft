@@ -126,7 +126,8 @@ void OverworldGen::preload(int64_t cx, int64_t cz, std::shared_ptr<PreLoadedChun
             float continent_s0 = m_noise.sample(glm::vec2((float)gx, (float)gz) / 4000.0f) / 2.0f + 0.5f;
             float continent = (float)m_continent_spline(continent_s0);
 
-            float mountain_s0 = m_noise.fractal<1>(glm::vec2((float)gx, (float)gz), 0.001f, 20.0, 15.0, 7.0) / 2.0f + 0.5f;
+            float mountain_s0_raw = m_noise.fractal<1>(glm::vec2((float)gx, (float)gz), 0.001f, 20.0, 15.0, 7.0);
+            float mountain_s0 = mountain_s0_raw / 2.0f + 0.5f;
             float mountain_s1 = m_noise.sample(glm::vec2((float)gx, (float)gz) / 80.0f) / 2.0f + 0.5f;
             float mountain_s2 = m_noise.sample(glm::vec2((float)gx, (float)gz) / 30.0f) / 2.0f + 0.5f;
             float mountain = mountain_s0 * 100.0f + mountain_s1 * 20.0f + mountain_s2 * 5.0f;
@@ -155,6 +156,7 @@ void OverworldGen::preload(int64_t cx, int64_t cz, std::shared_ptr<PreLoadedChun
 
             chunk->heights[x + z * 16] = height;
             chunk->biomes[x + z * 16] = biome;
+            chunk->mountains[x + z * 16] = mountain_s0_raw;
         }
     }
 }
@@ -178,10 +180,20 @@ void OverworldGen::generate_chunk(std::shared_ptr<Chunk> chunk, std::shared_ptr<
 
             Biome biome = preloaded_chunk->biomes[x + z * 16];
             int64_t height = preloaded_chunk->heights[x + z * 16];
+            float mountain = preloaded_chunk->mountains[x + z * 16];
 
             int64_t y = 0;
             for (; y < height - 3; y++)
                 blocks[x + y * 16 + z * 16 * 256] = BlockState(Blocks::stone);
+
+            blocks[x + 0 * 16 + z * 16 * 256] = BlockState(Blocks::bedrock);
+
+            float bedrock_noise_a = m_noise.sample(glm::vec2(x, z)) * 0.5f + 0.5f;
+            float bedrock_noise_b = m_noise.sample(glm::vec2(x, z) + glm::vec2(1213.0, 23231.0)) * 0.5f + 0.5f;
+            if (bedrock_noise_a >= 0.5f)
+                blocks[x + 1 * 16 + z * 16 * 256] = BlockState(Blocks::bedrock);
+            if (bedrock_noise_b >= 0.5f)
+                blocks[x + 2 * 16 + z * 16 * 256] = BlockState(Blocks::bedrock);
 
             BlockState ground;
             BlockState surface;
@@ -220,11 +232,13 @@ void OverworldGen::generate_chunk(std::shared_ptr<Chunk> chunk, std::shared_ptr<
 
             for (int64_t y = 0; y < height; y++)
             {
+                float top_noise = m_noise.sample(glm::vec3(gx, y, gz) * glm::vec3(0.007)) * 0.5f + 0.5f;
+
                 float noise_a = m_noise.sample(glm::vec3(gx, y, gz) * glm::vec3(0.011));
                 float noise_b = m_noise.sample(glm::vec3(gx, y, gz) * glm::vec3(0.021));
                 const float threshold = 0.12;
 
-                if (y > 3 && std::abs(noise_a) < threshold && std::abs(noise_b) < threshold)
+                if (y > 3 && y < int64_t(std::round(float(height) - top_noise * 5)) && std::abs(noise_a) < threshold && std::abs(noise_b) < threshold)
                 {
                     blocks[x + y * 16 + z * 16 * 256] = BlockState();
                 }
@@ -236,8 +250,19 @@ void OverworldGen::generate_chunk(std::shared_ptr<Chunk> chunk, std::shared_ptr<
                 }
             }
 
+            const float river = std::abs(mountain);
+            if (river < 0.04)
+            {
+                int64_t river_depth = 5 - int64_t(river / 0.04 * 5.0);
+                for (int64_t i = 0; i < river_depth; i++)
+                {
+                    blocks[x + (y - i - 1) * 16 + z * 16 * 256] = BlockState();
+                    chunk->set_tag({x, y - i - 1, z}, "water", (int64_t)0, true);
+                }
+            }
+
             bool vegetation = (m_noise.sample(glm::vec2((float)gx, (float)gz) / 10.0f) / 2.0f + 0.5f) > 0.8f;
-            if (vegetation && (biome == Biome::Plain || biome == Biome::Forest) && !blocks[x + (y - 1) * 16 + z * 16 * 256].is_air())
+            if (vegetation && (biome == Biome::Plain || biome == Biome::Forest) && !blocks[x + (y - 1) * 16 + z * 16 * 256].is_air() && !chunk->get_tag({x, y - 1, z}, "water").has_value())
             {
                 blocks[x + y * 16 + z * 16 * 256] = BlockState(Blocks::grass);
             }
