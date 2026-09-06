@@ -181,7 +181,7 @@ void OverworldGen::generate_chunk(std::shared_ptr<Chunk> chunk, std::shared_ptr<
 
             int64_t y = 0;
             for (; y < height - 3; y++)
-                blocks[x + y * 16 + z * 16 * 256] = BlockState(Blocks::stone.hash);
+                blocks[x + y * 16 + z * 16 * 256] = BlockState(Blocks::stone);
 
             BlockState ground;
             BlockState surface;
@@ -189,18 +189,18 @@ void OverworldGen::generate_chunk(std::shared_ptr<Chunk> chunk, std::shared_ptr<
             {
             case Biome::Forest:
             case Biome::Plain:
-                ground = BlockState(Blocks::dirt.hash);
-                surface = BlockState(Blocks::grass_block.hash);
+                ground = BlockState(Blocks::dirt);
+                surface = BlockState(Blocks::grass_block);
                 break;
             case Biome::Mountain:
-                ground = BlockState(Blocks::stone.hash);
-                surface = BlockState(Blocks::stone.hash);
+                ground = BlockState(Blocks::stone);
+                surface = BlockState(Blocks::stone);
                 break;
             case Biome::Desert:
             case Biome::Beach:
             case Biome::Ocean:
-                ground = BlockState(Blocks::sand.hash);
-                surface = BlockState(Blocks::sand.hash);
+                ground = BlockState(Blocks::sand);
+                surface = BlockState(Blocks::sand);
                 break;
             case Biome::Underworld:
                 break;
@@ -212,16 +212,34 @@ void OverworldGen::generate_chunk(std::shared_ptr<Chunk> chunk, std::shared_ptr<
 
             // Add snow on top of mountains
             if (height > 160 && biome == Biome::Mountain)
-                blocks[x + y * 16 + z * 16 * 256] = BlockState(Blocks::snow_block.hash);
+                blocks[x + y * 16 + z * 16 * 256] = BlockState(Blocks::snow_block);
 
             // Fill oceans
             for (; y < m_settings.ocean_level; y++)
                 chunk->set_tag({x, y, z}, "water", (int64_t)0, true);
 
-            bool vegetation = (m_noise.sample(glm::vec2((float)gx, (float)gz) / 10.0f) / 2.0f + 0.5f) > 0.8f;
-            if (vegetation && (biome == Biome::Plain || biome == Biome::Forest))
+            for (int64_t y = 0; y < height; y++)
             {
-                blocks[x + y * 16 + z * 16 * 256] = BlockState(Blocks::grass.hash);
+                float noise_a = m_noise.sample(glm::vec3(gx, y, gz) * glm::vec3(0.011));
+                float noise_b = m_noise.sample(glm::vec3(gx, y, gz) * glm::vec3(0.021));
+                const float threshold = 0.12;
+
+                if (y > 3 && std::abs(noise_a) < threshold && std::abs(noise_b) < threshold)
+                {
+                    blocks[x + y * 16 + z * 16 * 256] = BlockState();
+                }
+
+                float noise_c = (m_noise.sample(glm::vec3(gx, y, gz) * glm::vec3(0.011)) * 0.5f + 0.5f);
+                if (y > 2 && y < height - 7 && noise_c < 0.1)
+                {
+                    blocks[x + y * 16 + z * 16 * 256] = BlockState();
+                }
+            }
+
+            bool vegetation = (m_noise.sample(glm::vec2((float)gx, (float)gz) / 10.0f) / 2.0f + 0.5f) > 0.8f;
+            if (vegetation && (biome == Biome::Plain || biome == Biome::Forest) && !blocks[x + (y - 1) * 16 + z * 16 * 256].is_air())
+            {
+                blocks[x + y * 16 + z * 16 * 256] = BlockState(Blocks::grass);
             }
         }
     }
