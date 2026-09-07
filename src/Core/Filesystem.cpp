@@ -23,7 +23,7 @@ std::filesystem::path Filesystem::current_executable_path()
 #ifdef __platform_linux
     return std::filesystem::canonical("/proc/self/exe");
 #elif defined(__platform_windows)
-    wchar_t buffer[MAX_PATH];
+    char buffer[MAX_PATH];
     GetModuleFileName(nullptr, buffer, MAX_PATH);
     return std::filesystem::path(buffer);
 #elif defined(__platform_macos)
