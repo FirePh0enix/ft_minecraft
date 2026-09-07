@@ -7,7 +7,6 @@
 
 #include <limits>
 #include <memory>
-#include <print>
 
 constexpr float PATH_UPDATE_INTERVAL = 1.0f;
 constexpr float DETECTION_RADIUS = 20.0f;
@@ -113,19 +112,17 @@ void Zombie::tick(float delta)
         m_audio_source->play_one_shot(&m_groan_clip.value(), 0.5f);
     }
 
-    const bool is_moving = m_on_ground && glm::length2(glm::vec2(m_velocity.x, m_velocity.z)) > 0.001f;
+    const bool is_moving = glm::length2(glm::vec2(m_velocity.x, m_velocity.z)) > 1e-6f;
 
     if (is_in_water() && is_moving)
     {
         m_audio_source->set_clip(&m_swimming_clip.value());
         m_audio_source->play();
-        std::println("swimming !");
     }
     else if (m_on_ground && is_moving)
     {
         m_audio_source->set_clip(&m_walking_clip.value());
         m_audio_source->play();
-        std::println("walking !");
     }
     else
         m_audio_source->stop();
@@ -148,10 +145,13 @@ void Zombie::on_ready()
     AudioMixer& audio = m_world->audio();
     auto path = std::filesystem::absolute("assets/audio/zombie/groan.wav");
     m_groan_clip.emplace(*audio.get_audio_mixer(), path);
+
     path = std::filesystem::absolute("assets/audio/zombie/walking.wav");
     m_walking_clip.emplace(*audio.get_audio_mixer(), path);
+
     path = std::filesystem::absolute("assets/audio/zombie/attacking.wav");
     m_attacking_clip.emplace(*audio.get_audio_mixer(), path);
+
     path = std::filesystem::absolute("assets/audio/zombie/swimming.wav");
     m_swimming_clip.emplace(*audio.get_audio_mixer(), path);
 

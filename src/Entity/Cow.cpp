@@ -47,7 +47,7 @@ void Cow::tick(float delta)
 
     m_audio_source->set_position(get_global_transform().position());
 
-    const bool is_moving = m_on_ground && glm::length2(glm::vec2(m_velocity.x, m_velocity.z)) > 0.001f;
+    const bool is_moving =  glm::length2(glm::vec2(m_velocity.x, m_velocity.z)) > 1e-6f;
 
     if (is_in_water() && is_moving)
     {

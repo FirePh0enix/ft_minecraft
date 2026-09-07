@@ -222,6 +222,19 @@ void Player::on_ready()
         // m_breaks_textures[1] = EXPECT(Texture::load("assets/textures/breaks/1.png"));
         // m_breaks_textures[2] = EXPECT(Texture::load("assets/textures/breaks/2.png"));
         // m_breaks_textures[3] = EXPECT(Texture::load("assets/textures/breaks/3.png"));
+
+        AudioMixer& audio = m_world->audio();
+        auto path = std::filesystem::absolute("data/resourcepacks/pixel-perfection/assets/minecraft/sounds/step/cloth1.ogg");
+        m_walking_clip.emplace(*audio.get_audio_mixer(), path);
+
+        path = std::filesystem::absolute("data/resourcepacks/pixel-perfection/assets/minecraft/sounds/entity/player/attack/knockback1.ogg");
+        m_attacking_clip.emplace(*audio.get_audio_mixer(), path);
+
+        path = std::filesystem::absolute("data/resourcepacks/pixel-perfection/assets/minecraft/sounds/liquid/swim1.ogg");
+        m_swimming_clip.emplace(*audio.get_audio_mixer(), path);
+
+        m_audio_source.emplace(audio);
+        m_audio_source->set_clip(&m_walking_clip.value());
     }
     else
     {
@@ -375,7 +388,10 @@ void Player::tick(float delta)
             if (Input::is_action_just_pressed("attack") && result.hit_entity)
             {
                 if (auto mob = std::dynamic_pointer_cast<LivingEntity>(result.entity))
+                {
                     mob->damage(1, id()); // TODO: different tool deals different damages.
+                    m_audio_source->play_one_shot(&m_attacking_clip.value(), 0.5f);
+                }
             }
             else if (m_gamemode == GameMode::Creative && !result.hit_entity && Input::is_action_just_pressed("attack"))
             {
@@ -566,6 +582,21 @@ void Player::tick(float delta)
             m_target_head_height = -m_target_head_height;
     }
 
+    const bool is_moving = glm::length2(glm::vec2(m_velocity.x, m_velocity.z)) > 1e-6f;
+
+    if (is_in_water() && is_moving)
+    {
+        m_audio_source->set_clip(&m_swimming_clip.value());
+        m_audio_source->play();
+    }
+    else if (is_moving && m_on_ground)
+    {
+        m_audio_source->set_clip(&m_walking_clip.value());
+        m_audio_source->play();
+    }
+    else
+        m_audio_source->stop();
+
     // Reset velocity after movements.
     m_velocity.x = 0.0;
     m_velocity.z = 0.0;
@@ -611,6 +642,8 @@ void Player::tick(float delta)
         p.rotation = get_global_transform().rotation();
         Engine::get().connection().send(Engine::get().connection().create_packet(p));
     }
+
+    m_audio_source->set_position(get_global_transform().position());
 }
 
 void Player::draw(const RenderPass& pass)

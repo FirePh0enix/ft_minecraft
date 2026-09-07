@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Audio/AudioClip.hpp"
+#include "Audio/AudioSource.hpp"
 #include "Core/Error.hpp"
 #include "Entity/Camera.hpp"
 #include "Entity/Entity.hpp"
@@ -151,4 +153,10 @@ private:
     }
 
     Biome m_current_biome = Biome::None;
+
+    
+    std::optional<AudioClip> m_walking_clip;
+    std::optional<AudioClip> m_attacking_clip;
+    std::optional<AudioClip> m_swimming_clip;
+    std::optional<AudioSource> m_audio_source;
 };

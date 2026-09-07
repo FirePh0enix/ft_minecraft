@@ -30,7 +30,7 @@ AudioMixer::AudioMixer() : m_audio_listener()
     for (size_t i = 0; i < MUSIC_TRACKS_POOL_SIZE; i++)
     {
         m_music_tracks_pool[i] = MIX_CreateTrack(m_mixer);
-        if (!m_tracks_pool[i])
+        if (!m_music_tracks_pool[i])
         {
             error("MIX_CreateTrack() failed: {} (music)", SDL_GetError());
             return;
