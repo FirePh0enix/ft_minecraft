@@ -93,6 +93,11 @@ struct NeighborFlags
         return south;
     }
 
+    constexpr bool has(uint8_t face) const
+    {
+        return value & face;
+    }
+
     constexpr bool has_opposite(FaceKind face) const
     {
         return value & get_opposite_face(face);

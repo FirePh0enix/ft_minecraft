@@ -1158,7 +1158,7 @@ std::expected<void, Error> Renderer::init(const Window& window, InitFlags flags)
     std::vector<InstanceAttribute> chunk_attribs{InstanceAttribute(0, WGPUVertexFormat_Float32x3)};
     m_fw_chunk_mat = Material::create(m_fw_chunk_shader, MaterialFlagBits::Stencil, WGPUCullMode_Back, WGPUVertexFormat_Float32x4, Instance(chunk_attribs, sizeof(glm::vec3)));
     m_fw_chunk_shadowmap_mat = Material::create(m_fw_chunk_shadowmap_shader, MaterialFlagBits::NoNormal | MaterialFlagBits::NoUV, WGPUCullMode_Back, WGPUVertexFormat_Float32x4, Instance(chunk_attribs, sizeof(glm::vec3)));
-    m_fw_water_mat = Material::create(m_fw_water_shader, MaterialFlagBits::Stencil | MaterialFlagBits::Transparency, WGPUCullMode_Back, WGPUVertexFormat_Float32x2, Instance(chunk_attribs, sizeof(glm::vec3)));
+    m_fw_water_mat = Material::create(m_fw_water_shader, MaterialFlagBits::Stencil | MaterialFlagBits::Transparency, WGPUCullMode_Back, WGPUVertexFormat_Float32x4, Instance(chunk_attribs, sizeof(glm::vec3)));
 
     m_fw_colored_mat = Material::create(m_fw_colored_shader, MaterialFlagBits::NoUV, WGPUCullMode_Back, WGPUVertexFormat_Float32x2);
     m_fw_colored_shadowmap_mat = Material::create(m_fw_colored_shader, MaterialFlagBits::NoUV, WGPUCullMode_Front, WGPUVertexFormat_Float32x2);

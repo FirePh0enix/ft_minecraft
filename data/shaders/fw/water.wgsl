@@ -19,7 +19,7 @@ struct WorldEnv {
 struct VertexInput {
     @location(0) position: vec3<f32>,
     @location(1) normal: vec3<f32>,
-    @location(2) uv: vec2<f32>,
+    @location(2) uv: vec4<f32>,
 
     @location(3) chunk_pos: vec3<f32>, // per instance
 }
@@ -40,7 +40,7 @@ fn vertex_main(in: VertexInput) -> VertexOutput {
 			      in.chunk_pos.x, in.chunk_pos.y, in.chunk_pos.z, 1.0);
 
     var out: VertexOutput;
-    out.uv = vec2f(in.uv.x, 1.0 - in.uv.y);
+    out.uv = in.uv.xy;
     out.normal = in.normal;
 
     out.clip_position = camera.view_projection * model_matrix * vec4f(in.position, 1.0);

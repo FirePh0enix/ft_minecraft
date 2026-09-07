@@ -10,9 +10,7 @@
 class ThreadPool
 {
 public:
-    ThreadPool(size_t num_threads = std::thread::hardware_concurrency() > 2
-                                        ? std::thread::hardware_concurrency() - 2
-                                        : 1);
+    ThreadPool(size_t num_threads);
     ~ThreadPool();
 
     size_t size() const { return m_threads.size(); }
@@ -21,7 +19,6 @@ public:
     void submit(std::function<void(std::stop_token)> task);
 
 private:
-
     std::mutex m_mutex;
     std::deque<std::function<void(std::stop_token)>> m_tasks;
 
@@ -31,5 +28,4 @@ private:
     void thread_worker(std::stop_token token);
     // Thread must be destroyed before mutex.
     std::vector<std::jthread> m_threads;
-
 };

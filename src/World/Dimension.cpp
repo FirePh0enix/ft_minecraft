@@ -440,9 +440,7 @@ void Dimension::queue_rebuild(ChunkPos pos, size_t slice_index, size_t slice_cou
     {
         auto chunk_opt = get_chunk(p.x, p.z);
         if (!chunk_opt.has_value())
-        {
             continue;
-        }
         nchunks[p] = chunk_opt.value();
     }
 

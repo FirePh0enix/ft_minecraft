@@ -186,15 +186,6 @@ void OverworldGen::generate_chunk(std::shared_ptr<Chunk> chunk, std::shared_ptr<
             for (; y < height - 3; y++)
                 blocks[x + y * 16 + z * 16 * 256] = BlockState(Blocks::stone);
 
-            blocks[x + 0 * 16 + z * 16 * 256] = BlockState(Blocks::bedrock);
-
-            float bedrock_noise_a = m_noise.sample(glm::vec2(x, z)) * 0.5f + 0.5f;
-            float bedrock_noise_b = m_noise.sample(glm::vec2(x, z) + glm::vec2(1213.0, 23231.0)) * 0.5f + 0.5f;
-            if (bedrock_noise_a >= 0.5f)
-                blocks[x + 1 * 16 + z * 16 * 256] = BlockState(Blocks::bedrock);
-            if (bedrock_noise_b >= 0.5f)
-                blocks[x + 2 * 16 + z * 16 * 256] = BlockState(Blocks::bedrock);
-
             BlockState ground;
             BlockState surface;
             switch (biome)
@@ -266,6 +257,15 @@ void OverworldGen::generate_chunk(std::shared_ptr<Chunk> chunk, std::shared_ptr<
             {
                 blocks[x + y * 16 + z * 16 * 256] = BlockState(Blocks::grass);
             }
+
+            // Place a layer of unbreakable "bedrock" at the bottom of the map.
+            blocks[x + 0 * 16 + z * 16 * 256] = BlockState(Blocks::bedrock);
+            float bedrock_noise_a = m_noise.sample(glm::vec2(x, z)) * 0.5f + 0.5f;
+            float bedrock_noise_b = m_noise.sample(glm::vec2(x, z) + glm::vec2(1213.0, 23231.0)) * 0.5f + 0.5f;
+            if (bedrock_noise_a >= 0.5f)
+                blocks[x + 1 * 16 + z * 16 * 256] = BlockState(Blocks::bedrock);
+            if (bedrock_noise_b >= 0.5f)
+                blocks[x + 2 * 16 + z * 16 * 256] = BlockState(Blocks::bedrock);
         }
     }
 
