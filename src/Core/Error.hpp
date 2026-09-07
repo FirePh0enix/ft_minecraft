@@ -2,6 +2,7 @@
 
 #include "Core/Logger.hpp"
 #include "Core/Stacktrace.hpp"
+#include "Core/Types.hpp"
 
 #include <cstdint>
 #include <cstdio>
@@ -286,7 +287,7 @@ private:
         continue;                                                      \
     }
 
-void initialize_error_handling(const char *filename);
+void initialize_error_handling(cstring_t filename);
 
 // Inspired by Ladybird `TRY` and `MUST` macro. This depends on (statement expression)[1] which is non standard but implemented by gcc and clang.
 //
