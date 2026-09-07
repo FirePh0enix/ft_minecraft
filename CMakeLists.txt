@@ -184,7 +184,7 @@ if(TARGET_IS_LINUX OR TARGET_IS_MACOS OR TARGET_IS_WINDOWS)
         set(WGPU_ARCH "aarch64")
     elseif(TARGET_IS_WINDOWS)
         set(WGPU_PLATFORM "windows")
-        set(WGPU_ARCH "x86_64")
+        set(WGPU_ARCH "x86_64-gnu")
     endif()
 
     set(WGPU_BUILD "release")
