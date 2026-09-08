@@ -1,7 +1,7 @@
 {
     "name": "zombie",
     "texture_size": [64, 64],
-    "texture_path": "assets/textures/entities/zombie.png",
+    "texture_path": "data/resourcepacks/core/assets/minecraft/textures/entity/zombie/zombie.png",
     "objects": [
         {
             "name": "body",

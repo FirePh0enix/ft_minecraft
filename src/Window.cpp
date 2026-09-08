@@ -15,7 +15,7 @@ Window::Window(std::string_view title, uint32_t width, uint32_t height, bool res
     (void)resizable;
 
 #ifndef __platform_web
-    if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS))
+    if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_AUDIO))
     {
         error("SDL_Init() failed: {}", SDL_GetError());
         return;

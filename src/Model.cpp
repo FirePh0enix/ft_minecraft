@@ -1,12 +1,14 @@
 #include "Model.hpp"
 
 #include "Core/Filesystem.hpp"
+#include "Engine.hpp"
 #include "Render/Renderer.hpp"
 
 #include <cmath>
 
 #include <SDL3/SDL.h>
 #include <nlohmann/json.hpp>
+#include <print>
 #include <stb_image.h>
 
 struct ModelObject
@@ -101,6 +103,7 @@ void from_json(const nlohmann::json& j, ModelJSON& m)
 std::expected<std::shared_ptr<ModelLegacy>, Error> ModelLegacy::load(std::string_view path)
 {
     File file = TRY(Filesystem::open_file(path));
+
     std::string source = TRY(file.reader().read_to_string());
 
     ModelJSON json = nlohmann::json::parse(std::string(source.data(), source.size()));
@@ -201,13 +204,11 @@ std::optional<ModelLegacy::Object> ModelLegacy::get_object(std::string_view name
 
 void ModelLegacy::encode(const RenderPass& pass, const Transform3D& transform)
 {
-    const std::shared_ptr<Mesh>& mesh = Renderer::get().get_cube_mesh();
-
-    Info info{.model_matrix = transform.to_matrix()};
+    Info info{.model_matrix = transform.to_matrix(Engine::get().get_world()->get_player()->get_camera()->get_global_transform().position())};
     m_global_buffer->update_struct(info);
 
     for (const auto& obj : m_objects)
-        Renderer::get().draw(pass, mesh, Renderer::get().get_fw_model_mat(), obj.bg);
+        Renderer::get().draw(pass, Renderer::get().get_cube_mesh(), Renderer::get().get_fw_model_mat(), obj.bg);
 }
 
 void Animator::set_model(std::shared_ptr<ModelLegacy> model)

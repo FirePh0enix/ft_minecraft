@@ -15,7 +15,9 @@
 #include "UI/TextInput.hpp"
 #include "World/Registry.hpp"
 #include "World/World.hpp"
+#include "glm/ext/vector_int3.hpp"
 
+#include <cstdint>
 #include <imgui.h>
 
 #include <memory>
@@ -220,6 +222,19 @@ void Player::on_ready()
         // m_breaks_textures[1] = EXPECT(Texture::load("assets/textures/breaks/1.png"));
         // m_breaks_textures[2] = EXPECT(Texture::load("assets/textures/breaks/2.png"));
         // m_breaks_textures[3] = EXPECT(Texture::load("assets/textures/breaks/3.png"));
+
+        AudioMixer& audio = m_world->audio();
+        auto path = std::filesystem::absolute("data/resourcepacks/pixel-perfection/assets/minecraft/sounds/step/cloth1.ogg");
+        m_walking_clip.emplace(*audio.get_audio_mixer(), path);
+
+        path = std::filesystem::absolute("data/resourcepacks/pixel-perfection/assets/minecraft/sounds/entity/player/attack/knockback1.ogg");
+        m_attacking_clip.emplace(*audio.get_audio_mixer(), path);
+
+        path = std::filesystem::absolute("data/resourcepacks/pixel-perfection/assets/minecraft/sounds/liquid/swim1.ogg");
+        m_swimming_clip.emplace(*audio.get_audio_mixer(), path);
+
+        m_audio_source.emplace(audio);
+        m_audio_source->set_clip(&m_walking_clip.value());
     }
     else
     {
@@ -316,6 +331,13 @@ void Player::tick(float delta)
             else
                 set_slot(m_slot - 1);
         }
+
+        AudioListener& listener = Engine::get().audio_mixer().get_audio_listener();
+        const Transform3D& camera_transform = m_camera->get_global_transform();
+
+        listener.set_position(camera_transform.position());
+        listener.set_forward(camera_transform.forward());
+        listener.set_up(camera_transform.up());
     }
 
     AABB item_box = get_aabb().translate(get_position()).grow(glm::vec3(0.5));
@@ -366,7 +388,10 @@ void Player::tick(float delta)
             if (Input::is_action_just_pressed("attack") && result.hit_entity)
             {
                 if (auto mob = std::dynamic_pointer_cast<LivingEntity>(result.entity))
+                {
                     mob->damage(1, id()); // TODO: different tool deals different damages.
+                    m_audio_source->play_one_shot(&m_attacking_clip.value(), 0.5f);
+                }
             }
             else if (m_gamemode == GameMode::Creative && !result.hit_entity && Input::is_action_just_pressed("attack"))
             {
@@ -404,6 +429,7 @@ void Player::tick(float delta)
 
             if (Input::is_action_just_pressed("interact"))
             {
+
                 BlockState state = m_world->get_block_state(m_dimension, result.block_pos.x, result.block_pos.y, result.block_pos.z);
                 std::shared_ptr<Block> block = Engine::get().registry().get_block(state.id);
 
@@ -479,6 +505,26 @@ void Player::tick(float delta)
             Renderer::get().set_fog(sky_color, float(m_world->get_render_distance()) * 16.0f - 1.0f);
             Renderer::get().set_sky(sky_color);
         }
+
+        const glm::ivec3 pos = m_transform.position();
+        const int64_t cx = chunk_index(pos.x);
+        const int64_t cz = chunk_index(pos.z);
+
+        const auto& chunk = m_world->get_chunk(cx, cz);
+
+        if (chunk.has_value())
+        {
+            int64_t x = local_coords(pos.x);
+            int64_t z = local_coords(pos.z);
+
+            Biome biome = chunk->get()->get_biomes()[x + z * 16];
+            if (biome != m_current_biome)
+            {
+                m_current_biome = biome;
+                auto& clip = Engine::get().music_player().get_biome_music(biome);
+                Engine::get().music_player().crossfade_to(&clip, 2.0f, 1.0f);
+            }
+        }
     }
 
     float updown_dir = 0.0;
@@ -536,6 +582,21 @@ void Player::tick(float delta)
             m_target_head_height = -m_target_head_height;
     }
 
+    const bool is_moving = glm::length2(glm::vec2(m_velocity.x, m_velocity.z)) > 1e-6f;
+
+    if (is_in_water() && is_moving)
+    {
+        m_audio_source->set_clip(&m_swimming_clip.value());
+        m_audio_source->play();
+    }
+    else if (is_moving && m_on_ground)
+    {
+        m_audio_source->set_clip(&m_walking_clip.value());
+        m_audio_source->play();
+    }
+    else
+        m_audio_source->stop();
+
     // Reset velocity after movements.
     m_velocity.x = 0.0;
     m_velocity.z = 0.0;
@@ -581,6 +642,8 @@ void Player::tick(float delta)
         p.rotation = get_global_transform().rotation();
         Engine::get().connection().send(Engine::get().connection().create_packet(p));
     }
+
+    m_audio_source->set_position(get_global_transform().position());
 }
 
 void Player::draw(const RenderPass& pass)
