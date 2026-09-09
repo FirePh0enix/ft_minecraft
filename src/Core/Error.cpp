@@ -138,7 +138,7 @@ void signal_handler(int sig)
 
 #endif
 
-void initialize_error_handling(const char *filename)
+void initialize_error_handling(cstring_t filename)
 {
     (void)filename;
 
