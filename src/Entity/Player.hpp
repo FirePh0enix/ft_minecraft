@@ -12,8 +12,8 @@
 #include "Model.hpp"
 #include "UI/TextInput.hpp"
 
-#include <expected>
 #include "World/Biome.hpp"
+#include <expected>
 
 enum class GameMode
 {
@@ -42,12 +42,7 @@ class Player : public LivingEntity
 public:
     static void bind_methods();
 
-    Player()
-        : LivingEntity(20)
-    {
-        m_aabb = AABBd(-glm::dvec3(0.35, 0.9, 0.35), glm::dvec3(0.35, 0.9, 0.35));
-    }
-
+    Player();
     virtual ~Player() {}
 
     virtual void tick(float delta) override;
@@ -93,6 +88,10 @@ public:
 
     bool head_in_water() const;
 
+    void update_player_list(const std::vector<std::string>& names);
+
+    void send_message(std::string message);
+
 private:
     std::shared_ptr<Camera> m_camera;
     GameMode m_gamemode = GameMode::Creative;
@@ -135,6 +134,8 @@ private:
     bool m_chat_opened = false;
     BetterConsole m_console;
 
+    std::shared_ptr<Widget> m_player_list;
+
     void on_text_message(TextInput& input, std::string_view message);
 
     /**
@@ -154,7 +155,6 @@ private:
 
     Biome m_current_biome = Biome::None;
 
-    
     std::optional<AudioClip> m_walking_clip;
     std::optional<AudioClip> m_attacking_clip;
     std::optional<AudioClip> m_swimming_clip;

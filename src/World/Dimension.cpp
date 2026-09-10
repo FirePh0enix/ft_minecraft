@@ -5,6 +5,7 @@
 #include "Core/Filesystem.hpp"
 #include "Core/ZLib.hpp"
 #include "Engine.hpp"
+#include "Entity/Player.hpp"
 #include "Profiler.hpp"
 #include "Variant.hpp"
 #include "World/Chunk.hpp"
@@ -20,10 +21,10 @@ void GenScheduler::terrain_pass(ChunkPos middle)
         {
             const ChunkPos pos(x + middle.x, z + middle.z);
 
-            if (m_dimension.m_preloaded_chunks.contains(pos) || m_dimension.m_pregen_loading_queue.contains(pos))
+            if (m_dimension.m_preloaded_chunks.contains(pos) || m_pregen_loading_queue.contains(pos))
                 continue;
 
-            m_dimension.m_pregen_loading_queue.insert(pos);
+            m_pregen_loading_queue.insert(pos);
 
             std::shared_ptr<PreLoadedChunk> chunk = std::make_shared<PreLoadedChunk>();
             chunk->pos = pos;
@@ -63,7 +64,7 @@ void GenScheduler::chunk_pass(ChunkPos middle)
 {
     // Structures can overlap multiple chunks, so finish the complete
     // pre-generation pass before realizing any chunk blocks.
-    if (!m_dimension.m_pregen_loading_queue.empty())
+    if (!m_pregen_loading_queue.empty())
         return;
 
     for (int64_t x = -m_chunk_distance; x <= m_chunk_distance; x++)
@@ -71,12 +72,12 @@ void GenScheduler::chunk_pass(ChunkPos middle)
         {
             const ChunkPos pos(x + middle.x, z + middle.z);
 
-            if (m_dimension.m_chunks.contains(pos) || m_dimension.m_chunks_loading_queue.contains(pos))
+            if (m_dimension.m_chunks.contains(pos) || m_chunks_loading_queue.contains(pos))
                 continue;
 
             std::shared_ptr<Chunk> chunk = std::make_shared<Chunk>(&m_dimension, pos.x, pos.z);
             std::shared_ptr<PreLoadedChunk> preload_chunk = m_dimension.m_preloaded_chunks.at(pos);
-            m_dimension.m_chunks_loading_queue.insert(pos);
+            m_chunks_loading_queue.insert(pos);
             Engine::get().get_thread_pool().submit([this, pos, chunk, preload_chunk](std::stop_token st)
                                                    { realize_chunk(st, pos, chunk, preload_chunk); });
         }
@@ -93,7 +94,7 @@ void GenScheduler::chunk_pass(ChunkPos middle)
         m_dimension.m_chunks.erase(pos);
         m_dimension.m_chunks_rebuild_queue.erase(pos);
         m_dimension.m_chunks_rebuild_pending.erase(pos);
-        m_dimension.queue_unload_chunk(chunk);
+        queue_unload_chunk(chunk);
     }
 }
 
@@ -101,13 +102,13 @@ void GenScheduler::terrain_and_struct_chunk(std::stop_token token, ChunkPos pos,
 {
     if (token.stop_requested())
         return;
-    m_dimension.m_gen->preload(pos.x, pos.z, chunk);
+    m_gen->preload(pos.x, pos.z, chunk);
 
     if (token.stop_requested())
         return;
-    m_dimension.m_gen->structure_pass(pos.x, pos.z, chunk, m_dimension);
+    m_gen->structure_pass(pos.x, pos.z, chunk, m_dimension);
 
-    m_dimension.m_pregen_chunks_lockless.enqueue(chunk);
+    m_pregen_chunks_lockless.enqueue(chunk);
 }
 
 void GenScheduler::realize_chunk(std::stop_token token, ChunkPos pos, std::shared_ptr<Chunk> chunk, std::shared_ptr<PreLoadedChunk> pregen_chunk)
@@ -162,17 +163,108 @@ void GenScheduler::realize_chunk(std::stop_token token, ChunkPos pos, std::share
         for (int i = 0; i < 16 * 16; i++)
             chunk->get_biomes()[i] = Biome::Plain;
 
-        m_dimension.m_gen->generate_chunk(chunk, pregen_chunk, m_dimension);
+        m_gen->generate_chunk(chunk, pregen_chunk, m_dimension);
 
         // Save the initial version of the chunk.
         EXPECT(m_dimension.m_world->save_chunk(token, chunk, m_dimension.m_id));
     }
 
-    m_dimension.m_chunks_lockless.enqueue(chunk);
+    m_chunks_lockless.enqueue(chunk);
+}
+
+void GenScheduler::unload_chunk(std::stop_token token, std::shared_ptr<Chunk> chunk)
+{
+    if (token.stop_requested())
+        return;
+    if (!Engine::get().is_save_disabled())
+    {
+        std::expected<void, Error> result = m_dimension.m_world->save_chunk({}, chunk, m_dimension.m_id);
+        (void)result;
+    }
+
+    // TODO: only push the ChunkPos.
+    m_chunks_unload_queue.enqueue(chunk);
+}
+
+void GenScheduler::queue_unload_chunk(std::shared_ptr<Chunk> chunk)
+{
+    Engine::get().get_thread_pool().submit([this, chunk](std::stop_token token)
+                                           { unload_chunk(token, chunk); });
+}
+
+void GenScheduler::load(int64_t x, int64_t y, int64_t z)
+{
+    const glm::i64vec3 player_pos(x, y, z);
+    const int64_t player_cx = int64_t(player_pos.x / 16);
+    const int64_t player_cz = int64_t(player_pos.z / 16);
+    const ChunkPos player_cpos(player_cx, player_cz);
+
+    terrain_pass(player_cpos);
+    chunk_pass(player_cpos);
+}
+
+static void add_neighbour_chunk(ChunkPos pos, std::set<ChunkPos>& chunks)
+{
+    for (const auto& p : {
+             ChunkPos(pos.x - 1, pos.z),
+             ChunkPos(pos.x + 1, pos.z),
+             ChunkPos(pos.x, pos.z - 1),
+             ChunkPos(pos.x, pos.z + 1),
+         })
+        chunks.insert(p);
+}
+
+void GenScheduler::tick()
+{
+    std::shared_ptr<Player> player = m_dimension.m_world->get_player();
+    load(int64_t(player->get_position().x), int64_t(player->get_position().y), int64_t(player->get_position().z));
+
+    std::set<ChunkPos> chunk_modified;
+
+    {
+        ZoneScopedN("Pregren flush");
+        std::shared_ptr<PreLoadedChunk> pregen_chunk;
+        while (m_pregen_chunks_lockless.try_dequeue(pregen_chunk))
+        {
+            m_dimension.m_preloaded_chunks[pregen_chunk->pos] = pregen_chunk;
+            m_pregen_loading_queue.erase(pregen_chunk->pos);
+        }
+    }
+
+    {
+        ZoneScopedN("Chunk flush");
+        std::shared_ptr<Chunk> chunk;
+        while (m_chunks_lockless.try_dequeue(chunk))
+        {
+            const ChunkPos pos = chunk->pos();
+            m_chunks_loading_queue.erase(pos);
+            if (m_dimension.m_chunks.contains(pos))
+                continue;
+            m_dimension.m_chunks[pos] = chunk;
+            chunk_modified.insert(pos);
+            add_neighbour_chunk(pos, chunk_modified);
+        }
+    }
+
+    {
+        ZoneScopedN("Chunk unload");
+        std::shared_ptr<Chunk> chunk;
+        while (m_chunks_unload_queue.try_dequeue(chunk))
+        {
+            const ChunkPos pos = chunk->pos();
+            chunk_modified.insert(pos);
+            add_neighbour_chunk(pos, chunk_modified);
+        }
+    }
+
+    for (ChunkPos pos : chunk_modified)
+    {
+        m_dimension.queue_rebuild(pos);
+    }
 }
 
 Dimension::Dimension(int id)
-    : m_id(id), m_scheduler(*this)
+    : m_id(id)
 {
 }
 
@@ -218,18 +310,6 @@ std::shared_ptr<Entity> Dimension::get_entity(EntityId id) const
             return entity;
     }
     return nullptr;
-}
-
-void Dimension::load(int64_t x, int64_t y, int64_t z, int64_t distance)
-{
-    (void)distance;
-    const glm::i64vec3 player_pos(x, y, z);
-    const int64_t player_cx = int64_t(player_pos.x / 16);
-    const int64_t player_cz = int64_t(player_pos.z / 16);
-    const ChunkPos player_cpos(player_cx, player_cz);
-
-    m_scheduler.terrain_pass(player_cpos);
-    m_scheduler.chunk_pass(player_cpos);
 }
 
 std::vector<AABBd> Dimension::get_boxes_that_may_collide(const AABBd& box) const
@@ -452,26 +532,6 @@ void Dimension::queue_rebuild(ChunkPos pos, size_t slice_index, size_t slice_cou
 void Dimension::remove_preload(ChunkPos pos)
 {
     m_preloaded_chunks.erase(pos);
-}
-
-void Dimension::unload_chunk(std::stop_token token, std::shared_ptr<Chunk> chunk)
-{
-    if (token.stop_requested())
-        return;
-    if (!Engine::get().is_save_disabled())
-    {
-        std::expected<void, Error> result = m_world->save_chunk({}, chunk, m_id);
-        (void)result;
-    }
-
-    // TODO: only push the ChunkPos.
-    m_chunks_unload_queue.enqueue(chunk);
-}
-
-void Dimension::queue_unload_chunk(std::shared_ptr<Chunk> chunk)
-{
-    Engine::get().get_thread_pool().submit([this, chunk](std::stop_token token)
-                                           { unload_chunk(token, chunk); });
 }
 
 void Dimension::update_sun(glm::mat4 matrix)

@@ -1,7 +1,7 @@
 {
     "name": "player",
     "texture_size": [64, 64],
-    "texture_path": "assets/textures/entities/player.png",
+    "texture_path": "data/resourcepacks/core/assets/minecraft/textures/entity/player/steve.png",
     "objects": [
         {
             "name": "body",

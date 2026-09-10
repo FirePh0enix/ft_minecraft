@@ -7,6 +7,7 @@
 #include "Engine.hpp"
 #include "Entity/Entity.hpp"
 #include "Entity/Item.hpp"
+#include "Entity/Player.hpp"
 #include "Profiler.hpp"
 #include "World/Chunk.hpp"
 #include "World/Dimension.hpp"
@@ -119,11 +120,8 @@ std::expected<std::shared_ptr<World>, Error> World::create(std::string name, uin
     world->m_seed = seed;
     world->m_name = name;
 
-    // TODO: find a common place to put this.
     world->m_dims[overworld].m_world = world.get();
-    world->m_dims[overworld].m_gen = std::make_shared<OverworldGen>(WorldSettings{});
     world->m_dims[underworld].m_world = world.get();
-    world->m_dims[underworld].m_gen = std::make_shared<UnderworldGen>(WorldSettings{});
 
     // world->find_safe_spawn();
 
@@ -149,7 +147,6 @@ std::expected<std::shared_ptr<World>, Error> World::create_proxy(uint64_t seed, 
 {
     std::shared_ptr<World> world = std::make_shared<World>(audio);
     world->m_seed = seed;
-    world->m_proxy = true;
     world->m_dims[overworld].m_world = world.get();
     return world;
 }
@@ -174,26 +171,13 @@ std::expected<std::shared_ptr<World>, Error> World::load(std::string name, Audio
     world->m_name = name;
 
     world->m_dims[overworld].m_world = world.get();
-    world->m_dims[overworld].m_gen = std::make_shared<OverworldGen>(WorldSettings{});
     world->m_dims[underworld].m_world = world.get();
-    world->m_dims[underworld].m_gen = std::make_shared<UnderworldGen>(WorldSettings{});
 
     return world;
 }
 
 World::~World()
 {
-}
-
-static void add_neighbour_chunk(ChunkPos pos, std::set<ChunkPos>& chunks)
-{
-    for (const auto& p : {
-             ChunkPos(pos.x - 1, pos.z),
-             ChunkPos(pos.x + 1, pos.z),
-             ChunkPos(pos.x, pos.z - 1),
-             ChunkPos(pos.x, pos.z + 1),
-         })
-        chunks.insert(p);
 }
 
 void World::tick(float delta)
@@ -224,57 +208,6 @@ void World::tick_dimension(float delta, int dimension)
     for (std::shared_ptr<Entity> entity : m_dims[dimension].m_entities_to_add)
         m_dims[dimension].m_entities.push_back(entity);
 
-    if (!m_proxy)
-    {
-        for (auto& [pos, chunk] : m_dims[dimension].m_chunks)
-        {
-            if (chunk->is_modified())
-                EXPECT(save_chunk({}, chunk, dimension));
-            chunk->clear_modified();
-        }
-
-        // TODO: Don't save every players each frames.
-        for (const std::shared_ptr<Entity>& entity : m_dims[dimension].get_entities())
-        {
-            if (std::shared_ptr<Player> player = std::dynamic_pointer_cast<Player>(entity))
-                EXPECT(save_player(player));
-        }
-
-        load_around_player(dimension);
-    }
-    else if (Engine::get().is_online() && !Engine::get().is_server())
-    {
-        request_load_around(dimension);
-    }
-
-    // Flush all new chunks.
-    std::set<ChunkPos> chunk_modified;
-
-    {
-        ZoneScopedN("Pregren flush");
-        std::shared_ptr<PreLoadedChunk> pregen_chunk;
-        while (m_dims[dimension].m_pregen_chunks_lockless.try_dequeue(pregen_chunk))
-        {
-            m_dims[dimension].m_preloaded_chunks[pregen_chunk->pos] = pregen_chunk;
-            m_dims[dimension].m_pregen_loading_queue.erase(pregen_chunk->pos);
-        }
-    }
-
-    {
-        ZoneScopedN("Chunk flush");
-        std::shared_ptr<Chunk> chunk;
-        while (m_dims[dimension].m_chunks_lockless.try_dequeue(chunk))
-        {
-            const ChunkPos pos = chunk->pos();
-            m_dims[dimension].m_chunks_loading_queue.erase(pos);
-            if (m_dims[dimension].m_chunks.contains(pos))
-                continue;
-            m_dims[dimension].m_chunks[pos] = chunk;
-            chunk_modified.insert(pos);
-            add_neighbour_chunk(pos, chunk_modified);
-        }
-    }
-
     {
         ZoneScopedN("Mesh flush");
         std::vector<ChunkPos> rebuild_completed;
@@ -300,50 +233,39 @@ void World::tick_dimension(float delta, int dimension)
         }
     }
 
-    {
-        ZoneScopedN("Chunk unload");
-        std::shared_ptr<Chunk> chunk;
-        while (m_dims[dimension].m_chunks_unload_queue.try_dequeue(chunk))
-        {
-            const ChunkPos pos = chunk->pos();
-            chunk_modified.insert(pos);
-            add_neighbour_chunk(pos, chunk_modified);
-        }
-    }
+    // for (ChunkPos pos : chunk_modified)
+    // {
+    //     m_dims[dimension].queue_rebuild(pos);
+    // }
 
-    for (ChunkPos pos : chunk_modified)
-    {
-        m_dims[dimension].queue_rebuild(pos);
-    }
+    // if (!m_proxy && Engine::get().is_online() && Engine::get().is_server())
+    // {
+    //     for (std::shared_ptr<Entity> entity : m_dims[dimension].get_entities())
+    //     {
+    //         UpdateEntityPacket p{};
+    //         p.id = entity->id();
+    //         p.position = entity->get_transform().position();
+    //         p.rotation = entity->get_transform().rotation();
+    //         Engine::get().connection().broadcast(Engine::get().connection().create_packet(p));
+    //     }
 
-    if (!m_proxy && Engine::get().is_online() && Engine::get().is_server())
-    {
-        for (std::shared_ptr<Entity> entity : m_dims[dimension].get_entities())
-        {
-            UpdateEntityPacket p{};
-            p.id = entity->id();
-            p.position = entity->get_transform().position();
-            p.rotation = entity->get_transform().rotation();
-            Engine::get().connection().broadcast(Engine::get().connection().create_packet(p));
-        }
-
-        for (const ChunkLoadRequest& req : m_load_requests)
-        {
-            auto chunk_opt = get_dimension(req.dimension).get_chunk(req.x, req.z);
-            if (chunk_opt.has_value())
-            {
-                auto chunk = chunk_opt.value();
-                Engine::get().get_thread_pool().submit([this, req, chunk](std::stop_token)
-                                                       { send_chunk(req.peer, chunk); });
-            }
-            else
-            {
-                // TODO: chunk is loaded but requested by a client, so we load the chunk and send it when its ready.
-                //       This will require to split chunks in two: chunks loaded or visible chunks.
-            }
-        }
-        m_load_requests.clear();
-    }
+    //     for (const ChunkLoadRequest& req : m_load_requests)
+    //     {
+    //         auto chunk_opt = get_dimension(req.dimension).get_chunk(req.x, req.z);
+    //         if (chunk_opt.has_value())
+    //         {
+    //             auto chunk = chunk_opt.value();
+    //             Engine::get().get_thread_pool().submit([this, req, chunk](std::stop_token)
+    //                                                    { send_chunk(req.peer, chunk); });
+    //         }
+    //         else
+    //         {
+    //             // TODO: chunk is loaded but requested by a client, so we load the chunk and send it when its ready.
+    //             //       This will require to split chunks in two: chunks loaded or visible chunks.
+    //         }
+    //     }
+    //     m_load_requests.clear();
+    // }
 
     m_dims[dimension].m_entities_to_remove.clear();
     m_dims[dimension].m_entities_to_add.clear();
@@ -422,37 +344,6 @@ std::optional<std::shared_ptr<Chunk>> World::get_chunk(int64_t x, int64_t z) con
 std::optional<std::shared_ptr<Chunk>> World::get_chunk(int64_t x, int64_t z)
 {
     return m_dims[overworld].get_chunk(x, z);
-}
-
-void World::load_around_player(int dimension)
-{
-    const glm::vec3 camera_pos = m_player->get_global_transform().position();
-    m_dims[dimension].load((int64_t)std::round(camera_pos.x), (int64_t)std::round(camera_pos.y), (int64_t)std::round(camera_pos.z), m_load_distance);
-}
-
-void World::request_load_around(int dimension)
-{
-    const glm::vec3 player_pos = m_player->get_global_transform().position();
-    int64_t player_cx = int64_t(player_pos.x / 16);
-    int64_t player_cz = int64_t(player_pos.z / 16);
-
-    for (int64_t cx = -m_load_distance; cx <= m_load_distance; cx++)
-    {
-        for (int64_t cz = -m_load_distance; cz <= m_load_distance; cz++)
-        {
-            int64_t x = player_cx + cx;
-            int64_t z = player_cz + cz;
-
-            if (m_dims[dimension].has_chunk(x, z))
-                continue;
-
-            RequestChunkPacket p{};
-            p.x = x;
-            p.z = z;
-            p.dimension = dimension;
-            Engine::get().connection().send(Engine::get().connection().create_packet(p));
-        }
-    }
 }
 
 inline void adjust_on_boundary(double rcomp, int64_t& vcomp, double dcomp, double eps = 1e-12)
@@ -640,75 +531,8 @@ bool World::load_player(std::string_view username, std::shared_ptr<Player>& play
     return true;
 }
 
-void World::send_chunk(ENetPeer *peer, std::shared_ptr<Chunk> chunk) const
-{
-    std::vector<uint8_t> blocks_data;
-    EXPECT(ZLib::deflate(std::as_bytes(std::span((uint8_t *)chunk->get_blocks(), sizeof(BlockState) * Chunk::block_count)), blocks_data));
-
-    BufferWriter writer;
-    Dimension::write_tags(writer, chunk);
-    std::vector<uint8_t> tags_data;
-    EXPECT(ZLib::deflate(std::as_bytes(writer.buffer()), tags_data));
-
-    ChunkDataPacket p;
-    p.x = chunk->x();
-    p.z = chunk->z();
-
-    p.blocks.resize(blocks_data.size());
-    memcpy(p.blocks.data(), blocks_data.data(), blocks_data.size());
-
-    p.tags.resize(tags_data.size());
-    memcpy(p.tags.data(), tags_data.data(), tags_data.size());
-
-    Engine::get().connection().send(peer, Engine::get().connection().create_packet(p));
-}
-
-void World::receive_chunk(const ChunkDataPacket& p)
-{
-    Dimension& dimension = get_dimension(World::overworld);
-    std::shared_ptr<Chunk> chunk = std::make_shared<Chunk>(&dimension, p.x, p.z);
-
-    std::vector<uint8_t> blocks_data;
-    EXPECT(ZLib::inflate(std::as_bytes(std::span(p.blocks)), blocks_data));
-    if (blocks_data.size() != sizeof(BlockState) * Chunk::block_count)
-    {
-        debug("received bad or corrupted blocks data for {} {}", p.x, p.z);
-        return;
-    }
-    memcpy(chunk->get_blocks(), blocks_data.data(), blocks_data.size());
-
-    std::vector<uint8_t> tags_data;
-    EXPECT(ZLib::inflate(std::as_bytes(std::span(p.tags)), tags_data));
-
-    // debug("tags received = {}", tags_data.size());
-
-    BufferReader reader(tags_data.data(), tags_data.size());
-    Dimension::read_tags(reader, chunk);
-
-    // for (size_t i = 0; i < Chunk::slice_count; i++) {
-    //  	EXPECT(chunk->build_simple_mesh(i));
-    // 	EXPECT(chunk->build_water_mesh(i));
-    // }
-
-    // Publish on the main thread. Direct m_chunks access here races rendering,
-    // visibility calculation and scheduling.
-    dimension.m_chunks_lockless.enqueue(chunk);
-}
-
-void World::queue_receive_chunk(const ChunkDataPacket& p)
-{
-    // Maybe I'm dumb and I don't know anything but using `[&]` creates segfaults, but manually specifying captures don't.
-    Engine::get().get_thread_pool().submit([this, p](std::stop_token)
-                                           { receive_chunk(p); });
-}
-
 bool World::is_player_saved(std::string_view name) const
 {
     std::string path = std::format("{}saves/{}/players/{}.dat", Filesystem::get_data_directory(), m_name, name);
     return Filesystem::exists(path);
-}
-
-void World::request_chunk(ENetPeer *peer, int dimension, int64_t x, int64_t z)
-{
-    m_load_requests.push_back(ChunkLoadRequest(peer, dimension, x, z));
 }

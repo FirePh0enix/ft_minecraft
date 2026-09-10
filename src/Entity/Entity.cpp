@@ -129,7 +129,7 @@ void Entity::call_rpci(std::string_view name, std::span<const Variant> args)
 
     RpcTarget rpc_target = rpc_target_maybe.value();
 
-    if (Engine::get().is_online() || rpc_target == RpcTarget::Both || (Engine::singleton->is_server() && rpc_target == RpcTarget::Server) || (!Engine::singleton->is_server() && rpc_target == RpcTarget::Client))
+    if (Engine::get().server() != nullptr && (rpc_target == RpcTarget::Both || (Engine::get().is_server() && rpc_target == RpcTarget::Server) || (Engine::get().is_client() && rpc_target == RpcTarget::Client)))
     {
         if (name.starts_with("set/"))
         {
@@ -143,7 +143,7 @@ void Entity::call_rpci(std::string_view name, std::span<const Variant> args)
         }
     }
 
-    if (Engine::get().is_online() && (rpc_target == RpcTarget::Both || (Engine::singleton->is_server() && rpc_target == RpcTarget::Client) || (!Engine::singleton->is_server() && rpc_target == RpcTarget::Server)))
+    if (Engine::get().server() != nullptr && (rpc_target == RpcTarget::Both || (Engine::get().is_server() && rpc_target == RpcTarget::Client) || (Engine::get().is_client() && rpc_target == RpcTarget::Server)))
     {
         RpcCallPacket p;
         p.id = id();
@@ -152,10 +152,10 @@ void Entity::call_rpci(std::string_view name, std::span<const Variant> args)
         for (const Variant& v : args)
             p.args.push_back(v);
 
-        if (Engine::singleton->is_server())
-            Engine::singleton->connection().broadcast(Engine::singleton->connection().create_packet(p));
+        if (Engine::get().is_server())
+            Engine::get().server()->route_packet(NetworkConnection::create_packet(p));
         else
-            Engine::singleton->connection().send(Engine::singleton->connection().create_packet(p));
+            Engine::get().server()->route_packet(NetworkConnection::create_packet(p));
     }
 }
 

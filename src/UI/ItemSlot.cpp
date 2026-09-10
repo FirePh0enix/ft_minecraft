@@ -2,6 +2,7 @@
 
 #include "Color.hpp"
 #include "Engine.hpp"
+#include "Input.hpp"
 #include "Inventory/Inventory.hpp"
 #include "Item/ItemStack.hpp"
 #include "UI/Widget.hpp"

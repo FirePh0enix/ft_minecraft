@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Core/Error.hpp"
 #include "Audio/AudioMixer.hpp"
+#include "Core/Error.hpp"
 #include "DebugDisplay.hpp"
 #include "Entity/Entity.hpp"
 #include "Network/Packet.hpp"
@@ -82,14 +82,6 @@ struct WorldSaveInfo
     glm::vec3 spawn_position;
 };
 
-struct ChunkLoadRequest
-{
-    ENetPeer *peer;
-    int dimension;
-    int64_t x;
-    int64_t z;
-};
-
 class World
 {
     friend class Generator;
@@ -114,7 +106,7 @@ public:
     BlockState get_block_state(int dimension, int64_t x, int64_t y, int64_t z) const;
     void set_block_state(int dimension, int64_t x, int64_t y, int64_t z, BlockState state);
 
-    int64_t get_render_distance() const { return m_load_distance; }
+    // int64_t get_render_distance() const { return m_load_distance; }
 
     std::optional<std::shared_ptr<Chunk>> get_chunk(int64_t x, int64_t z) const;
     std::optional<std::shared_ptr<Chunk>> get_chunk(int64_t x, int64_t z);
@@ -143,8 +135,8 @@ public:
         return m_dims[index];
     }
 
-    void set_player(Player *player) { m_player = player; }
-    Player *get_player() const { return m_player; }
+    void set_player(std::shared_ptr<Player> player) { m_player = player; }
+    std::shared_ptr<Player> get_player() const { return m_player; }
 
     void add_entity(int dimension, std::shared_ptr<Entity> entity, bool reset_id = true)
     {
@@ -199,14 +191,7 @@ public:
     /// Load player data from the disk.
     [[nodiscard]] bool load_player(std::string_view name, std::shared_ptr<Player>& player);
 
-    void queue_receive_chunk(const ChunkDataPacket& p);
-
-    void send_chunk(ENetPeer *peer, std::shared_ptr<Chunk> chunk) const;
-    void receive_chunk(const ChunkDataPacket& p);
-
     bool is_player_saved(std::string_view name) const;
-
-    void request_chunk(ENetPeer *peer, int dimension, int64_t x, int64_t z);
 
     const DebugDisplay& dd() const { return m_debug_display; }
     DebugDisplay& dd() { return m_debug_display; }
@@ -223,26 +208,17 @@ public:
 private:
     uint64_t m_seed = 0;
     std::string m_name;
+    bool m_proxy = false;
 
     std::array<Dimension, max_dimensions> m_dims;
 
-    // TODO: needs to be 16
-    int64_t m_load_distance = 20;
-    // std::vector<ChunkLoadElement> m_load_buffer;
-
-    std::vector<ChunkLoadRequest> m_load_requests;
-
-    bool m_proxy = false;
-
-    Player *m_player = nullptr;
+    std::shared_ptr<Player> m_player;
 
     glm::dvec3 m_spawn_position = glm::vec3();
 
     DebugDisplay m_debug_display;
 
     void find_safe_spawn();
-    void load_around_player(int dimension);
-    void request_load_around(int dimension);
 
     AudioMixer& m_audio;
 };

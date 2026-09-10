@@ -1,6 +1,7 @@
 #include "Inventory/Inventory.hpp"
 
 #include "Engine.hpp"
+#include "Input.hpp"
 #include "UI/Widget.hpp"
 
 #include <format>
@@ -86,7 +87,7 @@ void Inventory::grab(const ItemStack& itemstack, std::optional<InventoryOrigin> 
         ungrab();
         return;
     }
-    
+
     m_grabbed_item_rect->set_visible(true);
 
     m_grabbed_stack = itemstack;

@@ -11,6 +11,11 @@ NetworkConnection::NetworkConnection()
     ASSERT(enet_initialize() == 0, "failed to initialize ENet");
 }
 
+NetworkConnection::~NetworkConnection()
+{
+    close();
+}
+
 std::expected<void, Error> NetworkConnection::connect_to(std::string_view ip, uint16_t port)
 {
     m_address.port = port;
@@ -32,6 +37,9 @@ std::expected<void, Error> NetworkConnection::connect_to(std::string_view ip, ui
 
     debug("Trying to connect to {}:{}", ip, port);
 
+    m_worker_state = true;
+    m_worker_thread = std::thread(std::bind(&NetworkConnection::worker, this));
+
     m_state = ConnectionState::Connection;
     m_is_server = false;
     return std::expected<void, Error>();
@@ -52,6 +60,9 @@ std::expected<void, Error> NetworkConnection::host(uint16_t port, std::string_vi
 
     info("Hosting on *:{}", port);
 
+    m_worker_state = true;
+    m_worker_thread = std::thread(std::bind(&NetworkConnection::worker, this));
+
     m_state = ConnectionState::Host;
     m_is_server = true;
     return std::expected<void, Error>();
@@ -59,6 +70,7 @@ std::expected<void, Error> NetworkConnection::host(uint16_t port, std::string_vi
 
 void NetworkConnection::send(ENetPeer *peer, ENetPacket *packet)
 {
+    std::lock_guard<std::mutex> lock(m_host_mutex); // TODO: one mutex per client maybe
     enet_peer_send(peer, 0, packet);
 }
 
@@ -69,12 +81,19 @@ void NetworkConnection::send(ENetPacket *packet)
 
 void NetworkConnection::broadcast(ENetPacket *packet, ENetPeer *peer)
 {
+    std::lock_guard<std::mutex> lock(m_host_mutex);
     for (const auto& [key, value] : m_clients)
     {
         if (peer == value.peer())
             continue;
         enet_peer_send(value.peer(), 0, packet);
     }
+}
+
+void NetworkConnection::disconnect(ENetPeer *peer)
+{
+    std::lock_guard<std::mutex> lock(m_host_mutex);
+    enet_peer_disconnect(peer, 0);
 }
 
 void NetworkConnection::tick()
@@ -95,7 +114,7 @@ void NetworkConnection::tick()
 void NetworkConnection::tick_client()
 {
     ENetEvent event;
-    while (enet_host_service(m_host, &event, 0) > 0)
+    while (m_event_queue.try_dequeue(event))
     {
         switch (event.type)
         {
@@ -111,14 +130,14 @@ void NetworkConnection::tick_client()
         {
             Client client("", 0, event.peer);
             m_disconnect_handler(m_disconnect_handler_user, *this, client);
-            close();
+            // close();
         };
         break;
         case ENET_EVENT_TYPE_RECEIVE:
         {
             Client client("", 0, event.peer);
             m_packet_handler(m_packet_handler_user, *this, event.packet, client);
-            enet_packet_destroy(event.packet);
+            // enet_packet_destroy(event.packet);
         }
         break;
         default:
@@ -130,7 +149,7 @@ void NetworkConnection::tick_client()
 void NetworkConnection::tick_server()
 {
     ENetEvent event;
-    while (enet_host_service(m_host, &event, 0) > 0)
+    while (m_event_queue.try_dequeue(event))
     {
         switch (event.type)
         {
@@ -161,7 +180,7 @@ void NetworkConnection::tick_server()
         {
             const Client& client = m_clients[event.peer];
             m_packet_handler(m_packet_handler_user, *this, event.packet, client);
-            enet_packet_destroy(event.packet);
+            // enet_packet_destroy(event.packet);
         }
         break;
         default:
@@ -172,17 +191,30 @@ void NetworkConnection::tick_server()
 
 void NetworkConnection::close()
 {
+    m_worker_state.store(false);
+    if (m_worker_thread.joinable())
+        m_worker_thread.join();
+
     switch (m_state)
     {
     case ConnectionState::Host:
+    {
+        for (const auto& [peer, client] : m_clients)
+            enet_peer_disconnect(peer, 0);
+        std::lock_guard<std::mutex> guard(m_host_mutex);
         enet_host_destroy(m_host);
-        break;
+        m_host = nullptr;
+        m_clients.clear();
+    };
+    break;
     case ConnectionState::Connected:
     case ConnectionState::Connection:
     {
         if (m_state == ConnectionState::Connected)
             enet_peer_disconnect(m_peer, 0);
+        std::lock_guard<std::mutex> guard(m_host_mutex);
         enet_host_destroy(m_host);
+        m_host = nullptr;
     }
     break;
     default:
@@ -191,4 +223,17 @@ void NetworkConnection::close()
 
     // Reset the state connection state to idle.
     m_state = ConnectionState::Idle;
+}
+
+void NetworkConnection::worker()
+{
+    while (m_worker_state.load())
+    {
+        std::lock_guard<std::mutex> lock(m_host_mutex);
+        ENetEvent event{};
+        while (m_worker_state.load() && enet_host_service(m_host, &event, 0) > 0)
+        {
+            m_event_queue.enqueue(event);
+        }
+    }
 }

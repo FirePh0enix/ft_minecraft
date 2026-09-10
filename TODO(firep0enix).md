@@ -7,12 +7,14 @@
 - [ ] Re-enable world save
 - [x] Fix chunk border when generating mesh
 - [ ] Bug when destroying block when the thread pool is busy mesh are not rebuild right away
-- [ ] Fix debug display
+- [x] Fix debug display
 - [ ] Fix clouds
 - [ ] Plants
 - [ ] Fix multiplayer
 - [ ] Spawn mobs
 - [ ] Save entities
+- [ ] Head moving in third person
+- [ ] Audit every usage of `EXPECT()` with the intention to remove most of them.
 
 - [x] Generate caves
 - [ ] Generate ores

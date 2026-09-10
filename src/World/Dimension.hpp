@@ -61,8 +61,8 @@ class GenScheduler
 public:
     friend class World;
 
-    GenScheduler(Dimension& dimension)
-        : m_dimension(dimension)
+    GenScheduler(Dimension& dimension, std::shared_ptr<Gen> gen)
+        : m_dimension(dimension), m_gen(gen)
     {
     }
 
@@ -73,11 +73,26 @@ public:
     void terrain_pass(ChunkPos middle);
     void chunk_pass(ChunkPos middle);
 
+    void unload_chunk(std::stop_token token, std::shared_ptr<Chunk> chunk);
+    void queue_unload_chunk(std::shared_ptr<Chunk> chunk);
+
+    void load(int64_t x, int64_t y, int64_t z);
+    void tick();
+
 private:
     Dimension& m_dimension;
 
     int64_t m_chunk_distance = 16;
     int64_t m_gen_distance = 15;
+
+    std::shared_ptr<Gen> m_gen;
+
+    daking::MPSC_queue<std::shared_ptr<PreLoadedChunk>> m_pregen_chunks_lockless;
+    daking::MPSC_queue<std::shared_ptr<Chunk>> m_chunks_lockless;
+    daking::MPSC_queue<std::shared_ptr<Chunk>> m_chunks_unload_queue;
+
+    std::set<ChunkPos> m_pregen_loading_queue;
+    std::set<ChunkPos> m_chunks_loading_queue;
 
     void terrain_and_struct_chunk(std::stop_token token, ChunkPos pos, std::shared_ptr<PreLoadedChunk> chunk);
     void realize_chunk(std::stop_token st, ChunkPos pos, std::shared_ptr<Chunk> chunk, std::shared_ptr<PreLoadedChunk> pregen_chunk);
@@ -92,6 +107,8 @@ class Dimension
 public:
     Dimension(int id);
 
+    int id() const { return m_id; }
+
     std::optional<std::shared_ptr<Chunk>> get_chunk(int64_t x, int64_t z) const;
 
     bool has_chunk(int64_t x, int64_t z) const;
@@ -105,9 +122,6 @@ public:
     const std::map<ChunkPos, std::shared_ptr<Chunk>>& get_chunks() const { return m_chunks; }
     std::span<const RenderableChunk> get_visible_chunks() const { return m_visible_chunks; }
     std::span<const RenderableChunk> get_sun_visible_chunks() const { return m_sun_visible_chunks; }
-
-    /// Load and world generation logic.
-    void load(int64_t x, int64_t y, int64_t z, int64_t distance);
 
     /// TODO: remove this, put rendering outside this class.
     void update_sun(glm::mat4 matrix);
@@ -131,11 +145,14 @@ public:
 
     void remove_preload(ChunkPos pos);
 
-    void unload_chunk(std::stop_token token, std::shared_ptr<Chunk> chunk);
-    void queue_unload_chunk(std::shared_ptr<Chunk> chunk);
-
     void place_structure(glm::i64vec3 pos, BlockState *blocks, int64_t w, int64_t h, int64_t l);
     void get_structures_overlap(ChunkPos pos, std::vector<StructureGen>& structures);
+
+    void add_chunk(std::shared_ptr<Chunk> chunk) { m_chunks[chunk->pos()] = chunk; }
+    void remove_chunk(ChunkPos pos) { m_chunks.erase(pos); }
+
+    static void write_tags(Writer& writer, std::shared_ptr<Chunk> chunk);
+    static void read_tags(Reader& reader, std::shared_ptr<Chunk> chunk);
 
 private:
     World *m_world = nullptr;
@@ -146,17 +163,9 @@ private:
 
     std::vector<RenderableChunk> m_visible_chunks;
 
-    daking::MPSC_queue<std::shared_ptr<PreLoadedChunk>> m_pregen_chunks_lockless;
-    daking::MPSC_queue<std::shared_ptr<Chunk>> m_chunks_lockless;
     daking::MPSC_queue<MeshRebuildResult> m_mesh_queue_lockless;
-    daking::MPSC_queue<std::shared_ptr<Chunk>> m_chunks_unload_queue;
-
-    std::set<ChunkPos> m_pregen_loading_queue;
-    std::set<ChunkPos> m_chunks_loading_queue;
     std::set<ChunkPos> m_chunks_rebuild_queue;
     std::set<ChunkPos> m_chunks_rebuild_pending;
-
-    GenScheduler m_scheduler;
 
     // TODO: move this somewhere else.
     Frustum m_sun_frustum;
@@ -166,11 +175,6 @@ private:
     std::vector<std::shared_ptr<Entity>> m_entities_to_add;
     std::vector<std::shared_ptr<Entity>> m_entities_to_remove;
 
-    std::shared_ptr<Gen> m_gen;
-
     std::mutex m_structures_mutex;
     std::vector<StructureGen> m_structures_queue;
-
-    static void write_tags(Writer& writer, std::shared_ptr<Chunk> chunk);
-    static void read_tags(Reader& reader, std::shared_ptr<Chunk> chunk);
 };

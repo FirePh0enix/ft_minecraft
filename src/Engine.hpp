@@ -3,30 +3,22 @@
 #include "Audio/AudioMixer.hpp"
 #include "Audio/MusicPlayer.hpp"
 #include "Core/ThreadPool.hpp"
-#include "Entity/Entity.hpp"
-#include "Entity/Player.hpp"
 #include "Font.hpp"
 #include "Network/Network.hpp"
+#include "Network/Server.hpp"
 #include "Render/Renderer.hpp"
+#include "Signal.hpp"
 #include "World/Registry.hpp"
-#include "World/World.hpp"
 
 #include <memory>
 
-enum class GameScene
-{
-    MainMenu,
-    World,
-    WaitingForWorld,
-};
-
-/**
- * Number of ticks per in-game day.
- */
+/// Number of ticks per in-game day.
 constexpr int64_t ticks_per_day = 60 * 60 * 24;
 constexpr int64_t ticks_noon = ticks_per_day / 2;
 constexpr int64_t ticks_sunrise = ticks_per_day / 4;
 constexpr int64_t ticks_sunset = ticks_noon + ticks_per_day / 4;
+
+class Widget;
 
 class Engine
 {
@@ -39,21 +31,10 @@ public:
     void tick(float delta);
     void draw(float delta);
 
-    bool is_server() const { return m_authority == RpcTarget::Server; }
-
     size_t get_memory_usage() const { return m_current_memory_usage; }
 
-    std::shared_ptr<World> get_world()
-    {
-        return m_world;
-    }
-
     std::shared_ptr<Window> window() const { return m_window; }
-
-    NetworkConnection& connection()
-    {
-        return m_connection;
-    }
+    std::shared_ptr<Server> server() const { return m_server; }
 
     ThreadPool& get_thread_pool()
     {
@@ -65,12 +46,10 @@ public:
         return m_mesh_thread_pool;
     }
 
-    bool is_online() const { return m_connection.state() != ConnectionState::Idle; }
+    // bool is_online() const { return m_connection.state() != ConnectionState::Idle; }
 
     GameRegistry& registry() { return m_registry; }
-    EntityRegistry& entities() { return m_entity_registry; }
-
-    std::shared_ptr<Player> get_player() const { return m_player; }
+    EntityRegistry& entity_registry() { return m_entity_registry; }
 
     std::shared_ptr<Font> get_font() const { return m_font; }
 
@@ -82,34 +61,36 @@ public:
 
     bool is_save_disabled() const { return m_disable_save; }
 
-    /**
-     * Time of day in ticks since the start of the day.
-     */
+    /// Time of day in ticks since the start of the day.
     int64_t time_of_day() const { return m_ticks_since_start_of_day; }
-
-    static Engine& get() { return *singleton; }
-
-    static inline Engine *singleton;
 
     AudioMixer& audio_mixer() { return *m_audio_mixer; }
     MusicPlayer& music_player() { return *m_music_player; }
 
+    bool is_server() const { return m_server != nullptr && m_current_target == RpcTarget::Server; }
+    bool is_client() const { return m_server != nullptr && m_current_target == RpcTarget::Client; }
+
+    void go_to_main_menu();
+
+    static Engine& get() { return *singleton; }
+
 private:
-    GameScene m_scene = GameScene::MainMenu;
+    static inline Engine *singleton;
+
     std::shared_ptr<Window> m_window;
+    std::shared_ptr<Server> m_server;
+    RpcTarget m_current_target;
+
+    std::function<void()> m_menu;
 
     GameRegistry m_registry;
     EntityRegistry m_entity_registry;
-    bool m_disable_save;
-
-    RpcTarget m_authority = RpcTarget::Server;
-    NetworkConnection m_connection;
-    std::map<ENetPeer *, std::shared_ptr<Player>> m_players;
-
     Renderer m_renderer;
 
-    std::shared_ptr<World> m_world;
-    std::shared_ptr<Player> m_player;
+    bool m_disable_save;
+
+    bool m_switch_to_main_menu = false;
+
     std::shared_ptr<Font> m_font;
 
     ThreadPool m_thread_pool;
@@ -127,46 +108,18 @@ private:
     float m_last_second_frame_time = 0.0;
     size_t m_current_memory_usage = 0;
 
-    // main menu stuff
-    int m_main_menu_world_type = 1;
-    char m_world_seed_buf[32] = "0";
-    char m_connect_ip[32] = "127.0.0.1";
-    int m_connect_port = NetworkConnection::default_port;
-    char m_username[32] = "steve";
+    std::unique_ptr<AudioMixer> m_audio_mixer;
+    std::unique_ptr<MusicPlayer> m_music_player;
 
-    bool has_player_with_name(std::string_view name) const
-    {
-        if (name == m_player->get_username())
-        {
-            return true;
-        }
-        for (const auto& [peer, player] : m_players)
-        {
-            if (player->get_username() == name)
-            {
-                return true;
-            }
-        }
-        return false;
-    }
+    // Menu
+    char m_username_buf[32] = "steve";
+    int m_current_save = 0;         // load
+    char m_name_buf[32] = "unamed"; // create
+    char m_seed_buf[32] = "0";
+    char m_ip_buf[32] = "127.0.0.1"; // join
 
     void register_entities();
     void register_recipes();
 
-    void draw_main_menu();
-    void draw_world_scene();
-
-    void create_world_and_start();
-    void connect_to_remote_world();
-
-    static void receive_client(void *, NetworkConnection& conn, ENetPacket *packet, const Client& client);
-    static void connect_client(void *, NetworkConnection& conn, const Client& client);
-    static void disconnect_client(void *, NetworkConnection& conn, const Client& client);
-
-    static void receive_server(void *, NetworkConnection& conn, ENetPacket *packet, const Client& client);
-    static void connect_server(void *, NetworkConnection& conn, const Client& client);
-    static void disconnect_server(void *, NetworkConnection& conn, const Client& client);
-
-    std::unique_ptr<AudioMixer> m_audio_mixer;
-    std::unique_ptr<MusicPlayer> m_music_player;
+    void main_menu_gui();
 };

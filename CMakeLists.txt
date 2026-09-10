@@ -60,6 +60,8 @@ list(APPEND SOURCES
     src/Item/ItemStack.cpp
     src/Item/Bow.cpp
     src/Item/Arrow.cpp
+    src/Network/LocalServer.cpp
+    src/Network/RemoteServer.cpp
     src/Network/Network.cpp
     src/Network/Packet.cpp
     src/Render/Shader.cpp

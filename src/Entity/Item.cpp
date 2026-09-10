@@ -2,6 +2,7 @@
 
 #include "Core/Types.hpp"
 #include "Engine.hpp"
+#include "Entity/Player.hpp"
 #include "Render/Renderer.hpp"
 
 ItemEntity::ItemEntity(Id<Item> item)
@@ -37,7 +38,7 @@ void ItemEntity::draw(const RenderPass& pass)
 {
     m_transform.rotation() = glm::rotate(glm::identity<glm::quat>(), m_time, glm::vec3(0.0, 1.0, 0.0));
 
-    FwModel matrix(get_transform().to_matrix(Engine::get().get_world()->get_player()->get_position()));
+    FwModel matrix(get_transform().to_matrix(Engine::get().server()->get_player()->get_position()));
 
     m_model_buffer->update_struct(matrix);
     Renderer::get().draw(pass, m_mesh, Renderer::get().get_model_noshadow_mat(), m_bg);

@@ -13,9 +13,9 @@
 #include "Model.hpp"
 #include "Render/Renderer.hpp"
 #include "UI/TextInput.hpp"
+#include "UI/Widget.hpp"
 #include "World/Registry.hpp"
 #include "World/World.hpp"
-#include "glm/ext/vector_int3.hpp"
 
 #include <cstdint>
 #include <imgui.h>
@@ -173,14 +173,20 @@ void Player::bind_methods()
     expose_rpc<Player>("place_block", RpcTarget::Both);
 }
 
-void Player::on_ready()
+Player::Player()
+    : LivingEntity(20)
 {
+    m_aabb = AABBd(-glm::dvec3(0.35, 0.9, 0.35), glm::dvec3(0.35, 0.9, 0.35));
+
     m_inventory_container = std::make_shared<InventoryContainer>();
     m_inventory_container->add_layer(27); // main inventory
     m_inventory_container->add_layer(9);  // toolbar
     m_inventory_container->add_layer(4);  // Crafting Ingredients
     m_inventory_container->add_layer(1);  // Crafting Result
+}
 
+void Player::on_ready()
+{
     m_hand_model_buffer = EXPECT(Buffer::create(sizeof(FwModel), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform));
     m_hand_item_bg = BindGroup::create(Renderer::get().get_model_noshadow_shader());
     m_hand_item_bg->set_param("camera", Renderer::get().get_fw_camera());
@@ -195,13 +201,12 @@ void Player::on_ready()
         m_camera = std::make_shared<Camera>();
         m_camera->get_transform().position() = glm::vec3(0, 0.80, 0);
         add_child(m_camera);
-        // m_world->set_active_camera(m_camera);
-        m_world->set_player(this);
 
         m_chat = std::make_shared<Widget>();
         m_chat->set_expand_horizontal(true);
         m_chat->set_expand_vertical(true);
         m_chat->set_alignment(ContainerAlignment::Left | ContainerAlignment::Bottom);
+        m_chat->set_layout(ContainerLayout::Vertical);
 
         std::shared_ptr<ColorRectWidget> color_rect = std::make_shared<ColorRectWidget>();
         color_rect->set_color(Colors::red);
@@ -212,6 +217,9 @@ void Player::on_ready()
         chat_input->set_size(Point(Size::percent(45), Size::px(40)));
         chat_input->done_callback().connect(std::bind_front(&Player::on_text_message, this));
         color_rect->add_child(chat_input);
+
+        m_player_list = std::make_shared<Widget>();
+        m_player_list->set_layout(ContainerLayout::Vertical);
 
         // m_aim_buffer = EXPECT(Buffer::create(sizeof(SimpleUniforms), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform));
         // m_aim_material = EXPECT(Material::create(Renderer::get().get_simple_shader(), MaterialFlagBits::Transparency | MaterialFlagBits::Priority, WGPUCullMode_Back, UVType::UV));
@@ -238,7 +246,7 @@ void Player::on_ready()
     }
     else
     {
-        m_model = EXPECT(ModelLegacy::load("assets/models/player.json"));
+        m_model = EXPECT(ModelLegacy::load("data/models/player.json"));
         m_animator.set_model(m_model);
 
         // Model::Info info{.model_matrix = glm::translate(glm::identity<glm::mat4>(), glm::vec3(0.0, 100.0, 0.0))};
@@ -258,7 +266,8 @@ void Player::on_text_message(TextInput& input, std::string_view message)
     }
     else
     {
-        println("message is `{}`", message);
+        Engine::get().server()->send_message(msg);
+        send_message(m_username + ": " + msg);
     }
 }
 
@@ -496,13 +505,13 @@ void Player::tick(float delta)
         if (head_in_water())
         {
             const glm::vec4 sky_color = glm::vec4(0.0, 0.0, 1.0, 1.0);
-            Renderer::get().set_fog(sky_color, float(m_world->get_render_distance()) * 16.0f * 0.3f);
+            Renderer::get().set_fog(sky_color, float(16) * 16.0f * 0.3f); // TODO: render distance
             Renderer::get().set_sky(sky_color);
         }
         else
         {
             const glm::vec4 sky_color = glm::vec4(130.0 / 255.0, 200.0 / 255.0, 229.0 / 255.0, 1.0);
-            Renderer::get().set_fog(sky_color, float(m_world->get_render_distance()) * 16.0f - 1.0f);
+            Renderer::get().set_fog(sky_color, float(16) * 16.0f - 1.0f);
             Renderer::get().set_sky(sky_color);
         }
 
@@ -521,8 +530,8 @@ void Player::tick(float delta)
             if (biome != m_current_biome)
             {
                 m_current_biome = biome;
-                auto& clip = Engine::get().music_player().get_biome_music(biome);
-                Engine::get().music_player().crossfade_to(&clip, 2.0f, 1.0f);
+                // auto& clip = Engine::get().music_player().get_biome_music(biome);
+                // Engine::get().music_player().crossfade_to(&clip, 2.0f, 1.0f);
             }
         }
     }
@@ -584,18 +593,18 @@ void Player::tick(float delta)
 
     const bool is_moving = glm::length2(glm::vec2(m_velocity.x, m_velocity.z)) > 1e-6f;
 
-    if (is_in_water() && is_moving)
-    {
-        m_audio_source->set_clip(&m_swimming_clip.value());
-        m_audio_source->play();
-    }
-    else if (is_moving && m_on_ground)
-    {
-        m_audio_source->set_clip(&m_walking_clip.value());
-        m_audio_source->play();
-    }
-    else
-        m_audio_source->stop();
+    // if (is_in_water() && is_moving)
+    // {
+    //     m_audio_source->set_clip(&m_swimming_clip.value());
+    //     m_audio_source->play();
+    // }
+    // else if (is_moving && m_on_ground)
+    // {
+    //     m_audio_source->set_clip(&m_walking_clip.value());
+    //     m_audio_source->play();
+    // }
+    // else
+    //     m_audio_source->stop();
 
     // Reset velocity after movements.
     m_velocity.x = 0.0;
@@ -629,21 +638,26 @@ void Player::tick(float delta)
 
     m_previous_frame_in_water = in_water;
 
-    if (m_chat_opened)
+    if (m_local_player && m_chat_opened)
     {
         m_chat->update_everything(delta);
     }
 
-    if (m_local_player && Engine::get().is_online() && !Engine::get().is_server())
+    if (m_local_player && Input::is_action_pressed("show_player_list"))
+    {
+        m_player_list->update_everything(delta);
+    }
+
+    if (m_local_player && Engine::get().is_client())
     {
         SendPlayerTransformPacket p{};
         p.id = m_id;
         p.position = get_global_transform().position();
         p.rotation = get_global_transform().rotation();
-        Engine::get().connection().send(Engine::get().connection().create_packet(p));
+        Engine::get().server()->route_packet(NetworkConnection::create_packet(p));
     }
 
-    m_audio_source->set_position(get_global_transform().position());
+    // m_audio_source->set_position(get_global_transform().position());
 }
 
 void Player::draw(const RenderPass& pass)
@@ -720,6 +734,11 @@ void Player::draw_ui(const RenderPass& pass)
         if (m_chat_opened)
         {
             m_chat->draw_everything(pass);
+        }
+
+        if (Input::is_action_pressed("show_player_list"))
+        {
+            m_player_list->draw_everything(pass);
         }
     }
 }
@@ -825,4 +844,23 @@ void Player::close_inventory()
 bool Player::head_in_water() const
 {
     return m_world->get_dimension(m_dimension).get_tag(get_position() + glm::dvec3(0, 1.2, 0.0), "water").has_value();
+}
+
+void Player::update_player_list(const std::vector<std::string>& names)
+{
+    m_player_list->clear_children();
+
+    for (const std::string& name : names)
+    {
+        std::shared_ptr<LabelWidget> label = std::make_shared<LabelWidget>(Engine::get().get_font());
+        label->set_text(name);
+        m_player_list->add_child(label);
+    }
+}
+
+void Player::send_message(std::string message)
+{
+    std::shared_ptr<LabelWidget> label = std::make_shared<LabelWidget>(Engine::get().get_font());
+    label->set_text(message);
+    m_chat->add_child(label);
 }

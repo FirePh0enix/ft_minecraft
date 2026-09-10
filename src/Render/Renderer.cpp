@@ -6,7 +6,9 @@
 #include "Core/Math.hpp"
 #include "Core/Stacktrace.hpp"
 #include "Engine.hpp"
+#include "Entity/Camera.hpp"
 #include "Entity/Entity.hpp"
+#include "Entity/Player.hpp"
 #include "Profiler.hpp"
 #include "Render/Shader.hpp"
 #include "Render/Types.hpp"
@@ -1338,7 +1340,7 @@ void Renderer::configure_surface(size_t width, size_t height)
     m_fw_pp_bg->set_param("depth", EXPECT(m_fw_depth_texture->get_view(WGPUTextureViewDimension_2D, WGPUTextureAspect_DepthOnly)));
 }
 
-void Renderer::draw_legacy(std::function<void()> f)
+void Renderer::draw_ui(std::function<void(const RenderPass&)> f)
 {
     WGPUSurfaceTexture surface_texture{};
     wgpuSurfaceGetCurrentTexture(m_surface, &surface_texture);
@@ -1377,7 +1379,7 @@ void Renderer::draw_legacy(std::function<void()> f)
     ImGui_ImplWGPU_NewFrame();
     ImGui_ImplSDL3_NewFrame();
     ImGui::NewFrame();
-    f();
+    f(RenderPass(render_encoder, m_fw_depth_texture->format(), {RenderTarget(m_surface_format)}));
 
     ImGui::Render();
     ImGui_ImplWGPU_RenderDrawData(ImGui::GetDrawData(), render_encoder);
@@ -1540,10 +1542,12 @@ void Renderer::draw_forward(const std::shared_ptr<World>& world)
 
     WGPUCommandEncoder encoder = wgpuDeviceCreateCommandEncoder(m_device, nullptr);
 
-    const int current_dim = world->get_player()->get_dimension();
-    // const int portal_dim = (current_dim + 1) % 2;
+    if (world->get_player() != nullptr)
+    {
+        const int current_dim = world->get_player()->get_dimension();
+        draw_dimension_forward(encoder, world, current_dim, false);
+    }
 
-    draw_dimension_forward(encoder, world, current_dim, false);
     // draw_dimension_forward(encoder, world, portal_dim, true);
 
     WGPURenderPassColorAttachment output_color_attach = WGPU_RENDER_PASS_COLOR_ATTACHMENT_INIT;
@@ -1574,6 +1578,7 @@ void Renderer::draw_forward(const std::shared_ptr<World>& world)
     ui_pass_desc.colorAttachmentCount = 1;
     ui_pass_desc.colorAttachments = &color_load_attach;
 
+    if (world->get_player() != nullptr)
     {
         ZoneScopedN("draw ui");
 
@@ -1623,7 +1628,7 @@ void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::sha
     camera.view_projection = active_camera->get_projection_matrix();
     m_fw_camera_rel->update_struct(camera);
 
-    const float shadowmap_range = float(world->get_render_distance()) * 34.0f;
+    const float shadowmap_range = float(16 /*TODO world->get_render_distance()*/) * 34.0f;
     const glm::dvec3 light_target = active_camera->get_global_transform().position();
     const glm::dvec3 light_dir = glm::normalize(glm::vec3(1, 1, 0));
     // const float light_distance = 100.0;

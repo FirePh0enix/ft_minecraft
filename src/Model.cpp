@@ -2,6 +2,7 @@
 
 #include "Core/Filesystem.hpp"
 #include "Engine.hpp"
+#include "Entity/Player.hpp"
 #include "Render/Renderer.hpp"
 
 #include <cmath>
@@ -131,7 +132,7 @@ std::expected<std::shared_ptr<ModelLegacy>, Error> ModelLegacy::load(std::string
 
         ModelLegacy::Info info{
             // TODO: add rotation.
-            .model_matrix = glm::rotate(glm::identity<glm::mat4>(), float(M_PI), glm::vec3(0, 1, 0)) * glm::translate(glm::identity<glm::mat4>(), obj.position) * glm::scale(glm::identity<glm::mat4>(), obj.size),
+            .model_matrix = glm::rotate(glm::identity<glm::mat4>(), float(0), glm::vec3(0, 1, 0)) * glm::translate(glm::identity<glm::mat4>(), obj.position) * glm::scale(glm::identity<glm::mat4>(), obj.size),
         };
         obj.model_buffer->update_struct(info);
 
@@ -204,7 +205,10 @@ std::optional<ModelLegacy::Object> ModelLegacy::get_object(std::string_view name
 
 void ModelLegacy::encode(const RenderPass& pass, const Transform3D& transform)
 {
-    Info info{.model_matrix = transform.to_matrix(Engine::get().get_world()->get_player()->get_camera()->get_global_transform().position())};
+    Transform3D transfo = transform;
+    transfo.set_euler_angles(transfo.get_euler_angles() - glm::vec3(0, M_PI / 2, 0));
+
+    Info info{.model_matrix = transfo.to_matrix(Engine::get().server()->get_player()->get_camera()->get_global_transform().position())};
     m_global_buffer->update_struct(info);
 
     for (const auto& obj : m_objects)

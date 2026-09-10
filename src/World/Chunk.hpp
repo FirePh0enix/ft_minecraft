@@ -94,6 +94,8 @@ public:
     Chunk(const Chunk&) = delete;
     ~Chunk();
 
+    int dimension() const;
+
     void update_instance_buffer(glm::dvec3 position, uint32_t slice_index);
 
     ALWAYS_INLINE BlockState get_block(int64_t x, int64_t y, int64_t z) const { return m_blocks[linearize(x, y, z)]; }

@@ -2,6 +2,7 @@
 
 #include "Core/Types.hpp"
 #include "Engine.hpp"
+#include "Input.hpp"
 #include "Profiler.hpp"
 #include "Variant.hpp"
 
@@ -519,4 +520,48 @@ void LabelWidget::set_color(Color color)
 void LabelWidget::set_text(std::string_view text)
 {
     m_text.set(text);
+}
+
+// ------- ButtonWidget
+
+ButtonWidget::ButtonWidget(std::shared_ptr<Font> font)
+{
+    (void)font;
+
+    m_buffer = EXPECT(Buffer::create(sizeof(Uniforms), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform));
+
+    m_bg = BindGroup::create(Renderer::get().get_color_rect_shader());
+    m_bg->set_param("env", Renderer::get().get_env_2d());
+    m_bg->set_param("uniforms", m_buffer);
+}
+
+void ButtonWidget::draw(const RenderPass& pass)
+{
+    GlobalPoint pos = get_global_pos();
+    GlobalPoint size = get_global_size();
+    Extent2D window_size = Engine::get().window()->size();
+
+    const float aspect_ratio = float(window_size.width) / float(window_size.height);
+
+    float width = (float(size.x) / float(window_size.width - 1)) * aspect_ratio;
+    float height = float(size.y) / float(window_size.height - 1);
+
+    float x = (float(pos.x) / float(window_size.width - 1)) * aspect_ratio + width / 2.0f;
+    float y = float(pos.y) / float(window_size.height - 1) + height / 2.0f;
+
+    m_uniforms.model_matrix = glm::translate(glm::identity<glm::mat4>(), glm::vec3(x, y, 0.1)) * glm::scale(glm::identity<glm::mat4>(), glm::vec3(width, height, 0.0));
+
+    m_buffer->update_struct(m_uniforms);
+    Renderer::get().draw(pass, Renderer::get().get_square_mesh(), Renderer::get().get_fw_color_rect_mat(), m_bg);
+}
+
+void ButtonWidget::process_event(Event& event)
+{
+    if (event.event.type == SDL_EVENT_MOUSE_BUTTON_DOWN && event.event.button.button == SDL_BUTTON_LEFT && is_mouse_hovering())
+        m_pressed.emit();
+}
+
+void ButtonWidget::set_color(Color color)
+{
+    m_uniforms.color = color;
 }

@@ -10,45 +10,28 @@
 
 enum class PacketType : uint32_t
 {
-    /**
-     * Send by a client right after connecting with information about themself.
-     */
+    /// Send by a client right after connecting with information about themself.
     Bonjour,
-    /**
-     * Send by the server to indicate a client is not welcome.
-     */
+    /// Send by the server to indicate a client is not welcome.
     Refused,
-    /**
-     * Send by the server to any client after receiving a Bonjour to send basic informations about the world.
-     */
+    /// Send by the server to any client after receiving a Bonjour to send basic informations about the world.
     Init,
-    /**
-     * Send the player transform to the server.
-     */
+    PlayerConnected,
+    PlayerDisconnected,
+    ChatMessage,
+    /// Send the player transform to the server.
     SendPlayerTransform,
-    /**
-     * Send by the server to clients to indicate a new entity was added to the world.
-     */
+    /// Send by the server to clients to indicate a new entity was added to the world.
     AddEntity,
-    /**
-     * Send by the server to clients to indicate an entity was removed from the world.
-     */
+    /// Send by the server to clients to indicate an entity was removed from the world.
     RemoveEntity,
-    /**
-     * Send by the server, update the entity transform.
-     */
+    /// Send by the server, update the entity transform.
     UpdateEntity,
-    /**
-     * Call a remote procedure for an entity.
-     */
+    /// Call a remote procedure for an entity.
     RpcCall,
-    /**
-     * Send by the client to request data for a specific chunk. The server is expected to respond with a `ChunkData` packet.
-     */
+    /// Send by the client to request data for a specific chunk. The server is expected to respond with a `ChunkData` packet.
     RequestChunk,
-    /**
-     * Send by the server, contains the data of a chunk.
-     */
+    /// Send by the server, contains the data of a chunk.
     ChunkData,
 };
 
@@ -177,6 +160,69 @@ inline std::expected<void, Error> deserialize(DataBuffer& buffer, InitPacket& p)
     p.seed = buffer.read<uint64_t>();
     p.id = buffer.read<EntityId>();
     p.position = glm::vec3(buffer.read<float>(), buffer.read<float>(), buffer.read<float>());
+    return std::expected<void, Error>();
+}
+
+struct PlayerConnected
+{
+    std::string name;
+
+    static constexpr PacketType type = PacketType::PlayerConnected;
+};
+inline std::expected<void, Error> serialize(DataBuffer& buffer, const PlayerConnected& p)
+{
+    uint32_t len = p.name.size();
+    buffer.write(len);
+    buffer.write_array(std::span<const char>(p.name.data(), p.name.size()));
+    return std::expected<void, Error>();
+}
+inline std::expected<void, Error> deserialize(DataBuffer& buffer, PlayerConnected& p)
+{
+    uint32_t len = buffer.read<uint32_t>();
+    std::vector<char> data = buffer.read_array<char>(len);
+    p.name.append(data.data(), len);
+    return std::expected<void, Error>();
+}
+
+struct PlayerDisconnected
+{
+    std::string name;
+
+    static constexpr PacketType type = PacketType::PlayerDisconnected;
+};
+inline std::expected<void, Error> serialize(DataBuffer& buffer, const PlayerDisconnected& p)
+{
+    uint32_t len = p.name.size();
+    buffer.write(len);
+    buffer.write_array(std::span<const char>(p.name.data(), p.name.size()));
+    return std::expected<void, Error>();
+}
+inline std::expected<void, Error> deserialize(DataBuffer& buffer, PlayerDisconnected& p)
+{
+    uint32_t len = buffer.read<uint32_t>();
+    std::vector<char> data = buffer.read_array<char>(len);
+    p.name.append(data.data(), len);
+    return std::expected<void, Error>();
+}
+
+struct ChatMessage
+{
+    std::string message;
+
+    static constexpr PacketType type = PacketType::ChatMessage;
+};
+inline std::expected<void, Error> serialize(DataBuffer& buffer, const ChatMessage& p)
+{
+    uint32_t len = p.message.size();
+    buffer.write(len);
+    buffer.write_array(std::span<const char>(p.message.data(), p.message.size()));
+    return std::expected<void, Error>();
+}
+inline std::expected<void, Error> deserialize(DataBuffer& buffer, ChatMessage& p)
+{
+    uint32_t len = buffer.read<uint32_t>();
+    std::vector<char> data = buffer.read_array<char>(len);
+    p.message.append(data.data(), len);
     return std::expected<void, Error>();
 }
 

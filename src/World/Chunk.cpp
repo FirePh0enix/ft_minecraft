@@ -25,6 +25,11 @@ Chunk::~Chunk()
     delete[] m_slices;
 }
 
+int Chunk::dimension() const
+{
+    return m_dim->id();
+}
+
 void Chunk::update_instance_buffer(glm::dvec3 position, uint32_t slice_index)
 {
     glm::vec3 data((double)m_x * Chunk::width - position.x, (double)slice_index * Chunk::width - position.y, (double)m_z * Chunk::width - position.z);

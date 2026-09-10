@@ -6,6 +6,7 @@
 #include "Font.hpp"
 #include "Point.hpp"
 #include "Render/Renderer.hpp"
+#include "Signal.hpp"
 
 #include <cstdint>
 #include <memory>
@@ -112,6 +113,7 @@ public:
 
     void add_child(std::shared_ptr<Widget> widget);
     std::span<const std::shared_ptr<Widget>> get_children() const { return m_children; }
+    void clear_children() { m_children.clear(); }
 
     Point get_offset() const { return m_offset; }
     void set_offset(Point offset) { m_offset = offset; }
@@ -278,4 +280,33 @@ public:
 private:
     Text m_text;
     Color m_color;
+};
+
+class ButtonWidget : public Widget
+{
+    CLASS(ButtonWidget, Widget);
+
+public:
+    ButtonWidget(std::shared_ptr<Font> font);
+
+    virtual void draw(const RenderPass& pass) override;
+    virtual void process_event(Event& event) override;
+
+    void set_color(Color color);
+    Color get_color() const { return m_uniforms.color; }
+
+    Signal<>& pressed() { return m_pressed; }
+
+    struct GPU_ATTRIBUTE Uniforms
+    {
+        glm::mat4 model_matrix = glm::mat4();
+        Color color;
+    };
+
+public:
+    Signal<> m_pressed;
+
+    std::shared_ptr<BindGroup> m_bg;
+    std::shared_ptr<Buffer> m_buffer;
+    Uniforms m_uniforms;
 };

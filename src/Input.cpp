@@ -81,6 +81,9 @@ void Input::load_config()
     Input::add_action("toggle_debug_menu");
     Input::add_action_mapping("toggle_debug_menu", ActionMapping(ActionMappingKind::Key, SDLK_GRAVE));
 
+    Input::add_action("show_player_list");
+    Input::add_action_mapping("show_player_list", ActionMapping(ActionMappingKind::Key, SDLK_TAB));
+
     // UI
     Input::add_action("ui_click");
     Input::add_action_mapping("ui_click", ActionMapping(ActionMappingKind::MouseButton, 1));

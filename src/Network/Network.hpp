@@ -2,11 +2,14 @@
 
 #include "Network/Packet.hpp"
 
+#include "daking/MPSC_queue.hpp"
+
 #include <enet/enet.h>
 
 #include <cstdint>
 #include <string>
 #include <string_view>
+#include <thread>
 
 enum class ConnectionState
 {
@@ -48,28 +51,27 @@ public:
     static constexpr uint16_t default_port = 25566;
 
     NetworkConnection();
+    ~NetworkConnection();
 
     std::expected<void, Error> connect_to(std::string_view ip, uint16_t port = default_port);
     std::expected<void, Error> host(uint16_t port, std::string_view ip = "0.0.0.0");
 
-    /**
-     * Send a packet to a connected peer.
-     */
+    /// Send a packet to a connected peer.
     void send(ENetPeer *peer, ENetPacket *packet);
 
     void send(ENetPacket *packet);
 
     void broadcast(ENetPacket *packet, ENetPeer *ignored_peer = nullptr);
 
+    void disconnect(ENetPeer *peer);
+
     void tick();
 
-    /**
-     * Close the host connection.
-     */
+    /// Close the host connection.
     void close();
 
     template <typename T>
-    ENetPacket *create_packet(const T& p)
+    static ENetPacket *create_packet(const T& p)
     {
         DataBuffer buffer;
         buffer.write(T::type);
@@ -101,12 +103,12 @@ private:
     ConnectionState m_state = ConnectionState::Idle;
     std::map<ENetPeer *, Client> m_clients;
 
+    std::mutex m_host_mutex;
+
     size_t m_maximum_connection = 32;
     ENetAddress m_address{};
     ENetHost *m_host = nullptr;
-    /**
-     * Corresponds to the server a client is connected to.
-     */
+    /// Corresponds to the server a client is connected to.
     ENetPeer *m_peer = nullptr;
     bool m_is_server = false;
     PacketHandler m_packet_handler;
@@ -116,6 +118,12 @@ private:
     DisconnectHandler m_disconnect_handler;
     void *m_disconnect_handler_user = nullptr;
 
+    std::thread m_worker_thread;
+    daking::MPSC_queue<ENetEvent> m_event_queue;
+    std::atomic_bool m_worker_state;
+
     void tick_client();
     void tick_server();
+
+    void worker();
 };

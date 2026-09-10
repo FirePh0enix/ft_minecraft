@@ -445,7 +445,7 @@ public:
     void configure_surface(size_t width, size_t height);
 
     // TODO: Only used by imgui for the main menu, which will be removed.
-    void draw_legacy(std::function<void()> f);
+    void draw_ui(std::function<void(const RenderPass&)> f);
 
     void draw_forward(const std::shared_ptr<World>& world);
     void draw_dimension_forward(WGPUCommandEncoder encoder, const std::shared_ptr<World>& world, int dimension, bool inside_portal);

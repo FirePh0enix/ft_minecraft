@@ -1,6 +1,7 @@
 #include "DebugDisplay.hpp"
 
 #include "Engine.hpp"
+#include "Entity/Player.hpp"
 #include "Render/Renderer.hpp"
 
 DebugCube::DebugCube(glm::dvec3 position, glm::vec3 scale, Color color, float duration, float creation_time)
@@ -24,7 +25,7 @@ void DebugCube::draw(const RenderPass& pass) const
 {
     FwColored colored{};
     colored.color = color;
-    colored.model = glm::translate(glm::identity<glm::mat4>(), glm::vec3(position - Engine::get().get_world()->get_player()->get_camera()->get_global_transform().position()));
+    colored.model = glm::translate(glm::identity<glm::mat4>(), glm::vec3(position - Engine::get().server()->get_player()->get_camera()->get_global_transform().position()));
     buffer->update_struct(colored);
 
     Renderer::get().draw(pass, Renderer::get().get_wireframe_cube_mesh(), Renderer::get().get_wireframe_mat(), bg);
