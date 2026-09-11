@@ -11,6 +11,7 @@
 #include "Inventory/Inventory.hpp"
 #include "Item/ItemStack.hpp"
 #include "Model.hpp"
+#include "Network/Network.hpp"
 #include "Render/Renderer.hpp"
 #include "UI/TextInput.hpp"
 #include "UI/Widget.hpp"
@@ -256,6 +257,8 @@ void Player::on_ready()
 
 void Player::on_text_message(TextInput& input, std::string_view message)
 {
+    ZoneScoped;
+
     std::string msg(message);
 
     input.clear();
@@ -273,6 +276,8 @@ void Player::on_text_message(TextInput& input, std::string_view message)
 
 void Player::tick(float delta)
 {
+    ZoneScoped;
+
     Entity::tick(delta);
 
     if (Input::is_action_pressed("attack") && !Input::is_mouse_grabbed() && !m_opened_inventory.has_value() && m_local_player && !m_chat_opened)
@@ -438,7 +443,6 @@ void Player::tick(float delta)
 
             if (Input::is_action_just_pressed("interact"))
             {
-
                 BlockState state = m_world->get_block_state(m_dimension, result.block_pos.x, result.block_pos.y, result.block_pos.z);
                 std::shared_ptr<Block> block = Engine::get().registry().get_block(state.id);
 
@@ -481,15 +485,16 @@ void Player::tick(float delta)
             // }
         }
 
-        if (Input::is_action_just_released("interact"))
-        {
-            ItemStack stack = m_inventory_container->get_stack(1, m_slot);
-            if (stack.item().valid())
-            {
-                std::shared_ptr<Item> item = Engine::get().registry().get_item(stack.item());
-                item->on_release(*m_world, m_dimension, stack, m_camera->get_global_transform().position(), m_camera->get_global_transform().forward(), *m_inventory_container);
-            }
-        }
+        // FIXME: Same as above, this can be do better.
+        // if (Input::is_action_just_released("interact"))
+        // {
+        //     ItemStack stack = m_inventory_container->get_stack(1, m_slot);
+        //     if (stack.item().valid())
+        //     {
+        //         std::shared_ptr<Item> item = Engine::get().registry().get_item(stack.item());
+        //         item->on_release(*m_world, m_dimension, stack, m_camera->get_global_transform().position(), m_camera->get_global_transform().forward(), *m_inventory_container);
+        //     }
+        // }
     }
 
     const glm::vec3 forward = get_global_transform().forward();
@@ -745,12 +750,16 @@ void Player::draw_ui(const RenderPass& pass)
 
 void Player::process_event(Event& event)
 {
+    ZoneScoped;
+
     if (m_chat_opened)
         m_chat->process_everyting(event);
 }
 
 std::expected<void, Error> Player::save(EntitySerializer& ser) const
 {
+    ZoneScoped;
+
     int64_t gamemode = (int64_t)m_gamemode;
     ser.set("gamemode", gamemode);
 
@@ -773,6 +782,8 @@ std::expected<void, Error> Player::save(EntitySerializer& ser) const
 
 std::expected<void, Error> Player::load(const EntitySerializer& deser)
 {
+    ZoneScoped;
+
     int64_t gamemode = (int64_t)deser.get<int64_t>("gamemode").value_or(0);
     if (gamemode != 0 && gamemode != 1)
         gamemode = 0;

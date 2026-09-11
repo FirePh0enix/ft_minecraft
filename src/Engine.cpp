@@ -23,11 +23,6 @@
 #include <ctime>
 #include <memory>
 
-constexpr int two_d_to_1d(int x, int y)
-{
-    return y * 3 + x;
-}
-
 #define WINDOW_INIT_WIDTH 1920
 #define WINDOW_INIT_HEIGHT 1080
 
@@ -71,7 +66,7 @@ void Engine::register_entities()
 }
 
 // TODO: Create a helper for creating recipe maybe ?
-// TODO: YAML should do the trick.
+// TODO: YAML/JSON should do the trick.
 void Engine::register_recipes()
 {
     Recipe crafting_table;
@@ -82,10 +77,10 @@ void Engine::register_recipes()
     for (size_t i = 0; i < 9; i++)
         crafting_table.pattern[i] = Id<Item>();
 
-    crafting_table.pattern[two_d_to_1d(0, 0)] = Items::stone;
-    crafting_table.pattern[two_d_to_1d(1, 0)] = Items::stone;
-    crafting_table.pattern[two_d_to_1d(0, 1)] = Items::stone;
-    crafting_table.pattern[two_d_to_1d(1, 1)] = Items::stone;
+    crafting_table.pattern[0 + 0 * 3] = Items::stone;
+    crafting_table.pattern[1 + 0 * 3] = Items::stone;
+    crafting_table.pattern[0 + 1 * 3] = Items::stone;
+    crafting_table.pattern[1 + 1 * 3] = Items::stone;
 
     crafting_table.result = ItemStack(Items::crafting_table_block, 1);
 
@@ -231,66 +226,6 @@ double Engine::time()
     return (double)(tp.tv_nsec + tp.tv_sec * 1000000000) / 1000000000.0;
 }
 
-// void Engine::create_world_and_start()
-// {
-//     // m_connection.set_connect_handler(&Engine::connect_server, this);
-//     // m_connection.set_disconnect_handler(&Engine::disconnect_server, this);
-//     // m_connection.set_packet_handler(&Engine::receive_server, this);
-
-//     // uint64_t seed = std::stoull(m_seed_buf);
-//     // std::string name = "unamed";
-
-//     m_server->start();
-
-//     // m_ticks_since_start_of_day = ticks_per_day / 2;
-
-//     // if (Filesystem::exists(std::format("{}saves/{}", Filesystem::get_data_directory(), name)))
-//     // {
-//     //     info("loading existing world `{}`", name);
-//     //     m_world = EXPECT(World::load(name));
-//     // }
-//     // else
-//     // {
-//     //     info("creating world `{}` with seed {}", name, seed);
-//     //     m_world = EXPECT(World::create(name, seed, m_main_menu_world_type));
-//     // }
-
-//     // // TODO: Add way to personalize username.
-//     // const std::string_view username = "john";
-
-//     // m_player = std::make_shared<Player>();
-//     // m_player->set_username(username);
-//     // m_world->add_entity(World::overworld, m_player);
-
-//     // if (!m_world->is_player_saved(username) || !m_world->load_player(username, m_player))
-//     // {
-//     //     m_player->get_transform().position() = m_world->get_spawn_position();
-//     // }
-
-//     // m_world->force_load_chunk_for(m_player->get_position());
-
-//     // std::shared_ptr<Entity> cow = EXPECT(std::make_shared<Cow>());
-//     // cow->get_transform().position() = m_player->get_position();
-//     // m_world->add_entity(World::overworld, cow);
-
-//     // std::shared_ptr<Entity> zombie = std::make_shared<Zombie>();
-//     // zombie->get_transform().position() = m_player->get_position();
-//     // m_world->add_entity(World::overworld, zombie);
-
-//     // m_authority = RpcTarget::Server;
-// }
-
-// void Engine::connect_to_remote_world()
-// {
-//     // m_connection.set_connect_handler(&Engine::connect_client, this);
-//     // m_connection.set_disconnect_handler(&Engine::disconnect_client, this);
-//     // m_connection.set_packet_handler(&Engine::receive_client, this);
-
-//     // m_scene = GameScene::WaitingForWorld;
-//     // m_authority = RpcTarget::Client;
-//     // EXPECT(m_connection.connect_to(m_connect_ip, m_connect_port));
-// }
-
 void Engine::go_to_main_menu()
 {
     m_switch_to_main_menu = true;
@@ -323,7 +258,7 @@ void Engine::main_menu_gui()
         imguitk_center_next_widget("Load");
         if (ImGui::Button("Load"))
         {
-            m_server = std::make_shared<LocalServer>(m_username_buf, m_name_buf, std::atoll(m_seed_buf));
+            m_server = std::make_shared<LocalServer>(m_username_buf, m_name_buf, std::atoll(m_seed_buf), m_should_create_online);
             m_server->start();
             m_current_target = RpcTarget::Server;
 
@@ -332,11 +267,16 @@ void Engine::main_menu_gui()
         ImGui::SameLine();
         if (ImGui::Button("Create"))
         {
-            m_server = std::make_shared<LocalServer>(m_username_buf, m_name_buf, std::atoll(m_seed_buf));
+            m_server = std::make_shared<LocalServer>(m_username_buf, m_name_buf, std::atoll(m_seed_buf), m_should_create_online);
             m_server->start();
             m_current_target = RpcTarget::Server;
 
             m_menu = nullptr;
+        }
+
+        ImGui::SameLine();
+        if (ImGui::Checkbox("Online", &m_should_create_online))
+        {
         }
 
         ImGui::InputText("Ip", m_ip_buf, 32);

@@ -2,6 +2,7 @@
 
 #include "Core/IO.hpp"
 #include "Entity/Entity.hpp"
+#include "Profiler.hpp"
 
 #include <nlohmann/json.hpp>
 
@@ -111,6 +112,8 @@ inline std::expected<void, Error> serialize(DataBuffer& buffer, const BonjourPac
 }
 inline std::expected<void, Error> deserialize(DataBuffer& buffer, BonjourPacket& p)
 {
+    ZoneScoped;
+
     uint32_t size = buffer.read<uint32_t>();
     std::vector<char> string_buf = buffer.read_array<char>(size);
     p.username.append(string_buf.data(), string_buf.size());
@@ -132,6 +135,8 @@ inline std::expected<void, Error> serialize(DataBuffer& buffer, const RefusedPac
 }
 inline std::expected<void, Error> deserialize(DataBuffer& buffer, RefusedPacket& p)
 {
+    ZoneScoped;
+
     uint32_t size = buffer.read<uint32_t>();
     std::vector<char> string_buf = buffer.read_array<char>(size);
     p.message.append(string_buf.data(), string_buf.size());
@@ -248,6 +253,8 @@ inline std::expected<void, Error> serialize(DataBuffer& buffer, const SendPlayer
 }
 inline std::expected<void, Error> deserialize(DataBuffer& buffer, SendPlayerTransformPacket& p)
 {
+    ZoneScoped;
+
     p.id = buffer.read<EntityId>();
     p.position = glm::vec3(buffer.read<float>(), buffer.read<float>(), buffer.read<float>());
     p.rotation = glm::quat(buffer.read<float>(), buffer.read<float>(), buffer.read<float>(), buffer.read<float>());
@@ -393,12 +400,16 @@ struct RequestChunkPacket
 };
 inline std::expected<void, Error> serialize(DataBuffer& buffer, const RequestChunkPacket& p)
 {
+    ZoneScoped;
+
     buffer.write(p.x);
     buffer.write(p.z);
     return std::expected<void, Error>();
 }
 inline std::expected<void, Error> deserialize(DataBuffer& buffer, RequestChunkPacket& p)
 {
+    ZoneScoped;
+
     p.x = buffer.read<int64_t>();
     p.z = buffer.read<int64_t>();
     return std::expected<void, Error>();
@@ -415,6 +426,8 @@ struct ChunkDataPacket
 };
 inline std::expected<void, Error> serialize(DataBuffer& buffer, const ChunkDataPacket& p)
 {
+    ZoneScoped;
+
     buffer.write(p.x);
     buffer.write(p.z);
 
@@ -431,6 +444,8 @@ inline std::expected<void, Error> serialize(DataBuffer& buffer, const ChunkDataP
 }
 inline std::expected<void, Error> deserialize(DataBuffer& buffer, ChunkDataPacket& p)
 {
+    ZoneScoped;
+
     p.x = buffer.read<int64_t>();
     p.z = buffer.read<int64_t>();
 

@@ -178,6 +178,8 @@ endif()
 # Fetch dependencies
 #
 
+# target_link_libraries(${TARGET_NAME} PRIVATE jemalloc)
+
 # Dont build shared libraries
 set(BUILD_SHARED_LIBS 0)
 

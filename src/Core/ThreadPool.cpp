@@ -1,6 +1,7 @@
 #include "Core/ThreadPool.hpp"
 
 #include "Logger.hpp"
+#include "Profiler.hpp"
 
 #include <algorithm>
 #include <mutex>
@@ -20,7 +21,6 @@ ThreadPool::~ThreadPool()
     {
         std::lock_guard lock(m_mutex);
         m_should_stop = true;
-        m_tasks.clear();
     }
 
     for (auto& thread : m_threads)
@@ -43,19 +43,22 @@ ThreadPool::~ThreadPool()
 
 void ThreadPool::submit(std::function<void(std::stop_token)> task)
 {
-    {
-        std::lock_guard lock(m_mutex);
-        m_tasks.push_back(task);
-    }
+    // {
+    //     std::lock_guard lock(m_mutex);
+    //     m_tasks.push_back(task);
+    // }
 
+    m_tasks.enqueue(task);
     m_cv.notify_one();
 }
 
 void ThreadPool::thread_worker(std::stop_token token)
 {
+    TracySetThreadName("ThreadPool");
+
     while (!token.stop_requested())
     {
-        std::function<void(std::stop_token)> task;
+        TaskFn task;
 
         {
             std::unique_lock lock(m_mutex);
@@ -67,8 +70,8 @@ void ThreadPool::thread_worker(std::stop_token token)
             if (token.stop_requested())
                 break;
 
-            task = m_tasks.front();
-            m_tasks.pop_front();
+            if (!m_tasks.try_dequeue(task))
+                continue;
         }
 
         try

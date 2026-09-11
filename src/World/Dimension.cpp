@@ -472,6 +472,8 @@ bool Dimension::has_solid_block(int64_t x, int64_t y, int64_t z) const
 
 void Dimension::rebuild(std::stop_token token, std::shared_ptr<Chunk> chunk, const std::map<ChunkPos, std::shared_ptr<Chunk>>& nchunks, size_t slice_index, size_t slice_count)
 {
+    ZoneScoped;
+
     MeshRebuildResult results[16];
 
     for (size_t i = slice_index; i < slice_index + slice_count; i++)
@@ -499,6 +501,8 @@ void Dimension::rebuild(std::stop_token token, std::shared_ptr<Chunk> chunk, con
 
 void Dimension::queue_rebuild(ChunkPos pos, size_t slice_index, size_t slice_count)
 {
+    ZoneScoped;
+
     if (!m_chunks.contains(pos))
         return;
     if (m_chunks_rebuild_queue.contains(pos))
@@ -536,17 +540,23 @@ void Dimension::remove_preload(ChunkPos pos)
 
 void Dimension::update_sun(glm::mat4 matrix)
 {
+    ZoneScoped;
+
     m_sun_frustum = Frustum(matrix);
 }
 
 void Dimension::place_structure(glm::i64vec3 pos, BlockState *blocks, int64_t w, int64_t h, int64_t l)
 {
+    ZoneScoped;
+
     std::lock_guard<std::mutex> lock(m_structures_mutex);
     m_structures_queue.push_back(StructureGen(pos, blocks, w, h, l));
 }
 
 void Dimension::get_structures_overlap(ChunkPos pos, std::vector<StructureGen>& structures)
 {
+    ZoneScoped;
+
     std::lock_guard<std::mutex> lock(m_structures_mutex);
 
     const AABBi chunk_box(glm::i64vec3(pos.x * 16, 0, pos.z * 16),
@@ -564,6 +574,8 @@ void Dimension::get_structures_overlap(ChunkPos pos, std::vector<StructureGen>& 
 
 void Dimension::write_tags(Writer& writer, std::shared_ptr<Chunk> chunk)
 {
+    ZoneScoped;
+
     std::map<int64_t, std::map<std::string, Variant>> tags;
     for (const auto& [key, value] : chunk->m_tags)
     {
@@ -577,6 +589,8 @@ void Dimension::write_tags(Writer& writer, std::shared_ptr<Chunk> chunk)
 
 void Dimension::read_tags(Reader& reader, std::shared_ptr<Chunk> chunk)
 {
+    ZoneScoped;
+
     std::optional<Variant> variant = EXPECT(reader.read_variant());
     if (variant.has_value())
     {

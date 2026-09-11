@@ -3,6 +3,7 @@
 #include "Core/ZLib.hpp"
 #include "Engine.hpp"
 #include "Entity/Player.hpp"
+#include "Profiler.hpp"
 
 RemoteServer::RemoteServer(std::string_view username, std::string_view ip, uint16_t port)
     : m_username(username), m_ip(ip), m_port(port)
@@ -36,6 +37,8 @@ static void add_neighbour_chunk(ChunkPos pos, std::set<ChunkPos>& chunks)
 
 void RemoteServer::tick()
 {
+    ZoneScoped;
+
     m_connection.tick();
 
     if (m_world != nullptr)
@@ -85,6 +88,8 @@ void RemoteServer::tick()
 
 void RemoteServer::send_message(const std::string& message)
 {
+    ZoneScoped;
+
     std::string msg;
     msg += m_player->get_username();
     msg += ": ";
@@ -96,16 +101,20 @@ void RemoteServer::send_message(const std::string& message)
 
 void RemoteServer::route_packet(ENetPacket *packet)
 {
+    ZoneScoped;
+
     m_connection.send(packet);
 }
 
-void RemoteServer::receive_chunk(const ChunkDataPacket& p)
+void RemoteServer::receive_chunk(const ChunkDataPacket& p, std::stop_token token)
 {
+    ZoneScoped;
+
     Dimension& dimension = m_world->get_dimension(World::overworld);
     std::shared_ptr<Chunk> chunk = std::make_shared<Chunk>(&dimension, p.x, p.z);
 
     std::vector<uint8_t> blocks_data;
-    EXPECT(ZLib::inflate(std::as_bytes(std::span(p.blocks)), blocks_data));
+    EXPECT(ZLib::inflate_with_cancellation(token, std::as_bytes(std::span(p.blocks)), blocks_data));
     if (blocks_data.size() != sizeof(BlockState) * Chunk::block_count)
     {
         debug("received bad or corrupted blocks data for {} {}", p.x, p.z);
@@ -114,7 +123,7 @@ void RemoteServer::receive_chunk(const ChunkDataPacket& p)
     memcpy(chunk->get_blocks(), blocks_data.data(), blocks_data.size());
 
     std::vector<uint8_t> tags_data;
-    EXPECT(ZLib::inflate(std::as_bytes(std::span(p.tags)), tags_data));
+    EXPECT(ZLib::inflate_with_cancellation(token, std::as_bytes(std::span(p.tags)), tags_data));
 
     // debug("tags received = {}", tags_data.size());
 
@@ -126,12 +135,16 @@ void RemoteServer::receive_chunk(const ChunkDataPacket& p)
 
 void RemoteServer::queue_receive_chunk(const ChunkDataPacket& p)
 {
-    Engine::get().get_thread_pool().submit([this, p](std::stop_token)
-                                           { receive_chunk(p); });
+    ZoneScoped;
+
+    Engine::get().get_thread_pool().submit([this, p](std::stop_token token)
+                                           { receive_chunk(p, token); });
 }
 
 void RemoteServer::update_player_list()
 {
+    ZoneScoped;
+
     std::vector<std::string> list;
     list.push_back(std::string(m_player->get_username()));
     for (const auto& name : m_connected_players)
@@ -141,6 +154,8 @@ void RemoteServer::update_player_list()
 
 void RemoteServer::receive(void *user, NetworkConnection& conn, ENetPacket *packet, const Client& client)
 {
+    ZoneScoped;
+
     RemoteServer *self = (RemoteServer *)user;
     (void)client;
 
@@ -154,6 +169,8 @@ void RemoteServer::receive(void *user, NetworkConnection& conn, ENetPacket *pack
     {
     case PacketType::Refused:
     {
+        ZoneScopedN("packet Refused");
+
         RefusedPacket p;
         EXPECT(deserialize(buffer, p));
 
@@ -167,6 +184,8 @@ void RemoteServer::receive(void *user, NetworkConnection& conn, ENetPacket *pack
     break;
     case PacketType::Init:
     {
+        ZoneScopedN("packet Init");
+
         InitPacket p;
         EXPECT(deserialize(buffer, p));
 
@@ -185,6 +204,8 @@ void RemoteServer::receive(void *user, NetworkConnection& conn, ENetPacket *pack
     break;
     case PacketType::AddEntity:
     {
+        ZoneScopedN("packet AddEntity");
+
         AddEntityPacket p;
         EXPECT(deserialize(buffer, p));
 
@@ -206,6 +227,8 @@ void RemoteServer::receive(void *user, NetworkConnection& conn, ENetPacket *pack
     break;
     case PacketType::RemoveEntity:
     {
+        ZoneScopedN("packet RemoveEntity");
+
         RemoveEntityPacket p;
         EXPECT(deserialize(buffer, p));
 
@@ -218,6 +241,8 @@ void RemoteServer::receive(void *user, NetworkConnection& conn, ENetPacket *pack
     break;
     case PacketType::UpdateEntity:
     {
+        ZoneScopedN("packet UpdateEntity");
+
         UpdateEntityPacket p;
         EXPECT(deserialize(buffer, p));
 
@@ -237,6 +262,8 @@ void RemoteServer::receive(void *user, NetworkConnection& conn, ENetPacket *pack
     break;
     case PacketType::RpcCall:
     {
+        ZoneScopedN("packet RpcCall");
+
         RpcCallPacket p;
         EXPECT(deserialize(buffer, p));
 
@@ -267,6 +294,8 @@ void RemoteServer::receive(void *user, NetworkConnection& conn, ENetPacket *pack
     break;
     case PacketType::ChunkData:
     {
+        ZoneScopedN("packet ChunkData");
+
         ChunkDataPacket p;
         EXPECT(deserialize(buffer, p));
 
@@ -283,8 +312,6 @@ void RemoteServer::receive(void *user, NetworkConnection& conn, ENetPacket *pack
 
         self->m_connected_players.push_back(p.name);
         self->update_player_list();
-
-        std::println("hello world {}", self->m_connected_players.size());
     }
     break;
     case PacketType::PlayerDisconnected:
@@ -319,7 +346,7 @@ void RemoteServer::connect(void *user, NetworkConnection& conn, const Client& cl
 
     BonjourPacket p;
     p.username = self->m_username;
-    conn.send(conn.create_packet(p));
+    conn.send(NetworkConnection::create_packet(p));
 }
 
 void RemoteServer::disconnect(void *user, NetworkConnection& conn, const Client& client)

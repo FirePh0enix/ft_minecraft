@@ -41,6 +41,28 @@ private:
     ENetPeer *m_peer = nullptr;
 };
 
+struct ENetAction
+{
+    enum
+    {
+        TYPE_PACKET,
+        TYPE_DISCONNECT,
+    } type;
+    union
+    {
+        struct
+        {
+            ENetPacket *packet;
+            bool broadcast;
+            ENetPeer *filter;
+        } packet;
+        struct
+        {
+            ENetPeer *peer;
+        } disconnect;
+    };
+};
+
 class NetworkConnection
 {
 public:
@@ -103,7 +125,7 @@ private:
     ConnectionState m_state = ConnectionState::Idle;
     std::map<ENetPeer *, Client> m_clients;
 
-    std::mutex m_host_mutex;
+    // std::mutex m_host_mutex;
 
     size_t m_maximum_connection = 32;
     ENetAddress m_address{};
@@ -121,6 +143,10 @@ private:
     std::thread m_worker_thread;
     daking::MPSC_queue<ENetEvent> m_event_queue;
     std::atomic_bool m_worker_state;
+
+    /// Stores packet that needs to be send. Done this way to reduce locking.
+    /// Meant to be populated by the main thread consumed by the worker thread.
+    daking::MPSC_queue<ENetAction> m_action_queue;
 
     void tick_client();
     void tick_server();

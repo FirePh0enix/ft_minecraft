@@ -3,6 +3,7 @@
 #include "Core/Assert.hpp"
 #include "Core/Error.hpp"
 #include "Core/Logger.hpp"
+#include "Profiler.hpp"
 
 #include <enet/enet.h>
 
@@ -18,6 +19,8 @@ NetworkConnection::~NetworkConnection()
 
 std::expected<void, Error> NetworkConnection::connect_to(std::string_view ip, uint16_t port)
 {
+    ZoneScoped;
+
     m_address.port = port;
     enet_address_set_host_ip(&m_address, ip.data());
 
@@ -47,6 +50,8 @@ std::expected<void, Error> NetworkConnection::connect_to(std::string_view ip, ui
 
 std::expected<void, Error> NetworkConnection::host(uint16_t port, std::string_view ip)
 {
+    ZoneScoped;
+
     (void)ip;
     m_address.port = port;
     m_address.host = ENET_HOST_ANY;
@@ -70,8 +75,20 @@ std::expected<void, Error> NetworkConnection::host(uint16_t port, std::string_vi
 
 void NetworkConnection::send(ENetPeer *peer, ENetPacket *packet)
 {
-    std::lock_guard<std::mutex> lock(m_host_mutex); // TODO: one mutex per client maybe
-    enet_peer_send(peer, 0, packet);
+    // ZoneScoped;
+
+    // std::lock_guard<std::mutex> lock(m_host_mutex); // TODO: one mutex per client maybe
+    // enet_peer_send(peer, 0, packet);
+
+    ENetAction action{};
+    action.type = ENetAction::TYPE_PACKET;
+    action.packet.packet = packet;
+    action.packet.broadcast = false;
+    action.packet.filter = peer;
+    m_action_queue.enqueue(action);
+
+    // PacketInfo p(packet, false, peer);
+    // m_packet_queue.enqueue(p);
 }
 
 void NetworkConnection::send(ENetPacket *packet)
@@ -81,19 +98,38 @@ void NetworkConnection::send(ENetPacket *packet)
 
 void NetworkConnection::broadcast(ENetPacket *packet, ENetPeer *peer)
 {
-    std::lock_guard<std::mutex> lock(m_host_mutex);
-    for (const auto& [key, value] : m_clients)
-    {
-        if (peer == value.peer())
-            continue;
-        enet_peer_send(value.peer(), 0, packet);
-    }
+    ZoneScoped;
+
+    // PacketInfo p(packet, true, peer);
+    // m_packet_queue.enqueue(p);
+
+    ENetAction action{};
+    action.type = ENetAction::TYPE_PACKET;
+    action.packet.packet = packet;
+    action.packet.broadcast = true;
+    action.packet.filter = peer;
+    m_action_queue.enqueue(action);
+
+    // for (const auto& [key, value] : m_clients)
+    // {
+    //     if (peer == value.peer())
+    //         continue;
+    //     std::lock_guard<std::mutex> lock(m_host_mutex);
+    //     enet_peer_send(value.peer(), 0, packet);
+    // }
 }
 
 void NetworkConnection::disconnect(ENetPeer *peer)
 {
-    std::lock_guard<std::mutex> lock(m_host_mutex);
-    enet_peer_disconnect(peer, 0);
+    ZoneScoped;
+
+    ENetAction action{};
+    action.type = ENetAction::TYPE_DISCONNECT;
+    action.disconnect.peer = peer;
+    m_action_queue.enqueue(action);
+
+    // std::lock_guard<std::mutex> lock(m_host_mutex);
+    // enet_peer_disconnect(peer, 0);
 }
 
 void NetworkConnection::tick()
@@ -113,6 +149,8 @@ void NetworkConnection::tick()
 
 void NetworkConnection::tick_client()
 {
+    ZoneScoped;
+
     ENetEvent event;
     while (m_event_queue.try_dequeue(event))
     {
@@ -148,6 +186,8 @@ void NetworkConnection::tick_client()
 
 void NetworkConnection::tick_server()
 {
+    ZoneScoped;
+
     ENetEvent event;
     while (m_event_queue.try_dequeue(event))
     {
@@ -201,7 +241,7 @@ void NetworkConnection::close()
     {
         for (const auto& [peer, client] : m_clients)
             enet_peer_disconnect(peer, 0);
-        std::lock_guard<std::mutex> guard(m_host_mutex);
+        // std::lock_guard<std::mutex> guard(m_host_mutex);
         enet_host_destroy(m_host);
         m_host = nullptr;
         m_clients.clear();
@@ -212,7 +252,7 @@ void NetworkConnection::close()
     {
         if (m_state == ConnectionState::Connected)
             enet_peer_disconnect(m_peer, 0);
-        std::lock_guard<std::mutex> guard(m_host_mutex);
+        // std::lock_guard<std::mutex> guard(m_host_mutex);
         enet_host_destroy(m_host);
         m_host = nullptr;
     }
@@ -227,9 +267,48 @@ void NetworkConnection::close()
 
 void NetworkConnection::worker()
 {
+    TracySetThreadName("Network Worker");
+
     while (m_worker_state.load())
     {
-        std::lock_guard<std::mutex> lock(m_host_mutex);
+        ZoneScoped;
+
+        ENetAction action{};
+        while (m_worker_state.load() && m_action_queue.try_dequeue(action))
+        {
+            switch (action.type)
+            {
+            case ENetAction::TYPE_PACKET:
+            {
+                if (action.packet.broadcast)
+                {
+                    bool success = false;
+                    for (const auto& [key, value] : m_clients)
+                    {
+                        if (action.packet.filter == value.peer())
+                            continue;
+                        if (enet_peer_send(value.peer(), 0, action.packet.packet) == 0)
+                            success = true;
+                    }
+                    if (!success)
+                        enet_packet_destroy(action.packet.packet);
+                }
+                else
+                {
+                    if (enet_peer_send(action.packet.filter, 0, action.packet.packet) < 0)
+                        enet_packet_destroy(action.packet.packet);
+                }
+            }
+            break;
+            case ENetAction::TYPE_DISCONNECT:
+            {
+                enet_peer_disconnect(action.disconnect.peer, 0);
+            };
+            break;
+            }
+        }
+
+        // std::lock_guard<std::mutex> lock(m_host_mutex);
         ENetEvent event{};
         while (m_worker_state.load() && enet_host_service(m_host, &event, 0) > 0)
         {

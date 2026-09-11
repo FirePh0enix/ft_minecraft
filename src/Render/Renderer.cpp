@@ -107,6 +107,8 @@ Buffer::~Buffer()
 
 std::expected<std::shared_ptr<Buffer>, Error> Buffer::create(size_t size, WGPUBufferUsage usage, BufferVisibility visibility)
 {
+    ZoneScoped;
+
     WGPUBufferDescriptor desc = WGPU_BUFFER_DESCRIPTOR_INIT;
     desc.size = size;
     desc.usage = usage;
@@ -119,6 +121,8 @@ std::expected<std::shared_ptr<Buffer>, Error> Buffer::create(size_t size, WGPUBu
     }
 
     WGPUBuffer wgpu_buffer = ({
+        ZoneScopedN("wgpuDeviceCreateBuffer w/ lock");
+
         std::lock_guard<std::mutex> guard(Renderer::get().get_device_mutex());
         wgpuDeviceCreateBuffer(Renderer::get().m_device, &desc);
     });
@@ -130,15 +134,15 @@ std::expected<std::shared_ptr<Buffer>, Error> Buffer::create(size_t size, WGPUBu
     buffer->m_size = size;
     buffer->m_visibility = visibility;
 
-    if (visibility == BufferVisibility::GPUAndCPU)
-    {
-        ASSERT_V(usage & WGPUBufferUsage_CopySrc, "Buffer must be copiable");
-        desc.usage = WGPUBufferUsage_CopyDst | WGPUBufferUsage_MapRead;
-        buffer->m_transfer_buffer = ({
-            std::lock_guard<std::mutex> guard(Renderer::get().get_device_mutex());
-            wgpuDeviceCreateBuffer(Renderer::get().m_device, &desc);
-        });
-    }
+    // if (visibility == BufferVisibility::GPUAndCPU)
+    // {
+    //     ASSERT_V(usage & WGPUBufferUsage_CopySrc, "Buffer must be copiable");
+    //     desc.usage = WGPUBufferUsage_CopyDst | WGPUBufferUsage_MapRead;
+    //     buffer->m_transfer_buffer = ({
+    //         std::lock_guard<std::mutex> guard(Renderer::get().get_device_mutex());
+    //         wgpuDeviceCreateBuffer(Renderer::get().m_device, &desc);
+    //     });
+    // }
 
     Renderer::get().m_device_memory_allocated += size;
 
@@ -1424,6 +1428,8 @@ bool Renderer::has_cloud(int64_t x, int64_t z)
 
 void Renderer::update_clouds(std::shared_ptr<Camera> camera)
 {
+    ZoneScoped;
+
     // FIXME
 
     // const glm::dvec3 camera_position = camera->get_global_transform().position();
@@ -1619,6 +1625,8 @@ void Renderer::draw_forward(const std::shared_ptr<World>& world)
 
 void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::shared_ptr<World>& world, int dimension, bool inside_portal)
 {
+    ZoneScoped;
+
     std::shared_ptr<Camera> active_camera = world->get_player()->get_camera();
 
     FwCamera camera{};
@@ -1755,6 +1763,8 @@ void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::sha
 
 void Renderer::draw(const RenderPass& pass, const std::shared_ptr<Mesh>& mesh, const std::shared_ptr<Material>& material, const std::shared_ptr<BindGroup>& bg, const std::shared_ptr<Buffer>& instance_buffer, size_t instance_count, std::optional<uint32_t> stencil)
 {
+    ZoneScoped;
+
     wgpuRenderPassEncoderSetPipeline(pass.encoder, material->get_pipeline(pass));
     wgpuRenderPassEncoderSetBindGroup(pass.encoder, 0, bg->get_bind_group(), 0, nullptr);
     wgpuRenderPassEncoderSetIndexBuffer(pass.encoder, mesh->get_buffer(Mesh::BufferKind::Index)->handle(), mesh->index_type(), 0, mesh->get_buffer(Mesh::BufferKind::Index)->size());
@@ -1803,7 +1813,7 @@ void Renderer::draw_opaque_world(const std::shared_ptr<World>& world, const Rend
         const ChunkPos pos = r.chunk->pos();
 
         {
-            ZoneScopedN("instance buffer");
+            ZoneScopedN("update instance buffer");
             const glm::dvec3 position = camera->get_global_transform().position();
             glm::vec3 data((double)pos.x * Chunk::width - position.x, (double)r.slice_index * Chunk::width - position.y, (double)pos.z * Chunk::width - position.z);
             wgpuQueueWriteBuffer(m_queue, r.chunk->get_instance_buffer()->handle(), r.slice_index * sizeof(data), &data, sizeof(data));
@@ -1856,7 +1866,7 @@ void Renderer::draw_water_world(const std::shared_ptr<World>& world, const Rende
         const ChunkPos pos = r.chunk->pos();
 
         {
-            ZoneScopedN("instance buffer");
+            ZoneScopedN("update instance buffer");
             const glm::dvec3 position = camera->get_global_transform().position();
             glm::vec3 data((double)pos.x * Chunk::width - position.x, (double)r.slice_index * Chunk::width - position.y, (double)pos.z * Chunk::width - position.z);
             wgpuQueueWriteBuffer(m_queue, r.chunk->get_instance_buffer()->handle(), r.slice_index * sizeof(data), &data, sizeof(data));
@@ -1883,6 +1893,8 @@ void Renderer::draw_water_world(const std::shared_ptr<World>& world, const Rende
 
 void Renderer::draw_fullscreen(const RenderPass& pass, std::shared_ptr<Material> material, std::shared_ptr<BindGroup> bg, uint32_t stencil)
 {
+    ZoneScoped;
+
     wgpuRenderPassEncoderSetPipeline(pass.encoder, material->get_pipeline(pass));
     wgpuRenderPassEncoderSetStencilReference(pass.encoder, stencil);
     wgpuRenderPassEncoderSetBindGroup(pass.encoder, 0, bg->get_bind_group(), 0, nullptr);
@@ -1891,6 +1903,8 @@ void Renderer::draw_fullscreen(const RenderPass& pass, std::shared_ptr<Material>
 
 void Renderer::set_fog(glm::vec4 color, float distance)
 {
+    ZoneScoped;
+
     m_fw_pp.fog_color = color;
     m_fw_pp.fog_distance = distance;
 

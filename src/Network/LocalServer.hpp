@@ -15,7 +15,7 @@ struct ChunkLoadRequest
 class LocalServer final : public Server
 {
 public:
-    LocalServer(std::string_view username, std::string_view world_name, uint64_t world_seed);
+    LocalServer(std::string_view username, std::string_view world_name, uint64_t world_seed, bool online);
     ~LocalServer();
 
     virtual void start() override;

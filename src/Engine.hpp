@@ -4,10 +4,8 @@
 #include "Audio/MusicPlayer.hpp"
 #include "Core/ThreadPool.hpp"
 #include "Font.hpp"
-#include "Network/Network.hpp"
 #include "Network/Server.hpp"
 #include "Render/Renderer.hpp"
-#include "Signal.hpp"
 #include "World/Registry.hpp"
 
 #include <memory>
@@ -79,7 +77,7 @@ private:
 
     std::shared_ptr<Window> m_window;
     std::shared_ptr<Server> m_server;
-    RpcTarget m_current_target;
+    RpcTarget m_current_target = RpcTarget::Server;
 
     std::function<void()> m_menu;
 
@@ -116,6 +114,7 @@ private:
     int m_current_save = 0;         // load
     char m_name_buf[32] = "unamed"; // create
     char m_seed_buf[32] = "0";
+    bool m_should_create_online = false;
     char m_ip_buf[32] = "127.0.0.1"; // join
 
     void register_entities();

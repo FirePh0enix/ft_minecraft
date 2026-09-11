@@ -4,8 +4,8 @@
 #include "Engine.hpp"
 #include "Entity/Player.hpp"
 
-LocalServer::LocalServer(std::string_view username, std::string_view world_name, uint64_t world_seed)
-    : m_username(username), m_world_name(world_name), m_world_seed(world_seed)
+LocalServer::LocalServer(std::string_view username, std::string_view world_name, uint64_t world_seed, bool online)
+    : m_username(username), m_world_name(world_name), m_world_seed(world_seed), m_online(online)
 {
 }
 
@@ -16,6 +16,8 @@ LocalServer::~LocalServer()
 
 void LocalServer::start()
 {
+    ZoneScoped;
+
     m_connection.set_connect_handler(&LocalServer::connect, this);
     m_connection.set_disconnect_handler(&LocalServer::disconnect, this);
     m_connection.set_packet_handler(&LocalServer::receive, this);
@@ -30,13 +32,18 @@ void LocalServer::start()
     m_world->add_entity(World::overworld, m_player);
     m_world->set_player(m_player);
 
-    host();
+    if (m_online)
+    {
+        host();
+    }
 
     update_player_list();
 }
 
 void LocalServer::tick()
 {
+    ZoneScoped;
+
     m_connection.tick();
 
     m_schedulers[m_player->get_dimension()]->tick();
@@ -74,6 +81,8 @@ void LocalServer::tick()
 
 void LocalServer::send_message(const std::string& message)
 {
+    ZoneScoped;
+
     std::string msg;
     msg += m_player->get_username();
     msg += ": ";
@@ -85,12 +94,13 @@ void LocalServer::send_message(const std::string& message)
 
 void LocalServer::host()
 {
-    m_online = true;
     EXPECT(m_connection.host(NetworkConnection::default_port));
 }
 
 void LocalServer::send_chunk(ENetPeer *peer, std::shared_ptr<Chunk> chunk)
 {
+    ZoneScoped;
+
     std::vector<uint8_t> blocks_data;
     EXPECT(ZLib::deflate(std::as_bytes(std::span((uint8_t *)chunk->get_blocks(), sizeof(BlockState) * Chunk::block_count)), blocks_data));
 
@@ -114,6 +124,8 @@ void LocalServer::send_chunk(ENetPeer *peer, std::shared_ptr<Chunk> chunk)
 
 void LocalServer::route_packet(ENetPacket *packet)
 {
+    ZoneScoped;
+
     if (m_online)
         m_connection.broadcast(packet);
 }
@@ -267,6 +279,8 @@ void LocalServer::connect(void *user, NetworkConnection& conn, const Client& cli
 
 void LocalServer::disconnect(void *user, NetworkConnection& conn, const Client& client)
 {
+    ZoneScoped;
+
     LocalServer *self = (LocalServer *)user;
 
     if (self->m_connected_peers.contains(client.peer()))
