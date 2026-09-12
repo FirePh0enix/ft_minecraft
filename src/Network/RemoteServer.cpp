@@ -106,12 +106,9 @@ void RemoteServer::route_packet(ENetPacket *packet)
     m_connection.send(packet);
 }
 
-void RemoteServer::receive_chunk(const ChunkDataPacket& p, std::stop_token token)
+void RemoteServer::receive_chunk(const ChunkDataPacket& p, std::shared_ptr<Chunk> chunk, std::stop_token token)
 {
     ZoneScoped;
-
-    Dimension& dimension = m_world->get_dimension(World::overworld);
-    std::shared_ptr<Chunk> chunk = std::make_shared<Chunk>(&dimension, p.x, p.z);
 
     std::vector<uint8_t> blocks_data;
     EXPECT(ZLib::inflate_with_cancellation(token, std::as_bytes(std::span(p.blocks)), blocks_data));
@@ -125,8 +122,6 @@ void RemoteServer::receive_chunk(const ChunkDataPacket& p, std::stop_token token
     std::vector<uint8_t> tags_data;
     EXPECT(ZLib::inflate_with_cancellation(token, std::as_bytes(std::span(p.tags)), tags_data));
 
-    // debug("tags received = {}", tags_data.size());
-
     BufferReader reader(tags_data.data(), tags_data.size());
     Dimension::read_tags(reader, chunk);
 
@@ -137,8 +132,10 @@ void RemoteServer::queue_receive_chunk(const ChunkDataPacket& p)
 {
     ZoneScoped;
 
-    Engine::get().get_thread_pool().submit([this, p](std::stop_token token)
-                                           { receive_chunk(p, token); });
+    // TODO: add dimension
+    std::shared_ptr<Chunk> chunk = std::make_shared<Chunk>(&m_world->get_dimension(World::overworld), p.x, p.z);
+    Engine::get().get_thread_pool().submit([this, p, chunk](std::stop_token token)
+                                           { receive_chunk(p, chunk, token); });
 }
 
 void RemoteServer::update_player_list()

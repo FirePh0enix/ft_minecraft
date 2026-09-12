@@ -27,7 +27,7 @@ void TreePass::place_short_tree(ChunkPos pos, std::shared_ptr<PreLoadedChunk> ch
     int64_t elevation = chunk->heights[lx + lz * 16];
     const int64_t log_xz = width / 2 + 1;
 
-    BlockState *blocks = new BlockState[width * height * width](); // TODO: free this
+    BlockState *blocks = new BlockState[width * height * width](); // FIXME: free this
     for (int64_t y = 0; y < tree_height; y++)
         blocks[log_xz + y * width + log_xz * width * height] = BlockState(Blocks::oak_log.hash);
 

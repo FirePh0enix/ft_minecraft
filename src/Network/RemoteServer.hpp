@@ -17,7 +17,7 @@ public:
 
     virtual void route_packet(ENetPacket *packet) override;
 
-    void receive_chunk(const ChunkDataPacket& p, std::stop_token);
+    void receive_chunk(const ChunkDataPacket& p, std::shared_ptr<Chunk> chunk, std::stop_token);
     void queue_receive_chunk(const ChunkDataPacket& p);
 
 private:

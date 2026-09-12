@@ -4,6 +4,7 @@
 #include "Core/Flags.hpp"
 #include "Core/Noise/Simplex.hpp"
 #include "Core/Types.hpp"
+#include "Profiler.hpp"
 #include "Render/Shader.hpp"
 #include "Render/Types.hpp"
 #include "Window.hpp"
@@ -58,11 +59,13 @@ class Buffer
 public:
     ~Buffer();
 
-    static std::expected<std::shared_ptr<Buffer>, Error> create(size_t size, WGPUBufferUsage usage = WGPUBufferUsage_None, BufferVisibility visibility = BufferVisibility::GPUOnly);
+    static std::expected<std::shared_ptr<Buffer>, Error> create(size_t size, WGPUBufferUsage usage = WGPUBufferUsage_None, bool map = false, BufferVisibility visibility = BufferVisibility::GPUOnly);
 
     template <typename T>
     void update_struct(const T& value, size_t offset = 0)
     {
+        ZoneScoped;
+
         std::array<T, 1> array{value};
         update(std::as_bytes(std::span(array)), offset);
     }
@@ -453,8 +456,8 @@ public:
     void draw_forward(const std::shared_ptr<World>& world);
     void draw_dimension_forward(WGPUCommandEncoder encoder, const std::shared_ptr<World>& world, int dimension, bool inside_portal);
 
-    void draw_opaque_world(const std::shared_ptr<World>& world, const RenderPass& pass, const std::span<const RenderableChunk>& chunks, uint32_t stencil);
-    void draw_water_world(const std::shared_ptr<World>& world, const RenderPass& pass, const std::span<const RenderableChunk>& chunks, uint32_t stencil);
+    void draw_opaque_world(const std::shared_ptr<World>& world, const RenderPass& pass, const std::map<ChunkPos, RenderableChunk>& chunks, uint32_t stencil);
+    void draw_water_world(const std::shared_ptr<World>& world, const RenderPass& pass, const std::map<ChunkPos, RenderableChunk>& chunks, uint32_t stencil);
 
     void draw(const RenderPass& pass, const std::shared_ptr<Mesh>& mesh, const std::shared_ptr<Material>& material, const std::shared_ptr<BindGroup>& bg, const std::shared_ptr<Buffer>& instance_buffer = nullptr, size_t instance_count = 1, std::optional<uint32_t> stencil = std::nullopt);
     void draw_fullscreen(const RenderPass& pass, std::shared_ptr<Material> material, std::shared_ptr<BindGroup> bg, uint32_t stencil);

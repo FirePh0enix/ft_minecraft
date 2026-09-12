@@ -1,5 +1,7 @@
 #include "Core/ZLib.hpp"
 
+#include "Profiler.hpp"
+
 #include <zlib.h>
 
 #include <limits>
@@ -9,6 +11,8 @@
 
 std::expected<void, Error> ZLib::deflate(std::span<const std::byte> data, std::vector<uint8_t>& compressed_data)
 {
+    ZoneScoped;
+
     if (data.size_bytes() > std::numeric_limits<uInt>::max())
         return std::unexpected(Error(ErrorKind::ReadFailure));
 
@@ -66,6 +70,8 @@ std::expected<void, Error> ZLib::deflate(std::span<const std::byte> data, std::v
 
 std::expected<void, Error> ZLib::deflate_with_cancellation(std::stop_token token, std::span<const std::byte> data, std::vector<uint8_t>& compressed_data)
 {
+    ZoneScoped;
+
     if (data.size_bytes() > std::numeric_limits<uInt>::max())
         return std::unexpected(Error(ErrorKind::ReadFailure));
 
@@ -129,6 +135,8 @@ std::expected<void, Error> ZLib::deflate_with_cancellation(std::stop_token token
 
 std::expected<void, Error> ZLib::inflate(std::span<const std::byte> data, std::vector<uint8_t>& uncompressed_data)
 {
+    ZoneScoped;
+
     if (data.empty() || data.size_bytes() > std::numeric_limits<uInt>::max())
         return std::unexpected(Error(ErrorKind::ReadFailure));
 
@@ -174,6 +182,8 @@ std::expected<void, Error> ZLib::inflate(std::span<const std::byte> data, std::v
 
 std::expected<void, Error> ZLib::inflate_with_cancellation(std::stop_token token, std::span<const std::byte> data, std::vector<uint8_t>& uncompressed_data)
 {
+    ZoneScoped;
+
     if (data.empty() || data.size_bytes() > std::numeric_limits<uInt>::max())
         return std::unexpected(Error(ErrorKind::ReadFailure));
 

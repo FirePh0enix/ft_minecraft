@@ -19,7 +19,7 @@ class Dimension;
 struct RenderableChunk
 {
     std::shared_ptr<Chunk> chunk;
-    size_t slice_index;
+    std::vector<size_t> slice_indices;
 };
 
 struct ChunkLoadWithDistance
@@ -120,8 +120,8 @@ public:
     void remove_entity(EntityId id);
 
     const std::map<ChunkPos, std::shared_ptr<Chunk>>& get_chunks() const { return m_chunks; }
-    std::span<const RenderableChunk> get_visible_chunks() const { return m_visible_chunks; }
-    std::span<const RenderableChunk> get_sun_visible_chunks() const { return m_sun_visible_chunks; }
+    const std::map<ChunkPos, RenderableChunk>& get_visible_chunks() const { return m_visible_chunks; }
+    const std::map<ChunkPos, RenderableChunk>& get_sun_visible_chunks() const { return m_sun_visible_chunks; }
 
     /// TODO: remove this, put rendering outside this class.
     void update_sun(glm::mat4 matrix);
@@ -161,7 +161,7 @@ private:
     std::map<ChunkPos, std::shared_ptr<PreLoadedChunk>> m_preloaded_chunks;
     std::map<ChunkPos, std::shared_ptr<Chunk>> m_chunks;
 
-    std::vector<RenderableChunk> m_visible_chunks;
+    std::map<ChunkPos, RenderableChunk> m_visible_chunks;
 
     daking::MPSC_queue<MeshRebuildResult> m_mesh_queue_lockless;
     std::set<ChunkPos> m_chunks_rebuild_queue;
@@ -169,7 +169,7 @@ private:
 
     // TODO: move this somewhere else.
     Frustum m_sun_frustum;
-    std::vector<RenderableChunk> m_sun_visible_chunks;
+    std::map<ChunkPos, RenderableChunk> m_sun_visible_chunks;
 
     std::vector<std::shared_ptr<Entity>> m_entities;
     std::vector<std::shared_ptr<Entity>> m_entities_to_add;

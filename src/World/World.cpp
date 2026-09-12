@@ -275,7 +275,7 @@ void World::tick_dimension(float delta, int dimension)
     {
         ZoneScopedN("calc visible chunks");
 
-        m_dims[dimension].m_visible_chunks.resize(0);
+        m_dims[dimension].m_visible_chunks.clear();
         for (const auto& [key, chunk] : m_dims[dimension].m_chunks)
         {
             ZoneScopedN("one chunk");
@@ -296,12 +296,13 @@ void World::tick_dimension(float delta, int dimension)
                 if (!camera->frustum().contains(aabb) || (chunk->get_slices()[i].opaque_mesh == nullptr && chunk->get_slices()[i].water_mesh == nullptr))
                     continue;
 
-                m_dims[dimension].m_visible_chunks.push_back(RenderableChunk(chunk, i));
+                m_dims[dimension].m_visible_chunks[chunk->pos()].chunk = chunk;
+                m_dims[dimension].m_visible_chunks[chunk->pos()].slice_indices.push_back(i);
             }
         }
     }
 
-    m_dims[dimension].m_sun_visible_chunks.resize(0);
+    m_dims[dimension].m_sun_visible_chunks.clear();
     for (const auto& [key, chunk] : m_dims[dimension].m_chunks)
     {
         ChunkPos pos = chunk->pos();
@@ -321,7 +322,8 @@ void World::tick_dimension(float delta, int dimension)
             if (!m_dims[dimension].m_sun_frustum.contains(aabb) || mesh == nullptr)
                 continue;
 
-            m_dims[dimension].m_sun_visible_chunks.push_back(RenderableChunk(chunk, i));
+            m_dims[dimension].m_sun_visible_chunks[chunk->pos()].chunk = chunk;
+            m_dims[dimension].m_sun_visible_chunks[chunk->pos()].slice_indices.push_back(i);
         }
     }
 }

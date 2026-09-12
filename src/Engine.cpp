@@ -27,7 +27,7 @@
 #define WINDOW_INIT_HEIGHT 1080
 
 Engine::Engine(bool disable_save)
-    : m_disable_save(disable_save), m_thread_pool(std::max<ssize_t>(std::thread::hardware_concurrency() - 3, 1)), m_mesh_thread_pool(std::min<ssize_t>(2, std::thread::hardware_concurrency()))
+    : m_disable_save(disable_save), m_thread_pool(2), m_mesh_thread_pool(2)
 {
     singleton = this;
     m_window = std::make_shared<Window>("ft_minecraft", WINDOW_INIT_WIDTH, WINDOW_INIT_HEIGHT);
