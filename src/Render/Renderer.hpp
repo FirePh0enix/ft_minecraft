@@ -69,6 +69,9 @@ public:
 
     void update(std::span<const std::byte> view, size_t offset = 0);
 
+    void *map();
+    void unmap();
+
     size_t size() const { return m_size; }
     WGPUBufferUsage flags() const { return m_usage; }
 
@@ -80,7 +83,7 @@ private:
     WGPUBufferUsage m_usage;
 
     BufferVisibility m_visibility;
-    WGPUBuffer m_transfer_buffer;
+    // WGPUBuffer m_transfer_buffer;
 };
 
 class Texture

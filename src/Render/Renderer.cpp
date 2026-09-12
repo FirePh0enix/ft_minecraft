@@ -19,6 +19,7 @@
 #include <backends/imgui_impl_sdl3.h>
 #include <backends/imgui_impl_wgpu.h>
 #include <imgui.h>
+#include <webgpu/wgpu.h>
 
 #include <format>
 #include <mutex>
@@ -152,6 +153,34 @@ std::expected<std::shared_ptr<Buffer>, Error> Buffer::create(size_t size, WGPUBu
 void Buffer::update(std::span<const std::byte> view, size_t offset)
 {
     wgpuQueueWriteBuffer(Renderer::get().get_queue(), m_buffer, offset, view.data(), view.size_bytes());
+}
+
+void *Buffer::map()
+{
+    std::atomic_bool state = true;
+    wgpuBufferMapAsync(m_buffer, WGPUMapMode_Write, 0, m_size, WGPUBufferMapCallbackInfo{
+                                                                   .nextInChain = nullptr,
+                                                                   .mode = WGPUCallbackMode_AllowSpontaneous,
+                                                                   .callback = [](WGPUMapAsyncStatus status, WGPUStringView message, WGPU_NULLABLE void *userdata1, WGPU_NULLABLE void *userdata2)
+                                                                   {
+                                                                       (void)status;
+                                                                       (void)message;
+                                                                       (void)userdata2;
+                                                                       std::atomic_bool *state = (std::atomic_bool *)userdata1;
+                                                                       state->store(false);
+                                                                   },
+                                                                   .userdata1 = &state,
+                                                                   .userdata2 = nullptr,
+                                                               });
+    while (state.load())
+        wgpuDevicePoll(Renderer::get().m_device, false, nullptr);
+    // TODO(wasm): wgpuBufferWriteMappedRange(WGPUBuffer buffer, size_t offset, const void *data, size_t size)
+    return wgpuBufferGetMappedRange(m_buffer, 0, m_size);
+}
+
+void Buffer::unmap()
+{
+    wgpuBufferUnmap(m_buffer);
 }
 
 Texture::~Texture()
@@ -1677,6 +1706,23 @@ void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::sha
 
     const uint32_t stencil_mask = inside_portal ? 2 : 1;
 
+    std::span<const RenderableChunk> visible_chunks = world->get_dimension(dimension).get_visible_chunks();
+    for (const auto& r : visible_chunks)
+    {
+        const ChunkPos pos = r.chunk->pos();
+
+        const glm::dvec3 position = active_camera->get_global_transform().position();
+        glm::vec3 data((double)pos.x * Chunk::width - position.x, (double)r.slice_index * Chunk::width - position.y, (double)pos.z * Chunk::width - position.z);
+        // wgpuQueueWriteBuffer(m_queue, r.chunk->get_instance_buffer()->handle(), r.slice_index * sizeof(data), &data, sizeof(data));
+
+        std::shared_ptr<Buffer> buffer = r.chunk->get_instance_copy_buffer();
+        void *buffer_data = buffer->map();
+        std::memcpy((char *)buffer_data + r.slice_index * sizeof(data), &data, sizeof(data));
+        buffer->unmap();
+
+        wgpuCommandEncoderCopyBufferToBuffer(encoder, r.chunk->get_instance_copy_buffer()->handle(), r.slice_index * sizeof(data), r.chunk->get_instance_buffer()->handle(), r.slice_index * sizeof(data), sizeof(data));
+    }
+
     // Generate a shadowmap by doing a depth-only pass from the point of view of the "sun".
     WGPURenderPassDepthStencilAttachment shadowmap_attach = WGPU_RENDER_PASS_DEPTH_STENCIL_ATTACHMENT_INIT;
     shadowmap_attach.depthClearValue = 1.0;
@@ -1810,14 +1856,21 @@ void Renderer::draw_opaque_world(const std::shared_ptr<World>& world, const Rend
         if (slice.opaque_mesh == nullptr)
             continue;
 
-        const ChunkPos pos = r.chunk->pos();
+        // const ChunkPos pos = r.chunk->pos();
 
-        {
-            ZoneScopedN("update instance buffer");
-            const glm::dvec3 position = camera->get_global_transform().position();
-            glm::vec3 data((double)pos.x * Chunk::width - position.x, (double)r.slice_index * Chunk::width - position.y, (double)pos.z * Chunk::width - position.z);
-            wgpuQueueWriteBuffer(m_queue, r.chunk->get_instance_buffer()->handle(), r.slice_index * sizeof(data), &data, sizeof(data));
-        }
+        // {
+        //     ZoneScopedN("update instance buffer");
+        //     const glm::dvec3 position = camera->get_global_transform().position();
+        //     glm::vec3 data((double)pos.x * Chunk::width - position.x, (double)r.slice_index * Chunk::width - position.y, (double)pos.z * Chunk::width - position.z);
+        //     // wgpuQueueWriteBuffer(m_queue, r.chunk->get_instance_buffer()->handle(), r.slice_index * sizeof(data), &data, sizeof(data));
+
+        //     std::shared_ptr<Buffer> buffer = r.chunk->get_instance_copy_buffer();
+        //     void *buffer_data = buffer->map();
+        //     std::memcpy((char *)buffer_data + r.slice_index * sizeof(data), &data, sizeof(data));
+        //     buffer->unmap();
+
+        //     wgpuCommandEncoderCopyBufferToBuffer(encoder, r.chunk->get_instance_copy_buffer()->handle(), r.slice_index * sizeof(data), r.chunk->get_instance_buffer()->handle(), r.slice_index * sizeof(data), sizeof(data));
+        // }
 
         {
             ZoneScopedN("buffers");

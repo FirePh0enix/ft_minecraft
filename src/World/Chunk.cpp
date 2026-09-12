@@ -14,8 +14,8 @@ Chunk::Chunk(Dimension *dim, int64_t x, int64_t z)
     m_biomes = new Biome[16 * 16];
     m_slices = new Slice[slice_count];
 
-    // m_tags = new std::unordered_map<int64_t, std::map<std::string, std::string>>();
-    m_uniform_buffer = EXPECT(Buffer::create(sizeof(FwChunkUniforms) * slice_count, WGPUBufferUsage_Uniform | WGPUBufferUsage_Vertex | WGPUBufferUsage_CopyDst));
+    m_instance_buffer = EXPECT(Buffer::create(sizeof(FwChunkUniforms) * slice_count, WGPUBufferUsage_Uniform | WGPUBufferUsage_Vertex | WGPUBufferUsage_CopyDst));
+    m_instance_copy_buffer = EXPECT(Buffer::create(sizeof(FwChunkUniforms) * slice_count, WGPUBufferUsage_CopySrc | WGPUBufferUsage_MapWrite));
 }
 
 Chunk::~Chunk()
@@ -28,12 +28,6 @@ Chunk::~Chunk()
 int Chunk::dimension() const
 {
     return m_dim->id();
-}
-
-void Chunk::update_instance_buffer(glm::dvec3 position, uint32_t slice_index)
-{
-    glm::vec3 data((double)m_x * Chunk::width - position.x, (double)slice_index * Chunk::width - position.y, (double)m_z * Chunk::width - position.z);
-    m_uniform_buffer->update_struct(data, slice_index * sizeof(glm::vec3));
 }
 
 void Chunk::set_block(int64_t x, int64_t y, int64_t z, BlockState state)

@@ -96,8 +96,6 @@ public:
 
     int dimension() const;
 
-    void update_instance_buffer(glm::dvec3 position, uint32_t slice_index);
-
     ALWAYS_INLINE BlockState get_block(int64_t x, int64_t y, int64_t z) const { return m_blocks[linearize(x, y, z)]; }
     void set_block(int64_t x, int64_t y, int64_t z, BlockState state);
 
@@ -115,7 +113,8 @@ public:
     const Slice *get_slices() const { return m_slices; }
     Slice *get_slices() { return m_slices; }
 
-    ALWAYS_INLINE std::shared_ptr<Buffer> get_instance_buffer() const { return m_uniform_buffer; }
+    ALWAYS_INLINE std::shared_ptr<Buffer> get_instance_buffer() const { return m_instance_buffer; }
+    ALWAYS_INLINE std::shared_ptr<Buffer> get_instance_copy_buffer() const { return m_instance_copy_buffer; }
 
     std::expected<std::shared_ptr<Mesh>, Error> build_opaque_mesh(size_t slice_index, const std::map<ChunkPos, std::shared_ptr<Chunk>>& chunks);
     std::expected<std::shared_ptr<Mesh>, Error> build_water_mesh(size_t slice_index, const std::map<ChunkPos, std::shared_ptr<Chunk>>& chunks);
@@ -141,7 +140,8 @@ private:
     std::map<int64_t, stdext::string_map<Variant>> m_tags;
     std::set<BlockPos> m_non_conventional_blocks;
 
-    std::shared_ptr<Buffer> m_uniform_buffer;
+    std::shared_ptr<Buffer> m_instance_buffer;
+    std::shared_ptr<Buffer> m_instance_copy_buffer;
 
     int64_t m_x = 0;
     int64_t m_z = 0;
