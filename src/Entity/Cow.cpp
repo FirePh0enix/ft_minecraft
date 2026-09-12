@@ -8,9 +8,7 @@ void Cow::start() {};
 
 void Cow::tick(float delta)
 {
-
-    if (!m_on_ground)
-        m_velocity.y -= m_gravity_value * delta;
+    m_velocity.y -= m_gravity_value * delta;
 
     if (m_following_path)
     {
@@ -39,6 +37,8 @@ void Cow::tick(float delta)
     follow_path(delta);
     move_and_collide();
 
+    const bool is_moving = glm::length2(glm::vec2(m_velocity.x, m_velocity.z)) > 1e-6f;
+
     m_velocity.x = 0.0;
     m_velocity.z = 0.0;
 
@@ -46,8 +46,6 @@ void Cow::tick(float delta)
         m_velocity.y = 0.0f;
 
     m_audio_source->set_position(get_global_transform().position());
-
-    const bool is_moving =  glm::length2(glm::vec2(m_velocity.x, m_velocity.z)) > 1e-6f;
 
     if (is_in_water() && is_moving)
     {
@@ -65,7 +63,7 @@ void Cow::tick(float delta)
 
 void Cow::on_ready()
 {
-    m_model = EXPECT(ModelLegacy::load("assets/models/cow.json"));
+    m_model = EXPECT(ModelLegacy::load("data/models/cow.json"));
     m_id = World::next_id();
     m_pathfinding = std::make_unique<Pathfinding>(m_world);
 
