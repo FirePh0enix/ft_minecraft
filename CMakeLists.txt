@@ -78,6 +78,7 @@ list(APPEND SOURCES
     src/World/Structure.cpp
     src/World/World.cpp
     src/World/UnderworldGen.cpp
+    src/World/MobSpawner.cpp
 )
 
 if (EMSCRIPTEN)

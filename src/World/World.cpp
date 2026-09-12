@@ -11,6 +11,8 @@
 #include "Profiler.hpp"
 #include "World/Chunk.hpp"
 #include "World/Dimension.hpp"
+#include "World/MobSpawner.hpp"
+#include "World/Settings.hpp"
 
 #include <SDL3/SDL.h>
 
@@ -115,6 +117,8 @@ std::expected<std::shared_ptr<World>, Error> World::create(std::string name, uin
     world->m_dims[overworld].m_world = world.get();
     world->m_dims[underworld].m_world = world.get();
 
+    world->m_mob_spawner = std::make_unique<MobSpawner>(*world, overworld);
+
     // world->find_safe_spawn();
 
     if (!Engine::get().is_save_disabled())
@@ -140,6 +144,8 @@ std::expected<std::shared_ptr<World>, Error> World::create_proxy(uint64_t seed, 
     std::shared_ptr<World> world = std::make_shared<World>(audio);
     world->m_seed = seed;
     world->m_dims[overworld].m_world = world.get();
+    world->m_mob_spawner = std::make_unique<MobSpawner>(*world, overworld);
+
     return world;
 }
 
@@ -164,6 +170,8 @@ std::expected<std::shared_ptr<World>, Error> World::load(std::string name, Audio
 
     world->m_dims[overworld].m_world = world.get();
     world->m_dims[underworld].m_world = world.get();
+
+    world->m_mob_spawner = std::make_unique<MobSpawner>(*world, overworld);
 
     return world;
 }
@@ -199,6 +207,12 @@ void World::tick_dimension(float delta, int dimension)
         m_dims[dimension].m_entities.erase(std::find(m_dims[dimension].m_entities.begin(), m_dims[dimension].m_entities.end(), entity));
     for (std::shared_ptr<Entity> entity : m_dims[dimension].m_entities_to_add)
         m_dims[dimension].m_entities.push_back(entity);
+
+    m_dims[dimension].m_entities_to_remove.clear();
+    m_dims[dimension].m_entities_to_add.clear();
+
+    if (!m_proxy)
+        m_mob_spawner->tick(delta);
 
     {
         ZoneScopedN("Mesh flush");

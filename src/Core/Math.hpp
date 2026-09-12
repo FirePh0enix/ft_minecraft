@@ -42,6 +42,11 @@ inline float rand_float(float min, float max)
     return midpoint + float(plus_minus) * (float(rand()) / float(RAND_MAX)) * half_range;
 }
 
+inline int rand_int(int min, int max)
+{
+    return min + rand() % (max - min + 1);
+}
+
 inline glm::vec3 safe_normalize(const glm::vec3& v)
 {
     float len2 = glm::length2(v);

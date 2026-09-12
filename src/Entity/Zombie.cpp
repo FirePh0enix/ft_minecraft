@@ -19,15 +19,12 @@ void Zombie::tick(float delta)
     m_path_update_timer -= delta;
     m_groan_timer -= delta;
 
-    if (!m_on_ground)
-    {
-        float gravity = m_gravity_value;
+    float gravity = m_gravity_value;
 
-        if (is_in_water())
-            gravity = 0.0f;
+    if (is_in_water())
+        gravity = 0.0f;
 
-        m_velocity.y -= gravity * delta;
-    }
+    m_velocity.y -= gravity * delta;
 
     // Tracking.
     AABBd search_box = AABBd::from_center_extent(get_global_transform().position(), glm::vec3(DETECTION_RADIUS));
