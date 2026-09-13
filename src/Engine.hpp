@@ -109,6 +109,8 @@ private:
     std::unique_ptr<AudioMixer> m_audio_mixer;
     std::unique_ptr<MusicPlayer> m_music_player;
 
+    std::vector<std::string> m_saves;
+
     // Menu
     char m_username_buf[32] = "steve";
     int m_current_save = 0;         // load

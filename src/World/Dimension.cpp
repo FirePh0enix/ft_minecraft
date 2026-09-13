@@ -115,7 +115,7 @@ void GenScheduler::realize_chunk(std::stop_token token, ChunkPos pos, std::share
 {
     std::string path = std::format("{}saves/{}/DIM0/{}${}/blocks.dat", Filesystem::get_data_directory(), m_dimension.m_world->get_name(), pos.x, pos.z);
 
-    if (false && !Engine::get().is_save_disabled() && Filesystem::exists(path))
+    if (!Engine::get().is_save_disabled() && std::filesystem::exists(path))
     {
         std::vector<char> data;
         // TODO: how to handle errors from loading chunks ?

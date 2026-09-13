@@ -3,6 +3,7 @@
 #include "Audio/AudioMixer.hpp"
 #include "Audio/MusicPlayer.hpp"
 #include "Core/Error.hpp"
+#include "Core/Filesystem.hpp"
 #include "Entity/Cow.hpp"
 #include "Entity/Entity.hpp"
 #include "Entity/Player.hpp"
@@ -46,6 +47,10 @@ Engine::Engine(bool disable_save)
 
     EXPECT(Font::init_library());
     m_font = EXPECT(Font::create("data/fonts/Anonymous.ttf", 64));
+
+    // Detect available saves
+    for (auto iter : std::filesystem::directory_iterator(Filesystem::get_data_directory() + "saves/"))
+        m_saves.push_back(iter.path().filename().string());
 
     go_to_main_menu();
 }
@@ -249,26 +254,34 @@ void Engine::main_menu_gui()
 
         ImGui::InputText("Username", m_username_buf, 32);
 
-        const char *items[] = {"One", "Two", "Three"};
-
-        if (ImGui::ListBox("Saves", &m_current_save, items, 3))
+        std::vector<const char *> items;
+        for (const std::string& s : m_saves)
+            items.push_back(s.c_str());
+        if (ImGui::ListBox("Saves", &m_current_save, items.data(), (int)items.size()))
         {
         }
 
         ImGui::InputText("Name", m_name_buf, 32);
         ImGui::InputText("Seed", m_seed_buf, 32);
 
-        imguitk_center_next_widget("Load");
+        imguitk_center_next_widget("Delete");
+        if (ImGui::Button("Delete"))
+        {
+            std::filesystem::remove_all(Filesystem::get_data_directory() + "saves/" + m_saves[m_current_save]);
+            m_saves.erase(std::find(m_saves.begin(), m_saves.end(), m_saves[m_current_save]));
+            m_current_save = 0;
+        }
+        ImGui::SameLine();
         if (ImGui::Button("Load"))
         {
-            m_server = std::make_shared<LocalServer>(m_username_buf, m_name_buf, std::atoll(m_seed_buf), m_should_create_online);
+            m_server = std::make_shared<LocalServer>(m_username_buf, m_saves[m_current_save], std::atoll(m_seed_buf), m_should_create_online);
             m_server->start();
             m_current_target = RpcTarget::Server;
 
             m_menu = nullptr;
         }
         ImGui::SameLine();
-        if (ImGui::Button("Create"))
+        if (ImGui::Button("Create") && std::find(m_saves.begin(), m_saves.end(), std::string(m_name_buf)) == m_saves.end())
         {
             m_server = std::make_shared<LocalServer>(m_username_buf, m_name_buf, std::atoll(m_seed_buf), m_should_create_online);
             m_server->start();

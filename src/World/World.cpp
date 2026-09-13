@@ -233,39 +233,17 @@ void World::tick_dimension(float delta, int dimension)
         }
     }
 
-    // for (ChunkPos pos : chunk_modified)
-    // {
-    //     m_dims[dimension].queue_rebuild(pos);
-    // }
-
-    // if (!m_proxy && Engine::get().is_online() && Engine::get().is_server())
-    // {
-    //     for (std::shared_ptr<Entity> entity : m_dims[dimension].get_entities())
-    //     {
-    //         UpdateEntityPacket p{};
-    //         p.id = entity->id();
-    //         p.position = entity->get_transform().position();
-    //         p.rotation = entity->get_transform().rotation();
-    //         Engine::get().connection().broadcast(Engine::get().connection().create_packet(p));
-    //     }
-
-    //     for (const ChunkLoadRequest& req : m_load_requests)
-    //     {
-    //         auto chunk_opt = get_dimension(req.dimension).get_chunk(req.x, req.z);
-    //         if (chunk_opt.has_value())
-    //         {
-    //             auto chunk = chunk_opt.value();
-    //             Engine::get().get_thread_pool().submit([this, req, chunk](std::stop_token)
-    //                                                    { send_chunk(req.peer, chunk); });
-    //         }
-    //         else
-    //         {
-    //             // TODO: chunk is loaded but requested by a client, so we load the chunk and send it when its ready.
-    //             //       This will require to split chunks in two: chunks loaded or visible chunks.
-    //         }
-    //     }
-    //     m_load_requests.clear();
-    // }
+    if (!m_proxy)
+    {
+        for (const auto& [pos, chunk] : m_dims[dimension].get_chunks())
+        {
+            if (chunk->is_modified())
+            {
+                EXPECT(save_chunk({}, chunk, dimension));
+                chunk->clear_modified();
+            }
+        }
+    }
 
     m_dims[dimension].m_entities_to_remove.clear();
     m_dims[dimension].m_entities_to_add.clear();
@@ -468,6 +446,12 @@ std::expected<void, Error> World::save_chunk(std::stop_token token, std::shared_
 
     return std::expected<void, Error>();
 }
+
+// void World::queue_save_chunk(std::shared_ptr<Chunk> chunk, int dimension)
+// {
+//     Engine::get().get_thread_pool().submit([this, chunk, dimension](std::stop_token token)
+//                                            { EXPECT(save_chunk(token, chunk, dimension)); });
+// }
 
 std::expected<void, Error> World::save_entity(const std::shared_ptr<Entity>& entity)
 {

@@ -1,5 +1,6 @@
 #include "Network/LocalServer.hpp"
 
+#include "Core/Filesystem.hpp"
 #include "Core/ZLib.hpp"
 #include "Engine.hpp"
 #include "Entity/Player.hpp"
@@ -22,7 +23,16 @@ void LocalServer::start()
     m_connection.set_disconnect_handler(&LocalServer::disconnect, this);
     m_connection.set_packet_handler(&LocalServer::receive, this);
 
-    m_world = EXPECT(World::create(m_world_name, m_world_seed, 0, Engine::get().audio_mixer()));
+    if (std::filesystem::exists(Filesystem::get_data_directory() + "saves/" + m_world_name))
+    {
+        info("loading existing world `{}`", m_world_name);
+        m_world = EXPECT(World::load(m_world_name, Engine::get().audio_mixer()));
+    }
+    else
+    {
+        info("creating new world `{}` with seed `{}`", m_world_name, m_world_seed);
+        m_world = EXPECT(World::create(m_world_name, m_world_seed, 0, Engine::get().audio_mixer()));
+    }
 
     m_schedulers[World::overworld] = std::make_shared<GenScheduler>(m_world->get_dimension(World::overworld), std::make_shared<OverworldGen>(m_world_settings));
     m_schedulers[World::underworld] = std::make_shared<GenScheduler>(m_world->get_dimension(World::underworld), std::make_shared<UnderworldGen>(m_world_settings));
