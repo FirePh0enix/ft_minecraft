@@ -265,14 +265,14 @@ void Engine::main_menu_gui()
         ImGui::InputText("Seed", m_seed_buf, 32);
 
         imguitk_center_next_widget("Delete");
-        if (ImGui::Button("Delete"))
+        if (ImGui::Button("Delete") && m_current_save < (int)m_saves.size())
         {
             std::filesystem::remove_all(Filesystem::get_data_directory() + "saves/" + m_saves[m_current_save]);
             m_saves.erase(std::find(m_saves.begin(), m_saves.end(), m_saves[m_current_save]));
             m_current_save = 0;
         }
         ImGui::SameLine();
-        if (ImGui::Button("Load"))
+        if (ImGui::Button("Load") && m_current_save < (int)m_saves.size())
         {
             m_server = std::make_shared<LocalServer>(m_username_buf, m_saves[m_current_save], std::atoll(m_seed_buf), m_should_create_online);
             m_server->start();
