@@ -11,7 +11,6 @@
 #include "Profiler.hpp"
 #include "World/Chunk.hpp"
 #include "World/Dimension.hpp"
-#include "World/Settings.hpp"
 
 #include <SDL3/SDL.h>
 
@@ -21,7 +20,6 @@
 #include <format>
 #include <limits>
 #include <memory>
-#include <mutex>
 
 // https://gamedev.stackexchange.com/questions/18436/most-efficient-aabb-vs-ray-collision-algorithms
 static bool ray_intersect_aabb(const Ray& ray, const AABBd& aabb, double& t_min, glm::dvec3& normal)
@@ -91,25 +89,19 @@ World::World(AudioMixer& audio) : m_dims{Dimension(0), Dimension(1)}, m_audio(au
 
 void World::find_safe_spawn()
 {
-    // srand(0);
+    // int64_t x = 0;
+    // int64_t z = 0;
 
-    // size_t i;
-    // for (i = 0; i < 30; i++)
+    // for (int64_t y = Chunk::height - 1; y > 0; y--)
     // {
-    //     int64_t x = rand() % 30;
-    //     int64_t z = rand() % 30;
+    //     int64_t cx = local_coords(x);
+    //     int64_t cz = local_coords(z);
+    //     std::shared_ptr<Chunk> chunk = std::make_shared<Chunk>(&m_dims[0], chunk_index(x), chunk_index(z));
 
-    //     for (int64_t y = Chunk::height - 1; y > 0; y--)
+    //     if (!state.is_air() || chunk->get_tag(glm::i64vec3(cx, y, cz), "water").has_value())
     //     {
-    // 	    int64_t cx = local_coords(x);
-    // 	    int64_t cz = local_coords(z);
-    // 	    Ref<Chunk> chunk = newref<Chunk>(&m_dims[0], chunk_index(x), chunk_index(z));
-    // 	    BlockState state = m_dims[0].generate_block(x, y, z, chunk);
-
-    // 	    if (!state.is_air() || chunk->get_tag(glm::i64vec3(cx, y, cz), "water").has_value()) {
-    // 		m_spawn_position = glm::vec3(x, y, z) + glm::vec3(0, 2.6, 0);
-    // 		return;
-    // 	    }
+    //         m_spawn_position = glm::vec3(x, y, z) + glm::vec3(0, 2.6, 0);
+    //         return;
     //     }
     // }
 }
@@ -446,12 +438,6 @@ std::expected<void, Error> World::save_chunk(std::stop_token token, std::shared_
 
     return std::expected<void, Error>();
 }
-
-// void World::queue_save_chunk(std::shared_ptr<Chunk> chunk, int dimension)
-// {
-//     Engine::get().get_thread_pool().submit([this, chunk, dimension](std::stop_token token)
-//                                            { EXPECT(save_chunk(token, chunk, dimension)); });
-// }
 
 std::expected<void, Error> World::save_entity(const std::shared_ptr<Entity>& entity)
 {

@@ -18,6 +18,16 @@ public:
         enet_packet_destroy(packet);
     }
 
+    virtual float get_generation_progression()
+    {
+        return 0.0;
+    }
+
+    virtual bool has_generation_started()
+    {
+        return false;
+    }
+
     std::shared_ptr<World> get_world() const { return m_world; }
     std::shared_ptr<Player> get_player() const { return m_player; }
 

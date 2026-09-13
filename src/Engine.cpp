@@ -185,7 +185,7 @@ void Engine::tick(float delta)
     }
     m_last_second_timer_time += delta;
 
-    if (m_server != nullptr && m_menu == nullptr)
+    if (m_server != nullptr)
     {
         m_server->tick();
     }
@@ -278,7 +278,7 @@ void Engine::main_menu_gui()
             m_server->start();
             m_current_target = RpcTarget::Server;
 
-            m_menu = nullptr;
+            m_menu = std::bind(&Engine::world_load_gui, this);
         }
         ImGui::SameLine();
         if (ImGui::Button("Create") && std::find(m_saves.begin(), m_saves.end(), std::string(m_name_buf)) == m_saves.end())
@@ -287,7 +287,7 @@ void Engine::main_menu_gui()
             m_server->start();
             m_current_target = RpcTarget::Server;
 
-            m_menu = nullptr;
+            m_menu = std::bind(&Engine::world_load_gui, this);
         }
 
         ImGui::SameLine();
@@ -308,4 +308,24 @@ void Engine::main_menu_gui()
         }
     }
     ImGui::End();
+}
+
+void Engine::world_load_gui()
+{
+    const Extent2D window_size = m_window->size();
+    const float size_x = (float)window_size.width * 0.4f;
+    const float size_y = (float)window_size.height * 0.6f;
+
+    ImGui::SetNextWindowPos(ImVec2((float)window_size.width / 2 - size_x / 2, (float)window_size.height / 2 - size_y / 2));
+    ImGui::SetNextWindowSize(ImVec2(size_x, size_y));
+    if (ImGui::Begin("Loading"))
+    {
+        ImGui::ProgressBar(m_server == nullptr ? 0.0 : m_server->get_generation_progression());
+    }
+    ImGui::End();
+
+    if (m_server->get_generation_progression() == 1.0 && m_server->has_generation_started())
+    {
+        m_menu = nullptr;
+    }
 }

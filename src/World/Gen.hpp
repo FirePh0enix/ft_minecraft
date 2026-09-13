@@ -8,7 +8,6 @@
 
 #include <memory>
 #include <random>
-#include <thread>
 
 struct StructureGen
 {
@@ -35,7 +34,7 @@ public:
     virtual void place(ChunkPos pos, std::shared_ptr<PreLoadedChunk> chunk, Dimension& dim) = 0;
 };
 
-class TreePass : public StructurePass
+class TreePass final : public StructurePass
 {
 public:
     void place_short_tree(ChunkPos pos, std::shared_ptr<PreLoadedChunk> chunk, Dimension& dim, std::mt19937& rng, int64_t lx, int64_t lz);
@@ -70,7 +69,7 @@ protected:
     std::vector<std::shared_ptr<StructurePass>> m_structure_passes;
 };
 
-class OverworldGen : public Gen
+class OverworldGen final : public Gen
 {
 public:
     OverworldGen(WorldSettings settings);
@@ -82,7 +81,7 @@ private:
     tk::spline m_continent_spline;
 };
 
-class UnderworldGen : public Gen
+class UnderworldGen final : public Gen
 {
 public:
     UnderworldGen(WorldSettings settings);

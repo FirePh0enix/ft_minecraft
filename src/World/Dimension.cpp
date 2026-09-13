@@ -67,6 +67,8 @@ void GenScheduler::chunk_pass(ChunkPos middle)
     if (!m_pregen_loading_queue.empty())
         return;
 
+    m_generation_started = true;
+
     for (int64_t x = -m_chunk_distance; x <= m_chunk_distance; x++)
         for (int64_t z = -m_chunk_distance; z <= m_chunk_distance; z++)
         {
@@ -80,6 +82,7 @@ void GenScheduler::chunk_pass(ChunkPos middle)
             m_chunks_loading_queue.insert(pos);
             Engine::get().get_thread_pool().submit([this, pos, chunk, preload_chunk](std::stop_token st)
                                                    { realize_chunk(st, pos, chunk, preload_chunk); });
+            m_remaining_chunks_to_load++;
         }
 
     std::vector<std::shared_ptr<Chunk>> chunks;
@@ -199,6 +202,8 @@ void GenScheduler::load(int64_t x, int64_t y, int64_t z)
     const int64_t player_cz = int64_t(player_pos.z / 16);
     const ChunkPos player_cpos(player_cx, player_cz);
 
+    m_generation_batch_size = (m_gen_distance * 2 + 1) * (m_gen_distance * 2 + 1);
+
     terrain_pass(player_cpos);
     chunk_pass(player_cpos);
 }
@@ -243,6 +248,7 @@ void GenScheduler::tick()
             m_dimension.m_chunks[pos] = chunk;
             chunk_modified.insert(pos);
             add_neighbour_chunk(pos, chunk_modified);
+            m_remaining_chunks_to_load--;
         }
     }
 
@@ -261,6 +267,11 @@ void GenScheduler::tick()
     {
         m_dimension.queue_rebuild(pos);
     }
+}
+
+float GenScheduler::get_generation_progression()
+{
+    return float(m_generation_batch_size - m_remaining_chunks_to_load) / float(m_generation_batch_size);
 }
 
 Dimension::Dimension(int id)

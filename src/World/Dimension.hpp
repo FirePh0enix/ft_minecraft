@@ -79,6 +79,10 @@ public:
     void load(int64_t x, int64_t y, int64_t z);
     void tick();
 
+    float get_generation_progression();
+
+    bool has_generation_started() const { return m_generation_started; }
+
 private:
     Dimension& m_dimension;
 
@@ -93,6 +97,10 @@ private:
 
     std::set<ChunkPos> m_pregen_loading_queue;
     std::set<ChunkPos> m_chunks_loading_queue;
+
+    size_t m_remaining_chunks_to_load = 0;
+    size_t m_generation_batch_size = 0;
+    bool m_generation_started = false;
 
     void terrain_and_struct_chunk(std::stop_token token, ChunkPos pos, std::shared_ptr<PreLoadedChunk> chunk);
     void realize_chunk(std::stop_token st, ChunkPos pos, std::shared_ptr<Chunk> chunk, std::shared_ptr<PreLoadedChunk> pregen_chunk);

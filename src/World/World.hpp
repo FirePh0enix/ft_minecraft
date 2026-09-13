@@ -170,7 +170,6 @@ public:
 
     /// Save chunk to the disk.
     std::expected<void, Error> save_chunk(std::stop_token token, std::shared_ptr<Chunk> chunk, int dimension);
-    // void queue_save_chunk(std::shared_ptr<Chunk> chunk, int dimension);
 
     std::expected<void, Error> save_entity(const std::shared_ptr<Entity>& entity);
     std::expected<void, Error> save_player(const std::shared_ptr<Player>& player);

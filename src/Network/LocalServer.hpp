@@ -25,6 +25,9 @@ public:
 
     virtual void route_packet(ENetPacket *packet) override;
 
+    virtual float get_generation_progression() override;
+    virtual bool has_generation_started() override;
+
     void host();
 
     void send_chunk(ENetPeer *peer, std::shared_ptr<Chunk> chunk);

@@ -140,6 +140,16 @@ void LocalServer::route_packet(ENetPacket *packet)
         m_connection.broadcast(packet);
 }
 
+float LocalServer::get_generation_progression()
+{
+    return m_schedulers[World::overworld]->get_generation_progression();
+}
+
+bool LocalServer::has_generation_started()
+{
+    return m_schedulers[World::overworld]->has_generation_started();
+}
+
 bool LocalServer::has_connected_player(std::string_view name)
 {
     return name == m_username || std::find_if(m_connected_peers.begin(), m_connected_peers.end(), [name](const auto& pair) -> bool

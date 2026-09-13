@@ -123,4 +123,5 @@ private:
     void register_recipes();
 
     void main_menu_gui();
+    void world_load_gui();
 };
