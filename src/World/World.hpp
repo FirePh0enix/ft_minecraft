@@ -61,20 +61,6 @@ inline glm::vec3 face_normal(Face face)
     return normals[(size_t)face];
 }
 
-struct RaycastResult
-{
-    glm::dvec3 pos;
-    glm::dvec3 normal;
-    double distance;
-    /**
-     * If true, `entity` is a valid reference to an entity else `block_pos` is valid.
-     */
-    bool hit_entity;
-
-    glm::i64vec3 block_pos;
-    std::shared_ptr<Entity> entity;
-};
-
 struct WorldSaveInfo
 {
     uint64_t seed;

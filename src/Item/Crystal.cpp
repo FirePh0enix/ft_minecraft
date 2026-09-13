@@ -7,14 +7,15 @@ CrystalItem::CrystalItem()
     // set_texture(Engine::get().registry().create_texture("data/resourcepacks/core/assets/minecraft/textures/item/emerald.png"));
 }
 
-void CrystalItem::interact(World& world, int dimension, ItemStack& stack, glm::i64vec3 pos, glm::i64vec3 normal, InventoryContainer& inventory)
+void CrystalItem::interact(World& world, int dimension, ItemStack& stack, bool hit, const RaycastResult& result, InventoryContainer& inventory)
 {
     (void)world;
     (void)dimension;
     (void)stack;
-    (void)pos;
-    (void)normal;
     (void)inventory;
+
+    if (!hit)
+        return;
 
     const int other_dimension = (dimension + 1) % 2;
 
@@ -48,7 +49,7 @@ void CrystalItem::interact(World& world, int dimension, ItemStack& stack, glm::i
         glm::i64vec3(2, 3, 0),
     };
 
-    const glm::i64vec3 global_pos = pos;
+    const glm::i64vec3 global_pos = result.block_pos;
 
     bool match;
     size_t i;

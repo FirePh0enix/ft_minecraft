@@ -15,13 +15,13 @@ public:
     /**
      * Callback used when a player is interacting with the world with an item in its hand.
      */
-    virtual void interact(World& world, int dimension, ItemStack& stack, glm::i64vec3 pos, glm::i64vec3 normal, InventoryContainer& inventory)
+    virtual void interact(World& world, int dimension, ItemStack& stack, bool hit, const RaycastResult& result, InventoryContainer& inventory)
     {
         (void)world;
         (void)dimension;
         (void)stack;
-        (void)pos;
-        (void)normal;
+        (void)hit;
+        (void)result;
         (void)inventory;
     }
 
@@ -52,7 +52,7 @@ public:
     {
     }
 
-    virtual void interact(World& world, int dimension, ItemStack& stack, glm::i64vec3 pos, glm::i64vec3 normal, InventoryContainer& inventory) override;
+    virtual void interact(World& world, int dimension, ItemStack& stack, bool hit, const RaycastResult& result, InventoryContainer& inventory) override;
 
     Id<Block> block() const { return m_block; }
 

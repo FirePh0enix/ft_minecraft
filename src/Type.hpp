@@ -7,6 +7,7 @@
 #include <functional>
 
 class Object;
+class Entity;
 
 struct Arguments
 {
@@ -112,4 +113,18 @@ private:
     stdext::string_map<Method> m_methods;
     stdext::string_map<Property> m_properties;
     Type *m_parent;
+};
+
+struct RaycastResult
+{
+    glm::dvec3 pos;
+    glm::dvec3 normal;
+    double distance;
+    /**
+     * If true, `entity` is a valid reference to an entity else `block_pos` is valid.
+     */
+    bool hit_entity;
+
+    glm::i64vec3 block_pos;
+    std::shared_ptr<Entity> entity;
 };

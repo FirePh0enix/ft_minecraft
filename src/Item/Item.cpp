@@ -13,17 +13,20 @@ static bool has_major_entities(const std::vector<std::shared_ptr<Entity>>& entit
     return false;
 }
 
-void ItemBlock::interact(World& world, int dimension, ItemStack& stack, glm::i64vec3 pos, glm::i64vec3 normal, InventoryContainer& inventory)
+void ItemBlock::interact(World& world, int dimension, ItemStack& stack, bool hit, const RaycastResult& result, InventoryContainer& inventory)
 {
 
     (void)inventory;
 
-    if (stack.count() == 0)
+    if (stack.count() == 0 || !hit)
     {
         return;
     }
 
-    std::vector<std::shared_ptr<Entity>> entities = world.get_dimension(dimension).cast_box(AABBd(-glm::dvec3(0.5), glm::dvec3(0.5)).translate(pos + normal));
+    glm::dvec3 pos(result.block_pos);
+    glm::dvec3 normal = result.normal;
+
+    std::vector<std::shared_ptr<Entity>> entities = world.get_dimension(dimension).cast_box(AABBd(-glm::dvec3(0.5), glm::dvec3(0.5)).translate(glm::dvec3(result.block_pos) + result.normal));
     if (has_major_entities(entities))
     {
         return;

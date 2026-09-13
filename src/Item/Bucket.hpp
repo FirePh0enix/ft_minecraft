@@ -9,7 +9,7 @@ class BucketItem : public Item
 public:
     BucketItem();
 
-    virtual void interact(World& world, int dimension, ItemStack& stack, glm::i64vec3 pos, glm::i64vec3 normal, InventoryContainer& inventory) override;
+    virtual void interact(World& world, int dimension, ItemStack& stack, bool hit, const RaycastResult& result, InventoryContainer& inventory) override;
 
 private:
 };

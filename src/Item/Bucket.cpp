@@ -9,10 +9,16 @@ BucketItem::BucketItem()
     //    set_texture(Engine::get().registry().create_texture("data/resourcepacks/core/assets/minecraft/textures/item/water_bucket.png"));
 }
 
-void BucketItem::interact(World& world, int dimension, ItemStack& stack, glm::i64vec3 pos, glm::i64vec3 normal, InventoryContainer& inventory)
+void BucketItem::interact(World& world, int dimension, ItemStack& stack, bool hit, const RaycastResult& result, InventoryContainer& inventory)
 {
     (void)stack;
     (void)inventory;
+
+    if (!hit)
+        return;
+
+    glm::dvec3 pos(result.block_pos);
+    glm::dvec3 normal = result.normal;
 
     Dimension& dim = world.get_dimension(dimension);
     BlockState state = dim.get_block(pos.x + int64_t(normal.x), pos.y + int64_t(normal.y), pos.z + int64_t(normal.z));

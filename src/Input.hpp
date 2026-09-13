@@ -47,6 +47,8 @@ public:
     static float get_axis(std::string_view negative, std::string_view positive);
     static glm::vec2 get_vector(std::string_view x_negative, std::string_view x_positive, std::string_view y_negative, std::string_view y_positive);
 
+    static bool is_action_mapping(std::string_view action, uint32_t key);
+
     static void set_mouse_grabbed(bool value);
 
     static bool is_mouse_grabbed();

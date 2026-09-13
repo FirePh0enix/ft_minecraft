@@ -367,7 +367,7 @@ bool World::raycast(int dimension, const Ray& ray, float range, RaycastResult& r
 
     for (const std::shared_ptr<Entity>& e : m_dims[dimension].get_entities())
     {
-        if (e.get() == ignore)
+        if (e.get() == ignore || e->get_parent() == ignore)
             continue;
 
         AABB world_aabb = e->get_aabb().translate(e->get_global_transform().position());
@@ -391,7 +391,9 @@ bool World::raycast(int dimension, const Ray& ray, float range, RaycastResult& r
         glm::vec3 pos = ray.at(d);
         glm::i64vec3 ipos(glm::round(pos));
         double t;
-        if (!get_block_state(dimension, ipos.x, ipos.y, ipos.z).is_air() && ray_intersect_aabb(ray, AABBd(-glm::dvec3(0.5), glm::dvec3(0.5)).translate(pos), t, normal) && t < t_min)
+        if (!get_block_state(dimension, ipos.x, ipos.y, ipos.z).is_air() &&
+            ray_intersect_aabb(ray, AABBd(-glm::dvec3(0.5), glm::dvec3(0.5)).translate(pos), t, normal) &&
+            t < t_min)
         {
             t_min = t;
             hit = true;

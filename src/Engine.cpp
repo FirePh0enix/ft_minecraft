@@ -128,7 +128,10 @@ void Engine::tick(float delta)
                 }
             }
             break;
+            case SDL_EVENT_MOUSE_BUTTON_DOWN:
+            case SDL_EVENT_MOUSE_BUTTON_UP:
             case SDL_EVENT_KEY_DOWN:
+            case SDL_EVENT_KEY_UP:
             {
                 Event event2(event);
                 if (m_server != nullptr)

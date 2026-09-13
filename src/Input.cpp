@@ -138,14 +138,27 @@ void Input::set_action_value(std::string_view action, float value)
         status.repeat = false;
 }
 
+float Input::get_axis(std::string_view negative, std::string_view positive)
+{
+    return get_action_value(positive) - get_action_value(negative);
+}
+
 glm::vec2 Input::get_vector(std::string_view x_negative, std::string_view x_positive, std::string_view y_negative, std::string_view y_positive)
 {
     return glm::vec2(get_action_value(x_positive) - get_action_value(x_negative), get_action_value(y_positive) - get_action_value(y_negative));
 }
 
-float Input::get_axis(std::string_view negative, std::string_view positive)
+bool Input::is_action_mapping(std::string_view action, uint32_t key)
 {
-    return get_action_value(positive) - get_action_value(negative);
+    auto iter = s_mappings.find(action);
+    if (iter == s_mappings.end()) [[unlikely]]
+        return false;
+    for (ActionMapping mapping : iter->second)
+    {
+        if (mapping.value == key)
+            return true;
+    }
+    return false;
 }
 
 void Input::set_mouse_grabbed(bool value)

@@ -2,6 +2,7 @@
 
 #include "Engine.hpp"
 #include "Entity/Arrow.hpp"
+#include "Inventory/Inventory.hpp"
 #include "World/Registry.hpp"
 #include "World/World.hpp"
 
@@ -14,13 +15,13 @@ BowItem::BowItem()
     //    set_texture(Engine::get().registry().create_texture("data/resourcepacks/core/assets/minecraft/textures/item/bow.png"));
 }
 
-void BowItem::interact(World& world, int dimension, ItemStack& stack, glm::i64vec3 pos, glm::i64vec3 normal, InventoryContainer& inventory)
+void BowItem::interact(World& world, int dimension, ItemStack& stack, bool hit, const RaycastResult& result, InventoryContainer& inventory)
 {
     (void)world;
     (void)dimension;
-    (void)pos;
-    (void)normal;
     (void)inventory;
+    (void)hit;
+    (void)result;
 
     int64_t now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
     stack.set_tag("draw_start", now_ms);
@@ -28,18 +29,19 @@ void BowItem::interact(World& world, int dimension, ItemStack& stack, glm::i64ve
 
 void BowItem::on_release(World& world, int dimension, ItemStack& stack, glm::i64vec3 pos, glm::vec3 dir, InventoryContainer& inventory)
 {
-    // float power = 0.1f;
-    // auto start = stack.get_tag<int64_t>("draw_start");
-    // int64_t now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
-    // float held_seconds = (float)(now_ms - start.value()) / 1000.0f;
-    // power = std::clamp(held_seconds, 0.1f, 1.0f);
+    float power = 0.1f;
+    auto start = stack.get_tag<int64_t>("draw_start");
+    int64_t now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+    float held_seconds = (float)(now_ms - start.value()) / 1000.0f;
+    power = std::clamp(held_seconds, 0.1f, 1.0f);
 
-    // stack.remove_tag("draw_start");
+    stack.remove_tag("draw_start");
 
+    // FIXME
     // auto result = inventory.consume(Items::arrow);
     // if (!result.has_value())
     // {
-    //     println("No arrow !");
+    //     std::println("No arrow !");
     //     return;
     // }
 

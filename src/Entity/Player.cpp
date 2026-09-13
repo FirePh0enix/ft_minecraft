@@ -167,11 +167,14 @@ void BetterConsole::gamemode(Player *player, const std::vector<std::string>& arg
 
 void Player::bind_methods()
 {
-    type.add_method("break_block", &Player::break_block);
-    expose_rpc<Player>("break_block", RpcTarget::Both);
+    type.add_method("hit", &Player::hit);
+    expose_rpc<Player>("hit", RpcTarget::Both);
 
-    type.add_method("place_block", &Player::place_block);
-    expose_rpc<Player>("place_block", RpcTarget::Both);
+    type.add_method("interact", &Player::interact);
+    expose_rpc<Player>("interact", RpcTarget::Both);
+
+    type.add_method("release", &Player::release);
+    expose_rpc<Player>("release", RpcTarget::Both);
 }
 
 Player::Player()
@@ -385,116 +388,6 @@ void Player::tick(float delta)
         camera_transform.rotation() *= q_pitch;
 
         m_camera->get_transform() = camera_transform;
-    }
-
-    if (m_local_player && are_input_available())
-    {
-        RaycastResult result;
-        if (m_world->raycast(m_dimension, Ray(m_camera->get_global_transform().position(), m_camera->get_global_transform().forward()), 4.0f, result, this))
-        {
-            if (!result.hit_entity)
-                m_aimed_block = glm::vec3(result.block_pos);
-            else
-                m_aimed_block = std::nullopt;
-
-            m_world->dd().draw_cube(glm::dvec3(result.block_pos) + result.normal, glm::vec3(1.0), Colors::yellow, 0.05f);
-
-            if (Input::is_action_just_pressed("attack") && result.hit_entity)
-            {
-                if (auto mob = std::dynamic_pointer_cast<LivingEntity>(result.entity))
-                {
-                    mob->damage(1, id()); // TODO: different tool deals different damages.
-                    m_audio_source->play_one_shot(&m_attacking_clip.value(), 0.5f);
-                }
-            }
-            else if (m_gamemode == GameMode::Creative && !result.hit_entity && Input::is_action_just_pressed("attack"))
-            {
-                call_rpc("break_block", result.block_pos.x, result.block_pos.y, result.block_pos.z);
-            }
-            else if (m_gamemode == GameMode::Survival && !result.hit_entity)
-            {
-                if (Input::is_action_pressed("attack"))
-                {
-                    if (!m_is_destroying)
-                    {
-                        m_is_destroying = true;
-                        m_destroy_block_pos = result.block_pos;
-                    }
-                    else if (m_destroy_block_pos != result.block_pos)
-                    {
-                        m_is_destroying = false;
-                        m_destroy_ticks = 0;
-                    }
-
-                    m_destroy_ticks += 1;
-                    if (m_destroy_ticks >= max_destroy_ticks)
-                    {
-                        call_rpc("break_block", result.block_pos.x, result.block_pos.y, result.block_pos.z);
-                        m_is_destroying = false;
-                        m_destroy_ticks = 0;
-                    }
-                }
-            }
-            else
-            {
-                m_destroy_ticks = 0;
-                m_is_destroying = false;
-            }
-
-            if (Input::is_action_just_pressed("interact"))
-            {
-                BlockState state = m_world->get_block_state(m_dimension, result.block_pos.x, result.block_pos.y, result.block_pos.z);
-                std::shared_ptr<Block> block = Engine::get().registry().get_block(state.id);
-
-                if (std::shared_ptr<InventoryBlock> ib = std::dynamic_pointer_cast<InventoryBlock>(block))
-                {
-                    // TODO: How to handle this with an RPC ?
-                    ib->open_inventory(result.block_pos, this);
-                }
-                else
-                {
-                    ItemStack stack = m_inventory_container->get_stack(1, m_slot);
-                    call_rpc("place_block", result.block_pos.x, result.block_pos.y, result.block_pos.z, result.normal, stack);
-                }
-            }
-            if (Input::is_action_just_pressed("middle_click") && m_gamemode == GameMode::Creative)
-            {
-                BlockState state = m_world->get_block_state(m_dimension, result.block_pos.x, result.block_pos.y, result.block_pos.z);
-                Id<Item> item = Engine::get().registry().to_item(state.id).value_or(Id<Item>());
-                if (item.valid())
-                {
-                    ItemStack stack(item, 64);
-                    m_inventory_container->set_stack(1, m_slot, stack);
-                }
-            }
-        }
-        else
-        {
-            m_aimed_block = std::nullopt;
-            // FIXME: as the comment say: can do better
-            // // Bow can be interacted even though he is not aiming at a block, can do better.
-            // if (Input::is_action_just_pressed("interact"))
-            // {
-            //     ItemStack stack = m_inventory_container->get_stack(1, m_slot);
-            //     if (stack.item().valid() && stack.item() == Items::bow)
-            //     {
-            //         std::shared_ptr<Item> item = Engine::get().registry().get_item(stack.item());
-            //         item->interact(*m_world, m_dimension, stack, result.block_pos, result.normal, *m_inventory_container);
-            //         m_inventory_container->set_stack(1, m_slot, stack);
-            //     }
-            // }
-        }
-
-        // FIXME: Same as above, this can be do better.
-        // if (Input::is_action_just_released("interact"))
-        // {
-        //     ItemStack stack = m_inventory_container->get_stack(1, m_slot);
-        //     if (stack.item().valid())
-        //     {
-        //         std::shared_ptr<Item> item = Engine::get().registry().get_item(stack.item());
-        //         item->on_release(*m_world, m_dimension, stack, m_camera->get_global_transform().position(), m_camera->get_global_transform().forward(), *m_inventory_container);
-        //     }
-        // }
     }
 
     const glm::vec3 forward = get_global_transform().forward();
@@ -752,8 +645,27 @@ void Player::process_event(Event& event)
 {
     ZoneScoped;
 
+    if (!m_local_player)
+        return;
+
     if (m_chat_opened)
         m_chat->process_everyting(event);
+
+    if (!are_input_available())
+        return;
+
+    if (event.is_action_pressed("attack"))
+    {
+        call_rpc("hit");
+    }
+    if (event.is_action_pressed("interact"))
+    {
+        call_rpc("interact");
+    }
+    else if (event.is_action_released("interact"))
+    {
+        call_rpc("release");
+    }
 }
 
 std::expected<void, Error> Player::save(EntitySerializer& ser) const
@@ -810,31 +722,97 @@ void Player::die()
     println("`{}` is dead", m_username);
 }
 
-void Player::break_block(int64_t x, int64_t y, int64_t z)
+void Player::hit()
 {
-    BlockState state = m_world->get_block_state(m_dimension, x, y, z);
-    std::shared_ptr<Block> block = Engine::get().registry().get_block(state.id);
-    if (!block) // FIXME: add unbreakable block again || block->is_unbreakable())
-        return;
+    const float range = 4.0f;
+    const Ray ray(m_camera->get_global_transform().position(), m_camera->get_global_transform().forward());
 
-    if (m_gamemode == GameMode::Survival)
+    RaycastResult result;
+    if (m_world->raycast(m_dimension, ray, range, result))
     {
-        m_world->break_block(m_dimension, x, y, z);
-    }
-    else
-    {
-        m_world->set_block_state(m_dimension, x, y, z, BlockState());
+        int64_t x = result.block_pos.x;
+        int64_t y = result.block_pos.y;
+        int64_t z = result.block_pos.z;
+
+        if (result.hit_entity && result.entity->id() != m_id)
+        {
+            if (auto mob = std::dynamic_pointer_cast<LivingEntity>(result.entity))
+            {
+                mob->damage(1, id()); // TODO: different tool deals different damages.
+                m_audio_source->play_one_shot(&m_attacking_clip.value(), 0.5f);
+            }
+        }
+        else if (m_gamemode == GameMode::Creative && !result.hit_entity)
+        {
+            m_world->set_block_state(m_dimension, x, y, z, BlockState());
+        }
+        else if (m_gamemode == GameMode::Survival && !result.hit_entity)
+        {
+            if (!m_is_destroying)
+            {
+                m_is_destroying = true;
+                m_destroy_block_pos = result.block_pos;
+            }
+            else if (m_destroy_block_pos != result.block_pos)
+            {
+                m_is_destroying = false;
+                m_destroy_ticks = 0;
+            }
+
+            m_destroy_ticks += 1;
+            if (m_destroy_ticks >= max_destroy_ticks)
+            {
+                m_world->break_block(m_dimension, x, y, z);
+                m_is_destroying = false;
+                m_destroy_ticks = 0;
+            }
+        }
+        else
+        {
+            m_destroy_ticks = 0;
+            m_is_destroying = false;
+        }
     }
 }
 
-void Player::place_block(int64_t x, int64_t y, int64_t z, glm::dvec3 normal, ItemStack stack)
+void Player::interact()
 {
+    const float range = 4.0f;
+    const Ray ray(m_camera->get_global_transform().position(), m_camera->get_global_transform().forward());
+
+    RaycastResult result;
+    bool raycast_hit = false;
+    if ((raycast_hit = m_world->raycast(m_dimension, ray, range, result)))
+    {
+        BlockState state = m_world->get_block_state(m_dimension, result.block_pos.x, result.block_pos.y, result.block_pos.z);
+        std::shared_ptr<Block> block = Engine::get().registry().get_block(state.id);
+
+        if (std::shared_ptr<InventoryBlock> ib = std::dynamic_pointer_cast<InventoryBlock>(block))
+        {
+            // FIXME: ask/send the content of the inventory with a packet.
+            ib->open_inventory(result.block_pos, this);
+            return;
+        }
+    }
+
+    ItemStack stack = m_inventory_container->get_stack(1, m_slot);
+
+    std::shared_ptr<Item> item = Engine::get().registry().get_item(stack.item());
+    if (item != nullptr)
+    {
+        item->interact(*m_world, m_dimension, stack, true, result, *m_inventory_container);
+        if (m_local_player)
+            m_inventory_container->set_stack(1, m_slot, stack);
+    }
+}
+
+void Player::release()
+{
+    ItemStack stack = m_inventory_container->get_stack(1, m_slot);
     if (stack.item().valid())
     {
         std::shared_ptr<Item> item = Engine::get().registry().get_item(stack.item());
-        item->interact(*m_world, m_dimension, stack, glm::i64vec3(x, y, z), normal, *m_inventory_container);
-        if (m_local_player)
-            m_inventory_container->set_stack(1, m_slot, stack);
+        item->on_release(*m_world, m_dimension, stack, m_camera->get_global_transform().position(), m_camera->get_global_transform().forward(), *m_inventory_container);
     }
 }
 
