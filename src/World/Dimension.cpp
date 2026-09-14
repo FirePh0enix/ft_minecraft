@@ -5,7 +5,6 @@
 #include "Core/Filesystem.hpp"
 #include "Core/ZLib.hpp"
 #include "Engine.hpp"
-#include "Entity/Player.hpp"
 #include "Profiler.hpp"
 #include "Variant.hpp"
 #include "World/Chunk.hpp"
@@ -32,15 +31,6 @@ void GenScheduler::terrain_pass(ChunkPos middle)
             Engine::get().get_thread_pool().submit([this, pos, chunk](std::stop_token token)
                                                    { terrain_and_struct_chunk(token, pos, chunk); });
         }
-
-    for (auto iter = m_dimension.m_preloaded_chunks.begin(); iter != m_dimension.m_preloaded_chunks.end();)
-    {
-        const ChunkPos pos = iter->first;
-        if (std::abs(pos.x - middle.x) > (m_chunk_distance + m_gen_distance + 1) || std::abs(pos.z - middle.z) > (m_chunk_distance + m_gen_distance + 1))
-            iter = m_dimension.m_preloaded_chunks.erase(iter);
-        else
-            ++iter;
-    }
 }
 
 // static ChunkPos pop_near(std::vector<ChunkLoadWithDistance>& elements)
@@ -69,13 +59,22 @@ void GenScheduler::chunk_pass(ChunkPos middle)
 
     m_generation_started = true;
 
+    // size_t already_exists = 0;
+    // size_t already_loading = 0;
+
     for (int64_t x = -m_chunk_distance; x <= m_chunk_distance; x++)
         for (int64_t z = -m_chunk_distance; z <= m_chunk_distance; z++)
         {
             const ChunkPos pos(x + middle.x, z + middle.z);
 
             if (m_dimension.m_chunks.contains(pos) || m_chunks_loading_queue.contains(pos))
+            {
+                // if (m_dimension.m_chunks.contains(pos))
+                //     already_exists++;
+                // if (m_chunks_loading_queue.contains(pos))
+                //     already_loading++;
                 continue;
+            }
 
             std::shared_ptr<Chunk> chunk = std::make_shared<Chunk>(&m_dimension, pos.x, pos.z);
             std::shared_ptr<PreLoadedChunk> preload_chunk = m_dimension.m_preloaded_chunks.at(pos);
@@ -84,21 +83,6 @@ void GenScheduler::chunk_pass(ChunkPos middle)
                                                    { realize_chunk(st, pos, chunk, preload_chunk); });
             m_remaining_chunks_to_load++;
         }
-
-    std::vector<std::shared_ptr<Chunk>> chunks;
-    for (const auto& [pos, chunk] : m_dimension.m_chunks)
-    {
-        if (std::abs(middle.x - pos.x) > m_chunk_distance || std::abs(middle.z - pos.z) > m_chunk_distance)
-            chunks.push_back(chunk);
-    }
-    for (std::shared_ptr<Chunk> chunk : chunks)
-    {
-        const ChunkPos pos = chunk->pos();
-        m_dimension.m_chunks.erase(pos);
-        m_dimension.m_chunks_rebuild_queue.erase(pos);
-        m_dimension.m_chunks_rebuild_pending.erase(pos);
-        queue_unload_chunk(chunk);
-    }
 }
 
 void GenScheduler::terrain_and_struct_chunk(std::stop_token token, ChunkPos pos, std::shared_ptr<PreLoadedChunk> chunk)
@@ -195,19 +179,6 @@ void GenScheduler::queue_unload_chunk(std::shared_ptr<Chunk> chunk)
                                            { unload_chunk(token, chunk); });
 }
 
-void GenScheduler::load(int64_t x, int64_t y, int64_t z)
-{
-    const glm::i64vec3 player_pos(x, y, z);
-    const int64_t player_cx = int64_t(player_pos.x / 16);
-    const int64_t player_cz = int64_t(player_pos.z / 16);
-    const ChunkPos player_cpos(player_cx, player_cz);
-
-    m_generation_batch_size = (m_gen_distance * 2 + 1) * (m_gen_distance * 2 + 1);
-
-    terrain_pass(player_cpos);
-    chunk_pass(player_cpos);
-}
-
 static void add_neighbour_chunk(ChunkPos pos, std::set<ChunkPos>& chunks)
 {
     for (const auto& p : {
@@ -219,10 +190,67 @@ static void add_neighbour_chunk(ChunkPos pos, std::set<ChunkPos>& chunks)
         chunks.insert(p);
 }
 
-void GenScheduler::tick()
+void GenScheduler::tick(std::span<const BlockPos> origins)
 {
-    std::shared_ptr<Player> player = m_dimension.m_world->get_player();
-    load(int64_t(player->get_position().x), int64_t(player->get_position().y), int64_t(player->get_position().z));
+    m_generation_batch_size = (m_gen_distance * 2 + 1) * (m_gen_distance * 2 + 1);
+
+    for (BlockPos origin : origins)
+    {
+        const ChunkPos middle(origin.x / 16, origin.z / 16);
+        terrain_pass(middle);
+        chunk_pass(middle);
+    }
+
+    // Remove pregen chunks if too far from the origins.
+    // std::vector<ChunkPos> pregen_chunks_to_remove;
+    // for (auto iter = m_dimension.m_preloaded_chunks.begin(); iter != m_dimension.m_preloaded_chunks.end(); ++iter)
+    // {
+    //     const ChunkPos pos = iter->first;
+    //     bool used = false;
+
+    //     for (BlockPos origin : origins)
+    //     {
+    //         const int64_t cx = int64_t(origin.x / 16);
+    //         const int64_t cz = int64_t(origin.z / 16);
+    //         const ChunkPos middle(cx, cz);
+    //         if (std::abs(pos.x - middle.x) <= (m_chunk_distance + m_gen_distance + 1) && std::abs(pos.z - middle.z) <= (m_chunk_distance + m_gen_distance + 1))
+    //             used = true;
+    //     }
+
+    //     if (!used)
+    //         pregen_chunks_to_remove.push_back(pos);
+    // }
+    // for (ChunkPos pos : pregen_chunks_to_remove)
+    // {
+    //     m_dimension.m_preloaded_chunks.erase(pos);
+    // }
+
+    // Unload chunks if too far from the origins
+    // std::vector<std::shared_ptr<Chunk>> chunks_to_remove;
+    // for (const auto& [pos, chunk] : m_dimension.m_chunks)
+    // {
+    //     bool used = false;
+
+    //     for (BlockPos origin : origins)
+    //     {
+    //         const int64_t cx = int64_t(origin.x / 16);
+    //         const int64_t cz = int64_t(origin.z / 16);
+    //         const ChunkPos middle(cx, cz);
+    //         if (std::abs(middle.x - pos.x) <= m_chunk_distance + 1 && std::abs(middle.z - pos.z) <= m_chunk_distance + 1)
+    //             used = true;
+    //     }
+
+    //     if (!used)
+    //         chunks_to_remove.push_back(chunk);
+    // }
+    // for (std::shared_ptr<Chunk> chunk : chunks_to_remove)
+    // {
+    //     const ChunkPos pos = chunk->pos();
+    //     m_dimension.m_chunks.erase(pos);
+    //     m_dimension.m_chunks_rebuild_queue.erase(pos);
+    //     m_dimension.m_chunks_rebuild_pending.erase(pos);
+    //     queue_unload_chunk(chunk);
+    // }
 
     std::set<ChunkPos> chunk_modified;
 
@@ -243,6 +271,7 @@ void GenScheduler::tick()
         {
             const ChunkPos pos = chunk->pos();
             m_chunks_loading_queue.erase(pos);
+            // std::println("flusing {} {} | {}", pos.x, pos.z, m_dimension.m_chunks.contains(pos));
             if (m_dimension.m_chunks.contains(pos))
                 continue;
             m_dimension.m_chunks[pos] = chunk;
@@ -252,16 +281,16 @@ void GenScheduler::tick()
         }
     }
 
-    {
-        ZoneScopedN("Chunk unload");
-        std::shared_ptr<Chunk> chunk;
-        while (m_chunks_unload_queue.try_dequeue(chunk))
-        {
-            const ChunkPos pos = chunk->pos();
-            chunk_modified.insert(pos);
-            add_neighbour_chunk(pos, chunk_modified);
-        }
-    }
+    // {
+    //     ZoneScopedN("Chunk unload");
+    //     std::shared_ptr<Chunk> chunk;
+    //     while (m_chunks_unload_queue.try_dequeue(chunk))
+    //     {
+    //         const ChunkPos pos = chunk->pos();
+    //         chunk_modified.insert(pos);
+    //         add_neighbour_chunk(pos, chunk_modified);
+    //     }
+    // }
 
     for (ChunkPos pos : chunk_modified)
     {

@@ -175,7 +175,7 @@ void NetworkConnection::tick_client()
         {
             Client client("", 0, event.peer);
             m_packet_handler(m_packet_handler_user, *this, event.packet, client);
-            // enet_packet_destroy(event.packet);
+            enet_packet_destroy(event.packet);
         }
         break;
         default:
@@ -220,7 +220,7 @@ void NetworkConnection::tick_server()
         {
             const Client& client = m_clients[event.peer];
             m_packet_handler(m_packet_handler_user, *this, event.packet, client);
-            // enet_packet_destroy(event.packet);
+            enet_packet_destroy(event.packet);
         }
         break;
         default:

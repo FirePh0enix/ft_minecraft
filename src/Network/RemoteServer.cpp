@@ -299,6 +299,8 @@ void RemoteServer::receive(void *user, NetworkConnection& conn, ENetPacket *pack
         if (self->m_world == nullptr)
             return;
 
+        std::println("> receiving new chunk {} - {}", p.x, p.z);
+
         self->queue_receive_chunk(p);
     }
     break;

@@ -56,11 +56,28 @@ void LocalServer::tick()
 
     m_connection.tick();
 
-    m_schedulers[m_player->get_dimension()]->tick();
+    glm::dvec3 position = m_player->get_global_transform().position();
+
+    std::vector<BlockPos> origins;
+    origins.push_back(BlockPos((int64_t)position.x, (int64_t)position.y, (int64_t)position.z));
+    if (m_online)
+    {
+        for (const auto& [peer, player] : m_connected_peers)
+        {
+            glm::dvec3 position = player->get_global_transform().position();
+            origins.push_back(BlockPos((int64_t)position.x, (int64_t)position.y, (int64_t)position.z));
+        }
+    }
+
+    m_schedulers[m_player->get_dimension()]->tick(origins);
     m_world->tick(1.0 / 60.0);
+
+    std::println("chunk count = {}", m_world->get_dimension(0).get_chunks().size());
 
     if (m_online)
     {
+        std::vector<ChunkLoadRequest> deferred_requests;
+
         for (const ChunkLoadRequest& req : m_load_requests)
         {
             auto chunk_opt = m_world->get_dimension(req.dimension).get_chunk(req.x, req.z);
@@ -72,11 +89,16 @@ void LocalServer::tick()
             }
             else
             {
+                // std::println("whhhhhyyyyyy! {}", m_world->get_dimension(0).get_chunks().contains(ChunkPos(req.x, req.z)));
                 // TODO: chunk is loaded but requested by a client, so we load the chunk and send it when its ready.
                 //       This will require to split chunks in two: chunks loaded or visible chunks.
+                deferred_requests.push_back(req);
             }
         }
         m_load_requests.clear();
+        m_load_requests.insert(m_load_requests.end(), deferred_requests.begin(), deferred_requests.end());
+
+        // std::println("remaing load request to fulfill {}", m_load_requests.size());
 
         for (std::shared_ptr<Entity> entity : m_world->get_dimension(World::overworld).get_entities()) // TODO: do the same for all dimensions
         {

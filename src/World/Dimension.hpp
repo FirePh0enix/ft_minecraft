@@ -76,8 +76,7 @@ public:
     void unload_chunk(std::stop_token token, std::shared_ptr<Chunk> chunk);
     void queue_unload_chunk(std::shared_ptr<Chunk> chunk);
 
-    void load(int64_t x, int64_t y, int64_t z);
-    void tick();
+    void tick(std::span<const BlockPos> origins);
 
     float get_generation_progression();
 
