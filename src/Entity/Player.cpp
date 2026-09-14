@@ -167,6 +167,12 @@ void BetterConsole::gamemode(Player *player, const std::vector<std::string>& arg
 
 void Player::bind_methods()
 {
+    type.add_method("set_movement_sound", &Player::set_movement_sound);
+    expose_rpc<Player>("set_movement_sound", RpcTarget::Both);
+
+    type.add_method("play_one_shot_sound", &Player::play_one_shot_sound);
+    expose_rpc<Player>("play_one_shot_sound", RpcTarget::Both);
+
     type.add_method("hit", &Player::hit);
     expose_rpc<Player>("hit", RpcTarget::Both);
 
@@ -197,6 +203,19 @@ void Player::on_ready()
     m_hand_item_bg->set_param("world_env", Renderer::get().get_fw_world_env());
     m_hand_item_bg->set_param("model", m_hand_model_buffer);
     m_hand_item_bg->set_param("atlas", EXPECT(Engine::get().registry().get_atlas()->get_view()));
+
+    AudioMixer& audio = m_world->audio();
+    auto path = std::filesystem::absolute("data/resourcepacks/pixel-perfection/assets/minecraft/sounds/step/cloth1.ogg");
+    m_walking_clip.emplace(*audio.get_audio_mixer(), path);
+
+    path = std::filesystem::absolute("data/resourcepacks/pixel-perfection/assets/minecraft/sounds/entity/player/attack/knockback1.ogg");
+    m_attacking_clip.emplace(*audio.get_audio_mixer(), path);
+
+    path = std::filesystem::absolute("data/resourcepacks/pixel-perfection/assets/minecraft/sounds/liquid/swim1.ogg");
+    m_swimming_clip.emplace(*audio.get_audio_mixer(), path);
+
+    m_audio_source.emplace(audio);
+    m_audio_source->set_clip(&m_walking_clip.value());
 
     if (m_local_player)
     {
@@ -234,19 +253,6 @@ void Player::on_ready()
         // m_breaks_textures[1] = EXPECT(Texture::load("assets/textures/breaks/1.png"));
         // m_breaks_textures[2] = EXPECT(Texture::load("assets/textures/breaks/2.png"));
         // m_breaks_textures[3] = EXPECT(Texture::load("assets/textures/breaks/3.png"));
-
-        AudioMixer& audio = m_world->audio();
-        auto path = std::filesystem::absolute("data/resourcepacks/pixel-perfection/assets/minecraft/sounds/step/cloth1.ogg");
-        m_walking_clip.emplace(*audio.get_audio_mixer(), path);
-
-        path = std::filesystem::absolute("data/resourcepacks/pixel-perfection/assets/minecraft/sounds/entity/player/attack/knockback1.ogg");
-        m_attacking_clip.emplace(*audio.get_audio_mixer(), path);
-
-        path = std::filesystem::absolute("data/resourcepacks/pixel-perfection/assets/minecraft/sounds/liquid/swim1.ogg");
-        m_swimming_clip.emplace(*audio.get_audio_mixer(), path);
-
-        m_audio_source.emplace(audio);
-        m_audio_source->set_clip(&m_walking_clip.value());
     }
     else
     {
@@ -390,6 +396,116 @@ void Player::tick(float delta)
         m_camera->get_transform() = camera_transform;
     }
 
+    if (m_local_player && are_input_available())
+    {
+        RaycastResult result;
+        if (m_world->raycast(m_dimension, Ray(m_camera->get_global_transform().position(), m_camera->get_global_transform().forward()), 4.0f, result, this))
+        {
+            if (!result.hit_entity)
+                m_aimed_block = glm::vec3(result.block_pos);
+            else
+                m_aimed_block = std::nullopt;
+
+            m_world->dd().draw_cube(glm::dvec3(result.block_pos) + result.normal, glm::vec3(1.0), Colors::yellow, 0.05f);
+
+            if (Input::is_action_just_pressed("attack") && result.hit_entity)
+            {
+                if (auto mob = std::dynamic_pointer_cast<LivingEntity>(result.entity))
+                {
+                    mob->damage(1, id()); // TODO: different tool deals different damages.
+                    call_rpc("play_one_shot_sound", static_cast<int64_t>(EntitySound::Attack));
+                }
+            }
+            else if (m_gamemode == GameMode::Creative && !result.hit_entity && Input::is_action_just_pressed("attack"))
+            {
+                call_rpc("break_block", result.block_pos.x, result.block_pos.y, result.block_pos.z);
+            }
+            else if (m_gamemode == GameMode::Survival && !result.hit_entity)
+            {
+                if (Input::is_action_pressed("attack"))
+                {
+                    if (!m_is_destroying)
+                    {
+                        m_is_destroying = true;
+                        m_destroy_block_pos = result.block_pos;
+                    }
+                    else if (m_destroy_block_pos != result.block_pos)
+                    {
+                        m_is_destroying = false;
+                        m_destroy_ticks = 0;
+                    }
+
+                    m_destroy_ticks += 1;
+                    if (m_destroy_ticks >= max_destroy_ticks)
+                    {
+                        call_rpc("break_block", result.block_pos.x, result.block_pos.y, result.block_pos.z);
+                        m_is_destroying = false;
+                        m_destroy_ticks = 0;
+                    }
+                }
+            }
+            else
+            {
+                m_destroy_ticks = 0;
+                m_is_destroying = false;
+            }
+
+            if (Input::is_action_just_pressed("interact"))
+            {
+                BlockState state = m_world->get_block_state(m_dimension, result.block_pos.x, result.block_pos.y, result.block_pos.z);
+                std::shared_ptr<Block> block = Engine::get().registry().get_block(state.id);
+
+                if (std::shared_ptr<InventoryBlock> ib = std::dynamic_pointer_cast<InventoryBlock>(block))
+                {
+                    // TODO: How to handle this with an RPC ?
+                    ib->open_inventory(result.block_pos, this);
+                }
+                else
+                {
+                    ItemStack stack = m_inventory_container->get_stack(1, m_slot);
+                    call_rpc("place_block", result.block_pos.x, result.block_pos.y, result.block_pos.z, result.normal, stack);
+                }
+            }
+            if (Input::is_action_just_pressed("middle_click") && m_gamemode == GameMode::Creative)
+            {
+                BlockState state = m_world->get_block_state(m_dimension, result.block_pos.x, result.block_pos.y, result.block_pos.z);
+                Id<Item> item = Engine::get().registry().to_item(state.id).value_or(Id<Item>());
+                if (item.valid())
+                {
+                    ItemStack stack(item, 64);
+                    m_inventory_container->set_stack(1, m_slot, stack);
+                }
+            }
+        }
+        else
+        {
+            m_aimed_block = std::nullopt;
+            // FIXME: as the comment say: can do better
+            // // Bow can be interacted even though he is not aiming at a block, can do better.
+            // if (Input::is_action_just_pressed("interact"))
+            // {
+            //     ItemStack stack = m_inventory_container->get_stack(1, m_slot);
+            //     if (stack.item().valid() && stack.item() == Items::bow)
+            //     {
+            //         std::shared_ptr<Item> item = Engine::get().registry().get_item(stack.item());
+            //         item->interact(*m_world, m_dimension, stack, result.block_pos, result.normal, *m_inventory_container);
+            //         m_inventory_container->set_stack(1, m_slot, stack);
+            //     }
+            // }
+        }
+
+        // FIXME: Same as above, this can be do better.
+        // if (Input::is_action_just_released("interact"))
+        // {
+        //     ItemStack stack = m_inventory_container->get_stack(1, m_slot);
+        //     if (stack.item().valid())
+        //     {
+        //         std::shared_ptr<Item> item = Engine::get().registry().get_item(stack.item());
+        //         item->on_release(*m_world, m_dimension, stack, m_camera->get_global_transform().position(), m_camera->get_global_transform().forward(), *m_inventory_container);
+        //     }
+        // }
+    }
+
     const glm::vec3 forward = get_global_transform().forward();
     const glm::vec3 right = get_global_transform().right();
 
@@ -428,8 +544,8 @@ void Player::tick(float delta)
             if (biome != m_current_biome)
             {
                 m_current_biome = biome;
-                // auto& clip = Engine::get().music_player().get_biome_music(biome);
-                // Engine::get().music_player().crossfade_to(&clip, 2.0f, 1.0f);
+                auto& clip = Engine::get().music_player().get_biome_music(biome);
+                Engine::get().music_player().crossfade_to(&clip, 2.0f, 1.0f);
             }
         }
     }
@@ -491,18 +607,19 @@ void Player::tick(float delta)
 
     const bool is_moving = glm::length2(glm::vec2(m_velocity.x, m_velocity.z)) > 1e-6f;
 
-    // if (is_in_water() && is_moving)
-    // {
-    //     m_audio_source->set_clip(&m_swimming_clip.value());
-    //     m_audio_source->play();
-    // }
-    // else if (is_moving && m_on_ground)
-    // {
-    //     m_audio_source->set_clip(&m_walking_clip.value());
-    //     m_audio_source->play();
-    // }
-    // else
-    //     m_audio_source->stop();
+    MovementSound movement_sound = MovementSound::None;
+    if (is_moving)
+    {
+        if (is_in_water())
+            movement_sound = MovementSound::Swimming;
+        else if (m_on_ground)
+            movement_sound = MovementSound::Walking;
+    }
+    if (m_local_player && movement_sound != m_movement_sound)
+    {
+        m_movement_sound = movement_sound;
+        call_rpc("set_movement_sound", static_cast<int64_t>(movement_sound));
+    }
 
     // Reset velocity after movements.
     m_velocity.x = 0.0;
@@ -555,7 +672,28 @@ void Player::tick(float delta)
         Engine::get().server()->route_packet(NetworkConnection::create_packet(p));
     }
 
-    // m_audio_source->set_position(get_global_transform().position());
+    m_audio_source->set_position(get_global_transform().position());
+}
+
+void Player::set_movement_sound(int64_t state)
+{
+    m_movement_sound = static_cast<MovementSound>(state);
+    if (m_movement_sound == MovementSound::Swimming)
+        m_audio_source->set_clip(&m_swimming_clip.value());
+    else if (m_movement_sound == MovementSound::Walking)
+        m_audio_source->set_clip(&m_walking_clip.value());
+    else
+    {
+        m_audio_source->stop();
+        return;
+    }
+    m_audio_source->play();
+}
+
+void Player::play_one_shot_sound(int64_t sound)
+{
+    if (static_cast<EntitySound>(sound) == EntitySound::Attack)
+        m_audio_source->play_one_shot(&m_attacking_clip.value(), 0.5f);
 }
 
 void Player::draw(const RenderPass& pass)

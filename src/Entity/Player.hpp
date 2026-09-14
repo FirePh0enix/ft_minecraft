@@ -63,6 +63,9 @@ public:
     void release();
 
     void on_ready() override;
+    void set_movement_sound(int64_t state) override;
+    int64_t get_movement_sound() const override { return static_cast<int64_t>(m_movement_sound); }
+    void play_one_shot_sound(int64_t sound) override;
 
     float get_speed() const { return m_speed; }
     void set_speed(float speed) { m_speed = speed; }
@@ -160,4 +163,5 @@ private:
     std::optional<AudioClip> m_attacking_clip;
     std::optional<AudioClip> m_swimming_clip;
     std::optional<AudioSource> m_audio_source;
+    MovementSound m_movement_sound = MovementSound::None;
 };

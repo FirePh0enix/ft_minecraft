@@ -8,6 +8,7 @@
 #include "Ray.hpp"
 #include "World/Chunk.hpp"
 #include "World/Dimension.hpp"
+#include "World/MobSpawner.hpp"
 
 #include <enet/enet.h>
 
@@ -207,4 +208,6 @@ private:
     void find_safe_spawn();
 
     AudioMixer& m_audio;
+
+    std::unique_ptr<MobSpawner> m_mob_spawner;
 };

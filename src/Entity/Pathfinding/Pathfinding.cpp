@@ -1,5 +1,6 @@
 #include "Pathfinding.hpp"
 
+#include "Core/Logger.hpp"
 #include "Entity/Pathfinding/PathNode.hpp"
 
 #include <algorithm>
@@ -8,6 +9,7 @@
 constexpr int straight = 10;
 constexpr int diag_xz = 14;
 constexpr int vertical = 12;
+constexpr size_t max_expanded_nodes = 2048;
 
 size_t Pathfinding::node_from_world_point(const glm::ivec3& pos, int dimension)
 {
@@ -170,9 +172,10 @@ void Pathfinding::find_path(const glm::vec3& start_pos, const glm::vec3& target_
 
     m_open_set.push_back(start_index);
 
-    while (!m_open_set.empty())
+    size_t expanded_nodes = 0;
+    while (!m_open_set.empty() && expanded_nodes < max_expanded_nodes)
     {
-
+        ++expanded_nodes;
         size_t current_index = m_open_set[0];
         size_t best_index = 0;
 
@@ -230,6 +233,15 @@ void Pathfinding::find_path(const glm::vec3& start_pos, const glm::vec3& target_
                     m_open_set.push_back(neighbor_index);
             }
         }
+    }
+
+    if (!m_open_set.empty() && expanded_nodes == max_expanded_nodes)
+    {
+        warn("Pathfinding reached the {} node limit: start=[{}, {}, {}], target=[{}, {}, {}], dimension={}",
+             max_expanded_nodes,
+             start_pos.x, start_pos.y, start_pos.z,
+             target_pos.x, target_pos.y, target_pos.z,
+             dimension);
     }
 }
 

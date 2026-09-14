@@ -1,5 +1,6 @@
 #include "Zombie.hpp"
 
+#include "Engine.hpp"
 #include "Entity/Entity.hpp"
 #include "Entity/LivingEntity.hpp"
 #include "Entity/Player.hpp"
@@ -11,23 +12,36 @@
 constexpr float PATH_UPDATE_INTERVAL = 1.0f;
 constexpr float DETECTION_RADIUS = 20.0f;
 
+void Zombie::bind_methods()
+{
+    type.add_method("set_movement_sound", &Zombie::set_movement_sound);
+    expose_rpc<Zombie>("set_movement_sound", RpcTarget::Both);
+
+    type.add_method("play_one_shot_sound", &Zombie::play_one_shot_sound);
+    expose_rpc<Zombie>("play_one_shot_sound", RpcTarget::Both);
+}
+
 void Zombie::start() {};
 
 void Zombie::tick(float delta)
 {
+
+    if (Engine::get().is_client())
+    {
+        m_audio_source->set_position(get_global_transform().position());
+        return;
+    }
+
     m_attack_timer -= delta;
     m_path_update_timer -= delta;
     m_groan_timer -= delta;
 
-    if (!m_on_ground)
-    {
-        float gravity = m_gravity_value;
+    float gravity = m_gravity_value;
 
-        if (is_in_water())
-            gravity = 0.0f;
+    if (is_in_water())
+        gravity = 0.0f;
 
-        m_velocity.y -= gravity * delta;
-    }
+    m_velocity.y -= gravity * delta;
 
     // Tracking.
     AABBd search_box = AABBd::from_center_extent(get_global_transform().position(), glm::vec3(DETECTION_RADIUS));
@@ -109,23 +123,25 @@ void Zombie::tick(float delta)
     if (m_groan_timer <= 0.0f)
     {
         m_groan_timer = GROAN_INTERVAL;
-        m_audio_source->play_one_shot(&m_groan_clip.value(), 0.5f);
+        if (Engine::get().is_server())
+            call_rpc("play_one_shot_sound", static_cast<int64_t>(EntitySound::Groan));
     }
 
     const bool is_moving = glm::length2(glm::vec2(m_velocity.x, m_velocity.z)) > 1e-6f;
 
-    if (is_in_water() && is_moving)
+    MovementSound movement_sound = MovementSound::None;
+    if (is_moving)
     {
-        m_audio_source->set_clip(&m_swimming_clip.value());
-        m_audio_source->play();
+        if (is_in_water())
+            movement_sound = MovementSound::Swimming;
+        else if (m_on_ground)
+            movement_sound = MovementSound::Walking;
     }
-    else if (m_on_ground && is_moving)
+    if (Engine::get().is_server() && movement_sound != m_movement_sound)
     {
-        m_audio_source->set_clip(&m_walking_clip.value());
-        m_audio_source->play();
+        m_movement_sound = movement_sound;
+        call_rpc("set_movement_sound", static_cast<int64_t>(movement_sound));
     }
-    else
-        m_audio_source->stop();
 
     m_velocity.x = 0.0;
     m_velocity.z = 0.0;
@@ -139,7 +155,6 @@ void Zombie::on_ready()
     auto pathtest = std::filesystem::absolute("data/models/zombie.json");
 
     m_model = EXPECT(ModelLegacy::load(pathtest.c_str()));
-    m_id = World::next_id();
     m_pathfinding = std::make_unique<Pathfinding>(m_world);
 
     AudioMixer& audio = m_world->audio();
@@ -170,5 +185,34 @@ void Zombie::attack()
 
     mob->damage(1, id());
     m_attack_timer = m_attack_cooldown;
-    m_audio_source->play_one_shot(&m_attacking_clip.value(), 0.5f);
+    if (Engine::get().is_server())
+        call_rpc("play_one_shot_sound", static_cast<int64_t>(EntitySound::Attack));
+}
+
+void Zombie::set_movement_sound(int64_t state)
+{
+    m_movement_sound = static_cast<MovementSound>(state);
+    if (m_movement_sound == MovementSound::Swimming)
+        m_audio_source->set_clip(&m_swimming_clip.value());
+    else if (m_movement_sound == MovementSound::Walking)
+        m_audio_source->set_clip(&m_walking_clip.value());
+    else
+    {
+        m_audio_source->stop();
+        return;
+    }
+    m_audio_source->play();
+}
+
+void Zombie::play_one_shot_sound(int64_t sound)
+{
+    switch (static_cast<EntitySound>(sound))
+    {
+        case EntitySound::Attack:
+            m_audio_source->play_one_shot(&m_attacking_clip.value(), 0.5f);
+            break;
+        case EntitySound::Groan:
+            m_audio_source->play_one_shot(&m_groan_clip.value(), 0.5f);
+            break;
+    }
 }

@@ -9,7 +9,11 @@ constexpr float GROAN_INTERVAL = 10.0f;
 
 class Zombie : public Mob
 {
+    CLASS(Zombie, Mob);
+
 public:
+    static void bind_methods();
+
     Zombie() : Mob(3)
     {
         m_aabb = AABBd(-glm::vec3(0.35, 0.9, 0.35), glm::vec3(0.35, 0.9, 0.35));
@@ -19,6 +23,9 @@ public:
     void tick(float delta) override;
     void on_ready() override;
     void attack();
+    void set_movement_sound(int64_t state) override;
+    int64_t get_movement_sound() const override { return static_cast<int64_t>(m_movement_sound); }
+    void play_one_shot_sound(int64_t sound) override;
 
 protected:
     float m_stopping_dst = 0.1f;
@@ -37,4 +44,5 @@ protected:
     std::optional<AudioClip> m_attacking_clip;
     std::optional<AudioClip> m_swimming_clip;
     std::optional<AudioSource> m_audio_source;
+    MovementSound m_movement_sound = MovementSound::None;
 };

@@ -256,8 +256,15 @@ inline std::expected<void, Error> deserialize(DataBuffer& buffer, SendPlayerTran
     ZoneScoped;
 
     p.id = buffer.read<EntityId>();
-    p.position = glm::vec3(buffer.read<float>(), buffer.read<float>(), buffer.read<float>());
-    p.rotation = glm::quat(buffer.read<float>(), buffer.read<float>(), buffer.read<float>(), buffer.read<float>());
+    p.position.x = buffer.read<float>();
+    p.position.y = buffer.read<float>();
+    p.position.z = buffer.read<float>();
+    const float rotation_x = buffer.read<float>();
+    const float rotation_y = buffer.read<float>();
+    const float rotation_z = buffer.read<float>();
+    const float rotation_w = buffer.read<float>();
+    // https://stackoverflow.com/questions/48348509/glmquat-why-the-order-of-x-y-z-w-components-are-mixed
+    p.rotation = glm::quat(rotation_w, rotation_x, rotation_y, rotation_z);
     return std::expected<void, Error>();
 }
 
@@ -285,8 +292,15 @@ inline std::expected<void, Error> serialize(DataBuffer& buffer, const AddEntityP
 }
 inline std::expected<void, Error> deserialize(DataBuffer& buffer, AddEntityPacket& p)
 {
-    p.position = glm::vec3(buffer.read<float>(), buffer.read<float>(), buffer.read<float>());
-    p.rotation = glm::quat(buffer.read<float>(), buffer.read<float>(), buffer.read<float>(), buffer.read<float>());
+    p.position.x = buffer.read<float>();
+    p.position.y = buffer.read<float>();
+    p.position.z = buffer.read<float>();
+    const float rotation_x = buffer.read<float>();
+    const float rotation_y = buffer.read<float>();
+    const float rotation_z = buffer.read<float>();
+    const float rotation_w = buffer.read<float>();
+    // https://stackoverflow.com/questions/48348509/glmquat-why-the-order-of-x-y-z-w-components-are-mixed
+    p.rotation = glm::quat(rotation_w, rotation_x, rotation_y, rotation_z);
     p.id = buffer.read<EntityId>();
     p.class_id = buffer.read<ClassHashCode>();
     return std::expected<void, Error>();
@@ -332,8 +346,15 @@ inline std::expected<void, Error> serialize(DataBuffer& buffer, const UpdateEnti
 inline std::expected<void, Error> deserialize(DataBuffer& buffer, UpdateEntityPacket& p)
 {
     p.id = buffer.read<EntityId>();
-    p.position = glm::vec3(buffer.read<float>(), buffer.read<float>(), buffer.read<float>());
-    p.rotation = glm::quat(buffer.read<float>(), buffer.read<float>(), buffer.read<float>(), buffer.read<float>());
+    p.position.x = buffer.read<float>();
+    p.position.y = buffer.read<float>();
+    p.position.z = buffer.read<float>();
+    const float rotation_x = buffer.read<float>();
+    const float rotation_y = buffer.read<float>();
+    const float rotation_z = buffer.read<float>();
+    const float rotation_w = buffer.read<float>();
+    // https://stackoverflow.com/questions/48348509/glmquat-why-the-order-of-x-y-z-w-components-are-mixed
+    p.rotation = glm::quat(rotation_w, rotation_x, rotation_y, rotation_z);
     return std::expected<void, Error>();
 }
 

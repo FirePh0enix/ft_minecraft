@@ -98,7 +98,13 @@ public:
         DataBuffer buffer;
         buffer.write(T::type);
         EXPECT(serialize(buffer, p));
-        return enet_packet_create(buffer.data().data(), buffer.data().size(), 0);
+
+        // Frequent transform snapshots can be replaced by a newer one; all other packets must not be lost.
+        constexpr bool reliable =
+            T::type != PacketType::SendPlayerTransform &&
+            T::type != PacketType::UpdateEntity;
+        constexpr enet_uint32 flags = reliable ? ENET_PACKET_FLAG_RELIABLE : 0;
+        return enet_packet_create(buffer.data().data(), buffer.data().size(), flags);
     }
 
     void set_packet_handler(PacketHandler handler, void *user)

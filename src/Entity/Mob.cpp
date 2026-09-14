@@ -156,8 +156,14 @@ void Mob::flee_to(const glm::ivec3& to)
 
 bool Mob::verify_if_path_still_valid()
 {
+    if (!m_path.has_value() || m_path->look_points.empty() || m_path_index >= m_path->look_points.size())
+        return false;
+
     const auto full_path = m_pathfinding->m_path;
     const size_t path_size = full_path.size();
+
+    if (path_size == 0)
+        return false;
 
     glm::ivec3 grid_pos = glm::ivec3(glm::round(m_path.value().look_points[m_path_index]));
     /*
@@ -190,7 +196,10 @@ bool Mob::verify_if_path_still_valid()
         }
     }
 
-    for (size_t i = start_index; start_index < path_size; ++start_index)
+    if (start_index == path_size)
+        return false;
+
+    for (size_t i = start_index; i < path_size; ++i)
     {
         size_t node_index = full_path[i];
         const auto& node = m_pathfinding->m_node_pool[node_index];

@@ -7,7 +7,11 @@
 
 class Cow : public Mob
 {
+    CLASS(Cow, Mob);
+
 public:
+    static void bind_methods();
+
     Cow()
         : Mob(3)
     {
@@ -19,6 +23,8 @@ public:
     void start() override;
     void tick(float delta) override;
     void on_ready() override;
+    void set_movement_sound(int64_t state) override;
+    int64_t get_movement_sound() const override { return static_cast<int64_t>(m_movement_sound); }
 
 protected:
     void flee_from(int radius);
@@ -27,4 +33,5 @@ protected:
     std::optional<AudioClip> m_walking_clip;
     std::optional<AudioClip> m_swimming_clip;
     std::optional<AudioSource> m_audio_source;
+    MovementSound m_movement_sound = MovementSound::None;
 };

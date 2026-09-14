@@ -349,6 +349,15 @@ std::shared_ptr<Entity> Dimension::get_entity(EntityId id) const
         if (entity->id() == id)
             return entity;
     }
+
+    // Packets can target an entity in the same frame as AddEntity, before
+    // World commits the deferred addition.
+    for (const auto& entity : m_entities_to_add)
+    {
+        if (entity->id() == id)
+            return entity;
+    }
+
     return nullptr;
 }
 
