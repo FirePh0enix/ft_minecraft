@@ -4,10 +4,13 @@
 #include "Audio/AudioMixer.hpp"
 #include "Core/Math.hpp"
 
+constexpr float AUDIO_MAX_DISTANCE = 32.0f;
+
 class AudioSource
 {
 public:
     explicit AudioSource(AudioMixer& mixer);
+    ~AudioSource();
 
     AudioSource(const AudioSource&) = delete;
     AudioSource& operator=(const AudioSource&) = delete;
@@ -36,5 +39,5 @@ private:
     float m_volume = 1.0f;
     glm::vec3 m_position{};
 
-    void update_track_position(MIX_Track *track);
+    void update_track_position(MIX_Track *track, float volume);
 };

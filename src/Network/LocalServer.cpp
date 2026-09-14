@@ -160,6 +160,8 @@ void LocalServer::route_packet(ENetPacket *packet)
 
     if (m_online)
         m_connection.broadcast(packet);
+    else
+        enet_packet_destroy(packet);
 }
 
 float LocalServer::get_generation_progression()
@@ -230,12 +232,29 @@ void LocalServer::receive(void *user, NetworkConnection& conn, ENetPacket *packe
         InitPacket init_p(self->m_world->seed(), id, player->get_transform().position());
         conn.send(client.peer(), NetworkConnection::create_packet(init_p));
 
-        for (std::shared_ptr<Entity> entity : self->m_world->get_dimension(0).get_entities())
+        const auto send_entity = [&](const std::shared_ptr<Entity>& entity)
         {
             Transform3D transform = entity->get_transform();
             AddEntityPacket p2(transform.position(), transform.rotation(), entity->id(), entity->get_class_hash_code());
             conn.send(client.peer(), NetworkConnection::create_packet(p2));
-        }
+
+            const int64_t movement_sound = entity->get_movement_sound();
+            if (movement_sound != 0)
+            {
+                RpcCallPacket sound_packet;
+                sound_packet.id = entity->id();
+                sound_packet.name = "set_movement_sound";
+                sound_packet.args.emplace_back(movement_sound);
+                conn.send(client.peer(), NetworkConnection::create_packet(sound_packet));
+            }
+        };
+
+        // Send all existing entities, including pending spawns, to the newly connected player.
+        const Dimension& dimension = self->m_world->get_dimension(World::overworld);
+        for (const std::shared_ptr<Entity>& entity : dimension.get_entities())
+            send_entity(entity);
+        for (const std::shared_ptr<Entity>& entity : dimension.get_pending_entities())
+            send_entity(entity);
 
         PlayerConnected p2(std::string(self->m_player->get_username()));
         conn.send(client.peer(), NetworkConnection::create_packet(p2));

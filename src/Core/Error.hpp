@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <format>
 #include <sstream>
+#include <utility>
 
 enum class ErrorKind : uint16_t
 {
@@ -61,6 +62,8 @@ enum class ErrorKind : uint16_t
      * @brief Fail to connect to a remove peer.
      */
     ConnectionFailed = 0x2001,
+
+    AudioInitializationFailed = 0x3000,
 };
 
 static inline const char *error_name(const ErrorKind& kind)
@@ -107,6 +110,9 @@ static inline const char *error_name(const ErrorKind& kind)
         break;
     case ErrorKind::ConnectionFailed:
         msg = "Connection failed";
+        break;
+    case ErrorKind::AudioInitializationFailed:
+        msg = "Audio initialization failed";
         break;
     }
 
@@ -318,5 +324,5 @@ void initialize_error_handling(const char *filename);
             __result.error().print();  \
             std::abort();              \
         }                              \
-        __result.value();              \
+        std::move(__result).value();   \
     })

@@ -1,6 +1,14 @@
 #include "AudioMixer.hpp"
 #include "Core/Logger.hpp"
 
+std::expected<std::unique_ptr<AudioMixer>, Error> AudioMixer::create()
+{
+    auto mixer = std::make_unique<AudioMixer>();
+    if (!mixer->is_valid())
+        return std::unexpected(Error(ErrorKind::AudioInitializationFailed));
+    return mixer;
+}
+
 AudioMixer::AudioMixer() : m_audio_listener()
 {
     if (!MIX_Init())
@@ -36,6 +44,8 @@ AudioMixer::AudioMixer() : m_audio_listener()
             return;
         }
     }
+
+    m_valid = true;
 }
 
 MIX_Track *AudioMixer::get_available_track()
@@ -51,7 +61,6 @@ MIX_Track *AudioMixer::get_available_track()
 
 AudioMixer::~AudioMixer()
 {
-
     if (m_mixer)
         MIX_DestroyMixer(m_mixer);
 

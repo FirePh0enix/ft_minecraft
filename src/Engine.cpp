@@ -32,7 +32,7 @@ Engine::Engine(bool disable_save)
 {
     singleton = this;
     m_window = std::make_shared<Window>("ft_minecraft", WINDOW_INIT_WIDTH, WINDOW_INIT_HEIGHT);
-    m_audio_mixer = std::make_unique<AudioMixer>();
+    m_audio_mixer = EXPECT(AudioMixer::create());
     m_music_player = std::make_unique<MusicPlayer>(*m_audio_mixer);
 
     Input::init(*m_window);
@@ -64,6 +64,8 @@ void Engine::register_entities()
 {
     Entity::bind_methods();
     Player::bind_methods();
+    Cow::bind_methods();
+    Zombie::bind_methods();
 
     m_entity_registry.register_entity<Player>();
     m_entity_registry.register_entity<Cow>();

@@ -134,6 +134,7 @@ public:
     void update_sun(glm::mat4 matrix);
 
     const std::vector<std::shared_ptr<Entity>>& get_entities() const { return m_entities; }
+    const std::vector<std::shared_ptr<Entity>>& get_pending_entities() const { return m_entities_to_add; }
 
     std::vector<AABBd> get_boxes_that_may_collide(const AABBd& box) const;
     std::vector<std::shared_ptr<Entity>> cast_box(const AABBd& box) const;

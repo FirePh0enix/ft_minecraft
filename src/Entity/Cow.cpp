@@ -1,13 +1,26 @@
 #include "Cow.hpp"
+#include "Engine.hpp"
 #include "Entity/Entity.hpp"
 #include "World/World.hpp"
 
 #include <memory>
 
+void Cow::bind_methods()
+{
+    type.add_method("set_movement_sound", &Cow::set_movement_sound);
+    expose_rpc<Cow>("set_movement_sound", RpcTarget::Both);
+}
+
 void Cow::start() {};
 
 void Cow::tick(float delta)
 {
+    if (Engine::get().is_client())
+    {
+        m_audio_source->set_position(get_global_transform().position());
+        return;
+    }
+
     m_velocity.y -= m_gravity_value * delta;
 
     if (m_following_path)
@@ -47,24 +60,39 @@ void Cow::tick(float delta)
 
     m_audio_source->set_position(get_global_transform().position());
 
-    if (is_in_water() && is_moving)
+    MovementSound movement_sound = MovementSound::None;
+    if (is_moving)
     {
+        if (is_in_water())
+            movement_sound = MovementSound::Swimming;
+        else if (m_on_ground)
+            movement_sound = MovementSound::Walking;
+    }
+    if (Engine::get().is_server() && movement_sound != m_movement_sound)
+    {
+        m_movement_sound = movement_sound;
+        call_rpc("set_movement_sound", static_cast<int64_t>(movement_sound));
+    }
+}
+
+void Cow::set_movement_sound(int64_t state)
+{
+    m_movement_sound = static_cast<MovementSound>(state);
+    if (m_movement_sound == MovementSound::Swimming)
         m_audio_source->set_clip(&m_swimming_clip.value());
-        m_audio_source->play();
-    }
-    else if (m_on_ground && is_moving)
-    {
+    else if (m_movement_sound == MovementSound::Walking)
         m_audio_source->set_clip(&m_walking_clip.value());
-        m_audio_source->play();
-    }
     else
+    {
         m_audio_source->stop();
+        return;
+    }
+    m_audio_source->play();
 }
 
 void Cow::on_ready()
 {
     m_model = EXPECT(ModelLegacy::load("data/models/cow.json"));
-    m_id = World::next_id();
     m_pathfinding = std::make_unique<Pathfinding>(m_world);
 
     AudioMixer& audio = m_world->audio();
