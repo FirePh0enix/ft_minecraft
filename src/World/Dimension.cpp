@@ -13,14 +13,24 @@
 
 #include <mutex>
 
-void GenScheduler::terrain_pass(ChunkPos middle)
+bool GenScheduler::terrain_pass(ChunkPos middle)
 {
+    // A chunk can only be realized once every pre-generation dependency around
+    // this origin is complete. Structure passes may write across chunk borders.
+    bool ready = true;
+
     for (int64_t x = -(m_chunk_distance + m_gen_distance); x <= m_chunk_distance + m_gen_distance; x++)
         for (int64_t z = -(m_chunk_distance + m_gen_distance); z <= m_chunk_distance + m_gen_distance; z++)
         {
             const ChunkPos pos(x + middle.x, z + middle.z);
 
-            if (m_dimension.m_preloaded_chunks.contains(pos) || m_pregen_loading_queue.contains(pos))
+            if (m_dimension.m_preloaded_chunks.contains(pos))
+                continue;
+
+            // Work that is queued or newly scheduled still makes this origin
+            // incomplete, but must not block unrelated origins.
+            ready = false;
+            if (m_pregen_loading_queue.contains(pos))
                 continue;
 
             m_pregen_loading_queue.insert(pos);
@@ -31,6 +41,8 @@ void GenScheduler::terrain_pass(ChunkPos middle)
             Engine::get().get_thread_pool().submit([this, pos, chunk](std::stop_token token)
                                                    { terrain_and_struct_chunk(token, pos, chunk); });
         }
+
+    return ready;
 }
 
 // static ChunkPos pop_near(std::vector<ChunkLoadWithDistance>& elements)
@@ -52,11 +64,6 @@ void GenScheduler::terrain_pass(ChunkPos middle)
 
 void GenScheduler::chunk_pass(ChunkPos middle)
 {
-    // Structures can overlap multiple chunks, so finish the complete
-    // pre-generation pass before realizing any chunk blocks.
-    if (!m_pregen_loading_queue.empty())
-        return;
-
     m_generation_started = true;
 
     // size_t already_exists = 0;
@@ -191,11 +198,25 @@ void GenScheduler::tick(std::span<const BlockPos> origins)
 {
     m_generation_batch_size = (m_gen_distance * 2 + 1) * (m_gen_distance * 2 + 1);
 
+    {
+        // Workers enqueue results only after preload() and structure_pass().
+        // Publish them before checking whether an origin is ready.
+        ZoneScopedN("Pregren flush");
+        std::shared_ptr<PreLoadedChunk> pregen_chunk;
+        while (m_pregen_chunks_lockless.try_dequeue(pregen_chunk))
+        {
+            m_dimension.m_preloaded_chunks[pregen_chunk->pos] = pregen_chunk;
+            m_pregen_loading_queue.erase(pregen_chunk->pos);
+        }
+    }
+
     for (BlockPos origin : origins)
     {
         const ChunkPos middle(origin.x / 16, origin.z / 16);
-        terrain_pass(middle);
-        chunk_pass(middle);
+        // Realize chunks only after every terrain and structure pass in this
+        // origin's dependency area has completed.
+        if (terrain_pass(middle))
+            chunk_pass(middle);
     }
 
     // Remove pregen chunks if too far from the origins.
@@ -250,16 +271,6 @@ void GenScheduler::tick(std::span<const BlockPos> origins)
     }
 
     std::set<ChunkPos> chunk_modified;
-
-    {
-        ZoneScopedN("Pregren flush");
-        std::shared_ptr<PreLoadedChunk> pregen_chunk;
-        while (m_pregen_chunks_lockless.try_dequeue(pregen_chunk))
-        {
-            m_dimension.m_preloaded_chunks[pregen_chunk->pos] = pregen_chunk;
-            m_pregen_loading_queue.erase(pregen_chunk->pos);
-        }
-    }
 
     {
         ZoneScopedN("Chunk flush");

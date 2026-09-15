@@ -107,13 +107,14 @@ struct NeighborFlags
 class Block
 {
 public:
-    Block(std::string_view path, bool collision = true);
+    Block(std::string_view path, bool collision = true, bool transparent = false);
     virtual ~Block() {}
 
     void post_register();
 
     bool has_cullface(FaceKind face);
     bool has_collision() const { return m_collision; }
+    bool is_transparent() const { return m_transparent; }
 
     std::shared_ptr<Mesh> get_mesh() const { return m_mesh; }
 
@@ -128,6 +129,7 @@ private:
     std::vector<Model> m_models;
 
     bool m_collision = true;
+    bool m_transparent = false;
 
     // Cached values for faster access than reading through the model files.
     bool m_cullfaces[6]{false};

@@ -244,6 +244,9 @@ void Player::on_ready()
         m_player_list = std::make_shared<Widget>();
         m_player_list->set_layout(ContainerLayout::Vertical);
 
+        auto& clip = Engine::get().music_player().get_biome_music(m_current_biome);
+        Engine::get().music_player().crossfade_to(&clip, 2.0f, 1.0f);
+
         // m_breaks_textures[0] = EXPECT(Texture::load("assets/textures/breaks/0.png"));
         // m_breaks_textures[1] = EXPECT(Texture::load("assets/textures/breaks/1.png"));
         // m_breaks_textures[2] = EXPECT(Texture::load("assets/textures/breaks/2.png"));

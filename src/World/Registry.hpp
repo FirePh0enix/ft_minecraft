@@ -143,7 +143,7 @@ public:
     std::expected<Model, Error> get_model(std::string_view path);
     std::expected<void, Error> add_tint(std::string_view path);
 
-    void register_block(Id<Block> id, bool collision = true);
+    void register_block(Id<Block> id, bool collision = true, bool transparent = false);
     void register_block(Id<Block> id, std::shared_ptr<Block> block);
 
     void add_item(Id<Item> id, std::shared_ptr<Item> item);

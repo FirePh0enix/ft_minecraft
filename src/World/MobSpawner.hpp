@@ -5,7 +5,7 @@
 #include <memory>
 #include <vector>
 
-const float SPAWN_INTERVAL = 10.0f;
+const float SPAWN_INTERVAL = 1.0f;
 constexpr int SPAWN_RADIUS = 16;
 constexpr int VERTICAL_RADIUS = 16;
 constexpr int SPAWN_ATTEMPTS = 16;

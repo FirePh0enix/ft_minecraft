@@ -124,7 +124,10 @@ bool MobSpawner::try_spawn_zombie(Player& player)
         {
             if (m_world.get_dimension(m_dimension).has_solid_block(x, y, z))
             {
-                has_ceiling = true;
+                const BlockState state = m_world.get_block_state(m_dimension, x, y, z);
+                const std::shared_ptr<Block> block = Engine::get().registry().get_block(state.id);
+                if (!block->is_transparent())
+                    has_ceiling = true;
                 continue;
             }
 
@@ -139,9 +142,6 @@ bool MobSpawner::try_spawn_zombie(Player& player)
 
             m_world.add_entity(m_dimension, zombie);
             broadcast_spawn(*zombie);
-
-            const glm::dvec3 pos = zombie->get_position();
-            std::println("Spawned zombie at {} {} {}", pos.x, pos.y, pos.z);
             return true;
         }
     }
@@ -190,8 +190,6 @@ bool MobSpawner::try_spawn_cow(Player& player)
             m_world.add_entity(m_dimension, cow);
             broadcast_spawn(*cow);
 
-            const glm::dvec3 pos = cow->get_position();
-            std::println("Spawned cow at {} {} {}", pos.x, pos.y, pos.z);
             return true;
         }
     }
@@ -203,9 +201,9 @@ bool MobSpawner::can_spawn_cow(const glm::ivec3& pos) const
 {
     const BlockState feet = m_world.get_block_state(m_dimension, pos.x, pos.y, pos.z);
     const BlockState head = m_world.get_block_state(m_dimension, pos.x, pos.y + 1, pos.z);
+    const BlockState ground = m_world.get_block_state(m_dimension, pos.x, pos.y - 1, pos.z);
     const Dimension& dimension = m_world.get_dimension(m_dimension);
-    const bool has_ground = dimension.has_solid_block(pos.x, pos.y - 1, pos.z);
     const bool in_water = dimension.get_tag(pos, "water").has_value() || dimension.get_tag(pos + glm::ivec3(0, 1, 0), "water").has_value();
 
-    return feet.is_air() && head.is_air() && has_ground && !in_water;
+    return feet.is_air() && head.is_air() && ground == BlockState(Blocks::grass_block) && !in_water;
 }
