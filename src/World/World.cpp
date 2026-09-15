@@ -143,6 +143,7 @@ std::expected<std::shared_ptr<World>, Error> World::create_proxy(uint64_t seed, 
 {
     std::shared_ptr<World> world = std::make_shared<World>(audio);
     world->m_seed = seed;
+    world->m_proxy = true;
     world->m_dims[overworld].m_world = world.get();
     world->m_mob_spawner = std::make_unique<MobSpawner>(*world, overworld);
 
@@ -254,9 +255,6 @@ void World::tick_dimension(float delta, int dimension)
             }
         }
     }
-
-    m_dims[dimension].m_entities_to_remove.clear();
-    m_dims[dimension].m_entities_to_add.clear();
 
     std::shared_ptr<Camera> camera = m_player->get_camera();
 

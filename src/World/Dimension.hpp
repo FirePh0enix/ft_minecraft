@@ -70,7 +70,7 @@ public:
     {
     }
 
-    void terrain_pass(ChunkPos middle);
+    bool terrain_pass(ChunkPos middle);
     void chunk_pass(ChunkPos middle);
 
     void unload_chunk(std::stop_token token, std::shared_ptr<Chunk> chunk);

@@ -43,7 +43,7 @@ void GameRegistry::register_all()
 
     register_block(Blocks::coal_ore);
 
-    register_block(Blocks::oak_leaves);
+    register_block(Blocks::oak_leaves, true, true);
     register_block(Blocks::oak_log);
 
     register_block(Blocks::grass, false);
@@ -228,9 +228,9 @@ std::expected<void, Error> GameRegistry::add_tint(std::string_view path)
     return std::expected<void, Error>();
 }
 
-void GameRegistry::register_block(Id<Block> id, bool collision)
+void GameRegistry::register_block(Id<Block> id, bool collision, bool transparent)
 {
-    std::shared_ptr<Block> block = std::make_shared<Block>(id.str, collision);
+    std::shared_ptr<Block> block = std::make_shared<Block>(id.str, collision, transparent);
     m_blocks[id] = block;
 
     m_block_runtime_ids.push_back(id);

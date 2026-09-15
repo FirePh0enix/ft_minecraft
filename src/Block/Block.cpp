@@ -3,8 +3,8 @@
 #include "Engine.hpp"
 #include "World/Registry.hpp"
 
-Block::Block(std::string_view path, bool collision)
-    : m_path(path), m_collision(collision)
+Block::Block(std::string_view path, bool collision, bool transparent)
+    : m_path(path), m_collision(collision), m_transparent(transparent)
 {
     m_blockstate = EXPECT(Engine::get().registry().get_blockstate(path));
 

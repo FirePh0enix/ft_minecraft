@@ -234,15 +234,6 @@ void Pathfinding::find_path(const glm::vec3& start_pos, const glm::vec3& target_
             }
         }
     }
-
-    if (!m_open_set.empty() && expanded_nodes == max_expanded_nodes)
-    {
-        warn("Pathfinding reached the {} node limit: start=[{}, {}, {}], target=[{}, {}, {}], dimension={}",
-             max_expanded_nodes,
-             start_pos.x, start_pos.y, start_pos.z,
-             target_pos.x, target_pos.y, target_pos.z,
-             dimension);
-    }
 }
 
 std::vector<glm::vec3> Pathfinding::simplify_path(const std::vector<size_t>& path)
