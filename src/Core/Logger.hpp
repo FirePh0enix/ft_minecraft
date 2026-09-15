@@ -27,8 +27,7 @@ inline const char *log_level_str(LogLevel level)
 template <typename... Args>
 inline void log_msg(LogLevel level, std::format_string<Args...> fmt, Args&&...args)
 {
-    std::print("{} ", log_level_str(level));
-    std::println(fmt, std::forward<Args>(args)...);
+    std::print("{} {}\n", log_level_str(level), std::format(fmt, std::forward<Args>(args)...));
 }
 
 template <typename... Args>

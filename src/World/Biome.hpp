@@ -12,5 +12,4 @@ enum class Biome : uint16_t
     Ocean,
 
     Underworld,
-    None,
 };

@@ -26,3 +26,5 @@ config.ini
 *.log
 vgcore.*
 .pragtical
+perf.data
+heaptrack*

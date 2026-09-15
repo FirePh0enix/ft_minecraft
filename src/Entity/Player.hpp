@@ -11,8 +11,8 @@
 #include "Inventory/PlayerInventory.hpp"
 #include "Model.hpp"
 #include "UI/TextInput.hpp"
-
 #include "World/Biome.hpp"
+
 #include <expected>
 
 enum class GameMode
@@ -112,8 +112,6 @@ private:
     float m_target_head_height = head_bobbing_max;
 
     std::optional<glm::vec3> m_aimed_block;
-    std::shared_ptr<Material> m_aim_material;
-    std::shared_ptr<Buffer> m_aim_buffer;
 
     bool m_previous_frame_in_water = false;
 
@@ -157,7 +155,7 @@ private:
         return Input::is_mouse_grabbed() && !m_opened_inventory.has_value() && !m_chat_opened;
     }
 
-    Biome m_current_biome = Biome::None;
+    Biome m_current_biome = Biome::Plain;
 
     std::optional<AudioClip> m_walking_clip;
     std::optional<AudioClip> m_attacking_clip;

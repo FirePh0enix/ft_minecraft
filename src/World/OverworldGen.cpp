@@ -169,10 +169,7 @@ void OverworldGen::generate_chunk(std::shared_ptr<Chunk> chunk, std::shared_ptr<
     std::vector<StructureGen> structures;
     dim.get_structures_overlap(cpos, structures);
 
-    BlockState stone(Blocks::stone.hash);
-
-    for (size_t i = 0; i < 16 * 16; i++)
-        chunk->get_biomes()[i] = preloaded_chunk->biomes[i];
+    BlockState stone(Blocks::stone);
 
     for (int64_t x = 0; x < 16; x++)
     {
@@ -184,6 +181,8 @@ void OverworldGen::generate_chunk(std::shared_ptr<Chunk> chunk, std::shared_ptr<
             Biome biome = preloaded_chunk->biomes[x + z * 16];
             int64_t height = preloaded_chunk->heights[x + z * 16];
             float mountain = preloaded_chunk->mountains[x + z * 16];
+
+            chunk->get_biomes()[x + z * 16] = biome;
 
             int64_t y = 0;
             for (; y < height - 3; y++)
@@ -208,9 +207,7 @@ void OverworldGen::generate_chunk(std::shared_ptr<Chunk> chunk, std::shared_ptr<
                 ground = BlockState(Blocks::sand);
                 surface = BlockState(Blocks::sand);
                 break;
-            case Biome::Underworld:
-                break;
-            case Biome::None:
+            case Biome::Underworld: // unused in overworld
                 break;
             }
 
@@ -220,7 +217,7 @@ void OverworldGen::generate_chunk(std::shared_ptr<Chunk> chunk, std::shared_ptr<
 
             // Add snow on top of mountains
             if (height > 160 && biome == Biome::Mountain)
-                blocks[x + y * 16 + z * 16 * 256] = BlockState(Blocks::snow_block);
+                blocks[x + (y - 1) * 16 + z * 16 * 256] = BlockState(Blocks::snow_block);
 
             // Fill oceans
             for (; y < m_settings.ocean_level; y++)
@@ -263,7 +260,7 @@ void OverworldGen::generate_chunk(std::shared_ptr<Chunk> chunk, std::shared_ptr<
                 blocks[x + y * 16 + z * 16 * 256] = BlockState(Blocks::grass);
             }
 
-            // Place a layer of unbreakable "bedrock" at the bottom of the map.
+            // Place a few layer of unbreakable "bedrock" at the bottom of the map.
             blocks[x + 0 * 16 + z * 16 * 256] = BlockState(Blocks::bedrock);
             float bedrock_noise_a = m_noise.sample(glm::vec2(x, z)) * 0.5f + 0.5f;
             float bedrock_noise_b = m_noise.sample(glm::vec2(x, z) + glm::vec2(1213.0, 23231.0)) * 0.5f + 0.5f;

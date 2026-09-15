@@ -218,7 +218,7 @@ void Player::on_ready()
     m_audio_source->set_clip(&m_walking_clip.value());
 
     m_camera = std::make_shared<Camera>();
-    m_camera->get_transform().position() = glm::vec3(0, 0.80, 0);
+    m_camera->get_transform().position() = glm::vec3(0, 0.85, 0);
     add_child(m_camera);
 
     if (m_local_player)
@@ -244,11 +244,6 @@ void Player::on_ready()
         m_player_list = std::make_shared<Widget>();
         m_player_list->set_layout(ContainerLayout::Vertical);
 
-        // m_aim_buffer = EXPECT(Buffer::create(sizeof(SimpleUniforms), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform));
-        // m_aim_material = EXPECT(Material::create(Renderer::get().get_simple_shader(), MaterialFlagBits::Transparency | MaterialFlagBits::Priority, WGPUCullMode_Back, UVType::UV));
-        // m_aim_material->set_param("env", Renderer::get().get_world_environment());
-        // m_aim_material->set_param("model", m_aim_buffer);
-
         // m_breaks_textures[0] = EXPECT(Texture::load("assets/textures/breaks/0.png"));
         // m_breaks_textures[1] = EXPECT(Texture::load("assets/textures/breaks/1.png"));
         // m_breaks_textures[2] = EXPECT(Texture::load("assets/textures/breaks/2.png"));
@@ -258,9 +253,6 @@ void Player::on_ready()
     {
         m_model = EXPECT(ModelLegacy::load("data/models/player.json"));
         m_animator.set_model(m_model);
-
-        // Model::Info info{.model_matrix = glm::translate(glm::identity<glm::mat4>(), glm::vec3(0.0, 100.0, 0.0))};
-        // m_model->get_global_buffer()->update(View(info).as_bytes());
     }
 }
 
@@ -451,6 +443,7 @@ void Player::tick(float delta)
             Biome biome = chunk->get()->get_biomes()[x + z * 16];
             if (biome != m_current_biome)
             {
+                // std::println("{} {} | {} {}", x, z, (uint16_t)m_current_biome, (uint16_t)biome);
                 m_current_biome = biome;
                 auto& clip = Engine::get().music_player().get_biome_music(biome);
                 Engine::get().music_player().crossfade_to(&clip, 2.0f, 1.0f);

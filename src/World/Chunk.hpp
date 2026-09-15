@@ -53,19 +53,6 @@ struct BlockPos
     }
 };
 
-// struct MeshLayer
-// {
-//     enum class Kind
-//     {
-//         Opaque,
-//         Water,
-//         Semitransparent,
-//     };
-
-//     std::shared_ptr<Mesh> mesh;
-//     std::shared_ptr<BindGroup> bindgroup;
-// };
-
 enum class MeshLayerKind
 {
     Opaque,
@@ -102,8 +89,8 @@ public:
     ALWAYS_INLINE const BlockState *get_blocks() const { return m_blocks; }
     ALWAYS_INLINE BlockState *get_blocks() { return m_blocks; }
 
-    ALWAYS_INLINE const Biome *get_biomes() const { return m_biomes; }
-    ALWAYS_INLINE Biome *get_biomes() { return m_biomes; }
+    ALWAYS_INLINE std::span<const Biome> get_biomes() const { return std::span(m_biomes, 16 * 16); }
+    ALWAYS_INLINE std::span<Biome> get_biomes() { return std::span(m_biomes, 16 * 16); }
 
     ALWAYS_INLINE int64_t x() const { return m_x; }
     ALWAYS_INLINE int64_t z() const { return m_z; }

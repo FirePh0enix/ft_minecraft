@@ -72,8 +72,6 @@ void LocalServer::tick()
     m_schedulers[m_player->get_dimension()]->tick(origins);
     m_world->tick(1.0 / 60.0);
 
-    std::println("chunk count = {}", m_world->get_dimension(0).get_chunks().size());
-
     if (m_online)
     {
         std::vector<ChunkLoadRequest> deferred_requests;
