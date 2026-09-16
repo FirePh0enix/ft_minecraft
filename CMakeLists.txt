@@ -394,6 +394,6 @@ if(TARGET_IS_LINUX)
     string(REGEX MATCH "Ubuntu" DIST ${ETC_ISSUE})
 
     if(DIST STREQUAL "Ubuntu")
-        target_link_libraries(atomic)
+        target_link_libraries(${TARGET_NAME} PRIVATE atomic)
     endif()
 endif()
