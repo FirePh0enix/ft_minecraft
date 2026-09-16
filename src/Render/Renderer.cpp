@@ -1165,6 +1165,7 @@ std::expected<void, Error> Renderer::init(const Window& window, InitFlags flags)
 
     m_sky_shader = TRY(Shader::load_from_path("data/shaders/sky.wgsl"));
     m_sky_shader->set_binding("uniforms", Binding::UniformBuffer(WGPUShaderStage_Fragment, 0, 0, BindingAccess::Read));
+    m_sky_shader->set_binding("world_env", Binding::UniformBuffer(WGPUShaderStage_Fragment, 0, 1, BindingAccess::Read));
     m_sky_shader->create_bind_group_layout();
 
     m_fw_pp_shader = TRY(Shader::load_from_path("data/shaders/fw/postprocess.wgsl"));
@@ -1247,6 +1248,7 @@ std::expected<void, Error> Renderer::init(const Window& window, InitFlags flags)
 
     m_sky_bg = BindGroup::create(m_sky_shader);
     m_sky_bg->set_param("uniforms", m_sky_buffer);
+    m_sky_bg->set_param("world_env", m_fw_world_env);
 
     std::array<uint16_t, 6> indices{0, 1, 2, 0, 2, 3};
     std::array<glm::vec3, 4> vertices{
@@ -1290,7 +1292,6 @@ std::expected<void, Error> Renderer::init(const Window& window, InitFlags flags)
 
     m_fw_water_texture = Engine::get().registry().create_texture("data/resourcepacks/core/assets/minecraft/textures/block/water_overlay.png");
 
-    m_chunk_opaque_bg = BindGroup::create(m_fw_chunk_shader);
     m_chunk_opaque_bg = BindGroup::create(Renderer::get().get_fw_chunk_shader());
     m_chunk_opaque_bg->set_param("camera", Renderer::get().get_fw_camera());
     m_chunk_opaque_bg->set_param("world_env", Renderer::get().get_fw_world_env());
@@ -1303,6 +1304,9 @@ std::expected<void, Error> Renderer::init(const Window& window, InitFlags flags)
     m_chunk_water_bg->set_param("world_env", Renderer::get().get_fw_world_env());
     m_chunk_water_bg->set_param("image", EXPECT(Renderer::get().get_fw_water_texture()->get_view()));
     m_chunk_water_bg->set_param("shadowmap", EXPECT(Renderer::get().get_fw_shadowmap()->get_view()));
+
+    m_chunk_shadow_bg = BindGroup::create(m_fw_chunk_shadowmap_shader);
+    m_chunk_shadow_bg->set_param("camera", Renderer::get().get_fw_camera());
 
     m_chunk_semitransparent_bg = BindGroup::create(m_fw_chunk_shader);
     m_chunk_semitransparent_bg = BindGroup::create(Renderer::get().get_fw_chunk_shader());
@@ -1762,7 +1766,7 @@ void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::sha
     shadowmap_pass_desc.depthStencilAttachment = &shadowmap_attach;
 
     WGPURenderPassEncoder shadowmap_pass = wgpuCommandEncoderBeginRenderPass(encoder, &shadowmap_pass_desc);
-    // draw_opaque_world(world, RenderPass(shadowmap_pass, RenderTarget(m_fw_shadowmap->format()), {}), WorldFlagBits::Shadowmap, world->get_dimension(0).get_sun_visible_chunks(), stencil_mask);
+    draw_shadow_world(world, RenderPass(shadowmap_pass, RenderTarget(m_fw_shadowmap->format()), {}), world->get_dimension(0).get_sun_visible_chunks(), stencil_mask);
     wgpuRenderPassEncoderEnd(shadowmap_pass);
     wgpuRenderPassEncoderRelease(shadowmap_pass);
 
@@ -1827,8 +1831,6 @@ void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::sha
 
     for (size_t i = 0; i < m_clouds.size(); i++)
         draw(color_pass_info, m_cube_mesh, m_fw_colored_mat, m_clouds[i].bg);
-
-    draw(color_pass_info, m_quad_mesh, m_fw_shadowmap_cam_mat, m_fw_shadowmap_cam_bg); // Quad placed at the origin of the "sun"
 
     {
         ZoneScopedN("debug draw");
@@ -1958,6 +1960,54 @@ void Renderer::draw_water_world(const std::shared_ptr<World>& world, const Rende
     }
 }
 
+void Renderer::draw_shadow_world(const std::shared_ptr<World>& world, const RenderPass& pass, const std::map<ChunkPos, RenderableChunk>& chunks, uint32_t stencil)
+{
+    ZoneScoped;
+
+    const std::shared_ptr<Camera> camera = world->get_player()->get_camera();
+    WGPURenderPassEncoder encoder = pass.encoder;
+
+    if (camera == nullptr)
+        return;
+
+    std::shared_ptr<Material> mat = m_fw_chunk_shadowmap_mat;
+
+    wgpuRenderPassEncoderSetPipeline(encoder, mat->get_pipeline(pass));
+    wgpuRenderPassEncoderSetBindGroup(encoder, 0, m_chunk_shadow_bg->get_bind_group(), 0, nullptr);
+    wgpuRenderPassEncoderSetStencilReference(encoder, stencil);
+
+    for (const auto& [pos, r] : chunks)
+    {
+        ZoneScopedN("record chunk");
+
+        // TODO: merge multiple draw calls of slice like 1, 2, 3 into only one draw call.
+        for (size_t slice_index : r.slice_indices)
+        {
+            const Chunk::Slice& slice = r.chunk->get_slices()[slice_index];
+
+            if (slice.opaque_mesh == nullptr)
+                continue;
+
+            {
+                ZoneScopedN("buffers");
+
+                const std::shared_ptr<Mesh>& mesh = slice.opaque_mesh;
+                wgpuRenderPassEncoderSetIndexBuffer(encoder, mesh->get_buffer(Mesh::BufferKind::Index)->handle(), mesh->index_type(), 0, mesh->get_buffer(Mesh::BufferKind::Index)->size());
+                wgpuRenderPassEncoderSetVertexBuffer(encoder, 0, mesh->get_buffer(Mesh::BufferKind::Position)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Position)->size());
+
+                size_t buffer_index = 1;
+                if (!mat->flags().has_any(MaterialFlagBits::NoNormal))
+                    wgpuRenderPassEncoderSetVertexBuffer(encoder, buffer_index++, mesh->get_buffer(Mesh::BufferKind::Normal)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Normal)->size());
+                if (!mat->flags().has_any(MaterialFlagBits::NoUV))
+                    wgpuRenderPassEncoderSetVertexBuffer(encoder, buffer_index++, mesh->get_buffer(Mesh::BufferKind::UV)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::UV)->size());
+
+                wgpuRenderPassEncoderSetVertexBuffer(encoder, buffer_index++, r.chunk->get_instance_buffer()->handle(), 0, r.chunk->get_instance_buffer()->size());
+                wgpuRenderPassEncoderDrawIndexed(encoder, mesh->vertex_count(), 1, 0, 0, slice_index);
+            }
+        }
+    }
+}
+
 void Renderer::draw_fullscreen(const RenderPass& pass, std::shared_ptr<Material> material, std::shared_ptr<BindGroup> bg, uint32_t stencil)
 {
     ZoneScoped;
@@ -1981,8 +2031,8 @@ void Renderer::set_fog(glm::vec4 color, float distance)
 
 void Renderer::set_sky(glm::vec4 color)
 {
-    std::array<SkyUniforms, 1> u{SkyUniforms(color)};
-    m_sky_buffer->update(std::as_bytes(std::span(u)));
+    SkyUniforms u(glm::inverse(Engine::get().server()->get_player()->get_camera()->get_actual_view_proj_matrix()), color);
+    m_sky_buffer->update_struct(u);
 }
 
 void Renderer::set_underwater(bool v)

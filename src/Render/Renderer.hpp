@@ -415,6 +415,7 @@ struct GPU_ATTRIBUTE FwColored
 
 struct GPU_ATTRIBUTE SkyUniforms
 {
+    glm::mat4 inv_view_proj;
     glm::vec4 color;
 };
 
@@ -458,6 +459,7 @@ public:
 
     void draw_opaque_world(const std::shared_ptr<World>& world, const RenderPass& pass, const std::map<ChunkPos, RenderableChunk>& chunks, uint32_t stencil);
     void draw_water_world(const std::shared_ptr<World>& world, const RenderPass& pass, const std::map<ChunkPos, RenderableChunk>& chunks, uint32_t stencil);
+    void draw_shadow_world(const std::shared_ptr<World>& world, const RenderPass& pass, const std::map<ChunkPos, RenderableChunk>& chunks, uint32_t stencil);
 
     void draw(const RenderPass& pass, const std::shared_ptr<Mesh>& mesh, const std::shared_ptr<Material>& material, const std::shared_ptr<BindGroup>& bg, const std::shared_ptr<Buffer>& instance_buffer = nullptr, size_t instance_count = 1, std::optional<uint32_t> stencil = std::nullopt);
     void draw_fullscreen(const RenderPass& pass, std::shared_ptr<Material> material, std::shared_ptr<BindGroup> bg, uint32_t stencil);
@@ -585,6 +587,7 @@ private:
     std::shared_ptr<BindGroup> m_chunk_opaque_bg;
     std::shared_ptr<BindGroup> m_chunk_water_bg;
     std::shared_ptr<BindGroup> m_chunk_semitransparent_bg;
+    std::shared_ptr<BindGroup> m_chunk_shadow_bg;
 
     // Portal
     std::shared_ptr<Shader> m_portal_shader;
