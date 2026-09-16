@@ -14,8 +14,8 @@ constexpr float DETECTION_RADIUS = 20.0f;
 
 void Zombie::bind_methods()
 {
-    type.add_method("set_movement_sound", &Zombie::set_movement_sound);
-    expose_rpc<Zombie>("set_movement_sound", RpcTarget::Both);
+    type.add_method("set_movement_state", &Zombie::set_movement_state);
+    expose_rpc<Zombie>("set_movement_state", RpcTarget::Both);
 
     type.add_method("play_one_shot_sound", &Zombie::play_one_shot_sound);
     expose_rpc<Zombie>("play_one_shot_sound", RpcTarget::Both);
@@ -29,6 +29,7 @@ void Zombie::tick(float delta)
     if (Engine::get().is_client())
     {
         m_audio_source->set_position(get_global_transform().position());
+        animate_movement(delta, m_movement_sound);
         return;
     }
 
@@ -139,9 +140,10 @@ void Zombie::tick(float delta)
     }
     if (Engine::get().is_server() && movement_sound != m_movement_sound)
     {
-        m_movement_sound = movement_sound;
-        call_rpc("set_movement_sound", static_cast<int64_t>(movement_sound));
+        set_movement_state(static_cast<int64_t>(movement_sound));
+        call_rpc("set_movement_state", static_cast<int64_t>(movement_sound));
     }
+    animate_movement(delta, movement_sound);
 
     m_velocity.x = 0.0;
     m_velocity.z = 0.0;
@@ -155,6 +157,7 @@ void Zombie::on_ready()
     auto pathtest = std::filesystem::absolute("data/models/zombie.json");
 
     m_model = EXPECT(ModelLegacy::load(pathtest.c_str()));
+    m_animator.set_model(m_model);
     m_pathfinding = std::make_unique<Pathfinding>(m_world);
 
     AudioMixer& audio = m_world->audio();
@@ -189,7 +192,7 @@ void Zombie::attack()
         call_rpc("play_one_shot_sound", static_cast<int64_t>(EntitySound::Attack));
 }
 
-void Zombie::set_movement_sound(int64_t state)
+void Zombie::set_movement_state(int64_t state)
 {
     m_movement_sound = static_cast<MovementSound>(state);
     if (m_movement_sound == MovementSound::Swimming)

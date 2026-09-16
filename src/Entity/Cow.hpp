@@ -23,8 +23,8 @@ public:
     void start() override;
     void tick(float delta) override;
     void on_ready() override;
-    void set_movement_sound(int64_t state) override;
-    int64_t get_movement_sound() const override { return static_cast<int64_t>(m_movement_sound); }
+    void set_movement_state(int64_t state) override;
+    int64_t get_movement_state() const override { return static_cast<int64_t>(m_movement_sound); }
 
 protected:
     void flee_from(int radius);

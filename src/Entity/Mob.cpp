@@ -13,6 +13,17 @@ void Mob::die()
     m_world->remove_entity(World::overworld, id());
 }
 
+void Mob::animate_movement(float delta_time, MovementSound movement_state)
+{
+    if (movement_state != MovementSound::None)
+    {
+        m_animator.play(movement_state == MovementSound::Swimming ? "swim" : "walk");
+        m_animator.tick(delta_time);
+    }
+    else
+        m_animator.stop();
+}
+
 void Mob::follow_path(float delta_time)
 {
     if (!m_following_path || !m_path || m_path.value().look_points.empty())

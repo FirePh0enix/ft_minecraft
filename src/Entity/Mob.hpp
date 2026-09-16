@@ -4,6 +4,7 @@
 #include "Entity/LivingEntity.hpp"
 #include "Entity/Pathfinding/Path.hpp"
 #include "Entity/Pathfinding/Pathfinding.hpp"
+#include "Model.hpp"
 #include <optional>
 
 /**
@@ -26,8 +27,11 @@ public:
     bool verify_if_path_still_valid();
     glm::ivec3 find_random_walkable_position(int radius, const glm::vec3& preferred_dir = glm::vec3(0.0f));
 
+    void animate_movement(float delta_time, MovementSound movement_state);
+
 protected:
     std::shared_ptr<ModelLegacy> m_model;
+    Animator m_animator;
     std::unique_ptr<Pathfinding> m_pathfinding;
     std::optional<Path> m_path;
 

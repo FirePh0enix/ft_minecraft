@@ -144,8 +144,8 @@ public:
 
     virtual void tick(float delta);
 
-    virtual void set_movement_sound(int64_t state) { (void)state; }
-    virtual int64_t get_movement_sound() const { return 0; }
+    virtual void set_movement_state(int64_t state) { (void)state; }
+    virtual int64_t get_movement_state() const { return 0; }
     virtual void play_one_shot_sound(int64_t sound) { (void)sound; }
 
     virtual void draw(const RenderPass& pass)

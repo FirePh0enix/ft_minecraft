@@ -167,8 +167,8 @@ void BetterConsole::gamemode(Player *player, const std::vector<std::string>& arg
 
 void Player::bind_methods()
 {
-    type.add_method("set_movement_sound", &Player::set_movement_sound);
-    expose_rpc<Player>("set_movement_sound", RpcTarget::Both);
+    type.add_method("set_movement_state", &Player::set_movement_state);
+    expose_rpc<Player>("set_movement_state", RpcTarget::Both);
 
     type.add_method("play_one_shot_sound", &Player::play_one_shot_sound);
     expose_rpc<Player>("play_one_shot_sound", RpcTarget::Both);
@@ -480,8 +480,6 @@ void Player::tick(float delta)
         get_transform().position() += m_velocity;
     }
 
-    bool has_moved = m_velocity.x != 0 || m_velocity.z != 0;
-
     // Add some head bobbing
     if (m_gamemode == GameMode::Survival && (m_velocity.x != 0.0 || m_velocity.z != 0.0))
     {
@@ -502,8 +500,8 @@ void Player::tick(float delta)
     }
     if (m_local_player && movement_sound != m_movement_sound)
     {
-        m_movement_sound = movement_sound;
-        call_rpc("set_movement_sound", static_cast<int64_t>(movement_sound));
+        set_movement_state(static_cast<int64_t>(movement_sound));
+        call_rpc("set_movement_state", static_cast<int64_t>(movement_sound));
     }
 
     // Reset velocity after movements.
@@ -515,15 +513,14 @@ void Player::tick(float delta)
     else
         m_velocity.y = 0.0;
 
-    if (!m_local_player && has_moved)
+    if (!m_local_player && m_movement_sound != MovementSound::None)
     {
-        m_animator.play("walk");
+        m_animator.play(m_movement_sound == MovementSound::Swimming ? "swim" : "walk");
         m_animator.tick(delta);
     }
     else if (!m_local_player)
     {
-        m_animator.play("idle");
-        m_animator.tick(delta);
+        m_animator.stop();
     }
 
     if (m_local_player)
@@ -560,7 +557,7 @@ void Player::tick(float delta)
     m_audio_source->set_position(get_global_transform().position());
 }
 
-void Player::set_movement_sound(int64_t state)
+void Player::set_movement_state(int64_t state)
 {
     m_movement_sound = static_cast<MovementSound>(state);
     if (m_movement_sound == MovementSound::Swimming)

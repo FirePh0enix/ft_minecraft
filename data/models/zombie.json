@@ -277,6 +277,31 @@
                     ]
                 }
             ]
+        },
+        {
+            "name": "swim",
+            "fps": 30,
+            "frames": 30,
+            "keyframes": [
+                {
+                    "frame": 0,
+                    "transforms": [
+                        { "object": "arm_left", "rotation": [-55.0, 0.0, 0.0] },
+                        { "object": "arm_right", "rotation": [55.0, 0.0, 0.0] },
+                        { "object": "leg_left", "rotation": [15.0, 0.0, 0.0] },
+                        { "object": "leg_right", "rotation": [-15.0, 0.0, 0.0] }
+                    ]
+                },
+                {
+                    "frame": 14,
+                    "transforms": [
+                        { "object": "arm_left", "rotation": [55.0, 0.0, 0.0] },
+                        { "object": "arm_right", "rotation": [-55.0, 0.0, 0.0] },
+                        { "object": "leg_left", "rotation": [-15.0, 0.0, 0.0] },
+                        { "object": "leg_right", "rotation": [15.0, 0.0, 0.0] }
+                    ]
+                }
+            ]
         }
     ]
 }

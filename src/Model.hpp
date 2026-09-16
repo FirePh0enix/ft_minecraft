@@ -91,6 +91,7 @@ class Animator
 public:
     void set_model(std::shared_ptr<ModelLegacy> model);
     void play(const std::string& animation);
+    void stop();
     void tick(float delta);
 
     struct TransformWithLength

@@ -9,7 +9,6 @@
 
 #include <SDL3/SDL.h>
 #include <nlohmann/json.hpp>
-#include <print>
 #include <stb_image.h>
 
 struct ModelObject
@@ -231,6 +230,25 @@ void Animator::play(const std::string& animation)
     m_animation_name = animation;
     m_time = 0.0;
     m_frame = 0;
+}
+
+void Animator::stop()
+{
+    if (!m_model || m_animation_name.empty())
+        return;
+
+    m_animation_name.clear();
+    m_time = 0.0f;
+    m_frame = 0;
+
+    // Restore the model's bind pose. Merely selecting a missing "idle"
+    // animation leaves the last animated frame in the GPU buffers.
+    for (ModelLegacy::Object& object : m_model->objects())
+    {
+        const glm::mat4 scale_m = glm::scale(glm::identity<glm::mat4>(), object.size);
+        const glm::mat4 translate_m = glm::translate(glm::identity<glm::mat4>(), object.position);
+        object.model_buffer->update_struct(ModelLegacy::Info{.model_matrix = translate_m * scale_m});
+    }
 }
 
 void Animator::tick(float delta)
