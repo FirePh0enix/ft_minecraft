@@ -1,11 +1,17 @@
 struct PostProcess {
     inverse_camera_proj: mat4x4f,
     camera_proj: mat4x4f, // Added: Required to project samples back to screen space
-    fog_color: vec4<f32>,
+    inv_view_proj: mat4x4f,
+    fog_color: vec4f,
     fog_distance: f32,
     near: f32,
     far: f32,
     underwater: u32,
+}
+
+struct WorldEnv {
+    light_view_projection: mat4x4f,
+    light_dir: vec3f, // Points TOWARDS the sun
 }
 
 struct SSAO {
@@ -14,16 +20,18 @@ struct SSAO {
 
 @group(0) @binding(0) var<uniform> uniforms: PostProcess;
 @group(0) @binding(1) var<uniform> ssao: SSAO;
+@group(0) @binding(2) var<uniform> world_env: WorldEnv;
 
-@group(0) @binding(2) var surface: texture_2d<f32>;
-@group(0) @binding(3) var surface_sampler: sampler;
+@group(0) @binding(3) var surface: texture_2d<f32>;
+@group(0) @binding(4) var surface_sampler: sampler;
 
-@group(0) @binding(4) var depth: texture_depth_2d;
-@group(0) @binding(5) var depth_sampler: sampler;
+@group(0) @binding(5) var depth: texture_depth_2d;
+@group(0) @binding(6) var depth_sampler: sampler;
 
 struct VertexOutput {
-    @builtin(position) position: vec4<f32>,
-    @location(0) uv: vec2<f32>,
+    @builtin(position) position: vec4f,
+    @location(0) uv: vec2f,
+    @location(1) clip_position: vec2f,
 }
 
 @vertex
@@ -31,8 +39,12 @@ fn vertex_main(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
     let u = f32((vertex_index << 1u) & 2u);
     let v = f32(vertex_index & 2u);
 
+    let x = -1.0 + f32((vertex_index & 1u) << 2u);
+    let y = -1.0 + f32((vertex_index & 2u) << 1u);
+
     var out: VertexOutput;
     out.uv = vec2f(u, 1.0 - v);
+    out.clip_position = vec2f(x, y);
     out.position = vec4f(u * 2.0 - 1.0, v * 2.0 - 1.0, 0.0, 1.0);
     return out;
 }
@@ -52,6 +64,48 @@ fn get_view_pos(uv: vec2f, raw_depth: f32) -> vec3f {
     let ndc = vec4f(uv.x * 2.0 - 1.0, (1.0 - uv.y) * 2.0 - 1.0, raw_depth, 1.0);
     let view_pos_clip = uniforms.inverse_camera_proj * ndc;
     return view_pos_clip.xyz / view_pos_clip.w;
+}
+
+fn get_fog_color(clip_position: vec2f) -> vec3f {
+    // 1. Calculate the view direction ray
+    let far_target = uniforms.inv_view_proj * vec4f(clip_position, 1.0, 1.0);
+    let ray_dir = normalize(far_target.xyz / far_target.w);
+
+    // 2. Define Time-of-Day Sky Profiles
+    // Midday Sky Colors
+    let day_horizon = vec3f(0.7, 0.85, 0.95);  // Light sky blue
+    let day_zenith  = vec3f(0.1, 0.4, 0.75);   // Deep clear blue
+    
+    // Sunset / Sunrise Sky Colors
+    let sunset_horizon = vec3f(0.95, 0.4, 0.15); // Vibrant orange/red
+    let sunset_zenith  = vec3f(0.15, 0.15, 0.35); // Dark purple/blue
+
+    // Night Sky Colors
+    let night_horizon = vec3f(0.02, 0.04, 0.1);  // Very dark blue
+    let night_zenith  = vec3f(0.005, 0.01, 0.03); // Near black
+
+    // 3. Calculate dynamic factor based on sun height (light_dir.y)
+    let sun_height = normalize(world_env.light_dir).y;
+    
+    // Smooth transitions between night, sunset, and full day
+    // sun_height > 0.0 means sun is above horizon
+    let day_factor = smoothstep(0.0, 0.3, sun_height); 
+    // sun_height < 0.0 means sun is below horizon
+    let night_factor = smoothstep(0.0, -0.2, sun_height);
+
+    // Interpolate horizon and zenith colors based on time of day
+    var active_horizon = mix(sunset_horizon, day_horizon, day_factor);
+    active_horizon = mix(active_horizon, night_horizon, night_factor);
+
+    var active_zenith = mix(sunset_zenith, day_zenith, day_factor);
+    active_zenith = mix(active_zenith, night_zenith, night_factor);
+
+    // 4. Base Sky Gradient
+    let h = max(ray_dir.y, 0.0);
+    let t = pow(h, 2.0);
+    var final_color = mix(active_horizon, active_zenith, t);
+
+    return final_color;
 }
 
 @fragment
@@ -76,36 +130,36 @@ fn fragment_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let radius = 0.5; // Tweak this value depending on your scene scale
     let bias = 0.025; // Tweak to prevent self-shadowing acne on flat surfaces
 
-    for (var i = 0u; i < 64u; i = i + 1u) {
-        // Get the precalculated tangent/view-space sample offset vector
-        var sample_offset = ssao.samples[i].xyz;
+    // for (var i = 0u; i < 64u; i = i + 1u) {
+    //     // Get the precalculated tangent/view-space sample offset vector
+    //     var sample_offset = ssao.samples[i].xyz;
         
-        // Flip the sample vector if it points against our estimated normal orientation
-        if (dot(sample_offset, normal) < 0.0) {
-            sample_offset = -sample_offset;
-        }
+    //     // Flip the sample vector if it points against our estimated normal orientation
+    //     if (dot(sample_offset, normal) < 0.0) {
+    //         sample_offset = -sample_offset;
+    //     }
         
-        // Calculate the sample point position in view space
-        let sample_pos = view_pos + sample_offset * radius;
+    //     // Calculate the sample point position in view space
+    //     let sample_pos = view_pos + sample_offset * radius;
         
-        // Project the sample point back to screen space UV coords
-        let offset_clip = uniforms.camera_proj * vec4f(sample_pos, 1.0);
-        var offset_ndc = offset_clip.xy / offset_clip.w;
-        // Transform NDC range [-1, 1] to UV range [0, 1]
-        let sample_uv = vec2f(offset_ndc.x * 0.5 + 0.5, 1.0 - (offset_ndc.y * 0.5 + 0.5));
+    //     // Project the sample point back to screen space UV coords
+    //     let offset_clip = uniforms.camera_proj * vec4f(sample_pos, 1.0);
+    //     var offset_ndc = offset_clip.xy / offset_clip.w;
+    //     // Transform NDC range [-1, 1] to UV range [0, 1]
+    //     let sample_uv = vec2f(offset_ndc.x * 0.5 + 0.5, 1.0 - (offset_ndc.y * 0.5 + 0.5));
         
-        // Sample the real geometry depth at this sample point's UV location
-        let sample_raw_depth = textureSample(depth, depth_sampler, sample_uv);
-        let sample_linear_depth = linearize_depth(sample_raw_depth);
+    //     // Sample the real geometry depth at this sample point's UV location
+    //     let sample_raw_depth = textureSample(depth, depth_sampler, sample_uv);
+    //     let sample_linear_depth = linearize_depth(sample_raw_depth);
         
-        // Apply range check to prevent far away background elements from causing occlusion artefacts
-        let range_check = smoothstep(0.0, 1.0, radius / abs(view_pos.z - sample_linear_depth));
+    //     // Apply range check to prevent far away background elements from causing occlusion artefacts
+    //     let range_check = smoothstep(0.0, 1.0, radius / abs(view_pos.z - sample_linear_depth));
         
-        // Accumulate occlusion if the sample point is behind the geometry surface depth
-        if (sample_linear_depth >= -sample_pos.z + bias) {
-            occlusion += 1.0 * range_check;
-        }
-    }
+    //     // Accumulate occlusion if the sample point is behind the geometry surface depth
+    //     if (sample_linear_depth >= -sample_pos.z + bias) {
+    //         occlusion += 1.0 * range_check;
+    //     }
+    // }
     
     // Normalize occlusion factor and invert it to get an intensity multiplier
     let ao_factor = 1.0 - (occlusion / 64.0);
@@ -117,7 +171,7 @@ fn fragment_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let linear_depth = linearize_depth(raw_depth);
     var fog_factor = simpleFog(linear_depth);
     
-    var final_color = mix(lit_color, uniforms.fog_color, fog_factor);
+    var final_color = mix(lit_color, vec4f(get_fog_color(in.clip_position), 1.0), fog_factor);
     
     if (uniforms.underwater == 1) {
         final_color = mix(final_color, vec4f(0.0, 0.0, 1.0, 1.0), 0.5);

@@ -1171,8 +1171,9 @@ std::expected<void, Error> Renderer::init(const Window& window, InitFlags flags)
     m_fw_pp_shader = TRY(Shader::load_from_path("data/shaders/fw/postprocess.wgsl"));
     m_fw_pp_shader->set_binding("uniforms", Binding::UniformBuffer(WGPUShaderStage_Fragment, 0, 0, BindingAccess::Read));
     m_fw_pp_shader->set_binding("ssao", Binding::UniformBuffer(WGPUShaderStage_Fragment, 0, 1, BindingAccess::Read));
-    m_fw_pp_shader->set_binding("albedo", Binding::Texture(WGPUShaderStage_Fragment, 0, 2, BindingAccess::Read, WGPUTextureViewDimension_2D));
-    m_fw_pp_shader->set_binding("depth", Binding::Texture(WGPUShaderStage_Fragment, 0, 4, BindingAccess::Read, WGPUTextureViewDimension_2D, WGPUTextureSampleType_Depth, WGPUSamplerBindingType_Filtering));
+    m_fw_pp_shader->set_binding("world_env", Binding::UniformBuffer(WGPUShaderStage_Fragment, 0, 2, BindingAccess::Read));
+    m_fw_pp_shader->set_binding("albedo", Binding::Texture(WGPUShaderStage_Fragment, 0, 3, BindingAccess::Read, WGPUTextureViewDimension_2D));
+    m_fw_pp_shader->set_binding("depth", Binding::Texture(WGPUShaderStage_Fragment, 0, 5, BindingAccess::Read, WGPUTextureViewDimension_2D, WGPUTextureSampleType_Depth, WGPUSamplerBindingType_Filtering));
     m_fw_pp_shader->create_bind_group_layout();
 
     m_portal_shader = TRY(Shader::load_from_path("data/shaders/portal.wgsl"));
@@ -1289,6 +1290,7 @@ std::expected<void, Error> Renderer::init(const Window& window, InitFlags flags)
     m_fw_pp_bg = BindGroup::create(m_fw_pp_shader);
     m_fw_pp_bg->set_param("uniforms", m_fw_pp_buffer);
     m_fw_pp_bg->set_param("ssao", m_ssao_uniform_buffer);
+    m_fw_pp_bg->set_param("world_env", m_fw_world_env);
 
     m_fw_water_texture = Engine::get().registry().create_texture("data/resourcepacks/core/assets/minecraft/textures/block/water_overlay.png");
 
@@ -1725,6 +1727,7 @@ void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::sha
         m_fw_pp.inverse_camera_proj = glm::inverse(m_fw_pp.camera_proj);
         m_fw_pp.near = active_camera->near_plane();
         m_fw_pp.far = active_camera->far_plane();
+        m_fw_pp.inv_proj_view = active_camera->get_actual_view_proj_matrix();
         m_fw_pp_buffer->update_struct(m_fw_pp);
     }
     const uint32_t stencil_mask = inside_portal ? 2 : 1;
@@ -2024,9 +2027,6 @@ void Renderer::set_fog(glm::vec4 color, float distance)
 
     m_fw_pp.fog_color = color;
     m_fw_pp.fog_distance = distance;
-
-    std::array<PostProcessUniforms, 1> u{m_fw_pp};
-    m_fw_pp_buffer->update(std::as_bytes(std::span(u)));
 }
 
 void Renderer::set_sky(glm::vec4 color)
@@ -2038,9 +2038,6 @@ void Renderer::set_sky(glm::vec4 color)
 void Renderer::set_underwater(bool v)
 {
     m_fw_pp.underwater = v;
-
-    std::array<PostProcessUniforms, 1> u{m_fw_pp};
-    m_fw_pp_buffer->update(std::as_bytes(std::span(u)));
 }
 
 std::span<const uint8_t> Renderer::get_missing_texture_data() const

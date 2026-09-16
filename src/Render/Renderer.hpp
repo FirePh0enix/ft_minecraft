@@ -423,6 +423,7 @@ struct GPU_ATTRIBUTE PostProcessUniforms
 {
     glm::mat4 inverse_camera_proj;
     glm::mat4 camera_proj;
+    glm::mat4 inv_proj_view;
     glm::vec4 fog_color;
     float fog_distance;
     float near;
