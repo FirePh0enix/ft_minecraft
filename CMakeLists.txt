@@ -388,3 +388,12 @@ if(TARGET_IS_LINUX)
 endif()
 
 # target_compile_definitions(${TARGET_NAME}_test PRIVATE DOCTEST_CONFIG_ENABLE=1)
+
+if(TARGET_IS_LINUX)
+    file(READ "/etc/issue" ETC_ISSUE)
+    string(REGEX MATCH "Ubuntu" DIST ${ETC_ISSUE})
+
+    if(DIST STREQUAL "Ubuntu")
+        target_link_libraries(atomic)
+    endif()
+endif()
