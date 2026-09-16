@@ -1824,8 +1824,6 @@ void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::sha
         if (cloud.buffer == nullptr)
             continue;
 
-        std::println("{}", Engine::get().time());
-
         glm::vec3 position(glm::dvec3(pos.x, 0.0f, pos.z) * 32.0 + glm::dvec3(0, 270.0, 0) - active_camera->get_global_transform().position() + glm::dvec3(Engine::get().time(), 0, 0));
         cloud.uniform.model = glm::translate(glm::identity<glm::mat4>(), position) *
                               glm::scale(glm::identity<glm::mat4>(), glm::vec3(32.0, 8.0, 32.0));

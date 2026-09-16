@@ -149,6 +149,9 @@ void GenScheduler::realize_chunk(std::stop_token token, ChunkPos pos, std::share
             BufferReader reader(tags_data.data(), tags_data.size());
             Dimension::read_tags(reader, chunk);
         }
+
+        for (size_t i = 0; i < 16 * 16; i++)
+            chunk->get_biomes()[i] = pregen_chunk->biomes[i];
     }
     else
     {

@@ -22,7 +22,9 @@ public:
 
     AudioClip& get_biome_music(Biome biome)
     {
-        return m_audio_clips.at(static_cast<size_t>(biome));
+        if (static_cast<uint16_t>(biome) >= static_cast<uint16_t>(Biome::Max))
+            error("invalid biome value {}", (uint16_t)biome);
+        return m_audio_clips.at(static_cast<uint16_t>(biome) % static_cast<uint16_t>(Biome::Max));
     }
 
 private:

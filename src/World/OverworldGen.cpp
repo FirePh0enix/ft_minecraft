@@ -208,6 +208,7 @@ void OverworldGen::generate_chunk(std::shared_ptr<Chunk> chunk, std::shared_ptr<
                 surface = BlockState(Blocks::sand);
                 break;
             case Biome::Underworld: // unused in overworld
+            case Biome::Max:
                 break;
             }
 
