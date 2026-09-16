@@ -63,7 +63,7 @@ const palette: array<vec4<f32>, 1> = array(
 @fragment
 fn fragment_main(in: VertexOutput) -> @location(0) vec4<f32> {
     var color = textureSample(image, image_sampler, in.uv);
-    if (color.a < 1.0) {
+    if (color.a == 0.0) {
         discard;
     }
     if (in.tint_uv.x >= 0.0 && in.tint_uv.x >= 0.0) {

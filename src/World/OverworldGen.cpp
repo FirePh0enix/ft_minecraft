@@ -123,6 +123,8 @@ void OverworldGen::preload(int64_t cx, int64_t cz, std::shared_ptr<PreLoadedChun
             int64_t gx = x + cx * 16;
             int64_t gz = z + cz * 16;
 
+            float temperature = m_noise.sample(glm::vec2((float)gx, (float)gz) / 2128.0f + glm::vec2(22.01f, 123.0f)) / 2.0f + 0.5f;
+
             float continent_s0 = m_noise.sample(glm::vec2((float)gx, (float)gz) / 4000.0f) / 2.0f + 0.5f;
             float continent = (float)m_continent_spline(continent_s0);
 
@@ -138,13 +140,48 @@ void OverworldGen::preload(int64_t cx, int64_t cz, std::shared_ptr<PreLoadedChun
 
             float forest_mask = m_noise.sample(glm::vec2((float)gx, (float)gz) / 900.0f) / 2.0f + 0.5f;
 
+            BiomeTemperature temp = BiomeTemperature::Temperate;
+            if (temperature <= 0.333)
+                temp = BiomeTemperature::Cold;
+            else if (temperature >= 0.333)
+                temp = BiomeTemperature::Hot;
+
             Biome biome = Biome::Plain;
-            if (mountain * mountain_mask > 52.0)
-                biome = Biome::Mountain;
-            else if (continent_s0 < 0.62f)
-                biome = Biome::Beach;
-            else if (forest_mask > 0.2)
-                biome = Biome::Forest;
+            if (temp == BiomeTemperature::Temperate)
+            {
+                if (mountain * mountain_mask > 52.0)
+                    biome = Biome::Mountain;
+                else if (continent_s0 < 0.57f)
+                    biome = Biome::Ocean;
+                else if (continent_s0 < 0.62f)
+                    biome = Biome::Beach;
+                else if (forest_mask > 0.2)
+                    biome = Biome::Forest;
+            }
+            else if (temp == BiomeTemperature::Cold)
+            {
+                biome = Biome::ColdPlain;
+                if (mountain * mountain_mask > 52.0)
+                    biome = Biome::FrozenMountain;
+                else if (continent_s0 < 0.57f)
+                    biome = Biome::FrozenOcean;
+                else if (continent_s0 < 0.62f)
+                    biome = Biome::ColdPlain;
+                else if (forest_mask > 0.2)
+                    biome = Biome::ColdForest;
+            }
+            else if (temp == BiomeTemperature::Hot)
+            {
+                biome = Biome::Desert;
+                if (mountain * mountain_mask > 52.0)
+                    biome = Biome::Mountain; // TODO: do something else ?
+                else if (continent_s0 < 0.57f)
+                    biome = Biome::Ocean;
+                else if (continent_s0 < 0.62f)
+                    biome = Biome::Beach;
+                else if (forest_mask > 0.2)
+                    biome = Biome::Desert;
+            }
 
             float elevation = float(m_settings.ocean_floor);
             elevation += continent * (ocean_amplitude);
@@ -197,6 +234,12 @@ void OverworldGen::generate_chunk(std::shared_ptr<Chunk> chunk, std::shared_ptr<
                 ground = BlockState(Blocks::dirt);
                 surface = BlockState(Blocks::grass_block);
                 break;
+            case Biome::ColdForest:
+            case Biome::ColdPlain:
+                ground = BlockState(Blocks::grass_block);
+                surface = BlockState(Blocks::snow_block);
+                break;
+            case Biome::FrozenMountain: // TODO: do something more interesting
             case Biome::Mountain:
                 ground = BlockState(Blocks::stone);
                 surface = BlockState(Blocks::stone);
@@ -204,6 +247,7 @@ void OverworldGen::generate_chunk(std::shared_ptr<Chunk> chunk, std::shared_ptr<
             case Biome::Desert:
             case Biome::Beach:
             case Biome::Ocean:
+            case Biome::FrozenOcean:
                 ground = BlockState(Blocks::sand);
                 surface = BlockState(Blocks::sand);
                 break;
@@ -217,12 +261,21 @@ void OverworldGen::generate_chunk(std::shared_ptr<Chunk> chunk, std::shared_ptr<
             blocks[x + (y++) * 16 + z * 16 * 256] = surface;
 
             // Add snow on top of mountains
-            if (height > 160 && biome == Biome::Mountain)
+            if (height > 160 && (biome == Biome::Mountain || biome == Biome::FrozenMountain))
                 blocks[x + (y - 1) * 16 + z * 16 * 256] = BlockState(Blocks::snow_block);
 
             // Fill oceans
-            for (; y < m_settings.ocean_level; y++)
-                chunk->set_tag({x, y, z}, "water", (int64_t)0, true);
+            if (biome == Biome::FrozenOcean)
+            {
+                for (; y < m_settings.ocean_level - 1; y++)
+                    chunk->set_tag({x, y, z}, "water", (int64_t)0, true);
+                chunk->set_block(x, y, z, BlockState(Blocks::ice));
+            }
+            else
+            {
+                for (; y < m_settings.ocean_level; y++)
+                    chunk->set_tag({x, y, z}, "water", (int64_t)0, true);
+            }
 
             for (int64_t y = 0; y < height; y++)
             {

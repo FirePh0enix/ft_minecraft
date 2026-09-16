@@ -24,7 +24,7 @@ public:
     {
         if (static_cast<uint16_t>(biome) >= static_cast<uint16_t>(Biome::Max))
             error("invalid biome value {}", (uint16_t)biome);
-        return m_audio_clips.at(static_cast<uint16_t>(biome) % static_cast<uint16_t>(Biome::Max));
+        return static_cast<uint16_t>(biome) >= 7 ? m_audio_clips.at(0) : m_audio_clips.at(static_cast<uint16_t>(biome));
     }
 
 private:
