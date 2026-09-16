@@ -28,3 +28,9 @@ struct Extent2D
 
 // Only way to force function inlining.
 #define ALWAYS_INLINE inline __attribute__((always_inline))
+
+#ifdef __platform_windows
+typedef const wchar_t *cstring_t;
+#else
+typedef const char *cstring_t;
+#endif

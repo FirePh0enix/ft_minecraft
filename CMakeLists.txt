@@ -193,7 +193,7 @@ if(TARGET_IS_LINUX OR TARGET_IS_MACOS OR TARGET_IS_WINDOWS)
         set(WGPU_ARCH "aarch64")
     elseif(TARGET_IS_WINDOWS)
         set(WGPU_PLATFORM "windows")
-        set(WGPU_ARCH "x86_64")
+        set(WGPU_ARCH "x86_64-gnu")
     endif()
 
     set(WGPU_BUILD "release")
@@ -407,3 +407,12 @@ if(TARGET_IS_LINUX)
 endif()
 
 # target_compile_definitions(${TARGET_NAME}_test PRIVATE DOCTEST_CONFIG_ENABLE=1)
+
+if(TARGET_IS_LINUX)
+    file(READ "/etc/issue" ETC_ISSUE)
+    string(REGEX MATCH "Ubuntu" DIST ${ETC_ISSUE})
+
+    if(DIST STREQUAL "Ubuntu")
+        target_link_libraries(${TARGET_NAME} PRIVATE atomic)
+    endif()
+endif()

@@ -9,6 +9,10 @@
 #include <mach-o/dyld.h>
 #endif
 
+#ifdef __platform_windows
+#include <windows.h>
+#endif
+
 File::File()
     : m_size(0), m_fd(-1)
 {
@@ -19,7 +23,9 @@ std::filesystem::path Filesystem::current_executable_path()
 #ifdef __platform_linux
     return std::filesystem::canonical("/proc/self/exe");
 #elif defined(__platform_windows)
-    return GetModuleFileName(nullptr);
+    char buffer[MAX_PATH];
+    GetModuleFileName(nullptr, buffer, MAX_PATH);
+    return std::filesystem::path(buffer);
 #elif defined(__platform_macos)
 
     char buf[PATH_MAX];
