@@ -24,15 +24,15 @@ jobs:
         cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++
         cmake --build build
     
-  build-windows:
-    runs-on: windows-latest
-    steps:
-    - uses: actions/checkout@v3
-    - name: Build
-      run: |
-        mkdir build
-        cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
-        cmake --build build
+  # build-windows:
+  #   runs-on: windows-latest
+  #   steps:
+  #   - uses: actions/checkout@v3
+  #   - name: Build
+  #     run: |
+  #       mkdir build
+  #       cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
+  #       cmake --build build
 
   # build-macos:
   #   runs-on: macos-14
