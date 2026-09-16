@@ -94,6 +94,7 @@ private:
     ThreadPool m_thread_pool;
     ThreadPool m_mesh_thread_pool;
 
+    struct timespec m_time_at_sart{};
     bool m_time_pass = true;
     int64_t m_tick_scale = 15;
     int64_t m_ticks_since_start_of_day = 0;

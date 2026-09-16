@@ -1463,57 +1463,44 @@ std::expected<Cloud, Error> Renderer::create_cloud()
     return cloud;
 }
 
-bool Renderer::has_cloud(int64_t x, int64_t z)
-{
-    return m_clouds_set.contains(ChunkPos(x, z));
-}
-
 void Renderer::update_clouds(std::shared_ptr<Camera> camera)
 {
     ZoneScoped;
 
-    // FIXME
+    const glm::dvec3 camera_position = camera->get_global_transform().position();
 
-    // const glm::dvec3 camera_position = camera->get_global_transform().position();
-    // double time = Engine::get().time() * 1.0f;
+    int64_t cx = int64_t(camera_position.x / 32.0);
+    int64_t cz = int64_t(camera_position.z / 32.0);
 
-    // for (size_t i = 0; i < m_clouds.size(); i++)
-    // {
-    //     double distance = glm::distance2(glm::dvec2(camera_position.x, camera_position.z), glm::dvec2(double(m_clouds[i].grid_x) * 32.0, double(m_clouds[i].grid_z) * 32.0));
-    //     if (distance > 16.0 * 32.0)
-    //     {
-    //         const Cloud& cloud = m_clouds[i];
-    //         m_clouds.erase(m_clouds.begin() + (ssize_t)i);
-    //         m_clouds_set.erase(ChunkPos(cloud.grid_x, cloud.grid_z));
-    //         if (i > 0)
-    //             i -= 1;
-    //         i--;
-    //     }
-    // }
+    for (int64_t x = cx - 32; x < cx + 32; x++)
+        for (int64_t z = cz - 32; z < cz + 32; z++)
+        {
+            if (m_clouds.contains(ChunkPos(x, z)))
+                continue;
 
-    // int64_t cx = int64_t(camera_position.x / 32.0);
-    // int64_t cz = int64_t(camera_position.z / 32.0);
-
-    // for (int64_t x = cx - 8; x < cx + 8; x++)
-    //     for (int64_t z = cz - 8; z < cz + 8; z++)
-    //     {
-    //         if (has_cloud(x, z))
-    //             continue;
-
-    //         double density = m_clouds_noise.sample(glm::dvec2(x, z)) / 2.0 + 0.5;
-    //         if (density > 0.7)
-    //         {
-    //             Cloud cloud = EXPECT(create_cloud());
-    //             cloud.uniform.model = glm::translate(glm::identity<glm::dmat4>(), glm::dvec3(x, 0.0f, z) * 32.0 + glm::dvec3(0, 270.0, 0) - camera_position + glm::dvec3(time * 0.001, 0, 0)) *
-    //                                   glm::scale(glm::identity<glm::dmat4>(), glm::dvec3(32.0, 4.0, 32.0));
-
-    //             cloud.buffer->update_struct(cloud.uniform);
-    //             cloud.grid_x = x;
-    //             cloud.grid_z = z;
-    //             m_clouds.push_back(cloud);
-    //             m_clouds_set.insert(ChunkPos(x, z));
-    //         }
-    //     }
+            double density = m_clouds_noise.sample(glm::dvec2(x, z)) / 2.0 + 0.5;
+            if (density > 0.7)
+            {
+                Cloud cloud = EXPECT(create_cloud());
+                cloud.grid_x = x;
+                cloud.grid_z = z;
+                m_clouds[ChunkPos(x, z)] = cloud;
+            }
+            else
+            {
+                m_clouds[ChunkPos(x, z)].buffer = nullptr;
+            }
+        }
+    std::vector<ChunkPos> clouds_to_remove;
+    for (const auto& [pos, cloud] : m_clouds)
+    {
+        if (std::abs(pos.x - cx) > 32 || std::abs(pos.z - cz) > 32)
+        {
+            clouds_to_remove.push_back(pos);
+        }
+    }
+    for (ChunkPos pos : clouds_to_remove)
+        m_clouds.erase(pos);
 }
 
 struct LightMatrices
@@ -1832,8 +1819,20 @@ void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::sha
             entity->draw(color_pass_info);
     }
 
-    for (size_t i = 0; i < m_clouds.size(); i++)
-        draw(color_pass_info, m_cube_mesh, m_fw_colored_mat, m_clouds[i].bg);
+    for (auto& [pos, cloud] : m_clouds)
+    {
+        if (cloud.buffer == nullptr)
+            continue;
+
+        std::println("{}", Engine::get().time());
+
+        glm::vec3 position(glm::dvec3(pos.x, 0.0f, pos.z) * 32.0 + glm::dvec3(0, 270.0, 0) - active_camera->get_global_transform().position() + glm::dvec3(Engine::get().time(), 0, 0));
+        cloud.uniform.model = glm::translate(glm::identity<glm::mat4>(), position) *
+                              glm::scale(glm::identity<glm::mat4>(), glm::vec3(32.0, 8.0, 32.0));
+        cloud.buffer->update_struct(cloud.uniform);
+
+        draw(color_pass_info, m_cube_mesh, m_fw_colored_mat, cloud.bg);
+    }
 
     {
         ZoneScopedN("debug draw");

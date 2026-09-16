@@ -48,6 +48,8 @@ Engine::Engine(bool disable_save)
     EXPECT(Font::init_library());
     m_font = EXPECT(Font::create("data/fonts/Anonymous.ttf", 64));
 
+    clock_gettime(CLOCK_MONOTONIC, &m_time_at_sart);
+
     // Detect available saves
     for (auto iter : std::filesystem::directory_iterator(Filesystem::get_data_directory() + "saves/"))
         m_saves.push_back(iter.path().filename().string());
@@ -233,7 +235,7 @@ double Engine::time()
 {
     struct timespec tp{};
     clock_gettime(CLOCK_MONOTONIC, &tp);
-    return (double)(tp.tv_nsec + tp.tv_sec * 1000000000) / 1000000000.0;
+    return (double)(tp.tv_nsec + (tp.tv_sec - m_time_at_sart.tv_sec) * 1000000000) / 1000000000.0;
 }
 
 void Engine::go_to_main_menu()

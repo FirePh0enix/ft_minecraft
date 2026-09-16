@@ -608,9 +608,11 @@ private:
     std::shared_ptr<BindGroup> m_sky_bg;
 
     // Clouds
-    std::vector<Cloud> m_clouds;
+    // std::vector<Cloud> m_clouds;
     SimplexNoise m_clouds_noise;
-    std::set<ChunkPos> m_clouds_set;
+    // std::set<ChunkPos> m_clouds_set;
+
+    std::map<ChunkPos, Cloud> m_clouds;
 
     // Post processing
     std::shared_ptr<Shader> m_fw_pp_shader;
@@ -645,5 +647,4 @@ private:
 
     void update_clouds(std::shared_ptr<Camera> camera);
     std::expected<Cloud, Error> create_cloud();
-    bool has_cloud(int64_t x, int64_t z);
 };
