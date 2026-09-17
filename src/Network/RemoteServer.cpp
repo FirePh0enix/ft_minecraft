@@ -138,6 +138,10 @@ void RemoteServer::queue_receive_chunk(const ChunkDataPacket& p)
                                            { receive_chunk(p, chunk, token); });
 }
 
+void RemoteServer::spawn_player()
+{
+}
+
 void RemoteServer::update_player_list()
 {
     ZoneScoped;

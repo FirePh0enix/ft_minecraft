@@ -17,6 +17,8 @@ public:
 
     virtual void route_packet(ENetPacket *packet) override;
 
+    virtual void spawn_player() override;
+
     void receive_chunk(const ChunkDataPacket& p, std::shared_ptr<Chunk> chunk, std::stop_token);
     void queue_receive_chunk(const ChunkDataPacket& p);
 

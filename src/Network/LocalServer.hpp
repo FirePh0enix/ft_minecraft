@@ -28,6 +28,8 @@ public:
     virtual float get_generation_progression() override;
     virtual bool has_generation_started() override;
 
+    virtual void spawn_player() override;
+
     void host();
 
     void send_chunk(ENetPeer *peer, std::shared_ptr<Chunk> chunk);

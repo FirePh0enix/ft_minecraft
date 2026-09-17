@@ -161,7 +161,7 @@ void GenScheduler::unload_chunk(std::stop_token token, std::shared_ptr<Chunk> ch
 {
     if (token.stop_requested())
         return;
-    if (!Engine::get().is_save_disabled())
+    if (!Engine::get().is_save_disabled() && chunk->is_modified())
     {
         std::expected<void, Error> result = m_dimension.m_world->save_chunk({}, chunk, m_dimension.m_id);
         (void)result;

@@ -28,6 +28,10 @@ public:
         return false;
     }
 
+    virtual void spawn_player()
+    {
+    }
+
     std::shared_ptr<World> get_world() const { return m_world; }
     std::shared_ptr<Player> get_player() const { return m_player; }
 

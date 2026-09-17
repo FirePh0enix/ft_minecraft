@@ -123,7 +123,7 @@ void OverworldGen::preload(int64_t cx, int64_t cz, std::shared_ptr<PreLoadedChun
             int64_t gx = x + cx * 16;
             int64_t gz = z + cz * 16;
 
-            float temperature = m_noise.sample(glm::vec2((float)gx, (float)gz) / 2128.0f + glm::vec2(22.01f, 123.0f)) / 2.0f + 0.5f;
+            float temperature = m_noise.sample(glm::vec2((float)gx, (float)gz) / 1128.0f + glm::vec2(22.01f, 123.0f)) / 2.0f + 0.5f;
 
             float continent_s0 = m_noise.sample(glm::vec2((float)gx, (float)gz) / 4000.0f) / 2.0f + 0.5f;
             float continent = (float)m_continent_spline(continent_s0);
@@ -132,7 +132,7 @@ void OverworldGen::preload(int64_t cx, int64_t cz, std::shared_ptr<PreLoadedChun
             float mountain_s0 = mountain_s0_raw / 2.0f + 0.5f;
             float mountain_s1 = m_noise.sample(glm::vec2((float)gx, (float)gz) / 80.0f) / 2.0f + 0.5f;
             float mountain_s2 = m_noise.sample(glm::vec2((float)gx, (float)gz) / 30.0f) / 2.0f + 0.5f;
-            float mountain = mountain_s0 * 100.0f + mountain_s1 * 20.0f + mountain_s2 * 5.0f;
+            float mountain = mountain_s0 * 80.0f + mountain_s1 * 15.0f + mountain_s2 * 3.0f;
 
             float lakes_s0 = m_noise.sample(glm::vec2((float)gx, (float)gz) / 700.0f) / 2.0f + 0.5f;
 
@@ -184,9 +184,9 @@ void OverworldGen::preload(int64_t cx, int64_t cz, std::shared_ptr<PreLoadedChun
             }
 
             float elevation = float(m_settings.ocean_floor);
-            elevation += continent * (ocean_amplitude);
+            elevation += std::max(continent * ocean_amplitude, 5.0f);
             elevation += mountain_mask * mountain_mask * continent * mountain;
-            elevation -= lakes_s0 * 15.0f;
+            elevation -= lakes_s0 * continent * 15.0f;
 
             int64_t height = int64_t(elevation);
             height = std::min(height, (int64_t)255l);
@@ -269,7 +269,22 @@ void OverworldGen::generate_chunk(std::shared_ptr<Chunk> chunk, std::shared_ptr<
             {
                 for (; y < m_settings.ocean_level - 1; y++)
                     chunk->set_tag({x, y, z}, "water", (int64_t)0, true);
-                blocks[x + y * 16 + z * 16 * 256] = BlockState(Blocks::ice);
+
+                if (y == m_settings.ocean_level - 1)
+                    blocks[x + y * 16 + z * 16 * 256] = BlockState(Blocks::ice);
+
+                float iceberg = m_noise.sample(glm::vec2((float)gx, (float)gz) / 24.0f) / 2.0f + 0.5f;
+
+                if (std::abs(iceberg) >= 0.8f && y == m_settings.ocean_level - 1)
+                {
+                    int64_t iceberg_height = int64_t((iceberg - 0.8f) / 0.2f * 11.0f);
+
+                    for (int64_t i = -iceberg_height; i < iceberg_height; i++)
+                    {
+                        blocks[x + (y + i) * 16 + z * 16 * 256] = BlockState(Blocks::ice);
+                        chunk->remove_tag({x, y, z}, "water");
+                    }
+                }
             }
             else
             {
@@ -277,6 +292,7 @@ void OverworldGen::generate_chunk(std::shared_ptr<Chunk> chunk, std::shared_ptr<
                     chunk->set_tag({x, y, z}, "water", (int64_t)0, true);
             }
 
+            // Caves
             for (int64_t y = 0; y < height; y++)
             {
                 float top_noise = m_noise.sample(glm::vec3(gx, y, gz) * glm::vec3(0.007)) * 0.5f + 0.5f;
@@ -298,7 +314,7 @@ void OverworldGen::generate_chunk(std::shared_ptr<Chunk> chunk, std::shared_ptr<
             }
 
             const float river = std::abs(mountain);
-            if (river < 0.04)
+            if (river < 0.04 && (biome != Biome::Ocean && biome != Biome::FrozenOcean))
             {
                 int64_t river_depth = 5 - int64_t(river / 0.04 * 5.0);
                 for (int64_t i = 0; i < river_depth; i++)
@@ -308,10 +324,22 @@ void OverworldGen::generate_chunk(std::shared_ptr<Chunk> chunk, std::shared_ptr<
                 }
             }
 
-            bool vegetation = (m_noise.sample(glm::vec2((float)gx, (float)gz) / 10.0f) / 2.0f + 0.5f) > 0.8f;
-            if (vegetation && (biome == Biome::Plain || biome == Biome::Forest) && !blocks[x + (y - 1) * 16 + z * 16 * 256].is_air() && !chunk->get_tag({x, y - 1, z}, "water").has_value())
+            if ((biome == Biome::Plain || biome == Biome::Forest) && !blocks[x + (y - 1) * 16 + z * 16 * 256].is_air() && !chunk->get_tag({x, y - 1, z}, "water").has_value())
             {
-                blocks[x + y * 16 + z * 16 * 256] = BlockState(Blocks::grass);
+                bool vegetation = (m_noise.sample(glm::vec2((float)gx, (float)gz) / 10.0f) / 2.0f + 0.5f) > 0.8f;
+                if (vegetation)
+                    blocks[x + y * 16 + z * 16 * 256] = BlockState(Blocks::grass);
+            }
+            if (biome == Biome::Desert && !blocks[x + (y - 1) * 16 + z * 16 * 256].is_air() && !chunk->get_tag({x, y - 1, z}, "water").has_value())
+            {
+                const float cactus_treshold = 0.982f;
+                float cactus_f = m_noise.sample(glm::vec2((float)gx, (float)gz)) / 2.0f + 0.5f;
+                if (cactus_f >= cactus_treshold)
+                {
+                    // size_t size = size_t((cactus_f - cactus_treshold) / (1.0f - cactus_treshold) * 2) + 1;
+                    for (size_t i = 0; i < 2; i++)
+                        blocks[x + (y + i) * 16 + z * 16 * 256] = BlockState(Blocks::cactus);
+                }
             }
 
             // Place a few layer of unbreakable "bedrock" at the bottom of the map.

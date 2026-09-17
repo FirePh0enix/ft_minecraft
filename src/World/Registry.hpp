@@ -93,6 +93,7 @@ constexpr Id<Block> oak_log("oak_log");
 constexpr Id<Block> oak_leaves("oak_leaves");
 
 constexpr Id<Block> grass("grass");
+constexpr Id<Block> cactus("cactus");
 
 constexpr Id<Block> crafting_table("crafting_table");
 // constexpr Id<Block> portal("portal");
@@ -104,8 +105,6 @@ namespace Items
 constexpr Id<Item> stone("stone");
 constexpr Id<Item> dirt("dirt");
 constexpr Id<Item> sand("sand");
-constexpr Id<Item> oak_log("log");
-constexpr Id<Item> oak_leaves("leaves");
 constexpr Id<Item> grass_block("grass_block");
 constexpr Id<Item> snow("snow");
 constexpr Id<Item> bedrock("bedrock");
@@ -113,7 +112,11 @@ constexpr Id<Item> ice("ice");
 
 constexpr Id<Item> coal_ore("coal_ore");
 
+constexpr Id<Item> oak_log("oak_log");
+constexpr Id<Item> oak_leaves("oak_leaves");
+
 constexpr Id<Item> grass("grass");
+constexpr Id<Item> cactus("cactus");
 
 constexpr Id<Item> crafting_table_block("crafting_table");
 // constexpr Id<Item> portal_block("portal");

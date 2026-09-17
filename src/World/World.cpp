@@ -91,21 +91,56 @@ World::World(AudioMixer& audio) : m_dims{Dimension(0), Dimension(1)}, m_audio(au
 
 void World::find_safe_spawn()
 {
-    // int64_t x = 0;
-    // int64_t z = 0;
+    const int64_t size = 4;
 
-    // for (int64_t y = Chunk::height - 1; y > 0; y--)
-    // {
-    //     int64_t cx = local_coords(x);
-    //     int64_t cz = local_coords(z);
-    //     std::shared_ptr<Chunk> chunk = std::make_shared<Chunk>(&m_dims[0], chunk_index(x), chunk_index(z));
+    std::random_device dev;
+    std::mt19937 rng(dev());
+    rng.seed(m_seed);
+    std::uniform_int_distribution<std::mt19937::result_type> dist(0, size * 2 * 16);
 
-    //     if (!state.is_air() || chunk->get_tag(glm::i64vec3(cx, y, cz), "water").has_value())
-    //     {
-    //         m_spawn_position = glm::vec3(x, y, z) + glm::vec3(0, 2.6, 0);
-    //         return;
-    //     }
-    // }
+    for (size_t i = 0; i < 32; i++)
+    {
+        int64_t x = int64_t(dist(rng)) - size * 16;
+        int64_t z = int64_t(dist(rng)) - size * 16;
+
+        std::shared_ptr<Chunk> chunk = get_chunk(chunk_index(x), chunk_index(z)).value_or(nullptr);
+        if (chunk == nullptr)
+            continue;
+
+        int64_t lx = local_coords(x);
+        int64_t lz = local_coords(z);
+
+        for (int64_t y = Chunk::height - 3; y > 0; y--)
+        {
+            BlockState state0 = chunk->m_blocks[lx + y * 16 + lz * 16 * 256];
+            BlockState state1 = chunk->m_blocks[lx + (y + 1) * 16 + lz * 16 * 256];
+            BlockState state2 = chunk->m_blocks[lx + (y + 2) * 16 + lz * 16 * 256];
+
+            if (!state0.is_air() && (state1.is_air() && !chunk->get_tag(lx + (y + 1) * 16 + lz * 16 * 256, "water").has_value()) && (state2.is_air() && !chunk->get_tag(lx + (y + 2) * 16 + lz * 16 * 256, "water").has_value()))
+            {
+                m_spawn_position = glm::dvec3(x, y, z) + glm::dvec3(0, 1.5, 0);
+
+                if (!Engine::get().is_save_disabled())
+                {
+                    std::string path = std::format("{}saves/{}/", Filesystem::get_data_directory(), m_name);
+                    EXPECT(Filesystem::make_dirs(path));
+                    path.append("info.dat");
+                    File file = EXPECT(Filesystem::open_file(path, true));
+
+                    WorldSaveInfo wi{};
+                    wi.seed = m_seed;
+                    wi.type = WorldPresetType(0);
+                    wi.spawn_position = get_spawn_position();
+                    EXPECT(file.writer().write_raw(&wi, sizeof(WorldSaveInfo)));
+                    file.close();
+                }
+
+                return;
+            }
+            else if (chunk->get_tag(lx + y * 16 + lz * 16 * 256, "water").has_value())
+                break;
+        }
+    }
 }
 
 std::expected<std::shared_ptr<World>, Error> World::create(std::string name, uint64_t seed, int type, AudioMixer& audio)
@@ -119,8 +154,6 @@ std::expected<std::shared_ptr<World>, Error> World::create(std::string name, uin
 
     world->m_mob_spawner = std::make_unique<MobSpawner>(*world, overworld);
 
-    // world->find_safe_spawn();
-
     if (!Engine::get().is_save_disabled())
     {
         std::string path = std::format("{}saves/{}/", Filesystem::get_data_directory(), name);
@@ -131,7 +164,7 @@ std::expected<std::shared_ptr<World>, Error> World::create(std::string name, uin
         WorldSaveInfo wi{};
         wi.seed = seed;
         wi.type = WorldPresetType(type);
-        wi.spawn_position = glm::vec3(0, 80, 0); // world->get_spawn_position();
+        wi.spawn_position = world->get_spawn_position();
         TRY(file.writer().write_raw(&wi, sizeof(WorldSaveInfo)));
         file.close();
     }
@@ -256,10 +289,11 @@ void World::tick_dimension(float delta, int dimension)
         }
     }
 
-    std::shared_ptr<Camera> camera = m_player->get_camera();
-
+    if (m_player != nullptr)
     {
         ZoneScopedN("calc visible chunks");
+
+        std::shared_ptr<Camera> camera = m_player->get_camera();
 
         m_dims[dimension].m_visible_chunks.clear();
         for (const auto& [key, chunk] : m_dims[dimension].m_chunks)

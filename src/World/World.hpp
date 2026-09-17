@@ -192,6 +192,8 @@ public:
 
     AudioMixer& audio() { return m_audio; }
 
+    void find_safe_spawn();
+
 private:
     uint64_t m_seed = 0;
     std::string m_name;
@@ -204,8 +206,6 @@ private:
     glm::dvec3 m_spawn_position = glm::vec3();
 
     DebugDisplay m_debug_display;
-
-    void find_safe_spawn();
 
     AudioMixer& m_audio;
 

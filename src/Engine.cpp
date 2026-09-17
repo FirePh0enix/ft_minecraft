@@ -330,6 +330,8 @@ void Engine::world_load_gui()
 
     if (m_server->get_generation_progression() == 1.0 && m_server->has_generation_started())
     {
+        m_server->get_world()->find_safe_spawn();
+        m_server->spawn_player();
         m_menu = nullptr;
     }
 }

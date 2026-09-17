@@ -48,6 +48,7 @@ void GameRegistry::register_all()
     register_block(Blocks::oak_log);
 
     register_block(Blocks::grass, false);
+    register_block(Blocks::cactus, true, false);
 
     register_block(Blocks::crafting_table, std::make_shared<CraftingTableBlock>());
     // add_block(Blocks::portal, std::make_shared<PortalBlock>());
@@ -67,6 +68,7 @@ void GameRegistry::register_all()
     add_item(Items::oak_leaves, std::make_shared<ItemBlock>(Blocks::oak_leaves));
 
     add_item(Items::grass, std::make_shared<ItemBlock>(Blocks::grass));
+    add_item(Items::cactus, std::make_shared<ItemBlock>(Blocks::cactus));
 
     add_item(Items::crafting_table_block, std::make_shared<ItemBlock>(Blocks::crafting_table));
     // add_item(Items::portal_block, std::make_shared<ItemBlock>(Blocks::portal));

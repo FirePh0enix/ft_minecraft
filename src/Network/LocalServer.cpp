@@ -37,10 +37,10 @@ void LocalServer::start()
     m_schedulers[World::overworld] = std::make_shared<GenScheduler>(m_world->get_dimension(World::overworld), std::make_shared<OverworldGen>(m_world_settings));
     m_schedulers[World::underworld] = std::make_shared<GenScheduler>(m_world->get_dimension(World::underworld), std::make_shared<UnderworldGen>(m_world_settings));
 
-    m_player = std::make_shared<Player>();
-    m_player->set_username(m_username);
-    m_world->add_entity(World::overworld, m_player);
-    m_world->set_player(m_player);
+    // m_player = std::make_shared<Player>();
+    // m_player->set_username(m_username);
+    // m_world->add_entity(World::overworld, m_player);
+    // m_world->set_player(m_player);
 
     if (m_online)
     {
@@ -56,7 +56,7 @@ void LocalServer::tick()
 
     m_connection.tick();
 
-    glm::dvec3 position = m_player->get_global_transform().position();
+    glm::dvec3 position = m_player != nullptr ? m_player->get_global_transform().position() : glm::dvec3();
 
     std::vector<BlockPos> origins;
     origins.push_back(BlockPos((int64_t)position.x, (int64_t)position.y, (int64_t)position.z));
@@ -69,7 +69,7 @@ void LocalServer::tick()
         }
     }
 
-    m_schedulers[m_player->get_dimension()]->tick(origins);
+    m_schedulers[World::overworld]->tick(origins);
     m_world->tick(1.0 / 60.0);
 
     if (m_online)
@@ -172,6 +172,17 @@ bool LocalServer::has_generation_started()
     return m_schedulers[World::overworld]->has_generation_started();
 }
 
+void LocalServer::spawn_player()
+{
+    m_player = std::make_shared<Player>();
+    m_player->set_username(m_username);
+    m_player->set_position(m_world->get_spawn_position());
+    m_world->add_entity(World::overworld, m_player);
+    m_world->set_player(m_player);
+
+    update_player_list();
+}
+
 bool LocalServer::has_connected_player(std::string_view name)
 {
     return name == m_username || std::find_if(m_connected_peers.begin(), m_connected_peers.end(), [name](const auto& pair) -> bool
@@ -180,6 +191,9 @@ bool LocalServer::has_connected_player(std::string_view name)
 
 void LocalServer::update_player_list()
 {
+    if (m_player == nullptr)
+        return;
+
     std::vector<std::string> list;
     list.push_back(std::string(m_player->get_username()));
     for (const auto& [peer, player] : m_connected_peers)
