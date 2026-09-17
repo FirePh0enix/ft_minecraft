@@ -275,17 +275,17 @@ std::expected<std::shared_ptr<Mesh>, Error> Chunk::build_water_mesh(size_t slice
 
                 auto match = [](Chunk *chunk, int64_t x, int64_t y, int64_t z) -> bool
                 {
-                    if (chunk->get_tag({x, y, z}, "water").has_value())
-                        return true;
-                    return false; };
+                    if (!chunk->get_tag({x, y, z}, "water").has_value())
+                        return false;
+                    return true; };
                 auto match_cross_boundary = [](Chunk *chunk, const std::map<ChunkPos, std::shared_ptr<Chunk>>& chunks, int64_t cx, int64_t cz, int64_t x, int64_t y, int64_t z) -> bool
                 {
                     auto iter = chunks.find(ChunkPos(cx, cz));
                     if (iter == chunks.end())
-                        return true;
-                    if (chunk->get_tag({x, y, z}, "water").has_value())
-                        return true;
-                    return false; };
+                        return false;
+                    if (!chunk->get_tag({x, y, z}, "water").has_value())
+                        return false;
+                    return true; };
 
                 NeighborFlags flags{0};
                 if ((x > 0 && match(this, x - 1, y, z)) || (x == 0 && match_cross_boundary(this, chunks, m_x - 1, m_z, 15, y, z)))
