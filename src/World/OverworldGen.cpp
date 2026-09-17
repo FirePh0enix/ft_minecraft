@@ -1,9 +1,9 @@
 #include "World/Gen.hpp"
 
 #include "Core/Math.hpp"
-#include "Engine.hpp"
 #include "World/Biome.hpp"
 #include "World/Registry.hpp"
+#include "World/World.hpp"
 
 #include <random>
 
@@ -269,7 +269,7 @@ void OverworldGen::generate_chunk(std::shared_ptr<Chunk> chunk, std::shared_ptr<
             {
                 for (; y < m_settings.ocean_level - 1; y++)
                     chunk->set_tag({x, y, z}, "water", (int64_t)0, true);
-                chunk->set_block(x, y, z, BlockState(Blocks::ice));
+                blocks[x + y * 16 + z * 16 * 256] = BlockState(Blocks::ice);
             }
             else
             {

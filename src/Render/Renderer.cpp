@@ -1756,7 +1756,7 @@ void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::sha
     shadowmap_pass_desc.depthStencilAttachment = &shadowmap_attach;
 
     WGPURenderPassEncoder shadowmap_pass = wgpuCommandEncoderBeginRenderPass(encoder, &shadowmap_pass_desc);
-    draw_shadow_world(world, RenderPass(shadowmap_pass, RenderTarget(m_fw_shadowmap->format()), {}), world->get_dimension(0).get_sun_visible_chunks(), stencil_mask);
+    // draw_shadow_world(world, RenderPass(shadowmap_pass, RenderTarget(m_fw_shadowmap->format()), {}), world->get_dimension(0).get_sun_visible_chunks(), stencil_mask);
     wgpuRenderPassEncoderEnd(shadowmap_pass);
     wgpuRenderPassEncoderRelease(shadowmap_pass);
 

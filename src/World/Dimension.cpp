@@ -66,22 +66,13 @@ void GenScheduler::chunk_pass(ChunkPos middle)
 {
     m_generation_started = true;
 
-    // size_t already_exists = 0;
-    // size_t already_loading = 0;
-
     for (int64_t x = -m_chunk_distance; x <= m_chunk_distance; x++)
         for (int64_t z = -m_chunk_distance; z <= m_chunk_distance; z++)
         {
             const ChunkPos pos(x + middle.x, z + middle.z);
 
             if (m_dimension.m_chunks.contains(pos) || m_chunks_loading_queue.contains(pos))
-            {
-                // if (m_dimension.m_chunks.contains(pos))
-                //     already_exists++;
-                // if (m_chunks_loading_queue.contains(pos))
-                //     already_loading++;
                 continue;
-            }
 
             std::shared_ptr<Chunk> chunk = std::make_shared<Chunk>(&m_dimension, pos.x, pos.z);
             std::shared_ptr<PreLoadedChunk> preload_chunk = m_dimension.m_preloaded_chunks.at(pos);
