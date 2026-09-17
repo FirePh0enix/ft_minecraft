@@ -5,8 +5,6 @@
 #include "Entity/Zombie.hpp"
 #include "Network/Network.hpp"
 
-#include <print>
-
 namespace
 {
 void broadcast_spawn(const Entity& entity)
@@ -153,9 +151,13 @@ bool MobSpawner::can_spawn_zombie(const glm::ivec3& pos) const
 {
     const BlockState feet = m_world.get_block_state(m_dimension, pos.x, pos.y, pos.z);
     const BlockState head = m_world.get_block_state(m_dimension, pos.x, pos.y + 1, pos.z);
-    const bool has_ground = m_world.get_dimension(m_dimension).has_solid_block(pos.x, pos.y - 1, pos.z);
 
-    return feet.is_air() && head.is_air() && has_ground;
+    const Dimension& dimension = m_world.get_dimension(m_dimension);
+
+    const bool has_ground = dimension.has_solid_block(pos.x, pos.y - 1, pos.z);
+    const bool in_water = dimension.get_tag(pos, "water").has_value() || dimension.get_tag(pos + glm::ivec3(0, 1, 0), "water").has_value();
+
+    return feet.is_air() && head.is_air() && has_ground && !in_water;
 }
 
 bool MobSpawner::try_spawn_cow(Player& player)
