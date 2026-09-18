@@ -91,6 +91,8 @@ constexpr Id<Block> coal_ore("coal_ore");
 
 constexpr Id<Block> oak_log("oak_log");
 constexpr Id<Block> oak_leaves("oak_leaves");
+constexpr Id<Block> spruce_log("spruce_log");
+constexpr Id<Block> spruce_leaves("spruce_leaves");
 
 constexpr Id<Block> grass("grass");
 constexpr Id<Block> cactus("cactus");
@@ -114,6 +116,8 @@ constexpr Id<Item> coal_ore("coal_ore");
 
 constexpr Id<Item> oak_log("oak_log");
 constexpr Id<Item> oak_leaves("oak_leaves");
+constexpr Id<Item> spruce_log("spruce_log");
+constexpr Id<Item> spruce_leaves("spruce_leaves");
 
 constexpr Id<Item> grass("grass");
 constexpr Id<Item> cactus("cactus");

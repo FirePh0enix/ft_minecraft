@@ -249,9 +249,6 @@ void Engine::main_menu_gui()
     ImGui::SetNextWindowSize(ImVec2(size_x, size_y));
     if (ImGui::Begin("Menu"))
     {
-        imguitk_center_next_widget("Hello world");
-        ImGui::Text("Hello world");
-
         ImGui::InputText("Username", m_username_buf, 32);
 
         std::vector<const char *> items;

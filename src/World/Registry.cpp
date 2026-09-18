@@ -46,6 +46,8 @@ void GameRegistry::register_all()
 
     register_block(Blocks::oak_leaves, true, true);
     register_block(Blocks::oak_log);
+    register_block(Blocks::spruce_leaves, true, true);
+    register_block(Blocks::spruce_log);
 
     register_block(Blocks::grass, false);
     register_block(Blocks::cactus, true, false);
@@ -66,6 +68,8 @@ void GameRegistry::register_all()
 
     add_item(Items::oak_log, std::make_shared<ItemBlock>(Blocks::oak_log));
     add_item(Items::oak_leaves, std::make_shared<ItemBlock>(Blocks::oak_leaves));
+    add_item(Items::spruce_log, std::make_shared<ItemBlock>(Blocks::spruce_log));
+    add_item(Items::spruce_leaves, std::make_shared<ItemBlock>(Blocks::spruce_leaves));
 
     add_item(Items::grass, std::make_shared<ItemBlock>(Blocks::grass));
     add_item(Items::cactus, std::make_shared<ItemBlock>(Blocks::cactus));
@@ -162,6 +166,7 @@ std::expected<BlockStateResource, Error> GameRegistry::get_blockstate(std::strin
     std::string text = TRY(file.reader().read_to_string());
     file.close();
 
+    // TODO: implement axis conditions
     BlockStateResource blockstate = nlohmann::json::parse(text);
 
     m_blockstates[std::string(path)] = blockstate;

@@ -37,8 +37,10 @@ public:
 class TreePass final : public StructurePass
 {
 public:
-    void place_short_tree(ChunkPos pos, std::shared_ptr<PreLoadedChunk> chunk, Dimension& dim, std::mt19937& rng, int64_t lx, int64_t lz);
-    void place_big_tree(ChunkPos pos, std::shared_ptr<PreLoadedChunk> chunk, Dimension& dim, std::mt19937& rng, int64_t lx, int64_t lz);
+    void place_small_oak_tree(ChunkPos pos, std::shared_ptr<PreLoadedChunk> chunk, Dimension& dim, std::mt19937& rng, int64_t lx, int64_t lz);
+    void place_big_oak_tree(ChunkPos pos, std::shared_ptr<PreLoadedChunk> chunk, Dimension& dim, std::mt19937& rng, int64_t lx, int64_t lz);
+
+    void place_spruce_tree(ChunkPos pos, std::shared_ptr<PreLoadedChunk> chunk, Dimension& dim, std::mt19937& rng, int64_t lx, int64_t lz);
 
     virtual void place(ChunkPos pos, std::shared_ptr<PreLoadedChunk> chunk, Dimension& dim) override;
 };

@@ -4,18 +4,18 @@
 - [x] The world must be generated on demand.
 - [x] You should be able to navigate through at least 5,000,000 cubes on the XZ plane.
 - [ ] The terrain should not be uniform; you must implement different biomes like mountains, canyons, islands, etc.
-    - [ ] Add island biomes
+    - [ ] Add island/canyon biomes
 - [x] A minimum of 5 unique biomes is required
-- [ ] Each biome should have unique geography, elevation, vegetation, and distinct characteristics that make them feel truly unique.
-    - [ ] Islands in the ocean
-    - [ ] Pine trees in frozen forest
+- [x] Each biome should have unique geography, elevation, vegetation, and distinct characteristics that make them feel truly unique.
+    - [x] Spruce trees in cold forests
+    - [ ] Add different tint coords for different biomes
 - [x] Biomes should transition smoothly and naturally without abrupt changes, as illustrated below
 - [ ] There should be small plants, flowers, and mushrooms scattered throughout the world, as well as procedurally generated trees.
     - [ ] Mushroom ?
 - [ ] There must be lakes and rivers meandering across the world, as well as natural cave entrances visible from the surface.
-    - [ ] Lakes
+    - [x] Lakes
     - [ ] River: currently not perfect and goes up montains.
-    - [ ] Caves
+    - [x] Caves
 - [ ] These caves should feature realistic formations (wormhole style) and contain clusters of rare ores like gold and diamonds, not just simple noise-based distribution
     - [x] Wormhole caves
     - [ ] Ore generation

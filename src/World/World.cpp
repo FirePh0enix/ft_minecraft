@@ -529,6 +529,9 @@ bool World::load_player(std::string_view username, std::shared_ptr<Player>& play
 {
     std::string path = std::format("{}saves/{}/players/{}.dat", Filesystem::get_data_directory(), get_name(), username);
 
+    if (!std::filesystem::exists(path))
+        return false;
+
     EntitySerializer serializer;
     std::expected<void, Error> result = serializer.load(path);
 

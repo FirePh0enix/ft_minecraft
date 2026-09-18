@@ -87,16 +87,11 @@ void LocalServer::tick()
             }
             else
             {
-                // std::println("whhhhhyyyyyy! {}", m_world->get_dimension(0).get_chunks().contains(ChunkPos(req.x, req.z)));
-                // TODO: chunk is loaded but requested by a client, so we load the chunk and send it when its ready.
-                //       This will require to split chunks in two: chunks loaded or visible chunks.
                 deferred_requests.push_back(req);
             }
         }
         m_load_requests.clear();
         m_load_requests.insert(m_load_requests.end(), deferred_requests.begin(), deferred_requests.end());
-
-        // std::println("remaing load request to fulfill {}", m_load_requests.size());
 
         for (std::shared_ptr<Entity> entity : m_world->get_dimension(World::overworld).get_entities()) // TODO: do the same for all dimensions
         {
@@ -107,6 +102,12 @@ void LocalServer::tick()
             route_packet(NetworkConnection::create_packet(p));
         }
     }
+
+    // If it fails, it fails no need to crash the game.
+    if (m_player != nullptr)
+        (void)m_world->save_player(m_player);
+    for (const auto& [peer, player] : m_connected_peers)
+        (void)m_world->save_player(player);
 }
 
 void LocalServer::send_message(const std::string& message)
@@ -176,7 +177,12 @@ void LocalServer::spawn_player()
 {
     m_player = std::make_shared<Player>();
     m_player->set_username(m_username);
-    m_player->set_position(m_world->get_spawn_position());
+
+    if (!m_world->load_player(m_player->get_username(), m_player))
+    {
+        m_player->set_position(m_world->get_spawn_position());
+    }
+
     m_world->add_entity(World::overworld, m_player);
     m_world->set_player(m_player);
 
@@ -232,14 +238,11 @@ void LocalServer::receive(void *user, NetworkConnection& conn, ENetPacket *packe
         std::shared_ptr<Player> player = std::make_shared<Player>();
         player->set_remote();
         player->set_id(id);
-        player->get_transform().position() = self->m_world->get_spawn_position();
         player->set_username(p.username);
 
         // TODO: Send inventory content, maybe with a separate packet.
-        if (self->m_world->is_player_saved(p.username))
-        {
-            self->m_world->load_player(p.username, player);
-        }
+        if (!self->m_world->is_player_saved(p.username) && !self->m_world->load_player(p.username, player))
+            player->get_transform().position() = self->m_world->get_spawn_position();
 
         InitPacket init_p(self->m_world->seed(), id, player->get_transform().position());
         conn.send(client.peer(), NetworkConnection::create_packet(init_p));

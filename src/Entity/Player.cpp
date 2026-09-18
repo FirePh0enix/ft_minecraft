@@ -933,6 +933,8 @@ void Player::debug_menu()
         ImGui::LabelText("", "Chunks: %zu", m_world->get_dimension(0).get_chunks().size());
         ImGui::LabelText("", "Blocks: %zu", m_world->get_dimension(0).count_blocks());
         ImGui::LabelText("", "Triangles: %zu", m_world->get_dimension(0).count_triangles());
+        ImGui::LabelText("", "Position: %lf %lf %lf", m_transform.position().x, m_transform.position().y, m_transform.position().z);
+        ImGui::LabelText("", "Biome: %s", biome_names[(size_t)m_current_biome % (size_t)Biome::Max]);
     }
     ImGui::End();
 }

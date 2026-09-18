@@ -7,10 +7,7 @@
 
 #include <random>
 
-#define TREE_TYPE_SHORT 0
-#define TREE_TYPE_BIG 1
-
-void TreePass::place_short_tree(ChunkPos pos, std::shared_ptr<PreLoadedChunk> chunk, Dimension& dim, std::mt19937& rng, int64_t lx, int64_t lz)
+void TreePass::place_small_oak_tree(ChunkPos pos, std::shared_ptr<PreLoadedChunk> chunk, Dimension& dim, std::mt19937& rng, int64_t lx, int64_t lz)
 {
     int64_t x = pos.x * 16;
     int64_t z = pos.z * 16;
@@ -18,36 +15,40 @@ void TreePass::place_short_tree(ChunkPos pos, std::shared_ptr<PreLoadedChunk> ch
     std::uniform_int_distribution<std::mt19937::result_type> dist_tree_height(5, 7);
     int64_t tree_height = (int64_t)dist_tree_height(rng);
 
-    int64_t height = tree_height + 3;
-    int64_t width = 9;
+    int64_t height = tree_height + 2;
+    int64_t width = 5;
+    BlockState *blocks = new BlockState[width * height * width](); // FIXME: free this
 
-    if (chunk->biomes[lx + lz * 16] != Biome::Plain)
-        return;
+    const int64_t log_xz = 2;
+    for (int64_t y = 0; y < tree_height; y++)
+        blocks[log_xz + y * width + log_xz * width * height] = BlockState(Blocks::oak_log);
+    for (int64_t x2 = 0; x2 < 5; x2++)
+        for (int64_t y2 = tree_height - 4; y2 < tree_height - 1; y2++)
+            for (int64_t z2 = 0; z2 < 5; z2++)
+            {
+                if (!blocks[x2 + y2 * width + z2 * width * height].is_air())
+                    continue;
+                blocks[x2 + y2 * width + z2 * width * height] = BlockState(Blocks::oak_leaves);
+            }
+    for (int64_t x2 = 1; x2 < 4; x2++)
+        for (int64_t y2 = tree_height - 1; y2 < tree_height; y2++)
+            for (int64_t z2 = 1; z2 < 4; z2++)
+            {
+                if (!blocks[x2 + y2 * width + z2 * width * height].is_air())
+                    continue;
+                blocks[x2 + y2 * width + z2 * width * height] = BlockState(Blocks::oak_leaves);
+            }
+    blocks[2 + tree_height * width + 2 * width * height] = BlockState(Blocks::oak_leaves);
+    blocks[2 + tree_height * width + 1 * width * height] = BlockState(Blocks::oak_leaves);
+    blocks[2 + tree_height * width + 3 * width * height] = BlockState(Blocks::oak_leaves);
+    blocks[1 + tree_height * width + 2 * width * height] = BlockState(Blocks::oak_leaves);
+    blocks[3 + tree_height * width + 2 * width * height] = BlockState(Blocks::oak_leaves);
 
     int64_t elevation = chunk->heights[lx + lz * 16];
-    const int64_t log_xz = width / 2 + 1;
-
-    BlockState *blocks = new BlockState[width * height * width](); // FIXME: free this
-    for (int64_t y = 0; y < tree_height; y++)
-        blocks[log_xz + y * width + log_xz * width * height] = BlockState(Blocks::oak_log.hash);
-
-    const int64_t core_x = log_xz;
-    const int64_t core_y = tree_height - 2;
-    const int64_t core_z = log_xz;
-    for (int64_t leave_x = -3; leave_x <= 3; leave_x++)
-        for (int64_t leave_z = -3; leave_z <= 3; leave_z++)
-            for (int64_t leave_y = -2; leave_y <= 2; leave_y++)
-            {
-                float distance = glm::distance2(glm::vec3(core_x, core_y, core_z), glm::vec3(core_x + leave_x, core_y + leave_y, core_z + leave_z));
-                const int64_t index = (core_x + leave_x) + (core_y + leave_y) * width + (core_z + leave_z) * width * height;
-                if (blocks[index].is_air() && distance < 3 * 3)
-                    blocks[index] = BlockState(Blocks::oak_leaves.hash);
-            }
-
     dim.place_structure(glm::i64vec3(x + lx - width / 2, elevation, z + lz - width / 2), blocks, width, height, width);
 }
 
-void TreePass::place_big_tree(ChunkPos pos, std::shared_ptr<PreLoadedChunk> chunk, Dimension& dim, std::mt19937& rng, int64_t lx, int64_t lz)
+void TreePass::place_big_oak_tree(ChunkPos pos, std::shared_ptr<PreLoadedChunk> chunk, Dimension& dim, std::mt19937& rng, int64_t lx, int64_t lz)
 {
     int64_t x = pos.x * 16;
     int64_t z = pos.z * 16;
@@ -56,31 +57,88 @@ void TreePass::place_big_tree(ChunkPos pos, std::shared_ptr<PreLoadedChunk> chun
     int64_t tree_height = (int64_t)dist_tree_height(rng);
 
     int64_t height = tree_height + 3;
-    int64_t width = 13;
+    int64_t width = 14;
+    BlockState *blocks = new BlockState[width * height * width](); // FIXME: free this
 
-    if (chunk->biomes[lx + lz * 16] != Biome::Plain)
-        return;
-
-    int64_t elevation = chunk->heights[lx + lz * 16];
-    const int64_t log_xz = width / 2 + 1;
-
-    BlockState *blocks = new BlockState[width * height * width](); // TODO: free this
     for (int64_t y = 0; y < tree_height; y++)
-        blocks[log_xz + y * width + log_xz * width * height] = BlockState(Blocks::oak_log.hash);
-
-    const int64_t core_x = log_xz;
-    const int64_t core_y = tree_height - 3;
-    const int64_t core_z = log_xz;
-    for (int64_t leave_x = -5; leave_x <= 5; leave_x++)
-        for (int64_t leave_z = -5; leave_z <= 5; leave_z++)
-            for (int64_t leave_y = -4; leave_y <= 4; leave_y++)
+        for (int64_t x = 0; x < 2; x++)
+            for (int64_t z = 0; z < 2; z++)
             {
-                float distance = glm::distance2(glm::vec3(core_x, core_y, core_z), glm::vec3(core_x + leave_x, core_y + leave_y, core_z + leave_z));
-                const int64_t index = (core_x + leave_x) + (core_y + leave_y) * width + (core_z + leave_z) * width * height;
-                if (blocks[index].is_air() && distance < 5 * 5)
-                    blocks[index] = BlockState(Blocks::oak_leaves.hash);
+                blocks[(5 + x) + y * width + (5 + z) * width * height] = BlockState(Blocks::oak_log);
             }
 
+    for (int64_t y = 0; y < 2; y++)
+        for (int64_t x = 0; x < 14; x++)
+            for (int64_t z = 0; z < 14; z++)
+            {
+                float distance = glm::distance(glm::vec2(x, z), glm::vec2(5.5, 5.5));
+                if (distance <= 6.0f)
+                    blocks[x + (tree_height - 2 + y) * width + z * width * height] = BlockState(Blocks::oak_leaves);
+            }
+
+    for (int64_t x = 1; x < 13; x++)
+        for (int64_t z = 1; z < 13; z++)
+        {
+            float distance = glm::distance(glm::vec2(x, z), glm::vec2(5.5, 5.5));
+            if (distance <= 5.0f)
+                blocks[x + (tree_height + 0) * width + z * width * height] = BlockState(Blocks::oak_leaves);
+        }
+    for (int64_t x = 1; x < 13; x++)
+        for (int64_t z = 1; z < 13; z++)
+        {
+            float distance = glm::distance(glm::vec2(x, z), glm::vec2(5.5, 5.5));
+            if (distance <= 5.0f)
+                blocks[x + (tree_height - 3) * width + z * width * height] = BlockState(Blocks::oak_leaves);
+        }
+
+    int64_t elevation = chunk->heights[lx + lz * 16];
+    dim.place_structure(glm::i64vec3(x + lx - width / 2, elevation, z + lz - width / 2), blocks, width, height, width);
+}
+
+void TreePass::place_spruce_tree(ChunkPos pos, std::shared_ptr<PreLoadedChunk> chunk, Dimension& dim, std::mt19937& rng, int64_t lx, int64_t lz)
+{
+    int64_t x = pos.x * 16;
+    int64_t z = pos.z * 16;
+
+    std::uniform_int_distribution<std::mt19937::result_type> dist_tree_height(6, 8);
+    int64_t tree_height = (int64_t)dist_tree_height(rng);
+
+    int64_t height = tree_height + 2;
+    int64_t width = 7;
+    BlockState *blocks = new BlockState[width * height * width](); // FIXME: free this
+
+    const int64_t log_xz = 3;
+    for (int64_t y = 0; y < tree_height; y++)
+        blocks[log_xz + y * width + log_xz * width * height] = BlockState(Blocks::spruce_log);
+
+    for (int64_t x = 0; x < 7; x++)
+        for (int64_t z = 0; z < 7; z++)
+        {
+            float distance = glm::distance(glm::vec2(x, z), glm::vec2(3, 3));
+            if (distance <= 2.0f)
+                blocks[x + (tree_height - 3) * width + z * width * height] = BlockState(Blocks::oak_leaves);
+        }
+
+    for (int64_t x = 0; x < 7; x++)
+        for (int64_t z = 0; z < 7; z++)
+        {
+            float distance = glm::distance(glm::vec2(x, z), glm::vec2(3, 3));
+            if (distance <= 3.0f)
+                blocks[x + (tree_height - 5) * width + z * width * height] = BlockState(Blocks::oak_leaves);
+        }
+
+    blocks[3 + (tree_height - 2) * width + 2 * width * height] = BlockState(Blocks::spruce_leaves);
+    blocks[3 + (tree_height - 2) * width + 4 * width * height] = BlockState(Blocks::spruce_leaves);
+    blocks[2 + (tree_height - 2) * width + 3 * width * height] = BlockState(Blocks::spruce_leaves);
+    blocks[4 + (tree_height - 2) * width + 3 * width * height] = BlockState(Blocks::spruce_leaves);
+
+    blocks[3 + tree_height * width + 3 * width * height] = BlockState(Blocks::spruce_leaves);
+    blocks[3 + tree_height * width + 2 * width * height] = BlockState(Blocks::spruce_leaves);
+    blocks[3 + tree_height * width + 4 * width * height] = BlockState(Blocks::spruce_leaves);
+    blocks[2 + tree_height * width + 3 * width * height] = BlockState(Blocks::spruce_leaves);
+    blocks[4 + tree_height * width + 3 * width * height] = BlockState(Blocks::spruce_leaves);
+
+    int64_t elevation = chunk->heights[lx + lz * 16];
     dim.place_structure(glm::i64vec3(x + lx - width / 2, elevation, z + lz - width / 2), blocks, width, height, width);
 }
 
@@ -93,13 +151,22 @@ void TreePass::place(ChunkPos pos, std::shared_ptr<PreLoadedChunk> chunk, Dimens
     int64_t lx = (int64_t)dist016(rng);
     int64_t lz = (int64_t)dist016(rng);
 
-    std::uniform_int_distribution<std::mt19937::result_type> dist_tree_type(0, 1);
-    uint64_t tree_type = dist_tree_type(rng);
+    std::uniform_int_distribution<std::mt19937::result_type> dist_tree_type(0, 100);
+    uint64_t tree_dist = dist_tree_type(rng);
 
-    if (tree_type == TREE_TYPE_SHORT)
-        place_short_tree(pos, chunk, dim, rng, lx, lz);
-    else if (tree_type == TREE_TYPE_BIG)
-        place_big_tree(pos, chunk, dim, rng, lx, lz);
+    Biome biome = chunk->biomes[lx + lz * 16];
+
+    if (biome == Biome::Forest)
+    {
+        if (tree_dist > 20)
+            place_small_oak_tree(pos, chunk, dim, rng, lx, lz);
+        else
+            place_big_oak_tree(pos, chunk, dim, rng, lx, lz);
+    }
+    else if (biome == Biome::ColdForest)
+    {
+        place_spruce_tree(pos, chunk, dim, rng, lx, lz);
+    }
 }
 
 OverworldGen::OverworldGen(WorldSettings settings)
@@ -128,32 +195,47 @@ void OverworldGen::preload(int64_t cx, int64_t cz, std::shared_ptr<PreLoadedChun
             float continent_s0 = m_noise.sample(glm::vec2((float)gx, (float)gz) / 4000.0f) / 2.0f + 0.5f;
             float continent = (float)m_continent_spline(continent_s0);
 
+            // float island_s0 = m_noise.sample(glm::vec2((float)gx, (float)gz) / 123.0f) / 2.0f + 0.5f;
+            // island_s0 = island_s0 < 0.5f ? 0.0f : (island_s0 - 0.5f) / 0.5f;
+            // float island = (float)m_continent_spline(island_s0);
+            // float island_mask = m_noise.sample(glm::vec2((float)gx, (float)gz) / 800.0f) / 2.0f + 0.5f;
+
             float mountain_s0_raw = m_noise.fractal<1>(glm::vec2((float)gx, (float)gz), 0.001f, 20.0, 15.0, 7.0);
             float mountain_s0 = mountain_s0_raw / 2.0f + 0.5f;
             float mountain_s1 = m_noise.sample(glm::vec2((float)gx, (float)gz) / 80.0f) / 2.0f + 0.5f;
             float mountain_s2 = m_noise.sample(glm::vec2((float)gx, (float)gz) / 30.0f) / 2.0f + 0.5f;
             float mountain = mountain_s0 * 80.0f + mountain_s1 * 15.0f + mountain_s2 * 3.0f;
+            float mountain_mask = m_noise.sample(glm::vec2((float)gx, (float)gz) / 800.0f) / 2.0f + 0.5f;
 
             float lakes_s0 = m_noise.sample(glm::vec2((float)gx, (float)gz) / 700.0f) / 2.0f + 0.5f;
 
-            float mountain_mask = m_noise.sample(glm::vec2((float)gx, (float)gz) / 800.0f) / 2.0f + 0.5f;
-
             float forest_mask = m_noise.sample(glm::vec2((float)gx, (float)gz) / 900.0f) / 2.0f + 0.5f;
+
+            float elevation = float(m_settings.ocean_floor);
+            elevation += std::max(continent * ocean_amplitude, 5.0f);
+            elevation += mountain_mask * mountain_mask * continent * mountain;
+            elevation -= lakes_s0 * continent * 15.0f;
+            // elevation += island * (ocean_amplitude) * (1.0f - continent) * island_mask;
+
+            int64_t height = int64_t(elevation);
+            height = std::min(height, (int64_t)255l);
 
             BiomeTemperature temp = BiomeTemperature::Temperate;
             if (temperature <= 0.333)
                 temp = BiomeTemperature::Cold;
-            else if (temperature >= 0.333)
+            else if (temperature >= 0.666)
                 temp = BiomeTemperature::Hot;
+
+            const float beach_treshold = 0.57f;
 
             Biome biome = Biome::Plain;
             if (temp == BiomeTemperature::Temperate)
             {
                 if (mountain * mountain_mask > 52.0)
                     biome = Biome::Mountain;
-                else if (continent_s0 < 0.57f)
+                else if (height < m_settings.ocean_level && continent_s0 < beach_treshold)
                     biome = Biome::Ocean;
-                else if (continent_s0 < 0.62f)
+                else if (continent_s0 < beach_treshold)
                     biome = Biome::Beach;
                 else if (forest_mask > 0.2)
                     biome = Biome::Forest;
@@ -163,9 +245,9 @@ void OverworldGen::preload(int64_t cx, int64_t cz, std::shared_ptr<PreLoadedChun
                 biome = Biome::ColdPlain;
                 if (mountain * mountain_mask > 52.0)
                     biome = Biome::FrozenMountain;
-                else if (continent_s0 < 0.57f)
+                else if (height < m_settings.ocean_level && continent_s0 < beach_treshold)
                     biome = Biome::FrozenOcean;
-                else if (continent_s0 < 0.62f)
+                else if (continent_s0 < beach_treshold)
                     biome = Biome::ColdPlain;
                 else if (forest_mask > 0.2)
                     biome = Biome::ColdForest;
@@ -175,21 +257,13 @@ void OverworldGen::preload(int64_t cx, int64_t cz, std::shared_ptr<PreLoadedChun
                 biome = Biome::Desert;
                 if (mountain * mountain_mask > 52.0)
                     biome = Biome::Mountain; // TODO: do something else ?
-                else if (continent_s0 < 0.57f)
+                else if (height < m_settings.ocean_level && continent_s0 < beach_treshold)
                     biome = Biome::Ocean;
-                else if (continent_s0 < 0.62f)
+                else if (continent_s0 < beach_treshold)
                     biome = Biome::Beach;
                 else if (forest_mask > 0.2)
                     biome = Biome::Desert;
             }
-
-            float elevation = float(m_settings.ocean_floor);
-            elevation += std::max(continent * ocean_amplitude, 5.0f);
-            elevation += mountain_mask * mountain_mask * continent * mountain;
-            elevation -= lakes_s0 * continent * 15.0f;
-
-            int64_t height = int64_t(elevation);
-            height = std::min(height, (int64_t)255l);
 
             chunk->heights[x + z * 16] = height;
             chunk->biomes[x + z * 16] = biome;
