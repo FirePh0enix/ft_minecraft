@@ -154,6 +154,7 @@ void GenScheduler::realize_chunk(std::stop_token token, ChunkPos pos, std::share
         EXPECT(m_dimension.m_world->save_chunk(token, chunk, m_dimension.m_id));
     }
 
+    chunk->count_blocks();
     m_chunks_lockless.enqueue(chunk);
 }
 
@@ -620,6 +621,28 @@ void Dimension::get_structures_overlap(ChunkPos pos, std::vector<StructureGen>& 
         if (box.intersect(chunk_box))
             structures.push_back(structure);
     }
+}
+
+size_t Dimension::count_triangles()
+{
+    size_t count = 0;
+    for (const auto& [pos, r] : m_visible_chunks)
+        for (size_t index : r.slice_indices)
+        {
+            if (r.chunk->get_slices()[index].opaque_mesh != nullptr)
+                count += r.chunk->get_slices()[index].opaque_mesh->vertex_count() / 3;
+            if (r.chunk->get_slices()[index].water_mesh != nullptr)
+                count += r.chunk->get_slices()[index].water_mesh->vertex_count() / 3;
+        }
+    return count;
+}
+
+size_t Dimension::count_blocks()
+{
+    size_t count = 0;
+    for (const auto& [pos, chunk] : m_chunks)
+        count += chunk->get_block_count();
+    return count;
 }
 
 void Dimension::write_tags(Writer& writer, std::shared_ptr<Chunk> chunk)

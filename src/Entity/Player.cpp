@@ -225,24 +225,21 @@ void Player::on_ready()
     {
         m_inventory = std::make_shared<PlayerInventory>(m_inventory_container);
 
-        m_chat = std::make_shared<Widget>();
-        m_chat->set_expand_horizontal(true);
-        m_chat->set_expand_vertical(true);
-        m_chat->set_alignment(ContainerAlignment::Left | ContainerAlignment::Bottom);
-        m_chat->set_layout(ContainerLayout::Vertical);
+        // m_chat = std::make_shared<Widget>();
+        // m_chat->set_expand_horizontal(true);
+        // m_chat->set_expand_vertical(true);
+        // m_chat->set_alignment(ContainerAlignment::Left | ContainerAlignment::Bottom);
+        // m_chat->set_layout(ContainerLayout::Vertical);
 
-        std::shared_ptr<ColorRectWidget> color_rect = std::make_shared<ColorRectWidget>();
-        color_rect->set_color(Colors::red);
-        color_rect->set_alignment(ContainerAlignment::CenterY);
-        m_chat->add_child(color_rect);
+        // std::shared_ptr<ColorRectWidget> color_rect = std::make_shared<ColorRectWidget>();
+        // color_rect->set_color(Colors::red);
+        // color_rect->set_alignment(ContainerAlignment::CenterY);
+        // m_chat->add_child(color_rect);
 
-        std::shared_ptr<TextInput> chat_input = std::make_shared<TextInput>(Engine::get().get_font());
-        chat_input->set_size(Point(Size::percent(45), Size::px(40)));
-        chat_input->done_callback().connect(std::bind_front(&Player::on_text_message, this));
-        color_rect->add_child(chat_input);
-
-        m_player_list = std::make_shared<Widget>();
-        m_player_list->set_layout(ContainerLayout::Vertical);
+        // std::shared_ptr<TextInput> chat_input = std::make_shared<TextInput>(Engine::get().get_font());
+        // chat_input->set_size(Point(Size::percent(45), Size::px(40)));
+        // chat_input->done_callback().connect(std::bind_front(&Player::on_text_message, this));
+        // color_rect->add_child(chat_input);
 
         auto& clip = Engine::get().music_player().get_biome_music(m_current_biome);
         Engine::get().music_player().crossfade_to(&clip, 2.0f, 1.0f);
@@ -256,25 +253,6 @@ void Player::on_ready()
     {
         m_model = EXPECT(ModelLegacy::load("data/models/player.json"));
         m_animator.set_model(m_model);
-    }
-}
-
-void Player::on_text_message(TextInput& input, std::string_view message)
-{
-    ZoneScoped;
-
-    std::string msg(message);
-
-    input.clear();
-
-    if (msg.starts_with("/"))
-    {
-        m_console.process_command(this, msg.substr(1));
-    }
-    else
-    {
-        Engine::get().server()->send_message(msg);
-        send_message(m_username + ": " + msg);
     }
 }
 
@@ -356,6 +334,9 @@ void Player::tick(float delta)
         listener.set_position(camera_transform.position());
         listener.set_forward(camera_transform.forward());
         listener.set_up(camera_transform.up());
+
+        if (Input::is_action_just_pressed("toggle_debug_menu"))
+            m_debug_menu_opened = !m_debug_menu_opened;
     }
 
     AABB item_box = get_aabb().translate(get_position()).grow(glm::vec3(0.5));
@@ -557,15 +538,15 @@ void Player::tick(float delta)
 
     m_previous_frame_in_water = in_water;
 
-    if (m_local_player && m_chat_opened)
-    {
-        m_chat->update_everything(delta);
-    }
+    // if (m_local_player && m_chat_opened)
+    // {
+    //     m_chat->update_everything(delta);
+    // }
 
-    if (m_local_player && Input::is_action_pressed("show_player_list"))
-    {
-        m_player_list->update_everything(delta);
-    }
+    // if (m_local_player && Input::is_action_pressed("show_player_list"))
+    // {
+    //     m_player_list->update_everything(delta);
+    // }
 
     if (m_local_player && Engine::get().is_client())
     {
@@ -672,14 +653,13 @@ void Player::draw_ui(const RenderPass& pass)
             m_inventory->draw_toolbar(pass);
 
         if (m_chat_opened)
-        {
-            m_chat->draw_everything(pass);
-        }
+            chat();
 
         if (Input::is_action_pressed("show_player_list"))
-        {
-            m_player_list->draw_everything(pass);
-        }
+            player_list();
+
+        if (m_debug_menu_opened)
+            debug_menu();
     }
 }
 
@@ -689,9 +669,6 @@ void Player::process_event(Event& event)
 
     if (!m_local_player)
         return;
-
-    if (m_chat_opened)
-        m_chat->process_everyting(event);
 
     if (!are_input_available())
         return;
@@ -879,19 +856,83 @@ bool Player::head_in_water() const
 
 void Player::update_player_list(const std::vector<std::string>& names)
 {
-    m_player_list->clear_children();
-
-    for (const std::string& name : names)
-    {
-        std::shared_ptr<LabelWidget> label = std::make_shared<LabelWidget>(Engine::get().get_font());
-        label->set_text(name);
-        m_player_list->add_child(label);
-    }
+    m_player_list = names;
 }
 
 void Player::send_message(std::string message)
 {
-    std::shared_ptr<LabelWidget> label = std::make_shared<LabelWidget>(Engine::get().get_font());
-    label->set_text(message);
-    m_chat->add_child(label);
+    m_messages.push_back(message);
+}
+
+void Player::player_list()
+{
+    const Extent2D window_size = Engine::get().window()->size();
+    const float size_x = (float)window_size.width * 0.4f;
+    const float size_y = (float)window_size.height * 0.3f;
+
+    ImGui::SetNextWindowPos(ImVec2((float)window_size.width / 2 - size_x / 2, 0));
+    ImGui::SetNextWindowSize(ImVec2(size_x, size_y));
+    if (ImGui::Begin("Player List"))
+    {
+        for (std::string_view name : m_player_list)
+            ImGui::LabelText("", "%s", name.data());
+    }
+    ImGui::End();
+}
+
+void Player::chat()
+{
+    const Extent2D window_size = Engine::get().window()->size();
+    const float size_x = (float)window_size.width * 0.4f;
+    const float size_y = (float)window_size.height * 0.4f;
+
+    ImGui::SetNextWindowPos(ImVec2(0, (float)window_size.height / 1.7f));
+    ImGui::SetNextWindowSize(ImVec2(size_x, size_y));
+    ImGui::SetNextWindowFocus();
+    if (ImGui::Begin("Chat"))
+    {
+        if (ImGui::BeginChild("Messages", ImVec2(size_x, (float)window_size.height * 0.32f)))
+        {
+            for (std::string_view name : m_messages)
+                ImGui::LabelText("", "%s", name.data());
+        }
+        ImGui::EndChild();
+
+        ImGui::InputText("", m_chat_buffer, 128);
+        ImGui::SameLine();
+        if (ImGui::Button(">"))
+        {
+            std::string msg = m_chat_buffer;
+            if (msg.starts_with("/"))
+            {
+                m_console.process_command(this, msg.substr(1));
+            }
+            else
+            {
+                Engine::get().server()->send_message(msg);
+                send_message(m_username + ": " + msg);
+            }
+            m_chat_buffer[0] = 0;
+        }
+    }
+    ImGui::End();
+}
+
+void Player::debug_menu()
+{
+    const Extent2D window_size = Engine::get().window()->size();
+    const float size_x = (float)window_size.width * 0.4f;
+    const float size_y = (float)window_size.height * 0.4f;
+
+    ImGui::SetNextWindowPos(ImVec2(0, 0));
+    ImGui::SetNextWindowSize(ImVec2(size_x, size_y));
+    ImGui::SetNextWindowFocus();
+    if (ImGui::Begin("Debug"))
+    {
+        ImGui::LabelText("", "FPS: %zu", std::max((size_t)Engine::get().get_fps(), (size_t)25));
+        ImGui::LabelText("", "Chunks: %zu", m_world->get_dimension(0).get_chunks().size());
+        ImGui::LabelText("", "Blocks: %zu", m_world->get_dimension(0).count_blocks());
+        ImGui::LabelText("", "Triangles: %zu", m_world->get_dimension(0).count_triangles());
+    }
+    ImGui::End();
 }

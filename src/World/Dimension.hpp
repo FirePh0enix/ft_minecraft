@@ -159,6 +159,9 @@ public:
     void add_chunk(std::shared_ptr<Chunk> chunk) { m_chunks[chunk->pos()] = chunk; }
     void remove_chunk(ChunkPos pos) { m_chunks.erase(pos); }
 
+    size_t count_triangles();
+    size_t count_blocks();
+
     static void write_tags(Writer& writer, std::shared_ptr<Chunk> chunk);
     static void read_tags(Reader& reader, std::shared_ptr<Chunk> chunk);
 

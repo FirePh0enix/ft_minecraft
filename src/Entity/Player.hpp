@@ -132,13 +132,14 @@ private:
 
     std::string m_username;
 
-    std::shared_ptr<Widget> m_chat;
     bool m_chat_opened = false;
+    char m_chat_buffer[128];
+    std::vector<std::string> m_messages;
     BetterConsole m_console;
 
-    std::shared_ptr<Widget> m_player_list;
+    std::vector<std::string> m_player_list;
 
-    void on_text_message(TextInput& input, std::string_view message);
+    bool m_debug_menu_opened = false;
 
     /**
      * Player class is a little special since its behavior is different if this is the local or remote.
@@ -162,4 +163,8 @@ private:
     std::optional<AudioClip> m_swimming_clip;
     std::optional<AudioSource> m_audio_source;
     MovementSound m_movement_sound = MovementSound::None;
+
+    void player_list();
+    void chat();
+    void debug_menu();
 };

@@ -115,6 +115,9 @@ public:
     std::optional<Variant> get_tag(uint16_t index, std::string_view name) const;
     void merge_tag(uint16_t index, const stdext::string_map<Variant>& tags, bool dont_modify = false);
 
+    void count_blocks();
+    size_t get_block_count() const { return m_block_count; }
+
     static ALWAYS_INLINE size_t linearize(int64_t x, int64_t y, int64_t z) { return z * width * height + y * width + x; }
 
 private:
@@ -125,7 +128,8 @@ private:
     Dimension *m_dim = nullptr;
 
     std::map<int64_t, stdext::string_map<Variant>> m_tags;
-    std::set<BlockPos> m_non_conventional_blocks;
+
+    size_t m_block_count = 0;
 
     std::shared_ptr<Buffer> m_instance_buffer;
     std::shared_ptr<Buffer> m_instance_copy_buffer;

@@ -35,6 +35,7 @@ void Chunk::set_block(int64_t x, int64_t y, int64_t z, BlockState state)
     if (y < 0 || y > Chunk::height)
         return;
 
+    BlockState before_state = m_blocks[linearize(x, y, z)];
     m_blocks[linearize(x, y, z)] = state;
     m_modified = true;
 
@@ -48,6 +49,11 @@ void Chunk::set_block(int64_t x, int64_t y, int64_t z, BlockState state)
         m_dim->queue_rebuild(ChunkPos(m_x, m_z - 1));
     if (z == 15)
         m_dim->queue_rebuild(ChunkPos(m_x, m_z + 1));
+
+    if (before_state.is_air() && !state.is_air())
+        m_block_count += 1;
+    else if (!before_state.is_air() && state.is_air())
+        m_block_count -= 1;
 
     // if (y == 0)
     //     m_dim->queue_rebuild(ChunkPos(m_x, m_z), 0, 1);
@@ -364,4 +370,15 @@ void Chunk::merge_tag(uint16_t index, const stdext::string_map<Variant>& tags, b
 
     if (!dont_modify)
         m_modified = true;
+}
+
+void Chunk::count_blocks()
+{
+    size_t c = 0;
+    for (int64_t x = 0; x < 16; x++)
+        for (int64_t y = 0; y < 256; y++)
+            for (int64_t z = 0; z < 16; z++)
+                if (!m_blocks[x + y * 16 + z * 16 * 256].is_air())
+                    c += 1;
+    m_block_count = c;
 }

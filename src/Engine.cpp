@@ -166,14 +166,10 @@ void Engine::tick(float delta)
                 break;
             }
 
-            if (m_menu != nullptr)
-            {
-                ImGui_ImplSDL3_ProcessEvent(&event);
-                ImGuiIO& imgui_io = ImGui::GetIO();
-
-                if (imgui_io.WantCaptureMouse || imgui_io.WantCaptureKeyboard)
-                    continue;
-            }
+            ImGui_ImplSDL3_ProcessEvent(&event);
+            ImGuiIO& imgui_io = ImGui::GetIO();
+            if (imgui_io.WantCaptureMouse || imgui_io.WantCaptureKeyboard)
+                continue;
 
             Input::process_event(event);
         }

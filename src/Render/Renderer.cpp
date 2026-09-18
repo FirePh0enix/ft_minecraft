@@ -1336,7 +1336,7 @@ std::expected<void, Error> Renderer::init(const Window& window, InitFlags flags)
     init_info.Device = m_device;
     init_info.NumFramesInFlight = 3;
     init_info.RenderTargetFormat = m_surface_format;
-    init_info.DepthStencilFormat = WGPUTextureFormat_Depth32FloatStencil8;
+    init_info.DepthStencilFormat = WGPUTextureFormat_Undefined; // WGPUTextureFormat_Depth32FloatStencil8;
     ImGui_ImplWGPU_Init(&init_info);
 
     return std::expected<void, Error>();
@@ -1411,22 +1411,21 @@ void Renderer::draw_ui(std::function<void(const RenderPass&)> f)
     rp.colorAttachmentCount = 1;
     rp.colorAttachments = &color_attach;
 
-    WGPURenderPassDepthStencilAttachment depth_attach{};
-    depth_attach.depthClearValue = 1.0;
-    depth_attach.depthLoadOp = WGPULoadOp_Clear;
-    depth_attach.depthStoreOp = WGPUStoreOp_Store;
-    depth_attach.stencilLoadOp = WGPULoadOp_Clear;
-    depth_attach.stencilStoreOp = WGPUStoreOp_Store;
-    depth_attach.stencilClearValue = 1;
-    depth_attach.view = EXPECT(m_fw_depth_texture->get_view(WGPUTextureViewDimension_2D));
-    rp.depthStencilAttachment = &depth_attach;
+    // WGPURenderPassDepthStencilAttachment depth_attach{};
+    // depth_attach.depthClearValue = 1.0;
+    // depth_attach.depthLoadOp = WGPULoadOp_Clear;
+    // depth_attach.depthStoreOp = WGPUStoreOp_Store;
+    // depth_attach.stencilLoadOp = WGPULoadOp_Clear;
+    // depth_attach.stencilStoreOp = WGPUStoreOp_Store;
+    // depth_attach.stencilClearValue = 1;
+    // depth_attach.view = EXPECT(m_fw_depth_texture->get_view(WGPUTextureViewDimension_2D));
+    // rp.depthStencilAttachment = &depth_attach;
 
     WGPURenderPassEncoder render_encoder = wgpuCommandEncoderBeginRenderPass(encoder, &rp);
     ImGui_ImplWGPU_NewFrame();
     ImGui_ImplSDL3_NewFrame();
     ImGui::NewFrame();
-    f(RenderPass(render_encoder, m_fw_depth_texture->format(), {RenderTarget(m_surface_format)}));
-
+    f(RenderPass(render_encoder, std::nullopt, {RenderTarget(m_surface_format)}));
     ImGui::Render();
     ImGui_ImplWGPU_RenderDrawData(ImGui::GetDrawData(), render_encoder);
     wgpuRenderPassEncoderEnd(render_encoder);
@@ -1618,9 +1617,18 @@ void Renderer::draw_forward(const std::shared_ptr<World>& world)
         ZoneScopedN("draw ui");
 
         WGPURenderPassEncoder ui_pass = wgpuCommandEncoderBeginRenderPass(encoder, &ui_pass_desc);
+
+        ImGui_ImplWGPU_NewFrame();
+        ImGui_ImplSDL3_NewFrame();
+        ImGui::NewFrame();
+
         const RenderPass ui_pass_info(ui_pass, std::nullopt, {m_surface_format});
         for (const std::shared_ptr<Entity>& entity : world->get_dimension(world->get_player()->get_dimension()).get_entities())
             entity->draw_ui(ui_pass_info);
+
+        ImGui::Render();
+        ImGui_ImplWGPU_RenderDrawData(ImGui::GetDrawData(), ui_pass);
+
         wgpuRenderPassEncoderEnd(ui_pass);
         wgpuRenderPassEncoderRelease(ui_pass);
     }
