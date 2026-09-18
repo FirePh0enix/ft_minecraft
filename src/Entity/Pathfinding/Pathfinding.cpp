@@ -1,6 +1,5 @@
 #include "Pathfinding.hpp"
 
-#include "Core/Logger.hpp"
 #include "Entity/Pathfinding/PathNode.hpp"
 
 #include <algorithm>
@@ -17,7 +16,7 @@ size_t Pathfinding::node_from_world_point(const glm::ivec3& pos, int dimension)
     if (it != m_nodes.end())
         return it->second;
 
-    bool walkable = m_world->get_block_state(dimension, pos.x, pos.y, pos.z).is_air();
+    bool walkable = !m_world->get_dimension(dimension).has_solid_block(pos.x, pos.y, pos.z);
 
     PathNode node;
     node.m_gridPos = pos;
@@ -36,8 +35,8 @@ size_t Pathfinding::node_from_world_point(const glm::ivec3& pos, int dimension)
 bool Pathfinding::is_walkable(const glm::ivec3& to, int max_jump_height, size_t dimension)
 {
 
-    bool block_at_to = !m_world->get_block_state(dimension, to.x, to.y, to.z).is_air();
-    bool block_below_to = !m_world->get_block_state(dimension, to.x, to.y - 1, to.z).is_air();
+    bool block_at_to = m_world->get_dimension(dimension).has_solid_block(to.x, to.y, to.z);
+    bool block_below_to = m_world->get_dimension(dimension).has_solid_block(to.x, to.y - 1, to.z);
 
     auto at_water = m_world->get_dimension(dimension).get_tag(to, "water").has_value();
     const glm::i64vec3 below = glm::i64vec3(to.x, to.y - 1, to.z);
@@ -85,7 +84,7 @@ std::vector<size_t> Pathfinding::get_neighbors(size_t node_index, size_t dimensi
         glm::ivec3 neighbor_pos = node.m_gridPos + dir;
 
         bool in_water = m_world->get_dimension(dimension).get_tag(node.m_gridPos, "water").has_value();
-        bool on_ground = !m_world->get_block_state(dimension, node.m_gridPos.x, node.m_gridPos.y - 1, node.m_gridPos.z).is_air();
+        bool on_ground = m_world->get_dimension(dimension).has_solid_block(node.m_gridPos.x, node.m_gridPos.y - 1, node.m_gridPos.z);
         int remaining_jump = 0;
 
         // Being in water do not increase jump, so pathfinding can generate right path.
@@ -106,12 +105,12 @@ std::vector<size_t> Pathfinding::get_neighbors(size_t node_index, size_t dimensi
             glm::ivec3 side1(node.m_gridPos.x + d.x, node.m_gridPos.y, node.m_gridPos.z);
             glm::ivec3 side2(node.m_gridPos.x, node.m_gridPos.y, node.m_gridPos.z + d.z);
 
-            if (!m_world->get_block_state(dimension, side1.x, side1.y, side1.z).is_air() ||
-                !m_world->get_block_state(dimension, side2.x, side2.y, side2.z).is_air())
+            if (m_world->get_dimension(dimension).has_solid_block(side1.x, side1.y, side1.z) ||
+                m_world->get_dimension(dimension).has_solid_block(side2.x, side2.y, side2.z))
                 continue;
         }
 
-        size_t neighbor_index = node_from_world_point(neighbor_pos, dimension);
+        size_t neighbor_index = node_from_world_point(neighbor_pos, static_cast<int>(dimension));
         neighbors.push_back(neighbor_index);
     }
 
@@ -163,8 +162,8 @@ void Pathfinding::find_path(const glm::vec3& start_pos, const glm::vec3& target_
     m_path.clear();
     m_node_pool.clear();
 
-    size_t start_index = node_from_world_point(start_pos, dimension);
-    size_t target_index = node_from_world_point(target_pos, dimension);
+    size_t start_index = node_from_world_point(start_pos, static_cast<int>(dimension));
+    size_t target_index = node_from_world_point(target_pos, static_cast<int>(dimension));
 
     auto& start = m_node_pool[start_index];
     start.m_g_cost = 0;
@@ -262,13 +261,5 @@ std::vector<glm::vec3> Pathfinding::simplify_path(const std::vector<size_t>& pat
     }
 
     waypoints.push_back(m_node_pool[path[path.size() - 1]].m_position);
-
-    // println("-- Final path --");
-    // for (size_t i = 0; i < waypoints.size(); i++)
-    // {
-    //     const auto pos = waypoints[i];
-    //     println("{} {} {}", pos.x, pos.y, pos.z);
-    // }
-
     return waypoints;
 }
