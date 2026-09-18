@@ -16,9 +16,9 @@
     - [x] Lakes
     - [ ] River: currently not perfect and goes up montains.
     - [x] Caves
-- [ ] These caves should feature realistic formations (wormhole style) and contain clusters of rare ores like gold and diamonds, not just simple noise-based distribution
+- [x] These caves should feature realistic formations (wormhole style) and contain clusters of rare ores like gold and diamonds, not just simple noise-based distribution
     - [x] Wormhole caves
-    - [ ] Ore generation
+    - [x] Ore generation
 - [x] Monsters (like creepers or zombies) should spawn and chase you when you get close.
 - [x] 3D clouds should float across the world. They can either be represented as blocks (purely visual with no interaction) or as shaders.
 - [ ] You should be able to pick up blocks after destroying them (just like in Minecraft) and place them wherever you want.
