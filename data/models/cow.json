@@ -233,6 +233,35 @@
 
     "animations": [
         {
+            "name": "idle",
+            "fps": 20,
+            "frames": 50,
+            "keyframes": [
+                {
+                    "frame": 0,
+                    "transforms": [
+                        { "object": "body", "rotation": [0.0, 0.0, 0.0] },
+                        { "object": "head", "rotation": [2.0, -5.0, 0.0] },
+                        { "object": "leg_front_left", "rotation": [0.0, 0.0, 0.0] },
+                        { "object": "leg_front_right", "rotation": [0.0, 0.0, 0.0] },
+                        { "object": "leg_back_left", "rotation": [0.0, 0.0, 0.0] },
+                        { "object": "leg_back_right", "rotation": [0.0, 0.0, 0.0] }
+                    ]
+                },
+                {
+                    "frame": 25,
+                    "transforms": [
+                        { "object": "body", "rotation": [0.8, 0.0, 0.0] },
+                        { "object": "head", "rotation": [-3.0, 5.0, 0.0] },
+                        { "object": "leg_front_left", "rotation": [0.0, 0.0, 0.0] },
+                        { "object": "leg_front_right", "rotation": [0.0, 0.0, 0.0] },
+                        { "object": "leg_back_left", "rotation": [0.0, 0.0, 0.0] },
+                        { "object": "leg_back_right", "rotation": [0.0, 0.0, 0.0] }
+                    ]
+                }
+            ]
+        },
+        {
             "name": "walk",
             "fps": 30,
             "frames": 30,

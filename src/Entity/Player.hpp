@@ -161,6 +161,7 @@ private:
     std::optional<AudioClip> m_walking_clip;
     std::optional<AudioClip> m_attacking_clip;
     std::optional<AudioClip> m_swimming_clip;
+    std::optional<AudioClip> m_destroying_clip;
     std::optional<AudioSource> m_audio_source;
     MovementSound m_movement_sound = MovementSound::None;
 

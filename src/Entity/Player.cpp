@@ -214,6 +214,9 @@ void Player::on_ready()
     path = std::filesystem::absolute("data/resourcepacks/pixel-perfection/assets/minecraft/sounds/liquid/swim1.ogg");
     m_swimming_clip.emplace(*audio.get_audio_mixer(), path);
 
+    path = std::filesystem::absolute("data/resourcepacks/pixel-perfection/assets/minecraft/sounds/step/gravel3.ogg");
+    m_destroying_clip.emplace(*audio.get_audio_mixer(), path);
+
     m_audio_source.emplace(audio);
     m_audio_source->set_clip(&m_walking_clip.value());
 
@@ -514,14 +517,12 @@ void Player::tick(float delta)
         m_velocity.y = 0.0;
 
     if (!m_local_player && m_movement_sound != MovementSound::None)
-    {
         m_animator.play(m_movement_sound == MovementSound::Swimming ? "swim" : "walk");
-        m_animator.tick(delta);
-    }
     else if (!m_local_player)
-    {
-        m_animator.stop();
-    }
+        m_animator.play("idle");
+
+    if (!m_local_player)
+        m_animator.tick(delta);
 
     if (m_local_player)
     {
@@ -574,8 +575,19 @@ void Player::set_movement_state(int64_t state)
 
 void Player::play_one_shot_sound(int64_t sound)
 {
-    if (static_cast<EntitySound>(sound) == EntitySound::Attack)
-        m_audio_source->play_one_shot(&m_attacking_clip.value(), 0.5f);
+    switch (static_cast<EntitySound>(sound))
+    {
+        case EntitySound::Attack:
+            m_audio_source->play_one_shot(&m_attacking_clip.value(), 0.5f);
+            m_animator.play_once("attack");
+            break;
+        case EntitySound::Destroying:
+            m_audio_source->play_one_shot(&m_destroying_clip.value(), 0.5f);
+            m_animator.play_once("destroy_block");
+            break;
+    case EntitySound::Groan:
+        break;
+    }
 }
 
 void Player::draw(const RenderPass& pass)
@@ -754,8 +766,11 @@ void Player::hit()
         {
             if (auto mob = std::dynamic_pointer_cast<LivingEntity>(result.entity))
             {
-                mob->damage(1, id()); // TODO: different tool deals different damages.
-                m_audio_source->play_one_shot(&m_attacking_clip.value(), 0.5f);
+                if (Engine::get().is_server())
+                    mob->damage(1, id()); // TODO: tool-dependent damage.
+
+                if (m_local_player)
+                    call_rpc("play_one_shot_sound", static_cast<int64_t>(EntitySound::Attack));
             }
         }
         else if (m_gamemode == GameMode::Creative && !result.hit_entity)
@@ -764,6 +779,9 @@ void Player::hit()
         }
         else if (m_gamemode == GameMode::Survival && !result.hit_entity)
         {
+            if (m_local_player)
+                call_rpc("play_one_shot_sound", static_cast<int64_t>(EntitySound::Destroying));
+
             if (!m_is_destroying)
             {
                 m_is_destroying = true;

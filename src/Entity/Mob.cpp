@@ -16,12 +16,11 @@ void Mob::die()
 void Mob::animate_movement(float delta_time, MovementSound movement_state)
 {
     if (movement_state != MovementSound::None)
-    {
         m_animator.play(movement_state == MovementSound::Swimming ? "swim" : "walk");
-        m_animator.tick(delta_time);
-    }
     else
-        m_animator.stop();
+        m_animator.play("idle");
+
+    m_animator.tick(delta_time);
 }
 
 void Mob::follow_path(float delta_time)

@@ -220,10 +220,14 @@ void Animator::set_model(std::shared_ptr<ModelLegacy> model)
     m_animation_name = "";
     m_time = 0.0;
     m_frame = 0;
+    m_playing_once = false;
 }
 
 void Animator::play(const std::string& animation)
 {
+    if (!m_model || m_playing_once)
+        return;
+
     if (m_animation_name == animation)
         return;
 
@@ -232,27 +236,22 @@ void Animator::play(const std::string& animation)
     m_frame = 0;
 }
 
-void Animator::stop()
+void Animator::play_once(const std::string& animation)
 {
-    if (!m_model || m_animation_name.empty())
+    if (!m_model || !m_model->get_animation(animation).has_value())
         return;
 
-    m_animation_name.clear();
+    m_animation_name = animation;
     m_time = 0.0f;
     m_frame = 0;
-
-    // Restore the model's bind pose. Merely selecting a missing "idle"
-    // animation leaves the last animated frame in the GPU buffers.
-    for (ModelLegacy::Object& object : m_model->objects())
-    {
-        const glm::mat4 scale_m = glm::scale(glm::identity<glm::mat4>(), object.size);
-        const glm::mat4 translate_m = glm::translate(glm::identity<glm::mat4>(), object.position);
-        object.model_buffer->update_struct(ModelLegacy::Info{.model_matrix = translate_m * scale_m});
-    }
+    m_playing_once = true;
 }
 
 void Animator::tick(float delta)
 {
+    if (!m_model)
+        return;
+
     std::optional<ModelLegacy::Animation> animation_maybe = m_model->get_animation(m_animation_name);
     if (!animation_maybe.has_value())
     {
@@ -265,10 +264,20 @@ void Animator::tick(float delta)
 
     const float frame_time = 1.0f / float(animation.fps);
     m_time += delta;
-    if (m_time >= frame_time)
+    while (m_time >= frame_time)
     {
-        m_frame = (m_frame + 1) % animation.frames;
         m_time -= frame_time;
+
+        if (m_playing_once && m_frame + 1 >= animation.frames)
+        {
+            m_playing_once = false;
+            m_animation_name.clear();
+            m_frame = 0;
+            m_time = 0.0f;
+            break;
+        }
+
+        m_frame = (m_frame + 1) % animation.frames;
     }
 }
 

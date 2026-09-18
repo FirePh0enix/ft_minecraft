@@ -188,8 +188,7 @@ void Zombie::attack()
 
     mob->damage(1, id());
     m_attack_timer = m_attack_cooldown;
-    if (Engine::get().is_server())
-        call_rpc("play_one_shot_sound", static_cast<int64_t>(EntitySound::Attack));
+    call_rpc("play_one_shot_sound", static_cast<int64_t>(EntitySound::Attack));
 }
 
 void Zombie::set_movement_state(int64_t state)
@@ -213,9 +212,12 @@ void Zombie::play_one_shot_sound(int64_t sound)
     {
         case EntitySound::Attack:
             m_audio_source->play_one_shot(&m_attacking_clip.value(), 0.5f);
+            m_animator.play_once("attack");
             break;
         case EntitySound::Groan:
             m_audio_source->play_one_shot(&m_groan_clip.value(), 0.5f);
+            break;
+        case EntitySound::Destroying:
             break;
     }
 }
