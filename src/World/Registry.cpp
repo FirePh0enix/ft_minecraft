@@ -43,6 +43,7 @@ void GameRegistry::register_all()
     register_block(Blocks::ice);
 
     register_block(Blocks::coal_ore);
+    register_block(Blocks::diamond_ore);
 
     register_block(Blocks::oak_leaves, true, true);
     register_block(Blocks::oak_log);
@@ -65,6 +66,7 @@ void GameRegistry::register_all()
     add_item(Items::ice, std::make_shared<ItemBlock>(Blocks::ice));
 
     add_item(Items::coal_ore, std::make_shared<ItemBlock>(Blocks::coal_ore));
+    add_item(Items::diamond_ore, std::make_shared<ItemBlock>(Blocks::diamond_ore));
 
     add_item(Items::oak_log, std::make_shared<ItemBlock>(Blocks::oak_log));
     add_item(Items::oak_leaves, std::make_shared<ItemBlock>(Blocks::oak_leaves));

@@ -272,6 +272,16 @@ void OverworldGen::preload(int64_t cx, int64_t cz, std::shared_ptr<PreLoadedChun
     }
 }
 
+double get_coal_ore_density(double density, double y)
+{
+    return density * std::clamp((256 - y) / (256 - 80.0), 0.0, 1.0);
+}
+
+double get_diamond_ore_density(double density, double y)
+{
+    return density * std::clamp((256 - y) / (256 - 30.0), 0.0, 1.0);
+}
+
 void OverworldGen::generate_chunk(std::shared_ptr<Chunk> chunk, std::shared_ptr<PreLoadedChunk> preloaded_chunk, Dimension& dim)
 {
     BlockState *blocks = chunk->get_blocks();
@@ -424,6 +434,20 @@ void OverworldGen::generate_chunk(std::shared_ptr<Chunk> chunk, std::shared_ptr<
                 blocks[x + 1 * 16 + z * 16 * 256] = BlockState(Blocks::bedrock);
             if (bedrock_noise_b >= 0.5f)
                 blocks[x + 2 * 16 + z * 16 * 256] = BlockState(Blocks::bedrock);
+
+            // Generate simple ores.
+            for (int64_t y = 0; y < 256; y++)
+            {
+                float density = (float)get_coal_ore_density(m_noise.sample(glm::vec3(x, y, z) / 24.0f), (float)y);
+                if (density > 0.94f && blocks[x + y * 16 + z * 16 * 256] == BlockState(Blocks::stone))
+                    blocks[x + y * 16 + z * 16 * 256] = BlockState(Blocks::coal_ore);
+            }
+            for (int64_t y = 0; y < 256; y++)
+            {
+                float density = (float)get_diamond_ore_density(m_noise.sample(glm::vec3(x, y, z) / 12.0f), (float)y);
+                if (density > 0.9f && blocks[x + y * 16 + z * 16 * 256] == BlockState(Blocks::stone))
+                    blocks[x + y * 16 + z * 16 * 256] = BlockState(Blocks::diamond_ore);
+            }
         }
     }
 
