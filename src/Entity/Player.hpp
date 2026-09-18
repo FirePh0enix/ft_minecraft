@@ -101,9 +101,9 @@ private:
     GameMode m_gamemode = GameMode::Creative;
 
     float m_speed = 8.0;
-    float m_sprint_speed = 14.0;
+    float m_sprint_speed = 16.0;
 
-    float m_fly_speed_mult = 2.5f;
+    float m_fly_speed_mult = 10.0f;
 
     float m_jump_force = 0.24f;
 
