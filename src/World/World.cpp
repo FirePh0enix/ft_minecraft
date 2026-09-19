@@ -482,8 +482,6 @@ std::expected<void, Error> World::save_chunk(std::stop_token token, std::shared_
 
     TRY(file.writer().write_raw(tags_data.data(), tags_data.size()));
 
-    // FileWriter writer = file.writer();
-    // write_tags(writer, chunk);
     file.close();
 
     return std::expected<void, Error>();
@@ -561,5 +559,5 @@ bool World::load_player(std::string_view username, std::shared_ptr<Player>& play
 bool World::is_player_saved(std::string_view name) const
 {
     std::string path = std::format("{}saves/{}/players/{}.dat", Filesystem::get_data_directory(), m_name, name);
-    return Filesystem::exists(path);
+    return std::filesystem::exists(path);
 }
