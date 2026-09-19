@@ -266,6 +266,8 @@ void World::tick_dimension(float delta, int dimension)
             std::shared_ptr<Chunk> chunk = chunk_iter->second;
             chunk->get_slices()[result.slice_index].opaque_mesh = result.opaque_mesh;
             chunk->get_slices()[result.slice_index].water_mesh = result.water_mesh;
+            if (result.updates_shadow_mesh)
+                chunk->set_shadow_mesh(result.shadow_mesh);
             if (m_dims[dimension].m_chunks_rebuild_queue.erase(result.pos) > 0)
                 rebuild_completed.push_back(result.pos);
         }
@@ -323,28 +325,23 @@ void World::tick_dimension(float delta, int dimension)
     }
 
     m_dims[dimension].m_sun_visible_chunks.clear();
+    // The shadow camera is centered at the player and renders camera-relative
+    // chunk positions, so culling must test bounds in that same coordinate space.
+    const glm::dvec3 sun_origin = m_player != nullptr
+                                      ? m_player->get_camera()->get_global_transform().position()
+                                      : glm::dvec3(0.0);
     for (const auto& [key, chunk] : m_dims[dimension].m_chunks)
     {
         ChunkPos pos = chunk->pos();
         AABBf aabb = AABBf(-glm::vec3(Chunk::width / 2.0, Chunk::height / 2.0, Chunk::width / 2), glm::vec3(Chunk::width / 2.0, Chunk::height / 2.0, Chunk::width / 2))
-                         .translate(glm::vec3((float)pos.x * Chunk::width + Chunk::width / 2.0, float(Chunk::height) / 2.0, (float)pos.z * Chunk::width + Chunk::width / 2.0));
+                         .translate(glm::dvec3((double)pos.x * Chunk::width + Chunk::width / 2.0, double(Chunk::height) / 2.0, (double)pos.z * Chunk::width + Chunk::width / 2.0) - sun_origin);
 
         if (!m_dims[dimension].m_sun_frustum.contains(aabb))
             continue;
 
-        for (size_t i = 0; i < Chunk::slice_count; i++)
-        {
-            ChunkPos pos = chunk->pos();
-            AABBf aabb = AABBf(-glm::vec3(Chunk::width / 2.0, Chunk::width / 2.0, Chunk::width / 2), glm::vec3(Chunk::width / 2.0, Chunk::width / 2.0, Chunk::width / 2))
-                             .translate(glm::vec3((float)pos.x * Chunk::width + Chunk::width / 2.0, (float)i * Chunk::width + Chunk::width / 2.0, (float)pos.z * Chunk::width + Chunk::width / 2.0));
-
-            std::shared_ptr<Mesh> mesh = chunk->get_slices()[i].opaque_mesh;
-            if (!m_dims[dimension].m_sun_frustum.contains(aabb) || mesh == nullptr)
-                continue;
-
-            m_dims[dimension].m_sun_visible_chunks[chunk->pos()].chunk = chunk;
-            m_dims[dimension].m_sun_visible_chunks[chunk->pos()].slice_indices.push_back(i);
-        }
+        // Shadows draw one merged mesh per chunk; slice visibility is unused.
+        if (chunk->get_shadow_mesh() != nullptr)
+            m_dims[dimension].m_sun_visible_chunks.emplace(pos, RenderableChunk{chunk, {}});
     }
 }
 

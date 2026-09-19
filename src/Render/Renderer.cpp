@@ -1726,25 +1726,92 @@ void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::sha
     }
     const uint32_t stencil_mask = inside_portal ? 2 : 1;
 
-    for (const auto& [pos, r] : world->get_dimension(dimension).get_visible_chunks())
+    const auto& visible_chunks = world->get_dimension(dimension).get_visible_chunks();
+    const auto& shadow_chunks = world->get_dimension(dimension).get_sun_visible_chunks();
+    const glm::dvec3 camera_position = active_camera->get_global_transform().position();
+
+    // Drawing every slice in the full square light frustum can produce tens of
+    // thousands of tiny draw calls. Limit casters to chunks visible to the main
+    // camera plus a margin that retains nearby off-screen occluders.
+    constexpr int64_t shadow_caster_margin = 2;
+    std::vector<ChunkPos> shadow_casters;
+    shadow_casters.reserve(visible_chunks.size() * (shadow_caster_margin * 2 + 1) * (shadow_caster_margin * 2 + 1));
+    for (const auto& [pos, renderable] : visible_chunks)
     {
-        ZoneScopedN("copy instance buffer");
+        (void)renderable;
+        for (int64_t x = -shadow_caster_margin; x <= shadow_caster_margin; ++x)
+            for (int64_t z = -shadow_caster_margin; z <= shadow_caster_margin; ++z)
+                shadow_casters.emplace_back(pos.x + x, pos.z + z);
+    }
+    std::sort(shadow_casters.begin(), shadow_casters.end());
+    shadow_casters.erase(std::unique(shadow_casters.begin(), shadow_casters.end(), [](const ChunkPos& a, const ChunkPos& b) {
+                             return a.x == b.x && a.z == b.z;
+                         }),
+                         shadow_casters.end());
 
-        std::shared_ptr<Buffer> buffer = r.chunk->get_instance_copy_buffer();
-        void *buffer_data = buffer->map();
+    const auto is_shadow_caster = [&](const ChunkPos& pos) {
+        return std::binary_search(shadow_casters.begin(), shadow_casters.end(), pos);
+    };
 
-        for (size_t slice_index : r.slice_indices)
+    // One fresh mapped staging allocation avoids waiting on last frame's GPU
+    // work for every chunk. Copies are encoded in pass order, including portals.
+    // Layout: all visible chunks (one entry per slice), then one entry per
+    // shadow caster. Keep every slice slot so main-pass firstInstance remains
+    // the slice index even when some slices are culled.
+    std::vector<glm::vec3> instance_data;
+    instance_data.reserve(visible_chunks.size() * Chunk::slice_count + shadow_chunks.size());
+    for (const auto& [pos, renderable] : visible_chunks)
+    {
+        (void)renderable;
+        // Subtract in double precision before converting to GPU floats, so
+        // moving far from the world origin does not lose local block precision.
+        for (size_t slice = 0; slice < Chunk::slice_count; ++slice)
+            instance_data.emplace_back(double(pos.x) * Chunk::width - camera_position.x,
+                                       double(slice) * Chunk::width - camera_position.y,
+                                       double(pos.z) * Chunk::width - camera_position.z);
+    }
+    const size_t shadow_offset = instance_data.size() * sizeof(glm::vec3);
+    std::vector<ChunkPos> selected_casters;
+    selected_casters.reserve(shadow_chunks.size());
+    for (const auto& [pos, renderable] : shadow_chunks)
+    {
+        if (!is_shadow_caster(pos) || renderable.chunk->get_shadow_mesh() == nullptr)
+            continue;
+        // The merged mesh already contains each slice's vertical offset; its
+        // instance translates from the chunk base, not from an individual slice.
+        selected_casters.push_back(pos);
+        instance_data.emplace_back(double(pos.x) * Chunk::width - camera_position.x,
+                                   -camera_position.y,
+                                   double(pos.z) * Chunk::width - camera_position.z);
+    }
+    if (!instance_data.empty())
+    {
+        ZoneScopedN("upload chunk instances");
+        const size_t bytes = instance_data.size() * sizeof(glm::vec3);
+        auto staging = EXPECT(Buffer::create(bytes, WGPUBufferUsage_CopySrc, true));
+        std::memcpy(wgpuBufferGetMappedRange(staging->handle(), 0, bytes), instance_data.data(), bytes);
+        // GPU copies require an unmapped source. Recorded commands retain the
+        // buffer, so releasing this local wrapper after recording is safe.
+        staging->unmap();
+        size_t offset = 0;
+        // This traverses the same ordered map used above, keeping each upload
+        // paired with the chunk whose offsets occupy that staging range.
+        constexpr size_t chunk_bytes = Chunk::slice_count * sizeof(glm::vec3);
+        for (const auto& [pos, renderable] : visible_chunks)
         {
-            const glm::dvec3 position = active_camera->get_global_transform().position();
-            glm::vec3 data((double)pos.x * Chunk::width - position.x, (double)slice_index * Chunk::width - position.y, (double)pos.z * Chunk::width - position.z);
-            std::memcpy((char *)buffer_data + slice_index * sizeof(data), &data, sizeof(data));
+            (void)pos;
+            wgpuCommandEncoderCopyBufferToBuffer(encoder, staging->handle(), offset,
+                                                renderable.chunk->get_instance_buffer()->handle(), 0, chunk_bytes);
+            offset += chunk_bytes;
         }
-
-        buffer->unmap();
-
+        const size_t shadow_bytes = selected_casters.size() * sizeof(glm::vec3);
+        if (shadow_bytes > 0)
         {
-            ZoneScopedN("wgpuCommandEncoderCopyBufferToBuffer");
-            wgpuCommandEncoderCopyBufferToBuffer(encoder, r.chunk->get_instance_copy_buffer()->handle(), 0, r.chunk->get_instance_buffer()->handle(), 0, 16 * sizeof(glm::vec3));
+            // Spare capacity avoids reallocating for every newly visible chunk.
+            if (m_shadow_instances == nullptr || m_shadow_instances->size() < shadow_bytes)
+                m_shadow_instances = EXPECT(Buffer::create(shadow_bytes * 2, WGPUBufferUsage_Vertex | WGPUBufferUsage_CopyDst));
+            wgpuCommandEncoderCopyBufferToBuffer(encoder, staging->handle(), shadow_offset,
+                                                m_shadow_instances->handle(), 0, shadow_bytes);
         }
     }
 
@@ -1763,7 +1830,9 @@ void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::sha
     shadowmap_pass_desc.depthStencilAttachment = &shadowmap_attach;
 
     WGPURenderPassEncoder shadowmap_pass = wgpuCommandEncoderBeginRenderPass(encoder, &shadowmap_pass_desc);
-    draw_shadow_world(world, RenderPass(shadowmap_pass, RenderTarget(m_fw_shadowmap->format()), {}), world->get_dimension(0).get_sun_visible_chunks(), stencil_mask);
+    // Portals can render another dimension; its shadow map must use that
+    // dimension's casters rather than always sampling the overworld.
+    draw_shadow_world(world, RenderPass(shadowmap_pass, RenderTarget(m_fw_shadowmap->format()), {}), shadow_chunks, selected_casters, stencil_mask);
     wgpuRenderPassEncoderEnd(shadowmap_pass);
     wgpuRenderPassEncoderRelease(shadowmap_pass);
 
@@ -1838,8 +1907,6 @@ void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::sha
 
         draw(color_pass_info, m_cube_mesh, m_fw_colored_mat, cloud.bg);
     }
-
-    draw(color_pass_info, m_quad_mesh, m_fw_shadowmap_cam_mat, m_fw_shadowmap_cam_bg);
 
     {
         ZoneScopedN("debug draw");
@@ -1969,7 +2036,7 @@ void Renderer::draw_water_world(const std::shared_ptr<World>& world, const Rende
     }
 }
 
-void Renderer::draw_shadow_world(const std::shared_ptr<World>& world, const RenderPass& pass, const std::map<ChunkPos, RenderableChunk>& chunks, uint32_t stencil)
+void Renderer::draw_shadow_world(const std::shared_ptr<World>& world, const RenderPass& pass, const std::map<ChunkPos, RenderableChunk>& chunks, const std::vector<ChunkPos>& caster_chunks, uint32_t stencil)
 {
     ZoneScoped;
 
@@ -1985,37 +2052,19 @@ void Renderer::draw_shadow_world(const std::shared_ptr<World>& world, const Rend
     wgpuRenderPassEncoderSetBindGroup(encoder, 0, m_chunk_shadow_bg->get_bind_group(), 0, nullptr);
     wgpuRenderPassEncoderSetStencilReference(encoder, stencil);
 
-    for (const auto& [pos, r] : chunks)
+    if (caster_chunks.empty())
+        return;
+    // caster_chunks preserves upload order. firstInstance selects its matching
+    // offset from the shared instance buffer, which stays bound for every draw.
+    wgpuRenderPassEncoderSetVertexBuffer(encoder, 1, m_shadow_instances->handle(), 0, m_shadow_instances->size());
+    for (size_t instance = 0; instance < caster_chunks.size(); ++instance)
     {
         ZoneScopedN("record chunk");
-
-        // TODO: merge multiple draw calls of slice like 1, 2, 3 into only one draw call.
-        for (size_t slice_index : r.slice_indices)
-        {
-            const Chunk::Slice& slice = r.chunk->get_slices()[slice_index];
-
-            if (slice.opaque_mesh == nullptr)
-                continue;
-
-            const std::shared_ptr<Mesh>& mesh = slice.opaque_mesh;
-
-            {
-                ZoneScopedN("buffers");
-
-                wgpuRenderPassEncoderSetIndexBuffer(encoder, mesh->get_buffer(Mesh::BufferKind::Index)->handle(), mesh->index_type(), 0, mesh->get_buffer(Mesh::BufferKind::Index)->size());
-                wgpuRenderPassEncoderSetVertexBuffer(encoder, 0, mesh->get_buffer(Mesh::BufferKind::Position)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Position)->size());
-
-                size_t buffer_index = 1;
-                if (!mat->flags().has_any(MaterialFlagBits::NoNormal))
-                    wgpuRenderPassEncoderSetVertexBuffer(encoder, buffer_index++, mesh->get_buffer(Mesh::BufferKind::Normal)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Normal)->size());
-                if (!mat->flags().has_any(MaterialFlagBits::NoUV))
-                    wgpuRenderPassEncoderSetVertexBuffer(encoder, buffer_index++, mesh->get_buffer(Mesh::BufferKind::UV)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::UV)->size());
-
-                wgpuRenderPassEncoderSetVertexBuffer(encoder, buffer_index++, r.chunk->get_instance_buffer()->handle(), 0, r.chunk->get_instance_buffer()->size());
-            }
-
-            wgpuRenderPassEncoderDrawIndexed(encoder, mesh->vertex_count(), 1, 0, 0, slice_index);
-        }
+        const auto& r = chunks.at(caster_chunks[instance]);
+        const auto mesh = r.chunk->get_shadow_mesh();
+        wgpuRenderPassEncoderSetIndexBuffer(encoder, mesh->get_buffer(Mesh::BufferKind::Index)->handle(), mesh->index_type(), 0, mesh->get_buffer(Mesh::BufferKind::Index)->size());
+        wgpuRenderPassEncoderSetVertexBuffer(encoder, 0, mesh->get_buffer(Mesh::BufferKind::Position)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Position)->size());
+        wgpuRenderPassEncoderDrawIndexed(encoder, mesh->vertex_count(), 1, 0, 0, static_cast<uint32_t>(instance));
     }
 }
 
@@ -2039,7 +2088,9 @@ void Renderer::set_fog(glm::vec4 color, float distance)
 
 void Renderer::set_sky(glm::vec4 color)
 {
-    SkyUniforms u(glm::inverse(Engine::get().server()->get_player()->get_camera()->get_actual_view_proj_matrix()), color);
+    // The sky is infinitely distant, so camera translation must not affect the
+    // reconstructed view ray (otherwise the procedural sun follows movement).
+    SkyUniforms u(glm::inverse(Engine::get().server()->get_player()->get_camera()->get_view_proj_matrix()), color);
     m_sky_buffer->update_struct(u);
 }
 
