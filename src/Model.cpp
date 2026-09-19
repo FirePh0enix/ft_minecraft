@@ -9,7 +9,6 @@
 
 #include <SDL3/SDL.h>
 #include <nlohmann/json.hpp>
-#include <print>
 #include <stb_image.h>
 
 struct ModelObject
@@ -221,10 +220,15 @@ void Animator::set_model(std::shared_ptr<ModelLegacy> model)
     m_animation_name = "";
     m_time = 0.0;
     m_frame = 0;
+    m_playing_once = false;
+    m_hold_last_frame = false;
 }
 
 void Animator::play(const std::string& animation)
 {
+    if (!m_model || m_playing_once)
+        return;
+
     if (m_animation_name == animation)
         return;
 
@@ -233,8 +237,32 @@ void Animator::play(const std::string& animation)
     m_frame = 0;
 }
 
+void Animator::play_once(const std::string& animation, bool hold_last_frame)
+{
+    if (!m_model || !m_model->get_animation(animation).has_value())
+        return;
+
+    m_animation_name = animation;
+    m_time = 0.0f;
+    m_frame = 0;
+    m_playing_once = true;
+    m_hold_last_frame = hold_last_frame;
+}
+
+void Animator::stop()
+{
+    m_animation_name.clear();
+    m_time = 0.0f;
+    m_frame = 0;
+    m_playing_once = false;
+    m_hold_last_frame = false;
+}
+
 void Animator::tick(float delta)
 {
+    if (!m_model)
+        return;
+
     std::optional<ModelLegacy::Animation> animation_maybe = m_model->get_animation(m_animation_name);
     if (!animation_maybe.has_value())
     {
@@ -247,10 +275,27 @@ void Animator::tick(float delta)
 
     const float frame_time = 1.0f / float(animation.fps);
     m_time += delta;
-    if (m_time >= frame_time)
+    while (m_time >= frame_time)
     {
-        m_frame = (m_frame + 1) % animation.frames;
         m_time -= frame_time;
+
+        if (m_playing_once && m_frame + 1 >= animation.frames)
+        {
+            if (m_hold_last_frame)
+            {
+                m_frame = animation.frames - 1;
+                m_time = 0.0f;
+                break;
+            }
+
+            m_playing_once = false;
+            m_animation_name.clear();
+            m_frame = 0;
+            m_time = 0.0f;
+            break;
+        }
+
+        m_frame = (m_frame + 1) % animation.frames;
     }
 }
 

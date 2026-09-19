@@ -7,17 +7,24 @@
 
 void Cow::bind_methods()
 {
-    type.add_method("set_movement_sound", &Cow::set_movement_sound);
-    expose_rpc<Cow>("set_movement_sound", RpcTarget::Both);
+    type.add_method("set_movement_state", &Cow::set_movement_state);
+    expose_rpc<Cow>("set_movement_state", RpcTarget::Both);
+
+    type.add_method("on_death", &Cow::on_death);
+    expose_rpc<Cow>("on_death", RpcTarget::Both);
 }
 
 void Cow::start() {};
 
 void Cow::tick(float delta)
 {
+    if (tick_death(delta))
+        return;
+
     if (Engine::get().is_client())
     {
         m_audio_source->set_position(get_global_transform().position());
+        animate_movement(delta, m_movement_sound);
         return;
     }
 
@@ -70,12 +77,13 @@ void Cow::tick(float delta)
     }
     if (Engine::get().is_server() && movement_sound != m_movement_sound)
     {
-        m_movement_sound = movement_sound;
-        call_rpc("set_movement_sound", static_cast<int64_t>(movement_sound));
+        set_movement_state(static_cast<int64_t>(movement_sound));
+        call_rpc("set_movement_state", static_cast<int64_t>(movement_sound));
     }
+    animate_movement(delta, movement_sound);
 }
 
-void Cow::set_movement_sound(int64_t state)
+void Cow::set_movement_state(int64_t state)
 {
     m_movement_sound = static_cast<MovementSound>(state);
     if (m_movement_sound == MovementSound::Swimming)
@@ -93,6 +101,7 @@ void Cow::set_movement_sound(int64_t state)
 void Cow::on_ready()
 {
     m_model = EXPECT(ModelLegacy::load("data/models/cow.json"));
+    m_animator.set_model(m_model);
     m_pathfinding = std::make_unique<Pathfinding>(m_world);
 
     AudioMixer& audio = m_world->audio();
@@ -101,8 +110,17 @@ void Cow::on_ready()
     path = std::filesystem::absolute("assets/audio/cow/swimming.wav");
     m_swimming_clip.emplace(*audio.get_audio_mixer(), path);
 
+    path = std::filesystem::absolute("data/resourcepacks/pixel-perfection/assets/minecraft/sounds/entity/player/attack/crit3.ogg");
+    m_dying_clip.emplace(*audio.get_audio_mixer(), path);
+
     m_audio_source.emplace(audio);
     m_audio_source->set_clip(&m_walking_clip.value());
+}
+
+void Cow::on_death()
+{
+    Mob::on_death();
+    m_audio_source->play_one_shot(&m_dying_clip.value(), 1.0f);
 }
 
 void Cow::on_damage(int damage, EntityId damage_source)
