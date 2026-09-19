@@ -284,19 +284,21 @@ std::expected<std::shared_ptr<Mesh>, Error> Chunk::build_water_mesh(size_t slice
                     if (!chunk->get_tag({x, y, z}, "water").has_value())
                         return false;
                     return true; };
-                auto match_cross_boundary = [](Chunk *chunk, const std::map<ChunkPos, std::shared_ptr<Chunk>>& chunks, int64_t cx, int64_t cz, int64_t x, int64_t y, int64_t z) -> bool
+                auto match_cross_boundary = [](const std::map<ChunkPos, std::shared_ptr<Chunk>>& chunks, int64_t cx, int64_t cz, int64_t x, int64_t y, int64_t z) -> bool
                 {
                     auto iter = chunks.find(ChunkPos(cx, cz));
                     if (iter == chunks.end())
                         return false;
-                    if (!chunk->get_tag({x, y, z}, "water").has_value())
+                    // Check the actual neighboring chunk; using the current chunk here
+                    // creates missing or extra water faces along chunk boundaries.
+                    if (!iter->second->get_tag({x, y, z}, "water").has_value())
                         return false;
                     return true; };
 
                 NeighborFlags flags{0};
-                if ((x > 0 && match(this, x - 1, y, z)) || (x == 0 && match_cross_boundary(this, chunks, m_x - 1, m_z, 15, y, z)))
+                if ((x > 0 && match(this, x - 1, y, z)) || (x == 0 && match_cross_boundary(chunks, m_x - 1, m_z, 15, y, z)))
                     flags.value |= NeighborFlags::east;
-                if ((x < 15 && match(this, x + 1, y, z)) || (x == 15 && match_cross_boundary(this, chunks, m_x + 1, m_z, 0, y, z)))
+                if ((x < 15 && match(this, x + 1, y, z)) || (x == 15 && match_cross_boundary(chunks, m_x + 1, m_z, 0, y, z)))
                     flags.value |= NeighborFlags::west;
 
                 if (y > 0 && match(this, x, y - 1, z))
@@ -304,9 +306,9 @@ std::expected<std::shared_ptr<Mesh>, Error> Chunk::build_water_mesh(size_t slice
                 if (y < height - 1 && match(this, x, y + 1, z))
                     flags.value |= NeighborFlags::down;
 
-                if ((z > 0 && match(this, x, y, z - 1)) || (z == 0 && match_cross_boundary(this, chunks, m_x, m_z - 1, x, y, 15)))
+                if ((z > 0 && match(this, x, y, z - 1)) || (z == 0 && match_cross_boundary(chunks, m_x, m_z - 1, x, y, 15)))
                     flags.value |= NeighborFlags::south;
-                if ((z < 15 && match(this, x, y, z + 1)) || (z == 15 && match_cross_boundary(this, chunks, m_x, m_z + 1, x, y, 0)))
+                if ((z < 15 && match(this, x, y, z + 1)) || (z == 15 && match_cross_boundary(chunks, m_x, m_z + 1, x, y, 0)))
                     flags.value |= NeighborFlags::north;
 
                 add_water_mesh(builder, {x, y - slice_y_offset, z}, flags);
