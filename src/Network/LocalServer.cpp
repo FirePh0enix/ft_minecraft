@@ -293,6 +293,11 @@ void LocalServer::receive(void *user, NetworkConnection& conn, ENetPacket *packe
         SendPlayerTransformPacket p;
         EXPECT(deserialize(buffer, p));
 
+        const auto player_it = self->m_connected_peers.find(client.peer());
+        if (player_it == self->m_connected_peers.end() ||
+            player_it->second->id() != p.id || player_it->second->is_dead())
+            break;
+
         std::shared_ptr<Entity> entity = self->m_world->get_entity(p.id);
         if (entity == nullptr)
             break;

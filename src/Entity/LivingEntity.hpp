@@ -18,6 +18,7 @@ public:
     }
 
     void damage(int value, EntityId damage_source);
+    virtual bool is_dead() const { return m_health <= 0; }
 
     virtual void on_damage(int value, EntityId damage_source)
     {

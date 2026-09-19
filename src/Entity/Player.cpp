@@ -18,6 +18,7 @@
 #include "World/Registry.hpp"
 #include "World/World.hpp"
 
+#include <cmath>
 #include <cstdint>
 #include <imgui.h>
 
@@ -181,10 +182,19 @@ void Player::bind_methods()
 
     type.add_method("release", &Player::release);
     expose_rpc<Player>("release", RpcTarget::Both);
+
+    type.add_method("on_death", &Player::on_death);
+    expose_rpc<Player>("on_death", RpcTarget::Both);
+
+    type.add_method("respawn", &Player::respawn);
+    expose_rpc<Player>("respawn", RpcTarget::Server);
+
+    type.add_method("on_respawn", &Player::on_respawn);
+    expose_rpc<Player>("on_respawn", RpcTarget::Both);
 }
 
 Player::Player()
-    : LivingEntity(20)
+    : LivingEntity(2)
 {
     m_aabb = AABBd(-glm::dvec3(0.35, 0.9, 0.35), glm::dvec3(0.35, 0.9, 0.35));
 
@@ -216,6 +226,9 @@ void Player::on_ready()
 
     path = std::filesystem::absolute("data/resourcepacks/pixel-perfection/assets/minecraft/sounds/step/gravel3.ogg");
     m_destroying_clip.emplace(*audio.get_audio_mixer(), path);
+
+    path = std::filesystem::absolute("data/resourcepacks/pixel-perfection/assets/minecraft/sounds/random/classic_hurt.ogg");
+    m_dying_clip.emplace(*audio.get_audio_mixer(), path);
 
     m_audio_source.emplace(audio);
     m_audio_source->set_clip(&m_walking_clip.value());
@@ -264,6 +277,16 @@ void Player::tick(float delta)
     ZoneScoped;
 
     Entity::tick(delta);
+
+    if (m_dead)
+    {
+        m_velocity = glm::dvec3(0.0);
+        m_death_animation_time += delta;
+        if (!m_local_player)
+            m_animator.tick(delta);
+        m_audio_source->set_position(get_global_transform().position());
+        return;
+    }
 
     if (Input::is_action_pressed("attack") && !Input::is_mouse_grabbed() && !m_opened_inventory.has_value() && m_local_player && !m_chat_opened)
     {
@@ -577,14 +600,18 @@ void Player::play_one_shot_sound(int64_t sound)
 {
     switch (static_cast<EntitySound>(sound))
     {
-        case EntitySound::Attack:
-            m_audio_source->play_one_shot(&m_attacking_clip.value(), 0.5f);
-            m_animator.play_once("attack");
-            break;
-        case EntitySound::Destroying:
-            m_audio_source->play_one_shot(&m_destroying_clip.value(), 0.5f);
-            m_animator.play_once("destroy_block");
-            break;
+    case EntitySound::Attack:
+        m_audio_source->play_one_shot(&m_attacking_clip.value(), 0.5f);
+        m_animator.play_once("attack");
+        break;
+    case EntitySound::Destroying:
+        m_audio_source->play_one_shot(&m_destroying_clip.value(), 0.5f);
+        m_animator.play_once("destroy_block");
+        break;
+    case EntitySound::Death:
+        m_audio_source->play_one_shot(&m_dying_clip.value(), 1.0f);
+        m_animator.play_once("death", true);
+        break;
     case EntitySound::Groan:
         break;
     }
@@ -594,7 +621,17 @@ void Player::draw(const RenderPass& pass)
 {
     if (!m_local_player)
     {
-        m_model->encode(pass, get_global_transform());
+        Transform3D render_transform = get_global_transform();
+        if (m_dead)
+        {
+            constexpr float fall_duration = 0.8f;
+            const float t = glm::smoothstep(0.0f, 1.0f,
+                                            std::min(m_death_animation_time / fall_duration, 1.0f));
+            render_transform.rotation() *= glm::angleAxis(
+                glm::radians(90.0 * (double)t), glm::dvec3(0.0, 0.0, 1.0));
+            render_transform.position().y -= 0.5 * (double)t;
+        }
+        m_model->encode(pass, render_transform);
     }
 
     // if (m_local_player && m_aimed_block.has_value())
@@ -656,6 +693,12 @@ void Player::draw_ui(const RenderPass& pass)
 {
     if (m_local_player)
     {
+        if (m_dead)
+        {
+            death_screen();
+            return;
+        }
+
         if (m_opened_inventory.has_value())
             m_opened_inventory.value()->draw_everything(pass);
         else
@@ -676,7 +719,7 @@ void Player::process_event(Event& event)
 {
     ZoneScoped;
 
-    if (!m_local_player)
+    if (!m_local_player || m_dead)
         return;
 
     if (!are_input_available())
@@ -684,7 +727,9 @@ void Player::process_event(Event& event)
 
     if (event.is_action_pressed("attack"))
     {
-        call_rpc("hit");
+        // Pitch belongs to the client-side camera and is not included in the
+        // synchronized player transform, so the server needs this direction.
+        call_rpc("hit", glm::dvec3(m_camera->get_global_transform().forward()));
     }
     if (event.is_action_pressed("interact"))
     {
@@ -747,16 +792,59 @@ std::expected<void, Error> Player::load(const EntitySerializer& deser)
 
 void Player::die()
 {
+    if (m_dead)
+        return;
+
+    m_dead = true;
     println("`{}` is dead", m_username);
+    call_rpc("on_death");
 }
 
-void Player::hit()
+void Player::on_death()
+{
+    m_dead = true;
+    m_death_animation_time = 0.0f;
+    play_one_shot_sound(static_cast<int64_t>(EntitySound::Death));
+
+    if (m_local_player)
+        Input::set_mouse_grabbed(false);
+}
+
+void Player::respawn()
+{
+    if (!m_dead)
+        return;
+
+    m_health = m_max_health;
+    set_position(m_world->get_spawn_position());
+    call_rpc("on_respawn");
+}
+
+void Player::on_respawn()
+{
+    m_dead = false;
+    m_death_animation_time = 0.0f;
+    m_animator.stop();
+
+    if (m_local_player)
+        Input::set_mouse_grabbed(true);
+}
+
+void Player::hit(glm::dvec3 direction)
 {
     const float range = 4.0f;
-    const Ray ray(m_camera->get_global_transform().position(), m_camera->get_global_transform().forward());
+    const double direction_length_squared = glm::length2(direction);
+    if (!std::isfinite(direction_length_squared) || direction_length_squared <= 0.0)
+        return;
+
+    // Keep the eye position and reach authoritative; only the aiming direction
+    // comes from the client because camera pitch is not otherwise synchronized.
+    direction /= std::sqrt(direction_length_squared);
+    const Ray ray(m_camera->get_global_transform().position(), direction);
 
     RaycastResult result;
-    if (m_world->raycast(m_dimension, ray, range, result))
+    // Ignore the attacker so its own collision box cannot hide the target.
+    if (m_world->raycast(m_dimension, ray, range, result, this))
     {
         int64_t x = result.block_pos.x;
         int64_t y = result.block_pos.y;
@@ -877,6 +965,39 @@ void Player::update_player_list(const std::vector<std::string>& names)
 void Player::send_message(std::string message)
 {
     m_messages.push_back(message);
+}
+
+void Player::death_screen()
+{
+    const Extent2D window_size = Engine::get().window()->size();
+    constexpr float size_x = 360.0f;
+    constexpr float size_y = 150.0f;
+
+    ImGui::SetNextWindowPos(
+        ImVec2((float)window_size.width * 0.5f, (float)window_size.height * 0.5f),
+        ImGuiCond_Always,
+        ImVec2(0.5f, 0.5f));
+    ImGui::SetNextWindowSize(ImVec2(size_x, size_y));
+    ImGui::SetNextWindowBgAlpha(0.9f);
+
+    constexpr ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration |
+                                       ImGuiWindowFlags_NoMove |
+                                       ImGuiWindowFlags_NoSavedSettings;
+
+    if (ImGui::Begin("Death Screen", nullptr, flags))
+    {
+        const char *message = "You died!";
+        ImGui::SetCursorPosY(35.0f);
+        ImGui::SetCursorPosX((size_x - ImGui::CalcTextSize(message).x) * 0.5f);
+        ImGui::TextUnformatted(message);
+
+        constexpr float button_width = 160.0f;
+        ImGui::SetCursorPosY(82.0f);
+        ImGui::SetCursorPosX((size_x - button_width) * 0.5f);
+        if (ImGui::Button("Respawn", ImVec2(button_width, 38.0f)))
+            call_rpc("respawn");
+    }
+    ImGui::End();
 }
 
 void Player::player_list()

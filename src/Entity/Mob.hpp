@@ -21,6 +21,8 @@ public:
 
     virtual void draw(const RenderPass& pass) override;
     virtual void die() override;
+    bool is_dead() const override { return m_dead; }
+    virtual void on_death();
 
     void follow_path(float delta_time);
     void flee_to(const glm::ivec3& to);
@@ -28,6 +30,7 @@ public:
     glm::ivec3 find_random_walkable_position(int radius, const glm::vec3& preferred_dir = glm::vec3(0.0f));
 
     void animate_movement(float delta_time, MovementSound movement_state);
+    bool tick_death(float delta_time);
 
 protected:
     std::shared_ptr<ModelLegacy> m_model;
@@ -43,6 +46,7 @@ protected:
     float m_stopping_dst = 2;
     float m_speed = 1.0f;
     float m_jump_force = 0.24f;
-
-
+    bool m_dead = false;
+    float m_death_animation_time = 0.0f;
+    static constexpr float death_duration = 1.0f;
 };

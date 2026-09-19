@@ -458,23 +458,23 @@
                 {
                     "frame": 12,
                     "transforms": [
-                        { "object": "body", "rotation": [0.0, 0.0, 55.0] },
-                        { "object": "head", "rotation": [12.0, 0.0, 65.0] },
-                        { "object": "arm_left", "rotation": [-25.0, 0.0, 45.0] },
-                        { "object": "arm_right", "rotation": [20.0, 0.0, 70.0] },
-                        { "object": "leg_left", "rotation": [-10.0, 0.0, 35.0] },
-                        { "object": "leg_right", "rotation": [10.0, 0.0, 55.0] }
+                        { "object": "body", "rotation": [0.0, 0.0, 0.0] },
+                        { "object": "head", "rotation": [8.0, 0.0, 0.0] },
+                        { "object": "arm_left", "rotation": [-10.0, 0.0, -5.0] },
+                        { "object": "arm_right", "rotation": [10.0, 0.0, 5.0] },
+                        { "object": "leg_left", "rotation": [0.0, 0.0, 0.0] },
+                        { "object": "leg_right", "rotation": [0.0, 0.0, 0.0] }
                     ]
                 },
                 {
                     "frame": 29,
                     "transforms": [
-                        { "object": "body", "rotation": [0.0, 0.0, 90.0] },
-                        { "object": "head", "rotation": [18.0, 0.0, 90.0] },
-                        { "object": "arm_left", "rotation": [-35.0, 0.0, 90.0] },
-                        { "object": "arm_right", "rotation": [25.0, 0.0, 90.0] },
-                        { "object": "leg_left", "rotation": [-12.0, 0.0, 90.0] },
-                        { "object": "leg_right", "rotation": [12.0, 0.0, 90.0] }
+                        { "object": "body", "rotation": [0.0, 0.0, 0.0] },
+                        { "object": "head", "rotation": [12.0, 0.0, 0.0] },
+                        { "object": "arm_left", "rotation": [-15.0, 0.0, -8.0] },
+                        { "object": "arm_right", "rotation": [15.0, 0.0, 8.0] },
+                        { "object": "leg_left", "rotation": [0.0, 0.0, 0.0] },
+                        { "object": "leg_right", "rotation": [0.0, 0.0, 0.0] }
                     ]
                 }
             ]

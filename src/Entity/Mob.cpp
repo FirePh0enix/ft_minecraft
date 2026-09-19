@@ -1,16 +1,60 @@
 #include "Entity/Mob.hpp"
+#include "Engine.hpp"
+#include "Network/Network.hpp"
 #include <cstddef>
 
 constexpr int attempts = 16;
 
 void Mob::draw(const RenderPass& pass)
 {
-    m_model->encode(pass, get_global_transform());
+    Transform3D render_transform = get_global_transform();
+    if (m_dead)
+    {
+        const float t = glm::smoothstep(
+            0.0f, 1.0f, std::min(m_death_animation_time / death_duration, 1.0f));
+        render_transform.rotation() *= glm::angleAxis(
+            glm::radians(90.0 * (double)t), glm::dvec3(0.0, 0.0, 1.0));
+        render_transform.position().y -= 0.45 * (double)t;
+    }
+    m_model->encode(pass, render_transform);
 }
 
 void Mob::die()
 {
-    m_world->remove_entity(World::overworld, id());
+    if (m_dead)
+        return;
+
+    m_dead = true;
+    m_death_animation_time = 0.0f;
+    call_rpc("on_death");
+}
+
+void Mob::on_death()
+{
+    m_dead = true;
+    m_death_animation_time = 0.0f;
+    m_following_path = false;
+    m_velocity = glm::dvec3(0.0);
+    m_animator.play_once("death", true);
+}
+
+bool Mob::tick_death(float delta_time)
+{
+    if (!m_dead)
+        return false;
+
+    m_velocity = glm::dvec3(0.0);
+    m_following_path = false;
+    m_death_animation_time += delta_time;
+
+    if (Engine::get().is_server() && m_death_animation_time >= death_duration)
+    {
+        const RemoveEntityPacket packet(id());
+        Engine::get().server()->route_packet(NetworkConnection::create_packet(packet));
+        m_world->remove_entity(m_dimension, id());
+    }
+
+    return true;
 }
 
 void Mob::animate_movement(float delta_time, MovementSound movement_state)

@@ -14,6 +14,7 @@
 #include "World/Biome.hpp"
 
 #include <expected>
+#include <optional>
 
 enum class GameMode
 {
@@ -54,11 +55,14 @@ public:
     virtual std::expected<void, Error> load(const EntitySerializer& deser) override;
 
     virtual void die() override;
+    void on_death();
+    void respawn();
+    void on_respawn();
 
     void set_username(std::string_view username) { m_username = username; }
     std::string_view get_username() const { return m_username; }
 
-    void hit();
+    void hit(glm::dvec3 direction);
     void interact();
     void release();
 
@@ -91,6 +95,7 @@ public:
     void close_inventory();
 
     bool head_in_water() const;
+    bool is_dead() const override { return m_dead; }
 
     void update_player_list(const std::vector<std::string>& names);
 
@@ -145,6 +150,8 @@ private:
      * Player class is a little special since its behavior is different if this is the local or remote.
      */
     bool m_local_player = true;
+    bool m_dead = false;
+    float m_death_animation_time = 0.0f;
 
     static constexpr size_t max_destroy_ticks = 35;
     size_t m_destroy_ticks = 0;
@@ -162,10 +169,12 @@ private:
     std::optional<AudioClip> m_attacking_clip;
     std::optional<AudioClip> m_swimming_clip;
     std::optional<AudioClip> m_destroying_clip;
+    std::optional<AudioClip> m_dying_clip;
     std::optional<AudioSource> m_audio_source;
     MovementSound m_movement_sound = MovementSound::None;
 
     void player_list();
     void chat();
     void debug_menu();
+    void death_screen();
 };

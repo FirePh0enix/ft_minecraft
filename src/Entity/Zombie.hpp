@@ -23,6 +23,7 @@ public:
     void tick(float delta) override;
     void on_ready() override;
     void attack();
+    void on_death() override;
     void set_movement_state(int64_t state) override;
     int64_t get_movement_state() const override { return static_cast<int64_t>(m_movement_sound); }
     void play_one_shot_sound(int64_t sound) override;
@@ -43,6 +44,7 @@ protected:
     std::optional<AudioClip> m_walking_clip;
     std::optional<AudioClip> m_attacking_clip;
     std::optional<AudioClip> m_swimming_clip;
+    std::optional<AudioClip> m_dying_clip;
     std::optional<AudioSource> m_audio_source;
     MovementSound m_movement_sound = MovementSound::None;
 };

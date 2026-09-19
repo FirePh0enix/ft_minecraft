@@ -221,6 +221,7 @@ void Animator::set_model(std::shared_ptr<ModelLegacy> model)
     m_time = 0.0;
     m_frame = 0;
     m_playing_once = false;
+    m_hold_last_frame = false;
 }
 
 void Animator::play(const std::string& animation)
@@ -236,7 +237,7 @@ void Animator::play(const std::string& animation)
     m_frame = 0;
 }
 
-void Animator::play_once(const std::string& animation)
+void Animator::play_once(const std::string& animation, bool hold_last_frame)
 {
     if (!m_model || !m_model->get_animation(animation).has_value())
         return;
@@ -245,6 +246,16 @@ void Animator::play_once(const std::string& animation)
     m_time = 0.0f;
     m_frame = 0;
     m_playing_once = true;
+    m_hold_last_frame = hold_last_frame;
+}
+
+void Animator::stop()
+{
+    m_animation_name.clear();
+    m_time = 0.0f;
+    m_frame = 0;
+    m_playing_once = false;
+    m_hold_last_frame = false;
 }
 
 void Animator::tick(float delta)
@@ -270,6 +281,13 @@ void Animator::tick(float delta)
 
         if (m_playing_once && m_frame + 1 >= animation.frames)
         {
+            if (m_hold_last_frame)
+            {
+                m_frame = animation.frames - 1;
+                m_time = 0.0f;
+                break;
+            }
+
             m_playing_once = false;
             m_animation_name.clear();
             m_frame = 0;

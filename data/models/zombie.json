@@ -398,6 +398,46 @@
                     ]
                 }
             ]
+        },
+        {
+            "name": "death",
+            "fps": 30,
+            "frames": 24,
+            "keyframes": [
+                {
+                    "frame": 0,
+                    "transforms": [
+                        { "object": "body", "rotation": [0.0, 0.0, 0.0] },
+                        { "object": "head", "rotation": [0.0, 0.0, 0.0] },
+                        { "object": "arm_left", "rotation": [-70.0, 0.0, -4.0] },
+                        { "object": "arm_right", "rotation": [-70.0, 0.0, 4.0] },
+                        { "object": "leg_left", "rotation": [0.0, 0.0, 0.0] },
+                        { "object": "leg_right", "rotation": [0.0, 0.0, 0.0] }
+                    ]
+                },
+                {
+                    "frame": 10,
+                    "transforms": [
+                        { "object": "body", "rotation": [8.0, 0.0, 0.0] },
+                        { "object": "head", "rotation": [12.0, 0.0, 0.0] },
+                        { "object": "arm_left", "rotation": [-35.0, 0.0, -12.0] },
+                        { "object": "arm_right", "rotation": [-35.0, 0.0, 12.0] },
+                        { "object": "leg_left", "rotation": [-8.0, 0.0, 0.0] },
+                        { "object": "leg_right", "rotation": [8.0, 0.0, 0.0] }
+                    ]
+                },
+                {
+                    "frame": 23,
+                    "transforms": [
+                        { "object": "body", "rotation": [4.0, 0.0, 0.0] },
+                        { "object": "head", "rotation": [18.0, 0.0, 0.0] },
+                        { "object": "arm_left", "rotation": [10.0, 0.0, -18.0] },
+                        { "object": "arm_right", "rotation": [10.0, 0.0, 18.0] },
+                        { "object": "leg_left", "rotation": [-5.0, 0.0, 0.0] },
+                        { "object": "leg_right", "rotation": [5.0, 0.0, 0.0] }
+                    ]
+                }
+            ]
         }
     ]
 }

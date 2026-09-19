@@ -19,12 +19,17 @@ void Zombie::bind_methods()
 
     type.add_method("play_one_shot_sound", &Zombie::play_one_shot_sound);
     expose_rpc<Zombie>("play_one_shot_sound", RpcTarget::Both);
+
+    type.add_method("on_death", &Zombie::on_death);
+    expose_rpc<Zombie>("on_death", RpcTarget::Both);
 }
 
 void Zombie::start() {};
 
 void Zombie::tick(float delta)
 {
+    if (tick_death(delta))
+        return;
 
     if (Engine::get().is_client())
     {
@@ -54,7 +59,7 @@ void Zombie::tick(float delta)
     for (std::shared_ptr<Entity> entity : entities)
     {
         std::shared_ptr<Player> player = std::dynamic_pointer_cast<Player>(entity);
-        if (!player)
+        if (!player || player->is_dead())
             continue;
 
         double d2 = glm::distance2(player->get_global_transform().position(), get_global_transform().position());
@@ -173,14 +178,31 @@ void Zombie::on_ready()
     path = std::filesystem::absolute("assets/audio/zombie/swimming.wav");
     m_swimming_clip.emplace(*audio.get_audio_mixer(), path);
 
+    path = std::filesystem::absolute("data/resourcepacks/pixel-perfection/assets/minecraft/sounds/mob/skeleton/death.ogg");
+    m_dying_clip.emplace(*audio.get_audio_mixer(), path);
+
     m_audio_source.emplace(audio);
     m_audio_source->set_clip(&m_walking_clip.value());
+}
+
+void Zombie::on_death()
+{
+    Mob::on_death();
+    m_audio_source->play_one_shot(&m_dying_clip.value(), 1.0f);
 }
 
 void Zombie::attack()
 {
     if (!m_threat_entity || m_attack_timer > 0.0f)
         return;
+
+    if (const std::shared_ptr<Player> player = std::dynamic_pointer_cast<Player>(m_threat_entity);
+        player && player->is_dead())
+    {
+        m_threat_entity.reset();
+        m_following_path = false;
+        return;
+    }
 
     std::shared_ptr<LivingEntity> mob = std::dynamic_pointer_cast<LivingEntity>(m_threat_entity);
     if (!mob)
@@ -218,6 +240,7 @@ void Zombie::play_one_shot_sound(int64_t sound)
             m_audio_source->play_one_shot(&m_groan_clip.value(), 0.5f);
             break;
         case EntitySound::Destroying:
+        case EntitySound::Death:
             break;
     }
 }
