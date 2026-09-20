@@ -1084,35 +1084,25 @@ std::expected<void, Error> Renderer::init(const Window& window, InitFlags flags)
     m_missing_texture = TRY(Texture::create(16, 16, WGPUTextureFormat_RGBA8UnormSrgb, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding));
     m_missing_texture->update(std::span((std::byte *)missing_texture_data, 16 * 16 * sizeof(uint32_t)));
 
-    // Create resources for SSAO
-    std::uniform_real_distribution<float> random_floats(0.0, 1.0);
-    std::default_random_engine generator;
-
+    // Stratified hemisphere: distribute directions evenly and decorrelate
+    // their radii without introducing a noisy per-pixel rotation texture.
     std::array<glm::vec4, 64> ssao_kernel{};
-    for (size_t i = 0; i < 64; i++)
+    for (size_t i = 0; i < ssao_kernel.size(); ++i)
     {
-        glm::vec3 sample(random_floats(generator) * 2.0 - 1.0, random_floats(generator) * 2.0 - 1.0, random_floats(generator));
-        sample = glm::normalize(sample);
-        sample *= random_floats(generator);
-
-        float scale = float(i) / 64.0f;
-        scale = math::lerp(0.1f, 1.0f, scale * scale);
-
-        ssao_kernel[i] = glm::vec4(sample * scale, 0.0);
+        // Uniform Z spacing and the golden angle distribute directions over
+        // the upper hemisphere; the shader rotates local +Z onto the normal.
+        const float z = (float(i) + 0.5f) / float(ssao_kernel.size());
+        const float angle = float(i) * 2.39996323f;
+        const float radial = std::sqrt(1.0f - z * z);
+        // 37 is coprime with 64, so this visits every radius bin once in a
+        // different order from Z. Squaring favors short contact distances.
+        const float distance = (float((i * 37) % ssao_kernel.size()) + 0.5f) / float(ssao_kernel.size());
+        const float scale = math::lerp(0.15f, 1.0f, distance * distance);
+        ssao_kernel[i] = glm::vec4(glm::vec3(std::cos(angle) * radial, std::sin(angle) * radial, z) * scale, 0.0f);
     }
 
     m_ssao_uniform_buffer = TRY(Buffer::create(sizeof(SSAOUniforms), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
     m_ssao_uniform_buffer->update_struct(SSAOUniforms(ssao_kernel));
-
-    std::array<glm::vec4, 16> ssao_noise{};
-    for (size_t i = 0; i < 16; i++)
-    {
-        const glm::vec4 noise(random_floats(generator) * 2.0 - 1.0, random_floats(generator) * 2.0 - 1.0, 0, 0);
-        ssao_noise[i] = noise;
-    }
-
-    m_ssao_noise_texture = TRY(Texture::create(4, 4, WGPUTextureFormat_RGBA32Float, WGPUTextureUsage_TextureBinding | WGPUTextureUsage_CopyDst));
-    m_ssao_noise_texture->update(std::as_bytes(std::span(ssao_noise)));
 
     m_fw_model_shader = TRY(Shader::load_from_path("data/shaders/fw/model.wgsl"));
     m_fw_model_shader->set_binding("camera", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
@@ -1177,11 +1167,22 @@ std::expected<void, Error> Renderer::init(const Window& window, InitFlags flags)
 
     m_fw_pp_shader = TRY(Shader::load_from_path("data/shaders/fw/postprocess.wgsl"));
     m_fw_pp_shader->set_binding("uniforms", Binding::UniformBuffer(WGPUShaderStage_Fragment, 0, 0, BindingAccess::Read));
-    m_fw_pp_shader->set_binding("ssao", Binding::UniformBuffer(WGPUShaderStage_Fragment, 0, 1, BindingAccess::Read));
     m_fw_pp_shader->set_binding("world_env", Binding::UniformBuffer(WGPUShaderStage_Fragment, 0, 2, BindingAccess::Read));
     m_fw_pp_shader->set_binding("albedo", Binding::Texture(WGPUShaderStage_Fragment, 0, 3, BindingAccess::Read, WGPUTextureViewDimension_2D));
     m_fw_pp_shader->set_binding("depth", Binding::Texture(WGPUShaderStage_Fragment, 0, 5, BindingAccess::Read, WGPUTextureViewDimension_2D, WGPUTextureSampleType_Depth, WGPUSamplerBindingType_Filtering));
+    m_fw_pp_shader->set_binding("ao", Binding::Texture(WGPUShaderStage_Fragment, 0, 7, BindingAccess::Read, WGPUTextureViewDimension_2D, WGPUTextureSampleType_UnfilterableFloat, WGPUSamplerBindingType_NonFiltering));
+    m_fw_pp_shader->set_sampler("ao", SamplerDescriptor{.min_filter = WGPUFilterMode_Nearest, .mag_filter = WGPUFilterMode_Nearest});
     m_fw_pp_shader->create_bind_group_layout();
+
+    m_ssao_shader = TRY(Shader::load_from_path("data/shaders/fw/ssao.wgsl"));
+    m_ssao_shader->set_binding("uniforms", Binding::UniformBuffer(WGPUShaderStage_Fragment, 0, 0, BindingAccess::Read));
+    m_ssao_shader->set_binding("ssao", Binding::UniformBuffer(WGPUShaderStage_Fragment, 0, 1, BindingAccess::Read));
+    m_ssao_shader->set_binding("depth", Binding::Texture(WGPUShaderStage_Fragment, 0, 2, BindingAccess::Read, WGPUTextureViewDimension_2D, WGPUTextureSampleType_Depth, WGPUSamplerBindingType_Filtering));
+    m_ssao_shader->create_bind_group_layout();
+    m_ssao_mat = Material::create(m_ssao_shader, MaterialFlagBits::NoData, WGPUCullMode_None, WGPUVertexFormat_Float32x2);
+    m_ssao_bg = BindGroup::create(m_ssao_shader);
+    m_ssao_bg->set_param("uniforms", m_fw_pp_buffer);
+    m_ssao_bg->set_param("ssao", m_ssao_uniform_buffer);
 
     m_portal_shader = TRY(Shader::load_from_path("data/shaders/portal.wgsl"));
     m_portal_shader->set_binding("model", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
@@ -1297,7 +1298,6 @@ std::expected<void, Error> Renderer::init(const Window& window, InitFlags flags)
 
     m_fw_pp_bg = BindGroup::create(m_fw_pp_shader);
     m_fw_pp_bg->set_param("uniforms", m_fw_pp_buffer);
-    m_fw_pp_bg->set_param("ssao", m_ssao_uniform_buffer);
     m_fw_pp_bg->set_param("world_env", m_fw_world_env);
 
     m_fw_water_texture = Engine::get().registry().create_texture("data/resourcepacks/core/assets/minecraft/textures/block/water_overlay.png");
@@ -1392,6 +1392,14 @@ void Renderer::configure_surface(size_t width, size_t height)
 
     m_fw_pp_bg->set_param("albedo", EXPECT(m_fw_color_texture->get_view()));
     m_fw_pp_bg->set_param("depth", EXPECT(m_fw_depth_texture->get_view(WGPUTextureViewDimension_2D, WGPUTextureAspect_DepthOnly)));
+    // R stores visibility, G stores positive view-space depth (0 for sky).
+    // RG32Float preserves depth precision for the bilateral rejection test;
+    // composition uses textureLoad and performs its own filtering.
+    // These dimensions follow the drawable pixel size, including fullscreen.
+    // Round up so odd window dimensions still cover the last row/column.
+    m_ssao_texture = EXPECT(Texture::create((m_surface_extent.width + 1) / 2, (m_surface_extent.height + 1) / 2, WGPUTextureFormat_RG32Float, WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_TextureBinding));
+    m_ssao_bg->set_param("depth", EXPECT(m_fw_depth_texture->get_view(WGPUTextureViewDimension_2D, WGPUTextureAspect_DepthOnly)));
+    m_fw_pp_bg->set_param("ao", EXPECT(m_ssao_texture->get_view()));
 }
 
 void Renderer::draw_ui(std::function<void(const RenderPass&)> f)
@@ -1595,6 +1603,25 @@ void Renderer::draw_forward(const std::shared_ptr<World>& world)
     }
 
     // draw_dimension_forward(encoder, world, portal_dim, true);
+
+    // The expensive hemisphere evaluation runs at one quarter of the pixels.
+    // Run after world rendering has finished writing depth, before composition
+    // reads AO. No depth attachment is bound here because depth is an input.
+    WGPURenderPassColorAttachment ao_attach = WGPU_RENDER_PASS_COLOR_ATTACHMENT_INIT;
+    ao_attach.view = EXPECT(m_ssao_texture->get_view());
+    ao_attach.loadOp = WGPULoadOp_Clear;
+    ao_attach.storeOp = WGPUStoreOp_Store;
+    ao_attach.clearValue = WGPUColor(1.0, 0.0, 0.0, 0.0);
+    WGPURenderPassDescriptor ao_desc = WGPU_RENDER_PASS_DESCRIPTOR_INIT;
+    ao_desc.label = WGPU_STRING_VIEW("SSAO half resolution");
+    ao_desc.colorAttachmentCount = 1;
+    ao_desc.colorAttachments = &ao_attach;
+    WGPURenderPassEncoder ao_pass = wgpuCommandEncoderBeginRenderPass(encoder, &ao_desc);
+    // AO/depth are data, not translucent color: write them without blending.
+    const RenderPass ao_info(ao_pass, std::nullopt, {RenderTarget(WGPUTextureFormat_RG32Float, false)});
+    draw_fullscreen(ao_info, m_ssao_mat, m_ssao_bg, 0);
+    wgpuRenderPassEncoderEnd(ao_pass);
+    wgpuRenderPassEncoderRelease(ao_pass);
 
     WGPURenderPassColorAttachment output_color_attach = WGPU_RENDER_PASS_COLOR_ATTACHMENT_INIT;
     output_color_attach.clearValue = WGPUColor(0.0, 0.0, 0.0, 0.0);

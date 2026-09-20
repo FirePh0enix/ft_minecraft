@@ -601,11 +601,11 @@ private:
     std::shared_ptr<Material> m_portal_mat;
 
     // SSAO
-    std::shared_ptr<Texture> m_ssao_buffer;
     std::shared_ptr<Buffer> m_ssao_uniform_buffer;
+    std::shared_ptr<Texture> m_ssao_texture;
     std::shared_ptr<Shader> m_ssao_shader;
-    std::shared_ptr<Material> m_ssao_material;
-    std::shared_ptr<Texture> m_ssao_noise_texture;
+    std::shared_ptr<Material> m_ssao_mat;
+    std::shared_ptr<BindGroup> m_ssao_bg;
 
     // Sky
     std::shared_ptr<Buffer> m_sky_buffer;
