@@ -130,36 +130,36 @@ fn fragment_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let radius = 0.5; // Tweak this value depending on your scene scale
     let bias = 0.025; // Tweak to prevent self-shadowing acne on flat surfaces
 
-    // for (var i = 0u; i < 64u; i = i + 1u) {
-    //     // Get the precalculated tangent/view-space sample offset vector
-    //     var sample_offset = ssao.samples[i].xyz;
+    for (var i = 0u; i < 64u; i = i + 1u) {
+        // Get the precalculated tangent/view-space sample offset vector
+        var sample_offset = ssao.samples[i].xyz;
         
-    //     // Flip the sample vector if it points against our estimated normal orientation
-    //     if (dot(sample_offset, normal) < 0.0) {
-    //         sample_offset = -sample_offset;
-    //     }
+        // Flip the sample vector if it points against our estimated normal orientation
+        if (dot(sample_offset, normal) < 0.0) {
+            sample_offset = -sample_offset;
+        }
         
-    //     // Calculate the sample point position in view space
-    //     let sample_pos = view_pos + sample_offset * radius;
+        // Calculate the sample point position in view space
+        let sample_pos = view_pos + sample_offset * radius;
         
-    //     // Project the sample point back to screen space UV coords
-    //     let offset_clip = uniforms.camera_proj * vec4f(sample_pos, 1.0);
-    //     var offset_ndc = offset_clip.xy / offset_clip.w;
-    //     // Transform NDC range [-1, 1] to UV range [0, 1]
-    //     let sample_uv = vec2f(offset_ndc.x * 0.5 + 0.5, 1.0 - (offset_ndc.y * 0.5 + 0.5));
+        // Project the sample point back to screen space UV coords
+        let offset_clip = uniforms.camera_proj * vec4f(sample_pos, 1.0);
+        var offset_ndc = offset_clip.xy / offset_clip.w;
+        // Transform NDC range [-1, 1] to UV range [0, 1]
+        let sample_uv = vec2f(offset_ndc.x * 0.5 + 0.5, 1.0 - (offset_ndc.y * 0.5 + 0.5));
         
-    //     // Sample the real geometry depth at this sample point's UV location
-    //     let sample_raw_depth = textureSample(depth, depth_sampler, sample_uv);
-    //     let sample_linear_depth = linearize_depth(sample_raw_depth);
+        // Sample the real geometry depth at this sample point's UV location
+        let sample_raw_depth = textureSample(depth, depth_sampler, sample_uv);
+        let sample_linear_depth = linearize_depth(sample_raw_depth);
         
-    //     // Apply range check to prevent far away background elements from causing occlusion artefacts
-    //     let range_check = smoothstep(0.0, 1.0, radius / abs(view_pos.z - sample_linear_depth));
+        // Apply range check to prevent far away background elements from causing occlusion artefacts
+        let range_check = smoothstep(0.0, 1.0, radius / abs(view_pos.z - sample_linear_depth));
         
-    //     // Accumulate occlusion if the sample point is behind the geometry surface depth
-    //     if (sample_linear_depth >= -sample_pos.z + bias) {
-    //         occlusion += 1.0 * range_check;
-    //     }
-    // }
+        // Accumulate occlusion if the sample point is behind the geometry surface depth
+        if (sample_linear_depth >= -sample_pos.z + bias) {
+            occlusion += 1.0 * range_check;
+        }
+    }
     
     // Normalize occlusion factor and invert it to get an intensity multiplier
     let ao_factor = 1.0 - (occlusion / 64.0);
