@@ -436,6 +436,7 @@ struct Cloud
     FwColored uniform;
     std::shared_ptr<Buffer> buffer;
     std::shared_ptr<BindGroup> bg;
+    std::shared_ptr<BindGroup> bg_shadowmap;
     int64_t grid_x;
     int64_t grid_z;
 };
@@ -475,12 +476,14 @@ public:
     std::shared_ptr<Shader> get_fw_item_shader() const { return m_fw_item_shader; }
     std::shared_ptr<Shader> get_fw_text_shader() const { return m_fw_text_shader; }
     std::shared_ptr<Shader> get_fw_model_shader() const { return m_fw_model_shader; }
+    std::shared_ptr<Shader> get_fw_model_shadowmap_shader() const { return m_fw_model_shadowmap_shader; }
     std::shared_ptr<Shader> get_fw_colored_shader() const { return m_fw_colored_shader; }
     std::shared_ptr<Shader> get_portal_shader() const { return m_portal_shader; }
     std::shared_ptr<Material> get_fw_chunk_mat() const { return m_fw_chunk_mat; }
     std::shared_ptr<Material> get_fw_shadowmap_mat() const { return m_fw_chunk_shadowmap_mat; }
     std::shared_ptr<Material> get_fw_texture_rect_mat() const { return m_fw_texture_rect_mat; }
     std::shared_ptr<Material> get_fw_model_mat() const { return m_fw_model_mat; }
+    std::shared_ptr<Material> get_fw_model_shadowmap_mat() const { return m_fw_model_shadowmap_mat; }
     std::shared_ptr<Material> get_fw_text_mat() const { return m_fw_text_mat; }
     std::shared_ptr<Material> get_fw_color_rect_mat() const { return m_fw_color_rect_mat; }
     std::shared_ptr<Material> get_fw_item_mat() const { return m_fw_item_mat; }
@@ -556,6 +559,7 @@ private:
     std::shared_ptr<Shader> m_fw_text_shader;
     std::shared_ptr<Shader> m_fw_colored_shader;
     std::shared_ptr<Shader> m_fw_model_shader;
+    std::shared_ptr<Shader> m_fw_model_shadowmap_shader;
 
     std::shared_ptr<Material> m_fw_chunk_mat;
     std::shared_ptr<Material> m_fw_chunk_shadowmap_mat;
@@ -563,6 +567,7 @@ private:
     std::shared_ptr<Material> m_fw_texture_rect_mat;
     std::shared_ptr<Material> m_fw_text_mat;
     std::shared_ptr<Material> m_fw_model_mat;
+    std::shared_ptr<Material> m_fw_model_shadowmap_mat;
     std::shared_ptr<Material> m_fw_color_rect_mat;
     std::shared_ptr<Material> m_fw_item_mat;
 

@@ -150,9 +150,10 @@ public:
     virtual int64_t get_movement_state() const { return 0; }
     virtual void play_one_shot_sound(int64_t sound) { (void)sound; }
 
-    virtual void draw(const RenderPass& pass)
+    virtual void draw(const RenderPass& pass, bool shadowmap)
     {
         (void)pass;
+        (void)shadowmap;
     }
 
     virtual void draw_ui(const RenderPass& pass)

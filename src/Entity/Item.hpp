@@ -12,7 +12,7 @@ public:
     ItemEntity(Id<Item> item);
 
     virtual void tick(float delta) override;
-    virtual void draw(const RenderPass& pass) override;
+    virtual void draw(const RenderPass& pass, bool shadowmap) override;
 
     Id<Item> item() const { return m_item; }
 

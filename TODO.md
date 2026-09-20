@@ -29,7 +29,7 @@
 - [x] Minimum render distance is 260 ( 16 chunks )
 - [x] You may use a sky shader instead of a skybox if desired.
 - [x] Directional lighting
-- [ ] Shadows
+- [x] Shadows
 - [ ] Screen Space Ambient Occlusion (SSAO)
 - [x] Transparent water surfaces
 - [x] Far distance fog for better immersion

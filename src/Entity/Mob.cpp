@@ -5,7 +5,7 @@
 
 constexpr int attempts = 16;
 
-void Mob::draw(const RenderPass& pass)
+void Mob::draw(const RenderPass& pass, bool shadowmap)
 {
     Transform3D render_transform = get_global_transform();
     if (m_dead)
@@ -16,7 +16,7 @@ void Mob::draw(const RenderPass& pass)
             glm::radians(90.0 * (double)t), glm::dvec3(0.0, 0.0, 1.0));
         render_transform.position().y -= 0.45 * (double)t;
     }
-    m_model->encode(pass, render_transform);
+    m_model->encode(pass, render_transform, shadowmap);
 }
 
 void Mob::die()

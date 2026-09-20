@@ -14,7 +14,7 @@ public:
     ArrowEntity(Id<Item> item);
 
     virtual void tick(float delta) override;
-    virtual void draw(const RenderPass& pass) override;
+    virtual void draw(const RenderPass& pass, bool shadowmap) override;
     void on_ready() override;
     inline void set_velocity(const glm::vec3 velocity) { m_velocity = velocity; }
 

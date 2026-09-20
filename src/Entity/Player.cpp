@@ -237,25 +237,12 @@ void Player::on_ready()
     m_camera->get_transform().position() = glm::vec3(0, 0.85, 0);
     add_child(m_camera);
 
+    m_model = EXPECT(ModelLegacy::load("data/models/player.json"));
+    m_animator.set_model(m_model);
+
     if (m_local_player)
     {
         m_inventory = std::make_shared<PlayerInventory>(m_inventory_container);
-
-        // m_chat = std::make_shared<Widget>();
-        // m_chat->set_expand_horizontal(true);
-        // m_chat->set_expand_vertical(true);
-        // m_chat->set_alignment(ContainerAlignment::Left | ContainerAlignment::Bottom);
-        // m_chat->set_layout(ContainerLayout::Vertical);
-
-        // std::shared_ptr<ColorRectWidget> color_rect = std::make_shared<ColorRectWidget>();
-        // color_rect->set_color(Colors::red);
-        // color_rect->set_alignment(ContainerAlignment::CenterY);
-        // m_chat->add_child(color_rect);
-
-        // std::shared_ptr<TextInput> chat_input = std::make_shared<TextInput>(Engine::get().get_font());
-        // chat_input->set_size(Point(Size::percent(45), Size::px(40)));
-        // chat_input->done_callback().connect(std::bind_front(&Player::on_text_message, this));
-        // color_rect->add_child(chat_input);
 
         auto& clip = Engine::get().music_player().get_biome_music(m_current_biome);
         Engine::get().music_player().crossfade_to(&clip, 2.0f, 1.0f);
@@ -280,11 +267,6 @@ void Player::on_ready()
         colored_rect->set_size(Point(Size::px(500), Size::px(40)));
         colored_rect->set_color(Colors::red);
         m_health_bar->add_child(colored_rect);
-    }
-    else
-    {
-        m_model = EXPECT(ModelLegacy::load("data/models/player.json"));
-        m_animator.set_model(m_model);
     }
 }
 
@@ -646,7 +628,7 @@ void Player::play_one_shot_sound(int64_t sound)
     }
 }
 
-void Player::draw(const RenderPass& pass)
+void Player::draw(const RenderPass& pass, bool shadowmap)
 {
     if (!m_local_player)
     {
@@ -660,7 +642,11 @@ void Player::draw(const RenderPass& pass)
                 glm::radians(90.0 * (double)t), glm::dvec3(0.0, 0.0, 1.0));
             render_transform.position().y -= 0.5 * (double)t;
         }
-        m_model->encode(pass, render_transform);
+        m_model->encode(pass, render_transform, shadowmap);
+    }
+    else if (shadowmap)
+    {
+        m_model->encode(pass, get_global_transform(), true);
     }
 
     // if (m_local_player && m_aimed_block.has_value())
@@ -669,6 +655,9 @@ void Player::draw(const RenderPass& pass)
     //     m_aim_buffer->update(View(uniforms).as_bytes());
     //     Renderer::get().draw(pass, Renderer::get().get_cube_mesh(), m_aim_material);
     // }
+
+    if (shadowmap)
+        return;
 
     if (m_local_player && m_inventory_container->get_stack(1, m_inventory->selected_slot()).item().valid())
     {

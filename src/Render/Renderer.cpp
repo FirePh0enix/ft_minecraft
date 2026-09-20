@@ -1126,6 +1126,13 @@ std::expected<void, Error> Renderer::init(const Window& window, InitFlags flags)
     m_fw_model_shader->set_sampler("shadowmap", SamplerDescriptor{.compare = WGPUCompareFunction_LessEqual, .address_mode = {.u = WGPUAddressMode_ClampToEdge, .v = WGPUAddressMode_ClampToEdge}});
     m_fw_model_shader->create_bind_group_layout();
 
+    m_fw_model_shadowmap_shader = TRY(Shader::load_from_path("data/shaders/fw/model_shadowmap.wgsl"));
+    m_fw_model_shadowmap_shader->set_binding("camera", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
+    m_fw_model_shadowmap_shader->set_binding("model", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 1, BindingAccess::Read));
+    m_fw_model_shadowmap_shader->set_binding("global_model", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 2, BindingAccess::Read));
+    m_fw_model_shadowmap_shader->set_binding("world_env", Binding::UniformBuffer(WGPUShaderStage_Vertex | WGPUShaderStage_Fragment, 0, 3, BindingAccess::Read));
+    m_fw_model_shadowmap_shader->create_bind_group_layout();
+
     m_fw_item_shader = TRY(Shader::load_from_path("data/shaders/fw/item.wgsl"));
     m_fw_item_shader->set_binding("camera", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
     m_fw_item_shader->set_binding("model", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 1, BindingAccess::Read));
@@ -1194,6 +1201,7 @@ std::expected<void, Error> Renderer::init(const Window& window, InitFlags flags)
 
     m_fw_texture_rect_mat = Material::create(m_texture_rect_shader, MaterialFlagBits::Transparency | MaterialFlagBits::NoNormal, WGPUCullMode_None, WGPUVertexFormat_Float32x2);
     m_fw_model_mat = Material::create(m_fw_model_shader, MaterialFlagBits::None, WGPUCullMode_Back, WGPUVertexFormat_Float32x2);
+    m_fw_model_shadowmap_mat = Material::create(m_fw_model_shadowmap_shader, MaterialFlagBits::None, WGPUCullMode_Back, WGPUVertexFormat_Float32x2);
     m_fw_color_rect_mat = Material::create(m_color_rect_shader, MaterialFlagBits::Transparency | MaterialFlagBits::NoNormal | MaterialFlagBits::NoUV, WGPUCullMode_None, WGPUVertexFormat_Float32x2);
     m_fw_shadowmap_cam_mat = Material::create(m_fw_colored_shader, MaterialFlagBits::None, WGPUCullMode_None, WGPUVertexFormat_Float32x2);
     m_fw_item_mat = Material::create(m_fw_item_shader, MaterialFlagBits::Transparency, WGPUCullMode_None, WGPUVertexFormat_Float32x2);
@@ -1459,6 +1467,10 @@ std::expected<Cloud, Error> Renderer::create_cloud()
     cloud.bg->set_param("model", cloud.buffer);
     cloud.bg->set_param("camera", m_fw_camera);
     cloud.bg->set_param("world_env", m_fw_world_env);
+    cloud.bg_shadowmap = BindGroup::create(m_fw_colored_shader);
+    cloud.bg_shadowmap->set_param("model", cloud.buffer);
+    cloud.bg_shadowmap->set_param("camera", m_fw_shadowmap_camera);
+    cloud.bg_shadowmap->set_param("world_env", m_fw_world_env);
     return cloud;
 }
 
@@ -1744,12 +1756,12 @@ void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::sha
                 shadow_casters.emplace_back(pos.x + x, pos.z + z);
     }
     std::sort(shadow_casters.begin(), shadow_casters.end());
-    shadow_casters.erase(std::unique(shadow_casters.begin(), shadow_casters.end(), [](const ChunkPos& a, const ChunkPos& b) {
-                             return a.x == b.x && a.z == b.z;
-                         }),
+    shadow_casters.erase(std::unique(shadow_casters.begin(), shadow_casters.end(), [](const ChunkPos& a, const ChunkPos& b)
+                                     { return a.x == b.x && a.z == b.z; }),
                          shadow_casters.end());
 
-    const auto is_shadow_caster = [&](const ChunkPos& pos) {
+    const auto is_shadow_caster = [&](const ChunkPos& pos)
+    {
         return std::binary_search(shadow_casters.begin(), shadow_casters.end(), pos);
     };
 
@@ -1801,7 +1813,7 @@ void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::sha
         {
             (void)pos;
             wgpuCommandEncoderCopyBufferToBuffer(encoder, staging->handle(), offset,
-                                                renderable.chunk->get_instance_buffer()->handle(), 0, chunk_bytes);
+                                                 renderable.chunk->get_instance_buffer()->handle(), 0, chunk_bytes);
             offset += chunk_bytes;
         }
         const size_t shadow_bytes = selected_casters.size() * sizeof(glm::vec3);
@@ -1811,7 +1823,7 @@ void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::sha
             if (m_shadow_instances == nullptr || m_shadow_instances->size() < shadow_bytes)
                 m_shadow_instances = EXPECT(Buffer::create(shadow_bytes * 2, WGPUBufferUsage_Vertex | WGPUBufferUsage_CopyDst));
             wgpuCommandEncoderCopyBufferToBuffer(encoder, staging->handle(), shadow_offset,
-                                                m_shadow_instances->handle(), 0, shadow_bytes);
+                                                 m_shadow_instances->handle(), 0, shadow_bytes);
         }
     }
 
@@ -1830,9 +1842,25 @@ void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::sha
     shadowmap_pass_desc.depthStencilAttachment = &shadowmap_attach;
 
     WGPURenderPassEncoder shadowmap_pass = wgpuCommandEncoderBeginRenderPass(encoder, &shadowmap_pass_desc);
-    // Portals can render another dimension; its shadow map must use that
-    // dimension's casters rather than always sampling the overworld.
-    draw_shadow_world(world, RenderPass(shadowmap_pass, RenderTarget(m_fw_shadowmap->format()), {}), shadow_chunks, selected_casters, stencil_mask);
+    const RenderPass shadowmap_pass_info(shadowmap_pass, RenderTarget(m_fw_shadowmap->format()), {});
+    draw_shadow_world(world, shadowmap_pass_info, shadow_chunks, selected_casters, stencil_mask);
+
+    for (std::shared_ptr<Entity> entity : world->get_dimension(dimension).get_entities())
+        entity->draw(shadowmap_pass_info, true);
+
+    for (auto& [pos, cloud] : m_clouds)
+    {
+        if (cloud.buffer == nullptr)
+            continue;
+
+        glm::vec3 position(glm::dvec3(pos.x, 0.0f, pos.z) * 32.0 + glm::dvec3(0, 270.0, 0) - active_camera->get_global_transform().position() + glm::dvec3(Engine::get().time(), 0, 0));
+        cloud.uniform.model = glm::translate(glm::identity<glm::mat4>(), position) *
+                              glm::scale(glm::identity<glm::mat4>(), glm::vec3(32.0, 8.0, 32.0));
+        cloud.buffer->update_struct(cloud.uniform);
+
+        draw(shadowmap_pass_info, m_cube_mesh, m_fw_colored_mat, cloud.bg_shadowmap);
+    }
+
     wgpuRenderPassEncoderEnd(shadowmap_pass);
     wgpuRenderPassEncoderRelease(shadowmap_pass);
 
@@ -1892,7 +1920,7 @@ void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::sha
 
         // TODO: differentiate between current player rendering and other entities.
         for (std::shared_ptr<Entity> entity : world->get_dimension(dimension).get_entities())
-            entity->draw(color_pass_info);
+            entity->draw(color_pass_info, false);
     }
 
     for (auto& [pos, cloud] : m_clouds)
@@ -1900,10 +1928,10 @@ void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::sha
         if (cloud.buffer == nullptr)
             continue;
 
-        glm::vec3 position(glm::dvec3(pos.x, 0.0f, pos.z) * 32.0 + glm::dvec3(0, 270.0, 0) - active_camera->get_global_transform().position() + glm::dvec3(Engine::get().time(), 0, 0));
-        cloud.uniform.model = glm::translate(glm::identity<glm::mat4>(), position) *
-                              glm::scale(glm::identity<glm::mat4>(), glm::vec3(32.0, 8.0, 32.0));
-        cloud.buffer->update_struct(cloud.uniform);
+        // glm::vec3 position(glm::dvec3(pos.x, 0.0f, pos.z) * 32.0 + glm::dvec3(0, 270.0, 0) - active_camera->get_global_transform().position() + glm::dvec3(Engine::get().time(), 0, 0));
+        // cloud.uniform.model = glm::translate(glm::identity<glm::mat4>(), position) *
+        //                       glm::scale(glm::identity<glm::mat4>(), glm::vec3(32.0, 8.0, 32.0));
+        // cloud.buffer->update_struct(cloud.uniform);
 
         draw(color_pass_info, m_cube_mesh, m_fw_colored_mat, cloud.bg);
     }

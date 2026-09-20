@@ -7,6 +7,21 @@
 
 #include <cstdint>
 
+const char *biome_names[] = {
+    "Plain",
+    "ColdPlain",
+    "Forest",
+    "ColdForest",
+    "Desert",
+    "Beach",
+    "Mountain",
+    "FrozenMountain",
+    "Ocean",
+    "FrozenOcean",
+    "Underworld",
+    "Max",
+};
+
 Chunk::Chunk(Dimension *dim, int64_t x, int64_t z)
     : m_dim(dim), m_x(x), m_z(z)
 {

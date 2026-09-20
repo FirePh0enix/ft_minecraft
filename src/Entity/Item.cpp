@@ -34,8 +34,11 @@ void ItemEntity::tick(float delta)
     m_time += delta;
 }
 
-void ItemEntity::draw(const RenderPass& pass)
+void ItemEntity::draw(const RenderPass& pass, bool shadowmap)
 {
+    if (shadowmap)
+        return;
+
     m_transform.rotation() = glm::rotate(glm::identity<glm::quat>(), m_time, glm::vec3(0.0, 1.0, 0.0));
 
     FwModel matrix(get_transform().to_matrix(Engine::get().server()->get_player()->get_position()));

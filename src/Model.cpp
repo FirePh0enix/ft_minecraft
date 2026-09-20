@@ -121,7 +121,6 @@ std::expected<std::shared_ptr<ModelLegacy>, Error> ModelLegacy::load(std::string
         obj.size = glm::vec3(object.size[0], object.size[1], object.size[2]);
         obj.position = glm::vec3(object.position[0], object.position[1], object.position[2]);
         obj.origin = glm::vec3(object.origin[0], object.origin[1], object.origin[2]);
-        obj.bg = BindGroup::create(Renderer::get().get_fw_model_shader());
 
         std::vector<glm::vec2> uvs;
         for (uint32_t i = 0; i < 24; i++)
@@ -135,6 +134,7 @@ std::expected<std::shared_ptr<ModelLegacy>, Error> ModelLegacy::load(std::string
         };
         obj.model_buffer->update_struct(info);
 
+        obj.bg = BindGroup::create(Renderer::get().get_fw_model_shader());
         obj.bg->set_param("camera", Renderer::get().get_fw_camera());
         obj.bg->set_param("model", obj.model_buffer);
         obj.bg->set_param("global_model", model->m_global_buffer);
@@ -142,6 +142,12 @@ std::expected<std::shared_ptr<ModelLegacy>, Error> ModelLegacy::load(std::string
         obj.bg->set_param("uvs", obj.uv_buffer);
         obj.bg->set_param("texture", EXPECT(model->m_texture->get_view()));
         obj.bg->set_param("shadowmap", EXPECT(Renderer::get().get_fw_shadowmap()->get_view()));
+
+        obj.bg_shadowmap = BindGroup::create(Renderer::get().get_fw_model_shadowmap_shader());
+        obj.bg_shadowmap->set_param("camera", Renderer::get().get_fw_shadowmap_camera());
+        obj.bg_shadowmap->set_param("model", obj.model_buffer);
+        obj.bg_shadowmap->set_param("global_model", model->m_global_buffer);
+        obj.bg_shadowmap->set_param("world_env", Renderer::get().get_fw_world_env());
 
         model->m_objects.push_back(obj);
     }
@@ -202,7 +208,7 @@ std::optional<ModelLegacy::Object> ModelLegacy::get_object(std::string_view name
     return std::nullopt;
 }
 
-void ModelLegacy::encode(const RenderPass& pass, const Transform3D& transform)
+void ModelLegacy::encode(const RenderPass& pass, const Transform3D& transform, bool shadowmap)
 {
     Transform3D transfo = transform;
     transfo.set_euler_angles(transfo.get_euler_angles() - glm::vec3(0, M_PI / 2, 0));
@@ -210,8 +216,13 @@ void ModelLegacy::encode(const RenderPass& pass, const Transform3D& transform)
     Info info{.model_matrix = transfo.to_matrix(Engine::get().server()->get_player()->get_camera()->get_global_transform().position())};
     m_global_buffer->update_struct(info);
 
+    std::shared_ptr<Material> material = shadowmap ? Renderer::get().get_fw_model_shadowmap_mat() : Renderer::get().get_fw_model_mat();
+
     for (const auto& obj : m_objects)
-        Renderer::get().draw(pass, Renderer::get().get_cube_mesh(), Renderer::get().get_fw_model_mat(), obj.bg);
+    {
+        std::shared_ptr<BindGroup> bg = shadowmap ? obj.bg_shadowmap : obj.bg;
+        Renderer::get().draw(pass, Renderer::get().get_cube_mesh(), material, bg);
+    }
 }
 
 void Animator::set_model(std::shared_ptr<ModelLegacy> model)

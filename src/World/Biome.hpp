@@ -27,17 +27,4 @@ enum class Biome : uint16_t
     Max,
 };
 
-static const char *biome_names[] = {
-    "Plain",
-    "ColdPlain",
-    "Forest",
-    "ColdForest",
-    "Desert",
-    "Beach",
-    "Mountain",
-    "FrozenMountain",
-    "Ocean",
-    "FrozenOcean",
-    "Underworld",
-    "Max",
-};
+extern const char *biome_names[];
