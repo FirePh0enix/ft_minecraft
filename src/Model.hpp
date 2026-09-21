@@ -91,6 +91,8 @@ class Animator
 public:
     void set_model(std::shared_ptr<ModelLegacy> model);
     void play(const std::string& animation);
+    void play_once(const std::string& animation, bool hold_last_frame = false);
+    void stop();
     void tick(float delta);
 
     struct TransformWithLength
@@ -103,8 +105,9 @@ private:
     std::shared_ptr<ModelLegacy> m_model;
     std::string m_animation_name;
     float m_time = 0.0;
-
-    uint32_t m_frame;
+    uint32_t m_frame = 0;
+    bool m_playing_once = false;
+    bool m_hold_last_frame = false;
 
     void update_model_animation_buffer();
 

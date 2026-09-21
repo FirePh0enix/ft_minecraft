@@ -253,14 +253,14 @@ void LocalServer::receive(void *user, NetworkConnection& conn, ENetPacket *packe
             AddEntityPacket p2(transform.position(), transform.rotation(), entity->id(), entity->get_class_hash_code());
             conn.send(client.peer(), NetworkConnection::create_packet(p2));
 
-            const int64_t movement_sound = entity->get_movement_sound();
-            if (movement_sound != 0)
+            const int64_t movement_state = entity->get_movement_state();
+            if (movement_state != 0)
             {
-                RpcCallPacket sound_packet;
-                sound_packet.id = entity->id();
-                sound_packet.name = "set_movement_sound";
-                sound_packet.args.emplace_back(movement_sound);
-                conn.send(client.peer(), NetworkConnection::create_packet(sound_packet));
+                RpcCallPacket movement_packet;
+                movement_packet.id = entity->id();
+                movement_packet.name = "set_movement_state";
+                movement_packet.args.emplace_back(movement_state);
+                conn.send(client.peer(), NetworkConnection::create_packet(movement_packet));
             }
         };
 
@@ -292,6 +292,11 @@ void LocalServer::receive(void *user, NetworkConnection& conn, ENetPacket *packe
     {
         SendPlayerTransformPacket p;
         EXPECT(deserialize(buffer, p));
+
+        const auto player_it = self->m_connected_peers.find(client.peer());
+        if (player_it == self->m_connected_peers.end() ||
+            player_it->second->id() != p.id || player_it->second->is_dead())
+            break;
 
         std::shared_ptr<Entity> entity = self->m_world->get_entity(p.id);
         if (entity == nullptr)

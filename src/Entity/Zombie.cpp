@@ -14,21 +14,27 @@ constexpr float DETECTION_RADIUS = 20.0f;
 
 void Zombie::bind_methods()
 {
-    type.add_method("set_movement_sound", &Zombie::set_movement_sound);
-    expose_rpc<Zombie>("set_movement_sound", RpcTarget::Both);
+    type.add_method("set_movement_state", &Zombie::set_movement_state);
+    expose_rpc<Zombie>("set_movement_state", RpcTarget::Both);
 
     type.add_method("play_one_shot_sound", &Zombie::play_one_shot_sound);
     expose_rpc<Zombie>("play_one_shot_sound", RpcTarget::Both);
+
+    type.add_method("on_death", &Zombie::on_death);
+    expose_rpc<Zombie>("on_death", RpcTarget::Both);
 }
 
 void Zombie::start() {};
 
 void Zombie::tick(float delta)
 {
+    if (tick_death(delta))
+        return;
 
     if (Engine::get().is_client())
     {
         m_audio_source->set_position(get_global_transform().position());
+        animate_movement(delta, m_movement_sound);
         return;
     }
 
@@ -53,7 +59,7 @@ void Zombie::tick(float delta)
     for (std::shared_ptr<Entity> entity : entities)
     {
         std::shared_ptr<Player> player = std::dynamic_pointer_cast<Player>(entity);
-        if (!player)
+        if (!player || player->is_dead())
             continue;
 
         double d2 = glm::distance2(player->get_global_transform().position(), get_global_transform().position());
@@ -139,9 +145,10 @@ void Zombie::tick(float delta)
     }
     if (Engine::get().is_server() && movement_sound != m_movement_sound)
     {
-        m_movement_sound = movement_sound;
-        call_rpc("set_movement_sound", static_cast<int64_t>(movement_sound));
+        set_movement_state(static_cast<int64_t>(movement_sound));
+        call_rpc("set_movement_state", static_cast<int64_t>(movement_sound));
     }
+    animate_movement(delta, movement_sound);
 
     m_velocity.x = 0.0;
     m_velocity.z = 0.0;
@@ -155,6 +162,7 @@ void Zombie::on_ready()
     auto pathtest = std::filesystem::absolute("data/models/zombie.json");
 
     m_model = EXPECT(ModelLegacy::load(pathtest.c_str()));
+    m_animator.set_model(m_model);
     m_pathfinding = std::make_unique<Pathfinding>(m_world);
 
     AudioMixer& audio = m_world->audio();
@@ -170,8 +178,17 @@ void Zombie::on_ready()
     path = std::filesystem::absolute("assets/audio/zombie/swimming.wav");
     m_swimming_clip.emplace(*audio.get_audio_mixer(), path);
 
+    path = std::filesystem::absolute("data/resourcepacks/pixel-perfection/assets/minecraft/sounds/mob/skeleton/death.ogg");
+    m_dying_clip.emplace(*audio.get_audio_mixer(), path);
+
     m_audio_source.emplace(audio);
     m_audio_source->set_clip(&m_walking_clip.value());
+}
+
+void Zombie::on_death()
+{
+    Mob::on_death();
+    m_audio_source->play_one_shot(&m_dying_clip.value(), 1.0f);
 }
 
 void Zombie::attack()
@@ -179,17 +196,24 @@ void Zombie::attack()
     if (!m_threat_entity || m_attack_timer > 0.0f)
         return;
 
+    if (const std::shared_ptr<Player> player = std::dynamic_pointer_cast<Player>(m_threat_entity);
+        player && player->is_dead())
+    {
+        m_threat_entity.reset();
+        m_following_path = false;
+        return;
+    }
+
     std::shared_ptr<LivingEntity> mob = std::dynamic_pointer_cast<LivingEntity>(m_threat_entity);
     if (!mob)
         return;
 
     mob->damage(1, id());
     m_attack_timer = m_attack_cooldown;
-    if (Engine::get().is_server())
-        call_rpc("play_one_shot_sound", static_cast<int64_t>(EntitySound::Attack));
+    call_rpc("play_one_shot_sound", static_cast<int64_t>(EntitySound::Attack));
 }
 
-void Zombie::set_movement_sound(int64_t state)
+void Zombie::set_movement_state(int64_t state)
 {
     m_movement_sound = static_cast<MovementSound>(state);
     if (m_movement_sound == MovementSound::Swimming)
@@ -210,9 +234,13 @@ void Zombie::play_one_shot_sound(int64_t sound)
     {
         case EntitySound::Attack:
             m_audio_source->play_one_shot(&m_attacking_clip.value(), 0.5f);
+            m_animator.play_once("attack");
             break;
         case EntitySound::Groan:
             m_audio_source->play_one_shot(&m_groan_clip.value(), 0.5f);
+            break;
+        case EntitySound::Destroying:
+        case EntitySound::Death:
             break;
     }
 }

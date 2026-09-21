@@ -228,6 +228,35 @@
     ],
     "animations": [
         {
+            "name": "idle",
+            "fps": 20,
+            "frames": 40,
+            "keyframes": [
+                {
+                    "frame": 0,
+                    "transforms": [
+                        { "object": "body", "rotation": [0.0, -2.0, 0.0] },
+                        { "object": "head", "rotation": [2.0, 4.0, 0.0] },
+                        { "object": "arm_left", "rotation": [-72.0, 0.0, -4.0] },
+                        { "object": "arm_right", "rotation": [-68.0, 0.0, 4.0] },
+                        { "object": "leg_left", "rotation": [0.0, 0.0, 0.0] },
+                        { "object": "leg_right", "rotation": [0.0, 0.0, 0.0] }
+                    ]
+                },
+                {
+                    "frame": 20,
+                    "transforms": [
+                        { "object": "body", "rotation": [1.5, 2.0, 0.0] },
+                        { "object": "head", "rotation": [-2.0, -4.0, 0.0] },
+                        { "object": "arm_left", "rotation": [-68.0, 0.0, -4.0] },
+                        { "object": "arm_right", "rotation": [-72.0, 0.0, 4.0] },
+                        { "object": "leg_left", "rotation": [0.0, 0.0, 0.0] },
+                        { "object": "leg_right", "rotation": [0.0, 0.0, 0.0] }
+                    ]
+                }
+            ]
+        },
+        {
             "name": "walk",
             "fps": 30,
             "frames": 30,
@@ -274,6 +303,138 @@
                             "object": "arm_right",
                             "rotation": [ -20.0, 0.0, 0.0 ]
                         }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "swim",
+            "fps": 24,
+            "frames": 32,
+            "keyframes": [
+                {
+                    "frame": 0,
+                    "transforms": [
+                        { "object": "arm_left", "rotation": [-55.0, 0.0, 0.0] },
+                        { "object": "arm_right", "rotation": [-235.0, 0.0, 0.0] },
+                        { "object": "leg_left", "rotation": [15.0, 0.0, 0.0] },
+                        { "object": "leg_right", "rotation": [-15.0, 0.0, 0.0] }
+                    ]
+                },
+                {
+                    "frame": 8,
+                    "transforms": [
+                        { "object": "arm_left", "rotation": [-145.0, 0.0, 0.0] },
+                        { "object": "arm_right", "rotation": [-325.0, 0.0, 0.0] },
+                        { "object": "leg_left", "rotation": [-15.0, 0.0, 0.0] },
+                        { "object": "leg_right", "rotation": [15.0, 0.0, 0.0] }
+                    ]
+                },
+                {
+                    "frame": 16,
+                    "transforms": [
+                        { "object": "arm_left", "rotation": [-235.0, 0.0, 0.0] },
+                        { "object": "arm_right", "rotation": [-415.0, 0.0, 0.0] },
+                        { "object": "leg_left", "rotation": [15.0, 0.0, 0.0] },
+                        { "object": "leg_right", "rotation": [-15.0, 0.0, 0.0] }
+                    ]
+                },
+                {
+                    "frame": 24,
+                    "transforms": [
+                        { "object": "arm_left", "rotation": [-325.0, 0.0, 0.0] },
+                        { "object": "arm_right", "rotation": [-505.0, 0.0, 0.0] },
+                        { "object": "leg_left", "rotation": [-15.0, 0.0, 0.0] },
+                        { "object": "leg_right", "rotation": [15.0, 0.0, 0.0] }
+                    ]
+                },
+                {
+                    "frame": 31,
+                    "transforms": [
+                        { "object": "arm_left", "rotation": [-415.0, 0.0, 0.0] },
+                        { "object": "arm_right", "rotation": [-595.0, 0.0, 0.0] },
+                        { "object": "leg_left", "rotation": [15.0, 0.0, 0.0] },
+                        { "object": "leg_right", "rotation": [-15.0, 0.0, 0.0] }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "attack",
+            "fps": 30,
+            "frames": 24,
+            "keyframes": [
+                {
+                    "frame": 0,
+                    "transforms": [
+                        { "object": "body", "rotation": [0.0, 0.0, 0.0] },
+                        { "object": "head", "rotation": [0.0, 0.0, 0.0] },
+                        { "object": "arm_left", "rotation": [-70.0, 0.0, -4.0] },
+                        { "object": "arm_right", "rotation": [-70.0, 0.0, 4.0] },
+                        { "object": "leg_left", "rotation": [0.0, 0.0, 0.0] },
+                        { "object": "leg_right", "rotation": [0.0, 0.0, 0.0] }
+                    ]
+                },
+                {
+                    "frame": 7,
+                    "transforms": [
+                        { "object": "body", "rotation": [12.0, 0.0, 0.0] },
+                        { "object": "head", "rotation": [-10.0, 0.0, 0.0] },
+                        { "object": "arm_left", "rotation": [-125.0, 0.0, -8.0] },
+                        { "object": "arm_right", "rotation": [-125.0, 0.0, 8.0] },
+                        { "object": "leg_left", "rotation": [-6.0, 0.0, 0.0] },
+                        { "object": "leg_right", "rotation": [6.0, 0.0, 0.0] }
+                    ]
+                },
+                {
+                    "frame": 14,
+                    "transforms": [
+                        { "object": "body", "rotation": [4.0, 0.0, 0.0] },
+                        { "object": "head", "rotation": [4.0, 0.0, 0.0] },
+                        { "object": "arm_left", "rotation": [-45.0, 0.0, -3.0] },
+                        { "object": "arm_right", "rotation": [-45.0, 0.0, 3.0] },
+                        { "object": "leg_left", "rotation": [0.0, 0.0, 0.0] },
+                        { "object": "leg_right", "rotation": [0.0, 0.0, 0.0] }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "death",
+            "fps": 30,
+            "frames": 24,
+            "keyframes": [
+                {
+                    "frame": 0,
+                    "transforms": [
+                        { "object": "body", "rotation": [0.0, 0.0, 0.0] },
+                        { "object": "head", "rotation": [0.0, 0.0, 0.0] },
+                        { "object": "arm_left", "rotation": [-70.0, 0.0, -4.0] },
+                        { "object": "arm_right", "rotation": [-70.0, 0.0, 4.0] },
+                        { "object": "leg_left", "rotation": [0.0, 0.0, 0.0] },
+                        { "object": "leg_right", "rotation": [0.0, 0.0, 0.0] }
+                    ]
+                },
+                {
+                    "frame": 10,
+                    "transforms": [
+                        { "object": "body", "rotation": [8.0, 0.0, 0.0] },
+                        { "object": "head", "rotation": [12.0, 0.0, 0.0] },
+                        { "object": "arm_left", "rotation": [-35.0, 0.0, -12.0] },
+                        { "object": "arm_right", "rotation": [-35.0, 0.0, 12.0] },
+                        { "object": "leg_left", "rotation": [-8.0, 0.0, 0.0] },
+                        { "object": "leg_right", "rotation": [8.0, 0.0, 0.0] }
+                    ]
+                },
+                {
+                    "frame": 23,
+                    "transforms": [
+                        { "object": "body", "rotation": [4.0, 0.0, 0.0] },
+                        { "object": "head", "rotation": [18.0, 0.0, 0.0] },
+                        { "object": "arm_left", "rotation": [10.0, 0.0, -18.0] },
+                        { "object": "arm_right", "rotation": [10.0, 0.0, 18.0] },
+                        { "object": "leg_left", "rotation": [-5.0, 0.0, 0.0] },
+                        { "object": "leg_right", "rotation": [5.0, 0.0, 0.0] }
                     ]
                 }
             ]
