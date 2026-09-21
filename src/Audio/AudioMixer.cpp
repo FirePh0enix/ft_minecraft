@@ -1,9 +1,9 @@
 #include "AudioMixer.hpp"
 #include "Core/Logger.hpp"
 
-std::expected<std::unique_ptr<AudioMixer>, Error> AudioMixer::create()
+std::expected<std::shared_ptr<AudioMixer>, Error> AudioMixer::create()
 {
-    auto mixer = std::make_unique<AudioMixer>();
+    auto mixer = std::make_shared<AudioMixer>();
     if (!mixer->is_valid())
         return std::unexpected(Error(ErrorKind::AudioInitializationFailed));
     return mixer;

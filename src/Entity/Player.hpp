@@ -158,6 +158,8 @@ private:
     glm::i64vec3 m_destroy_block_pos = glm::i64vec3();
     bool m_is_destroying = false;
 
+    std::shared_ptr<Widget> m_health_bar;
+
     bool are_input_available()
     {
         return Input::is_mouse_grabbed() && !m_opened_inventory.has_value() && !m_chat_opened;

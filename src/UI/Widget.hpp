@@ -145,6 +145,13 @@ public:
     GlobalPoint get_global_pos();
     GlobalPoint get_global_size();
 
+    void invalidate()
+    {
+        m_invalidate_cache = true;
+        for (auto child : m_children)
+            child->invalidate();
+    }
+
     void draw_everything(const RenderPass& pass);
     void update_everything(float delta);
     void process_everyting(Event& event);
@@ -192,6 +199,7 @@ protected:
 
     // Cache size and positions.
     GlobalPoint m_cached_size;
+    bool m_invalidate_cache = false;
 
     int32_t get_width(Size size) const;
     int32_t get_height(Size size) const;

@@ -14,7 +14,7 @@ constexpr size_t MUSIC_TRACKS_POOL_SIZE = 2;
 class AudioMixer
 {
 public:
-    static std::expected<std::unique_ptr<AudioMixer>, Error> create();
+    static std::expected<std::shared_ptr<AudioMixer>, Error> create();
 
     AudioMixer();
     ~AudioMixer();

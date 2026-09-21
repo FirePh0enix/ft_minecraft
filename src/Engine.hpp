@@ -24,6 +24,8 @@ public:
     Engine(bool disable_save);
     ~Engine();
 
+    std::expected<void, Error> init();
+
     bool is_running() const { return m_window->is_running(); }
 
     void tick(float delta);
@@ -107,8 +109,8 @@ private:
     float m_last_second_frame_time = 0.0;
     size_t m_current_memory_usage = 0;
 
-    std::unique_ptr<AudioMixer> m_audio_mixer;
-    std::unique_ptr<MusicPlayer> m_music_player;
+    std::shared_ptr<AudioMixer> m_audio_mixer;
+    std::shared_ptr<MusicPlayer> m_music_player;
 
     std::vector<std::string> m_saves;
 

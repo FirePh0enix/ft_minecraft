@@ -31,16 +31,19 @@ int main(int argc, char *argv[])
 
     Engine engine(false);
 
+    auto result = engine.init();
+    if (!result.has_value())
+    {
+        error("Engine initialization failed");
+        return 1;
+    }
+
     Widget::bind_static();
     ColorRectWidget::bind_static();
     TextureRectWidget::bind_static();
     LabelWidget::bind_static();
 
     info("using data directory `{}`", Filesystem::get_data_directory());
-    // if (disable_save)
-    // {
-    //     info("save are disabled, modification will not be saved");
-    // }
 
     while (engine.is_running())
     {

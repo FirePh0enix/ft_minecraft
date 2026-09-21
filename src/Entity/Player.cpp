@@ -264,6 +264,22 @@ void Player::on_ready()
         // m_breaks_textures[1] = EXPECT(Texture::load("assets/textures/breaks/1.png"));
         // m_breaks_textures[2] = EXPECT(Texture::load("assets/textures/breaks/2.png"));
         // m_breaks_textures[3] = EXPECT(Texture::load("assets/textures/breaks/3.png"));
+
+        m_health_bar = std::make_shared<Widget>();
+        m_health_bar->set_expand_horizontal(true);
+        m_health_bar->set_expand_vertical(true);
+        m_health_bar->set_alignment(ContainerAlignment::Bottom);
+        m_health_bar->set_layout(ContainerLayout::Stack);
+
+        std::shared_ptr<ColorRectWidget> background = std::make_shared<ColorRectWidget>();
+        background->set_size(Point(Size::px(500), Size::px(40)));
+        background->set_color(Color::rgb(50, 50, 50));
+        m_health_bar->add_child(background);
+
+        std::shared_ptr<ColorRectWidget> colored_rect = std::make_shared<ColorRectWidget>();
+        colored_rect->set_size(Point(Size::px(500), Size::px(40)));
+        colored_rect->set_color(Colors::red);
+        m_health_bar->add_child(colored_rect);
     }
     else
     {
@@ -555,6 +571,10 @@ void Player::tick(float delta)
             m_opened_inventory.value()->update_everything(delta);
         else
             m_inventory->update_everything(delta);
+
+        std::dynamic_pointer_cast<ColorRectWidget>(m_health_bar->get_children()[1])->set_size(Point(Size::px(int32_t(500.0f * ((float)m_health / (float)m_max_health))), Size::px(40)));
+        m_health_bar->invalidate();
+        m_health_bar->update_everything(delta);
     }
 
     m_previous_frame_in_water = in_water;
@@ -712,6 +732,8 @@ void Player::draw_ui(const RenderPass& pass)
 
         if (m_debug_menu_opened)
             debug_menu();
+
+        m_health_bar->draw_everything(pass);
     }
 }
 

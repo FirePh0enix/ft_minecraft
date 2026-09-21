@@ -13,7 +13,7 @@ DebugCube::DebugCube(glm::dvec3 position, glm::vec3 scale, Color color, float du
     this->duration = duration;
     this->creation_time = creation_time;
 
-    buffer = EXPECT(Buffer::create(sizeof(FwColored), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
+    buffer = EXPECT /* FINE */ (Buffer::create(sizeof(FwColored), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
 
     bg = BindGroup::create(Renderer::get().get_fw_colored_shader());
     bg->set_param("world_env", Renderer::get().get_fw_world_env());

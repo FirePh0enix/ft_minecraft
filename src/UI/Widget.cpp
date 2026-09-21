@@ -179,8 +179,10 @@ GlobalPoint Widget::get_global_size()
 {
     // TODO: Invalidate the cache if new children are added, if the size changed with animation.
     //       invalidation must be recursived, all parents.
-    if (m_cached_size.x >= 0 && m_cached_size.y >= 0)
+    if (m_cached_size.x >= 0 && m_cached_size.y >= 0 && !m_invalidate_cache)
         return m_cached_size;
+
+    m_invalidate_cache = false;
 
     GlobalPoint p{};
 

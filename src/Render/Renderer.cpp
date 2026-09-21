@@ -977,7 +977,7 @@ static std::expected<std::shared_ptr<Mesh>, Error> create_wireframe_cube_mesh(gl
     return std::shared_ptr<Mesh>(TRY(Mesh::create_from_data(std::as_bytes(std::span(indices)), vertices, std::span<glm::vec3>(), std::span<std::byte>(), WGPUIndexFormat_Uint16)));
 }
 
-#define SHADOWMAP_RESOLUTION 2048
+#define SHADOWMAP_RESOLUTION 4096
 
 std::expected<void, Error> Renderer::init(const Window& window, InitFlags flags)
 {
