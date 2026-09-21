@@ -34,6 +34,7 @@ enum class PacketType : uint32_t
     RequestChunk,
     /// Send by the server, contains the data of a chunk.
     ChunkData,
+    SyncInventory,
 };
 
 class DataBuffer
@@ -62,6 +63,11 @@ public:
 
         m_data.resize(m_data.size() + byte_len);
         std::memcpy(m_data.data() + m_data.size() - byte_len, vec.data(), byte_len);
+    }
+
+    template <typename T>
+    void write_variant(Variant v)
+    {
     }
 
     template <typename T>
@@ -477,3 +483,12 @@ inline std::expected<void, Error> deserialize(DataBuffer& buffer, ChunkDataPacke
     p.tags = buffer.read_array<uint8_t>(size);
     return std::expected<void, Error>();
 }
+
+struct SyncInventory
+{
+    std::vector<ItemStack> items;
+
+    static constexpr PacketType type = PacketType::SyncInventory;
+};
+std::expected<void, Error> serialize(DataBuffer& buffer, const SyncInventory& p);
+std::expected<void, Error> deserialize(DataBuffer& buffer, SyncInventory& p);

@@ -346,6 +346,22 @@ void LocalServer::receive(void *user, NetworkConnection& conn, ENetPacket *packe
         conn.broadcast(NetworkConnection::create_packet(p), client.peer());
     }
     break;
+    case PacketType::SyncInventory:
+    {
+        SyncInventory p;
+        EXPECT(deserialize(buffer, p));
+
+        if (!self->m_connected_peers.contains(client.peer()))
+            break;
+
+        std::shared_ptr<Player> player = self->m_connected_peers[client.peer()];
+
+        for (size_t i = 0; i < 27; i++)
+            player->get_inventory_container()->set_stack(0, i, p.items[i]);
+        for (size_t i = 0; i < 9; i++)
+            player->get_inventory_container()->set_stack(1, i + 27, p.items[i]);
+    }
+    break;
     default:
         break;
     }

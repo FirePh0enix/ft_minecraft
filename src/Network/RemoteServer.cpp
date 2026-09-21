@@ -337,6 +337,20 @@ void RemoteServer::receive(void *user, NetworkConnection& conn, ENetPacket *pack
         self->m_player->send_message(p.message);
     }
     break;
+    case PacketType::SyncInventory:
+    {
+        SyncInventory p;
+        EXPECT(deserialize(buffer, p));
+
+        if (self->m_player == nullptr)
+            break;
+
+        for (size_t i = 0; i < 27; i++)
+            self->m_player->get_inventory_container()->set_stack(0, i, p.items[i]);
+        for (size_t i = 0; i < 9; i++)
+            self->m_player->get_inventory_container()->set_stack(1, i + 27, p.items[i]);
+    }
+    break;
     default:
         break;
     }

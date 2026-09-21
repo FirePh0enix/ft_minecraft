@@ -101,6 +101,8 @@ public:
 
     void send_message(std::string message);
 
+    void sync_inventory();
+
 private:
     std::shared_ptr<Camera> m_camera;
     GameMode m_gamemode = GameMode::Creative;

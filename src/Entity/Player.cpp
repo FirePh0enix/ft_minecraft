@@ -381,15 +381,24 @@ void Player::tick(float delta)
             m_debug_menu_opened = !m_debug_menu_opened;
     }
 
-    AABB item_box = get_aabb().translate(get_position()).grow(glm::vec3(0.5));
-    std::vector<std::shared_ptr<Entity>> entities = m_world->get_dimension(World::overworld).cast_box(item_box);
-    for (const std::shared_ptr<Entity>& entity : entities)
+    if (Engine::get().is_server())
     {
-        if (std::shared_ptr<ItemEntity> item = std::dynamic_pointer_cast<ItemEntity>(entity))
+        size_t amount_added = 0;
+
+        AABB item_box = get_aabb().translate(get_position()).grow(glm::vec3(0.5));
+        std::vector<std::shared_ptr<Entity>> entities = m_world->get_dimension(World::overworld).cast_box(item_box);
+        for (const std::shared_ptr<Entity>& entity : entities)
         {
-            m_inventory->add_stack(ItemStack(item->item(), 1));
-            m_world->remove_entity(World::overworld, item);
+            if (std::shared_ptr<ItemEntity> item = std::dynamic_pointer_cast<ItemEntity>(entity))
+            {
+                m_inventory->add_stack(ItemStack(item->item(), 1));
+                m_world->remove_entity(World::overworld, item);
+                amount_added++;
+            }
         }
+
+        if (amount_added > 0)
+            sync_inventory();
     }
 
     Transform3D transform = m_transform;
@@ -818,7 +827,7 @@ void Player::die()
         return;
 
     m_dead = true;
-    println("`{}` is dead", m_username);
+    info("`{}` is dead", m_username);
     call_rpc("on_death");
 }
 
@@ -879,8 +888,7 @@ void Player::hit(glm::dvec3 direction)
                 if (Engine::get().is_server())
                     mob->damage(1, id()); // TODO: tool-dependent damage.
 
-                if (m_local_player)
-                    call_rpc("play_one_shot_sound", static_cast<int64_t>(EntitySound::Attack));
+                call_rpc("play_one_shot_sound", static_cast<int64_t>(EntitySound::Attack));
             }
         }
         else if (m_gamemode == GameMode::Creative && !result.hit_entity)
@@ -889,27 +897,28 @@ void Player::hit(glm::dvec3 direction)
         }
         else if (m_gamemode == GameMode::Survival && !result.hit_entity)
         {
-            if (m_local_player)
-                call_rpc("play_one_shot_sound", static_cast<int64_t>(EntitySound::Destroying));
+            call_rpc("play_one_shot_sound", static_cast<int64_t>(EntitySound::Destroying));
 
-            if (!m_is_destroying)
-            {
-                m_is_destroying = true;
-                m_destroy_block_pos = result.block_pos;
-            }
-            else if (m_destroy_block_pos != result.block_pos)
-            {
-                m_is_destroying = false;
-                m_destroy_ticks = 0;
-            }
+            // if (!m_is_destroying)
+            // {
+            //     m_is_destroying = true;
+            //     m_destroy_block_pos = result.block_pos;
+            // }
+            // else if (m_destroy_block_pos != result.block_pos)
+            // {
+            //     m_is_destroying = false;
+            //     m_destroy_ticks = 0;
+            // }
 
-            m_destroy_ticks += 1;
-            if (m_destroy_ticks >= max_destroy_ticks)
-            {
-                m_world->break_block(m_dimension, x, y, z);
-                m_is_destroying = false;
-                m_destroy_ticks = 0;
-            }
+            // m_destroy_ticks += 1;
+            // if (m_destroy_ticks >= max_destroy_ticks)
+            // {
+            //     m_world->break_block(m_dimension, x, y, z);
+            //     m_is_destroying = false;
+            //     m_destroy_ticks = 0;
+            // }
+
+            m_world->break_block(m_dimension, x, y, z);
         }
         else
         {
@@ -946,7 +955,10 @@ void Player::interact()
     {
         item->interact(*m_world, m_dimension, stack, true, result, *m_inventory_container);
         if (m_local_player)
+        {
             m_inventory_container->set_stack(1, m_slot, stack);
+            sync_inventory();
+        }
     }
 }
 
@@ -987,6 +999,16 @@ void Player::update_player_list(const std::vector<std::string>& names)
 void Player::send_message(std::string message)
 {
     m_messages.push_back(message);
+}
+
+void Player::sync_inventory()
+{
+    SyncInventory p;
+    for (size_t i = 0; i < 27; i++)
+        p.items.push_back(m_inventory_container->get_stack(0, i));
+    for (size_t i = 0; i < 9; i++)
+        p.items.push_back(m_inventory_container->get_stack(0, i));
+    Engine::get().server()->route_packet(NetworkConnection::create_packet(p));
 }
 
 void Player::death_screen()
