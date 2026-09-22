@@ -436,6 +436,7 @@ struct Cloud
     FwColored uniform;
     std::shared_ptr<Buffer> buffer;
     std::shared_ptr<BindGroup> bg;
+    std::shared_ptr<BindGroup> bg_shadowmap;
     int64_t grid_x;
     int64_t grid_z;
 };
@@ -460,7 +461,7 @@ public:
 
     void draw_opaque_world(const std::shared_ptr<World>& world, const RenderPass& pass, const std::map<ChunkPos, RenderableChunk>& chunks, uint32_t stencil);
     void draw_water_world(const std::shared_ptr<World>& world, const RenderPass& pass, const std::map<ChunkPos, RenderableChunk>& chunks, uint32_t stencil);
-    void draw_shadow_world(const std::shared_ptr<World>& world, const RenderPass& pass, const std::map<ChunkPos, RenderableChunk>& chunks, uint32_t stencil);
+    void draw_shadow_world(const std::shared_ptr<World>& world, const RenderPass& pass, const std::map<ChunkPos, RenderableChunk>& chunks, const std::vector<ChunkPos>& caster_chunks, uint32_t stencil);
 
     void draw(const RenderPass& pass, const std::shared_ptr<Mesh>& mesh, const std::shared_ptr<Material>& material, const std::shared_ptr<BindGroup>& bg, const std::shared_ptr<Buffer>& instance_buffer = nullptr, size_t instance_count = 1, std::optional<uint32_t> stencil = std::nullopt);
     void draw_fullscreen(const RenderPass& pass, std::shared_ptr<Material> material, std::shared_ptr<BindGroup> bg, uint32_t stencil);
@@ -475,12 +476,14 @@ public:
     std::shared_ptr<Shader> get_fw_item_shader() const { return m_fw_item_shader; }
     std::shared_ptr<Shader> get_fw_text_shader() const { return m_fw_text_shader; }
     std::shared_ptr<Shader> get_fw_model_shader() const { return m_fw_model_shader; }
+    std::shared_ptr<Shader> get_fw_model_shadowmap_shader() const { return m_fw_model_shadowmap_shader; }
     std::shared_ptr<Shader> get_fw_colored_shader() const { return m_fw_colored_shader; }
     std::shared_ptr<Shader> get_portal_shader() const { return m_portal_shader; }
     std::shared_ptr<Material> get_fw_chunk_mat() const { return m_fw_chunk_mat; }
     std::shared_ptr<Material> get_fw_shadowmap_mat() const { return m_fw_chunk_shadowmap_mat; }
     std::shared_ptr<Material> get_fw_texture_rect_mat() const { return m_fw_texture_rect_mat; }
     std::shared_ptr<Material> get_fw_model_mat() const { return m_fw_model_mat; }
+    std::shared_ptr<Material> get_fw_model_shadowmap_mat() const { return m_fw_model_shadowmap_mat; }
     std::shared_ptr<Material> get_fw_text_mat() const { return m_fw_text_mat; }
     std::shared_ptr<Material> get_fw_color_rect_mat() const { return m_fw_color_rect_mat; }
     std::shared_ptr<Material> get_fw_item_mat() const { return m_fw_item_mat; }
@@ -556,6 +559,7 @@ private:
     std::shared_ptr<Shader> m_fw_text_shader;
     std::shared_ptr<Shader> m_fw_colored_shader;
     std::shared_ptr<Shader> m_fw_model_shader;
+    std::shared_ptr<Shader> m_fw_model_shadowmap_shader;
 
     std::shared_ptr<Material> m_fw_chunk_mat;
     std::shared_ptr<Material> m_fw_chunk_shadowmap_mat;
@@ -563,6 +567,7 @@ private:
     std::shared_ptr<Material> m_fw_texture_rect_mat;
     std::shared_ptr<Material> m_fw_text_mat;
     std::shared_ptr<Material> m_fw_model_mat;
+    std::shared_ptr<Material> m_fw_model_shadowmap_mat;
     std::shared_ptr<Material> m_fw_color_rect_mat;
     std::shared_ptr<Material> m_fw_item_mat;
 
@@ -589,17 +594,18 @@ private:
     std::shared_ptr<BindGroup> m_chunk_water_bg;
     std::shared_ptr<BindGroup> m_chunk_semitransparent_bg;
     std::shared_ptr<BindGroup> m_chunk_shadow_bg;
+    std::shared_ptr<Buffer> m_shadow_instances;
 
     // Portal
     std::shared_ptr<Shader> m_portal_shader;
     std::shared_ptr<Material> m_portal_mat;
 
     // SSAO
-    std::shared_ptr<Texture> m_ssao_buffer;
     std::shared_ptr<Buffer> m_ssao_uniform_buffer;
+    std::shared_ptr<Texture> m_ssao_texture;
     std::shared_ptr<Shader> m_ssao_shader;
-    std::shared_ptr<Material> m_ssao_material;
-    std::shared_ptr<Texture> m_ssao_noise_texture;
+    std::shared_ptr<Material> m_ssao_mat;
+    std::shared_ptr<BindGroup> m_ssao_bg;
 
     // Sky
     std::shared_ptr<Buffer> m_sky_buffer;

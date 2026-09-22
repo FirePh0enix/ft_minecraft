@@ -1,6 +1,5 @@
 #pragma once
 
-
 #include "Entity/LivingEntity.hpp"
 #include "Entity/Pathfinding/Path.hpp"
 #include "Entity/Pathfinding/Pathfinding.hpp"
@@ -19,7 +18,7 @@ public:
     {
     }
 
-    virtual void draw(const RenderPass& pass) override;
+    virtual void draw(const RenderPass& pass, bool shadowmap) override;
     virtual void die() override;
     bool is_dead() const override { return m_dead; }
     virtual void on_death();

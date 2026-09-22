@@ -20,6 +20,8 @@ public:
     size_t vertex_count() const { return m_vertices.size(); }
 
     std::expected<std::shared_ptr<Mesh>, Error> build();
+    std::expected<std::shared_ptr<Mesh>, Error> build_positions();
+    void append_positions(const MeshBuilder& other, glm::vec3 offset);
 
 private:
     std::vector<uint32_t> m_indices;

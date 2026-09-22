@@ -15,12 +15,7 @@ struct VertexOutput {
 
 @vertex
 fn vertex_main(in: VertexInput) -> VertexOutput {
-    let model_matrix = mat4x4(1.0, 0.0, 0.0, 0.0,
-			      0.0, 1.0, 0.0, 0.0,
-			      0.0, 0.0, 1.0, 0.0,
-			      in.chunk_pos.x, in.chunk_pos.y, in.chunk_pos.z, 1.0);
-    
     var out: VertexOutput;
-    out.clip_position = camera.view_projection * model_matrix * vec4f(in.position, 1.0);
+    out.clip_position = camera.view_projection * vec4f(in.position + in.chunk_pos, 1.0);
     return out;
 }

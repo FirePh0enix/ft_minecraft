@@ -52,7 +52,7 @@ void ArrowEntity::tick(float delta)
     }
 }
 
-void ArrowEntity::draw(const RenderPass& pass)
+void ArrowEntity::draw(const RenderPass& pass, bool shadowmap)
 {
-    m_model->encode(pass, get_global_transform());
+    m_model->encode(pass, get_global_transform(), shadowmap);
 }

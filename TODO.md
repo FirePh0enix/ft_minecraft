@@ -12,9 +12,9 @@
 - [x] Biomes should transition smoothly and naturally without abrupt changes, as illustrated below
 - [ ] There should be small plants, flowers, and mushrooms scattered throughout the world, as well as procedurally generated trees.
     - [ ] Mushroom ?
-- [ ] There must be lakes and rivers meandering across the world, as well as natural cave entrances visible from the surface.
+- [x] There must be lakes and rivers meandering across the world, as well as natural cave entrances visible from the surface.
     - [x] Lakes
-    - [ ] River: currently not perfect and goes up montains.
+    - [x] River: currently not perfect and goes up montains.
     - [x] Caves
 - [x] These caves should feature realistic formations (wormhole style) and contain clusters of rare ores like gold and diamonds, not just simple noise-based distribution
     - [x] Wormhole caves
@@ -29,7 +29,7 @@
 - [x] Minimum render distance is 260 ( 16 chunks )
 - [x] You may use a sky shader instead of a skybox if desired.
 - [x] Directional lighting
-- [ ] Shadows
+- [x] Shadows
 - [ ] Screen Space Ambient Occlusion (SSAO)
 - [x] Transparent water surfaces
 - [x] Far distance fog for better immersion

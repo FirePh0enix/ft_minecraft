@@ -34,6 +34,7 @@ public:
         std::shared_ptr<Buffer> uv_buffer;
 
         std::shared_ptr<BindGroup> bg;
+        std::shared_ptr<BindGroup> bg_shadowmap;
     };
 
     struct Transform
@@ -76,7 +77,7 @@ public:
 
     std::optional<Object> get_object(std::string_view name) const;
 
-    void encode(const RenderPass& pass, const Transform3D& transform);
+    void encode(const RenderPass& pass, const Transform3D& transform, bool shadowmap);
 
 private:
     std::string m_name;

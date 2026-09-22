@@ -7,6 +7,21 @@
 
 #include <cstdint>
 
+const char *biome_names[] = {
+    "Plain",
+    "ColdPlain",
+    "Forest",
+    "ColdForest",
+    "Desert",
+    "Beach",
+    "Mountain",
+    "FrozenMountain",
+    "Ocean",
+    "FrozenOcean",
+    "Underworld",
+    "Max",
+};
+
 Chunk::Chunk(Dimension *dim, int64_t x, int64_t z)
     : m_dim(dim), m_x(x), m_z(z)
 {
@@ -15,7 +30,6 @@ Chunk::Chunk(Dimension *dim, int64_t x, int64_t z)
     m_slices = new Slice[slice_count];
 
     m_instance_buffer = EXPECT(Buffer::create(sizeof(FwChunkUniforms) * slice_count, WGPUBufferUsage_Uniform | WGPUBufferUsage_Vertex | WGPUBufferUsage_CopyDst));
-    m_instance_copy_buffer = EXPECT(Buffer::create(sizeof(FwChunkUniforms) * slice_count, WGPUBufferUsage_CopySrc | WGPUBufferUsage_MapWrite));
 }
 
 Chunk::~Chunk()
@@ -103,7 +117,7 @@ static uint64_t xorshift(uint64_t seed)
     return x + 0x9E3779B97F4A7C15ULL;
 }
 
-std::expected<std::shared_ptr<Mesh>, Error> Chunk::build_opaque_mesh(size_t slice_index, const std::map<ChunkPos, std::shared_ptr<Chunk>>& chunks)
+std::expected<std::shared_ptr<Mesh>, Error> Chunk::build_opaque_mesh(size_t slice_index, const std::map<ChunkPos, std::shared_ptr<Chunk>>& chunks, MeshBuilder *shadow_builder)
 {
     int64_t slice_y_offset = int64_t(slice_index) * width;
     MeshBuilder builder;
@@ -174,6 +188,9 @@ std::expected<std::shared_ptr<Mesh>, Error> Chunk::build_opaque_mesh(size_t slic
 
     if (builder.vertex_count() == 0)
         return nullptr;
+
+    if (shadow_builder != nullptr)
+        shadow_builder->append_positions(builder, glm::vec3(0.0f, float(slice_y_offset), 0.0f));
 
     return builder.build();
 }

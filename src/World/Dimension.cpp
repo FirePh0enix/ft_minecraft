@@ -526,6 +526,11 @@ void Dimension::rebuild(std::stop_token token, std::shared_ptr<Chunk> chunk, con
     ZoneScoped;
 
     MeshRebuildResult results[16];
+    MeshBuilder shadow_builder;
+    // A partial rebuild cannot replace the merged mesh without dropping the
+    // untouched slices. Block edits currently queue full-chunk rebuilds; any
+    // future partial-update path must also refresh the complete shadow mesh.
+    const bool rebuild_shadow_mesh = slice_index == 0 && slice_count == Chunk::slice_count;
 
     for (size_t i = slice_index; i < slice_index + slice_count; i++)
     {
@@ -536,7 +541,7 @@ void Dimension::rebuild(std::stop_token token, std::shared_ptr<Chunk> chunk, con
         results[i].chunk = chunk;
         results[i].slice_index = i;
 
-        std::expected<std::shared_ptr<Mesh>, Error> opaque_mesh = chunk->build_opaque_mesh(i, nchunks);
+        std::expected<std::shared_ptr<Mesh>, Error> opaque_mesh = chunk->build_opaque_mesh(i, nchunks, rebuild_shadow_mesh ? &shadow_builder : nullptr);
         if (!opaque_mesh.has_value())
             return;
         std::expected<std::shared_ptr<Mesh>, Error> water_mesh = chunk->build_water_mesh(i, nchunks);
@@ -545,6 +550,20 @@ void Dimension::rebuild(std::stop_token token, std::shared_ptr<Chunk> chunk, con
 
         results[i].opaque_mesh = opaque_mesh.value();
         results[i].water_mesh = water_mesh.value();
+    }
+
+    if (rebuild_shadow_mesh)
+    {
+        // Publish once for the whole chunk. The flag also publishes a null mesh
+        // when the chunk becomes empty, clearing its previous shadow geometry.
+        results[slice_index].updates_shadow_mesh = true;
+        if (shadow_builder.vertex_count() > 0)
+        {
+            std::expected<std::shared_ptr<Mesh>, Error> shadow_mesh = shadow_builder.build_positions();
+            if (!shadow_mesh.has_value())
+                return;
+            results[slice_index].shadow_mesh = shadow_mesh.value();
+        }
     }
 
     m_mesh_queue_lockless.enqueue_bulk(std::begin(results) + slice_index, slice_count);
