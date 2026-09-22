@@ -79,8 +79,8 @@ void GameRegistry::register_all()
     add_item(Items::crafting_table_block, std::make_shared<ItemBlock>(Blocks::crafting_table));
     // add_item(Items::portal_block, std::make_shared<ItemBlock>(Blocks::portal));
     // add_item(Items::water_bucket, std::make_shared<BucketItem>());
-    // add_item(Items::bow, std::make_shared<BowItem>());
-    // add_item(Items::arrow, std::make_shared<ArrowItem>());
+    add_item(Items::bow, std::make_shared<BowItem>());
+    add_item(Items::arrow, std::make_shared<ArrowItem>());
     // add_item(Items::crystal, std::make_shared<CrystalItem>());
 }
 

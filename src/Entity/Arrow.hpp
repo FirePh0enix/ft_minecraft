@@ -1,29 +1,24 @@
 #pragma once
 
 #include "Entity/Entity.hpp"
-#include "Id.hpp"
-#include "Item/Item.hpp"
 #include "Model.hpp"
-#include <memory>
 
 class ArrowEntity : public Entity
 {
     CLASS(ArrowEntity, Entity);
 
 public:
-    ArrowEntity(Id<Item> item);
-
-    virtual void tick(float delta) override;
-    virtual void draw(const RenderPass& pass, bool shadowmap) override;
+    ArrowEntity();
+    void tick(float delta) override;
+    void draw(const RenderPass& pass, bool shadowmap) override;
     void on_ready() override;
-    inline void set_velocity(const glm::vec3 velocity) { m_velocity = velocity; }
-
-    Id<Item> item() const { return m_item; }
+    void set_velocity(glm::vec3 velocity) { m_velocity = velocity; }
+    void set_owner(EntityId owner) { m_owner = owner; }
+    void orient(glm::vec3 direction);
 
 private:
-    Id<Item> m_item;
-    glm::uvec3 m_textures{};
-    std::shared_ptr<Material> m_material;
-    std::shared_ptr<Buffer> m_model_buffer;
+    EntityId m_owner;
+    bool m_embedded = false;
+    void remove();
     std::shared_ptr<ModelLegacy> m_model;
 };

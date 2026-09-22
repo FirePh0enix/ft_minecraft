@@ -173,6 +173,21 @@ bool LocalServer::has_generation_started()
     return m_schedulers[World::overworld]->has_generation_started();
 }
 
+void LocalServer::sync_player_inventory(const Player& player)
+{
+    for (const auto& [peer, connected] : m_connected_peers)
+    {
+        if (connected.get() != &player)
+            continue;
+        SyncInventory packet;
+        for (size_t layer : {0, 1})
+            for (const ItemStack& stack : player.get_inventory_container()->get_layer(layer).stacks)
+                packet.items.push_back(stack);
+        m_connection.send(peer, NetworkConnection::create_packet(packet));
+        return;
+    }
+}
+
 void LocalServer::spawn_player()
 {
     m_player = std::make_shared<Player>();
@@ -183,6 +198,7 @@ void LocalServer::spawn_player()
         m_player->set_position(m_world->get_spawn_position());
     }
 
+    m_player->give_spawn_equipment();
     m_world->add_entity(World::overworld, m_player);
     m_world->set_player(m_player);
 
@@ -240,9 +256,10 @@ void LocalServer::receive(void *user, NetworkConnection& conn, ENetPacket *packe
         player->set_id(id);
         player->set_username(p.username);
 
-        // TODO: Send inventory content, maybe with a separate packet.
-        if (!self->m_world->is_player_saved(p.username) && !self->m_world->load_player(p.username, player))
+        if (!self->m_world->load_player(p.username, player))
             player->get_transform().position() = self->m_world->get_spawn_position();
+
+        player->give_spawn_equipment();
 
         InitPacket init_p(self->m_world->seed(), id, player->get_transform().position());
         conn.send(client.peer(), NetworkConnection::create_packet(init_p));
@@ -281,6 +298,7 @@ void LocalServer::receive(void *user, NetworkConnection& conn, ENetPacket *packe
 
         self->m_world->add_entity(0, player);
         self->m_connected_peers[client.peer()] = player;
+        self->sync_player_inventory(*player);
 
         AddEntityPacket p3(player->get_transform().position(), player->get_transform().rotation(), id, player->get_class_hash_code());
         conn.broadcast(NetworkConnection::create_packet(p3), client.peer());
@@ -350,6 +368,8 @@ void LocalServer::receive(void *user, NetworkConnection& conn, ENetPacket *packe
     {
         SyncInventory p;
         EXPECT(deserialize(buffer, p));
+        if (p.items.size() != 36)
+            break;
 
         if (!self->m_connected_peers.contains(client.peer()))
             break;
@@ -359,7 +379,7 @@ void LocalServer::receive(void *user, NetworkConnection& conn, ENetPacket *packe
         for (size_t i = 0; i < 27; i++)
             player->get_inventory_container()->set_stack(0, i, p.items[i]);
         for (size_t i = 0; i < 9; i++)
-            player->get_inventory_container()->set_stack(1, i + 27, p.items[i]);
+            player->get_inventory_container()->set_stack(1, i, p.items[i + 27]);
     }
     break;
     default:

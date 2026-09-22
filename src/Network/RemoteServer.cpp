@@ -341,6 +341,8 @@ void RemoteServer::receive(void *user, NetworkConnection& conn, ENetPacket *pack
     {
         SyncInventory p;
         EXPECT(deserialize(buffer, p));
+        if (p.items.size() != 36)
+            break;
 
         if (self->m_player == nullptr)
             break;
@@ -348,7 +350,7 @@ void RemoteServer::receive(void *user, NetworkConnection& conn, ENetPacket *pack
         for (size_t i = 0; i < 27; i++)
             self->m_player->get_inventory_container()->set_stack(0, i, p.items[i]);
         for (size_t i = 0; i < 9; i++)
-            self->m_player->get_inventory_container()->set_stack(1, i + 27, p.items[i]);
+            self->m_player->get_inventory_container()->set_stack(1, i, p.items[i + 27]);
     }
     break;
     default:

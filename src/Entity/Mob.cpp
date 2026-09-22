@@ -8,6 +8,8 @@ constexpr int attempts = 16;
 void Mob::draw(const RenderPass& pass, bool shadowmap)
 {
     Transform3D render_transform = get_global_transform();
+    // Cow and zombie models face +Z; movement rotations point local -Z forward.
+    render_transform.rotation() *= glm::angleAxis(glm::radians(180.0), glm::dvec3(0.0, 1.0, 0.0));
     if (m_dead)
     {
         const float t = glm::smoothstep(

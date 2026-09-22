@@ -25,6 +25,7 @@ public:
     const Layer& get_layer(uint32_t layer) const { return m_layers[layer]; }
     Layer& get_layer(uint32_t layer) { return m_layers[layer]; }
     std::optional<ItemStack> consume(Id<Item> item);
+    bool add_item(Id<Item> item);
 
 private:
     std::vector<Layer> m_layers;

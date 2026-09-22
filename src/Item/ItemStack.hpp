@@ -57,7 +57,7 @@ public:
     void sub(size_t count);
 
     void set_tag(const std::string& name, Variant variant); // { m_tags[name] = variant; }
-    void remove_tag(const std::string& name) { m_tags.erase(m_tags.find(name)); }
+    void remove_tag(const std::string& name) { m_tags.erase(name); }
 
     template <typename T>
     std::optional<T> get_tag(const std::string& name) const

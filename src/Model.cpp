@@ -210,10 +210,7 @@ std::optional<ModelLegacy::Object> ModelLegacy::get_object(std::string_view name
 
 void ModelLegacy::encode(const RenderPass& pass, const Transform3D& transform, bool shadowmap)
 {
-    Transform3D transfo = transform;
-    transfo.set_euler_angles(transfo.get_euler_angles() - glm::vec3(0, M_PI / 2, 0));
-
-    Info info{.model_matrix = transfo.to_matrix(Engine::get().server()->get_player()->get_camera()->get_global_transform().position())};
+    Info info{.model_matrix = transform.to_matrix(Engine::get().server()->get_player()->get_camera()->get_global_transform().position())};
     m_global_buffer->update_struct(info);
 
     std::shared_ptr<Material> material = shadowmap ? Renderer::get().get_fw_model_shadowmap_mat() : Renderer::get().get_fw_model_mat();

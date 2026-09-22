@@ -6,13 +6,11 @@ struct Camera
 struct Model
 {
     model_matrix: mat4x4<f32>,
-    textures: vec3<u32>,
 }
 
 struct VertexOutput
 {
     @builtin(position) position: vec4<f32>,
-    @location(0) color: vec4<f32>,
     @location(1) uv: vec2<f32>,
 }
 
@@ -33,15 +31,14 @@ fn vertex_main(
     out.position = camera.view_matrix * model.model_matrix * vec4<f32>(position, 1.0);
     out.uv = vec2f(uv.x, 1.0 - uv.y);
 
-    var offset: u32 = 0;
-    if (index % 8 > 3) {
-        offset = 16;
-    }
-
     return out;
 }
 
 @fragment
 fn fragment_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    return textureSample(images, images_sampler, in.uv);
+    let color = textureSample(images, images_sampler, in.uv);
+    if (color.a < 0.1) {
+        discard;
+    }
+    return color;
 }

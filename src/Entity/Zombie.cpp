@@ -241,6 +241,7 @@ void Zombie::play_one_shot_sound(int64_t sound)
             break;
         case EntitySound::Destroying:
         case EntitySound::Death:
+        case EntitySound::BowRelease:
             break;
     }
 }
