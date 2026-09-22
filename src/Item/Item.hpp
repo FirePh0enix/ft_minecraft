@@ -6,6 +6,7 @@
 #include "Render/Renderer.hpp"
 
 class InventoryContainer;
+class Entity;
 
 class Item : public Object
 {
@@ -25,11 +26,12 @@ public:
         (void)inventory;
     }
 
-    virtual void on_release(World& world, int dimension, ItemStack& stack, glm::i64vec3 pos, glm::vec3 dir, InventoryContainer& inventory)
+    virtual void on_release(World& world, int dimension, ItemStack& stack, glm::dvec3 pos, glm::vec3 dir, InventoryContainer& inventory, Entity* user)
     {
         (void)world;
         (void)dimension;
         (void)stack;
+        (void)user;
         (void)pos;
         (void)dir;
         (void)inventory;

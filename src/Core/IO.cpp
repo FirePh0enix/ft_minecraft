@@ -76,11 +76,11 @@ std::expected<std::optional<Variant>, Error> Reader::read_variant()
     }
     else if (type == VariantType::ItemStack)
     {
-        uint32_t size;
-        TRY(read_raw(&size, sizeof(uint32_t)));
-
         uint32_t id;
         TRY(read_raw(&id, sizeof(uint32_t)));
+
+        uint32_t size;
+        TRY(read_raw(&size, sizeof(uint32_t)));
 
         std::optional<Variant> variant = TRY(read_variant());
         Variant v = variant.value();

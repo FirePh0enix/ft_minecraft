@@ -28,16 +28,37 @@ std::optional<ItemStack> InventoryContainer::consume(Id<Item> item)
         {
             ItemStack& stack = layer.stacks[i];
 
-            if (!stack.item().valid() || stack.item() != item)
+            if (stack.count() == 0 || !stack.item().valid() || stack.item() != item)
                 continue;
 
             ItemStack consumed(item, 1);
-            stack.sub(1);
+            stack.set_count(stack.count() - 1);
             return consumed;
         }
     }
 
     return {};
+}
+
+bool InventoryContainer::add_item(Id<Item> item)
+{
+    // Merge first, then use an empty slot. A full inventory leaves pickups in the world.
+    for (bool merge : {true, false})
+        for (size_t layer_index : {1, 0})
+            for (ItemStack& stack : m_layers[layer_index].stacks)
+            {
+                if (merge && stack.item() == item && stack.count() < itemstack_max_size)
+                {
+                    stack.set_count(stack.count() + 1);
+                    return true;
+                }
+                if (!merge && (!stack.item().valid() || stack.count() == 0))
+                {
+                    stack = ItemStack(item, 1);
+                    return true;
+                }
+            }
+    return false;
 }
 
 Inventory::Inventory(std::shared_ptr<InventoryContainer> container)

@@ -31,6 +31,7 @@ public:
     virtual void spawn_player() override;
 
     void host();
+    void sync_player_inventory(const Player& player);
 
     void send_chunk(ENetPeer *peer, std::shared_ptr<Chunk> chunk);
 

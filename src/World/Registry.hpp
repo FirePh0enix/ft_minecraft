@@ -127,8 +127,8 @@ constexpr Id<Item> cactus("cactus");
 constexpr Id<Item> crafting_table_block("crafting_table");
 // constexpr Id<Item> portal_block("portal");
 // constexpr Id<Item> water_bucket("water_bucket");
-// constexpr Id<Item> bow("bow");
-// constexpr Id<Item> arrow("arrow");
+constexpr Id<Item> bow("bow");
+constexpr Id<Item> arrow("arrow");
 // constexpr Id<Item> crystal("crystal");
 // constexpr Id<Item> dandelion("dandelion");
 }; // namespace Items

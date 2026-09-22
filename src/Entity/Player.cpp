@@ -12,6 +12,7 @@
 #include "Item/ItemStack.hpp"
 #include "Model.hpp"
 #include "Network/Network.hpp"
+#include "Network/LocalServer.hpp"
 #include "Render/Renderer.hpp"
 #include "UI/TextInput.hpp"
 #include "UI/Widget.hpp"
@@ -180,6 +181,9 @@ void Player::bind_methods()
     type.add_method("interact", &Player::interact);
     expose_rpc<Player>("interact", RpcTarget::Both);
 
+    type.add_method("cancel_use", &Player::cancel_use);
+    expose_rpc<Player>("cancel_use", RpcTarget::Both);
+
     type.add_method("release", &Player::release);
     expose_rpc<Player>("release", RpcTarget::Both);
 
@@ -203,6 +207,25 @@ Player::Player()
     m_inventory_container->add_layer(9);  // toolbar
     m_inventory_container->add_layer(4);  // Crafting Ingredients
     m_inventory_container->add_layer(1);  // Crafting Result
+    give_spawn_equipment();
+}
+
+void Player::give_spawn_equipment()
+{
+    size_t bows = 0;
+    size_t arrows = 0;
+    for (size_t layer : {1, 0})
+        for (const ItemStack& stack : m_inventory_container->get_layer(layer).stacks)
+        {
+            if (stack.item() == Items::bow)
+                bows += stack.count();
+            if (stack.item() == Items::arrow)
+                arrows += stack.count();
+        }
+    if (bows == 0)
+        m_inventory_container->add_item(Items::bow);
+    while (arrows < 64 && m_inventory_container->add_item(Items::arrow))
+        ++arrows;
 }
 
 void Player::on_ready()
@@ -630,9 +653,12 @@ void Player::play_one_shot_sound(int64_t sound)
 
 void Player::draw(const RenderPass& pass, bool shadowmap)
 {
+    Transform3D render_transform = get_global_transform();
+    // Player rotations are view rotations. Invert them for the +Z-facing model.
+    render_transform.rotation() = glm::conjugate(render_transform.rotation()) *
+        glm::angleAxis(glm::radians(180.0), glm::dvec3(0.0, 1.0, 0.0));
     if (!m_local_player)
     {
-        Transform3D render_transform = get_global_transform();
         if (m_dead)
         {
             constexpr float fall_duration = 0.8f;
@@ -646,7 +672,7 @@ void Player::draw(const RenderPass& pass, bool shadowmap)
     }
     else if (shadowmap)
     {
-        m_model->encode(pass, get_global_transform(), true);
+        m_model->encode(pass, render_transform, true);
     }
 
     // if (m_local_player && m_aimed_block.has_value())
@@ -686,23 +712,22 @@ void Player::draw(const RenderPass& pass, bool shadowmap)
         }
         else
         {
-            // FIXME
-            // std::shared_ptr<Texture> texture = item->get_texture();
+            std::shared_ptr<Texture> texture = item->get_texture();
 
-            // Transform3D transform;
-            // transform.scale() = glm::vec3(0.2);
-            // transform.position() = glm::vec3(0.32, -0.18, -0.4);
-            // transform.set_euler_angles(glm::vec3(0, 90.0, 0));
+            Transform3D transform;
+            transform.scale() = glm::vec3(0.2);
+            transform.position() = glm::vec3(0.32, -0.18, -0.4);
+            transform.set_euler_angles(glm::radians(glm::vec3(0, -20.0, -15.0)));
 
-            // FwModel matrix(transform.to_matrix());
-            // m_hand_model_buffer->update_struct(matrix);
+            FwModel matrix(transform.to_matrix());
+            m_hand_model_buffer->update_struct(matrix);
 
-            // std::shared_ptr<BindGroup> bg = BindGroup::create(Renderer::get().get_fw_item_shader());
-            // bg->set_param("camera", Renderer::get().get_fw_camera_rel());
-            // bg->set_param("model", m_hand_model_buffer);
-            // bg->set_param("image", EXPECT(texture->get_view(WGPUTextureViewDimension_2D)));
+            std::shared_ptr<BindGroup> bg = BindGroup::create(Renderer::get().get_fw_item_shader());
+            bg->set_param("camera", Renderer::get().get_fw_camera_rel());
+            bg->set_param("model", m_hand_model_buffer);
+            bg->set_param("image", EXPECT(texture->get_view(WGPUTextureViewDimension_2D)));
 
-            // Renderer::get().draw(pass, Renderer::get().get_quad_mesh(), Renderer::get().get_fw_item_mat(), bg);
+            Renderer::get().draw(pass, Renderer::get().get_quad_mesh(), Renderer::get().get_fw_item_mat(), bg);
         }
     }
 }
@@ -743,7 +768,11 @@ void Player::process_event(Event& event)
         return;
 
     if (!are_input_available())
+    {
+        if (m_using_slot.has_value())
+            call_rpc("cancel_use");
         return;
+    }
 
     if (event.is_action_pressed("attack"))
     {
@@ -753,11 +782,12 @@ void Player::process_event(Event& event)
     }
     if (event.is_action_pressed("interact"))
     {
-        call_rpc("interact");
+        sync_inventory();
+        call_rpc("interact", int64_t(m_slot), glm::dvec3(m_camera->get_global_transform().forward()));
     }
     else if (event.is_action_released("interact"))
     {
-        call_rpc("release");
+        call_rpc("release", int64_t(m_slot), glm::dvec3(m_camera->get_global_transform().forward()));
     }
 }
 
@@ -822,6 +852,7 @@ void Player::die()
 
 void Player::on_death()
 {
+    cancel_use();
     m_dead = true;
     m_death_animation_time = 0.0f;
     play_one_shot_sound(static_cast<int64_t>(EntitySound::Death));
@@ -837,7 +868,9 @@ void Player::respawn()
 
     m_health = m_max_health;
     set_position(m_world->get_spawn_position());
+    give_spawn_equipment();
     call_rpc("on_respawn");
+    sync_inventory();
 }
 
 void Player::on_respawn()
@@ -917,52 +950,79 @@ void Player::hit(glm::dvec3 direction)
     }
 }
 
-void Player::interact()
+void Player::cancel_use()
 {
-    const float range = 4.0f;
-    const Ray ray(m_camera->get_global_transform().position(), m_camera->get_global_transform().forward());
+    if (!m_using_slot.has_value())
+        return;
+    ItemStack stack = m_inventory_container->get_stack(1, *m_using_slot);
+    stack.remove_tag("draw_start");
+    m_inventory_container->set_stack(1, *m_using_slot, stack);
+    m_using_slot.reset();
+    m_using_stack = ItemStack();
+}
 
-    RaycastResult result;
-    bool raycast_hit = false;
-    if ((raycast_hit = m_world->raycast(m_dimension, ray, range, result)))
+void Player::interact(int64_t slot, glm::dvec3 direction)
+{
+    cancel_use();
+    if (m_dead || slot < 0 || slot >= 9 || !std::isfinite(glm::length2(direction)) || glm::length2(direction) <= 0.0)
+        return;
+    const Ray ray(m_camera->get_global_transform().position(), glm::normalize(direction));
+
+    RaycastResult result{};
+    const bool raycast_hit = m_world->raycast(m_dimension, ray, 4.0f, result, this);
+    if (raycast_hit && !result.hit_entity)
     {
         BlockState state = m_world->get_block_state(m_dimension, result.block_pos.x, result.block_pos.y, result.block_pos.z);
-        std::shared_ptr<Block> block = Engine::get().registry().get_block(state.id);
-
-        if (std::shared_ptr<InventoryBlock> ib = std::dynamic_pointer_cast<InventoryBlock>(block))
+        auto block = Engine::get().registry().get_block(state.id);
+        if (auto ib = std::dynamic_pointer_cast<InventoryBlock>(block))
         {
-            // FIXME: ask/send the content of the inventory with a packet.
-            ib->open_inventory(result.block_pos, this);
+            if (m_local_player)
+                ib->open_inventory(result.block_pos, this);
             return;
         }
     }
 
-    ItemStack stack = m_inventory_container->get_stack(1, m_slot);
-
-    std::shared_ptr<Item> item = Engine::get().registry().get_item(stack.item());
-    if (item != nullptr)
-    {
-        item->interact(*m_world, m_dimension, stack, true, result, *m_inventory_container);
-        if (m_local_player)
-        {
-            m_inventory_container->set_stack(1, m_slot, stack);
-            sync_inventory();
-        }
-    }
+    ItemStack stack = m_inventory_container->get_stack(1, slot);
+    if (!stack.item().valid() || stack.count() == 0)
+        return;
+    auto item = Engine::get().registry().get_item(stack.item());
+    if (!item)
+        return;
+    item->interact(*m_world, m_dimension, stack, raycast_hit && !result.hit_entity, result, *m_inventory_container);
+    m_using_slot = size_t(slot);
+    m_using_stack = stack;
+    // Draw times belong to this process, not to saved or synchronized inventory.
+    stack.remove_tag("draw_start");
+    m_inventory_container->set_stack(1, slot, stack);
 }
 
-void Player::release()
+void Player::release(int64_t slot, glm::dvec3 direction)
 {
-    ItemStack stack = m_inventory_container->get_stack(1, m_slot);
-    if (stack.item().valid())
+    if (!m_using_slot.has_value())
+        return;
+    if (m_dead || slot < 0 || slot >= 9 || size_t(slot) != *m_using_slot ||
+        !std::isfinite(glm::length2(direction)) || glm::length2(direction) <= 0.0)
     {
-        std::shared_ptr<Item> item = Engine::get().registry().get_item(stack.item());
-        item->on_release(*m_world, m_dimension, stack, m_camera->get_global_transform().position(), m_camera->get_global_transform().forward(), *m_inventory_container);
+        cancel_use();
+        return;
     }
+    ItemStack stack = m_inventory_container->get_stack(1, slot);
+    if (stack.item().valid() && stack.item() == m_using_stack.item() && stack.count() > 0)
+    {
+        auto item = Engine::get().registry().get_item(stack.item());
+        if (auto start = m_using_stack.get_tag<int64_t>("draw_start"))
+            stack.set_tag("draw_start", *start);
+        item->on_release(*m_world, m_dimension, stack, m_camera->get_global_transform().position(),
+                         glm::vec3(glm::normalize(direction)), *m_inventory_container, this);
+        m_inventory_container->set_stack(1, slot, stack);
+    }
+    cancel_use();
 }
 
 void Player::open_inventory(std::shared_ptr<Inventory> inventory)
 {
+    if (m_using_slot.has_value())
+        call_rpc("cancel_use");
     m_opened_inventory = inventory;
     Input::set_mouse_grabbed(false);
 }
@@ -992,11 +1052,17 @@ void Player::send_message(std::string message)
 
 void Player::sync_inventory()
 {
+    if (!Engine::get().is_client())
+    {
+        if (auto server = std::dynamic_pointer_cast<LocalServer>(Engine::get().server()))
+            server->sync_player_inventory(*this);
+        return;
+    }
     SyncInventory p;
     for (size_t i = 0; i < 27; i++)
         p.items.push_back(m_inventory_container->get_stack(0, i));
     for (size_t i = 0; i < 9; i++)
-        p.items.push_back(m_inventory_container->get_stack(0, i));
+        p.items.push_back(m_inventory_container->get_stack(1, i));
     Engine::get().server()->route_packet(NetworkConnection::create_packet(p));
 }
 

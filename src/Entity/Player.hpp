@@ -63,8 +63,9 @@ public:
     std::string_view get_username() const { return m_username; }
 
     void hit(glm::dvec3 direction);
-    void interact();
-    void release();
+    void interact(int64_t slot, glm::dvec3 direction);
+    void release(int64_t slot, glm::dvec3 direction);
+    void cancel_use();
 
     void on_ready() override;
     void set_movement_state(int64_t state) override;
@@ -82,6 +83,8 @@ public:
 
     void set_slot(size_t slot)
     {
+        if (slot != m_slot && m_using_slot.has_value())
+            call_rpc("cancel_use");
         m_slot = slot;
         m_inventory->set_selected_slot(slot);
     }
@@ -102,6 +105,7 @@ public:
     void send_message(std::string message);
 
     void sync_inventory();
+    void give_spawn_equipment();
 
 private:
     std::shared_ptr<Camera> m_camera;
@@ -130,6 +134,8 @@ private:
     std::shared_ptr<InventoryContainer> m_inventory_container;
     std::shared_ptr<PlayerInventory> m_inventory;
     size_t m_slot = 0;
+    std::optional<size_t> m_using_slot;
+    ItemStack m_using_stack;
 
     std::array<std::shared_ptr<Texture>, 4> m_breaks_textures;
     std::shared_ptr<Buffer> m_hand_model_buffer;

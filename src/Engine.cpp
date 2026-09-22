@@ -5,6 +5,7 @@
 #include "Core/Error.hpp"
 #include "Core/Filesystem.hpp"
 #include "Entity/Cow.hpp"
+#include "Entity/Arrow.hpp"
 #include "Entity/Entity.hpp"
 #include "Entity/Player.hpp"
 #include "Entity/Zombie.hpp"
@@ -83,6 +84,7 @@ void Engine::register_entities()
 
     m_entity_registry.register_entity<Player>();
     m_entity_registry.register_entity<Cow>();
+    m_entity_registry.register_entity<ArrowEntity>();
     m_entity_registry.register_entity<Zombie>();
 }
 
