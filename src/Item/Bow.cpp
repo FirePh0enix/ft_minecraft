@@ -2,6 +2,7 @@
 
 #include "Engine.hpp"
 #include "Entity/Arrow.hpp"
+#include "Entity/Player.hpp"
 #include "Inventory/Inventory.hpp"
 #include "Network/Network.hpp"
 #include "World/Registry.hpp"
@@ -58,4 +59,7 @@ void BowItem::on_release(World& world, int dimension, ItemStack& stack, glm::dve
 
     const AddEntityPacket packet(arrow->get_position(), arrow->get_rotation(), arrow->id(), arrow->get_class_hash_code());
     Engine::get().server()->route_packet(NetworkConnection::create_packet(packet));
+
+    if (auto* player = dynamic_cast<Player*>(user))
+        player->call_rpc("play_one_shot_sound", static_cast<int64_t>(EntitySound::BowRelease));
 }

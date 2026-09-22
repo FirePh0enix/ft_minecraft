@@ -35,6 +35,7 @@ enum class EntitySound : int64_t
     Groan = 1,
     Destroying = 2,
     Death = 3,
+    BowRelease = 4,
 };
 
 struct EntityId

@@ -244,6 +244,9 @@ void Player::on_ready()
     path = std::filesystem::absolute("data/resourcepacks/pixel-perfection/assets/minecraft/sounds/entity/player/attack/knockback1.ogg");
     m_attacking_clip.emplace(*audio.get_audio_mixer(), path);
 
+    path = std::filesystem::absolute("data/resourcepacks/pixel-perfection/assets/minecraft/sounds/random/bow.ogg");
+    m_bow_release_clip.emplace(*audio.get_audio_mixer(), path);
+
     path = std::filesystem::absolute("data/resourcepacks/pixel-perfection/assets/minecraft/sounds/liquid/swim1.ogg");
     m_swimming_clip.emplace(*audio.get_audio_mixer(), path);
 
@@ -641,6 +644,9 @@ void Player::play_one_shot_sound(int64_t sound)
     case EntitySound::Destroying:
         m_audio_source->play_one_shot(&m_destroying_clip.value(), 0.5f);
         m_animator.play_once("destroy_block");
+        break;
+    case EntitySound::BowRelease:
+        m_audio_source->play_one_shot(&m_bow_release_clip.value(), 0.5f);
         break;
     case EntitySound::Death:
         m_audio_source->play_one_shot(&m_dying_clip.value(), 1.0f);

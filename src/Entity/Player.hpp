@@ -177,6 +177,7 @@ private:
 
     std::optional<AudioClip> m_walking_clip;
     std::optional<AudioClip> m_attacking_clip;
+    std::optional<AudioClip> m_bow_release_clip;
     std::optional<AudioClip> m_swimming_clip;
     std::optional<AudioClip> m_destroying_clip;
     std::optional<AudioClip> m_dying_clip;
