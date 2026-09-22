@@ -143,8 +143,13 @@ fn fragment_main(in: VertexOutput) -> @location(0) vec4<f32> {
         return color;
     }
 
-    let ao_factor = filtered_visibility(pixel, linearize_depth(raw_depth));
-    let lit_color = vec4f(color.rgb * ao_factor, color.a);
+    // Opaque clouds write zero scene alpha as an AO exclusion mask. Read the
+    // exact pixel so filtering cannot spread the mask across silhouettes.
+    var ao_factor = 1.0;
+    if (textureLoad(surface, pixel, 0).a > 0.0) {
+        ao_factor = filtered_visibility(pixel, linearize_depth(raw_depth));
+    }
+    let lit_color = vec4f(color.rgb * ao_factor, 1.0);
     // Apply AO before fog so distant contact shadows fade with the scene.
     let fog_factor = simpleFog(linearize_depth(raw_depth));
     var final_color = mix(lit_color, vec4f(get_fog_color(in.clip_position), 1.0), fog_factor);

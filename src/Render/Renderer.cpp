@@ -1469,7 +1469,10 @@ void Renderer::draw_ui(std::function<void(const RenderPass&)> f)
 std::expected<Cloud, Error> Renderer::create_cloud()
 {
     Cloud cloud;
-    cloud.uniform.color = Color(0.92, 0.92, 0.92, 1.0);
+    // The opaque colored material replaces RGB regardless of alpha. Reserve
+    // zero alpha in the scene buffer for clouds that should not receive SSAO.
+    // Postprocessing restores opaque alpha after reading this mask.
+    cloud.uniform.color = Color(1.0, 1.0, 1.0, 0.0);
     cloud.buffer = TRY(Buffer::create(sizeof(FwColored), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform));
     cloud.bg = BindGroup::create(m_fw_colored_shader);
     cloud.bg->set_param("model", cloud.buffer);
