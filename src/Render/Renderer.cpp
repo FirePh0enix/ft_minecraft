@@ -1536,9 +1536,14 @@ LightMatrices getStableLightMatrices(const glm::vec3& lightDir,
     // Ensure the light direction vector is normalized
     glm::vec3 normalizedLightDir = glm::normalize(lightDir);
 
+    // Include high cloud casters when the camera is near the ground, without
+    // widening the map or reducing its horizontal shadow resolution.
+    const float casterDepthPadding = frustumSize;
+    const float lightDistance = frustumSize * 0.5f + casterDepthPadding;
+
     // 1. Establish a temporary, un-snapped light view matrix.
     // We use a temporary position along the light ray relative to our camera target.
-    glm::vec3 tempLightPos = mainCameraTarget + (normalizedLightDir * (frustumSize * 0.5f));
+    glm::vec3 tempLightPos = mainCameraTarget + normalizedLightDir * lightDistance;
 
     // Choose a stable up vector. If the light points straight down/up, shift the up vector.
     glm::vec3 upVector = glm::vec3(0.0f, 1.0f, 0.0f);
@@ -1567,7 +1572,7 @@ LightMatrices getStableLightMatrices(const glm::vec3& lightDir,
     LightMatrices output{};
 
     // Recalculate stable light position using the snapped world target
-    glm::vec3 stableLightPos = glm::vec3(stableTargetWorld) + (normalizedLightDir * (frustumSize * 0.5f));
+    glm::vec3 stableLightPos = glm::vec3(stableTargetWorld) + normalizedLightDir * lightDistance;
     output.view = glm::lookAt(stableLightPos, glm::vec3(stableTargetWorld), upVector);
 
     // Generate standard WebGPU-aligned orthographic bounds [0.0, 1.0] depth distribution
@@ -1575,7 +1580,7 @@ LightMatrices getStableLightMatrices(const glm::vec3& lightDir,
 
     // Note: GLM defaults to Vulkan/WebGPU depth conventions [0.0, 1.0] when GLM_FORCE_DEPTH_ZERO_TO_ONE is defined.
     // If you haven't defined that macro globally, use glm::orthoLH_ZO or glm::orthoRH_ZO based on your coordinate system.
-    output.projection = glm::ortho(-halfSize, halfSize, -halfSize, halfSize, 0.0f, frustumSize);
+    output.projection = glm::ortho(-halfSize, halfSize, -halfSize, halfSize, 0.0f, frustumSize + casterDepthPadding);
 
     return output;
 }
