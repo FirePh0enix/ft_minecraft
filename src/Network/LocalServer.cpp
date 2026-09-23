@@ -3,6 +3,7 @@
 #include "Core/Filesystem.hpp"
 #include "Core/ZLib.hpp"
 #include "Engine.hpp"
+#include "Entity/Item.hpp"
 #include "Entity/Player.hpp"
 
 LocalServer::LocalServer(std::string_view username, std::string_view world_name, uint64_t world_seed, bool online)
@@ -264,11 +265,35 @@ void LocalServer::receive(void *user, NetworkConnection& conn, ENetPacket *packe
         InitPacket init_p(self->m_world->seed(), id, player->get_transform().position());
         conn.send(client.peer(), NetworkConnection::create_packet(init_p));
 
+        const auto gamemode_packet = [](const Player& player)
+        {
+            return RpcCallPacket{
+                .id = player.id(),
+                .name = "set_gamemode",
+                .args = {static_cast<int64_t>(player.get_gamemode())},
+            };
+        };
+
         const auto send_entity = [&](const std::shared_ptr<Entity>& entity)
         {
             Transform3D transform = entity->get_transform();
+            if (const auto item = std::dynamic_pointer_cast<ItemEntity>(entity))
+            {
+                const AddItemEntityPacket item_packet{
+                    .position = transform.position(),
+                    .id = entity->id(),
+                    .item_id = item->item().hash,
+                    .dimension = entity->get_dimension(),
+                };
+                conn.send(client.peer(), NetworkConnection::create_packet(item_packet));
+                return;
+            }
+
             AddEntityPacket p2(transform.position(), transform.rotation(), entity->id(), entity->get_class_hash_code());
             conn.send(client.peer(), NetworkConnection::create_packet(p2));
+
+            if (const auto existing_player = std::dynamic_pointer_cast<Player>(entity))
+                conn.send(client.peer(), NetworkConnection::create_packet(gamemode_packet(*existing_player)));
 
             const int64_t movement_state = entity->get_movement_state();
             if (movement_state != 0)
@@ -302,6 +327,10 @@ void LocalServer::receive(void *user, NetworkConnection& conn, ENetPacket *packe
 
         AddEntityPacket p3(player->get_transform().position(), player->get_transform().rotation(), id, player->get_class_hash_code());
         conn.broadcast(NetworkConnection::create_packet(p3), client.peer());
+
+        // The joining client starts with a default Player. Restore its saved
+        // mode on every peer before it can predict breaking blocks.
+        conn.broadcast(NetworkConnection::create_packet(gamemode_packet(*player)));
 
         self->update_player_list();
     };

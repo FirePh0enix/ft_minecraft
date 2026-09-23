@@ -159,16 +159,19 @@ void BetterConsole::gamemode(Player *player, const std::vector<std::string>& arg
 
     if (args[1] == "survival" || args[1] == "0")
     {
-        player->set_gamemode(GameMode::Survival);
+        player->call_rpc("set_gamemode", static_cast<int64_t>(GameMode::Survival));
     }
     else if (args[1] == "creative" || args[1] == "1")
     {
-        player->set_gamemode(GameMode::Creative);
+        player->call_rpc("set_gamemode", static_cast<int64_t>(GameMode::Creative));
     }
 }
 
 void Player::bind_methods()
 {
+    type.add_method("set_gamemode", &Player::apply_gamemode);
+    expose_rpc<Player>("set_gamemode", RpcTarget::Both);
+
     type.add_method("set_movement_state", &Player::set_movement_state);
     expose_rpc<Player>("set_movement_state", RpcTarget::Both);
 
@@ -195,6 +198,14 @@ void Player::bind_methods()
 
     type.add_method("on_respawn", &Player::on_respawn);
     expose_rpc<Player>("on_respawn", RpcTarget::Both);
+}
+
+void Player::apply_gamemode(int64_t gamemode)
+{
+    if (gamemode != static_cast<int64_t>(GameMode::Survival) &&
+        gamemode != static_cast<int64_t>(GameMode::Creative))
+        return;
+    set_gamemode(static_cast<GameMode>(gamemode));
 }
 
 Player::Player()
@@ -399,13 +410,18 @@ void Player::tick(float delta)
         size_t amount_added = 0;
 
         AABB item_box = get_aabb().translate(get_position()).grow(glm::vec3(0.5));
-        std::vector<std::shared_ptr<Entity>> entities = m_world->get_dimension(World::overworld).cast_box(item_box);
+        std::vector<std::shared_ptr<Entity>> entities = m_world->get_dimension(m_dimension).cast_box(item_box);
         for (const std::shared_ptr<Entity>& entity : entities)
         {
             if (std::shared_ptr<ItemEntity> item = std::dynamic_pointer_cast<ItemEntity>(entity))
             {
-                m_inventory->add_stack(ItemStack(item->item(), 1));
-                m_world->remove_entity(World::overworld, item);
+                // Remote players have inventory storage but no inventory UI.
+                if (!m_inventory_container->add_item(item->item()))
+                    continue;
+
+                const RemoveEntityPacket packet(item->id());
+                Engine::get().server()->route_packet(NetworkConnection::create_packet(packet));
+                m_world->remove_entity(m_dimension, item);
                 amount_added++;
             }
         }
