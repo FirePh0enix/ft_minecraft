@@ -17,7 +17,7 @@ void CraftingTableBlock::open_inventory(glm::ivec3 pos, Player *player)
     container->add_layer(9);
     container->add_layer(1);
 
-    std::shared_ptr<CraftingTableInventory> inv = std::make_shared<CraftingTableInventory>(container, player->get_inventory_container());
+    std::shared_ptr<CraftingTableInventory> inv = std::make_shared<CraftingTableInventory>(container, player->get_inventory_container(), player);
     player->open_inventory(inv);
 }
 

@@ -1,16 +1,19 @@
 #include "Inventory/CraftingTable.hpp"
 
 #include "Engine.hpp"
+#include "Entity/Player.hpp"
 #include "Inventory/Inventory.hpp"
 #include "Item/Item.hpp"
 #include "World/Registry.hpp"
+
+#include <algorithm>
 
 constexpr int CRAFTING_GRID_SIZE = 9;
 constexpr int INGREDIENTS_LAYER = 0;
 constexpr int RESULT_LAYER = 1;
 
-CraftingTableInventory::CraftingTableInventory(std::shared_ptr<InventoryContainer> inventory, std::shared_ptr<InventoryContainer> player_inventory)
-    : Inventory(inventory), m_player_inventory(player_inventory)
+CraftingTableInventory::CraftingTableInventory(std::shared_ptr<InventoryContainer> inventory, std::shared_ptr<InventoryContainer> player_inventory, Player *player)
+    : Inventory(inventory), m_player_inventory(player_inventory), m_player(player)
 {
     add_background();
     add_grid(9, 3, 0, Point(Size::px(0), Size::px(40)), m_player_inventory.get());
@@ -40,10 +43,10 @@ bool CraftingTableInventory::on_place(uint32_t layer, uint32_t index, ItemStack 
     (void)index;
     (void)stack;
 
-    if (layer == RESULT_LAYER && container == m_container.get())
+    if (container == m_container.get() && layer == RESULT_LAYER)
         return false;
 
-    if (layer == INGREDIENTS_LAYER)
+    if (container == m_container.get() && layer == INGREDIENTS_LAYER)
         m_dirty = true;
 
     return true;
@@ -54,7 +57,7 @@ bool CraftingTableInventory::on_pick(uint32_t layer, uint32_t index, ItemStack s
     (void)stack;
     (void)container;
 
-    if (layer == RESULT_LAYER && index == 0)
+    if (container == m_container.get() && layer == RESULT_LAYER && index == 0)
     {
         ItemStack result = m_container->get_stack(RESULT_LAYER, 0);
 
@@ -65,9 +68,64 @@ bool CraftingTableInventory::on_pick(uint32_t layer, uint32_t index, ItemStack s
         }
     }
 
-    if (layer == INGREDIENTS_LAYER)
+    if (container == m_container.get() && layer == INGREDIENTS_LAYER)
         m_dirty = true;
 
+    return true;
+}
+
+void CraftingTableInventory::on_change(InventoryContainer *container)
+{
+    if (container == m_player_inventory.get())
+        m_player->sync_inventory();
+}
+
+bool CraftingTableInventory::on_close()
+{
+    // Prepare the full transfer before changing either inventory.
+    auto main = m_player_inventory->get_layer(0).stacks;
+    auto toolbar = m_player_inventory->get_layer(1).stacks;
+
+    for (const ItemStack& ingredient : m_container->get_layer(INGREDIENTS_LAYER).stacks)
+    {
+        if (!ingredient.item().valid() || ingredient.count() == 0)
+            continue;
+
+        size_t remaining = ingredient.count();
+        for (auto *slots : {&toolbar, &main})
+            for (ItemStack& slot : *slots)
+            {
+                if (remaining == 0)
+                    break;
+                if (slot.item() != ingredient.item() || slot.get_tags() != ingredient.get_tags() || slot.count() >= itemstack_max_size)
+                    continue;
+                const size_t moved = std::min(remaining, itemstack_max_size - slot.count());
+                slot.set_count(slot.count() + moved);
+                remaining -= moved;
+            }
+
+        for (auto *slots : {&toolbar, &main})
+            for (ItemStack& slot : *slots)
+            {
+                if (remaining == 0)
+                    break;
+                if (slot.item().valid() && slot.count() != 0)
+                    continue;
+                const size_t moved = std::min(remaining, itemstack_max_size);
+                slot = ingredient;
+                slot.set_count(moved);
+                remaining -= moved;
+            }
+
+        if (remaining != 0)
+            return false;
+    }
+
+    for (size_t i = 0; i < main.size(); ++i)
+        m_player_inventory->set_stack(0, i, main[i]);
+    for (size_t i = 0; i < toolbar.size(); ++i)
+        m_player_inventory->set_stack(1, i, toolbar[i]);
+    m_player->sync_inventory();
     return true;
 }
 

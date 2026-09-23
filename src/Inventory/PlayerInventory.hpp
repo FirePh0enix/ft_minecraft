@@ -37,7 +37,7 @@ class PlayerInventory : public Inventory
     CLASS(PlayerInventory, Inventory);
 
 public:
-    PlayerInventory(std::shared_ptr<InventoryContainer> container);
+    PlayerInventory(std::shared_ptr<InventoryContainer> container, Player *player);
 
     virtual void update(float d) override;
     virtual void process_event(Event& event) override { (void)event; }
@@ -52,6 +52,7 @@ public:
 
     virtual bool on_place(uint32_t layer, uint32_t index, ItemStack stack, InventoryContainer *container) override;
     virtual bool on_pick(uint32_t layer, uint32_t index, ItemStack stack, InventoryContainer *container) override;
+    virtual void on_change(InventoryContainer *container) override;
 
     void update_recipe();
     void consume_ingredients();
@@ -62,4 +63,5 @@ private:
 
     size_t m_selected_slot = 0;
     bool m_dirty = false;
+    Player *m_player;
 };

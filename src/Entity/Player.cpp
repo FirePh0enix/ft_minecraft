@@ -214,6 +214,7 @@ void Player::give_spawn_equipment()
 {
     size_t bows = 0;
     size_t arrows = 0;
+    size_t crafting_tables = 0;
     for (size_t layer : {1, 0})
         for (const ItemStack& stack : m_inventory_container->get_layer(layer).stacks)
         {
@@ -221,9 +222,13 @@ void Player::give_spawn_equipment()
                 bows += stack.count();
             if (stack.item() == Items::arrow)
                 arrows += stack.count();
+            if (stack.item() == Items::crafting_table_block)
+                crafting_tables += stack.count();
         }
     if (bows == 0)
         m_inventory_container->add_item(Items::bow);
+    if (crafting_tables == 0)
+        m_inventory_container->add_item(Items::crafting_table_block);
     while (arrows < 64 && m_inventory_container->add_item(Items::arrow))
         ++arrows;
 }
@@ -268,7 +273,7 @@ void Player::on_ready()
 
     if (m_local_player)
     {
-        m_inventory = std::make_shared<PlayerInventory>(m_inventory_container);
+        m_inventory = std::make_shared<PlayerInventory>(m_inventory_container, this);
 
         auto& clip = Engine::get().music_player().get_biome_music(m_current_biome);
         Engine::get().music_player().crossfade_to(&clip, 2.0f, 1.0f);
@@ -676,8 +681,13 @@ void Player::draw(const RenderPass& pass, bool shadowmap)
     if (shadowmap)
         return;
 
-    ItemStack stack = m_inventory_container->get_stack(1, m_inventory->selected_slot());
-    if (m_local_player && stack.item().valid())
+    // Remote players do not create a PlayerInventory; only the local player's
+    // first-person hand is rendered below.
+    if (!m_local_player)
+        return;
+
+    ItemStack stack = m_inventory_container->get_stack(1, m_slot);
+    if (stack.item().valid())
     {
         Id<Item> id = stack.item();
         std::shared_ptr<Item> item = Engine::get().registry().get_item(id);
@@ -1022,7 +1032,11 @@ void Player::open_inventory(std::shared_ptr<Inventory> inventory)
 void Player::close_inventory()
 {
     if (m_opened_inventory.has_value())
+    {
         m_opened_inventory.value()->grab_cancel();
+        if (!m_opened_inventory.value()->on_close())
+            return;
+    }
     m_opened_inventory = std::nullopt;
     Input::set_mouse_grabbed(true);
 }

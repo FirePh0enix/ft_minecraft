@@ -2,6 +2,7 @@
 
 #include "Color.hpp"
 #include "Engine.hpp"
+#include "Entity/Player.hpp"
 #include "Item/ItemStack.hpp"
 #include "UI/ItemSlot.hpp"
 #include "UI/Widget.hpp"
@@ -87,8 +88,8 @@ void QuickSlotWidget::set_count(size_t count)
         m_label->set_visible(true);
 }
 
-PlayerInventory::PlayerInventory(std::shared_ptr<InventoryContainer> container)
-    : Inventory(container)
+PlayerInventory::PlayerInventory(std::shared_ptr<InventoryContainer> container, Player *player)
+    : Inventory(container), m_player(player)
 {
     add_background();
     add_grid(9, 3, 0, Point(Size::px(0), Size::px(40)));
@@ -114,6 +115,12 @@ PlayerInventory::PlayerInventory(std::shared_ptr<InventoryContainer> container)
     }
 
     m_quick_slots_container->add_child(subcontainer);
+}
+
+void PlayerInventory::on_change(InventoryContainer *container)
+{
+    if (container == m_container.get())
+        m_player->sync_inventory();
 }
 
 void PlayerInventory::update(float d)
