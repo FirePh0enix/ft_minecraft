@@ -155,7 +155,7 @@ public:
 
     void remove_preload(ChunkPos pos);
 
-    void place_structure(glm::i64vec3 pos, BlockState *blocks, int64_t w, int64_t h, int64_t l);
+    void place_structure(glm::i64vec3 pos, const std::vector<BlockState>& blocks, int64_t w, int64_t h, int64_t l);
     void get_structures_overlap(ChunkPos pos, std::vector<StructureGen>& structures);
 
     void add_chunk(std::shared_ptr<Chunk> chunk) { m_chunks[chunk->pos()] = chunk; }

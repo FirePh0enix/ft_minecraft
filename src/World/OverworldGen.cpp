@@ -17,7 +17,7 @@ void TreePass::place_small_oak_tree(ChunkPos pos, std::shared_ptr<PreLoadedChunk
 
     int64_t height = tree_height + 2;
     int64_t width = 5;
-    BlockState *blocks = new BlockState[width * height * width](); // FIXME: free this
+    std::vector<BlockState> blocks(width * height * width);
 
     const int64_t log_xz = 2;
     for (int64_t y = 0; y < tree_height; y++)
@@ -58,7 +58,7 @@ void TreePass::place_big_oak_tree(ChunkPos pos, std::shared_ptr<PreLoadedChunk> 
 
     int64_t height = tree_height + 3;
     int64_t width = 14;
-    BlockState *blocks = new BlockState[width * height * width](); // FIXME: free this
+    std::vector<BlockState> blocks(width * height * width);
 
     for (int64_t y = 0; y < tree_height; y++)
         for (int64_t x = 0; x < 2; x++)
@@ -105,7 +105,7 @@ void TreePass::place_spruce_tree(ChunkPos pos, std::shared_ptr<PreLoadedChunk> c
 
     int64_t height = tree_height + 2;
     int64_t width = 7;
-    BlockState *blocks = new BlockState[width * height * width](); // FIXME: free this
+    std::vector<BlockState> blocks(width * height * width);
 
     const int64_t log_xz = 3;
     for (int64_t y = 0; y < tree_height; y++)

@@ -292,11 +292,6 @@ void GameRegistry::add_item(Id<Item> id, std::shared_ptr<Item> item)
         m_block_items[ib->block()] = id;
 }
 
-void GameRegistry::add_structure(std::string_view name, std::shared_ptr<Structure> structure)
-{
-    m_structures[std::string(name)] = structure;
-}
-
 std::optional<Id<Block>> GameRegistry::to_block(Id<Item> id)
 {
     if (!id.valid())

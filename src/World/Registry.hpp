@@ -7,7 +7,6 @@
 #include "Render/Renderer.hpp"
 #include "Resource/BlockState.hpp"
 #include "Resource/Model.hpp"
-#include "Structure.hpp"
 
 #include <memory>
 #include <stb_image.h>
@@ -158,7 +157,6 @@ public:
     void register_block(Id<Block> id, std::shared_ptr<Block> block);
 
     void add_item(Id<Item> id, std::shared_ptr<Item> item);
-    void add_structure(std::string_view name, std::shared_ptr<Structure> structure);
 
     std::shared_ptr<Block> get_block(Id<Block> key) const
     {
@@ -177,7 +175,6 @@ public:
     {
         return m_items.at(key);
     }
-    std::shared_ptr<Structure> get_struct(std::string_view name) const { return m_structures.find(name)->second; }
 
     Id<Item> item_from_name(std::string_view name) const
     {
@@ -267,8 +264,6 @@ private:
 
     std::map<Id<Block>, std::shared_ptr<Block>> m_blocks;
     std::map<Id<Item>, std::shared_ptr<Item>> m_items;
-
-    stdext::string_map<std::shared_ptr<Structure>> m_structures;
 
     std::map<Id<Block>, Id<Item>> m_block_items;
 

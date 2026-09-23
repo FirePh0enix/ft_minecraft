@@ -615,7 +615,7 @@ void Dimension::update_sun(glm::mat4 matrix)
     m_sun_frustum = Frustum(matrix);
 }
 
-void Dimension::place_structure(glm::i64vec3 pos, BlockState *blocks, int64_t w, int64_t h, int64_t l)
+void Dimension::place_structure(glm::i64vec3 pos, const std::vector<BlockState>& blocks, int64_t w, int64_t h, int64_t l)
 {
     ZoneScoped;
 

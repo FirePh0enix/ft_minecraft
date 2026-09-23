@@ -75,7 +75,6 @@ list(APPEND SOURCES
     src/World/Chunk.cpp
     src/World/Dimension.cpp
     src/World/Registry.cpp
-    src/World/Structure.cpp
     src/World/World.cpp
     src/World/UnderworldGen.cpp
     src/World/MobSpawner.cpp
@@ -346,15 +345,6 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(json)
 target_link_libraries(${TARGET_NAME} PRIVATE nlohmann_json::nlohmann_json)
-
-# yaml-cpp
-FetchContent_Declare(
-  yaml-cpp
-  GIT_REPOSITORY https://github.com/jbeder/yaml-cpp.git
-  GIT_TAG yaml-cpp-0.9.0
-)
-FetchContent_MakeAvailable(yaml-cpp)
-target_link_libraries(${TARGET_NAME} PUBLIC yaml-cpp::yaml-cpp) 
 
 # tracy
 if (ENABLE_TRACING)

@@ -3,7 +3,6 @@
 #include "Core/Noise/Simplex.hpp"
 #include "World/Chunk.hpp"
 #include "World/Settings.hpp"
-#include "World/Structure.hpp"
 #include "spline.hpp"
 
 #include <memory>
@@ -15,9 +14,9 @@ struct StructureGen
     int64_t w;
     int64_t h;
     int64_t l;
-    BlockState *blocks;
+    std::vector<BlockState> blocks;
 
-    StructureGen(glm::i64vec3 pos, BlockState *blocks, int64_t w, int64_t h, int64_t l)
+    StructureGen(glm::i64vec3 pos, const std::vector<BlockState>& blocks, int64_t w, int64_t h, int64_t l)
         : pos(pos), w(w), h(h), l(l), blocks(blocks)
     {
     }
