@@ -26,7 +26,7 @@ public:
         (void)inventory;
     }
 
-    virtual void on_release(World& world, int dimension, ItemStack& stack, glm::dvec3 pos, glm::vec3 dir, InventoryContainer& inventory, Entity* user)
+    virtual void on_release(World& world, int dimension, ItemStack& stack, glm::dvec3 pos, glm::vec3 dir, InventoryContainer& inventory, Entity *user)
     {
         (void)world;
         (void)dimension;
@@ -37,7 +37,11 @@ public:
         (void)inventory;
     }
 
-    std::shared_ptr<Texture> get_texture() const { return m_texture; }
+    virtual std::shared_ptr<Texture> get_texture(const ItemStack& stack) const
+    {
+        (void)stack;
+        return m_texture;
+    }
     void set_texture(const std::shared_ptr<Texture>& texture) { m_texture = texture; }
 
 private:

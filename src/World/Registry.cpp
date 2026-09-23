@@ -315,7 +315,7 @@ std::shared_ptr<Texture> GameRegistry::get_texture(Id<Item> id)
     }
 
     std::shared_ptr<Item> item = m_items[id];
-    return item->get_texture();
+    return item->get_texture({});
 }
 
 std::shared_ptr<Texture> GameRegistry::create_texture(std::string_view path)

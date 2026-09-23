@@ -11,8 +11,8 @@
 #include "Inventory/Inventory.hpp"
 #include "Item/ItemStack.hpp"
 #include "Model.hpp"
-#include "Network/Network.hpp"
 #include "Network/LocalServer.hpp"
+#include "Network/Network.hpp"
 #include "Render/Renderer.hpp"
 #include "UI/TextInput.hpp"
 #include "UI/Widget.hpp"
@@ -557,10 +557,11 @@ void Player::tick(float delta)
         else if (m_on_ground)
             movement_sound = MovementSound::Walking;
     }
-    if (m_local_player && movement_sound != m_movement_sound)
+    if (movement_sound != m_movement_sound)
     {
         set_movement_state(static_cast<int64_t>(movement_sound));
-        call_rpc("set_movement_state", static_cast<int64_t>(movement_sound));
+        if (m_local_player)
+            call_rpc("set_movement_state", static_cast<int64_t>(movement_sound));
     }
 
     // Reset velocity after movements.
@@ -572,13 +573,12 @@ void Player::tick(float delta)
     else
         m_velocity.y = 0.0;
 
-    if (!m_local_player && m_movement_sound != MovementSound::None)
+    if (m_movement_sound != MovementSound::None)
         m_animator.play(m_movement_sound == MovementSound::Swimming ? "swim" : "walk");
-    else if (!m_local_player)
+    else
         m_animator.play("idle");
 
-    if (!m_local_player)
-        m_animator.tick(delta);
+    m_animator.tick(delta);
 
     if (m_local_player)
     {
@@ -595,16 +595,6 @@ void Player::tick(float delta)
     }
 
     m_previous_frame_in_water = in_water;
-
-    // if (m_local_player && m_chat_opened)
-    // {
-    //     m_chat->update_everything(delta);
-    // }
-
-    // if (m_local_player && Input::is_action_pressed("show_player_list"))
-    // {
-    //     m_player_list->update_everything(delta);
-    // }
 
     if (m_local_player && Engine::get().is_client())
     {
@@ -662,18 +652,20 @@ void Player::draw(const RenderPass& pass, bool shadowmap)
     Transform3D render_transform = get_global_transform();
     // Player rotations are view rotations. Invert them for the +Z-facing model.
     render_transform.rotation() = glm::conjugate(render_transform.rotation()) *
-        glm::angleAxis(glm::radians(180.0), glm::dvec3(0.0, 1.0, 0.0));
+                                  glm::angleAxis(glm::radians(180.0), glm::dvec3(0.0, 1.0, 0.0));
+
+    if (m_dead)
+    {
+        constexpr float fall_duration = 0.8f;
+        const float t = glm::smoothstep(0.0f, 1.0f,
+                                        std::min(m_death_animation_time / fall_duration, 1.0f));
+        render_transform.rotation() *= glm::angleAxis(
+            glm::radians(90.0 * (double)t), glm::dvec3(0.0, 0.0, 1.0));
+        render_transform.position().y -= 0.5 * (double)t;
+    }
+
     if (!m_local_player)
     {
-        if (m_dead)
-        {
-            constexpr float fall_duration = 0.8f;
-            const float t = glm::smoothstep(0.0f, 1.0f,
-                                            std::min(m_death_animation_time / fall_duration, 1.0f));
-            render_transform.rotation() *= glm::angleAxis(
-                glm::radians(90.0 * (double)t), glm::dvec3(0.0, 0.0, 1.0));
-            render_transform.position().y -= 0.5 * (double)t;
-        }
         m_model->encode(pass, render_transform, shadowmap);
     }
     else if (shadowmap)
@@ -681,23 +673,17 @@ void Player::draw(const RenderPass& pass, bool shadowmap)
         m_model->encode(pass, render_transform, true);
     }
 
-    // if (m_local_player && m_aimed_block.has_value())
-    // {
-    //     SimpleUniforms uniforms(glm::translate(glm::identity<glm::mat4>(), glm::vec3(m_aimed_block.value())) * glm::scale(glm::identity<glm::mat4>(), glm::vec3(1.01f)), glm::vec4(aim_color, 0.4));
-    //     m_aim_buffer->update(View(uniforms).as_bytes());
-    //     Renderer::get().draw(pass, Renderer::get().get_cube_mesh(), m_aim_material);
-    // }
-
     if (shadowmap)
         return;
 
-    if (m_local_player && m_inventory_container->get_stack(1, m_inventory->selected_slot()).item().valid())
+    ItemStack stack = m_inventory_container->get_stack(1, m_inventory->selected_slot());
+    if (m_local_player && stack.item().valid())
     {
-        Id<Item> id = m_inventory_container->get_stack(1, m_inventory->selected_slot()).item();
+        Id<Item> id = stack.item();
         std::shared_ptr<Item> item = Engine::get().registry().get_item(id);
         if (std::shared_ptr<ItemBlock> ib = std::dynamic_pointer_cast<ItemBlock>(item))
         {
-            std::shared_ptr<Block> block = Engine::get().registry().block_from_item(m_inventory_container->get_stack(1, m_inventory->selected_slot()).item());
+            std::shared_ptr<Block> block = Engine::get().registry().block_from_item(id);
 
             Transform3D transform;
             transform.scale() = glm::vec3(0.2);
@@ -718,12 +704,12 @@ void Player::draw(const RenderPass& pass, bool shadowmap)
         }
         else
         {
-            std::shared_ptr<Texture> texture = item->get_texture();
+            std::shared_ptr<Texture> texture = item->get_texture(stack);
 
             Transform3D transform;
-            transform.scale() = glm::vec3(0.2);
+            transform.scale() = glm::vec3(0.25);
             transform.position() = glm::vec3(0.32, -0.18, -0.4);
-            transform.set_euler_angles(glm::radians(glm::vec3(0, -20.0, -15.0)));
+            transform.set_euler_angles(glm::radians(glm::vec3(0, -40.0, 15.0)));
 
             FwModel matrix(transform.to_matrix());
             m_hand_model_buffer->update_struct(matrix);
@@ -731,7 +717,7 @@ void Player::draw(const RenderPass& pass, bool shadowmap)
             std::shared_ptr<BindGroup> bg = BindGroup::create(Renderer::get().get_fw_item_shader());
             bg->set_param("camera", Renderer::get().get_fw_camera_rel());
             bg->set_param("model", m_hand_model_buffer);
-            bg->set_param("image", EXPECT(texture->get_view(WGPUTextureViewDimension_2D)));
+            bg->set_param("image", EXPECT(texture->get_view()));
 
             Renderer::get().draw(pass, Renderer::get().get_quad_mesh(), Renderer::get().get_fw_item_mat(), bg);
         }
@@ -998,7 +984,7 @@ void Player::interact(int64_t slot, glm::dvec3 direction)
     m_using_slot = size_t(slot);
     m_using_stack = stack;
     // Draw times belong to this process, not to saved or synchronized inventory.
-    stack.remove_tag("draw_start");
+    // stack.remove_tag("draw_start");
     m_inventory_container->set_stack(1, slot, stack);
 }
 

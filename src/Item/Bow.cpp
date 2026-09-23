@@ -14,7 +14,10 @@
 
 BowItem::BowItem()
 {
-    set_texture(Engine::get().registry().create_texture("data/resourcepacks/pixel-perfection/assets/minecraft/textures/item/bow.png"));
+    m_textures[0] = Engine::get().registry().create_texture("data/resourcepacks/core/assets/minecraft/textures/item/bow.png");
+    m_textures[1] = Engine::get().registry().create_texture("data/resourcepacks/core/assets/minecraft/textures/item/bow_pulling_0.png");
+    m_textures[2] = Engine::get().registry().create_texture("data/resourcepacks/core/assets/minecraft/textures/item/bow_pulling_1.png");
+    m_textures[3] = Engine::get().registry().create_texture("data/resourcepacks/core/assets/minecraft/textures/item/bow_pulling_2.png");
 }
 
 void BowItem::interact(World& world, int dimension, ItemStack& stack, bool hit, const RaycastResult& result, InventoryContainer& inventory)
@@ -29,7 +32,7 @@ void BowItem::interact(World& world, int dimension, ItemStack& stack, bool hit, 
     stack.set_tag("draw_start", now);
 }
 
-void BowItem::on_release(World& world, int dimension, ItemStack& stack, glm::dvec3 pos, glm::vec3 dir, InventoryContainer& inventory, Entity* user)
+void BowItem::on_release(World& world, int dimension, ItemStack& stack, glm::dvec3 pos, glm::vec3 dir, InventoryContainer& inventory, Entity *user)
 {
     const auto start = stack.get_tag<int64_t>("draw_start");
     if (!start.has_value())
@@ -60,6 +63,17 @@ void BowItem::on_release(World& world, int dimension, ItemStack& stack, glm::dve
     const AddEntityPacket packet(arrow->get_position(), arrow->get_rotation(), arrow->id(), arrow->get_class_hash_code());
     Engine::get().server()->route_packet(NetworkConnection::create_packet(packet));
 
-    if (auto* player = dynamic_cast<Player*>(user))
+    if (auto *player = dynamic_cast<Player *>(user))
         player->call_rpc("play_one_shot_sound", static_cast<int64_t>(EntitySound::BowRelease));
+}
+
+std::shared_ptr<Texture> BowItem::get_texture(const ItemStack& stack) const
+{
+    const auto start = stack.get_tag<int64_t>("draw_start");
+    if (!start.has_value())
+        return m_textures[0];
+
+    const int64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+
+    return m_textures[((std::min(now - *start, (int64_t)998)) / 333) % 3 + 1];
 }
