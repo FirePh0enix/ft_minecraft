@@ -44,12 +44,13 @@ void ItemSlotWidget::update(float d)
         std::optional<ItemStack> grabbed = m_inventory->get_grabbed();
         if (grabbed.has_value())
         {
-            bool allow_change = m_inventory->on_place(m_layer, m_count, grabbed.value(), m_container);
+            bool allow_change = m_inventory->on_place(m_layer, m_index, grabbed.value(), m_container);
 
             if (!m_item.valid() && allow_change)
             {
                 m_inventory->ungrab();
                 m_container->set_stack(m_layer, m_index, grabbed.value());
+                m_inventory->on_change(m_container);
             }
             else if (allow_change)
             {
@@ -58,6 +59,7 @@ void ItemSlotWidget::update(float d)
                 {
                     std::optional<ItemStack> excess = stack.merge(grabbed.value());
                     m_container->set_stack(m_layer, m_index, stack);
+                    m_inventory->on_change(m_container);
 
                     if (excess.has_value())
                         m_inventory->grab(excess.value());
@@ -73,6 +75,7 @@ void ItemSlotWidget::update(float d)
             {
                 m_inventory->grab(ItemStack(m_item, m_count), InventoryOrigin(m_layer, m_index, m_container));
                 m_container->set_stack(m_layer, m_index, ItemStack());
+                m_inventory->on_change(m_container);
             }
         }
     }
@@ -81,17 +84,19 @@ void ItemSlotWidget::update(float d)
         std::optional<ItemStack> grabbed = m_inventory->get_grabbed();
         if (grabbed.has_value())
         {
-            bool allow_change = m_inventory->on_place(m_layer, m_count, grabbed.value(), m_container);
+            bool allow_change = m_inventory->on_place(m_layer, m_index, grabbed.value(), m_container);
             ItemStack gs = grabbed.value();
             if (allow_change && m_item.valid() && m_item == gs.item())
             {
                 m_container->set_stack(m_layer, m_index, ItemStack(gs.item(), m_count + 1));
+                m_inventory->on_change(m_container);
                 gs.sub(1);
                 m_inventory->grab(gs);
             }
             else if (allow_change && !m_item.valid())
             {
                 m_container->set_stack(m_layer, m_index, ItemStack(gs.item(), 1));
+                m_inventory->on_change(m_container);
                 gs.sub(1);
                 m_inventory->grab(gs);
             }

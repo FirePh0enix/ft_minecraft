@@ -6,6 +6,7 @@
 #include <optional>
 
 class Inventory;
+class Player;
 
 class InventoryContainer : public Object
 {
@@ -74,6 +75,11 @@ public:
         (void)container;
         return true;
     }
+
+    /** Called after a slot mutation has been committed. */
+    virtual void on_change(InventoryContainer *container) { (void)container; }
+
+    virtual bool on_close() { return true; }
 
     void grab(const ItemStack& itemstack, std::optional<InventoryOrigin> origin = std::nullopt);
     void ungrab();

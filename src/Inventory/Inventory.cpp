@@ -140,6 +140,7 @@ void Inventory::grab_cancel()
     if (m_grabbed_stack.has_value())
     {
         m_grabbed_from.container->set_stack(m_grabbed_from.layer, m_grabbed_from.i, m_grabbed_stack.value());
+        on_change(m_grabbed_from.container);
         m_grabbed_stack = std::nullopt;
     }
 }

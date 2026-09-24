@@ -8,6 +8,7 @@
 #include "Entity/Entity.hpp"
 #include "Entity/Item.hpp"
 #include "Entity/Player.hpp"
+#include "Network/Network.hpp"
 #include "Profiler.hpp"
 #include "World/Chunk.hpp"
 #include "World/Dimension.hpp"
@@ -438,6 +439,11 @@ void World::break_block(int dimension, int64_t x, int64_t y, int64_t z)
     BlockState state = get_block_state(dimension, x, y, z);
     set_block_state(dimension, x, y, z, BlockState());
 
+    // Block breaking is predicted on clients via the hit RPC. Drops, however,
+    // must only be created by the authoritative server or they cannot be picked up.
+    if (Engine::get().is_client())
+        return;
+
     std::optional<Id<Item>> item_opt = Engine::get().registry().to_item(state.id);
     if (!item_opt.has_value())
         return;
@@ -445,7 +451,15 @@ void World::break_block(int dimension, int64_t x, int64_t y, int64_t z)
     std::shared_ptr<ItemEntity> item_entity = std::make_shared<ItemEntity>(item_opt.value());
     item_entity->set_position(glm::vec3(x, y, z) + glm::vec3(rand_float(-0.6, 0.6), 0, rand_float(-0.6, 0.6)));
 
-    add_entity(World::overworld, item_entity);
+    add_entity(dimension, item_entity);
+
+    const AddItemEntityPacket packet{
+        .position = item_entity->get_position(),
+        .id = item_entity->id(),
+        .item_id = item_opt->hash,
+        .dimension = dimension,
+    };
+    Engine::get().server()->route_packet(NetworkConnection::create_packet(packet));
 }
 
 std::expected<void, Error> World::save_chunk(std::stop_token token, std::shared_ptr<Chunk> chunk, int dimension)

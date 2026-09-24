@@ -78,6 +78,8 @@ public:
     void set_remote() { m_local_player = false; }
 
     void set_gamemode(GameMode gamemode) { m_gamemode = gamemode; }
+    GameMode get_gamemode() const { return m_gamemode; }
+    void apply_gamemode(int64_t gamemode);
 
     bool has_gravity() const { return m_gamemode == GameMode::Survival; }
 

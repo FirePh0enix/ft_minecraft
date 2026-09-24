@@ -7,7 +7,7 @@ class CraftingTableInventory : public Inventory
     CLASS(CraftingTableInventory, Inventory);
 
 public:
-    CraftingTableInventory(std::shared_ptr<InventoryContainer> inventory, std::shared_ptr<InventoryContainer> player_inventory);
+    CraftingTableInventory(std::shared_ptr<InventoryContainer> inventory, std::shared_ptr<InventoryContainer> player_inventory, Player *player);
 
     virtual void update(float d) override;
     virtual void draw(const RenderPass& pass) override;
@@ -15,6 +15,8 @@ public:
 
     virtual bool on_place(uint32_t layer, uint32_t index, ItemStack stack, InventoryContainer *container) override;
     virtual bool on_pick(uint32_t layer, uint32_t index, ItemStack stack, InventoryContainer *container) override;
+    virtual void on_change(InventoryContainer *container) override;
+    virtual bool on_close() override;
 
     void update_recipe();
     void consume_ingredients();
@@ -22,4 +24,5 @@ public:
 private:
     std::shared_ptr<InventoryContainer> m_player_inventory;
     bool m_dirty = false;
+    Player *m_player;
 };

@@ -2,6 +2,7 @@
 
 #include "Core/ZLib.hpp"
 #include "Engine.hpp"
+#include "Entity/Item.hpp"
 #include "Entity/Player.hpp"
 #include "Profiler.hpp"
 
@@ -224,6 +225,22 @@ void RemoteServer::receive(void *user, NetworkConnection& conn, ENetPacket *pack
             player->set_remote();
 
         self->m_world->add_entity(World::overworld, entity);
+    }
+    break;
+    case PacketType::AddItemEntity:
+    {
+        ZoneScopedN("packet AddItemEntity");
+
+        AddItemEntityPacket p;
+        EXPECT(deserialize(buffer, p));
+
+        if (self->m_world == nullptr || p.dimension < 0 || p.dimension >= static_cast<int32_t>(World::max_dimensions))
+            break;
+
+        auto entity = std::make_shared<ItemEntity>(Id<Item>(p.item_id));
+        entity->set_id(p.id);
+        entity->set_position(p.position);
+        self->m_world->add_entity(p.dimension, entity);
     }
     break;
     case PacketType::RemoveEntity:

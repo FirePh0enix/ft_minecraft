@@ -24,6 +24,8 @@ enum class PacketType : uint32_t
     SendPlayerTransform,
     /// Send by the server to clients to indicate a new entity was added to the world.
     AddEntity,
+    /// Send by the server when a block drop is spawned.
+    AddItemEntity,
     /// Send by the server to clients to indicate an entity was removed from the world.
     RemoveEntity,
     /// Send by the server, update the entity transform.
@@ -283,6 +285,36 @@ struct AddEntityPacket
 
     static constexpr PacketType type = PacketType::AddEntity;
 };
+
+struct AddItemEntityPacket
+{
+    glm::vec3 position;
+    EntityId id;
+    uint32_t item_id;
+    int32_t dimension;
+
+    static constexpr PacketType type = PacketType::AddItemEntity;
+};
+inline std::expected<void, Error> serialize(DataBuffer& buffer, const AddItemEntityPacket& p)
+{
+    buffer.write(p.position.x);
+    buffer.write(p.position.y);
+    buffer.write(p.position.z);
+    buffer.write(p.id);
+    buffer.write(p.item_id);
+    buffer.write(p.dimension);
+    return std::expected<void, Error>();
+}
+inline std::expected<void, Error> deserialize(DataBuffer& buffer, AddItemEntityPacket& p)
+{
+    p.position.x = buffer.read<float>();
+    p.position.y = buffer.read<float>();
+    p.position.z = buffer.read<float>();
+    p.id = buffer.read<EntityId>();
+    p.item_id = buffer.read<uint32_t>();
+    p.dimension = buffer.read<int32_t>();
+    return std::expected<void, Error>();
+}
 inline std::expected<void, Error> serialize(DataBuffer& buffer, const AddEntityPacket& p)
 {
     buffer.write(p.position.x);
