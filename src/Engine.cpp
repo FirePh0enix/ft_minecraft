@@ -4,8 +4,8 @@
 #include "Audio/MusicPlayer.hpp"
 #include "Core/Error.hpp"
 #include "Core/Filesystem.hpp"
-#include "Entity/Cow.hpp"
 #include "Entity/Arrow.hpp"
+#include "Entity/Cow.hpp"
 #include "Entity/Entity.hpp"
 #include "Entity/Player.hpp"
 #include "Entity/Zombie.hpp"
@@ -316,6 +316,17 @@ void Engine::main_menu_gui()
             m_current_target = RpcTarget::Client;
 
             m_menu = nullptr;
+        }
+
+        if (ImGui::Checkbox("Fullscreen", &m_fullscreen))
+        {
+            m_window->set_fullscreen(m_fullscreen);
+        }
+
+        imguitk_center_next_widget("Quit");
+        if (ImGui::Button("Quit"))
+        {
+            Engine::get().set_running(false);
         }
     }
     ImGui::End();

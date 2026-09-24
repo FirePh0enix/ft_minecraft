@@ -70,6 +70,9 @@ public:
     bool is_server() const { return m_server != nullptr && m_current_target == RpcTarget::Server; }
     bool is_client() const { return m_server != nullptr && m_current_target == RpcTarget::Client; }
 
+    bool& get_fullscreen() { return m_fullscreen; }
+    void set_running(bool b) { m_window->set_running(b); }
+
     void go_to_main_menu();
 
     static Engine& get() { return *singleton; }
@@ -121,6 +124,7 @@ private:
     char m_seed_buf[32] = "0";
     bool m_should_create_online = false;
     char m_ip_buf[32] = "127.0.0.1"; // join
+    bool m_fullscreen = false;       // settings
 
     void register_entities();
     void register_recipes();

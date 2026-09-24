@@ -152,6 +152,8 @@ private:
     std::vector<std::string> m_messages;
     BetterConsole m_console;
 
+    bool m_paused = false;
+
     std::vector<std::string> m_player_list;
 
     bool m_debug_menu_opened = false;
@@ -190,4 +192,5 @@ private:
     void chat();
     void debug_menu();
     void death_screen();
+    void pause_menu();
 };

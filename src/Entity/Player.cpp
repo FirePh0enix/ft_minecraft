@@ -13,6 +13,7 @@
 #include "Model.hpp"
 #include "Network/LocalServer.hpp"
 #include "Network/Network.hpp"
+#include "Render/ImGUIToolKit.hpp"
 #include "Render/Renderer.hpp"
 #include "UI/TextInput.hpp"
 #include "UI/Widget.hpp"
@@ -331,10 +332,12 @@ void Player::tick(float delta)
     if (Input::is_action_pressed("attack") && !Input::is_mouse_grabbed() && !m_opened_inventory.has_value() && m_local_player && !m_chat_opened)
     {
         Input::set_mouse_grabbed(true);
+        m_paused = false;
     }
     else if (Input::is_action_pressed("escape") && Input::is_mouse_grabbed() && !m_opened_inventory.has_value() && m_local_player && !m_chat_opened)
     {
         Input::set_mouse_grabbed(false);
+        m_paused = true;
     }
     else if (Input::is_action_pressed("escape") && m_local_player && m_opened_inventory.has_value())
     {
@@ -775,6 +778,9 @@ void Player::draw_ui(const RenderPass& pass)
             debug_menu();
 
         m_health_bar->draw_everything(pass);
+
+        if (m_paused)
+            pause_menu();
     }
 }
 
@@ -1192,6 +1198,30 @@ void Player::debug_menu()
         ImGui::LabelText("", "Triangles: %zu", m_world->get_dimension(0).count_triangles());
         ImGui::LabelText("", "Position: %lf %lf %lf", m_transform.position().x, m_transform.position().y, m_transform.position().z);
         ImGui::LabelText("", "Biome: %s", biome_names[(size_t)m_current_biome % (size_t)Biome::Max]);
+    }
+    ImGui::End();
+}
+
+void Player::pause_menu()
+{
+    const Extent2D window_size = Engine::get().window()->size();
+    const float size_x = (float)window_size.width * 0.6f;
+    const float size_y = (float)window_size.height * 0.7f;
+
+    ImGui::SetNextWindowPos(ImVec2((float)window_size.width / 2 - size_x / 2, (float)window_size.height / 2 - size_y / 2));
+    ImGui::SetNextWindowSize(ImVec2(size_x, size_y));
+    if (ImGui::Begin("Pause"))
+    {
+        if (ImGui::Checkbox("Fullscreen", &Engine::get().get_fullscreen()))
+        {
+            Engine::get().window()->set_fullscreen(Engine::get().get_fullscreen());
+        }
+
+        imguitk_center_next_widget("Quit");
+        if (ImGui::Button("Quit"))
+        {
+            Engine::get().go_to_main_menu();
+        }
     }
     ImGui::End();
 }

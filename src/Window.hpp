@@ -30,6 +30,11 @@ public:
         return m_running;
     }
 
+    inline void set_running(bool b)
+    {
+        m_running = b;
+    }
+
 #ifndef __platform_web
     inline SDL_Window *get_window_ptr() const
     {
