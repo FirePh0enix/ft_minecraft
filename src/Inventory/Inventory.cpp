@@ -67,6 +67,7 @@ Inventory::Inventory(std::shared_ptr<InventoryContainer> container)
     set_layout(ContainerLayout::Stack);
     set_expand_vertical(true);
     set_expand_horizontal(true);
+    set_alignment(ContainerAlignment::Center);
 
     m_grabbed_item_rect = std::make_shared<TextureRectWidget>();
     m_grabbed_item_rect->set_size(Point(Size::px(90), Size::px(90)));
@@ -74,8 +75,6 @@ Inventory::Inventory(std::shared_ptr<InventoryContainer> container)
     m_grabbed_item_label = std::make_shared<LabelWidget>(Engine::get().get_font());
     // m_grabbed_item_label->set_scale(glm::vec2(0.12) * 0.8f);
     m_grabbed_item_rect->add_child(m_grabbed_item_label);
-
-    add_child(m_grabbed_item_rect);
 }
 
 void Inventory::update(float d)
@@ -161,14 +160,14 @@ void Inventory::add_grid(uint32_t w, uint32_t h, uint32_t layer, Point offset, I
 
     std::shared_ptr<Widget> grid_container = std::make_shared<Widget>();
     grid_container->set_layout(ContainerLayout::Vertical);
-    grid_container->set_spacing(Point(Size::px(0), Size::px(10)));
+    grid_container->set_spacing(Point(Size::px(0), Size::px(0)));
     grid_container->set_offset(offset);
     super_container->add_child(grid_container);
 
     for (int32_t y = 0; y < int32_t(h); y++)
     {
         std::shared_ptr<Widget> line_container = std::make_shared<Widget>();
-        line_container->set_spacing(Point(Size::px(10), Size::px(0)));
+        line_container->set_spacing(Point(Size::px(0), Size::px(0)));
 
         for (int32_t x = 0; x < int32_t(w); x++)
         {
@@ -182,11 +181,4 @@ void Inventory::add_grid(uint32_t w, uint32_t h, uint32_t layer, Point offset, I
 
     m_grids.push_back(slots);
     add_child(super_container);
-}
-
-void Inventory::add_background()
-{
-    std::shared_ptr<ColorRectWidget> background = std::make_shared<ColorRectWidget>();
-    background->set_color(Color(0.15));
-    add_child(background);
 }

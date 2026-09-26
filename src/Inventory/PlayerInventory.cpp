@@ -91,12 +91,16 @@ void QuickSlotWidget::set_count(size_t count)
 PlayerInventory::PlayerInventory(std::shared_ptr<InventoryContainer> container, Player *player)
     : Inventory(container), m_player(player)
 {
-    add_background();
-    add_grid(9, 3, 0, Point(Size::px(0), Size::px(40)));
-    add_grid(9, 1, 1, Point(Size::px(0), Size::px(300)));
+    std::shared_ptr<TextureRectWidget> background = std::make_shared<TextureRectWidget>();
+    background->set_texture(Texture::load("data/resourcepacks/core/assets/minecraft/textures/gui/container/inventory.png", 176, 166).value_or(Renderer::get().get_missing_texture()));
+    background->set_size(Point(Size::px(176 * 4), Size::px(166 * 4)));
+    add_child(background);
 
-    add_grid(2, 2, 2, Point(Size::px(60), Size::px(-200)));
-    add_grid(1, 1, 3, Point(Size::px(240), Size::px(-200)));
+    add_grid(9, 3, 0, Point(Size::px(0), Size::px(108)));
+    add_grid(9, 1, 1, Point(Size::px(0), Size::px(268)));
+
+    add_grid(2, 2, 2, Point(Size::px(107), Size::px(-193)));
+    add_grid(1, 1, 3, Point(Size::px(295), Size::px(-189)));
 
     m_quick_slots_container = std::make_shared<Widget>();
     m_quick_slots_container->set_layout(ContainerLayout::Horizontal);
@@ -115,6 +119,8 @@ PlayerInventory::PlayerInventory(std::shared_ptr<InventoryContainer> container, 
     }
 
     m_quick_slots_container->add_child(subcontainer);
+
+    add_child(m_grabbed_item_rect); // NOTE: quick hack to draw the grabbed item on top
 }
 
 void PlayerInventory::on_change(InventoryContainer *container)

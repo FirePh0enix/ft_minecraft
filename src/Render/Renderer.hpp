@@ -96,7 +96,7 @@ public:
 
     static std::expected<std::shared_ptr<Texture>, Error> create(uint32_t width, uint32_t height, WGPUTextureFormat format, WGPUTextureUsage usage = WGPUTextureUsage_None, WGPUTextureDimension dimension = WGPUTextureDimension_2D, uint32_t layers = 1, uint32_t mip_level = 1);
     static std::shared_ptr<Texture> create_from_handle(WGPUTexture texture);
-    static std::expected<std::shared_ptr<Texture>, Error> load(std::string_view path);
+    static std::expected<std::shared_ptr<Texture>, Error> load(std::string_view path, size_t width = 0, size_t height = 0);
 
     void update(std::span<const std::byte> view, uint32_t layer = 0);
 

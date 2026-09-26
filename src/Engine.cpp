@@ -147,7 +147,13 @@ void Engine::tick(float delta)
                 {
                     std::shared_ptr<Player> player = m_server->get_player();
                     if (player != nullptr)
+                    {
                         player->get_camera()->update_projection((float)w / (float)h);
+                        player->get_inventory()->invalidate();
+                        player->get_inventory()->get_toolbar()->invalidate();
+                        if (player->get_open_inventory().has_value())
+                            player->get_open_inventory().value()->invalidate();
+                    }
                 }
             }
             break;

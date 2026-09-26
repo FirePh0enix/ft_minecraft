@@ -240,7 +240,7 @@ std::shared_ptr<Texture> Texture::create_from_handle(WGPUTexture texture)
     return tex;
 }
 
-std::expected<std::shared_ptr<Texture>, Error> Texture::load(std::string_view path)
+std::expected<std::shared_ptr<Texture>, Error> Texture::load(std::string_view path, size_t width, size_t height)
 {
     File file = TRY(Filesystem::open_file(path));
 
@@ -254,8 +254,27 @@ std::expected<std::shared_ptr<Texture>, Error> Texture::load(std::string_view pa
     if (data == nullptr)
         return std::unexpected(Error(ErrorKind::ReadFailure));
 
-    std::shared_ptr<Texture> texture = TRY(Texture::create(w, h, WGPUTextureFormat_RGBA8Unorm, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding, WGPUTextureDimension_2D, 1, 1));
-    texture->update(std::span((std::byte *)data, w * h * 4));
+    if (width == 0)
+        width = w;
+    if (height == 0)
+        height = h;
+
+    std::shared_ptr<Texture> texture = TRY(Texture::create(width, height, WGPUTextureFormat_RGBA8Unorm, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding, WGPUTextureDimension_2D, 1, 1));
+    if (width == (size_t)w && height == (size_t)h)
+    {
+        texture->update(std::span((std::byte *)data, w * h * 4));
+    }
+    else
+    {
+        uint32_t *resized_data = new uint32_t[width * height];
+
+        for (size_t x = 0; x < width; x++)
+            for (size_t y = 0; y < height; y++)
+                resized_data[x + y * width] = ((uint32_t *)data)[x + y * w];
+        texture->update(std::span((std::byte *)resized_data, w * h * 4));
+
+        delete[] resized_data;
+    }
 
     stbi_image_free(data);
 

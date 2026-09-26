@@ -89,7 +89,6 @@ public:
     void grab_cancel();
 
     void add_grid(uint32_t w, uint32_t h, uint32_t layer, Point offset = Point(), InventoryContainer *container = nullptr);
-    void add_background();
 
 protected:
     std::shared_ptr<TextureRectWidget> m_grabbed_item_rect;

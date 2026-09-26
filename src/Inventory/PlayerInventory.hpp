@@ -43,6 +43,7 @@ public:
     virtual void process_event(Event& event) override { (void)event; }
 
     void draw_toolbar(const RenderPass& pass);
+    std::shared_ptr<Widget> get_toolbar() const { return m_quick_slots_container; }
 
     void set_selected_slot(size_t slot);
 

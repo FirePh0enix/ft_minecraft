@@ -98,6 +98,7 @@ public:
 
     void open_inventory(std::shared_ptr<Inventory> inventory);
     void close_inventory();
+    std::optional<std::shared_ptr<Inventory>> get_open_inventory() const { return m_opened_inventory; }
 
     bool head_in_water() const;
     bool is_dead() const override { return m_dead; }
@@ -148,7 +149,7 @@ private:
     std::string m_username;
 
     bool m_chat_opened = false;
-    char m_chat_buffer[128];
+    char m_chat_buffer[128]{0};
     std::vector<std::string> m_messages;
     BetterConsole m_console;
 

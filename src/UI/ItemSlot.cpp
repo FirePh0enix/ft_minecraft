@@ -18,8 +18,7 @@ ItemSlotWidget::ItemSlotWidget(uint32_t layer, uint32_t index, Inventory *invent
     set_layout(ContainerLayout::Stack);
 
     m_background = std::make_shared<ColorRectWidget>();
-    m_background->set_color(Colors::blue);
-    m_background->set_size(Point(Size::px(80), Size::px(80)));
+    m_background->set_size(Point(Size::px(18 * 4), Size::px(18 * 4)));
     add_child(m_background);
 
     m_item_rect = std::make_shared<TextureRectWidget>();
@@ -35,9 +34,9 @@ void ItemSlotWidget::update(float d)
     Widget::update(d);
 
     if (is_mouse_hovering())
-        m_background->set_color(Colors::red);
+        m_background->set_color(Color(0, 0, 0, 0.3));
     else
-        m_background->set_color(Colors::blue);
+        m_background->set_color(Color(0, 0, 0, 0.0));
 
     if (is_mouse_hovering() && Input::is_action_just_pressed("ui_click"))
     {

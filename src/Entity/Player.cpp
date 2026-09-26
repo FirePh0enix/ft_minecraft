@@ -219,6 +219,7 @@ Player::Player()
     m_inventory_container->add_layer(9);  // toolbar
     m_inventory_container->add_layer(4);  // Crafting Ingredients
     m_inventory_container->add_layer(1);  // Crafting Result
+
     give_spawn_equipment();
 }
 

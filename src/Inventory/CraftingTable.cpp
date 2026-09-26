@@ -15,12 +15,19 @@ constexpr int RESULT_LAYER = 1;
 CraftingTableInventory::CraftingTableInventory(std::shared_ptr<InventoryContainer> inventory, std::shared_ptr<InventoryContainer> player_inventory, Player *player)
     : Inventory(inventory), m_player_inventory(player_inventory), m_player(player)
 {
-    add_background();
-    add_grid(9, 3, 0, Point(Size::px(0), Size::px(40)), m_player_inventory.get());
-    add_grid(9, 1, 1, Point(Size::px(0), Size::px(300)), m_player_inventory.get());
+    std::shared_ptr<TextureRectWidget> background = std::make_shared<TextureRectWidget>();
 
-    add_grid(3, 3, 0, Point(Size::px(60), Size::px(-200)));
-    add_grid(1, 1, 1, Point(Size::px(280), Size::px(-200)));
+    background->set_texture(Texture::load("data/resourcepacks/core/assets/minecraft/textures/gui/container/crafting_table.png", 176, 166).value_or(Renderer::get().get_missing_texture()));
+    background->set_size(Point(Size::px(176 * 4), Size::px(166 * 4)));
+    add_child(background);
+
+    add_grid(9, 3, 0, Point(Size::px(0), Size::px(108)), m_player_inventory.get());
+    add_grid(9, 1, 1, Point(Size::px(0), Size::px(268)), m_player_inventory.get());
+
+    add_grid(3, 3, 0, Point(Size::px(-130), Size::px(-160)));
+    add_grid(1, 1, 1, Point(Size::px(175), Size::px(-160)));
+
+    add_child(m_grabbed_item_rect); // NOTE: quick hack to draw the grabbed item on top
 }
 
 void CraftingTableInventory::update(float d)
