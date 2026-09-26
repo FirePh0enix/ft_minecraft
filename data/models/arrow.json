@@ -1,7 +1,7 @@
 {
     "name": "arrow",
     "texture_size": [64, 64],
-    "texture_path": "assets/textures/entities/arrow.png",
+    "texture_path": "data/resourcepacks/core/assets/minecraft/textures/item/arrow.png",
 
     "objects": [
         {

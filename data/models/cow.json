@@ -1,7 +1,8 @@
 {
     "name": "cow",
     "texture_size": [64, 64],
-    "texture_path": "assets/textures/entities/cow.png",
+    "texture_path": "data/resourcepacks/core/assets/minecraft/textures/entity/cow/cow.png",
+
 
     "objects": [
         {

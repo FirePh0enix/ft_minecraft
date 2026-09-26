@@ -16,6 +16,7 @@
 #include "Render/ImGUIToolKit.hpp"
 #include "Render/Renderer.hpp"
 #include "UI/Widget.hpp"
+#include "World/Biome.hpp"
 #include "World/Registry.hpp"
 #include "World/World.hpp"
 
@@ -255,22 +256,22 @@ void Player::on_ready()
     m_hand_item_bg->set_param("atlas", EXPECT(Engine::get().registry().get_atlas()->get_view()));
 
     AudioMixer& audio = m_world->audio();
-    auto path = std::filesystem::absolute("data/resourcepacks/pixel-perfection/assets/minecraft/sounds/step/cloth1.ogg");
+    auto path = std::filesystem::absolute("data/sfx/player/walking.ogg");
     m_walking_clip.emplace(*audio.get_audio_mixer(), path);
 
-    path = std::filesystem::absolute("data/resourcepacks/pixel-perfection/assets/minecraft/sounds/entity/player/attack/knockback1.ogg");
+    path = std::filesystem::absolute("data/sfx/player/attack.ogg");
     m_attacking_clip.emplace(*audio.get_audio_mixer(), path);
 
-    path = std::filesystem::absolute("data/resourcepacks/pixel-perfection/assets/minecraft/sounds/random/bow.ogg");
+    path = std::filesystem::absolute("data/sfx/player/bow.ogg");
     m_bow_release_clip.emplace(*audio.get_audio_mixer(), path);
 
-    path = std::filesystem::absolute("data/resourcepacks/pixel-perfection/assets/minecraft/sounds/liquid/swim1.ogg");
+    path = std::filesystem::absolute("data/sfx/player/swim.ogg");
     m_swimming_clip.emplace(*audio.get_audio_mixer(), path);
 
-    path = std::filesystem::absolute("data/resourcepacks/pixel-perfection/assets/minecraft/sounds/step/gravel3.ogg");
+    path = std::filesystem::absolute("data/sfx/player/destroy.ogg");
     m_destroying_clip.emplace(*audio.get_audio_mixer(), path);
 
-    path = std::filesystem::absolute("data/resourcepacks/pixel-perfection/assets/minecraft/sounds/random/classic_hurt.ogg");
+    path = std::filesystem::absolute("data/sfx/player/hurt.ogg");
     m_dying_clip.emplace(*audio.get_audio_mixer(), path);
 
     m_audio_source.emplace(audio);

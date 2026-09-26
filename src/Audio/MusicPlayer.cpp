@@ -5,13 +5,17 @@
 
 // clang-format off
 MusicPlayer::MusicPlayer(AudioMixer& mixer) : m_mixer(*mixer.get_audio_mixer()), m_tracks(mixer.get_music_tracks_pool()), m_audio_clips{
-    AudioClip(*mixer.get_audio_mixer(), std::filesystem::absolute("assets/audio/music/Plains.wav")),
-    AudioClip(*mixer.get_audio_mixer(), std::filesystem::absolute("assets/audio/music/Plains.wav")),
-    AudioClip(*mixer.get_audio_mixer(), std::filesystem::absolute("assets/audio/music/Plains.wav")),
-    AudioClip(*mixer.get_audio_mixer(), std::filesystem::absolute("assets/audio/music/Beach.wav")),
-    AudioClip(*mixer.get_audio_mixer(), std::filesystem::absolute("assets/audio/music/Plains.wav")),
-    AudioClip(*mixer.get_audio_mixer(), std::filesystem::absolute("assets/audio/music/Plains.wav")),
-    AudioClip(*mixer.get_audio_mixer(), std::filesystem::absolute("assets/audio/music/Plains.wav"))}
+    AudioClip(*mixer.get_audio_mixer(), std::filesystem::absolute("data/music/Plains.wav")),
+    AudioClip(*mixer.get_audio_mixer(), std::filesystem::absolute("data/music/ColdPlains.wav")),
+    AudioClip(*mixer.get_audio_mixer(), std::filesystem::absolute("data/music/Forest.wav")),
+    AudioClip(*mixer.get_audio_mixer(), std::filesystem::absolute("data/music/ColdForest.wav")),
+    AudioClip(*mixer.get_audio_mixer(), std::filesystem::absolute("data/music/Desert.wav")),
+    AudioClip(*mixer.get_audio_mixer(), std::filesystem::absolute("data/music/Beach.wav")),
+    AudioClip(*mixer.get_audio_mixer(), std::filesystem::absolute("data/music/Mountain.wav")),
+    AudioClip(*mixer.get_audio_mixer(), std::filesystem::absolute("data/music/FrozenMountain.wav")),
+    AudioClip(*mixer.get_audio_mixer(), std::filesystem::absolute("data/music/Ocean.wav")),
+    AudioClip(*mixer.get_audio_mixer(), std::filesystem::absolute("data/music/ColdOcean.wav")),
+}
 {
 }
 // clang-format on
