@@ -100,7 +100,7 @@ void Cow::set_movement_state(int64_t state)
 
 void Cow::on_ready()
 {
-    m_model = EXPECT(ModelLegacy::load("data/models/cow.json"));
+    m_model = ModelLegacy::load("data/models/cow.json").value_or({});
     m_animator.set_model(m_model);
     m_pathfinding = std::make_unique<Pathfinding>(m_world);
 

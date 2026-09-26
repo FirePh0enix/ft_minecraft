@@ -32,7 +32,7 @@ GameRegistry::GameRegistry()
 
 void GameRegistry::register_all()
 {
-    EXPECT(add_tint("colormap/grass"));
+    (void)add_tint("colormap/grass");
 
     register_block(Blocks::stone);
     register_block(Blocks::dirt);
@@ -98,6 +98,15 @@ std::expected<void, Error> GameRegistry::post_register()
 
     int64_t x = 0;
     int64_t y = 0;
+
+    for (int64_t xx = 0; xx < 16; xx++)
+        for (int64_t yy = 0; yy < 16; yy++)
+        {
+            pixels[(xx + x) + (yy + y) * atlas_size] = Renderer::get().get_missing_texture_data()[xx + yy * 16];
+        }
+    max_height = 16;
+    x += 16;
+
     for (const auto& [path, texture] : m_textures)
     {
         if (x + texture.w > atlas_size)
@@ -138,12 +147,20 @@ std::expected<void, Error> GameRegistry::post_register()
         }
     }
 
-    m_tint_texture_array = TRY(Texture::create(m_tint_textures[0].w, m_tint_textures[0].h, WGPUTextureFormat_RGBA8Unorm, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding, WGPUTextureDimension_2D, m_tint_textures.size()));
-    for (size_t i = 0; i < m_tint_textures.size(); i++)
+    if (m_tint_textures.size() == 0)
     {
-        const AtlasTexture& texture = m_tint_textures[i];
-        m_tint_texture_array->update(std::span<std::byte>((std::byte *)texture.data, texture.w * texture.h * 4), i);
-        stbi_image_free((stbi_uc *)texture.data);
+        m_tint_texture_array = TRY(Texture::create(16, 16, WGPUTextureFormat_RGBA8Unorm, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding, WGPUTextureDimension_2D));
+        m_tint_texture_array->update(std::span<std::byte>((std::byte *)Renderer::get().get_missing_texture_data().data(), 16 * 16 * 4));
+    }
+    else
+    {
+        m_tint_texture_array = TRY(Texture::create(m_tint_textures[0].w, m_tint_textures[0].h, WGPUTextureFormat_RGBA8Unorm, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding, WGPUTextureDimension_2D, m_tint_textures.size()));
+        for (size_t i = 0; i < m_tint_textures.size(); i++)
+        {
+            const AtlasTexture& texture = m_tint_textures[i];
+            m_tint_texture_array->update(std::span<std::byte>((std::byte *)texture.data, texture.w * texture.h * 4), i);
+            stbi_image_free((stbi_uc *)texture.data);
+        }
     }
 
     for (const auto& [id, block] : m_blocks)
@@ -397,7 +414,10 @@ std::shared_ptr<Texture> GameRegistry::create_preview_texture(std::shared_ptr<Bl
     rp.depthStencilAttachment = &depth_attach;
 
     WGPURenderPassEncoder render_encoder = wgpuCommandEncoderBeginRenderPass(encoder, &rp);
-    Renderer::get().draw(RenderPass(render_encoder, RenderTarget(depth_texture->format()), {color_texture->format()}), mesh, Renderer::get().get_model_noshadow_mat(), bg);
+    if (mesh->vertex_count() > 0)
+    {
+        Renderer::get().draw(RenderPass(render_encoder, RenderTarget(depth_texture->format()), {color_texture->format()}), mesh, Renderer::get().get_model_noshadow_mat(), bg);
+    }
     wgpuRenderPassEncoderEnd(render_encoder);
     wgpuRenderPassEncoderRelease(render_encoder);
 

@@ -280,7 +280,7 @@ void Player::on_ready()
     m_camera->get_transform().position() = glm::vec3(0, 0.85, 0);
     add_child(m_camera);
 
-    m_model = EXPECT(ModelLegacy::load("data/models/player.json"));
+    m_model = ModelLegacy::load("data/models/player.json").value_or({});
     m_animator.set_model(m_model);
 
     if (m_local_player)
@@ -690,11 +690,13 @@ void Player::draw(const RenderPass& pass, bool shadowmap)
 
     if (!m_local_player)
     {
-        m_model->encode(pass, render_transform, shadowmap);
+        if (m_model)
+            m_model->encode(pass, render_transform, shadowmap);
     }
     else if (shadowmap)
     {
-        m_model->encode(pass, render_transform, true);
+        if (m_model)
+            m_model->encode(pass, render_transform, true);
     }
 
     if (shadowmap)

@@ -6,11 +6,22 @@
 Block::Block(std::string_view path, bool collision, bool transparent)
     : m_path(path), m_collision(collision), m_transparent(transparent)
 {
-    m_blockstate = EXPECT(Engine::get().registry().get_blockstate(path));
+    std::expected<BlockStateResource, Error> result = Engine::get().registry().get_blockstate(path);
+    if (result.has_value())
+    {
+        m_blockstate = result.value();
+    }
+
+    if (!m_blockstate.variants.contains(""))
+        m_blockstate.variants[""].push_back(BlockStateVariant("block/stone"));
 
     std::vector<BlockStateVariant> variants = m_blockstate.variants[""];
     for (const auto& variant : variants)
-        m_models.push_back(EXPECT(Engine::get().registry().get_model(variant.model)));
+    {
+        std::expected<Model, Error> result = Engine::get().registry().get_model(variant.model);
+        if (result.has_value())
+            m_models.push_back(result.value());
+    }
 
     const struct
     {
@@ -25,13 +36,21 @@ Block::Block(std::string_view path, bool collision, bool transparent)
         {.name = "east", .face = FaceKind::East},
     };
 
-    for (const auto& element : m_models[0].elements)
+    if (m_models.size() > 0)
+    {
+        for (const auto& element : m_models[0].elements)
+            for (const auto& face : faces)
+            {
+                auto facei = element.faces.find(face.name);
+                if (facei != element.faces.end() && facei->second.cullface.has_value()) // TODO: check value for unconventional face culling setup.
+                    m_cullfaces[(int)face.face] = true;
+            }
+    }
+    else
+    {
         for (const auto& face : faces)
-        {
-            auto facei = element.faces.find(face.name);
-            if (facei != element.faces.end() && facei->second.cullface.has_value()) // TODO: check value for unconventional face culling setup.
-                m_cullfaces[(int)face.face] = true;
-        }
+            m_cullfaces[(int)face.face] = true;
+    }
 }
 
 void Block::post_register()
@@ -75,6 +94,12 @@ static FaceKind face_from_string(std::string_view name)
 
 void Block::add(MeshBuilder& builder, int64_t variant, glm::i64vec3 position, NeighborFlags neighbors)
 {
+    if (m_models.size() == 0)
+    {
+        // TODO: do something ?
+        return;
+    }
+
     variant %= (int64_t)m_models.size();
 
     for (const auto& element : m_models[variant].elements)

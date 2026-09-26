@@ -252,7 +252,10 @@ public:
         return iter->second;
     }
 
-    std::shared_ptr<Texture> get_atlas() const { return m_atlas; }
+    std::shared_ptr<Texture> get_atlas() const
+    {
+        return m_atlas;
+    }
     float get_atlas_size() const { return static_cast<float>(atlas_size); }
 
     std::shared_ptr<Texture> get_tintmap() const { return m_tint_texture_array; }

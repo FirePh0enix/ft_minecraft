@@ -161,7 +161,7 @@ void Zombie::on_ready()
 {
     auto pathtest = std::filesystem::absolute("data/models/zombie.json");
 
-    m_model = EXPECT(ModelLegacy::load(pathtest.c_str()));
+    m_model = ModelLegacy::load(pathtest.c_str()).value_or({});
     m_animator.set_model(m_model);
     m_pathfinding = std::make_unique<Pathfinding>(m_world);
 
@@ -232,16 +232,16 @@ void Zombie::play_one_shot_sound(int64_t sound)
 {
     switch (static_cast<EntitySound>(sound))
     {
-        case EntitySound::Attack:
-            m_audio_source->play_one_shot(&m_attacking_clip.value(), 0.5f);
-            m_animator.play_once("attack");
-            break;
-        case EntitySound::Groan:
-            m_audio_source->play_one_shot(&m_groan_clip.value(), 0.5f);
-            break;
-        case EntitySound::Destroying:
-        case EntitySound::Death:
-        case EntitySound::BowRelease:
-            break;
+    case EntitySound::Attack:
+        m_audio_source->play_one_shot(&m_attacking_clip.value(), 0.5f);
+        m_animator.play_once("attack");
+        break;
+    case EntitySound::Groan:
+        m_audio_source->play_one_shot(&m_groan_clip.value(), 0.5f);
+        break;
+    case EntitySound::Destroying:
+    case EntitySound::Death:
+    case EntitySound::BowRelease:
+        break;
     }
 }
