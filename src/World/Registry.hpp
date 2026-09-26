@@ -35,8 +35,26 @@ struct Recipe
     uint8_t width = 3;
     uint8_t height = 3;
 
-    std::array<Id<Item>, MAX_RECIPE_SIZE> pattern;
+    std::array<Id<Item>, MAX_RECIPE_SIZE> pattern{};
     ItemStack result;
+
+    template <const size_t width, const size_t height>
+    static Recipe create(ItemStack result, std::array<std::array<Id<Item>, width>, height> pattern)
+    {
+        Recipe recipe;
+        recipe.width = width;
+        recipe.height = height;
+        recipe.result = result;
+
+        for (size_t i = 0; i < 9; i++)
+            recipe.pattern[i] = Id<Item>();
+
+        for (size_t x = 0; x < width; x++)
+            for (size_t y = 0; y < height; y++)
+                recipe.pattern[x + y * 3] = pattern[y][x];
+
+        return recipe;
+    }
 };
 
 template <typename T>
@@ -91,8 +109,10 @@ constexpr Id<Block> diamond_ore("diamond_ore");
 
 constexpr Id<Block> oak_log("oak_log");
 constexpr Id<Block> oak_leaves("oak_leaves");
+constexpr Id<Block> oak_planks("oak_planks");
 constexpr Id<Block> spruce_log("spruce_log");
 constexpr Id<Block> spruce_leaves("spruce_leaves");
+constexpr Id<Block> spruce_planks("spruce_planks");
 
 constexpr Id<Block> grass("grass");
 constexpr Id<Block> cactus("cactus");
@@ -117,8 +137,10 @@ constexpr Id<Item> diamond_ore("diamond_ore");
 
 constexpr Id<Item> oak_log("oak_log");
 constexpr Id<Item> oak_leaves("oak_leaves");
+constexpr Id<Item> oak_planks("oak_planks");
 constexpr Id<Item> spruce_log("spruce_log");
 constexpr Id<Item> spruce_leaves("spruce_leaves");
+constexpr Id<Item> spruce_planks("spruce_planks");
 
 constexpr Id<Item> grass("grass");
 constexpr Id<Item> cactus("cactus");

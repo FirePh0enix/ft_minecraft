@@ -128,6 +128,7 @@ private:
 
     void register_entities();
     void register_recipes();
+    void register_recipe();
 
     void main_menu_gui();
     void world_load_gui();

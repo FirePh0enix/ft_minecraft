@@ -91,26 +91,20 @@ void Engine::register_entities()
     m_entity_registry.register_entity<Zombie>();
 }
 
-// TODO: Create a helper for creating recipe maybe ?
-// TODO: YAML/JSON should do the trick.
 void Engine::register_recipes()
 {
-    Recipe crafting_table;
+    std::array<std::array<Id<Item>, 1>, 1> oak_planks{{{Items::oak_log}}};
+    m_registry.add_recipe(Recipe::create(ItemStack(Items::oak_planks, 4), oak_planks));
 
-    crafting_table.width = 2;
-    crafting_table.height = 2;
+    std::array<std::array<Id<Item>, 1>, 1> spruce_planks{{{Items::spruce_log}}};
+    m_registry.add_recipe(Recipe::create(ItemStack(Items::spruce_planks, 4), spruce_planks));
 
-    for (size_t i = 0; i < 9; i++)
-        crafting_table.pattern[i] = Id<Item>();
-
-    crafting_table.pattern[0 + 0 * 3] = Items::stone;
-    crafting_table.pattern[1 + 0 * 3] = Items::stone;
-    crafting_table.pattern[0 + 1 * 3] = Items::stone;
-    crafting_table.pattern[1 + 1 * 3] = Items::stone;
-
-    crafting_table.result = ItemStack(Items::crafting_table_block, 1);
-
-    m_registry.add_recipe(crafting_table);
+    std::array<std::array<Id<Item>, 2>, 2> crafting_table{{{Items::oak_planks, Items::oak_planks},
+                                                           {Items::oak_planks, Items::oak_planks}}};
+    m_registry.add_recipe(Recipe::create(ItemStack(Items::crafting_table_block), crafting_table));
+    std::array<std::array<Id<Item>, 2>, 2> crafting_table_spruce{{{Items::spruce_planks, Items::spruce_planks},
+                                                                  {Items::spruce_planks, Items::spruce_planks}}};
+    m_registry.add_recipe(Recipe::create(ItemStack(Items::crafting_table_block), crafting_table_spruce));
 }
 
 void Engine::tick(float delta)

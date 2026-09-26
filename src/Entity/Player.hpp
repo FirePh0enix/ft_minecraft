@@ -10,7 +10,6 @@
 #include "Inventory/Inventory.hpp"
 #include "Inventory/PlayerInventory.hpp"
 #include "Model.hpp"
-#include "UI/TextInput.hpp"
 #include "World/Biome.hpp"
 
 #include <expected>

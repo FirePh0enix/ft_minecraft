@@ -15,7 +15,6 @@
 #include "Network/Network.hpp"
 #include "Render/ImGUIToolKit.hpp"
 #include "Render/Renderer.hpp"
-#include "UI/TextInput.hpp"
 #include "UI/Widget.hpp"
 #include "World/Registry.hpp"
 #include "World/World.hpp"

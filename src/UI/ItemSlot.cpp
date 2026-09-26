@@ -22,7 +22,7 @@ ItemSlotWidget::ItemSlotWidget(uint32_t layer, uint32_t index, Inventory *invent
     add_child(m_background);
 
     m_item_rect = std::make_shared<TextureRectWidget>();
-    m_item_rect->set_size(Point(Size::px(72), Size::px(72)));
+    m_item_rect->set_size(Point(Size::px(18 * 4), Size::px(18 * 4)));
     add_child(m_item_rect);
 
     m_label = std::make_shared<LabelWidget>(Engine::get().get_font());
@@ -66,6 +66,24 @@ void ItemSlotWidget::update(float d)
                         m_inventory->ungrab();
                 }
             }
+            // else if (!allow_change)
+            // {
+            //     ItemStack stack = m_container->get_stack(m_layer, m_index);
+            //     if (grabbed.value().item() == stack.item())
+            //     {
+            //         std::optional<ItemStack> excess = stack.merge(grabbed.value());
+            //         // m_inventory->grab(stack);
+            //         // m_inventory->on_change(m_container);
+
+            //         if (!excess.has_value())
+            //         {
+            //             m_inventory->grab(stack);
+
+            //             m_container->set_stack(m_layer, m_index, ItemStack());
+            //             m_inventory->on_change(m_container);
+            //         }
+            //     }
+            // }
         }
         else if (m_item.valid())
         {
