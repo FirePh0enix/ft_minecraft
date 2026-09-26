@@ -56,13 +56,16 @@ std::expected<void, Error> Engine::init()
     clock_gettime(CLOCK_MONOTONIC, &m_time_at_start);
 
     // Detect available saves
-    for (auto iter : std::filesystem::directory_iterator(Filesystem::get_data_directory() + "saves/"))
+    if (std::filesystem::exists(Filesystem::get_data_directory() + "saves/"))
     {
-        std::filesystem::path path = iter.path();
-        path.append("info.dat");
-        if (!iter.is_directory() || !std::filesystem::exists(path))
-            continue;
-        m_saves.push_back(iter.path().filename().string());
+        for (auto iter : std::filesystem::directory_iterator(Filesystem::get_data_directory() + "saves/"))
+        {
+            std::filesystem::path path = iter.path();
+            path.append("info.dat");
+            if (!iter.is_directory() || !std::filesystem::exists(path))
+                continue;
+            m_saves.push_back(iter.path().filename().string());
+        }
     }
 
     go_to_main_menu();
