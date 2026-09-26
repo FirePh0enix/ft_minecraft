@@ -330,21 +330,21 @@ void Player::tick(float delta)
         return;
     }
 
-    if (Input::is_action_pressed("attack") && !Input::is_mouse_grabbed() && !m_opened_inventory.has_value() && m_local_player && !m_chat_opened)
+    if (Input::is_action_just_pressed("attack") && !Input::is_mouse_grabbed() && !m_opened_inventory.has_value() && m_local_player && !m_chat_opened)
     {
         Input::set_mouse_grabbed(true);
         m_paused = false;
     }
-    else if (Input::is_action_pressed("escape") && Input::is_mouse_grabbed() && !m_opened_inventory.has_value() && m_local_player && !m_chat_opened)
+    else if (Input::is_action_just_pressed("escape") && Input::is_mouse_grabbed() && !m_opened_inventory.has_value() && m_local_player && !m_chat_opened)
     {
         Input::set_mouse_grabbed(false);
         m_paused = true;
     }
-    else if (Input::is_action_pressed("escape") && m_local_player && m_opened_inventory.has_value())
+    else if (Input::is_action_just_pressed("escape") && m_local_player && m_opened_inventory.has_value())
     {
         close_inventory();
     }
-    else if (Input::is_action_pressed("escape") && m_local_player && m_chat_opened)
+    else if (Input::is_action_just_pressed("escape") && m_local_player && m_chat_opened)
     {
         m_chat_opened = false;
         Input::set_mouse_grabbed(true);
