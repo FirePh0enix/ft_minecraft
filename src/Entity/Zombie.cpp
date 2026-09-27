@@ -166,19 +166,19 @@ void Zombie::on_ready()
     m_pathfinding = std::make_unique<Pathfinding>(m_world);
 
     AudioMixer& audio = m_world->audio();
-    auto path = std::filesystem::absolute("assets/audio/zombie/groan.wav");
+    auto path = std::filesystem::absolute("data/sfx/zombie/groan.wav");
     m_groan_clip.emplace(*audio.get_audio_mixer(), path);
 
-    path = std::filesystem::absolute("assets/audio/zombie/walking.wav");
+    path = std::filesystem::absolute("data/sfx/zombie/walking.wav");
     m_walking_clip.emplace(*audio.get_audio_mixer(), path);
 
-    path = std::filesystem::absolute("assets/audio/zombie/attacking.wav");
+    path = std::filesystem::absolute("data/sfx/zombie/attacking.wav");
     m_attacking_clip.emplace(*audio.get_audio_mixer(), path);
 
-    path = std::filesystem::absolute("assets/audio/zombie/swimming.wav");
+    path = std::filesystem::absolute("data/sfx/zombie/swimming.wav");
     m_swimming_clip.emplace(*audio.get_audio_mixer(), path);
 
-    path = std::filesystem::absolute("data/resourcepacks/pixel-perfection/assets/minecraft/sounds/mob/skeleton/death.ogg");
+    path = std::filesystem::absolute("data/sfx/zombie/death.ogg");
     m_dying_clip.emplace(*audio.get_audio_mixer(), path);
 
     m_audio_source.emplace(audio);

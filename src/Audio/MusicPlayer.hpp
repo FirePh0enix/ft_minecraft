@@ -24,7 +24,7 @@ public:
     {
         if (static_cast<uint16_t>(biome) >= static_cast<uint16_t>(Biome::Max))
             error("invalid biome value {}", (uint16_t)biome);
-        return static_cast<uint16_t>(biome) >= 7 ? m_audio_clips.at(0) : m_audio_clips.at(static_cast<uint16_t>(biome));
+        return static_cast<uint16_t>(biome) >= 10 ? m_audio_clips.at(0) : m_audio_clips.at(static_cast<uint16_t>(biome));
     }
 
 private:
@@ -40,5 +40,5 @@ private:
     float m_transition_duration = 0.0f;
     float m_volume = 0.1f;
 
-    std::array<AudioClip, 7> m_audio_clips;
+    std::array<AudioClip, 10> m_audio_clips;
 };
