@@ -56,7 +56,7 @@ public:
     /// Returns the current in seconds with a nanosecond precision.
     double time();
 
-    ALWAYS_INLINE int64_t get_fps() const { return m_fps; }
+    ALWAYS_INLINE int64_t get_fps() const { return std::min(int64_t(1.0 / m_last_frame_time), (int64_t)60); }
     ALWAYS_INLINE int64_t get_tps() const { return m_tps; }
 
     bool is_save_disabled() const { return m_disable_save; }
@@ -76,6 +76,8 @@ public:
     void go_to_main_menu();
 
     static Engine& get() { return *singleton; }
+
+    double m_last_frame_time = 0.0;
 
 private:
     static inline Engine *singleton;

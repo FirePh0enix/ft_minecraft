@@ -1235,7 +1235,7 @@ void Player::debug_menu()
     ImGui::SetNextWindowFocus();
     if (ImGui::Begin("Debug"))
     {
-        ImGui::LabelText("", "FPS: %zu", std::max((size_t)Engine::get().get_fps(), (size_t)25));
+        ImGui::LabelText("", "FPS: %zu", Engine::get().get_fps());
         ImGui::LabelText("", "Chunks: %zu", m_world->get_dimension(0).get_chunks().size());
         ImGui::LabelText("", "Blocks: %zu", m_world->get_dimension(0).count_blocks());
         ImGui::LabelText("", "Triangles: %zu", m_world->get_dimension(0).count_triangles());
