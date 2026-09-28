@@ -21,8 +21,8 @@ QuickSlotWidget::QuickSlotWidget()
     set_layout(ContainerLayout::Stack);
 
     m_background = std::make_shared<ColorRectWidget>();
-    m_background->set_color(Colors::blue);
-    m_background->set_size(Point(Size::px(80), Size::px(80)));
+    m_background->set_color(Color(1.0, 1.0, 1.0, 0.0));
+    m_background->set_size(Point(Size::px(22 * 4), Size::px(22 * 4)));
     add_child(m_background);
 
     m_item_rect = std::make_shared<TextureRectWidget>();
@@ -40,11 +40,11 @@ void QuickSlotWidget::update(float d)
 
     if (m_selected)
     {
-        m_background->set_color(Colors::yellow);
+        m_background->set_color(Color(0.9, 0.9, 0.9, 0.4));
     }
     else
     {
-        m_background->set_color(Colors::blue);
+        m_background->set_color(Color(1.0, 1.0, 1.0, 0.0));
     }
 }
 
@@ -103,22 +103,23 @@ PlayerInventory::PlayerInventory(std::shared_ptr<InventoryContainer> container, 
     add_grid(1, 1, 3, Point(Size::px(295), Size::px(-189)));
 
     m_quick_slots_container = std::make_shared<Widget>();
-    m_quick_slots_container->set_layout(ContainerLayout::Horizontal);
+    m_quick_slots_container->set_layout(ContainerLayout::Stack);
     m_quick_slots_container->set_alignment(ContainerAlignment::CenterX | ContainerAlignment::Bottom);
     m_quick_slots_container->set_expand_horizontal(true);
     m_quick_slots_container->set_expand_vertical(true);
 
-    std::shared_ptr<Widget> subcontainer = std::make_shared<Widget>();
+    std::shared_ptr<TextureRectWidget> toolbar_background = std::make_shared<TextureRectWidget>();
+    toolbar_background->set_texture(Texture::load("data/resourcepacks/core/assets/minecraft/textures/gui/widgets.png", 182, 22).value_or(Renderer::get().get_missing_texture()));
+    toolbar_background->set_size(Point(Size::px(182 * 4), Size::px(22 * 4)));
+    m_quick_slots_container->add_child(toolbar_background);
 
     for (int32_t x = 0; x < int32_t(inventory_width); x++)
     {
         std::shared_ptr<QuickSlotWidget> quick_slot = std::make_shared<QuickSlotWidget>();
 
-        subcontainer->add_child(quick_slot);
+        toolbar_background->add_child(quick_slot);
         m_quick_slots[x] = quick_slot;
     }
-
-    m_quick_slots_container->add_child(subcontainer);
 
     add_child(m_grabbed_item_rect); // NOTE: quick hack to draw the grabbed item on top
 }
@@ -135,6 +136,8 @@ void PlayerInventory::update(float d)
 
     for (size_t x = 0; x < inventory_width; x++)
     {
+        m_quick_slots[x]->update_everything(d);
+
         ItemStack stack = m_container->get_stack(1, x);
         if (!stack.item().valid())
         {

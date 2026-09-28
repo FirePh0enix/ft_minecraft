@@ -53,6 +53,8 @@ public:
     virtual std::expected<void, Error> save(EntitySerializer& ser) const override;
     virtual std::expected<void, Error> load(const EntitySerializer& deser) override;
 
+    virtual void on_damage(int value, EntityId damage_source) override;
+
     virtual void die() override;
     void on_death();
     void respawn();
@@ -139,7 +141,6 @@ private:
     std::optional<size_t> m_using_slot;
     ItemStack m_using_stack;
 
-    std::array<std::shared_ptr<Texture>, 4> m_breaks_textures;
     std::shared_ptr<Buffer> m_hand_model_buffer;
     std::shared_ptr<BindGroup> m_hand_item_bg;
 
@@ -170,7 +171,13 @@ private:
     glm::i64vec3 m_destroy_block_pos = glm::i64vec3();
     bool m_is_destroying = false;
 
+    std::shared_ptr<Texture> m_full_heart_texture;
+    std::shared_ptr<Texture> m_half_heart_texture;
+    std::shared_ptr<Texture> m_empty_heart_texture;
     std::shared_ptr<Widget> m_health_bar;
+    std::shared_ptr<Widget> m_health_bar_container;
+
+    void update_health_bar();
 
     bool are_input_available()
     {

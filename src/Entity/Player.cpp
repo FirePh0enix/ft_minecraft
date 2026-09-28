@@ -210,7 +210,7 @@ void Player::apply_gamemode(int64_t gamemode)
 }
 
 Player::Player()
-    : LivingEntity(2)
+    : LivingEntity(6)
 {
     m_aabb = AABBd(-glm::dvec3(0.35, 0.9, 0.35), glm::dvec3(0.35, 0.9, 0.35));
 
@@ -291,26 +291,35 @@ void Player::on_ready()
         auto& clip = Engine::get().music_player().get_biome_music(m_current_biome);
         Engine::get().music_player().crossfade_to(&clip, 2.0f, 1.0f);
 
-        // m_breaks_textures[0] = EXPECT(Texture::load("assets/textures/breaks/0.png"));
-        // m_breaks_textures[1] = EXPECT(Texture::load("assets/textures/breaks/1.png"));
-        // m_breaks_textures[2] = EXPECT(Texture::load("assets/textures/breaks/2.png"));
-        // m_breaks_textures[3] = EXPECT(Texture::load("assets/textures/breaks/3.png"));
+        m_full_heart_texture = Texture::load("data/resourcepacks/core/assets/minecraft/textures/gui/sprites/hud/heart/full.png").value_or(Renderer::get().get_missing_texture());
+        m_half_heart_texture = Texture::load("data/resourcepacks/core/assets/minecraft/textures/gui/sprites/hud/heart/half.png").value_or(Renderer::get().get_missing_texture());
+        m_empty_heart_texture = Texture::load("data/resourcepacks/core/assets/minecraft/textures/gui/sprites/hud/heart/container.png").value_or(Renderer::get().get_missing_texture());
+
+        m_health_bar_container = std::make_shared<Widget>();
+        m_health_bar_container->set_expand_horizontal(true);
+        // m_health_bar_container->set_expand_vertical(false);
+        m_health_bar_container->set_alignment(ContainerAlignment::Top);
+        m_health_bar_container->set_layout(ContainerLayout::Horizontal);
+        m_health_bar_container->set_offset(Point(Size::px(0), Size::px(0)));
+
+        const int max_heart_count = (m_max_health - 1) / 2 + 1;
+        for (int i = 0; i < max_heart_count; i++)
+        {
+            std::shared_ptr<TextureRectWidget> heart = std::make_shared<TextureRectWidget>();
+            heart->set_size(Point(Size::px(40), Size::px(40)));
+            heart->set_texture(m_empty_heart_texture);
+            heart->set_offset(Point(Size::px(0), Size::px(50)));
+            m_health_bar_container->add_child(heart);
+        }
 
         m_health_bar = std::make_shared<Widget>();
         m_health_bar->set_expand_horizontal(true);
-        m_health_bar->set_expand_vertical(true);
-        m_health_bar->set_alignment(ContainerAlignment::Bottom);
-        m_health_bar->set_layout(ContainerLayout::Stack);
+        // m_health_bar->set_expand_vertical(false);
+        m_health_bar->set_alignment(ContainerAlignment::Top);
+        m_health_bar->set_layout(ContainerLayout::Horizontal);
+        m_health_bar->set_offset(Point(Size::px(0), Size::px(0)));
 
-        std::shared_ptr<ColorRectWidget> background = std::make_shared<ColorRectWidget>();
-        background->set_size(Point(Size::px(500), Size::px(40)));
-        background->set_color(Color::rgb(50, 50, 50));
-        m_health_bar->add_child(background);
-
-        std::shared_ptr<ColorRectWidget> colored_rect = std::make_shared<ColorRectWidget>();
-        colored_rect->set_size(Point(Size::px(500), Size::px(40)));
-        colored_rect->set_color(Colors::red);
-        m_health_bar->add_child(colored_rect);
+        update_health_bar();
     }
 }
 
@@ -614,9 +623,12 @@ void Player::tick(float delta)
         else
             m_inventory->update_everything(delta);
 
-        std::dynamic_pointer_cast<ColorRectWidget>(m_health_bar->get_children()[1])->set_size(Point(Size::px(int32_t(500.0f * ((float)m_health / (float)m_max_health))), Size::px(40)));
+        // std::dynamic_pointer_cast<ColorRectWidget>(m_health_bar->get_children()[1])->set_size(Point(Size::px(int32_t(500.0f * ((float)m_health / (float)m_max_health))), Size::px(40)));
         m_health_bar->invalidate();
         m_health_bar->update_everything(delta);
+
+        m_health_bar_container->invalidate();
+        m_health_bar_container->update_everything(delta);
     }
 
     m_previous_frame_in_water = in_water;
@@ -766,6 +778,9 @@ void Player::draw_ui(const RenderPass& pass)
             return;
         }
 
+        m_health_bar_container->draw_everything(pass);
+        m_health_bar->draw_everything(pass);
+
         if (m_opened_inventory.has_value())
             m_opened_inventory.value()->draw_everything(pass);
         else
@@ -779,8 +794,6 @@ void Player::draw_ui(const RenderPass& pass)
 
         if (m_debug_menu_opened)
             debug_menu();
-
-        m_health_bar->draw_everything(pass);
 
         if (m_paused)
             pause_menu();
@@ -865,6 +878,13 @@ std::expected<void, Error> Player::load(const EntitySerializer& deser)
         toolbar_layer.stacks[i] = stacks[i + 27];
 
     return std::expected<void, Error>();
+}
+
+void Player::on_damage(int value, EntityId damage_source)
+{
+    (void)value;
+    (void)damage_source;
+    update_health_bar();
 }
 
 void Player::die()
@@ -1095,6 +1115,26 @@ void Player::sync_inventory()
     for (size_t i = 0; i < 9; i++)
         p.items.push_back(m_inventory_container->get_stack(1, i));
     Engine::get().server()->route_packet(NetworkConnection::create_packet(p));
+}
+
+void Player::update_health_bar()
+{
+    m_health_bar->clear_children();
+
+    const int heart_count = (m_health - 1) / 2 + 1;
+    for (int i = 0; i < heart_count; i++)
+    {
+        std::shared_ptr<TextureRectWidget> heart = std::make_shared<TextureRectWidget>();
+        heart->set_size(Point(Size::px(40), Size::px(40)));
+        heart->set_offset(Point(Size::px(0), Size::px(50)));
+
+        if (i == heart_count - 1 && i % 2 == 1)
+            heart->set_texture(m_half_heart_texture);
+        else
+            heart->set_texture(m_full_heart_texture);
+
+        m_health_bar->add_child(heart);
+    }
 }
 
 void Player::death_screen()
