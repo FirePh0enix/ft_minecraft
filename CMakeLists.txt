@@ -210,31 +210,36 @@ if(TARGET_IS_LINUX OR TARGET_IS_MACOS OR TARGET_IS_WINDOWS)
 endif()
 
 # SDL
-set(SDL_STATIC ON)
-set(SDL_DEPS_SHARED ON)
+# set(SDL_STATIC ON)
+# set(SDL_DEPS_SHARED ON)
 
-set(SDL_DUMMYAUDIO OFF)
-set(SDL_DUMMYVIDEO OFF)
-set(SDL_OPENGL OFF)
-set(SDL_OPENGLES OFF)
-set(SDL_OPENVR OFF)
-set(SDL_KMSDRM OFF)
-set(SDL_OFFSCREEN OFF)
-set(SDL_RENDER OFF)
-set(SDL_CAMERA OFF)
+# set(SDL_DUMMYAUDIO OFF)
+# set(SDL_DUMMYVIDEO OFF)
+# set(SDL_OPENGL OFF)
+# set(SDL_OPENGLES OFF)
+# set(SDL_OPENVR OFF)
+# set(SDL_KMSDRM OFF)
+# set(SDL_OFFSCREEN OFF)
+# set(SDL_RENDER OFF)
+# set(SDL_CAMERA OFF)
+# set(SDL_X11 OFF)
 
-if (TARGET_IS_MACOS)
-    set(SDL_METAL ON)
-endif()
+# if (TARGET_IS_MACOS)
+#     set(SDL_METAL ON)
+# endif()
 
-FetchContent_Declare(
-    SDL
-    GIT_REPOSITORY https://github.com/libsdl-org/SDL
-    GIT_TAG 147a8ee32dbf9ac02f3794964490687b6bbda1bc # 3.4.14
-    GIT_SHALLOW 1 # we only need the last commit
-)
-FetchContent_MakeAvailable(SDL)
-target_link_libraries(${TARGET_NAME} PUBLIC SDL3::SDL3)
+# FetchContent_Declare(
+#     SDL
+#     GIT_REPOSITORY https://github.com/libsdl-org/SDL
+#     GIT_TAG 147a8ee32dbf9ac02f3794964490687b6bbda1bc # 3.4.14
+#     GIT_SHALLOW 1 # we only need the last commit
+# )
+# FetchContent_MakeAvailable(SDL)
+# target_include_directories(SDL3::SDL3 ${CMAKE_SOURCE_DIR}/usr/include)
+# target_link_libraries(${TARGET_NAME} PUBLIC SDL3::SDL3)
+
+# target_include_directories(${TARGET_NAME} PUBLIC ${CMAKE_SOURCE_DIR}/usr/include)
+target_link_libraries(${TARGET_NAME} PUBLIC SDL3)
 
 FetchContent_Declare(
     SDL_mixer
