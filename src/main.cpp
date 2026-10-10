@@ -39,6 +39,7 @@ int main(int argc, char *argv[])
     if (!result.has_value())
     {
         error("Engine initialization failed");
+        result.error().print();
         return 1;
     }
 

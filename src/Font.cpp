@@ -6,6 +6,7 @@
 #include FT_FREETYPE_H
 
 #include <memory>
+#include <filesystem>
 
 static FT_Library g_lib;
 static std::shared_ptr<Mesh> g_mesh;
@@ -18,8 +19,12 @@ std::expected<std::shared_ptr<Font>, Error> Font::create(std::string_view font_n
 
     FT_Face face;
 
-    if (FT_New_Face(g_lib, font_name.data(), 0, &face) != 0)
+    const std::string font_path(font_name);
+    const FT_Error face_error = FT_New_Face(g_lib, font_path.c_str(), 0, &face);
+    if (face_error != 0)
     {
+        error("FT_New_Face('{}') failed with FreeType error {} (working directory: '{}')",
+            font_path, face_error, std::filesystem::current_path().string());
         return std::unexpected(Error(ErrorKind::FileNotFound));
     }
 
