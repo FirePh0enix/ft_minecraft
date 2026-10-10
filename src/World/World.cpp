@@ -26,6 +26,7 @@
 #include <format>
 #include <limits>
 #include <memory>
+#include <cmath>
 
 // https://gamedev.stackexchange.com/questions/18436/most-efficient-aabb-vs-ray-collision-algorithms
 static bool ray_intersect_aabb(const Ray& ray, const AABBd& aabb, double& t_min, glm::dvec3& normal)
@@ -546,61 +547,95 @@ inline void adjust_on_boundary(double rcomp, int64_t& vcomp, double dcomp, doubl
 bool World::raycast(int dimension, const Ray& ray, float range, RaycastResult& result, const Entity *ignore)
 {
     bool hit = false;
-    bool is_entiy = false;
-    double t_min = std::numeric_limits<double>::infinity();
-    glm::i64vec3 block_pos;
+    bool is_entity = false;
+    double closest = range;
+    glm::i64vec3 block_pos{};
+    glm::dvec3 normal{};
     std::shared_ptr<Entity> entity;
-    glm::dvec3 normal;
 
-    for (const std::shared_ptr<Entity>& e : m_dims[dimension].get_entities())
+    for (const auto& candidate : m_dims[dimension].get_entities())
     {
-        if (e.get() == ignore || e->get_parent() == ignore)
+        if (candidate.get() == ignore || candidate->get_parent() == ignore)
             continue;
-
-        AABB world_aabb = e->get_aabb().translate(e->get_global_transform().position());
-        double t = 0.0f;
-        glm::dvec3 normal;
-        if (ray_intersect_aabb(ray, world_aabb, t, normal) &&
-            t >= 0.0f &&
-            t <= range &&
-            t < t_min)
+        const AABB world_aabb = candidate->get_aabb().translate(candidate->get_global_transform().position());
+        double distance = 0.0;
+        glm::dvec3 entity_normal{};
+        if (ray_intersect_aabb(ray, world_aabb, distance, entity_normal) &&
+            distance >= 0.0 && distance <= closest)
         {
-            t_min = t;
+            closest = distance;
             hit = true;
-            is_entiy = true;
-            entity = e;
+            is_entity = true;
+            entity = candidate;
         }
     }
 
-    float d = 0.0f;
-    while (d <= range)
+    const glm::dvec3 origin = ray.origin();
+    const glm::dvec3 direction = ray.dir();
+    glm::i64vec3 cell;
+    int step[3]{};
+    glm::dvec3 initial_normal{};
+    double next_boundary[3]{};
+    double delta[3]{};
+    for (int axis = 0; axis < 3; ++axis)
     {
-        glm::vec3 pos = ray.at(d);
-        glm::i64vec3 ipos(glm::round(pos));
-        double t;
-        if (!get_block_state(dimension, ipos.x, ipos.y, ipos.z).is_air() &&
-            ray_intersect_aabb(ray, AABBd(-glm::dvec3(0.5), glm::dvec3(0.5)).translate(pos), t, normal) &&
-            t < t_min)
+        const double coordinate = origin[axis] + 0.5;
+        const double lower = std::floor(coordinate);
+        const bool on_boundary = std::abs(coordinate - lower) <= 1e-12;
+        cell[axis] = int64_t(lower);
+        step[axis] = direction[axis] > 0.0 ? 1 : direction[axis] < 0.0 ? -1 : 0;
+        if (on_boundary && step[axis] < 0)
+            --cell[axis];
+        if (on_boundary && step[axis] != 0)
+            initial_normal[axis] = -double(step[axis]);
+        if (step[axis] == 0)
         {
-            t_min = t;
-            hit = true;
-            is_entiy = false;
-            block_pos = ipos;
+            next_boundary[axis] = std::numeric_limits<double>::infinity();
+            delta[axis] = next_boundary[axis];
         }
-        d += range / 10.0f;
+        else
+        {
+            const double boundary = double(cell[axis]) + (step[axis] > 0 ? 0.5 : -0.5);
+            next_boundary[axis] = (boundary - origin[axis]) / direction[axis];
+            delta[axis] = std::abs(1.0 / direction[axis]);
+        }
     }
 
-    if (hit)
+    double entry_distance = 0.0;
+    glm::dvec3 entry_normal = initial_normal;
+    while (entry_distance <= range && entry_distance <= closest)
     {
-        result.hit_entity = is_entiy;
-        result.pos = ray.at(t_min);
-        result.distance = t_min;
-        result.block_pos = block_pos;
-        result.normal = normal;
-        result.entity = entity;
-        return true;
+        if (!get_block_state(dimension, cell.x, cell.y, cell.z).is_air())
+        {
+            closest = entry_distance;
+            hit = true;
+            is_entity = false;
+            block_pos = cell;
+            normal = entry_normal;
+            break;
+        }
+
+        int axis = 0;
+        if (next_boundary[1] < next_boundary[axis]) axis = 1;
+        if (next_boundary[2] < next_boundary[axis]) axis = 2;
+        entry_distance = next_boundary[axis];
+        if (!std::isfinite(entry_distance))
+            break;
+        cell[axis] += step[axis];
+        next_boundary[axis] += delta[axis];
+        entry_normal = glm::dvec3(0.0);
+        entry_normal[axis] = -double(step[axis]);
     }
-    return false;
+
+    if (!hit)
+        return false;
+    result.hit_entity = is_entity;
+    result.pos = ray.at(closest);
+    result.distance = closest;
+    result.block_pos = block_pos;
+    result.normal = normal;
+    result.entity = entity;
+    return true;
 }
 
 void World::break_block(int dimension, int64_t x, int64_t y, int64_t z)

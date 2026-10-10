@@ -497,7 +497,7 @@ void Player::tick(float delta)
             else
                 m_aimed_block = std::nullopt;
 
-            m_world->dd().draw_cube(glm::dvec3(result.block_pos) + result.normal, glm::vec3(1.0), Colors::yellow, 0.05f);
+            m_world->dd().draw_cube(glm::dvec3(result.block_pos), glm::vec3(1.0), Colors::yellow, 0.05f);
         }
         else
         {
