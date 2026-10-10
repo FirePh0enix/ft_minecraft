@@ -258,23 +258,39 @@ std::vector<BlockPos> World::portal_generation_origins(int dimension) const
 {
     std::vector<BlockPos> origins;
     for (const auto& [id, destination] : m_portal_destinations)
-        if (destination.first == dimension)
-            origins.push_back(destination.second);
+        if (destination.dimension == dimension)
+            origins.push_back(destination.position);
     return origins;
 }
 
-bool World::travel_through_portal(EntityId id)
+bool World::travel_through_portal(EntityId id, std::optional<BlockPos> source_portal)
 {
     const auto entity = get_entity(id);
     if (m_proxy || !entity)
         return false;
 
-    const int target_dimension = entity->get_dimension() == int(overworld) ? int(underworld) : int(overworld);
-    const double scale = target_dimension == int(underworld) ? 1.0 / 8.0 : 8.0;
-    const glm::dvec3 source = entity->get_position();
-    const int64_t x = int64_t(std::round(source.x * scale));
-    const int64_t z = int64_t(std::round(source.z * scale));
-    m_portal_destinations[id] = {target_dimension, BlockPos(x, 0, z)};
+    auto pending = m_portal_destinations.find(id);
+    if (pending == m_portal_destinations.end())
+    {
+        if (!source_portal || !is_valid_portal(entity->get_dimension(), *source_portal))
+            return false;
+        const int target_dimension = entity->get_dimension() == int(overworld) ? int(underworld) : int(overworld);
+        const double scale = target_dimension == int(underworld) ? 1.0 / 8.0 : 8.0;
+        const glm::dvec3 source = entity->get_position();
+        pending = m_portal_destinations.emplace(id, PortalDestination{
+            target_dimension, {int64_t(std::round(source.x * scale)), 0, int64_t(std::round(source.z * scale))},
+            entity->get_dimension(), *source_portal}).first;
+    }
+    const auto destination = pending->second;
+    if (entity->get_dimension() != destination.source_dimension ||
+        !is_valid_portal(destination.source_dimension, destination.source_portal))
+    {
+        cancel_portal_travel(id);
+        return false;
+    }
+    const int target_dimension = destination.dimension;
+    const int64_t x = destination.position.x;
+    const int64_t z = destination.position.z;
     Dimension& target = m_dims[target_dimension];
 
     // Keep the player in the source world until the arrival area is loaded.
@@ -481,19 +497,36 @@ bool World::try_create_portal(int dimension, BlockPos anchor)
     if (m_proxy)
         return false;
     auto& dim = m_dims[dimension];
-    const auto match = PortalPattern::find(anchor.x, anchor.y, anchor.z, Blocks::oak_log.hash,
-        Blocks::portal.hash, false, [&](int64_t x, int64_t y, int64_t z) {
-            if (y < 0 || y >= Chunk::height || !dim.has_chunk(chunk_index(x), chunk_index(z)) ||
-                dim.get_tag({x, y, z}, "water"))
-                return UINT32_MAX;
-            return dim.get_block(x, y, z).id;
-        });
+    std::optional<PortalPattern::Match> match;
+    for (const auto frame : {Blocks::oak_log, Blocks::bedrock})
+    {
+        match = PortalPattern::find(anchor.x, anchor.y, anchor.z, frame.hash,
+            Blocks::portal.hash, false, [&](int64_t x, int64_t y, int64_t z) {
+                if (y < 0 || y >= Chunk::height || !dim.has_chunk(chunk_index(x), chunk_index(z)) ||
+                    dim.get_tag({x, y, z}, "water"))
+                    return UINT32_MAX;
+                return dim.get_block(x, y, z).id;
+            });
+        if (match)
+            break;
+    }
     if (!match)
         return false;
+    bool changed = false;
     for (int dy = 1; dy < 4; ++dy)
         for (int dx = 1; dx < 3; ++dx)
-            dim.set_block(match->x + (match->along_z ? 0 : dx), match->y + dy,
-                          match->z + (match->along_z ? dx : 0), BlockState(Blocks::portal));
+        {
+            const int64_t x = match->x + (match->along_z ? 0 : dx);
+            const int64_t y = match->y + dy;
+            const int64_t z = match->z + (match->along_z ? dx : 0);
+            if (dim.get_block(x, y, z).id != Blocks::portal.hash)
+            {
+                dim.set_block(x, y, z, BlockState(Blocks::portal));
+                changed = true;
+            }
+        }
+    if (!changed)
+        return false;
     if (const auto server = std::dynamic_pointer_cast<LocalServer>(Engine::get().server()))
         server->sync_portal_chunks(dimension, match->x + 1, match->z + 1);
     return true;
@@ -521,8 +554,31 @@ void World::set_block_state(int dimension, int64_t x, int64_t y, int64_t z, Bloc
         try_create_portal(dimension, {x, y, z});
         return;
     }
-    m_dims[dimension].set_block(x, y, z, state);
-    if (state.id == Blocks::oak_log.hash)
+    auto& dim = m_dims[dimension];
+    const BlockState previous = dim.get_block(x, y, z);
+    dim.set_block(x, y, z, state);
+    if (state == previous)
+        return;
+    if (previous.id == Blocks::portal.hash || previous.id == Blocks::oak_log.hash ||
+        previous.id == Blocks::bedrock.hash)
+    {
+        // Remove the whole invalid surface so purple blocks always indicate a usable portal.
+        const BlockPos offsets[]{{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}};
+        std::vector<BlockPos> pending{{x, y, z}};
+        for (const auto offset : offsets)
+            pending.emplace_back(x + offset.x, y + offset.y, z + offset.z);
+        while (!pending.empty())
+        {
+            const auto pos = pending.back();
+            pending.pop_back();
+            if (dim.get_block(pos.x, pos.y, pos.z).id != Blocks::portal.hash || is_valid_portal(dimension, pos))
+                continue;
+            dim.set_block(pos.x, pos.y, pos.z, BlockState());
+            for (const auto offset : offsets)
+                pending.emplace_back(pos.x + offset.x, pos.y + offset.y, pos.z + offset.z);
+        }
+    }
+    if (state.id == Blocks::oak_log.hash || state.id == Blocks::bedrock.hash)
         try_create_portal(dimension, {x, y, z});
 }
 
@@ -645,7 +701,7 @@ void World::break_block(int dimension, int64_t x, int64_t y, int64_t z)
 
     // Block breaking is predicted on clients via the hit RPC. Drops, however,
     // must only be created by the authoritative server or they cannot be picked up.
-    if (Engine::get().is_client())
+    if (Engine::get().is_client() || state.id == Blocks::portal.hash)
         return;
 
     std::optional<Id<Item>> item_opt = Engine::get().registry().to_item(state.id);

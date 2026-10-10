@@ -146,7 +146,8 @@ public:
     }
 
     void change_dimension(EntityId id, int new_dimension);
-    bool travel_through_portal(EntityId id);
+    bool travel_through_portal(EntityId id, std::optional<BlockPos> source_portal = std::nullopt);
+    bool has_pending_portal_travel(EntityId id) const { return m_portal_destinations.contains(id); }
     bool try_create_portal(int dimension, BlockPos anchor);
     bool is_valid_portal(int dimension, BlockPos pos) const;
     void cancel_portal_travel(EntityId id) { m_portal_destinations.erase(id); }
@@ -194,7 +195,14 @@ public:
     void find_safe_spawn();
 
 private:
-    std::map<EntityId, std::pair<int, BlockPos>> m_portal_destinations;
+    struct PortalDestination
+    {
+        int dimension;
+        BlockPos position;
+        int source_dimension;
+        BlockPos source_portal;
+    };
+    std::map<EntityId, PortalDestination> m_portal_destinations;
 
     uint64_t m_seed = 0;
     std::string m_name;
