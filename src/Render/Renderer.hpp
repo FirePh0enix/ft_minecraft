@@ -35,7 +35,7 @@
 
 class World;
 class Chunk;
-class ChunkPos;
+struct ChunkPos;
 class Camera;
 
 struct RenderableChunk;
@@ -426,8 +426,8 @@ struct GPU_ATTRIBUTE PostProcessUniforms
     glm::mat4 inv_proj_view;
     glm::vec4 fog_color;
     float fog_distance;
-    float near;
-    float far;
+    float near_plane;
+    float far_plane;
     uint32_t underwater;
 };
 

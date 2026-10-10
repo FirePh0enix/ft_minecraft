@@ -30,7 +30,8 @@ static std::expected<std::string, Error> preprocess(const std::string& source, s
             std::string fpath = basepath.data();
             fpath += path;
 
-            std::string include_source = TRY(TRY(Filesystem::open_file(fpath)).reader().read_to_string());
+            TRY_ASSIGN(File include_file, Filesystem::open_file(fpath));
+            TRY_ASSIGN(std::string include_source, include_file.reader().read_to_string());
 
             s.append(include_source.data(), include_source.size());
             s.append("\n");
@@ -55,9 +56,9 @@ std::expected<std::shared_ptr<Shader>, Error> Shader::load(std::string_view sour
 
 std::expected<std::shared_ptr<Shader>, Error> Shader::load_from_path(std::string_view path)
 {
-    File file = TRY(Filesystem::open_file(path));
-    std::string s = TRY(file.reader().read_to_string());
-    s = TRY(preprocess(s, "data/shaders/"));
+    TRY_ASSIGN(File file, Filesystem::open_file(path));
+    TRY_ASSIGN(std::string s, file.reader().read_to_string());
+    TRY_ASSIGN(s, preprocess(s, "data/shaders/"));
     return load(s);
 }
 

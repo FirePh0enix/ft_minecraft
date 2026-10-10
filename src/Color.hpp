@@ -1,10 +1,11 @@
 #pragma once
 
 #include "Core/Math.hpp"
+#include "Core/Types.hpp"
 
 #include <cstdint>
 
-struct __attribute__((aligned(4))) ColorInt
+struct _aligned(4) ColorInt
 {
     uint8_t r;
     uint8_t g;
@@ -12,7 +13,7 @@ struct __attribute__((aligned(4))) ColorInt
     uint8_t a;
 };
 
-struct __attribute__((aligned(16))) Color
+struct _aligned(16) Color
 {
     float r;
     float g;

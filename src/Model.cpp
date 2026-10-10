@@ -102,22 +102,22 @@ void from_json(const nlohmann::json& j, ModelJSON& m)
 
 std::expected<std::shared_ptr<ModelLegacy>, Error> ModelLegacy::load(std::string_view path)
 {
-    File file = TRY(Filesystem::open_file(path));
+    TRY_ASSIGN(File file, Filesystem::open_file(path));
 
-    std::string source = TRY(file.reader().read_to_string());
+    TRY_ASSIGN(std::string source, file.reader().read_to_string());
 
     ModelJSON json = nlohmann::json::parse(std::string(source.data(), source.size()));
 
     std::shared_ptr<ModelLegacy> model = std::make_shared<ModelLegacy>();
     model->m_name.append(json.name.data(), json.name.size());
-    model->m_global_buffer = TRY(Buffer::create(sizeof(ModelLegacy::Info), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
-    model->m_texture = TRY(Texture::load(json.texture_path));
+    TRY_ASSIGN(model->m_global_buffer, Buffer::create(sizeof(ModelLegacy::Info), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
+    TRY_ASSIGN(model->m_texture, Texture::load(json.texture_path));
 
     for (const auto& object : json.objects)
     {
         ModelLegacy::Object obj;
         obj.name.append(object.name.data(), object.name.size());
-        obj.model_buffer = TRY(Buffer::create(sizeof(ModelLegacy::Info), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
+        TRY_ASSIGN(obj.model_buffer, Buffer::create(sizeof(ModelLegacy::Info), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
         obj.size = glm::vec3(object.size[0], object.size[1], object.size[2]);
         obj.position = glm::vec3(object.position[0], object.position[1], object.position[2]);
         obj.origin = glm::vec3(object.origin[0], object.origin[1], object.origin[2]);
@@ -125,7 +125,7 @@ std::expected<std::shared_ptr<ModelLegacy>, Error> ModelLegacy::load(std::string
         std::vector<glm::vec2> uvs;
         for (uint32_t i = 0; i < 24; i++)
             uvs.push_back(glm::vec2(float(object.uvs[i][0]) / float(json.texture_size[0]), float(object.uvs[i][1]) / float(json.texture_size[1])));
-        obj.uv_buffer = TRY(Buffer::create(sizeof(glm::vec2) * 24, WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
+        TRY_ASSIGN(obj.uv_buffer, Buffer::create(sizeof(glm::vec2) * 24, WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
         obj.uv_buffer->update(std::as_bytes(std::span(uvs)));
 
         ModelLegacy::Info info{

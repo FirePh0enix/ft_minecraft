@@ -1,3 +1,5 @@
+#include <cstddef>
+
 #include "Entity/Entity.hpp"
 
 #include "Core/Filesystem.hpp"
@@ -11,7 +13,7 @@
 
 std::expected<void, Error> EntitySerializer::save(std::string_view path) const
 {
-    File file = TRY(Filesystem::open_file(path, true));
+    TRY_ASSIGN(File file, Filesystem::open_file(path, true));
     FileWriter writer = file.writer();
 
     for (auto& [name, value] : m_variants)
@@ -26,12 +28,12 @@ std::expected<void, Error> EntitySerializer::save(std::string_view path) const
 
 std::expected<void, Error> EntitySerializer::load(std::string_view path)
 {
-    File file = TRY(Filesystem::open_file(path));
+    TRY_ASSIGN(File file, Filesystem::open_file(path));
     FileReader reader = file.reader();
 
     while (!reader.eof())
     {
-        std::optional<Variant> vname_opt = TRY(reader.read_variant());
+        TRY_ASSIGN(std::optional<Variant> vname_opt, reader.read_variant());
         if (!vname_opt.has_value())
             break;
 
@@ -40,7 +42,9 @@ std::expected<void, Error> EntitySerializer::load(std::string_view path)
             return std::unexpected(Error(ErrorKind::ReadFailure));
         std::string s = vname.get_unchecked<std::string>();
 
-        Variant value = TRY(reader.read_variant()).value();
+        TRY_ASSIGN(auto value_optional, reader.read_variant());
+
+        Variant value = value_optional.value();
         m_variants[s] = value;
     }
 
@@ -94,7 +98,7 @@ void Entity::add_child(std::shared_ptr<Entity> entity)
 
 void Entity::remove_child(size_t index)
 {
-    m_children.erase(m_children.begin() + (ssize_t)index);
+    m_children.erase(m_children.begin() + (std::ptrdiff_t)index);
 }
 
 std::shared_ptr<Entity> Entity::get_child(size_t index)

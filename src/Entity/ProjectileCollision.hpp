@@ -10,8 +10,8 @@
 // Parallel axes are handled explicitly to avoid 0 * infinity at box edges.
 inline std::optional<double> projectile_contact(const Ray& ray, const AABBd& box, double range)
 {
-    double near = 0.0;
-    double far = range;
+    double near_distance = 0.0;
+    double far_distance = range;
     for (int axis = 0; axis < 3; ++axis)
     {
         if (ray.dir()[axis] == 0.0)
@@ -24,10 +24,10 @@ inline std::optional<double> projectile_contact(const Ray& ray, const AABBd& box
         double last = (box.max[axis] - ray.origin()[axis]) / ray.dir()[axis];
         if (first > last)
             std::swap(first, last);
-        near = std::max(near, first);
-        far = std::min(far, last);
-        if (near > far)
+        near_distance = std::max(near_distance, first);
+        far_distance = std::min(far_distance, last);
+        if (near_distance > far_distance)
             return std::nullopt;
     }
-    return near;
+    return near_distance;
 }

@@ -37,7 +37,7 @@ Engine::Engine(bool disable_save)
 std::expected<void, Error> Engine::init()
 {
     m_window = std::make_shared<Window>("ft_minecraft", WINDOW_INIT_WIDTH, WINDOW_INIT_HEIGHT);
-    m_audio_mixer = TRY(AudioMixer::create());
+    TRY_ASSIGN(m_audio_mixer, AudioMixer::create());
     m_music_player = std::make_unique<MusicPlayer>(*m_audio_mixer);
 
     Input::init(*m_window);
@@ -51,9 +51,13 @@ std::expected<void, Error> Engine::init()
     TRY(m_renderer.init(*m_window, flags));
 
     TRY(Font::init_library());
-    m_font = TRY(Font::create("data/fonts/Anonymous.ttf", 64));
+    TRY_ASSIGN(m_font, Font::create("data/fonts/Anonymous.ttf", 64));
 
+#ifdef __platform_windows
+    m_time_at_start = std::chrono::steady_clock::now();
+#else
     clock_gettime(CLOCK_MONOTONIC, &m_time_at_start);
+#endif
 
     // Detect available saves
     if (std::filesystem::exists(Filesystem::get_data_directory() + "saves/"))
@@ -246,9 +250,13 @@ void Engine::draw(float delta)
 
 double Engine::time()
 {
+#ifdef __platform_windows
+    return std::chrono::duration<double>(std::chrono::steady_clock::now() - m_time_at_start).count();
+#else
     struct timespec tp{};
     clock_gettime(CLOCK_MONOTONIC, &tp);
     return (double)(tp.tv_nsec + (tp.tv_sec - m_time_at_start.tv_sec) * 1000000000) / 1000000000.0;
+#endif
 }
 
 void Engine::go_to_main_menu()
