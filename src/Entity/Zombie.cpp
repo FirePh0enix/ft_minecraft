@@ -159,9 +159,7 @@ void Zombie::tick(float delta)
 
 void Zombie::on_ready()
 {
-    auto pathtest = std::filesystem::absolute("data/models/zombie.json");
-
-    m_model = ModelLegacy::load(pathtest.c_str()).value_or({});
+    m_model = ModelLegacy::load("data/models/zombie.json").value_or({});
     m_animator.set_model(m_model);
     m_pathfinding = std::make_unique<Pathfinding>(m_world);
 
