@@ -174,6 +174,16 @@ bool LocalServer::has_generation_started()
     return m_schedulers[World::overworld]->has_generation_started();
 }
 
+void LocalServer::set_gamemode(GameMode gamemode)
+{
+    if (m_player == nullptr)
+        return;
+
+    m_player->call_rpc("set_gamemode", static_cast<int64_t>(gamemode));
+    for (const auto& [peer, player] : m_connected_peers)
+        player->call_rpc("set_gamemode", static_cast<int64_t>(gamemode));
+}
+
 void LocalServer::sync_player_inventory(const Player& player)
 {
     for (const auto& [peer, connected] : m_connected_peers)
@@ -261,6 +271,8 @@ void LocalServer::receive(void *user, NetworkConnection& conn, ENetPacket *packe
             player->get_transform().position() = self->m_world->get_spawn_position();
 
         player->give_spawn_equipment();
+        // The host's mode governs the session, overriding a joiner's saved mode.
+        player->set_gamemode(self->m_player->get_gamemode());
 
         InitPacket init_p(self->m_world->seed(), id, player->get_transform().position());
         conn.send(client.peer(), NetworkConnection::create_packet(init_p));
@@ -328,7 +340,7 @@ void LocalServer::receive(void *user, NetworkConnection& conn, ENetPacket *packe
         AddEntityPacket p3(player->get_transform().position(), player->get_transform().rotation(), id, player->get_class_hash_code());
         conn.broadcast(NetworkConnection::create_packet(p3), client.peer());
 
-        // The joining client starts with a default Player. Restore its saved
+        // The joining client starts with a default Player. Apply the session's
         // mode on every peer before it can predict breaking blocks.
         conn.broadcast(NetworkConnection::create_packet(gamemode_packet(*player)));
 
@@ -365,6 +377,10 @@ void LocalServer::receive(void *user, NetworkConnection& conn, ENetPacket *packe
     {
         RpcCallPacket p;
         EXPECT(deserialize(buffer, p));
+
+        // Gamemode is controlled by the host, never by a client RPC.
+        if (p.name == "set_gamemode")
+            break;
 
         std::shared_ptr<Entity> entity = self->m_world->get_entity(p.id);
         debug("received RPC call on {}", (uint32_t)p.id);

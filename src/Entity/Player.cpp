@@ -158,13 +158,20 @@ void BetterConsole::gamemode(Player *player, const std::vector<std::string>& arg
         return;
     }
 
+    const auto server = std::dynamic_pointer_cast<LocalServer>(Engine::get().server());
+    if (server == nullptr)
+    {
+        player->send_message("Only the host can change the session gamemode.");
+        return;
+    }
+
     if (args[1] == "survival" || args[1] == "0")
     {
-        player->call_rpc("set_gamemode", static_cast<int64_t>(GameMode::Survival));
+        server->set_gamemode(GameMode::Survival);
     }
     else if (args[1] == "creative" || args[1] == "1")
     {
-        player->call_rpc("set_gamemode", static_cast<int64_t>(GameMode::Creative));
+        server->set_gamemode(GameMode::Creative);
     }
 }
 
@@ -535,7 +542,7 @@ void Player::tick(float delta)
                 // std::println("{} {} | {} {}", x, z, (uint16_t)m_current_biome, (uint16_t)biome);
                 m_current_biome = biome;
                 auto& clip = Engine::get().music_player().get_biome_music(biome);
-                // Engine::get().music_player().crossfade_to(&clip, 2.0f, 1.0f);
+                Engine::get().music_player().crossfade_to(&clip, 2.0f, 1.0f);
             }
         }
     }

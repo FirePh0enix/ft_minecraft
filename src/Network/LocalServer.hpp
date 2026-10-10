@@ -4,6 +4,8 @@
 #include "Network/Server.hpp"
 #include "World/Dimension.hpp"
 
+enum class GameMode;
+
 struct ChunkLoadRequest
 {
     ENetPeer *peer;
@@ -31,6 +33,7 @@ public:
     virtual void spawn_player() override;
 
     void host();
+    void set_gamemode(GameMode gamemode);
     void sync_player_inventory(const Player& player);
 
     void send_chunk(ENetPeer *peer, std::shared_ptr<Chunk> chunk);
