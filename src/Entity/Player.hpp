@@ -149,6 +149,7 @@ private:
     std::string m_username;
 
     bool m_chat_opened = false;
+    bool m_chat_focus_requested = false;
     char m_chat_buffer[128]{0};
     std::vector<std::string> m_messages;
     BetterConsole m_console;

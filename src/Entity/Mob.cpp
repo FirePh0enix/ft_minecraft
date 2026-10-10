@@ -51,6 +51,7 @@ bool Mob::tick_death(float delta_time)
     m_velocity = glm::dvec3(0.0);
     m_following_path = false;
     m_death_animation_time += delta_time;
+    m_animator.tick(delta_time);
 
     if (Engine::get().is_server() && m_death_animation_time >= death_duration)
     {

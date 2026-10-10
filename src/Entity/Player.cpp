@@ -368,9 +368,10 @@ void Player::tick(float delta)
         Input::set_mouse_grabbed(!m_opened_inventory.has_value());
     }
 
-    if (Input::is_action_just_pressed("toggle_chat") && !m_chat_opened)
+    if (m_local_player && Input::is_action_just_pressed("toggle_chat") && !m_chat_opened)
     {
         m_chat_opened = true;
+        m_chat_focus_requested = true;
         Input::set_mouse_grabbed(false);
     }
 
@@ -441,6 +442,17 @@ void Player::tick(float delta)
 
         if (amount_added > 0)
             sync_inventory();
+    }
+
+    // Remote transforms and movement states belong to the controlling peer.
+    // Keep server-side pickups above, but do not run local input or physics.
+    if (!m_local_player)
+    {
+        m_animator.play(m_movement_sound == MovementSound::Swimming ? "swim" :
+                        m_movement_sound == MovementSound::Walking ? "walk" : "idle");
+        m_animator.tick(delta);
+        m_audio_source->set_position(get_global_transform().position());
+        return;
     }
 
     Transform3D transform = m_transform;
@@ -523,7 +535,7 @@ void Player::tick(float delta)
                 // std::println("{} {} | {} {}", x, z, (uint16_t)m_current_biome, (uint16_t)biome);
                 m_current_biome = biome;
                 auto& clip = Engine::get().music_player().get_biome_music(biome);
-                Engine::get().music_player().crossfade_to(&clip, 2.0f, 1.0f);
+                // Engine::get().music_player().crossfade_to(&clip, 2.0f, 1.0f);
             }
         }
     }
@@ -588,7 +600,7 @@ void Player::tick(float delta)
     {
         if (is_in_water())
             movement_sound = MovementSound::Swimming;
-        else if (m_on_ground)
+        else
             movement_sound = MovementSound::Walking;
     }
     if (movement_sound != m_movement_sound)
@@ -1194,7 +1206,8 @@ void Player::chat()
 
     ImGui::SetNextWindowPos(ImVec2(0, (float)window_size.height / 1.7f));
     ImGui::SetNextWindowSize(ImVec2(size_x, size_y));
-    ImGui::SetNextWindowFocus();
+    if (m_chat_focus_requested)
+        ImGui::SetNextWindowFocus();
     if (ImGui::Begin("Chat"))
     {
         if (ImGui::BeginChild("Messages", ImVec2(size_x, (float)window_size.height * 0.32f)))
@@ -1204,7 +1217,12 @@ void Player::chat()
         }
         ImGui::EndChild();
 
-        ImGui::InputText("", m_chat_buffer, 128);
+        if (m_chat_focus_requested)
+        {
+            ImGui::SetKeyboardFocusHere();
+            m_chat_focus_requested = false;
+        }
+        ImGui::InputText("##ChatInput", m_chat_buffer, sizeof(m_chat_buffer));
         ImGui::SameLine();
         if (ImGui::Button(">"))
         {
