@@ -102,11 +102,13 @@ public:
 
     void remove_entity(size_t dim, std::shared_ptr<Entity> entity)
     {
+        cancel_portal_travel(entity->id());
         m_dims[dim].remove_entity(entity);
     }
 
     void remove_entity(size_t dim, EntityId entity)
     {
+        cancel_portal_travel(entity);
         m_dims[dim].remove_entity(entity);
     }
 
@@ -143,15 +145,12 @@ public:
         return entity;
     }
 
-    void change_dimension(EntityId id, int new_dimension)
-    {
-        std::shared_ptr<Entity> entity = get_entity(id);
-        int current_dimension = entity->m_dimension;
-        entity->m_dimension = new_dimension;
-
-        remove_entity(current_dimension, id);
-        add_entity(new_dimension, entity, false);
-    }
+    void change_dimension(EntityId id, int new_dimension);
+    bool travel_through_portal(EntityId id);
+    bool try_create_portal(int dimension, BlockPos anchor);
+    bool is_valid_portal(int dimension, BlockPos pos) const;
+    void cancel_portal_travel(EntityId id) { m_portal_destinations.erase(id); }
+    std::vector<BlockPos> portal_generation_origins(int dimension) const;
 
     glm::dvec3 get_spawn_position() const { return m_spawn_position; }
 
@@ -195,6 +194,8 @@ public:
     void find_safe_spawn();
 
 private:
+    std::map<EntityId, std::pair<int, BlockPos>> m_portal_destinations;
+
     uint64_t m_seed = 0;
     std::string m_name;
     bool m_proxy = false;

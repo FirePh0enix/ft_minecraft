@@ -14,7 +14,8 @@ void broadcast_spawn(const Entity& entity)
         transform.position(),
         transform.rotation(),
         entity.id(),
-        entity.get_class_hash_code());
+        entity.get_class_hash_code(),
+        entity.get_dimension());
     Engine::get().server()->route_packet(NetworkConnection::create_packet(packet));
 }
 

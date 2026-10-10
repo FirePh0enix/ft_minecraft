@@ -1,6 +1,7 @@
 #include "World/World.hpp"
 
 #include "AABB.hpp"
+#include "Block/PortalPattern.hpp"
 #include "Audio/AudioMixer.hpp"
 #include "Core/Filesystem.hpp"
 #include "Core/ZLib.hpp"
@@ -9,6 +10,8 @@
 #include "Entity/Item.hpp"
 #include "Entity/Player.hpp"
 #include "Network/Network.hpp"
+#include "Network/LocalServer.hpp"
+#include "World/Registry.hpp"
 #include "Profiler.hpp"
 #include "World/Chunk.hpp"
 #include "World/Dimension.hpp"
@@ -179,6 +182,7 @@ std::expected<std::shared_ptr<World>, Error> World::create_proxy(uint64_t seed, 
     world->m_seed = seed;
     world->m_proxy = true;
     world->m_dims[overworld].m_world = world.get();
+    world->m_dims[underworld].m_world = world.get();
     world->m_mob_spawner = std::make_unique<MobSpawner>(*world, overworld);
 
     return world;
@@ -215,13 +219,130 @@ World::~World()
 {
 }
 
+void World::change_dimension(EntityId id, int new_dimension)
+{
+    if (new_dimension < 0 || new_dimension >= int(max_dimensions))
+        return;
+    const auto entity = get_entity(id);
+    if (!entity || entity->m_dimension == new_dimension)
+        return;
+
+    Dimension& previous = m_dims[entity->m_dimension];
+    previous.remove_entity(entity);
+    std::erase(previous.m_entities_to_add, entity);
+    entity->m_dimension = new_dimension;
+    entity->m_velocity = glm::dvec3(0.0);
+    entity->m_on_ground = false;
+    entity->m_inside_portal = true;
+    // Moving an existing entity must not call on_ready() again.
+    Dimension& destination = m_dims[new_dimension];
+    std::erase(destination.m_entities_to_remove, entity);
+    if (std::find(destination.m_entities.begin(), destination.m_entities.end(), entity) == destination.m_entities.end() &&
+        std::find(destination.m_entities_to_add.begin(), destination.m_entities_to_add.end(), entity) == destination.m_entities_to_add.end())
+        destination.add_entity(entity);
+    cancel_portal_travel(id);
+
+    if (!m_proxy && Engine::get().server())
+    {
+        const RpcCallPacket packet{
+            .id = id,
+            .name = "sync_dimension",
+            .args = {int64_t(new_dimension), entity->get_position()},
+        };
+        Engine::get().server()->route_packet(NetworkConnection::create_packet(packet));
+    }
+}
+
+std::vector<BlockPos> World::portal_generation_origins(int dimension) const
+{
+    std::vector<BlockPos> origins;
+    for (const auto& [id, destination] : m_portal_destinations)
+        if (destination.first == dimension)
+            origins.push_back(destination.second);
+    return origins;
+}
+
+bool World::travel_through_portal(EntityId id)
+{
+    const auto entity = get_entity(id);
+    if (m_proxy || !entity)
+        return false;
+
+    const int target_dimension = entity->get_dimension() == int(overworld) ? int(underworld) : int(overworld);
+    const double scale = target_dimension == int(underworld) ? 1.0 / 8.0 : 8.0;
+    const glm::dvec3 source = entity->get_position();
+    const int64_t x = int64_t(std::round(source.x * scale));
+    const int64_t z = int64_t(std::round(source.z * scale));
+    m_portal_destinations[id] = {target_dimension, BlockPos(x, 0, z)};
+    Dimension& target = m_dims[target_dimension];
+
+    // Keep the player in the source world until the arrival area is loaded.
+    for (int64_t cx = chunk_index(x - 16); cx <= chunk_index(x + 16); ++cx)
+        for (int64_t cz = chunk_index(z - 16); cz <= chunk_index(z + 16); ++cz)
+            if (!target.has_chunk(cx, cz))
+                return false;
+
+    std::optional<glm::dvec3> arrival;
+    double best_distance = std::numeric_limits<double>::max();
+    for (int64_t px = x - 16; px <= x + 16; ++px)
+        for (int64_t pz = z - 16; pz <= z + 16; ++pz)
+            for (int64_t py = 1; py < Chunk::height - 2; ++py)
+            {
+                if (target.get_block(px, py, pz).id != Blocks::portal.hash ||
+                    target.get_block(px, py + 1, pz).id != Blocks::portal.hash ||
+                    !target.has_solid_block(px, py - 1, pz) ||
+                    !is_valid_portal(target_dimension, {px, py, pz}))
+                    continue;
+                const double distance = double((px - x) * (px - x) + (pz - z) * (pz - z));
+                if (distance < best_distance)
+                {
+                    best_distance = distance;
+                    arrival = glm::dvec3(px, double(py) + 0.4, pz);
+                }
+            }
+
+    if (!arrival)
+    {
+        int64_t floor_y = 70;
+        for (int64_t y = Chunk::height - 6; y >= 1; --y)
+            if (target.has_solid_block(x, y, z))
+            {
+                floor_y = y;
+                break;
+            }
+
+        // Clear a landing pocket and build a floor and a usable return portal.
+        for (int64_t px = x - 2; px <= x + 2; ++px)
+            for (int64_t pz = z - 2; pz <= z + 2; ++pz)
+            {
+                target.set_block(px, floor_y, pz, BlockState(Blocks::bedrock));
+                for (int64_t y = floor_y + 1; y <= floor_y + 4; ++y)
+                {
+                    target.set_block(px, y, pz, BlockState());
+                    target.remove_tag({px, y, pz}, "water");
+                }
+            }
+        for (int64_t px = x - 1; px <= x + 2; ++px)
+            for (int64_t y = floor_y; y <= floor_y + 4; ++y)
+                if (px == x - 1 || px == x + 2 || y == floor_y || y == floor_y + 4)
+                    target.set_block(px, y, z, BlockState(Blocks::bedrock));
+                else
+                    target.set_block(px, y, z, BlockState(Blocks::portal));
+
+        arrival = glm::dvec3(x, double(floor_y) + 1.4, z);
+        if (const auto server = std::dynamic_pointer_cast<LocalServer>(Engine::get().server()))
+            server->sync_portal_chunks(target_dimension, x, z);
+    }
+
+    entity->set_position(*arrival);
+    change_dimension(id, target_dimension);
+    return true;
+}
+
 void World::tick(float delta)
 {
-    // int dimension = m_player->get_dimension();
-
-    // tick_dimension(delta, dimension);
-    tick_dimension(delta, overworld);
-    // tick_dimension(delta, underworld);
+    for (int dimension = 0; dimension < int(max_dimensions); ++dimension)
+        tick_dimension(delta, dimension);
 
     m_debug_display.update(delta);
 }
@@ -232,6 +353,8 @@ void World::tick_dimension(float delta, int dimension)
 
     for (std::shared_ptr<Entity> entity : m_dims[dimension].get_entities())
     {
+        if (entity->get_dimension() != dimension)
+            continue;
         if (entity->is_active())
             entity->recurse_tick(delta);
         else
@@ -245,12 +368,13 @@ void World::tick_dimension(float delta, int dimension)
             m_dims[dimension].m_entities.erase(it);
     }
     for (std::shared_ptr<Entity> entity : m_dims[dimension].m_entities_to_add)
-        m_dims[dimension].m_entities.push_back(entity);
+        if (entity->get_dimension() == dimension)
+            m_dims[dimension].m_entities.push_back(entity);
 
     m_dims[dimension].m_entities_to_remove.clear();
     m_dims[dimension].m_entities_to_add.clear();
 
-    if (!m_proxy)
+    if (!m_proxy && dimension == int(overworld))
         m_mob_spawner->tick(delta);
 
     {
@@ -351,9 +475,54 @@ BlockState World::get_block_state(int dimension, int64_t x, int64_t y, int64_t z
     return m_dims[dimension].get_block(x, y, z);
 }
 
+bool World::try_create_portal(int dimension, BlockPos anchor)
+{
+    if (m_proxy)
+        return false;
+    auto& dim = m_dims[dimension];
+    const auto match = PortalPattern::find(anchor.x, anchor.y, anchor.z, Blocks::oak_log.hash,
+        Blocks::portal.hash, false, [&](int64_t x, int64_t y, int64_t z) {
+            if (y < 0 || y >= Chunk::height || !dim.has_chunk(chunk_index(x), chunk_index(z)) ||
+                dim.get_tag({x, y, z}, "water"))
+                return UINT32_MAX;
+            return dim.get_block(x, y, z).id;
+        });
+    if (!match)
+        return false;
+    for (int dy = 1; dy < 4; ++dy)
+        for (int dx = 1; dx < 3; ++dx)
+            dim.set_block(match->x + (match->along_z ? 0 : dx), match->y + dy,
+                          match->z + (match->along_z ? dx : 0), BlockState(Blocks::portal));
+    if (const auto server = std::dynamic_pointer_cast<LocalServer>(Engine::get().server()))
+        server->sync_portal_chunks(dimension, match->x + 1, match->z + 1);
+    return true;
+}
+
+bool World::is_valid_portal(int dimension, BlockPos pos) const
+{
+    const auto& dim = m_dims[dimension];
+    for (const auto frame : {Blocks::oak_log, Blocks::bedrock})
+        if (PortalPattern::find(pos.x, pos.y, pos.z, frame.hash, Blocks::portal.hash, true,
+            [&](int64_t x, int64_t y, int64_t z) {
+                if (y < 0 || y >= Chunk::height || !dim.has_chunk(chunk_index(x), chunk_index(z)))
+                    return UINT32_MAX;
+                return dim.get_block(x, y, z).id;
+            }))
+            return true;
+    return false;
+}
+
 void World::set_block_state(int dimension, int64_t x, int64_t y, int64_t z, BlockState state)
 {
+    // Portal items activate a matching frame instead of placing standalone portal cells.
+    if (!m_proxy && state.id == Blocks::portal.hash)
+    {
+        try_create_portal(dimension, {x, y, z});
+        return;
+    }
     m_dims[dimension].set_block(x, y, z, state);
+    if (state.id == Blocks::oak_log.hash)
+        try_create_portal(dimension, {x, y, z});
 }
 
 std::optional<std::shared_ptr<Chunk>> World::get_chunk(int64_t x, int64_t z) const
@@ -525,6 +694,7 @@ std::expected<void, Error> World::save_player(const std::shared_ptr<Player>& pla
     path.append(std::format("{}.dat", player->get_username()));
 
     EntitySerializer serializer;
+    serializer.set("dimension", int64_t(player->get_dimension()));
     serializer.set("position", player->get_position());
     serializer.set("rotation", player->get_rotation());
     TRY(player->save(serializer));
@@ -554,6 +724,8 @@ bool World::load_player(std::string_view username, std::shared_ptr<Player>& play
     glm::dvec3 position = serializer.get<glm::dvec3>("position").value_or(get_spawn_position());
     glm::dquat rotation = serializer.get<glm::dquat>("rotation").value_or(glm::identity<glm::dquat>());
 
+    const int64_t dimension = serializer.get<int64_t>("dimension").value_or(0);
+    player->m_dimension = dimension >= 0 && dimension < int64_t(max_dimensions) ? int(dimension) : int(overworld);
     player->set_position(position);
     player->set_rotation(rotation);
 

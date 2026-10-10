@@ -45,8 +45,8 @@ void RemoteServer::tick()
     if (m_world != nullptr)
     {
         const glm::vec3 player_pos = m_player->get_global_transform().position();
-        int64_t player_cx = int64_t(player_pos.x / 16);
-        int64_t player_cz = int64_t(player_pos.z / 16);
+        int64_t player_cx = chunk_index(int64_t(std::floor(player_pos.x)));
+        int64_t player_cz = chunk_index(int64_t(std::floor(player_pos.z)));
         for (int64_t cx = -16; cx <= 16; cx++)
         {
             for (int64_t cz = -16; cz <= 16; cz++)
@@ -54,7 +54,7 @@ void RemoteServer::tick()
                 int64_t x = player_cx + cx;
                 int64_t z = player_cz + cz;
 
-                if (m_requested_chunks.contains(ChunkPos(x, z)) || m_world->get_dimension(m_player->get_dimension()).has_chunk(x, z))
+                if (m_requested_chunks[m_player->get_dimension()].contains(ChunkPos(x, z)) || m_world->get_dimension(m_player->get_dimension()).has_chunk(x, z))
                     continue;
 
                 RequestChunkPacket p{};
@@ -63,25 +63,27 @@ void RemoteServer::tick()
                 p.dimension = m_player->get_dimension();
                 m_connection.send(NetworkConnection::create_packet(p));
 
-                m_requested_chunks.insert(ChunkPos(x, z));
+                m_requested_chunks[m_player->get_dimension()].insert(ChunkPos(x, z));
             }
         }
 
-        std::set<ChunkPos> chunk_modified;
+        std::array<std::set<ChunkPos>, World::max_dimensions> chunk_modified;
 
-        std::shared_ptr<Chunk> chunk;
-        while (m_chunk_queue.try_dequeue(chunk))
+        ReceivedChunk received;
+        while (m_chunk_queue.try_dequeue(received))
         {
+            const auto& chunk = received.chunk;
+            if (m_chunk_revisions[chunk->dimension()][chunk->pos()] != received.revision)
+                continue;
             m_world->get_dimension(chunk->dimension()).add_chunk(chunk);
-            m_requested_chunks.erase(chunk->pos());
-            chunk_modified.insert(chunk->pos());
-            add_neighbour_chunk(chunk->pos(), chunk_modified);
+            m_requested_chunks[chunk->dimension()].erase(chunk->pos());
+            chunk_modified[chunk->dimension()].insert(chunk->pos());
+            add_neighbour_chunk(chunk->pos(), chunk_modified[chunk->dimension()]);
         }
 
-        for (ChunkPos pos : chunk_modified)
-        {
-            m_world->get_dimension(World::overworld).queue_rebuild(pos);
-        }
+        for (int dimension = 0; dimension < int(World::max_dimensions); ++dimension)
+            for (ChunkPos pos : chunk_modified[dimension])
+                m_world->get_dimension(dimension).queue_rebuild(pos);
 
         m_world->tick(1.0 / 60.0);
     }
@@ -126,15 +128,21 @@ void RemoteServer::receive_chunk(const ChunkDataPacket& p, std::shared_ptr<Chunk
     BufferReader reader(tags_data.data(), tags_data.size());
     Dimension::read_tags(reader, chunk);
 
-    m_chunk_queue.enqueue(chunk);
+    for (size_t i = 0; i < 16 * 16; ++i)
+        chunk->get_biomes()[i] = p.dimension == int(World::underworld) ? Biome::Underworld : Biome::Plain;
+    m_chunk_queue.enqueue(ReceivedChunk{chunk, p.revision});
 }
 
 void RemoteServer::queue_receive_chunk(const ChunkDataPacket& p)
 {
     ZoneScoped;
 
-    // TODO: add dimension
-    std::shared_ptr<Chunk> chunk = std::make_shared<Chunk>(&m_world->get_dimension(World::overworld), p.x, p.z);
+    auto& revision = m_chunk_revisions[p.dimension][ChunkPos(p.x, p.z)];
+    if (p.revision <= revision)
+        return;
+    revision = p.revision;
+
+    std::shared_ptr<Chunk> chunk = std::make_shared<Chunk>(&m_world->get_dimension(p.dimension), p.x, p.z);
     Engine::get().get_thread_pool().submit([this, p, chunk](std::stop_token token)
                                            { receive_chunk(p, chunk, token); });
 }
@@ -191,7 +199,10 @@ void RemoteServer::receive(void *user, NetworkConnection& conn, ENetPacket *pack
         InitPacket p;
         EXPECT(deserialize(buffer, p));
 
-        self->m_world = EXPECT(World::create_proxy(0, Engine::get().audio_mixer()));
+        if (p.dimension < 0 || p.dimension >= int(World::max_dimensions))
+            break;
+
+        self->m_world = EXPECT(World::create_proxy(p.seed, Engine::get().audio_mixer()));
 
         self->m_player = std::make_shared<Player>();
         self->m_player->set_id(p.id);
@@ -199,7 +210,7 @@ void RemoteServer::receive(void *user, NetworkConnection& conn, ENetPacket *pack
         self->m_player->set_username(self->m_username);
 
         self->m_world->set_player(self->m_player);
-        self->m_world->add_entity(World::overworld, self->m_player);
+        self->m_world->add_entity(p.dimension, self->m_player);
 
         debug("Init packet received, entity id is {}, spawn at [{}, {}, {}]", p.id.value(), p.position.x, p.position.y, p.position.z);
     }
@@ -211,7 +222,7 @@ void RemoteServer::receive(void *user, NetworkConnection& conn, ENetPacket *pack
         AddEntityPacket p;
         EXPECT(deserialize(buffer, p));
 
-        if (self->m_world == nullptr)
+        if (self->m_world == nullptr || p.dimension < 0 || p.dimension >= int(World::max_dimensions))
             break;
 
         debug("new entity (class_id = {}, id = {})", p.class_id.value, (uint32_t)p.id);
@@ -227,7 +238,7 @@ void RemoteServer::receive(void *user, NetworkConnection& conn, ENetPacket *pack
         if (std::shared_ptr<Player> player = std::dynamic_pointer_cast<Player>(entity))
             player->set_remote();
 
-        self->m_world->add_entity(World::overworld, entity);
+        self->m_world->add_entity(p.dimension, entity);
     }
     break;
     case PacketType::AddItemEntity:
@@ -257,7 +268,8 @@ void RemoteServer::receive(void *user, NetworkConnection& conn, ENetPacket *pack
             break;
 
         debug("remove entity (id = {})", (uint32_t)p.id);
-        self->m_world->remove_entity(World::overworld, p.id);
+        if (const auto entity = self->m_world->get_entity(p.id))
+            self->m_world->remove_entity(entity->get_dimension(), entity);
     }
     break;
     case PacketType::UpdateEntity:
@@ -274,7 +286,7 @@ void RemoteServer::receive(void *user, NetworkConnection& conn, ENetPacket *pack
             break;
 
         std::shared_ptr<Entity> entity = self->m_world->get_entity(p.id);
-        if (entity == nullptr)
+        if (entity == nullptr || p.dimension != entity->get_dimension())
             break;
 
         entity->get_transform().position() = p.position;
@@ -320,7 +332,7 @@ void RemoteServer::receive(void *user, NetworkConnection& conn, ENetPacket *pack
         ChunkDataPacket p;
         EXPECT(deserialize(buffer, p));
 
-        if (self->m_world == nullptr)
+        if (self->m_world == nullptr || p.dimension < 0 || p.dimension >= int(World::max_dimensions))
             return;
 
         std::println("> receiving new chunk {} - {}", p.x, p.z);

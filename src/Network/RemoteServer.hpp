@@ -31,9 +31,15 @@ private:
 
     NetworkConnection m_connection;
 
-    daking::MPSC_queue<std::shared_ptr<Chunk>> m_chunk_queue;
+    struct ReceivedChunk
+    {
+        std::shared_ptr<Chunk> chunk;
+        uint64_t revision;
+    };
+    daking::MPSC_queue<ReceivedChunk> m_chunk_queue;
+    std::array<std::map<ChunkPos, uint64_t>, World::max_dimensions> m_chunk_revisions;
 
-    std::set<ChunkPos> m_requested_chunks; // TODO: Add dimension
+    std::array<std::set<ChunkPos>, World::max_dimensions> m_requested_chunks;
 
     void update_player_list();
 

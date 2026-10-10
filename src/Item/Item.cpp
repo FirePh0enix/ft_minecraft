@@ -38,6 +38,15 @@ void ItemBlock::interact(World& world, int dimension, ItemStack& stack, bool hit
         return;
     }
 
+    if (m_block == Blocks::portal)
+    {
+        if (world.try_create_portal(dimension, {int64_t(pos.x) + int64_t(normal.x),
+                                              int64_t(pos.y) + int64_t(normal.y),
+                                              int64_t(pos.z) + int64_t(normal.z)}))
+            stack.set_count(stack.count() - 1);
+        return;
+    }
+
     world.get_dimension(dimension).remove_tag(pos + normal, "water");
 
     world.set_block_state(dimension, pos.x + int64_t(normal.x), pos.y + int64_t(normal.y), pos.z + int64_t(normal.z),

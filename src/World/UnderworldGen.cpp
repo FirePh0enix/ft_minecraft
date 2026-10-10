@@ -20,7 +20,8 @@ void UnderworldGen::preload(int64_t cx, int64_t cz, std::shared_ptr<PreLoadedChu
 
 void UnderworldGen::generate_chunk(std::shared_ptr<Chunk> chunk, std::shared_ptr<PreLoadedChunk> preloaded_chunk, Dimension& dim)
 {
-    (void)preloaded_chunk;
+    for (size_t i = 0; i < 16 * 16; ++i)
+        chunk->get_biomes()[i] = preloaded_chunk->biomes[i];
     (void)dim;
 
     for (int64_t y = 0; y < 70; y++)

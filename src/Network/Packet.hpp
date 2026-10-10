@@ -157,6 +157,8 @@ struct InitPacket
     EntityId id;
     glm::vec3 position;
 
+    int32_t dimension = 0;
+
     static constexpr PacketType type = PacketType::Init;
 };
 inline std::expected<void, Error> serialize(DataBuffer& buffer, const InitPacket& p)
@@ -166,6 +168,7 @@ inline std::expected<void, Error> serialize(DataBuffer& buffer, const InitPacket
     buffer.write(p.position.x);
     buffer.write(p.position.y);
     buffer.write(p.position.z);
+    buffer.write(p.dimension);
     return std::expected<void, Error>();
 }
 inline std::expected<void, Error> deserialize(DataBuffer& buffer, InitPacket& p)
@@ -173,6 +176,7 @@ inline std::expected<void, Error> deserialize(DataBuffer& buffer, InitPacket& p)
     p.seed = buffer.read<uint64_t>();
     p.id = buffer.read<EntityId>();
     p.position = glm::vec3(buffer.read<float>(), buffer.read<float>(), buffer.read<float>());
+    p.dimension = buffer.read<int32_t>();
     return std::expected<void, Error>();
 }
 
@@ -245,6 +249,8 @@ struct SendPlayerTransformPacket
     glm::vec3 position;
     glm::quat rotation;
 
+    int32_t dimension = 0;
+
     static constexpr PacketType type = PacketType::SendPlayerTransform;
 };
 inline std::expected<void, Error> serialize(DataBuffer& buffer, const SendPlayerTransformPacket& p)
@@ -257,6 +263,7 @@ inline std::expected<void, Error> serialize(DataBuffer& buffer, const SendPlayer
     buffer.write(p.rotation.y);
     buffer.write(p.rotation.z);
     buffer.write(p.rotation.w);
+    buffer.write(p.dimension);
     return std::expected<void, Error>();
 }
 inline std::expected<void, Error> deserialize(DataBuffer& buffer, SendPlayerTransformPacket& p)
@@ -273,6 +280,7 @@ inline std::expected<void, Error> deserialize(DataBuffer& buffer, SendPlayerTran
     const float rotation_w = buffer.read<float>();
     // https://stackoverflow.com/questions/48348509/glmquat-why-the-order-of-x-y-z-w-components-are-mixed
     p.rotation = glm::quat(rotation_w, rotation_x, rotation_y, rotation_z);
+    p.dimension = buffer.read<int32_t>();
     return std::expected<void, Error>();
 }
 
@@ -282,6 +290,8 @@ struct AddEntityPacket
     glm::quat rotation;
     EntityId id;
     ClassHashCode class_id;
+
+    int32_t dimension = 0;
 
     static constexpr PacketType type = PacketType::AddEntity;
 };
@@ -326,6 +336,7 @@ inline std::expected<void, Error> serialize(DataBuffer& buffer, const AddEntityP
     buffer.write(p.rotation.w);
     buffer.write(p.id);
     buffer.write(p.class_id);
+    buffer.write(p.dimension);
     return std::expected<void, Error>();
 }
 inline std::expected<void, Error> deserialize(DataBuffer& buffer, AddEntityPacket& p)
@@ -341,6 +352,7 @@ inline std::expected<void, Error> deserialize(DataBuffer& buffer, AddEntityPacke
     p.rotation = glm::quat(rotation_w, rotation_x, rotation_y, rotation_z);
     p.id = buffer.read<EntityId>();
     p.class_id = buffer.read<ClassHashCode>();
+    p.dimension = buffer.read<int32_t>();
     return std::expected<void, Error>();
 }
 
@@ -367,6 +379,8 @@ struct UpdateEntityPacket
     glm::vec3 position;
     glm::quat rotation;
 
+    int32_t dimension = 0;
+
     static constexpr PacketType type = PacketType::UpdateEntity;
 };
 inline std::expected<void, Error> serialize(DataBuffer& buffer, const UpdateEntityPacket& p)
@@ -379,6 +393,7 @@ inline std::expected<void, Error> serialize(DataBuffer& buffer, const UpdateEnti
     buffer.write(p.rotation.y);
     buffer.write(p.rotation.z);
     buffer.write(p.rotation.w);
+    buffer.write(p.dimension);
     return std::expected<void, Error>();
 }
 inline std::expected<void, Error> deserialize(DataBuffer& buffer, UpdateEntityPacket& p)
@@ -393,6 +408,7 @@ inline std::expected<void, Error> deserialize(DataBuffer& buffer, UpdateEntityPa
     const float rotation_w = buffer.read<float>();
     // https://stackoverflow.com/questions/48348509/glmquat-why-the-order-of-x-y-z-w-components-are-mixed
     p.rotation = glm::quat(rotation_w, rotation_x, rotation_y, rotation_z);
+    p.dimension = buffer.read<int32_t>();
     return std::expected<void, Error>();
 }
 
@@ -453,7 +469,7 @@ struct RequestChunkPacket
 {
     int64_t x;
     int64_t z;
-    int dimension;
+    int32_t dimension = 0;
 
     static constexpr PacketType type = PacketType::RequestChunk;
 };
@@ -463,6 +479,7 @@ inline std::expected<void, Error> serialize(DataBuffer& buffer, const RequestChu
 
     buffer.write(p.x);
     buffer.write(p.z);
+    buffer.write(p.dimension);
     return std::expected<void, Error>();
 }
 inline std::expected<void, Error> deserialize(DataBuffer& buffer, RequestChunkPacket& p)
@@ -471,6 +488,7 @@ inline std::expected<void, Error> deserialize(DataBuffer& buffer, RequestChunkPa
 
     p.x = buffer.read<int64_t>();
     p.z = buffer.read<int64_t>();
+    p.dimension = buffer.read<int32_t>();
     return std::expected<void, Error>();
 }
 
@@ -480,6 +498,9 @@ struct ChunkDataPacket
     int64_t z;
     std::vector<uint8_t> blocks;
     std::vector<uint8_t> tags;
+
+    int32_t dimension = 0;
+    uint64_t revision = 0;
 
     static constexpr PacketType type = PacketType::ChunkData;
 };
@@ -499,6 +520,8 @@ inline std::expected<void, Error> serialize(DataBuffer& buffer, const ChunkDataP
     buffer.write(size);
 
     buffer.write_array(std::span(p.tags));
+    buffer.write(p.dimension);
+    buffer.write(p.revision);
     return std::expected<void, Error>();
 }
 inline std::expected<void, Error> deserialize(DataBuffer& buffer, ChunkDataPacket& p)
@@ -513,6 +536,8 @@ inline std::expected<void, Error> deserialize(DataBuffer& buffer, ChunkDataPacke
 
     size = buffer.read<uint32_t>();
     p.tags = buffer.read_array<uint8_t>(size);
+    p.dimension = buffer.read<int32_t>();
+    p.revision = buffer.read<uint64_t>();
     return std::expected<void, Error>();
 }
 

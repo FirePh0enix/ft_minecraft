@@ -57,20 +57,25 @@ void LocalServer::tick()
 
     m_connection.tick();
 
-    glm::dvec3 position = m_player != nullptr ? m_player->get_global_transform().position() : glm::dvec3();
-
-    std::vector<BlockPos> origins;
-    origins.push_back(BlockPos((int64_t)position.x, (int64_t)position.y, (int64_t)position.z));
-    if (m_online)
+    std::array<std::vector<BlockPos>, World::max_dimensions> origins;
+    const auto add_origin = [&](const std::shared_ptr<Player>& player)
     {
-        for (const auto& [peer, player] : m_connected_peers)
-        {
-            glm::dvec3 position = player->get_global_transform().position();
-            origins.push_back(BlockPos((int64_t)position.x, (int64_t)position.y, (int64_t)position.z));
-        }
+        const glm::dvec3 position = player->get_position();
+        origins[player->get_dimension()].push_back(BlockPos(
+            int64_t(std::floor(position.x)), int64_t(position.y), int64_t(std::floor(position.z))));
+    };
+    if (m_player)
+        add_origin(m_player);
+    else
+        origins[World::overworld].push_back(BlockPos());
+    for (const auto& [peer, player] : m_connected_peers)
+        add_origin(player);
+    for (int dimension = 0; dimension < int(World::max_dimensions); ++dimension)
+    {
+        const auto portal_origins = m_world->portal_generation_origins(dimension);
+        origins[dimension].insert(origins[dimension].end(), portal_origins.begin(), portal_origins.end());
+        m_schedulers[dimension]->tick(origins[dimension]);
     }
-
-    m_schedulers[World::overworld]->tick(origins);
     m_world->tick(1.0 / 60.0);
 
     if (m_online)
@@ -82,9 +87,7 @@ void LocalServer::tick()
             auto chunk_opt = m_world->get_dimension(req.dimension).get_chunk(req.x, req.z);
             if (chunk_opt.has_value())
             {
-                auto chunk = chunk_opt.value();
-                Engine::get().get_thread_pool().submit([this, req, chunk](std::stop_token)
-                                                       { send_chunk(req.peer, chunk); });
+                send_chunk(req.peer, chunk_opt.value());
             }
             else
             {
@@ -94,13 +97,19 @@ void LocalServer::tick()
         m_load_requests.clear();
         m_load_requests.insert(m_load_requests.end(), deferred_requests.begin(), deferred_requests.end());
 
-        for (std::shared_ptr<Entity> entity : m_world->get_dimension(World::overworld).get_entities()) // TODO: do the same for all dimensions
+        for (int dimension = 0; dimension < int(World::max_dimensions); ++dimension)
         {
-            UpdateEntityPacket p{};
-            p.id = entity->id();
-            p.position = entity->get_transform().position();
-            p.rotation = entity->get_transform().rotation();
-            route_packet(NetworkConnection::create_packet(p));
+            for (const auto& entity : m_world->get_dimension(dimension).get_entities())
+            {
+                if (entity->get_dimension() != dimension)
+                    continue;
+                UpdateEntityPacket p{};
+                p.id = entity->id();
+                p.dimension = dimension;
+                p.position = entity->get_transform().position();
+                p.rotation = entity->get_transform().rotation();
+                route_packet(NetworkConnection::create_packet(p));
+            }
         }
     }
 
@@ -133,25 +142,26 @@ void LocalServer::send_chunk(ENetPeer *peer, std::shared_ptr<Chunk> chunk)
 {
     ZoneScoped;
 
-    std::vector<uint8_t> blocks_data;
-    EXPECT(ZLib::deflate(std::as_bytes(std::span((uint8_t *)chunk->get_blocks(), sizeof(BlockState) * Chunk::block_count)), blocks_data));
-
+    // Snapshot on the world thread; compression workers must not read mutable chunks.
+    const auto bytes = std::as_bytes(std::span(chunk->get_blocks(), Chunk::block_count));
+    std::vector<std::byte> blocks(bytes.begin(), bytes.end());
     BufferWriter writer;
     Dimension::write_tags(writer, chunk);
-    std::vector<uint8_t> tags_data;
-    EXPECT(ZLib::deflate(std::as_bytes(writer.buffer()), tags_data));
-
-    ChunkDataPacket p;
-    p.x = chunk->x();
-    p.z = chunk->z();
-
-    p.blocks.resize(blocks_data.size());
-    memcpy(p.blocks.data(), blocks_data.data(), blocks_data.size());
-
-    p.tags.resize(tags_data.size());
-    memcpy(p.tags.data(), tags_data.data(), tags_data.size());
-
-    m_connection.send(peer, NetworkConnection::create_packet(p));
+    std::vector<uint8_t> tags(writer.buffer().begin(), writer.buffer().end());
+    ChunkDataPacket packet;
+    packet.x = chunk->x();
+    packet.z = chunk->z();
+    packet.dimension = chunk->dimension();
+    packet.revision = ++m_chunk_revision;
+    Engine::get().get_thread_pool().submit(
+        [this, peer, packet, blocks = std::move(blocks), tags = std::move(tags)](std::stop_token token) mutable
+        {
+            if (token.stop_requested())
+                return;
+            EXPECT(ZLib::deflate(std::span<const std::byte>(blocks), packet.blocks));
+            EXPECT(ZLib::deflate(std::as_bytes(std::span(tags)), packet.tags));
+            m_connection.send(peer, NetworkConnection::create_packet(packet));
+        });
 }
 
 void LocalServer::route_packet(ENetPacket *packet)
@@ -162,6 +172,16 @@ void LocalServer::route_packet(ENetPacket *packet)
         m_connection.broadcast(packet);
     else
         enet_packet_destroy(packet);
+}
+
+void LocalServer::sync_portal_chunks(int dimension, int64_t x, int64_t z)
+{
+    // Send the generated arrival portal even to clients already caching this area.
+    for (int64_t cx = chunk_index(x - 2); cx <= chunk_index(x + 2); ++cx)
+        for (int64_t cz = chunk_index(z - 2); cz <= chunk_index(z + 2); ++cz)
+            if (const auto chunk = m_world->get_dimension(dimension).get_chunk(cx, cz))
+                for (const auto& [peer, player] : m_connected_peers)
+                    send_chunk(peer, *chunk);
 }
 
 float LocalServer::get_generation_progression()
@@ -210,7 +230,7 @@ void LocalServer::spawn_player()
     }
 
     m_player->give_spawn_equipment();
-    m_world->add_entity(World::overworld, m_player);
+    m_world->add_entity(m_player->get_dimension(), m_player);
     m_world->set_player(m_player);
 
     update_player_list();
@@ -275,6 +295,7 @@ void LocalServer::receive(void *user, NetworkConnection& conn, ENetPacket *packe
         player->set_gamemode(self->m_player->get_gamemode());
 
         InitPacket init_p(self->m_world->seed(), id, player->get_transform().position());
+        init_p.dimension = player->get_dimension();
         conn.send(client.peer(), NetworkConnection::create_packet(init_p));
 
         const auto gamemode_packet = [](const Player& player)
@@ -301,7 +322,7 @@ void LocalServer::receive(void *user, NetworkConnection& conn, ENetPacket *packe
                 return;
             }
 
-            AddEntityPacket p2(transform.position(), transform.rotation(), entity->id(), entity->get_class_hash_code());
+            AddEntityPacket p2(transform.position(), transform.rotation(), entity->id(), entity->get_class_hash_code(), entity->get_dimension());
             conn.send(client.peer(), NetworkConnection::create_packet(p2));
 
             if (const auto existing_player = std::dynamic_pointer_cast<Player>(entity))
@@ -327,11 +348,16 @@ void LocalServer::receive(void *user, NetworkConnection& conn, ENetPacket *packe
         };
 
         // Send all existing entities, including pending spawns, to the newly connected player.
-        const Dimension& dimension = self->m_world->get_dimension(World::overworld);
-        for (const std::shared_ptr<Entity>& entity : dimension.get_entities())
-            send_entity(entity);
-        for (const std::shared_ptr<Entity>& entity : dimension.get_pending_entities())
-            send_entity(entity);
+        for (int dim = 0; dim < int(World::max_dimensions); ++dim)
+        {
+            const Dimension& dimension = self->m_world->get_dimension(dim);
+            for (const auto& entity : dimension.get_entities())
+                if (entity->get_dimension() == dim)
+                    send_entity(entity);
+            for (const auto& entity : dimension.get_pending_entities())
+                if (entity->get_dimension() == dim)
+                    send_entity(entity);
+        }
 
         PlayerConnected p2(std::string(self->m_player->get_username()));
         conn.send(client.peer(), NetworkConnection::create_packet(p2));
@@ -341,11 +367,11 @@ void LocalServer::receive(void *user, NetworkConnection& conn, ENetPacket *packe
             conn.send(client.peer(), NetworkConnection::create_packet(p));
         }
 
-        self->m_world->add_entity(0, player);
+        self->m_world->add_entity(player->get_dimension(), player);
         self->m_connected_peers[client.peer()] = player;
         self->sync_player_inventory(*player);
 
-        AddEntityPacket p3(player->get_transform().position(), player->get_transform().rotation(), id, player->get_class_hash_code());
+        AddEntityPacket p3(player->get_transform().position(), player->get_transform().rotation(), id, player->get_class_hash_code(), player->get_dimension());
         conn.broadcast(NetworkConnection::create_packet(p3), client.peer());
 
         // The joining client starts with a default Player. Apply the session's
@@ -366,7 +392,7 @@ void LocalServer::receive(void *user, NetworkConnection& conn, ENetPacket *packe
             break;
 
         std::shared_ptr<Entity> entity = self->m_world->get_entity(p.id);
-        if (entity == nullptr)
+        if (entity == nullptr || p.dimension != entity->get_dimension())
             break;
 
         entity->get_transform().position() = p.position;
@@ -378,6 +404,8 @@ void LocalServer::receive(void *user, NetworkConnection& conn, ENetPacket *packe
         RequestChunkPacket p{};
         EXPECT(deserialize(buffer, p));
 
+        if (p.dimension < 0 || p.dimension >= int(World::max_dimensions))
+            break;
         self->m_load_requests.push_back(ChunkLoadRequest(client.peer(), p.dimension, p.x, p.z));
     };
     break;
@@ -386,8 +414,8 @@ void LocalServer::receive(void *user, NetworkConnection& conn, ENetPacket *packe
         RpcCallPacket p;
         EXPECT(deserialize(buffer, p));
 
-        // Gamemode and health are server-controlled, never client RPC updates.
-        if (p.name == "set_gamemode" || p.name == "sync_health")
+        // Gamemode, health and dimension transfers are controlled by the server.
+        if (p.name == "set_gamemode" || p.name == "sync_health" || p.name == "sync_dimension")
             break;
 
         std::shared_ptr<Entity> entity = self->m_world->get_entity(p.id);
@@ -460,7 +488,7 @@ void LocalServer::disconnect(void *user, NetworkConnection& conn, const Client& 
         RemoveEntityPacket p(player->id());
         conn.broadcast(NetworkConnection::create_packet(p), client.peer());
 
-        self->m_world->remove_entity(World::overworld, player);
+        self->m_world->remove_entity(player->get_dimension(), player);
         self->m_connected_peers.erase(client.peer());
 
         PlayerDisconnected p2(std::string(player->get_username()));

@@ -523,7 +523,9 @@ void Player::tick(float delta)
         }
         else
         {
-            const glm::vec4 sky_color = glm::vec4(130.0 / 255.0, 200.0 / 255.0, 229.0 / 255.0, 1.0);
+            const glm::vec4 sky_color = m_dimension == int(World::underworld)
+                                            ? glm::vec4(0.18f, 0.04f, 0.03f, 1.0f)
+                                            : glm::vec4(130.0 / 255.0, 200.0 / 255.0, 229.0 / 255.0, 1.0);
             Renderer::get().set_fog(sky_color, float(16) * 16.0f - 1.0f);
             Renderer::get().set_sky(sky_color);
         }
@@ -532,7 +534,7 @@ void Player::tick(float delta)
         const int64_t cx = chunk_index(pos.x);
         const int64_t cz = chunk_index(pos.z);
 
-        const auto& chunk = m_world->get_chunk(cx, cz);
+        const auto& chunk = m_world->get_dimension(m_dimension).get_chunk(cx, cz);
 
         if (chunk.has_value())
         {
@@ -586,7 +588,12 @@ void Player::tick(float delta)
         m_velocity += glm::vec3(0, -1, 0) * m_gravity_value * delta * value;
     }
 
-    if (has_gravity())
+    if (has_gravity() && !chunk_loaded)
+    {
+        // Wait for destination terrain before advancing gravity or collisions.
+        m_velocity = glm::dvec3(0.0);
+    }
+    else if (has_gravity())
     {
         move_and_collide();
     }
@@ -659,6 +666,7 @@ void Player::tick(float delta)
     {
         SendPlayerTransformPacket p{};
         p.id = m_id;
+        p.dimension = m_dimension;
         p.position = get_global_transform().position();
         p.rotation = get_global_transform().rotation();
         Engine::get().server()->route_packet(NetworkConnection::create_packet(p));
@@ -945,6 +953,7 @@ void Player::respawn()
 
     m_health = m_max_health;
     set_position(m_world->get_spawn_position());
+    m_world->change_dimension(id(), World::overworld);
     give_spawn_equipment();
     call_rpc("on_respawn");
     sync_inventory();

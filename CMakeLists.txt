@@ -34,7 +34,7 @@ list(APPEND SOURCES
     src/Audio/MusicPlayer.cpp
     src/Block/Block.cpp
     src/Block/CraftingTable.cpp
-    # src/Block/Portal.cpp
+    src/Block/Portal.cpp
     src/Core/Noise/Simplex.cpp
     src/Core/Error.cpp
     src/Core/Filesystem.cpp
