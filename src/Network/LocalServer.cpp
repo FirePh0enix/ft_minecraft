@@ -271,6 +271,16 @@ void LocalServer::receive(void *user, NetworkConnection& conn, ENetPacket *packe
         BonjourPacket p;
         EXPECT(deserialize(buffer, p));
 
+        // Networking runs during terrain generation, before spawn_player creates the host.
+        if (!self->m_world || !self->m_player)
+        {
+            RefusedPacket refused;
+            refused.message = "The host is still loading. Please try connecting again shortly.";
+            conn.send(client.peer(), conn.create_packet(refused));
+            conn.disconnect(client.peer());
+            break;
+        }
+
         if (self->has_connected_player(p.username))
         {
             RefusedPacket p2;
