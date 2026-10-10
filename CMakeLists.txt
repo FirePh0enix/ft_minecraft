@@ -247,6 +247,11 @@ if(TARGET_IS_WINDOWS)
     set(SDLMIXER_DEPS_SHARED OFF)
     set(SDLMIXER_VENDORED ON)
     set_property(TARGET ${TARGET_NAME} PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
+    # Visual Studio's CMake launch can use the executable directory as its working directory.
+    add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CMAKE_SOURCE_DIR}/data" "$<TARGET_FILE_DIR:${TARGET_NAME}>/data"
+        VERBATIM)
 endif()
 
 # set(SDL_DUMMYAUDIO OFF)
