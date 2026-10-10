@@ -23,6 +23,11 @@ fn shadowMap(normal: vec3<f32>, frag_pos_light_space: vec4<f32>) -> f32 {
 }
 
 fn lighting(color: vec4<f32>, normal: vec3<f32>, shadow_pos: vec4<f32>) -> vec4<f32> {
+    if (world_env.underworld > 0.5) {
+        // Warm cavern light stays readable beneath the roof, without sunlight shadows.
+        let brightness = 0.65 + 0.15 * clamp(normal.y, -1.0, 1.0);
+        return vec4<f32>(color.rgb * vec3<f32>(1.0, 0.43, 0.30) * brightness, color.a);
+    }
     let diffuse_factor = clamp(dot(world_env.light_dir, normal), 0.0, 1.0);
     
     // visibility is in [0, 1]: diffuse <= 0.1 plus ambient 0.2 never exceeds

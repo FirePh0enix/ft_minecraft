@@ -12,6 +12,7 @@ struct WorldEnv
 {
     light_view_projection: mat4x4<f32>,
     light_dir: vec3<f32>,
+    underworld: f32,
 }
 
 struct VertexOutput

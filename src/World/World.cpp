@@ -320,13 +320,23 @@ bool World::travel_through_portal(EntityId id, std::optional<BlockPos> source_po
 
     if (!arrival)
     {
-        int64_t floor_y = 70;
-        for (int64_t y = Chunk::height - 6; y >= 1; --y)
-            if (target.has_solid_block(x, y, z))
+        const bool underworld_destination = target_dimension == int(underworld);
+        int64_t floor_y = underworld_destination ? 64 : 70;
+        const int64_t highest_floor = underworld_destination ? UnderworldGen::roof_height - 6 : Chunk::height - 6;
+        for (int64_t y = highest_floor; y >= 1; --y)
+        {
+            if (!target.has_solid_block(x, y, z))
+                continue;
+            bool clear = true;
+            for (int64_t dy = 1; dy <= 5; ++dy)
+                if (!target.get_block(x, y + dy, z).is_air())
+                    clear = false;
+            if (clear)
             {
                 floor_y = y;
                 break;
             }
+        }
 
         // Clear a landing pocket and build a floor and a usable return portal.
         for (int64_t px = x - 2; px <= x + 2; ++px)

@@ -400,6 +400,7 @@ struct GPU_ATTRIBUTE FwWorldEnv
 {
     glm::mat4 light_view_projection;
     glm::vec3 light_dir;
+    float underworld = 0.0f;
 };
 
 struct GPU_ATTRIBUTE FwModel
