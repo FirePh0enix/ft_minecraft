@@ -177,6 +177,9 @@ void BetterConsole::gamemode(Player *player, const std::vector<std::string>& arg
 
 void Player::bind_methods()
 {
+    type.add_method("sync_health", &Player::sync_health);
+    expose_rpc<Player>("sync_health", RpcTarget::Client);
+
     type.add_method("set_gamemode", &Player::apply_gamemode);
     expose_rpc<Player>("set_gamemode", RpcTarget::Both);
 
@@ -904,6 +907,14 @@ void Player::on_damage(int value, EntityId damage_source)
     (void)value;
     (void)damage_source;
     update_health_bar();
+    if (Engine::get().is_server())
+        call_rpc("sync_health", static_cast<int64_t>(m_health));
+}
+
+void Player::sync_health(int64_t health)
+{
+    m_health = static_cast<int>(std::clamp(health, int64_t(0), int64_t(m_max_health)));
+    update_health_bar();
 }
 
 void Player::die()
@@ -941,6 +952,8 @@ void Player::respawn()
 
 void Player::on_respawn()
 {
+    m_health = m_max_health;
+    update_health_bar();
     m_dead = false;
     m_death_animation_time = 0.0f;
     m_animator.stop();
@@ -1138,16 +1151,21 @@ void Player::sync_inventory()
 
 void Player::update_health_bar()
 {
+    // Only the local player owns HUD widgets; damage also affects remote players.
+    if (!m_local_player || !m_health_bar)
+        return;
+
     m_health_bar->clear_children();
 
-    const int heart_count = (m_health - 1) / 2 + 1;
+    const int health = std::clamp(m_health, 0, m_max_health);
+    const int heart_count = (health + 1) / 2;
     for (int i = 0; i < heart_count; i++)
     {
         std::shared_ptr<TextureRectWidget> heart = std::make_shared<TextureRectWidget>();
         heart->set_size(Point(Size::px(40), Size::px(40)));
         heart->set_offset(Point(Size::px(0), Size::px(50)));
 
-        if (i == heart_count - 1 && i % 2 == 1)
+        if (i == heart_count - 1 && health % 2 == 1)
             heart->set_texture(m_half_heart_texture);
         else
             heart->set_texture(m_full_heart_texture);

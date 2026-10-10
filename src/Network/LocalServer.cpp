@@ -305,7 +305,15 @@ void LocalServer::receive(void *user, NetworkConnection& conn, ENetPacket *packe
             conn.send(client.peer(), NetworkConnection::create_packet(p2));
 
             if (const auto existing_player = std::dynamic_pointer_cast<Player>(entity))
+            {
                 conn.send(client.peer(), NetworkConnection::create_packet(gamemode_packet(*existing_player)));
+                const RpcCallPacket health_packet{
+                    .id = existing_player->id(),
+                    .name = "sync_health",
+                    .args = {existing_player->get_health()},
+                };
+                conn.send(client.peer(), NetworkConnection::create_packet(health_packet));
+            }
 
             const int64_t movement_state = entity->get_movement_state();
             if (movement_state != 0)
@@ -378,8 +386,8 @@ void LocalServer::receive(void *user, NetworkConnection& conn, ENetPacket *packe
         RpcCallPacket p;
         EXPECT(deserialize(buffer, p));
 
-        // Gamemode is controlled by the host, never by a client RPC.
-        if (p.name == "set_gamemode")
+        // Gamemode and health are server-controlled, never client RPC updates.
+        if (p.name == "set_gamemode" || p.name == "sync_health")
             break;
 
         std::shared_ptr<Entity> entity = self->m_world->get_entity(p.id);
