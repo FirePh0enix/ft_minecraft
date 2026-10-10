@@ -88,14 +88,7 @@ std::expected<File, Error> Filesystem::open_file(std::string_view path, bool rw)
 #endif
 
     if (fd == -1)
-    {
-        // Capture errno before logging or querying the working directory.
-        Error failure(ErrorKind::FileNotFound);
-        std::error_code ec;
-        const auto cwd = std::filesystem::current_path(ec);
-        error("Failed to open file '{}' (working directory: '{}')", path, cwd.string());
-        return std::unexpected(failure);
-    }
+        return std::unexpected(Error(ErrorKind::FileNotFound));
 
 #ifdef __platform_windows
     struct _stat64 st{};
