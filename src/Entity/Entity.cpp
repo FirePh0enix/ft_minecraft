@@ -1,15 +1,16 @@
+#include <algorithm>
 #include <cstddef>
 
 #include "Entity/Entity.hpp"
 
 #include "Core/Filesystem.hpp"
 #include "Engine.hpp"
+#include "Entity/Player.hpp"
 #include "Network/Network.hpp"
 #include "Type.hpp"
 #include "Variant.hpp"
-#include "World/World.hpp"
 #include "World/Registry.hpp"
-#include "Entity/Player.hpp"
+#include "World/World.hpp"
 
 #include <string>
 
@@ -109,7 +110,6 @@ void Entity::tick(float delta)
     }
 }
 
-
 void Entity::sync_dimension(int64_t dimension, glm::dvec3 position)
 {
     if (!m_world || dimension < 0 || dimension >= int64_t(World::max_dimensions))
@@ -200,6 +200,10 @@ void Entity::call_rpci(std::string_view name, std::span<const Variant> args)
 // Based on https://medium.com/@andrebluntindie/3d-aabb-collision-detection-and-resolution-for-voxel-games-5fcbfdb8cdb4
 void Entity::move_and_collide()
 {
+    // Limit downward movement per tick so we don't skip nearby collision blocks.
+    constexpr double max_fall_step = 0.5;
+    m_velocity.y = std::max(m_velocity.y, -max_fall_step);
+
     AABBd mob_box = m_aabb.translate(m_transform.position());
     const Dimension& dimension = m_world->get_dimension(m_dimension);
     const std::vector<AABBd> colliders = dimension.get_boxes_that_may_collide(mob_box);

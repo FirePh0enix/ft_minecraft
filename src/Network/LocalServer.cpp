@@ -35,9 +35,9 @@ void LocalServer::start()
         m_world = EXPECT(World::create(m_world_name, m_world_seed, 0, Engine::get().audio_mixer()));
     }
 
+    m_world_settings.seed = m_world->seed();
     m_schedulers[World::overworld] = std::make_shared<GenScheduler>(m_world->get_dimension(World::overworld), std::make_shared<OverworldGen>(m_world_settings));
     WorldSettings underworld_settings = m_world_settings;
-    underworld_settings.seed = m_world->seed();
     m_schedulers[World::underworld] = std::make_shared<GenScheduler>(m_world->get_dimension(World::underworld), std::make_shared<UnderworldGen>(underworld_settings));
 
     // m_player = std::make_shared<Player>();
