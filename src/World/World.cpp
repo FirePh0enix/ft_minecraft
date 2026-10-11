@@ -157,7 +157,8 @@ std::expected<std::shared_ptr<World>, Error> World::create(std::string name, uin
     world->m_dims[overworld].m_world = world.get();
     world->m_dims[underworld].m_world = world.get();
 
-    world->m_mob_spawner = std::make_unique<MobSpawner>(*world, overworld);
+    for (size_t dimension = 0; dimension < max_dimensions; ++dimension)
+        world->m_mob_spawners[dimension] = std::make_unique<MobSpawner>(*world, int(dimension));
 
     if (!Engine::get().is_save_disabled())
     {
@@ -184,7 +185,8 @@ std::expected<std::shared_ptr<World>, Error> World::create_proxy(uint64_t seed, 
     world->m_proxy = true;
     world->m_dims[overworld].m_world = world.get();
     world->m_dims[underworld].m_world = world.get();
-    world->m_mob_spawner = std::make_unique<MobSpawner>(*world, overworld);
+    for (size_t dimension = 0; dimension < max_dimensions; ++dimension)
+        world->m_mob_spawners[dimension] = std::make_unique<MobSpawner>(*world, int(dimension));
 
     return world;
 }
@@ -211,7 +213,8 @@ std::expected<std::shared_ptr<World>, Error> World::load(std::string name, Audio
     world->m_dims[overworld].m_world = world.get();
     world->m_dims[underworld].m_world = world.get();
 
-    world->m_mob_spawner = std::make_unique<MobSpawner>(*world, overworld);
+    for (size_t dimension = 0; dimension < max_dimensions; ++dimension)
+        world->m_mob_spawners[dimension] = std::make_unique<MobSpawner>(*world, int(dimension));
 
     return world;
 }
@@ -401,8 +404,8 @@ void World::tick_dimension(float delta, int dimension)
     m_dims[dimension].m_entities_to_remove.clear();
     m_dims[dimension].m_entities_to_add.clear();
 
-    if (!m_proxy && dimension == int(overworld))
-        m_mob_spawner->tick(delta);
+    if (!m_proxy)
+        m_mob_spawners[dimension]->tick(delta);
 
     {
         ZoneScopedN("Mesh flush");

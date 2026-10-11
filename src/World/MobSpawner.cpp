@@ -96,10 +96,10 @@ void MobSpawner::spawn_mobs()
     {
         if (zombie_count < MAX_MOBS_PER_TYPE && try_spawn_zombie(*player))
             ++zombie_count;
-        if (cow_count < MAX_MOBS_PER_TYPE && try_spawn_cow(*player))
+        if (m_dimension == int(World::overworld) && cow_count < MAX_MOBS_PER_TYPE && try_spawn_cow(*player))
             ++cow_count;
 
-        if (zombie_count >= MAX_MOBS_PER_TYPE && cow_count >= MAX_MOBS_PER_TYPE)
+        if (zombie_count >= MAX_MOBS_PER_TYPE && (m_dimension != int(World::overworld) || cow_count >= MAX_MOBS_PER_TYPE))
             break;
     }
 }
@@ -115,7 +115,8 @@ bool MobSpawner::try_spawn_zombie(Player& player)
     {
         const int x = player_x + rand_int(-SPAWN_RADIUS, SPAWN_RADIUS);
         const int z = player_z + rand_int(-SPAWN_RADIUS, SPAWN_RADIUS);
-        bool has_ceiling = false;
+        // The underworld is covered even when its roof is outside the scan range.
+        bool has_ceiling = m_dimension == int(World::underworld);
 
         // Scan from top to bottom. Once a solid block has been crossed, any
         // valid space below is considered covered, so it might be a cave.

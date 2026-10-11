@@ -218,5 +218,5 @@ private:
 
     AudioMixer& m_audio;
 
-    std::unique_ptr<MobSpawner> m_mob_spawner;
+    std::array<std::unique_ptr<MobSpawner>, max_dimensions> m_mob_spawners;
 };
