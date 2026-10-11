@@ -10,6 +10,12 @@
 
 #include <memory>
 
+#ifdef __platform_windows
+#include <chrono>
+#else
+#include <ctime>
+#endif
+
 /// Number of ticks per in-game day.
 constexpr int64_t ticks_per_day = 60 * 60 * 24;
 constexpr int64_t ticks_noon = ticks_per_day / 2;
@@ -101,7 +107,11 @@ private:
     ThreadPool m_thread_pool;
     ThreadPool m_mesh_thread_pool;
 
+#ifdef __platform_windows
+    std::chrono::steady_clock::time_point m_time_at_start{};
+#else
     struct timespec m_time_at_start{};
+#endif
     bool m_time_pass = true;
     int64_t m_tick_scale = 15;
     int64_t m_ticks_since_start_of_day = 0;

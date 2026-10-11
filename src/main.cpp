@@ -7,6 +7,10 @@
 
 #include <imgui.h>
 
+#ifdef __platform_windows
+#include <SDL3/SDL_main.h>
+#endif
+
 static constexpr double fixed_update_time = 1.0 / 60.0;
 static double last_update_time;
 
@@ -35,6 +39,7 @@ int main(int argc, char *argv[])
     if (!result.has_value())
     {
         error("Engine initialization failed");
+        result.error().print();
         return 1;
     }
 

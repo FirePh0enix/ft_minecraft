@@ -26,6 +26,10 @@
 #include <random>
 #include <span>
 
+#ifdef __platform_windows
+#include <windows.h>
+#endif
+
 // clang-format off
 static const uint32_t missing_texture_data[16 * 16]{
     0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF00FFFF, 0xFF000000, 0xFF000000, 0xFF000000, 0xFF000000, 0xFF000000, 0xFF000000, 0xFF000000, 0xFF000000,
@@ -122,12 +126,13 @@ std::expected<std::shared_ptr<Buffer>, Error> Buffer::create(size_t size, WGPUBu
         size = desc.size;
     }
 
-    WGPUBuffer wgpu_buffer = ({
+    WGPUBuffer wgpu_buffer;
+    {
         ZoneScopedN("wgpuDeviceCreateBuffer w/ lock");
 
         std::lock_guard<std::mutex> guard(Renderer::get().get_device_mutex());
-        wgpuDeviceCreateBuffer(Renderer::get().m_device, &desc);
-    });
+        wgpu_buffer = wgpuDeviceCreateBuffer(Renderer::get().m_device, &desc);
+    }
     ERR_COND_VRV(wgpu_buffer == nullptr, std::unexpected(Error(ErrorKind::OutOfDeviceMemory)), "Failed to create buffer of size {}", size);
 
     std::shared_ptr<Buffer> buffer = std::make_shared<Buffer>();
@@ -242,7 +247,7 @@ std::shared_ptr<Texture> Texture::create_from_handle(WGPUTexture texture)
 
 std::expected<std::shared_ptr<Texture>, Error> Texture::load(std::string_view path, size_t width, size_t height)
 {
-    File file = TRY(Filesystem::open_file(path));
+    TRY_ASSIGN(File file, Filesystem::open_file(path));
 
     std::vector<char> buffer;
     TRY(file.reader().read_to_buffer(buffer));
@@ -259,7 +264,7 @@ std::expected<std::shared_ptr<Texture>, Error> Texture::load(std::string_view pa
     if (height == 0)
         height = h;
 
-    std::shared_ptr<Texture> texture = TRY(Texture::create(width, height, WGPUTextureFormat_RGBA8Unorm, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding, WGPUTextureDimension_2D, 1, 1));
+    TRY_ASSIGN(std::shared_ptr<Texture> texture, Texture::create(width, height, WGPUTextureFormat_RGBA8Unorm, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding, WGPUTextureDimension_2D, 1, 1));
     if (width == (size_t)w && height == (size_t)h)
     {
         texture->update(std::span((std::byte *)data, w * h * 4));
@@ -353,19 +358,19 @@ std::expected<std::shared_ptr<Mesh>, Error> Mesh::create_from_data(std::span<con
 {
     const size_t vertex_count = indices.size() / size_of(index_type);
 
-    std::shared_ptr<Buffer> index_buffer = TRY(Buffer::create(indices.size(), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Index));
+    TRY_ASSIGN(std::shared_ptr<Buffer> index_buffer, Buffer::create(indices.size(), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Index));
     index_buffer->update(indices);
 
-    std::shared_ptr<Buffer> vertex_buffer = TRY(Buffer::create(positions.size() * sizeof(glm::vec3), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Vertex));
+    TRY_ASSIGN(std::shared_ptr<Buffer> vertex_buffer, Buffer::create(positions.size() * sizeof(glm::vec3), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Vertex));
     vertex_buffer->update(std::as_bytes(positions));
 
-    std::shared_ptr<Buffer> uv_buffer = TRY(Buffer::create(uvs.size(), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Vertex));
+    TRY_ASSIGN(std::shared_ptr<Buffer> uv_buffer, Buffer::create(uvs.size(), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Vertex));
     uv_buffer->update(std::as_bytes(uvs));
 
     std::shared_ptr<Buffer> normal_buffer;
     if (normals.size() > 0)
     {
-        normal_buffer = TRY(Buffer::create(normals.size() * sizeof(glm::vec3), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Vertex));
+        TRY_ASSIGN(normal_buffer, Buffer::create(normals.size() * sizeof(glm::vec3), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Vertex));
         normal_buffer->update(std::as_bytes(normals));
     }
 
@@ -710,6 +715,7 @@ WGPUAdapter request_adapter_sync(WGPUInstance instance)
     WGPURequestAdapterOptions adapter_options{};
     adapter_options.featureLevel = WGPUFeatureLevel_Core;
 
+
     WGPURequestAdapterCallbackInfo callback_info{
         .nextInChain = nullptr,
         .mode = WGPUCallbackMode_WaitAnyOnly,
@@ -943,7 +949,8 @@ static std::expected<std::shared_ptr<Mesh>, Error> create_cube_mesh(glm::vec3 si
         glm::vec3(0.0, -1.0, 0.0),
     };
 
-    return std::shared_ptr<Mesh>(TRY(Mesh::create_from_data(std::as_bytes(std::span(indices)), vertices, normals, std::as_bytes(std::span(uvs)), WGPUIndexFormat_Uint16)));
+    TRY_ASSIGN(std::shared_ptr<Mesh> mesh, Mesh::create_from_data(std::as_bytes(std::span(indices)), vertices, normals, std::as_bytes(std::span(uvs)), WGPUIndexFormat_Uint16));
+    return mesh;
 }
 
 static std::expected<std::shared_ptr<Mesh>, Error> create_wireframe_cube_mesh(glm::vec3 size = glm::vec3(1.0), glm::vec3 offset = glm::vec3())
@@ -993,7 +1000,8 @@ static std::expected<std::shared_ptr<Mesh>, Error> create_wireframe_cube_mesh(gl
         glm::vec3(-hs.x + offset.x, -hs.y + offset.y, hs.z + offset.z),
     };
 
-    return std::shared_ptr<Mesh>(TRY(Mesh::create_from_data(std::as_bytes(std::span(indices)), vertices, std::span<glm::vec3>(), std::span<std::byte>(), WGPUIndexFormat_Uint16)));
+    TRY_ASSIGN(std::shared_ptr<Mesh> mesh, Mesh::create_from_data(std::as_bytes(std::span(indices)), vertices, std::span<glm::vec3>(), std::span<std::byte>(), WGPUIndexFormat_Uint16));
+    return mesh;
 }
 
 #define SHADOWMAP_RESOLUTION 4096
@@ -1071,36 +1079,36 @@ std::expected<void, Error> Renderer::init(const Window& window, InitFlags flags)
     m_queue = wgpuDeviceGetQueue(m_device);
     ERR_COND_R(m_queue == nullptr, "Unable to retrieve the queue", std::unexpected(Error(ErrorKind::NoSuitableDevice)));
 
-    m_env_2d_buffer = TRY(Buffer::create(sizeof(glm::mat4), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
-    m_sky_buffer = TRY(Buffer::create(sizeof(SkyUniforms), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
+    TRY_ASSIGN(m_env_2d_buffer, Buffer::create(sizeof(glm::mat4), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
+    TRY_ASSIGN(m_sky_buffer, Buffer::create(sizeof(SkyUniforms), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
 
-    m_fw_camera = TRY(Buffer::create(sizeof(FwCamera), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
-    m_fw_camera_rel = TRY(Buffer::create(sizeof(FwCamera), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
-    m_fw_world_env = TRY(Buffer::create(sizeof(FwWorldEnv), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
-    m_fw_shadowmap_camera = TRY(Buffer::create(sizeof(FwCamera), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
-    m_fw_pp_buffer = TRY(Buffer::create(sizeof(PostProcessUniforms), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
+    TRY_ASSIGN(m_fw_camera, Buffer::create(sizeof(FwCamera), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
+    TRY_ASSIGN(m_fw_camera_rel, Buffer::create(sizeof(FwCamera), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
+    TRY_ASSIGN(m_fw_world_env, Buffer::create(sizeof(FwWorldEnv), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
+    TRY_ASSIGN(m_fw_shadowmap_camera, Buffer::create(sizeof(FwCamera), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
+    TRY_ASSIGN(m_fw_pp_buffer, Buffer::create(sizeof(PostProcessUniforms), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
 
-    m_fw_shadowmap = TRY(Texture::create(SHADOWMAP_RESOLUTION, SHADOWMAP_RESOLUTION, WGPUTextureFormat_Depth32Float, WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_TextureBinding));
+    TRY_ASSIGN(m_fw_shadowmap, Texture::create(SHADOWMAP_RESOLUTION, SHADOWMAP_RESOLUTION, WGPUTextureFormat_Depth32Float, WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_TextureBinding));
 
-    m_color_rect_shader = TRY(Shader::load_from_path("data/shaders/ui/color_rect.wgsl"));
+    TRY_ASSIGN(m_color_rect_shader, Shader::load_from_path("data/shaders/ui/color_rect.wgsl"));
     m_color_rect_shader->set_binding("env", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
     m_color_rect_shader->set_binding("uniforms", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 1, BindingAccess::Read));
     m_color_rect_shader->create_bind_group_layout();
 
-    m_texture_rect_shader = TRY(Shader::load_from_path("data/shaders/ui/texture_rect.wgsl"));
+    TRY_ASSIGN(m_texture_rect_shader, Shader::load_from_path("data/shaders/ui/texture_rect.wgsl"));
     m_texture_rect_shader->set_binding("env", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
     m_texture_rect_shader->set_binding("uniforms", Binding::UniformBuffer(WGPUShaderStage_Vertex | WGPUShaderStage_Fragment, 0, 1, BindingAccess::Read));
     m_texture_rect_shader->set_binding("image", Binding::Texture(WGPUShaderStage_Fragment, 0, 2, BindingAccess::Read, WGPUTextureViewDimension_2D));
     m_texture_rect_shader->set_sampler("image", {.min_filter = WGPUFilterMode_Nearest, .mag_filter = WGPUFilterMode_Nearest});
     m_texture_rect_shader->create_bind_group_layout();
 
-    m_fw_text_shader = TRY(Shader::load_from_path("data/shaders/ui/text.wgsl"));
+    TRY_ASSIGN(m_fw_text_shader, Shader::load_from_path("data/shaders/ui/text.wgsl"));
     m_fw_text_shader->set_binding("env", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
     m_fw_text_shader->set_binding("uniforms", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 1, BindingAccess::Read));
     m_fw_text_shader->set_binding("bitmap", Binding::Texture(WGPUShaderStage_Fragment, 0, 2, BindingAccess::Read, WGPUTextureViewDimension_2D));
     m_fw_text_shader->create_bind_group_layout();
 
-    m_missing_texture = TRY(Texture::create(16, 16, WGPUTextureFormat_RGBA8UnormSrgb, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding));
+    TRY_ASSIGN(m_missing_texture, Texture::create(16, 16, WGPUTextureFormat_RGBA8UnormSrgb, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding));
     m_missing_texture->update(std::span((std::byte *)missing_texture_data, 16 * 16 * sizeof(uint32_t)));
 
     // Stratified hemisphere: distribute directions evenly and decorrelate
@@ -1120,10 +1128,10 @@ std::expected<void, Error> Renderer::init(const Window& window, InitFlags flags)
         ssao_kernel[i] = glm::vec4(glm::vec3(std::cos(angle) * radial, std::sin(angle) * radial, z) * scale, 0.0f);
     }
 
-    m_ssao_uniform_buffer = TRY(Buffer::create(sizeof(SSAOUniforms), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
+    TRY_ASSIGN(m_ssao_uniform_buffer, Buffer::create(sizeof(SSAOUniforms), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
     m_ssao_uniform_buffer->update_struct(SSAOUniforms(ssao_kernel));
 
-    m_fw_model_shader = TRY(Shader::load_from_path("data/shaders/fw/model.wgsl"));
+    TRY_ASSIGN(m_fw_model_shader, Shader::load_from_path("data/shaders/fw/model.wgsl"));
     m_fw_model_shader->set_binding("camera", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
     m_fw_model_shader->set_binding("model", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 1, BindingAccess::Read));
     m_fw_model_shader->set_binding("global_model", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 2, BindingAccess::Read));
@@ -1135,21 +1143,21 @@ std::expected<void, Error> Renderer::init(const Window& window, InitFlags flags)
     m_fw_model_shader->set_sampler("shadowmap", SamplerDescriptor{.compare = WGPUCompareFunction_LessEqual, .address_mode = {.u = WGPUAddressMode_ClampToEdge, .v = WGPUAddressMode_ClampToEdge}});
     m_fw_model_shader->create_bind_group_layout();
 
-    m_fw_model_shadowmap_shader = TRY(Shader::load_from_path("data/shaders/fw/model_shadowmap.wgsl"));
+    TRY_ASSIGN(m_fw_model_shadowmap_shader, Shader::load_from_path("data/shaders/fw/model_shadowmap.wgsl"));
     m_fw_model_shadowmap_shader->set_binding("camera", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
     m_fw_model_shadowmap_shader->set_binding("model", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 1, BindingAccess::Read));
     m_fw_model_shadowmap_shader->set_binding("global_model", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 2, BindingAccess::Read));
     m_fw_model_shadowmap_shader->set_binding("world_env", Binding::UniformBuffer(WGPUShaderStage_Vertex | WGPUShaderStage_Fragment, 0, 3, BindingAccess::Read));
     m_fw_model_shadowmap_shader->create_bind_group_layout();
 
-    m_fw_item_shader = TRY(Shader::load_from_path("data/shaders/fw/item.wgsl"));
+    TRY_ASSIGN(m_fw_item_shader, Shader::load_from_path("data/shaders/fw/item.wgsl"));
     m_fw_item_shader->set_binding("camera", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
     m_fw_item_shader->set_binding("model", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 1, BindingAccess::Read));
     m_fw_item_shader->set_binding("image", Binding::Texture(WGPUShaderStage_Fragment, 0, 2, BindingAccess::Read, WGPUTextureViewDimension_2D));
     m_fw_item_shader->set_sampler("image", {.min_filter = WGPUFilterMode_Nearest, .mag_filter = WGPUFilterMode_Nearest});
     m_fw_item_shader->create_bind_group_layout();
 
-    m_fw_chunk_shader = TRY(Shader::load_from_path("data/shaders/fw/chunk.wgsl"));
+    TRY_ASSIGN(m_fw_chunk_shader, Shader::load_from_path("data/shaders/fw/chunk.wgsl"));
     m_fw_chunk_shader->set_binding("camera", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 1, BindingAccess::Read));
     m_fw_chunk_shader->set_binding("world_env", Binding::UniformBuffer(WGPUShaderStage_Vertex | WGPUShaderStage_Fragment, 0, 2, BindingAccess::Read));
     m_fw_chunk_shader->set_binding("image", Binding::Texture(WGPUShaderStage_Fragment, 0, 3, BindingAccess::Read, WGPUTextureViewDimension_2D));
@@ -1160,7 +1168,7 @@ std::expected<void, Error> Renderer::init(const Window& window, InitFlags flags)
     m_fw_chunk_shader->set_sampler("tintmap", {.min_filter = WGPUFilterMode_Nearest, .mag_filter = WGPUFilterMode_Nearest});
     m_fw_chunk_shader->create_bind_group_layout();
 
-    m_fw_water_shader = TRY(Shader::load_from_path("data/shaders/fw/water.wgsl"));
+    TRY_ASSIGN(m_fw_water_shader, Shader::load_from_path("data/shaders/fw/water.wgsl"));
     m_fw_water_shader->set_binding("camera", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 1, BindingAccess::Read));
     m_fw_water_shader->set_binding("world_env", Binding::UniformBuffer(WGPUShaderStage_Vertex | WGPUShaderStage_Fragment, 0, 2, BindingAccess::Read));
     m_fw_water_shader->set_binding("image", Binding::Texture(WGPUShaderStage_Fragment, 0, 3, BindingAccess::Read, WGPUTextureViewDimension_2D));
@@ -1169,22 +1177,22 @@ std::expected<void, Error> Renderer::init(const Window& window, InitFlags flags)
     m_fw_water_shader->set_sampler("shadowmap", SamplerDescriptor{.compare = WGPUCompareFunction_LessEqual, .address_mode = {.u = WGPUAddressMode_ClampToEdge, .v = WGPUAddressMode_ClampToEdge}});
     m_fw_water_shader->create_bind_group_layout();
 
-    m_fw_chunk_shadowmap_shader = TRY(Shader::load_from_path("data/shaders/fw/chunk_shadowmap.wgsl"));
+    TRY_ASSIGN(m_fw_chunk_shadowmap_shader, Shader::load_from_path("data/shaders/fw/chunk_shadowmap.wgsl"));
     m_fw_chunk_shadowmap_shader->set_binding("camera", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 1, BindingAccess::Read));
     m_fw_chunk_shadowmap_shader->create_bind_group_layout();
 
-    m_fw_colored_shader = TRY(Shader::load_from_path("data/shaders/fw/colored.wgsl"));
+    TRY_ASSIGN(m_fw_colored_shader, Shader::load_from_path("data/shaders/fw/colored.wgsl"));
     m_fw_colored_shader->set_binding("model", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
     m_fw_colored_shader->set_binding("camera", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 1, BindingAccess::Read));
     m_fw_colored_shader->set_binding("world_env", Binding::UniformBuffer(WGPUShaderStage_Vertex | WGPUShaderStage_Fragment, 0, 2, BindingAccess::Read));
     m_fw_colored_shader->create_bind_group_layout();
 
-    m_sky_shader = TRY(Shader::load_from_path("data/shaders/sky.wgsl"));
+    TRY_ASSIGN(m_sky_shader, Shader::load_from_path("data/shaders/sky.wgsl"));
     m_sky_shader->set_binding("uniforms", Binding::UniformBuffer(WGPUShaderStage_Fragment, 0, 0, BindingAccess::Read));
     m_sky_shader->set_binding("world_env", Binding::UniformBuffer(WGPUShaderStage_Fragment, 0, 1, BindingAccess::Read));
     m_sky_shader->create_bind_group_layout();
 
-    m_fw_pp_shader = TRY(Shader::load_from_path("data/shaders/fw/postprocess.wgsl"));
+    TRY_ASSIGN(m_fw_pp_shader, Shader::load_from_path("data/shaders/fw/postprocess.wgsl"));
     m_fw_pp_shader->set_binding("uniforms", Binding::UniformBuffer(WGPUShaderStage_Fragment, 0, 0, BindingAccess::Read));
     m_fw_pp_shader->set_binding("world_env", Binding::UniformBuffer(WGPUShaderStage_Fragment, 0, 2, BindingAccess::Read));
     m_fw_pp_shader->set_binding("albedo", Binding::Texture(WGPUShaderStage_Fragment, 0, 3, BindingAccess::Read, WGPUTextureViewDimension_2D));
@@ -1193,7 +1201,7 @@ std::expected<void, Error> Renderer::init(const Window& window, InitFlags flags)
     m_fw_pp_shader->set_sampler("ao", SamplerDescriptor{.min_filter = WGPUFilterMode_Nearest, .mag_filter = WGPUFilterMode_Nearest});
     m_fw_pp_shader->create_bind_group_layout();
 
-    m_ssao_shader = TRY(Shader::load_from_path("data/shaders/fw/ssao.wgsl"));
+    TRY_ASSIGN(m_ssao_shader, Shader::load_from_path("data/shaders/fw/ssao.wgsl"));
     m_ssao_shader->set_binding("uniforms", Binding::UniformBuffer(WGPUShaderStage_Fragment, 0, 0, BindingAccess::Read));
     m_ssao_shader->set_binding("ssao", Binding::UniformBuffer(WGPUShaderStage_Fragment, 0, 1, BindingAccess::Read));
     m_ssao_shader->set_binding("depth", Binding::Texture(WGPUShaderStage_Fragment, 0, 2, BindingAccess::Read, WGPUTextureViewDimension_2D, WGPUTextureSampleType_Depth, WGPUSamplerBindingType_Filtering));
@@ -1203,13 +1211,13 @@ std::expected<void, Error> Renderer::init(const Window& window, InitFlags flags)
     m_ssao_bg->set_param("uniforms", m_fw_pp_buffer);
     m_ssao_bg->set_param("ssao", m_ssao_uniform_buffer);
 
-    m_portal_shader = TRY(Shader::load_from_path("data/shaders/portal.wgsl"));
+    TRY_ASSIGN(m_portal_shader, Shader::load_from_path("data/shaders/portal.wgsl"));
     m_portal_shader->set_binding("model", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
     m_portal_shader->set_binding("camera", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 1, BindingAccess::Read));
     m_portal_shader->set_binding("world_env", Binding::UniformBuffer(WGPUShaderStage_Vertex | WGPUShaderStage_Fragment, 0, 2, BindingAccess::Read));
     m_portal_shader->create_bind_group_layout();
 
-    m_model_noshadow_shader = TRY(Shader::load_from_path("data/shaders/model_noshadow.wgsl"));
+    TRY_ASSIGN(m_model_noshadow_shader, Shader::load_from_path("data/shaders/model_noshadow.wgsl"));
     m_model_noshadow_shader->set_binding("model", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 0, BindingAccess::Read));
     m_model_noshadow_shader->set_binding("camera", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 1, BindingAccess::Read));
     m_model_noshadow_shader->set_binding("world_env", Binding::UniformBuffer(WGPUShaderStage_Vertex | WGPUShaderStage_Fragment, 0, 2, BindingAccess::Read));
@@ -1246,19 +1254,19 @@ std::expected<void, Error> Renderer::init(const Window& window, InitFlags flags)
 
     m_wireframe_dbg_mat = Material::create(m_fw_colored_shader, MaterialFlagBits::NoNormal | MaterialFlagBits::NoUV, WGPUCullMode_None, WGPUVertexFormat_Float32x2, Instance(), WGPUPrimitiveTopology_LineList);
 
-    m_cube_mesh = TRY(create_cube_mesh());
-    m_wireframe_chunk_slice_mesh = TRY(create_wireframe_cube_mesh(glm::vec3(1.0)));
+    TRY_ASSIGN(m_cube_mesh, create_cube_mesh());
+    TRY_ASSIGN(m_wireframe_chunk_slice_mesh, create_wireframe_cube_mesh(glm::vec3(1.0)));
 
     Engine::get().registry().register_all();       // TODO: I dont really like having this here but it needs to be before calling `get_texture_array` and after initializing WebGPU.
     TRY(Engine::get().registry().post_register()); //       Maybe split this function in two (initializing/creating resources).
 
-    m_fw_colored_buffer = TRY(Buffer::create(sizeof(FwColored), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
+    TRY_ASSIGN(m_fw_colored_buffer, Buffer::create(sizeof(FwColored), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
     FwColored colored(
         glm::translate(glm::identity<glm::mat4>(), glm::vec3(0, 78, 0)),
         Color(1.0, 1.0, 1.0, 1.0));
     m_fw_colored_buffer->update_struct(colored);
 
-    m_fw_shadowmap_cam_buffer = TRY(Buffer::create(sizeof(FwColored), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
+    TRY_ASSIGN(m_fw_shadowmap_cam_buffer, Buffer::create(sizeof(FwColored), WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst));
 
     m_fw_colored_bg = BindGroup::create(m_fw_colored_shader);
     m_fw_colored_bg->set_param("model", m_fw_colored_buffer);
@@ -1292,7 +1300,7 @@ std::expected<void, Error> Renderer::init(const Window& window, InitFlags flags)
         glm::vec2(1.0, 1.0),
         glm::vec2(0.0, 1.0),
     };
-    m_square_mesh = std::shared_ptr<Mesh>(TRY(Mesh::create_from_data(std::as_bytes(std::span(indices)), vertices, {}, std::as_bytes(std::span(uvs)), WGPUIndexFormat_Uint16)));
+    TRY_ASSIGN(m_square_mesh, Mesh::create_from_data(std::as_bytes(std::span(indices)), vertices, {}, std::as_bytes(std::span(uvs)), WGPUIndexFormat_Uint16));
 
     std::array<uint16_t, 6> quad_indices{0, 1, 2, 0, 2, 3};
     std::array<glm::vec3, 4> quad_vertices{
@@ -1313,7 +1321,7 @@ std::expected<void, Error> Renderer::init(const Window& window, InitFlags flags)
         glm::vec2(1.0, 1.0),
         glm::vec2(0.0, 1.0),
     };
-    m_quad_mesh = std::shared_ptr<Mesh>(TRY(Mesh::create_from_data(std::as_bytes(std::span(quad_indices)), quad_vertices, quad_normals, std::as_bytes(std::span(quad_uvs)), WGPUIndexFormat_Uint16)));
+    TRY_ASSIGN(m_quad_mesh, Mesh::create_from_data(std::as_bytes(std::span(quad_indices)), quad_vertices, quad_normals, std::as_bytes(std::span(quad_uvs)), WGPUIndexFormat_Uint16));
 
     m_fw_pp_bg = BindGroup::create(m_fw_pp_shader);
     m_fw_pp_bg->set_param("uniforms", m_fw_pp_buffer);
@@ -1492,7 +1500,7 @@ std::expected<Cloud, Error> Renderer::create_cloud()
     // zero alpha in the scene buffer for clouds that should not receive SSAO.
     // Postprocessing restores opaque alpha after reading this mask.
     cloud.uniform.color = Color(1.0, 1.0, 1.0, 0.0);
-    cloud.buffer = TRY(Buffer::create(sizeof(FwColored), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform));
+    TRY_ASSIGN(cloud.buffer, Buffer::create(sizeof(FwColored), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform));
     cloud.bg = BindGroup::create(m_fw_colored_shader);
     cloud.bg->set_param("model", cloud.buffer);
     cloud.bg->set_param("camera", m_fw_camera);
@@ -1785,8 +1793,8 @@ void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::sha
         ZoneScopedN("update postprocess buffer");
         m_fw_pp.camera_proj = active_camera->get_projection_matrix();
         m_fw_pp.inverse_camera_proj = glm::inverse(m_fw_pp.camera_proj);
-        m_fw_pp.near = active_camera->near_plane();
-        m_fw_pp.far = active_camera->far_plane();
+        m_fw_pp.near_plane = active_camera->near_plane();
+        m_fw_pp.far_plane = active_camera->far_plane();
         m_fw_pp.inv_proj_view = active_camera->get_actual_view_proj_matrix();
         m_fw_pp_buffer->update_struct(m_fw_pp);
     }

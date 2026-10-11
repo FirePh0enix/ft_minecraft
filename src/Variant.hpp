@@ -2,10 +2,12 @@
 
 #include "Color.hpp"
 #include "Core/Math.hpp"
+#include "Core/Types.hpp"
 
 #include <nlohmann/json.hpp>
 
 #include <compare>
+#include <span>
 #include <string>
 
 enum class VariantType : uint32_t
@@ -125,7 +127,7 @@ struct TypeTag<Point>
 
 void assert_bad_variant_access(const char *type_name, VariantType got, VariantType expected);
 
-struct __attribute__((aligned(16))) Variant
+struct _aligned(16) Variant
 {
     uint8_t data[variant_size]{0};
     VariantType tag;

@@ -83,5 +83,9 @@ void ThreadPool::thread_worker(std::stop_token token)
         }
     }
 
+#ifdef __platform_windows
+    debug("Thread {} exited normally", std::hash<std::thread::id>{}(std::this_thread::get_id()));
+#else
     debug("Thread {} exited normally", (void *)pthread_self());
+#endif
 }

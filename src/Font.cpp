@@ -6,6 +6,7 @@
 #include FT_FREETYPE_H
 
 #include <memory>
+#include <filesystem>
 
 static FT_Library g_lib;
 static std::shared_ptr<Mesh> g_mesh;
@@ -18,8 +19,12 @@ std::expected<std::shared_ptr<Font>, Error> Font::create(std::string_view font_n
 
     FT_Face face;
 
-    if (FT_New_Face(g_lib, font_name.data(), 0, &face) != 0)
+    const std::string font_path(font_name);
+    const FT_Error face_error = FT_New_Face(g_lib, font_path.c_str(), 0, &face);
+    if (face_error != 0)
     {
+        error("FT_New_Face('{}') failed with FreeType error {} (working directory: '{}')",
+            font_path, face_error, std::filesystem::current_path().string());
         return std::unexpected(Error(ErrorKind::FileNotFound));
     }
 
@@ -87,7 +92,7 @@ std::expected<std::shared_ptr<Font>, Error> Font::create(std::string_view font_n
     font->m_width = bmp_width;
     font->m_height = bmp_height;
 
-    font->m_bitmap = TRY(Texture::create(bmp_width, bmp_height, WGPUTextureFormat_R8Unorm, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding));
+    TRY_ASSIGN(font->m_bitmap, Texture::create(bmp_width, bmp_height, WGPUTextureFormat_R8Unorm, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding));
     font->m_bitmap->update(std::as_bytes(std::span(buffer)));
 
     return font;
@@ -124,7 +129,7 @@ std::expected<void, Error> Font::init_library()
         glm::vec2(0.0, 1.0),
     };
 
-    g_mesh = TRY(Mesh::create_from_data(std::as_bytes(std::span(indices)), vertices, normals, std::as_bytes(std::span(uvs)), WGPUIndexFormat_Uint16));
+    TRY_ASSIGN(g_mesh, Mesh::create_from_data(std::as_bytes(std::span(indices)), vertices, normals, std::as_bytes(std::span(uvs)), WGPUIndexFormat_Uint16));
     return std::expected<void, Error>();
 }
 

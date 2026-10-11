@@ -160,7 +160,7 @@ std::expected<std::shared_ptr<World>, Error> World::create(std::string name, uin
         std::string path = std::format("{}saves/{}/", Filesystem::get_data_directory(), name);
         TRY(Filesystem::make_dirs(path));
         path.append("info.dat");
-        File file = TRY(Filesystem::open_file(path, true));
+        TRY_ASSIGN(File file, Filesystem::open_file(path, true));
 
         WorldSaveInfo wi{};
         wi.seed = seed;
@@ -191,7 +191,7 @@ std::expected<std::shared_ptr<World>, Error> World::load(std::string name, Audio
     if (!Engine::get().is_save_disabled())
     {
         std::string path = std::format("{}saves/{}/info.dat", Filesystem::get_data_directory(), name);
-        File file = TRY(Filesystem::open_file(path));
+        TRY_ASSIGN(File file, Filesystem::open_file(path));
 
         WorldSaveInfo wi{};
         TRY(file.reader().read_raw(&wi, sizeof(WorldSaveInfo)));
@@ -473,7 +473,7 @@ std::expected<void, Error> World::save_chunk(std::stop_token token, std::shared_
     TRY(Filesystem::make_dirs(path));
 
     path.append("blocks.dat");
-    File file = TRY(Filesystem::open_file(path, true));
+    TRY_ASSIGN(File file, Filesystem::open_file(path, true));
 
     std::vector<uint8_t> compressed_data;
     TRY(ZLib::deflate(std::as_bytes(std::span((uint8_t *)chunk->get_blocks(), sizeof(BlockState) * Chunk::block_count)), compressed_data));
@@ -483,7 +483,7 @@ std::expected<void, Error> World::save_chunk(std::stop_token token, std::shared_
     file.close();
 
     path = std::format("{}/saves/{}/DIM{}/{}${}/tags.dat", Filesystem::get_data_directory(), m_name, dimension, chunk->x(), chunk->z());
-    file = TRY(Filesystem::open_file(path, true));
+    TRY_ASSIGN(file, Filesystem::open_file(path, true));
 
     BufferWriter writer;
     Dimension::write_tags(writer, chunk);

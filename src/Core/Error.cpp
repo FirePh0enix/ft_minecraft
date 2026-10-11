@@ -12,7 +12,9 @@
 
 #endif
 
+#ifdef __has_libbacktrace
 #include <cxxabi.h>
+#endif
 
 static thread_local Stacktrace stacktrace;
 

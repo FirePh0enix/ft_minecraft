@@ -1,3 +1,5 @@
+#include <cstddef>
+
 #include "Item/ItemStack.hpp"
 
 #include "Variant.hpp"
@@ -23,7 +25,7 @@ std::optional<ItemStack> ItemStack::merge(const ItemStack& stack)
 
 void ItemStack::sub(size_t count)
 {
-    if ((ssize_t)m_count - (ssize_t)count < 0)
+    if ((std::ptrdiff_t)m_count - (std::ptrdiff_t)count < 0)
     {
         m_item = Id<Item>();
         m_count = 0;

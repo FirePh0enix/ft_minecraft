@@ -1,3 +1,5 @@
+#include <cstddef>
+
 #include "World/Registry.hpp"
 
 #include "Block/Block.hpp"
@@ -91,7 +93,7 @@ void GameRegistry::register_all()
 std::expected<void, Error> GameRegistry::post_register()
 {
     // TODO: try to guess the most optimal size.
-    m_atlas = TRY(Texture::create(atlas_size, atlas_size, WGPUTextureFormat_RGBA8Unorm, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding, WGPUTextureDimension_2D));
+    TRY_ASSIGN(m_atlas, Texture::create(atlas_size, atlas_size, WGPUTextureFormat_RGBA8Unorm, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding, WGPUTextureDimension_2D));
     uint32_t *pixels = new uint32_t[atlas_size * atlas_size];
 
     int64_t max_height = 0;
@@ -149,12 +151,12 @@ std::expected<void, Error> GameRegistry::post_register()
 
     if (m_tint_textures.size() == 0)
     {
-        m_tint_texture_array = TRY(Texture::create(16, 16, WGPUTextureFormat_RGBA8Unorm, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding, WGPUTextureDimension_2D));
+        TRY_ASSIGN(m_tint_texture_array, Texture::create(16, 16, WGPUTextureFormat_RGBA8Unorm, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding, WGPUTextureDimension_2D));
         m_tint_texture_array->update(std::span<std::byte>((std::byte *)Renderer::get().get_missing_texture_data().data(), 16 * 16 * 4));
     }
     else
     {
-        m_tint_texture_array = TRY(Texture::create(m_tint_textures[0].w, m_tint_textures[0].h, WGPUTextureFormat_RGBA8Unorm, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding, WGPUTextureDimension_2D, m_tint_textures.size()));
+        TRY_ASSIGN(m_tint_texture_array, Texture::create(m_tint_textures[0].w, m_tint_textures[0].h, WGPUTextureFormat_RGBA8Unorm, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding, WGPUTextureDimension_2D, m_tint_textures.size()));
         for (size_t i = 0; i < m_tint_textures.size(); i++)
         {
             const AtlasTexture& texture = m_tint_textures[i];
@@ -186,7 +188,7 @@ std::expected<BlockStateResource, Error> GameRegistry::get_blockstate(std::strin
         return std::unexpected(file_res.error());
     }
     File file = file_res.value();
-    std::string text = TRY(file.reader().read_to_string());
+    TRY_ASSIGN(std::string text, file.reader().read_to_string());
     file.close();
 
     // TODO: implement axis conditions
@@ -213,14 +215,14 @@ std::expected<Model, Error> GameRegistry::get_model(std::string_view path)
         return std::unexpected(file_res.error());
     }
     File file = file_res.value();
-    std::string text = TRY(file.reader().read_to_string());
+    TRY_ASSIGN(std::string text, file.reader().read_to_string());
     file.close();
 
     Model model = nlohmann::json::parse(text);
     if (model.parent.has_value())
     {
         // TODO: detect circular dependency.
-        Model parent = TRY(get_model(model.parent.value()));
+        TRY_ASSIGN(Model parent, get_model(model.parent.value()));
         model.resolve(parent);
     }
     else
@@ -341,7 +343,7 @@ std::shared_ptr<Texture> GameRegistry::get_texture(Id<Item> id)
 
 std::shared_ptr<Texture> GameRegistry::create_texture(std::string_view path)
 {
-    File file = THROW(Filesystem::open_file(path), Renderer::get().get_missing_texture());
+    THROW_ASSIGN(File file, Filesystem::open_file(path), Renderer::get().get_missing_texture());
     std::vector<char> buffer;
     THROW(file.reader().read_to_buffer(buffer), Renderer::get().get_missing_texture());
     file.close();
@@ -350,7 +352,7 @@ std::shared_ptr<Texture> GameRegistry::create_texture(std::string_view path)
     stbi_uc *data = stbi_load_from_memory((const stbi_uc *)buffer.data(), (int)buffer.size(), &w, &h, &channels, 4);
     ERR_COND_V(data == nullptr, "Failed to parse image `{}`", path);
 
-    std::shared_ptr<Texture> texture = THROW(Texture::create(w, h, WGPUTextureFormat_RGBA8UnormSrgb, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding), Renderer::get().get_missing_texture());
+    THROW_ASSIGN(std::shared_ptr<Texture> texture, Texture::create(w, h, WGPUTextureFormat_RGBA8UnormSrgb, WGPUTextureUsage_CopyDst | WGPUTextureUsage_TextureBinding), Renderer::get().get_missing_texture());
     if (data)
         texture->update(std::span((std::byte *)data, w * h * 4));
 
@@ -365,9 +367,9 @@ std::shared_ptr<Texture> GameRegistry::create_preview_texture(std::shared_ptr<Bl
     NeighborFlags flags{};
     MeshBuilder builder;
     block->add(builder, 0, {0, 0, 0}, flags);
-    std::shared_ptr<Mesh> mesh = THROW(builder.build(), Renderer::get().get_missing_texture());
+    THROW_ASSIGN(std::shared_ptr<Mesh> mesh, builder.build(), Renderer::get().get_missing_texture());
 
-    std::shared_ptr<Buffer> model_buffer = THROW(Buffer::create(sizeof(FwModel), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform), Renderer::get().get_missing_texture());
+    THROW_ASSIGN(std::shared_ptr<Buffer> model_buffer, Buffer::create(sizeof(FwModel), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform), Renderer::get().get_missing_texture());
     glm::mat4 matrix = glm::ortho(-1.0f, 1.0f, -1.0f, 1.0f, -1.0f, 10.0f) *
                        glm::translate(glm::identity<glm::mat4>(), glm::vec3(0.f, 0.f, -0.86f)) *
                        glm::rotate(glm::identity<glm::mat4>(), glm::radians(35.0f), glm::vec3(1, 0, 0)) *
@@ -375,7 +377,7 @@ std::shared_ptr<Texture> GameRegistry::create_preview_texture(std::shared_ptr<Bl
     FwModel model(matrix);
     model_buffer->update_struct(model);
 
-    std::shared_ptr<Buffer> camera_buffer = THROW(Buffer::create(sizeof(FwModel), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform), Renderer::get().get_missing_texture());
+    THROW_ASSIGN(std::shared_ptr<Buffer> camera_buffer, Buffer::create(sizeof(FwModel), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform), Renderer::get().get_missing_texture());
     FwCamera camera(glm::identity<glm::mat4>());
     camera_buffer->update_struct(camera);
 
@@ -385,8 +387,8 @@ std::shared_ptr<Texture> GameRegistry::create_preview_texture(std::shared_ptr<Bl
     bg->set_param("world_env", Renderer::get().get_fw_world_env());
     bg->set_param("atlas", EXPECT(Engine::get().registry().get_atlas()->get_view()));
 
-    std::shared_ptr<Texture> depth_texture = THROW(Texture::create(preview_size, preview_size, WGPUTextureFormat_Depth32Float, WGPUTextureUsage_RenderAttachment), Renderer::get().get_missing_texture());
-    std::shared_ptr<Texture> color_texture = THROW(Texture::create(preview_size, preview_size, WGPUTextureFormat_RGBA8Unorm, WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_TextureBinding), Renderer::get().get_missing_texture());
+    THROW_ASSIGN(std::shared_ptr<Texture> depth_texture, Texture::create(preview_size, preview_size, WGPUTextureFormat_Depth32Float, WGPUTextureUsage_RenderAttachment), Renderer::get().get_missing_texture());
+    THROW_ASSIGN(std::shared_ptr<Texture> color_texture, Texture::create(preview_size, preview_size, WGPUTextureFormat_RGBA8Unorm, WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_TextureBinding), Renderer::get().get_missing_texture());
 
     WGPUCommandEncoder encoder = wgpuDeviceCreateCommandEncoder(Renderer::get().device(), nullptr);
 
@@ -492,7 +494,7 @@ std::optional<ItemStack> GameRegistry::match(const std::array<Id<Item>, MAX_RECI
 
 std::optional<RpcTarget> GameRegistry::get_rpc(Entity *entity, std::string_view name) const
 {
-    for (ssize_t i = (ssize_t)entity->get_classes().size() - 1; i >= 0; i--)
+    for (std::ptrdiff_t i = (std::ptrdiff_t)entity->get_classes().size() - 1; i >= 0; i--)
     {
         ClassHashCode class_hash = entity->get_classes()[i];
         auto rpcs = m_exposed_rpc.find(class_hash);

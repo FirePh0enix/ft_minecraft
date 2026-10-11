@@ -25,12 +25,23 @@ static std::expected<std::string, Error> preprocess(const std::string& source, s
     {
         if (line.starts_with("#include "))
         {
-            std::string path = line.substr(10, line.length() - 11);
+            // getline removes LF but leaves CR in Windows checkouts. Locate the
+            // quotes instead of assuming the closing quote ends the line.
+            const size_t opening_quote = line.find_first_not_of(" \t", 9);
+            const size_t closing_quote = opening_quote == std::string::npos
+                ? std::string::npos : line.find('"', opening_quote + 1);
+            if (opening_quote == std::string::npos || line[opening_quote] != '"' || closing_quote == std::string::npos)
+            {
+                error("Malformed shader include: {}", line);
+                return std::unexpected(Error(ErrorKind::ShaderCompilationFailed));
+            }
+            std::string path = line.substr(opening_quote + 1, closing_quote - opening_quote - 1);
 
-            std::string fpath = basepath.data();
+            std::string fpath(basepath);
             fpath += path;
 
-            std::string include_source = TRY(TRY(Filesystem::open_file(fpath)).reader().read_to_string());
+            TRY_ASSIGN(File include_file, Filesystem::open_file(fpath));
+            TRY_ASSIGN(std::string include_source, include_file.reader().read_to_string());
 
             s.append(include_source.data(), include_source.size());
             s.append("\n");
@@ -55,9 +66,9 @@ std::expected<std::shared_ptr<Shader>, Error> Shader::load(std::string_view sour
 
 std::expected<std::shared_ptr<Shader>, Error> Shader::load_from_path(std::string_view path)
 {
-    File file = TRY(Filesystem::open_file(path));
-    std::string s = TRY(file.reader().read_to_string());
-    s = TRY(preprocess(s, "data/shaders/"));
+    TRY_ASSIGN(File file, Filesystem::open_file(path));
+    TRY_ASSIGN(std::string s, file.reader().read_to_string());
+    TRY_ASSIGN(s, preprocess(s, "data/shaders/"));
     return load(s);
 }
 

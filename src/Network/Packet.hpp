@@ -439,7 +439,7 @@ inline std::expected<void, Error> deserialize(DataBuffer& buffer, RpcCallPacket&
     BufferReader reader(data.data(), data.size());
     for (;;)
     {
-        std::optional<Variant> v = TRY(reader.read_variant());
+        TRY_ASSIGN(std::optional<Variant> v, reader.read_variant());
         if (v.has_value())
             p.args.push_back(v.value());
         else

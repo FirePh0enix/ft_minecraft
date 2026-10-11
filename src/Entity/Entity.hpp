@@ -85,13 +85,13 @@ struct std::formatter<EntityId>
     }
 
     template <typename FmtContext>
-    FmtContext::iterator format(EntityId id, FmtContext& ctx)
+    FmtContext::iterator format(EntityId id, FmtContext& ctx) const
     {
         std::ostringstream os;
         os << "EntityId(";
         os << id.value();
         os << ")";
-        return std::ranges::copy(std::move(os).str(), ctx.out());
+        return std::ranges::copy(std::move(os).str(), ctx.out()).out;
     }
 };
 

@@ -54,16 +54,8 @@ struct Binding
         return Binding{.kind = BindingKind::UniformBuffer, .shader_stage = shader_stage, .group = group, .binding = binding, .access = access, .sampler_binding = WGPUSamplerBindingType_Undefined};
     }
 
-    union
-    {
-        /**
-         * Available only when binding is a `Texture`.
-         */
-        struct
-        {
-            WGPUTextureViewDimension dimension = WGPUTextureViewDimension_Undefined;
-            WGPUTextureSampleType texture_sample = WGPUTextureSampleType_Undefined;
-            WGPUSamplerBindingType sampler_binding = WGPUSamplerBindingType_Filtering;
-        };
-    };
+    // Used only when binding is a Texture.
+    WGPUTextureViewDimension dimension = WGPUTextureViewDimension_Undefined;
+    WGPUTextureSampleType texture_sample = WGPUTextureSampleType_Undefined;
+    WGPUSamplerBindingType sampler_binding = WGPUSamplerBindingType_Filtering;
 };

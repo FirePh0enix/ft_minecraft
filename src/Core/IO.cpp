@@ -10,7 +10,7 @@
 std::expected<std::optional<Variant>, Error> Reader::read_variant()
 {
     uint32_t type_raw;
-    size_t n = TRY(read_raw(&type_raw, sizeof(uint32_t)));
+    TRY_ASSIGN(size_t n, read_raw(&type_raw, sizeof(uint32_t)));
     if (n == 0)
         return std::nullopt;
 
@@ -82,7 +82,7 @@ std::expected<std::optional<Variant>, Error> Reader::read_variant()
         uint32_t size;
         TRY(read_raw(&size, sizeof(uint32_t)));
 
-        std::optional<Variant> variant = TRY(read_variant());
+        TRY_ASSIGN(std::optional<Variant> variant, read_variant());
         Variant v = variant.value();
 
         std::map<std::string, Variant> map = v.to_map<std::string>();
@@ -102,7 +102,8 @@ std::expected<std::optional<Variant>, Error> Reader::read_variant()
 
         for (size_t i = 0; i < size; i++)
         {
-            Variant variant = TRY(read_variant()).value();
+            TRY_ASSIGN(auto variant_optional, read_variant());
+            Variant variant = variant_optional.value();
             array.push_back(variant);
         }
 
@@ -117,8 +118,10 @@ std::expected<std::optional<Variant>, Error> Reader::read_variant()
 
         for (size_t i = 0; i < size; i++)
         {
-            Variant key = TRY(read_variant()).value();
-            Variant value = TRY(read_variant()).value();
+            TRY_ASSIGN(auto key_optional, read_variant());
+            Variant key = key_optional.value();
+            TRY_ASSIGN(auto value_optional, read_variant());
+            Variant value = value_optional.value();
 
             map[key] = value;
         }

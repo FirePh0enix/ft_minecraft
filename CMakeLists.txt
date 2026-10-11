@@ -105,10 +105,15 @@ target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/src)
 # target_compile_options(${TARGET_NAME} PUBLIC -fno-exceptions -fno-rtti)
 
 # Enable warnings
-target_compile_options(${TARGET_NAME} PUBLIC -Wall -Wextra -Wno-subobject-linkage)
+if(TARGET_IS_WINDOWS)
+    target_compile_options(${TARGET_NAME} PRIVATE /W4 /permissive- /Zc:__cplusplus /Zc:preprocessor /utf-8 /bigobj)
+else()
+    target_compile_options(${TARGET_NAME} PUBLIC -Wall -Wextra -Wno-subobject-linkage)
+endif()
 
 # Enable support for C++23
 set_property(TARGET ${TARGET_NAME} PROPERTY CXX_STANDARD 23)
+set_property(TARGET ${TARGET_NAME} PROPERTY CXX_STANDARD_REQUIRED ON)
 
 # Should prevent FetchContent for trying to connect online after downloading dependencies.
 set(FETCHCONTENT_UPDATES_DISCONNECTED ON)
@@ -121,7 +126,8 @@ if (TARGET_IS_LINUX)
 elseif(TARGET_IS_MACOS)
     target_compile_definitions(${TARGET_NAME} PRIVATE __platform_macos)
 elseif(TARGET_IS_WINDOWS)
-    target_compile_definitions(${TARGET_NAME} PRIVATE __platform_windows)
+    target_compile_definitions(${TARGET_NAME} PRIVATE
+        __platform_windows NOMINMAX WIN32_LEAN_AND_MEAN _USE_MATH_DEFINES _CRT_SECURE_NO_WARNINGS)
 elseif(TARGET_IS_WEB)
     target_compile_definitions(${TARGET_NAME} PRIVATE __platform_web)
 endif()
@@ -131,12 +137,22 @@ if (CMAKE_BUILD_TYPE STREQUAL "Debug")
 endif()
 
 if (SANITIZE_ADDRESS)
-    target_compile_options(${TARGET_NAME} PRIVATE -fsanitize=address)
-    target_link_options(${TARGET_NAME} PRIVATE -fsanitize=address)
+    if(TARGET_IS_WINDOWS)
+        # MSVC runtime checks cannot be combined with AddressSanitizer.
+        string(REGEX REPLACE "/RTC[1su]+" "" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
+        target_compile_options(${TARGET_NAME} PRIVATE /fsanitize=address)
+        target_link_options(${TARGET_NAME} PRIVATE /INCREMENTAL:NO)
+    else()
+        target_compile_options(${TARGET_NAME} PRIVATE -fsanitize=address)
+        target_link_options(${TARGET_NAME} PRIVATE -fsanitize=address)
+    endif()
     target_compile_definitions(${TARGET_NAME} PRIVATE __has_address_sanitizer)
 endif()
 
 if (SANITIZE_THREAD)
+    if(TARGET_IS_WINDOWS)
+        message(FATAL_ERROR "ThreadSanitizer is not supported by MSVC")
+    endif()
     target_compile_options(${TARGET_NAME} PRIVATE -fsanitize=thread)
     target_link_options(${TARGET_NAME} PRIVATE -fsanitize=thread)
     target_compile_definitions(${TARGET_NAME} PRIVATE __has_thread_sanitizer)
@@ -192,7 +208,7 @@ if(TARGET_IS_LINUX OR TARGET_IS_MACOS OR TARGET_IS_WINDOWS)
         set(WGPU_ARCH "aarch64")
     elseif(TARGET_IS_WINDOWS)
         set(WGPU_PLATFORM "windows")
-        set(WGPU_ARCH "x86_64-gnu")
+        set(WGPU_ARCH "x86_64-msvc")
     endif()
 
     set(WGPU_BUILD "release")
@@ -204,42 +220,62 @@ if(TARGET_IS_LINUX OR TARGET_IS_MACOS OR TARGET_IS_WINDOWS)
     )
     FetchContent_MakeAvailable(wgpu-native)
 
-    target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_BINARY_DIR}/_deps/wgpu-native-src/include)
-    target_link_directories(${TARGET_NAME} PRIVATE ${CMAKE_BINARY_DIR}/_deps/wgpu-native-src/lib)
+    target_include_directories(${TARGET_NAME} PRIVATE "${wgpu-native_SOURCE_DIR}/include")
+    if(TARGET_IS_WINDOWS)
+        # Link the DLL import library, rather than the Rust static library.
+        add_library(wgpu_native SHARED IMPORTED)
+        set_target_properties(wgpu_native PROPERTIES
+            IMPORTED_IMPLIB "${wgpu-native_SOURCE_DIR}/lib/wgpu_native.dll.lib"
+            IMPORTED_LOCATION "${wgpu-native_SOURCE_DIR}/lib/wgpu_native.dll")
+        add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "$<TARGET_FILE:wgpu_native>" "$<TARGET_FILE_DIR:${TARGET_NAME}>"
+            VERBATIM)
+    else()
+        target_link_directories(${TARGET_NAME} PRIVATE "${wgpu-native_SOURCE_DIR}/lib")
+    endif()
     target_link_libraries(${TARGET_NAME} PRIVATE wgpu_native)
 endif()
 
 # SDL
-# set(SDL_STATIC ON)
-# set(SDL_DEPS_SHARED ON)
+set(SDL_STATIC ON)
+set(SDL_DEPS_SHARED ON)
 
-# set(SDL_DUMMYAUDIO OFF)
-# set(SDL_DUMMYVIDEO OFF)
-# set(SDL_OPENGL OFF)
-# set(SDL_OPENGLES OFF)
-# set(SDL_OPENVR OFF)
-# set(SDL_KMSDRM OFF)
-# set(SDL_OFFSCREEN OFF)
-# set(SDL_RENDER OFF)
-# set(SDL_CAMERA OFF)
-# set(SDL_X11 OFF)
+if(TARGET_IS_WINDOWS)
+    # Keep SDL and the mixer codecs in the executable; wgpu is deployed separately.
+    set(SDL_SHARED OFF)
+    set(SDLMIXER_DEPS_SHARED OFF)
+    set(SDLMIXER_VENDORED ON)
+    set_property(TARGET ${TARGET_NAME} PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
+    # Visual Studio's CMake launch can use the executable directory as its working directory.
+    add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CMAKE_SOURCE_DIR}/data" "$<TARGET_FILE_DIR:${TARGET_NAME}>/data"
+        VERBATIM)
+endif()
 
-# if (TARGET_IS_MACOS)
-#     set(SDL_METAL ON)
-# endif()
+set(SDL_DUMMYAUDIO OFF)
+set(SDL_DUMMYVIDEO OFF)
+set(SDL_OPENGL OFF)
+set(SDL_OPENGLES OFF)
+set(SDL_OPENVR OFF)
+set(SDL_KMSDRM OFF)
+set(SDL_OFFSCREEN OFF)
+set(SDL_RENDER OFF)
+set(SDL_CAMERA OFF)
 
-# FetchContent_Declare(
-#     SDL
-#     GIT_REPOSITORY https://github.com/libsdl-org/SDL
-#     GIT_TAG 147a8ee32dbf9ac02f3794964490687b6bbda1bc # 3.4.14
-#     GIT_SHALLOW 1 # we only need the last commit
-# )
-# FetchContent_MakeAvailable(SDL)
-# target_include_directories(SDL3::SDL3 ${CMAKE_SOURCE_DIR}/usr/include)
-# target_link_libraries(${TARGET_NAME} PUBLIC SDL3::SDL3)
+if (TARGET_IS_MACOS)
+    set(SDL_METAL ON)
+endif()
 
-# target_include_directories(${TARGET_NAME} PUBLIC ${CMAKE_SOURCE_DIR}/usr/include)
-target_link_libraries(${TARGET_NAME} PUBLIC SDL3)
+FetchContent_Declare(
+    SDL
+    GIT_REPOSITORY https://github.com/libsdl-org/SDL
+    GIT_TAG 147a8ee32dbf9ac02f3794964490687b6bbda1bc # 3.4.14
+    GIT_SHALLOW 1 # we only need the last commit
+)
+FetchContent_MakeAvailable(SDL)
+target_link_libraries(${TARGET_NAME} PUBLIC SDL3::SDL3)
 
 FetchContent_Declare(
     SDL_mixer
@@ -300,7 +336,11 @@ FetchContent_Declare(
 	GIT_TAG e3dc0a85b7032e98380dec011bc8f2c2ee0d8fca
 )
 FetchContent_MakeAvailable(zlib)
-target_link_libraries(${TARGET_NAME} PRIVATE zlib)
+if(TARGET_IS_WINDOWS)
+    target_link_libraries(${TARGET_NAME} PRIVATE ZLIB::ZLIBSTATIC)
+else()
+    target_link_libraries(${TARGET_NAME} PRIVATE zlib)
+endif()
 target_include_directories(${TARGET_NAME} PRIVATE ${zlib_SOURCE_DIR})
 
 # enet
@@ -329,6 +369,8 @@ FetchContent_Declare(
     MPSC_queue
     GIT_REPOSITORY https://github.com/dakingffo/MPSC_queue
     GIT_TAG 1ae95baf9e3bcf92bb755a9be0a13064ca002b46
+    # Header-only dependency: do not configure its standalone benchmarks/tests.
+    SOURCE_SUBDIR header-only
 )
 FetchContent_MakeAvailable(MPSC_Queue)
 target_include_directories(${TARGET_NAME} SYSTEM PRIVATE ${mpsc_queue_SOURCE_DIR}/include)

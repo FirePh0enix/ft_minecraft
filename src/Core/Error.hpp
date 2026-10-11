@@ -4,6 +4,9 @@
 #include "Core/Stacktrace.hpp"
 #include "Core/Types.hpp"
 
+#include <algorithm>
+#include <cerrno>
+#include <cstdlib>
 #include <cstdint>
 #include <cstdio>
 #include <format>
@@ -133,11 +136,11 @@ struct std::formatter<ErrorKind>
     }
 
     template <typename FmtContext>
-    FmtContext::iterator format(ErrorKind kind, FmtContext& ctx)
+    FmtContext::iterator format(ErrorKind kind, FmtContext& ctx) const
     {
         std::ostringstream os;
         os << error_name(kind);
-        return std::ranges::copy(std::move(os).str(), ctx.out());
+        return std::ranges::copy(std::move(os).str(), ctx.out()).out;
     }
 };
 
@@ -295,35 +298,53 @@ private:
 
 void initialize_error_handling(cstring_t filename);
 
-// Inspired by Ladybird `TRY` and `MUST` macro. This depends on (statement expression)[1] which is non standard but implemented by gcc and clang.
-//
-// [1]: https://gcc.gnu.org/onlinedocs/gcc/Statement-Exprs.html
+// Statement-only propagation preserves returns from the caller on every compiler.
+#define TRY(...)                                      \
+    do                                                \
+    {                                                 \
+        auto&& result = (__VA_ARGS__);                 \
+        if (!result.has_value())                      \
+            return std::unexpected(result.error());   \
+        (void)result.value();                         \
+    } while (0)
 
-#define TRY(...)                                  \
-    ({                                            \
-        auto&& _tmp = (__VA_ARGS__);              \
-        (void)_tmp;                               \
-        if (!_tmp.has_value())                    \
-            return std::unexpected(_tmp.error()); \
-        _tmp.value();                             \
-    })
+#define ERROR_JOIN_IMPL(A, B) A##B
+#define ERROR_JOIN(A, B) ERROR_JOIN_IMPL(A, B)
 
-#define THROW(EXPR, RET)       \
-    ({                         \
-        auto&& _tmp = (EXPR);  \
-        (void)_tmp;            \
-        if (!_tmp.has_value()) \
-            return RET;        \
-        _tmp.value();          \
-    })
+// Like a declaration, use assignment macros in a braced scope.
+#define TRY_ASSIGN_IMPL(LHS, RESULT, ...)              \
+    auto&& RESULT = (__VA_ARGS__);                     \
+    if (!RESULT.has_value())                          \
+        return std::unexpected(RESULT.error());       \
+    LHS = RESULT.value()
+#define TRY_ASSIGN(LHS, ...) TRY_ASSIGN_IMPL(LHS, ERROR_JOIN(try_result_, __LINE__), __VA_ARGS__)
 
-#define EXPECT(...)                    \
-    ({                                 \
-        auto __result = (__VA_ARGS__); \
-        if (!__result.has_value())     \
-        {                              \
-            __result.error().print();  \
-            std::abort();              \
-        }                              \
-        std::move(__result).value();   \
-    })
+#define THROW(EXPR, RET)                              \
+    do                                                \
+    {                                                 \
+        auto&& result = (EXPR);                        \
+        if (!result.has_value())                      \
+            return RET;                               \
+        (void)result.value();                         \
+    } while (0)
+
+#define THROW_ASSIGN_IMPL(LHS, EXPR, RET, RESULT)      \
+    auto&& RESULT = (EXPR);                            \
+    if (!RESULT.has_value())                          \
+        return RET;                                   \
+    LHS = RESULT.value()
+#define THROW_ASSIGN(LHS, EXPR, RET) THROW_ASSIGN_IMPL(LHS, EXPR, RET, ERROR_JOIN(throw_result_, __LINE__))
+
+// Return by value so the result never refers to a destroyed expected.
+template <typename Result>
+auto expect_value(Result result)
+{
+    if (!result.has_value())
+    {
+        result.error().print();
+        std::abort();
+    }
+    return std::move(result).value();
+}
+
+#define EXPECT(...) expect_value((__VA_ARGS__))

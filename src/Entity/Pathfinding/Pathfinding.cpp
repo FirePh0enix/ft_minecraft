@@ -1,3 +1,5 @@
+#include <cstddef>
+
 #include "Pathfinding.hpp"
 
 #include "Entity/Pathfinding/PathNode.hpp"
@@ -201,7 +203,7 @@ void Pathfinding::find_path(const glm::vec3& start_pos, const glm::vec3& target_
             }
         }
 
-        m_open_set.erase(m_open_set.begin() + (ssize_t)best_index);
+        m_open_set.erase(m_open_set.begin() + (std::ptrdiff_t)best_index);
 
         auto current = m_node_pool[current_index];
         m_close_set.insert(current.m_gridPos);

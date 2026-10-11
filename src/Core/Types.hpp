@@ -22,12 +22,18 @@ struct Extent2D
  * Structures that are used to share between the CPU and GPU should use this attribute, or manually pad the structure
  * to respect GPU requirements.
  */
+#ifdef __platform_windows
+#define GPU_ATTRIBUTE __declspec(align(16))
+#define _aligned(A) __declspec(align(A))
+#define ALWAYS_INLINE __forceinline
+#else
 #define GPU_ATTRIBUTE __attribute__((aligned(16)))
 
 #define _aligned(A) __attribute__((aligned(A)))
 
 // Only way to force function inlining.
 #define ALWAYS_INLINE inline __attribute__((always_inline))
+#endif
 
 #ifdef __platform_windows
 typedef const wchar_t *cstring_t;
