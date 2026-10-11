@@ -60,7 +60,7 @@ void BowItem::on_release(World& world, int dimension, ItemStack& stack, glm::dve
     arrow->orient(direction);
     world.add_entity(dimension, arrow);
 
-    const AddEntityPacket packet(arrow->get_position(), arrow->get_rotation(), arrow->id(), arrow->get_class_hash_code());
+    const AddEntityPacket packet(arrow->get_position(), arrow->get_rotation(), arrow->id(), arrow->get_class_hash_code(), dimension);
     Engine::get().server()->route_packet(NetworkConnection::create_packet(packet));
 
     if (auto *player = dynamic_cast<Player *>(user))

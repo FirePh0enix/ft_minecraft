@@ -51,6 +51,7 @@ bool Mob::tick_death(float delta_time)
     m_velocity = glm::dvec3(0.0);
     m_following_path = false;
     m_death_animation_time += delta_time;
+    m_animator.tick(delta_time);
 
     if (Engine::get().is_server() && m_death_animation_time >= death_duration)
     {
@@ -91,64 +92,23 @@ void Mob::follow_path(float delta_time)
     if (!is_in_water())
         to_target.y = 0.0f;
 
-    // Slow down when reaching last waypoint.
-    float speed_percent = 1.0f;
-    if (m_path_index >= m_path.value().slow_down_index && m_stopping_dst > 0.0f)
+    // Reach the cell center before turning.
+    const float horizontal_distance = glm::length(glm::vec2(to_target.x, to_target.z));
+    const bool height_reached = std::abs(target.y - pos.y) < 0.5f;
+    if (horizontal_distance < 0.01f && height_reached)
     {
-        const size_t size = m_path.value().look_points.size();
-        glm::vec2 end_2d(m_path.value().look_points[size - 1].x, m_path.value().look_points[size - 1].z);
-
-        float dist_to_end = glm::distance(glm::vec2(pos.x, pos.z), end_2d);
-        speed_percent = glm::clamp(dist_to_end / m_stopping_dst, 0.0f, 1.0f);
-
-        if (speed_percent < 0.01f)
-        {
-            m_following_path = false;
-            m_velocity = glm::vec3(0.0f);
-            return;
-        }
+        ++m_path_index;
+        m_velocity.x = 0.0;
+        m_velocity.z = 0.0;
+        if (is_in_water())
+            m_velocity.y = 0.0;
+        return;
     }
 
     // Movement + Rotation.
     glm::vec3 target_dir_norm = safe_normalize(to_target);
 
-    // Ensure that mob will slide if he is stuck against a block.
-    // For example, sometimes, Cow want to move forward but he is slightly at aligned at left,
-    // since he's facing perpendicularly toward block, there is no chance of sliding.
-    // X X X X X X
-    // X X O O O X
-    // X O ↑ X X X
-    // So i'm applying a slight diagonal velocity to allow him to slide.
-    if (m_blocked_x || m_blocked_z)
-    {
-        glm::vec3 right = glm::normalize(glm::cross(target_dir_norm, glm::vec3(0, 1, 0)));
-
-        float steer = 0.0f;
-
-        if (m_blocked_x)
-            steer += (m_velocity.x > 0.0f) ? -1.0f : 1.0f;
-
-        if (m_blocked_z)
-            steer += (m_velocity.z > 0.0f) ? 1.0f : -1.0f;
-
-        target_dir_norm = glm::normalize(target_dir_norm + right * steer * 0.35f);
-    }
-
-    if (m_path_index + 1 < m_path.value().look_points.size())
-    {
-        glm::vec3 b = m_path.value().look_points[m_path_index + 1];
-        glm::vec3 seg = b - target;
-        seg.y = 0.0f;
-
-        if (glm::length2(seg) > 1e-6f)
-        {
-            glm::vec3 dir_b_norm = safe_normalize(seg);
-            float look_strength = -0.25f;
-            target_dir_norm = safe_normalize(target_dir_norm + dir_b_norm * look_strength);
-        }
-    }
-
-    if (is_in_water())
+    if (glm::length2(target_dir_norm) > 1e-6f && is_in_water())
     {
         glm::vec3 flat = target_dir_norm;
         // Ignoring pitch rotation because sometimes he was rotating so much that body was straight like ----- instead of   |
@@ -165,13 +125,15 @@ void Mob::follow_path(float delta_time)
             m_transform.rotation() = glm::slerp(m_transform.rotation(), target_rot, (double)delta_time * m_turn_speed);
         }
     }
-    else
+    else if (glm::length2(target_dir_norm) > 1e-6f)
     {
         glm::dquat target_rot = glm::quatLookAt(target_dir_norm, glm::vec3(0, 1, 0));
         m_transform.rotation() = glm::slerp(m_transform.rotation(), target_rot, (double)delta_time * m_turn_speed);
     }
 
-    glm::vec3 move = target_dir_norm * m_speed * speed_percent * delta_time;
+    // Clamp the step so a fast frame cannot overshoot and orbit a waypoint.
+    const float step = std::min(m_speed * delta_time, glm::length(to_target));
+    glm::vec3 move = target_dir_norm * step;
 
     m_velocity.x = move.x;
     m_velocity.z = move.z;
@@ -184,15 +146,6 @@ void Mob::follow_path(float delta_time)
 
     if (m_on_ground && m_velocity.y <= 0.0f && dy >= 0.4f)
         m_velocity.y = m_jump_force;
-
-    // Switch to next waypoint.
-    float reach_radius = 0.2f;
-    glm::vec2 pos_2d = glm::vec2(pos.x, pos.z);
-    glm::vec2 target_2d = glm::vec2(target.x, target.z);
-    float next_waypoint_len2 = glm::length2(target_2d - pos_2d);
-
-    if (next_waypoint_len2 < reach_radius * reach_radius)
-        m_path_index++;
 }
 
 void Mob::flee_to(const glm::ivec3& to)
@@ -208,9 +161,9 @@ void Mob::flee_to(const glm::ivec3& to)
     }
 
     std::vector<glm::vec3> waypoints = m_pathfinding->simplify_path(m_pathfinding->m_path);
-    m_path = Path(waypoints, m_stopping_dst);
+    m_path = Path(waypoints);
     m_following_path = true;
-    m_path_index = 1;
+    m_path_index = 0;
 }
 
 bool Mob::verify_if_path_still_valid()
@@ -225,20 +178,6 @@ bool Mob::verify_if_path_still_valid()
         return false;
 
     glm::ivec3 grid_pos = glm::ivec3(glm::round(m_path.value().look_points[m_path_index]));
-    /*
-    FIXME: reported by valgrind
-    ==71250== Invalid read of size 4
-    ==71250==    at 0x492B22: round (cmath:2695)
-    ==71250==    by 0x492B22: call (_vectorize.hpp:32)
-    ==71250==    by 0x492B22: call (func_common.inl:237)
-    ==71250==    by 0x492B22: round<3, float, (glm::qualifier)0> (func_common.inl:413)
-    ==71250==    by 0x492B22: Mob::verify_if_path_still_valid() (Mob.cpp:162)
-    ==71250==    by 0x495EB5: Zombie::tick(float) (Zombie.cpp:93)
-    ==71250==    by 0x507681: World::tick_dimension(float, int) (World.cpp:216)
-    ==71250==    by 0x509764: World::tick(float) (World.cpp:203)
-    ==71250==    by 0x444A0B: Engine::tick(float) (Engine.cpp:178)
-    ==71250==    by 0x411774: main (main.cpp:50)
-    */
 
     size_t start_index = path_size;
 

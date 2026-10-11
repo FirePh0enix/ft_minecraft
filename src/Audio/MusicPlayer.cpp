@@ -15,6 +15,7 @@ MusicPlayer::MusicPlayer(AudioMixer& mixer) : m_mixer(*mixer.get_audio_mixer()),
     AudioClip(*mixer.get_audio_mixer(), std::filesystem::absolute("data/music/FrozenMountain.mp3")),
     AudioClip(*mixer.get_audio_mixer(), std::filesystem::absolute("data/music/Ocean.mp3")),
     AudioClip(*mixer.get_audio_mixer(), std::filesystem::absolute("data/music/ColdOcean.mp3")),
+    AudioClip(*mixer.get_audio_mixer(), std::filesystem::absolute("data/music/Underworld.mp3"))
 }
 {
 }

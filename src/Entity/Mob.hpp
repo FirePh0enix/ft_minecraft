@@ -42,7 +42,6 @@ protected:
     size_t m_path_index = 0;
 
     float m_turn_speed = 10;
-    float m_stopping_dst = 2;
     float m_speed = 1.0f;
     float m_jump_force = 0.24f;
     bool m_dead = false;

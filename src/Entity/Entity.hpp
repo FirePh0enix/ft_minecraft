@@ -227,6 +227,7 @@ public:
     const AABBd& get_aabb() const { return m_aabb; }
 
     void recurse_tick(float delta);
+    void sync_dimension(int64_t dimension, glm::dvec3 position);
 
     ALWAYS_INLINE bool is_active() const { return m_active; }
 

@@ -54,6 +54,8 @@ public:
     virtual std::expected<void, Error> load(const EntitySerializer& deser) override;
 
     virtual void on_damage(int value, EntityId damage_source) override;
+    void sync_health(int64_t health);
+    int64_t get_health() const { return m_health; }
 
     virtual void die() override;
     void on_death();
@@ -149,6 +151,7 @@ private:
     std::string m_username;
 
     bool m_chat_opened = false;
+    bool m_chat_focus_requested = false;
     char m_chat_buffer[128]{0};
     std::vector<std::string> m_messages;
     BetterConsole m_console;

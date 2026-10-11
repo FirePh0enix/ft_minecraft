@@ -50,6 +50,7 @@ int main(int argc, char *argv[])
 
     info("using data directory `{}`", Filesystem::get_data_directory());
 
+    last_update_time = engine.time();
     while (engine.is_running())
     {
         const float elapsed_time = (float)(Engine::get().time() - last_update_time);
@@ -61,7 +62,7 @@ int main(int argc, char *argv[])
             engine.tick(float(fixed_update_time));
             Input::post_events();
 
-            engine.draw(float(fixed_update_time));
+            engine.draw(elapsed_time);
         }
     }
 

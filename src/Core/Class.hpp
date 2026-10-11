@@ -74,7 +74,7 @@ private:                                                                        
                                                                                                                                                     \
 public:                                                                                                                                             \
     static inline ClassList<BASE::classes.max_capacity() + 1> classes = ClassList<BASE::classes.max_capacity() + 1>(BASE::classes, {s_class_hash}); \
-    static inline Type type;                                                                                                                        \
+    static inline Type type{&BASE::type};                                                                                                          \
                                                                                                                                                     \
     static std::span<const ClassHashCode> get_static_classes()                                                                                      \
     {                                                                                                                                               \

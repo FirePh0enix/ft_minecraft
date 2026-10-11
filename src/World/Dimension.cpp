@@ -98,7 +98,7 @@ void GenScheduler::terrain_and_struct_chunk(std::stop_token token, ChunkPos pos,
 
 void GenScheduler::realize_chunk(std::stop_token token, ChunkPos pos, std::shared_ptr<Chunk> chunk, std::shared_ptr<PreLoadedChunk> pregen_chunk)
 {
-    std::string path = std::format("{}saves/{}/DIM0/{}${}/blocks.dat", Filesystem::get_data_directory(), m_dimension.m_world->get_name(), pos.x, pos.z);
+    std::string path = std::format("{}saves/{}/DIM{}/{}${}/blocks.dat", Filesystem::get_data_directory(), m_dimension.m_world->get_name(), m_dimension.id(), pos.x, pos.z);
 
     if (!Engine::get().is_save_disabled() && std::filesystem::exists(path))
     {
@@ -120,7 +120,7 @@ void GenScheduler::realize_chunk(std::stop_token token, ChunkPos pos, std::share
         assert(blocks_data.size() == sizeof(BlockState) * Chunk::block_count);
         memcpy(chunk->get_blocks(), blocks_data.data(), blocks_data.size());
 
-        std::string path = std::format("{}saves/{}/DIM0/{}${}/tags.dat", Filesystem::get_data_directory(), m_dimension.m_world->get_name(), pos.x, pos.z);
+        std::string path = std::format("{}saves/{}/DIM{}/{}${}/tags.dat", Filesystem::get_data_directory(), m_dimension.m_world->get_name(), m_dimension.id(), pos.x, pos.z);
         if (Filesystem::exists(path))
         {
             File file = EXPECT(Filesystem::open_file(path));
@@ -207,7 +207,7 @@ void GenScheduler::tick(std::span<const BlockPos> origins)
 
     for (BlockPos origin : origins)
     {
-        const ChunkPos middle(origin.x / 16, origin.z / 16);
+        const ChunkPos middle(chunk_index(origin.x), chunk_index(origin.z));
         // Realize chunks only after every terrain and structure pass in this
         // origin's dependency area has completed.
         if (terrain_pass(middle))
@@ -223,8 +223,8 @@ void GenScheduler::tick(std::span<const BlockPos> origins)
 
         for (BlockPos origin : origins)
         {
-            const int64_t cx = int64_t(origin.x / 16);
-            const int64_t cz = int64_t(origin.z / 16);
+            const int64_t cx = chunk_index(origin.x);
+            const int64_t cz = chunk_index(origin.z);
             const ChunkPos middle(cx, cz);
             if (std::abs(pos.x - middle.x) <= (m_chunk_distance + m_gen_distance + 1) && std::abs(pos.z - middle.z) <= (m_chunk_distance + m_gen_distance + 1))
                 used = true;
@@ -246,8 +246,8 @@ void GenScheduler::tick(std::span<const BlockPos> origins)
 
         for (BlockPos origin : origins)
         {
-            const int64_t cx = int64_t(origin.x / 16);
-            const int64_t cz = int64_t(origin.z / 16);
+            const int64_t cx = chunk_index(origin.x);
+            const int64_t cz = chunk_index(origin.z);
             const ChunkPos middle(cx, cz);
             if (std::abs(middle.x - pos.x) <= m_chunk_distance + 1 && std::abs(middle.z - pos.z) <= m_chunk_distance + 1)
                 used = true;
@@ -348,7 +348,7 @@ std::shared_ptr<Entity> Dimension::get_entity(EntityId id) const
 {
     for (const auto& entity : m_entities)
     {
-        if (entity->id() == id)
+        if (entity->id() == id && entity->get_dimension() == m_id)
             return entity;
     }
 
@@ -356,7 +356,7 @@ std::shared_ptr<Entity> Dimension::get_entity(EntityId id) const
     // World commits the deferred addition.
     for (const auto& entity : m_entities_to_add)
     {
-        if (entity->id() == id)
+        if (entity->id() == id && entity->get_dimension() == m_id)
             return entity;
     }
 
@@ -398,7 +398,7 @@ std::vector<std::shared_ptr<Entity>> Dimension::cast_box(const AABBd& box) const
 
     for (const std::shared_ptr<Entity>& entity : m_entities)
     {
-        if (entity->get_aabb().translate(entity->get_position()).intersect(box))
+        if (entity->get_dimension() == m_id && entity->get_aabb().translate(entity->get_position()).intersect(box))
             entities.push_back(entity);
     }
 

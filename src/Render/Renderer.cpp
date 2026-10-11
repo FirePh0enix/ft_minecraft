@@ -1783,6 +1783,7 @@ void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::sha
     FwWorldEnv world_env{};
     world_env.light_view_projection = shadowmap_camera.view_projection;
     world_env.light_dir = light_dir;
+    world_env.underworld = dimension == int(World::underworld) ? 1.0f : 0.0f;
 
     {
         ZoneScopedN("update worldenv buffer");
@@ -1912,7 +1913,7 @@ void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::sha
 
     for (auto& [pos, cloud] : m_clouds)
     {
-        if (cloud.buffer == nullptr)
+        if (dimension == int(World::underworld) || cloud.buffer == nullptr)
             continue;
 
         glm::vec3 position(glm::dvec3(pos.x, 0.0f, pos.z) * 32.0 + glm::dvec3(0, 270.0, 0) - active_camera->get_global_transform().position() + glm::dvec3(Engine::get().time(), 0, 0));
@@ -1987,7 +1988,7 @@ void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::sha
 
     for (auto& [pos, cloud] : m_clouds)
     {
-        if (cloud.buffer == nullptr)
+        if (dimension == int(World::underworld) || cloud.buffer == nullptr)
             continue;
 
         // glm::vec3 position(glm::dvec3(pos.x, 0.0f, pos.z) * 32.0 + glm::dvec3(0, 270.0, 0) - active_camera->get_global_transform().position() + glm::dvec3(Engine::get().time(), 0, 0));

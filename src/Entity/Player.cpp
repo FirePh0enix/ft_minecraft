@@ -158,18 +158,28 @@ void BetterConsole::gamemode(Player *player, const std::vector<std::string>& arg
         return;
     }
 
+    const auto server = std::dynamic_pointer_cast<LocalServer>(Engine::get().server());
+    if (server == nullptr)
+    {
+        player->send_message("Only the host can change the session gamemode.");
+        return;
+    }
+
     if (args[1] == "survival" || args[1] == "0")
     {
-        player->call_rpc("set_gamemode", static_cast<int64_t>(GameMode::Survival));
+        server->set_gamemode(GameMode::Survival);
     }
     else if (args[1] == "creative" || args[1] == "1")
     {
-        player->call_rpc("set_gamemode", static_cast<int64_t>(GameMode::Creative));
+        server->set_gamemode(GameMode::Creative);
     }
 }
 
 void Player::bind_methods()
 {
+    type.add_method("sync_health", &Player::sync_health);
+    expose_rpc<Player>("sync_health", RpcTarget::Client);
+
     type.add_method("set_gamemode", &Player::apply_gamemode);
     expose_rpc<Player>("set_gamemode", RpcTarget::Both);
 
@@ -368,9 +378,10 @@ void Player::tick(float delta)
         Input::set_mouse_grabbed(!m_opened_inventory.has_value());
     }
 
-    if (Input::is_action_just_pressed("toggle_chat") && !m_chat_opened)
+    if (m_local_player && Input::is_action_just_pressed("toggle_chat") && !m_chat_opened)
     {
         m_chat_opened = true;
+        m_chat_focus_requested = true;
         Input::set_mouse_grabbed(false);
     }
 
@@ -443,6 +454,17 @@ void Player::tick(float delta)
             sync_inventory();
     }
 
+    // Remote transforms and movement states belong to the controlling peer.
+    // Keep server-side pickups above, but do not run local input or physics.
+    if (!m_local_player)
+    {
+        m_animator.play(m_movement_sound == MovementSound::Swimming ? "swim" :
+                        m_movement_sound == MovementSound::Walking ? "walk" : "idle");
+        m_animator.tick(delta);
+        m_audio_source->set_position(get_global_transform().position());
+        return;
+    }
+
     Transform3D transform = m_transform;
 
     const glm::vec3 up(0.0, 1.0, 0.0);
@@ -475,7 +497,7 @@ void Player::tick(float delta)
             else
                 m_aimed_block = std::nullopt;
 
-            m_world->dd().draw_cube(glm::dvec3(result.block_pos) + result.normal, glm::vec3(1.0), Colors::yellow, 0.05f);
+            m_world->dd().draw_cube(glm::dvec3(result.block_pos), glm::vec3(1.0), Colors::yellow, 0.05f);
         }
         else
         {
@@ -501,8 +523,10 @@ void Player::tick(float delta)
         }
         else
         {
-            const glm::vec4 sky_color = glm::vec4(130.0 / 255.0, 200.0 / 255.0, 229.0 / 255.0, 1.0);
-            Renderer::get().set_fog(sky_color, float(16) * 16.0f - 1.0f);
+            const glm::vec4 sky_color = m_dimension == int(World::underworld)
+                                            ? glm::vec4(0.18f, 0.04f, 0.03f, 1.0f)
+                                            : glm::vec4(130.0 / 255.0, 200.0 / 255.0, 229.0 / 255.0, 1.0);
+            Renderer::get().set_fog(sky_color, m_dimension == int(World::underworld) ? 72.0f : float(16) * 16.0f - 1.0f);
             Renderer::get().set_sky(sky_color);
         }
 
@@ -510,7 +534,7 @@ void Player::tick(float delta)
         const int64_t cx = chunk_index(pos.x);
         const int64_t cz = chunk_index(pos.z);
 
-        const auto& chunk = m_world->get_chunk(cx, cz);
+        const auto& chunk = m_world->get_dimension(m_dimension).get_chunk(cx, cz);
 
         if (chunk.has_value())
         {
@@ -564,7 +588,12 @@ void Player::tick(float delta)
         m_velocity += glm::vec3(0, -1, 0) * m_gravity_value * delta * value;
     }
 
-    if (has_gravity())
+    if (has_gravity() && !chunk_loaded)
+    {
+        // Wait for destination terrain before advancing gravity or collisions.
+        m_velocity = glm::dvec3(0.0);
+    }
+    else if (has_gravity())
     {
         move_and_collide();
     }
@@ -588,7 +617,7 @@ void Player::tick(float delta)
     {
         if (is_in_water())
             movement_sound = MovementSound::Swimming;
-        else if (m_on_ground)
+        else
             movement_sound = MovementSound::Walking;
     }
     if (movement_sound != m_movement_sound)
@@ -637,6 +666,7 @@ void Player::tick(float delta)
     {
         SendPlayerTransformPacket p{};
         p.id = m_id;
+        p.dimension = m_dimension;
         p.position = get_global_transform().position();
         p.rotation = get_global_transform().rotation();
         Engine::get().server()->route_packet(NetworkConnection::create_packet(p));
@@ -885,6 +915,14 @@ void Player::on_damage(int value, EntityId damage_source)
     (void)value;
     (void)damage_source;
     update_health_bar();
+    if (Engine::get().is_server())
+        call_rpc("sync_health", static_cast<int64_t>(m_health));
+}
+
+void Player::sync_health(int64_t health)
+{
+    m_health = static_cast<int>(std::clamp(health, int64_t(0), int64_t(m_max_health)));
+    update_health_bar();
 }
 
 void Player::die()
@@ -915,6 +953,7 @@ void Player::respawn()
 
     m_health = m_max_health;
     set_position(m_world->get_spawn_position());
+    m_world->change_dimension(id(), World::overworld);
     give_spawn_equipment();
     call_rpc("on_respawn");
     sync_inventory();
@@ -922,6 +961,8 @@ void Player::respawn()
 
 void Player::on_respawn()
 {
+    m_health = m_max_health;
+    update_health_bar();
     m_dead = false;
     m_death_animation_time = 0.0f;
     m_animator.stop();
@@ -1119,16 +1160,21 @@ void Player::sync_inventory()
 
 void Player::update_health_bar()
 {
+    // Only the local player owns HUD widgets; damage also affects remote players.
+    if (!m_local_player || !m_health_bar)
+        return;
+
     m_health_bar->clear_children();
 
-    const int heart_count = (m_health - 1) / 2 + 1;
+    const int health = std::clamp(m_health, 0, m_max_health);
+    const int heart_count = (health + 1) / 2;
     for (int i = 0; i < heart_count; i++)
     {
         std::shared_ptr<TextureRectWidget> heart = std::make_shared<TextureRectWidget>();
         heart->set_size(Point(Size::px(40), Size::px(40)));
         heart->set_offset(Point(Size::px(0), Size::px(50)));
 
-        if (i == heart_count - 1 && i % 2 == 1)
+        if (i == heart_count - 1 && health % 2 == 1)
             heart->set_texture(m_half_heart_texture);
         else
             heart->set_texture(m_full_heart_texture);
@@ -1194,7 +1240,8 @@ void Player::chat()
 
     ImGui::SetNextWindowPos(ImVec2(0, (float)window_size.height / 1.7f));
     ImGui::SetNextWindowSize(ImVec2(size_x, size_y));
-    ImGui::SetNextWindowFocus();
+    if (m_chat_focus_requested)
+        ImGui::SetNextWindowFocus();
     if (ImGui::Begin("Chat"))
     {
         if (ImGui::BeginChild("Messages", ImVec2(size_x, (float)window_size.height * 0.32f)))
@@ -1204,7 +1251,12 @@ void Player::chat()
         }
         ImGui::EndChild();
 
-        ImGui::InputText("", m_chat_buffer, 128);
+        if (m_chat_focus_requested)
+        {
+            ImGui::SetKeyboardFocusHere();
+            m_chat_focus_requested = false;
+        }
+        ImGui::InputText("##ChatInput", m_chat_buffer, sizeof(m_chat_buffer));
         ImGui::SameLine();
         if (ImGui::Button(">"))
         {
@@ -1235,7 +1287,7 @@ void Player::debug_menu()
     ImGui::SetNextWindowFocus();
     if (ImGui::Begin("Debug"))
     {
-        ImGui::LabelText("", "FPS: %zu", Engine::get().get_fps());
+        ImGui::LabelText("", "FPS: %lld", static_cast<long long>(Engine::get().get_fps()));
         ImGui::LabelText("", "Chunks: %zu", m_world->get_dimension(0).get_chunks().size());
         ImGui::LabelText("", "Blocks: %zu", m_world->get_dimension(0).count_blocks());
         ImGui::LabelText("", "Triangles: %zu", m_world->get_dimension(0).count_triangles());

@@ -1,6 +1,7 @@
 #include "World/World.hpp"
 
 #include "AABB.hpp"
+#include "Block/PortalPattern.hpp"
 #include "Audio/AudioMixer.hpp"
 #include "Core/Filesystem.hpp"
 #include "Core/ZLib.hpp"
@@ -9,6 +10,8 @@
 #include "Entity/Item.hpp"
 #include "Entity/Player.hpp"
 #include "Network/Network.hpp"
+#include "Network/LocalServer.hpp"
+#include "World/Registry.hpp"
 #include "Profiler.hpp"
 #include "World/Chunk.hpp"
 #include "World/Dimension.hpp"
@@ -23,6 +26,7 @@
 #include <format>
 #include <limits>
 #include <memory>
+#include <cmath>
 
 // https://gamedev.stackexchange.com/questions/18436/most-efficient-aabb-vs-ray-collision-algorithms
 static bool ray_intersect_aabb(const Ray& ray, const AABBd& aabb, double& t_min, glm::dvec3& normal)
@@ -153,7 +157,8 @@ std::expected<std::shared_ptr<World>, Error> World::create(std::string name, uin
     world->m_dims[overworld].m_world = world.get();
     world->m_dims[underworld].m_world = world.get();
 
-    world->m_mob_spawner = std::make_unique<MobSpawner>(*world, overworld);
+    for (size_t dimension = 0; dimension < max_dimensions; ++dimension)
+        world->m_mob_spawners[dimension] = std::make_unique<MobSpawner>(*world, int(dimension));
 
     if (!Engine::get().is_save_disabled())
     {
@@ -179,7 +184,9 @@ std::expected<std::shared_ptr<World>, Error> World::create_proxy(uint64_t seed, 
     world->m_seed = seed;
     world->m_proxy = true;
     world->m_dims[overworld].m_world = world.get();
-    world->m_mob_spawner = std::make_unique<MobSpawner>(*world, overworld);
+    world->m_dims[underworld].m_world = world.get();
+    for (size_t dimension = 0; dimension < max_dimensions; ++dimension)
+        world->m_mob_spawners[dimension] = std::make_unique<MobSpawner>(*world, int(dimension));
 
     return world;
 }
@@ -206,7 +213,8 @@ std::expected<std::shared_ptr<World>, Error> World::load(std::string name, Audio
     world->m_dims[overworld].m_world = world.get();
     world->m_dims[underworld].m_world = world.get();
 
-    world->m_mob_spawner = std::make_unique<MobSpawner>(*world, overworld);
+    for (size_t dimension = 0; dimension < max_dimensions; ++dimension)
+        world->m_mob_spawners[dimension] = std::make_unique<MobSpawner>(*world, int(dimension));
 
     return world;
 }
@@ -215,13 +223,156 @@ World::~World()
 {
 }
 
+void World::change_dimension(EntityId id, int new_dimension)
+{
+    if (new_dimension < 0 || new_dimension >= int(max_dimensions))
+        return;
+    const auto entity = get_entity(id);
+    if (!entity || entity->m_dimension == new_dimension)
+        return;
+
+    Dimension& previous = m_dims[entity->m_dimension];
+    previous.remove_entity(entity);
+    std::erase(previous.m_entities_to_add, entity);
+    entity->m_dimension = new_dimension;
+    entity->m_velocity = glm::dvec3(0.0);
+    entity->m_on_ground = false;
+    entity->m_inside_portal = true;
+    // Moving an existing entity must not call on_ready() again.
+    Dimension& destination = m_dims[new_dimension];
+    std::erase(destination.m_entities_to_remove, entity);
+    if (std::find(destination.m_entities.begin(), destination.m_entities.end(), entity) == destination.m_entities.end() &&
+        std::find(destination.m_entities_to_add.begin(), destination.m_entities_to_add.end(), entity) == destination.m_entities_to_add.end())
+        destination.add_entity(entity);
+    cancel_portal_travel(id);
+
+    if (!m_proxy && Engine::get().server())
+    {
+        const RpcCallPacket packet{
+            .id = id,
+            .name = "sync_dimension",
+            .args = {int64_t(new_dimension), entity->get_position()},
+        };
+        Engine::get().server()->route_packet(NetworkConnection::create_packet(packet));
+    }
+}
+
+std::vector<BlockPos> World::portal_generation_origins(int dimension) const
+{
+    std::vector<BlockPos> origins;
+    for (const auto& [id, destination] : m_portal_destinations)
+        if (destination.dimension == dimension)
+            origins.push_back(destination.position);
+    return origins;
+}
+
+bool World::travel_through_portal(EntityId id, std::optional<BlockPos> source_portal)
+{
+    const auto entity = get_entity(id);
+    if (m_proxy || !entity)
+        return false;
+
+    auto pending = m_portal_destinations.find(id);
+    if (pending == m_portal_destinations.end())
+    {
+        if (!source_portal || !is_valid_portal(entity->get_dimension(), *source_portal))
+            return false;
+        const int target_dimension = entity->get_dimension() == int(overworld) ? int(underworld) : int(overworld);
+        const double scale = target_dimension == int(underworld) ? 1.0 / 8.0 : 8.0;
+        const glm::dvec3 source = entity->get_position();
+        pending = m_portal_destinations.emplace(id, PortalDestination{
+            target_dimension, {int64_t(std::round(source.x * scale)), 0, int64_t(std::round(source.z * scale))},
+            entity->get_dimension(), *source_portal}).first;
+    }
+    const auto destination = pending->second;
+    if (entity->get_dimension() != destination.source_dimension ||
+        !is_valid_portal(destination.source_dimension, destination.source_portal))
+    {
+        cancel_portal_travel(id);
+        return false;
+    }
+    const int target_dimension = destination.dimension;
+    const int64_t x = destination.position.x;
+    const int64_t z = destination.position.z;
+    Dimension& target = m_dims[target_dimension];
+
+    // Keep the player in the source world until the arrival area is loaded.
+    for (int64_t cx = chunk_index(x - 16); cx <= chunk_index(x + 16); ++cx)
+        for (int64_t cz = chunk_index(z - 16); cz <= chunk_index(z + 16); ++cz)
+            if (!target.has_chunk(cx, cz))
+                return false;
+
+    std::optional<glm::dvec3> arrival;
+    double best_distance = std::numeric_limits<double>::max();
+    for (int64_t px = x - 16; px <= x + 16; ++px)
+        for (int64_t pz = z - 16; pz <= z + 16; ++pz)
+            for (int64_t py = 1; py < Chunk::height - 2; ++py)
+            {
+                if (target.get_block(px, py, pz).id != Blocks::portal.hash ||
+                    target.get_block(px, py + 1, pz).id != Blocks::portal.hash ||
+                    !target.has_solid_block(px, py - 1, pz) ||
+                    !is_valid_portal(target_dimension, {px, py, pz}))
+                    continue;
+                const double distance = double((px - x) * (px - x) + (pz - z) * (pz - z));
+                if (distance < best_distance)
+                {
+                    best_distance = distance;
+                    arrival = glm::dvec3(px, double(py) + 0.4, pz);
+                }
+            }
+
+    if (!arrival)
+    {
+        const bool underworld_destination = target_dimension == int(underworld);
+        int64_t floor_y = underworld_destination ? 64 : 70;
+        const int64_t highest_floor = underworld_destination ? UnderworldGen::roof_height - 6 : Chunk::height - 6;
+        for (int64_t y = highest_floor; y >= 1; --y)
+        {
+            if (!target.has_solid_block(x, y, z))
+                continue;
+            bool clear = true;
+            for (int64_t dy = 1; dy <= 5; ++dy)
+                if (!target.get_block(x, y + dy, z).is_air())
+                    clear = false;
+            if (clear)
+            {
+                floor_y = y;
+                break;
+            }
+        }
+
+        // Clear a landing pocket and build a floor and a usable return portal.
+        for (int64_t px = x - 2; px <= x + 2; ++px)
+            for (int64_t pz = z - 2; pz <= z + 2; ++pz)
+            {
+                target.set_block(px, floor_y, pz, BlockState(Blocks::bedrock));
+                for (int64_t y = floor_y + 1; y <= floor_y + 4; ++y)
+                {
+                    target.set_block(px, y, pz, BlockState());
+                    target.remove_tag({px, y, pz}, "water");
+                }
+            }
+        for (int64_t px = x - 1; px <= x + 2; ++px)
+            for (int64_t y = floor_y; y <= floor_y + 4; ++y)
+                if (px == x - 1 || px == x + 2 || y == floor_y || y == floor_y + 4)
+                    target.set_block(px, y, z, BlockState(Blocks::bedrock));
+                else
+                    target.set_block(px, y, z, BlockState(Blocks::portal));
+
+        arrival = glm::dvec3(x, double(floor_y) + 1.4, z);
+        if (const auto server = std::dynamic_pointer_cast<LocalServer>(Engine::get().server()))
+            server->sync_portal_chunks(target_dimension, x, z);
+    }
+
+    entity->set_position(*arrival);
+    change_dimension(id, target_dimension);
+    return true;
+}
+
 void World::tick(float delta)
 {
-    // int dimension = m_player->get_dimension();
-
-    // tick_dimension(delta, dimension);
-    tick_dimension(delta, overworld);
-    // tick_dimension(delta, underworld);
+    for (int dimension = 0; dimension < int(max_dimensions); ++dimension)
+        tick_dimension(delta, dimension);
 
     m_debug_display.update(delta);
 }
@@ -232,6 +383,8 @@ void World::tick_dimension(float delta, int dimension)
 
     for (std::shared_ptr<Entity> entity : m_dims[dimension].get_entities())
     {
+        if (entity->get_dimension() != dimension)
+            continue;
         if (entity->is_active())
             entity->recurse_tick(delta);
         else
@@ -245,13 +398,14 @@ void World::tick_dimension(float delta, int dimension)
             m_dims[dimension].m_entities.erase(it);
     }
     for (std::shared_ptr<Entity> entity : m_dims[dimension].m_entities_to_add)
-        m_dims[dimension].m_entities.push_back(entity);
+        if (entity->get_dimension() == dimension)
+            m_dims[dimension].m_entities.push_back(entity);
 
     m_dims[dimension].m_entities_to_remove.clear();
     m_dims[dimension].m_entities_to_add.clear();
 
     if (!m_proxy)
-        m_mob_spawner->tick(delta);
+        m_mob_spawners[dimension]->tick(delta);
 
     {
         ZoneScopedN("Mesh flush");
@@ -351,9 +505,94 @@ BlockState World::get_block_state(int dimension, int64_t x, int64_t y, int64_t z
     return m_dims[dimension].get_block(x, y, z);
 }
 
+bool World::try_create_portal(int dimension, BlockPos anchor)
+{
+    if (m_proxy)
+        return false;
+    auto& dim = m_dims[dimension];
+    std::optional<PortalPattern::Match> match;
+    for (const auto frame : {Blocks::oak_log, Blocks::bedrock})
+    {
+        match = PortalPattern::find(anchor.x, anchor.y, anchor.z, frame.hash,
+            Blocks::portal.hash, false, [&](int64_t x, int64_t y, int64_t z) {
+                if (y < 0 || y >= Chunk::height || !dim.has_chunk(chunk_index(x), chunk_index(z)) ||
+                    dim.get_tag({x, y, z}, "water"))
+                    return UINT32_MAX;
+                return dim.get_block(x, y, z).id;
+            });
+        if (match)
+            break;
+    }
+    if (!match)
+        return false;
+    bool changed = false;
+    for (int dy = 1; dy < 4; ++dy)
+        for (int dx = 1; dx < 3; ++dx)
+        {
+            const int64_t x = match->x + (match->along_z ? 0 : dx);
+            const int64_t y = match->y + dy;
+            const int64_t z = match->z + (match->along_z ? dx : 0);
+            if (dim.get_block(x, y, z).id != Blocks::portal.hash)
+            {
+                dim.set_block(x, y, z, BlockState(Blocks::portal));
+                changed = true;
+            }
+        }
+    if (!changed)
+        return false;
+    if (const auto server = std::dynamic_pointer_cast<LocalServer>(Engine::get().server()))
+        server->sync_portal_chunks(dimension, match->x + 1, match->z + 1);
+    return true;
+}
+
+bool World::is_valid_portal(int dimension, BlockPos pos) const
+{
+    const auto& dim = m_dims[dimension];
+    for (const auto frame : {Blocks::oak_log, Blocks::bedrock})
+        if (PortalPattern::find(pos.x, pos.y, pos.z, frame.hash, Blocks::portal.hash, true,
+            [&](int64_t x, int64_t y, int64_t z) {
+                if (y < 0 || y >= Chunk::height || !dim.has_chunk(chunk_index(x), chunk_index(z)))
+                    return UINT32_MAX;
+                return dim.get_block(x, y, z).id;
+            }))
+            return true;
+    return false;
+}
+
 void World::set_block_state(int dimension, int64_t x, int64_t y, int64_t z, BlockState state)
 {
-    m_dims[dimension].set_block(x, y, z, state);
+    // Portal items activate a matching frame instead of placing standalone portal cells.
+    if (!m_proxy && state.id == Blocks::portal.hash)
+    {
+        try_create_portal(dimension, {x, y, z});
+        return;
+    }
+    auto& dim = m_dims[dimension];
+    const BlockState previous = dim.get_block(x, y, z);
+    dim.set_block(x, y, z, state);
+    if (state == previous)
+        return;
+    if (previous.id == Blocks::portal.hash || previous.id == Blocks::oak_log.hash ||
+        previous.id == Blocks::bedrock.hash)
+    {
+        // Remove the whole invalid surface so purple blocks always indicate a usable portal.
+        const BlockPos offsets[]{{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}};
+        std::vector<BlockPos> pending{{x, y, z}};
+        for (const auto offset : offsets)
+            pending.emplace_back(x + offset.x, y + offset.y, z + offset.z);
+        while (!pending.empty())
+        {
+            const auto pos = pending.back();
+            pending.pop_back();
+            if (dim.get_block(pos.x, pos.y, pos.z).id != Blocks::portal.hash || is_valid_portal(dimension, pos))
+                continue;
+            dim.set_block(pos.x, pos.y, pos.z, BlockState());
+            for (const auto offset : offsets)
+                pending.emplace_back(pos.x + offset.x, pos.y + offset.y, pos.z + offset.z);
+        }
+    }
+    if (state.id == Blocks::oak_log.hash || state.id == Blocks::bedrock.hash)
+        try_create_portal(dimension, {x, y, z});
 }
 
 std::optional<std::shared_ptr<Chunk>> World::get_chunk(int64_t x, int64_t z) const
@@ -377,61 +616,95 @@ inline void adjust_on_boundary(double rcomp, int64_t& vcomp, double dcomp, doubl
 bool World::raycast(int dimension, const Ray& ray, float range, RaycastResult& result, const Entity *ignore)
 {
     bool hit = false;
-    bool is_entiy = false;
-    double t_min = std::numeric_limits<double>::infinity();
-    glm::i64vec3 block_pos;
+    bool is_entity = false;
+    double closest = range;
+    glm::i64vec3 block_pos{};
+    glm::dvec3 normal{};
     std::shared_ptr<Entity> entity;
-    glm::dvec3 normal;
 
-    for (const std::shared_ptr<Entity>& e : m_dims[dimension].get_entities())
+    for (const auto& candidate : m_dims[dimension].get_entities())
     {
-        if (e.get() == ignore || e->get_parent() == ignore)
+        if (candidate.get() == ignore || candidate->get_parent() == ignore)
             continue;
-
-        AABB world_aabb = e->get_aabb().translate(e->get_global_transform().position());
-        double t = 0.0f;
-        glm::dvec3 normal;
-        if (ray_intersect_aabb(ray, world_aabb, t, normal) &&
-            t >= 0.0f &&
-            t <= range &&
-            t < t_min)
+        const AABB world_aabb = candidate->get_aabb().translate(candidate->get_global_transform().position());
+        double distance = 0.0;
+        glm::dvec3 entity_normal{};
+        if (ray_intersect_aabb(ray, world_aabb, distance, entity_normal) &&
+            distance >= 0.0 && distance <= closest)
         {
-            t_min = t;
+            closest = distance;
             hit = true;
-            is_entiy = true;
-            entity = e;
+            is_entity = true;
+            entity = candidate;
         }
     }
 
-    float d = 0.0f;
-    while (d <= range)
+    const glm::dvec3 origin = ray.origin();
+    const glm::dvec3 direction = ray.dir();
+    glm::i64vec3 cell;
+    int step[3]{};
+    glm::dvec3 initial_normal{};
+    double next_boundary[3]{};
+    double delta[3]{};
+    for (int axis = 0; axis < 3; ++axis)
     {
-        glm::vec3 pos = ray.at(d);
-        glm::i64vec3 ipos(glm::round(pos));
-        double t;
-        if (!get_block_state(dimension, ipos.x, ipos.y, ipos.z).is_air() &&
-            ray_intersect_aabb(ray, AABBd(-glm::dvec3(0.5), glm::dvec3(0.5)).translate(pos), t, normal) &&
-            t < t_min)
+        const double coordinate = origin[axis] + 0.5;
+        const double lower = std::floor(coordinate);
+        const bool on_boundary = std::abs(coordinate - lower) <= 1e-12;
+        cell[axis] = int64_t(lower);
+        step[axis] = direction[axis] > 0.0 ? 1 : direction[axis] < 0.0 ? -1 : 0;
+        if (on_boundary && step[axis] < 0)
+            --cell[axis];
+        if (on_boundary && step[axis] != 0)
+            initial_normal[axis] = -double(step[axis]);
+        if (step[axis] == 0)
         {
-            t_min = t;
-            hit = true;
-            is_entiy = false;
-            block_pos = ipos;
+            next_boundary[axis] = std::numeric_limits<double>::infinity();
+            delta[axis] = next_boundary[axis];
         }
-        d += range / 10.0f;
+        else
+        {
+            const double boundary = double(cell[axis]) + (step[axis] > 0 ? 0.5 : -0.5);
+            next_boundary[axis] = (boundary - origin[axis]) / direction[axis];
+            delta[axis] = std::abs(1.0 / direction[axis]);
+        }
     }
 
-    if (hit)
+    double entry_distance = 0.0;
+    glm::dvec3 entry_normal = initial_normal;
+    while (entry_distance <= range && entry_distance <= closest)
     {
-        result.hit_entity = is_entiy;
-        result.pos = ray.at(t_min);
-        result.distance = t_min;
-        result.block_pos = block_pos;
-        result.normal = normal;
-        result.entity = entity;
-        return true;
+        if (!get_block_state(dimension, cell.x, cell.y, cell.z).is_air())
+        {
+            closest = entry_distance;
+            hit = true;
+            is_entity = false;
+            block_pos = cell;
+            normal = entry_normal;
+            break;
+        }
+
+        int axis = 0;
+        if (next_boundary[1] < next_boundary[axis]) axis = 1;
+        if (next_boundary[2] < next_boundary[axis]) axis = 2;
+        entry_distance = next_boundary[axis];
+        if (!std::isfinite(entry_distance))
+            break;
+        cell[axis] += step[axis];
+        next_boundary[axis] += delta[axis];
+        entry_normal = glm::dvec3(0.0);
+        entry_normal[axis] = -double(step[axis]);
     }
-    return false;
+
+    if (!hit)
+        return false;
+    result.hit_entity = is_entity;
+    result.pos = ray.at(closest);
+    result.distance = closest;
+    result.block_pos = block_pos;
+    result.normal = normal;
+    result.entity = entity;
+    return true;
 }
 
 void World::break_block(int dimension, int64_t x, int64_t y, int64_t z)
@@ -441,7 +714,7 @@ void World::break_block(int dimension, int64_t x, int64_t y, int64_t z)
 
     // Block breaking is predicted on clients via the hit RPC. Drops, however,
     // must only be created by the authoritative server or they cannot be picked up.
-    if (Engine::get().is_client())
+    if (Engine::get().is_client() || state.id == Blocks::portal.hash)
         return;
 
     std::optional<Id<Item>> item_opt = Engine::get().registry().to_item(state.id);
@@ -525,6 +798,7 @@ std::expected<void, Error> World::save_player(const std::shared_ptr<Player>& pla
     path.append(std::format("{}.dat", player->get_username()));
 
     EntitySerializer serializer;
+    serializer.set("dimension", int64_t(player->get_dimension()));
     serializer.set("position", player->get_position());
     serializer.set("rotation", player->get_rotation());
     TRY(player->save(serializer));
@@ -554,6 +828,8 @@ bool World::load_player(std::string_view username, std::shared_ptr<Player>& play
     glm::dvec3 position = serializer.get<glm::dvec3>("position").value_or(get_spawn_position());
     glm::dquat rotation = serializer.get<glm::dquat>("rotation").value_or(glm::identity<glm::dquat>());
 
+    const int64_t dimension = serializer.get<int64_t>("dimension").value_or(0);
+    player->m_dimension = dimension >= 0 && dimension < int64_t(max_dimensions) ? int(dimension) : int(overworld);
     player->set_position(position);
     player->set_rotation(rotation);
 

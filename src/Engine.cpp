@@ -239,13 +239,13 @@ void Engine::draw(float delta)
     }
 
     m_current_fps++;
+    m_last_second_frame_time += delta;
     if (m_last_second_frame_time >= 1.0)
     {
-        m_fps = m_current_fps;
+        m_fps = int64_t(double(m_current_fps) / m_last_second_frame_time);
         m_current_fps = 0;
-        m_last_second_frame_time -= 1.0;
+        m_last_second_frame_time = 0.0;
     }
-    m_last_second_frame_time += delta;
 }
 
 double Engine::time()

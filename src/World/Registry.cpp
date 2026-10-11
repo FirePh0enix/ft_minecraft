@@ -64,7 +64,7 @@ void GameRegistry::register_all()
     register_block(Blocks::cactus, true, false);
 
     register_block(Blocks::crafting_table, std::make_shared<CraftingTableBlock>());
-    // add_block(Blocks::portal, std::make_shared<PortalBlock>());
+    register_block(Blocks::portal, std::make_shared<PortalBlock>());
     // add_block(Blocks::dandelion, std::make_shared<PlantBlock>("data/resourcepacks/core/assets/minecraft/textures/block/dandelion.png"));
 
     add_item(Items::stone, std::make_shared<ItemBlock>(Blocks::stone));
@@ -89,7 +89,7 @@ void GameRegistry::register_all()
     add_item(Items::cactus, std::make_shared<ItemBlock>(Blocks::cactus));
 
     add_item(Items::crafting_table_block, std::make_shared<ItemBlock>(Blocks::crafting_table));
-    // add_item(Items::portal_block, std::make_shared<ItemBlock>(Blocks::portal));
+    add_item(Items::portal_block, std::make_shared<ItemBlock>(Blocks::portal));
     // add_item(Items::water_bucket, std::make_shared<BucketItem>());
     add_item(Items::bow, std::make_shared<BowItem>());
     add_item(Items::arrow, std::make_shared<ArrowItem>());

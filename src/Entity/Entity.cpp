@@ -1,12 +1,15 @@
+#include <algorithm>
 #include <cstddef>
 
 #include "Entity/Entity.hpp"
 
 #include "Core/Filesystem.hpp"
 #include "Engine.hpp"
+#include "Entity/Player.hpp"
 #include "Network/Network.hpp"
 #include "Type.hpp"
 #include "Variant.hpp"
+#include "World/Registry.hpp"
 #include "World/World.hpp"
 
 #include <string>
@@ -54,6 +57,9 @@ std::expected<void, Error> EntitySerializer::load(std::string_view path)
 
 void Entity::bind_methods()
 {
+    type.add_method("sync_dimension", &Entity::sync_dimension);
+    expose_rpc<Entity>("sync_dimension", RpcTarget::Client);
+
     type.add_property("position", &Entity::get_position, &Entity::set_position);
     expose_rpc<Entity>("set/position");
 
@@ -74,17 +80,45 @@ void Entity::tick(float delta)
 {
     (void)delta;
 
-    // FIXME
-    // BlockState state = m_world->get_block_state(m_dimension, (int64_t)m_transform.position().x, (int64_t)m_transform.position().y, (int64_t)m_transform.position().z);
-    // if (state.id == Blocks::portal.hash && !m_inside_portal)
-    // {
-    //     m_inside_portal = true;
-    //     m_world->change_dimension(m_id, (m_dimension + 1) % 2);
-    // }
-    // else if (state.id != Blocks::portal.hash)
-    // {
-    //     m_inside_portal = false;
-    // }
+    // Only the server decides portal travel; clients receive the destination.
+    const auto *player = dynamic_cast<const Player *>(this);
+    if (!Engine::get().is_server() || !m_world || !player)
+        return;
+    if (player->is_dead())
+    {
+        m_world->cancel_portal_travel(id());
+        return;
+    }
+
+    const AABBd box = m_aabb.translate(get_position());
+    std::optional<BlockPos> touching_portal;
+    for (int64_t x = int64_t(std::floor(box.min.x + 0.5)); x <= int64_t(std::floor(box.max.x + 0.5)); ++x)
+        for (int64_t y = int64_t(std::floor(box.min.y + 0.5)); y <= int64_t(std::floor(box.max.y + 0.5)); ++y)
+            for (int64_t z = int64_t(std::floor(box.min.z + 0.5)); z <= int64_t(std::floor(box.max.z + 0.5)); ++z)
+                if (m_world->get_block_state(m_dimension, x, y, z).id == Blocks::portal.hash &&
+                    m_world->is_valid_portal(m_dimension, {x, y, z}) &&
+                    box.intersect(AABBd(glm::dvec3(-0.5), glm::dvec3(0.5)).translate(glm::dvec3(x, y, z))))
+                    touching_portal = BlockPos(x, y, z);
+
+    if (!touching_portal)
+        m_inside_portal = false;
+    // Crossing a portal commits travel; terrain loading can outlast the contact.
+    if (m_world->has_pending_portal_travel(id()) || (touching_portal && !m_inside_portal))
+    {
+        if (m_world->travel_through_portal(id(), touching_portal))
+            m_inside_portal = true;
+    }
+}
+
+void Entity::sync_dimension(int64_t dimension, glm::dvec3 position)
+{
+    if (!m_world || dimension < 0 || dimension >= int64_t(World::max_dimensions))
+        return;
+    m_world->change_dimension(id(), static_cast<int>(dimension));
+    set_position(position);
+    m_velocity = glm::dvec3(0.0);
+    m_on_ground = false;
+    m_inside_portal = true;
 }
 
 void Entity::add_child(std::shared_ptr<Entity> entity)
@@ -166,6 +200,10 @@ void Entity::call_rpci(std::string_view name, std::span<const Variant> args)
 // Based on https://medium.com/@andrebluntindie/3d-aabb-collision-detection-and-resolution-for-voxel-games-5fcbfdb8cdb4
 void Entity::move_and_collide()
 {
+    // Limit downward movement per tick so we don't skip nearby collision blocks.
+    constexpr double max_fall_step = 0.5;
+    m_velocity.y = std::max(m_velocity.y, -max_fall_step);
+
     AABBd mob_box = m_aabb.translate(m_transform.position());
     const Dimension& dimension = m_world->get_dimension(m_dimension);
     const std::vector<AABBd> colliders = dimension.get_boxes_that_may_collide(mob_box);

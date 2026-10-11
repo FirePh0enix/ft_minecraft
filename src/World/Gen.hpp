@@ -85,10 +85,13 @@ private:
 class UnderworldGen final : public Gen
 {
 public:
+    static constexpr int64_t roof_height = 127;
+
     UnderworldGen(WorldSettings settings);
 
     virtual void preload(int64_t cx, int64_t cz, std::shared_ptr<PreLoadedChunk> chunk) override;
     virtual void generate_chunk(std::shared_ptr<Chunk> chunk, std::shared_ptr<PreLoadedChunk> preloaded_chunk, Dimension& dim) override;
 
 private:
+    glm::vec2 cavern_bounds(int64_t x, int64_t z) const;
 };

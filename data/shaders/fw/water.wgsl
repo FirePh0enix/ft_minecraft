@@ -5,6 +5,7 @@ struct Camera {
 struct WorldEnv {
     light_view_projection: mat4x4f,
     light_dir: vec3f,
+    underworld: f32,
 }
 
 @group(0) @binding(1) var<uniform> camera: Camera;

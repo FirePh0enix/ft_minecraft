@@ -26,6 +26,17 @@ void ItemBlock::interact(World& world, int dimension, ItemStack& stack, bool hit
     glm::dvec3 pos(result.block_pos);
     glm::dvec3 normal = result.normal;
 
+    if (m_block == Blocks::portal)
+    {
+        // Activate from the clicked frame or surface, even when the player is in the opening.
+        if (world.try_create_portal(dimension, {result.block_pos.x, result.block_pos.y, result.block_pos.z}) ||
+            world.try_create_portal(dimension, {int64_t(pos.x) + int64_t(normal.x),
+                                              int64_t(pos.y) + int64_t(normal.y),
+                                              int64_t(pos.z) + int64_t(normal.z)}))
+            stack.set_count(stack.count() - 1);
+        return;
+    }
+
     std::vector<std::shared_ptr<Entity>> entities = world.get_dimension(dimension).cast_box(AABBd(-glm::dvec3(0.5), glm::dvec3(0.5)).translate(glm::dvec3(result.block_pos) + result.normal));
     if (has_major_entities(entities))
     {
