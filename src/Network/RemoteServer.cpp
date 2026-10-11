@@ -216,7 +216,10 @@ void RemoteServer::receive(void *user, NetworkConnection& conn, ENetPacket *pack
 
         debug("new entity (class_id = {}, id = {})", p.class_id.value, (uint32_t)p.id);
 
-        std::shared_ptr<Entity> entity = EXPECT(Engine::get().entity_registry().create_entity(p.class_id));
+        auto entity_result = Engine::get().entity_registry().create_entity(p.class_id);
+        if (!entity_result.has_value())
+            break;
+        std::shared_ptr<Entity> entity = entity_result.value();
         entity->set_id(p.id);
         entity->get_transform().position() = p.position;
         entity->get_transform().rotation() = p.rotation;

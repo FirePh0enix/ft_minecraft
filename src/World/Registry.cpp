@@ -24,7 +24,13 @@ constexpr int two_d_to_1d(int x, int y, int w)
 
 std::expected<std::shared_ptr<Entity>, Error> EntityRegistry::create_entity(ClassHashCode class_hash)
 {
-    return m_entries[class_hash].c();
+    const auto entry = m_entries.find(class_hash);
+    if (entry == m_entries.end() || entry->second.c == nullptr)
+    {
+        error("Unknown entity class ID {}. Check that host and client use the same game version.", class_hash.value);
+        return std::unexpected(Error(ErrorKind::Unknown));
+    }
+    return entry->second.c();
 }
 
 GameRegistry::GameRegistry()

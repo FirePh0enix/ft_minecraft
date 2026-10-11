@@ -20,24 +20,14 @@ struct ClassHashCode
     bool operator<(const ClassHashCode& code) const { return value < code.value; }
 };
 
-constexpr ClassHashCode fnv32_class_hash(const char *filename, const char *class_name)
+constexpr ClassHashCode fnv32_class_hash(const char *class_name)
 {
-    size_t filename_len = 0;
-    while (filename[filename_len])
-        filename_len++;
-
     size_t class_name_len = 0;
     while (class_name[class_name_len])
         class_name_len++;
 
     const uint32_t fnv_32_prime = 0x01000193;
     uint32_t h = 0x811c9dc5;
-
-    while (filename_len--)
-    {
-        h ^= *filename++;
-        h *= fnv_32_prime;
-    }
 
     while (class_name_len--)
     {
@@ -79,7 +69,8 @@ struct ClassList
 
 #define CLASS(NAME, BASE)                                                                                                                           \
 private:                                                                                                                                            \
-    static constexpr ClassHashCode s_class_hash = fnv32_class_hash(__FILE__, #NAME);                                                                \
+    /* Class IDs travel over the network; build paths must not affect them. */                                                                        \
+    static constexpr ClassHashCode s_class_hash = fnv32_class_hash(#NAME);                                                                          \
                                                                                                                                                     \
 public:                                                                                                                                             \
     static inline ClassList<BASE::classes.max_capacity() + 1> classes = ClassList<BASE::classes.max_capacity() + 1>(BASE::classes, {s_class_hash}); \
@@ -132,7 +123,7 @@ concept IsObject = requires() {
 
 class Object
 {
-    static inline ClassHashCode s_class_hash = fnv32_class_hash(__FILE__, "Object");
+    static inline ClassHashCode s_class_hash = fnv32_class_hash("Object");
 
 public:
     static inline ClassList<1> classes{s_class_hash};
