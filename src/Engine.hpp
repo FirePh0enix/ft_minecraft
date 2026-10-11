@@ -62,7 +62,7 @@ public:
     /// Returns the current in seconds with a nanosecond precision.
     double time();
 
-    ALWAYS_INLINE int64_t get_fps() const { return std::min(int64_t(1.0 / m_last_frame_time), (int64_t)60); }
+    ALWAYS_INLINE int64_t get_fps() const { return m_fps; }
     ALWAYS_INLINE int64_t get_tps() const { return m_tps; }
 
     bool is_save_disabled() const { return m_disable_save; }
@@ -83,7 +83,6 @@ public:
 
     static Engine& get() { return *singleton; }
 
-    double m_last_frame_time = 0.0;
 
 private:
     static inline Engine *singleton;
@@ -121,7 +120,7 @@ private:
     int64_t m_current_tps = 0;
 
     float m_last_second_timer_time = 0.0;
-    float m_last_second_frame_time = 0.0;
+    double m_last_second_frame_time = 0.0;
     size_t m_current_memory_usage = 0;
 
     std::shared_ptr<AudioMixer> m_audio_mixer;
