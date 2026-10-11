@@ -29,7 +29,6 @@ public:
     void play_one_shot_sound(int64_t sound) override;
 
 protected:
-    float m_stopping_dst = 0.1f;
 
     std::shared_ptr<Entity> m_threat_entity;
 

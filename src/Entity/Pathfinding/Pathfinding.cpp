@@ -113,7 +113,9 @@ std::vector<size_t> Pathfinding::get_neighbors(size_t node_index, size_t dimensi
             glm::ivec3 side2(node.m_gridPos.x, node.m_gridPos.y, node.m_gridPos.z + d.z);
 
             if (m_world->get_dimension(dimension).has_solid_block(side1.x, side1.y, side1.z) ||
-                m_world->get_dimension(dimension).has_solid_block(side2.x, side2.y, side2.z))
+                m_world->get_dimension(dimension).has_solid_block(side2.x, side2.y, side2.z) ||
+                m_world->get_dimension(dimension).has_solid_block(side1.x, side1.y + 1, side1.z) ||
+                m_world->get_dimension(dimension).has_solid_block(side2.x, side2.y + 1, side2.z))
                 continue;
         }
 

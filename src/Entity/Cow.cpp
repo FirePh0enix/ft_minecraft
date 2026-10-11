@@ -150,8 +150,7 @@ void Cow::flee_from(int radius)
     }
 
     std::vector<glm::vec3> waypoints = m_pathfinding->simplify_path(m_pathfinding->m_path);
-    m_path = Path(waypoints, m_stopping_dst);
+    m_path = Path(waypoints);
     m_following_path = true;
-    // Cow is already at waypoint 0.
-    m_path_index = 1;
+    m_path_index = 0;
 }
