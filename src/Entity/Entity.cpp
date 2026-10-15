@@ -206,7 +206,7 @@ void Entity::move_and_collide()
 
     AABBd mob_box = m_aabb.translate(m_transform.position());
     const Dimension& dimension = m_world->get_dimension(m_dimension);
-    const std::vector<AABBd> colliders = dimension.get_boxes_that_may_collide(mob_box);
+    const std::vector<AABBd> colliders = dimension.get_boxes_that_may_collide(mob_box.expand(m_velocity));
 
     glm::dvec3 move_vector = m_velocity;
     glm::dvec3 original_vector = move_vector;

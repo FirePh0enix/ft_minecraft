@@ -16,6 +16,10 @@ struct AABB
 {
     using Vec3 = glm::vec<3, T>;
 
+    // Reconstructing a box from its center can round a touching face slightly
+    // inside a collider. Keep clipping that contact on subsequent ticks.
+    static constexpr T contact_epsilon = T(1e-7);
+
     Vec3 min;
     Vec3 max;
 
@@ -88,13 +92,13 @@ struct AABB
     {
         if (intersect_y(o) && intersect_z(o))
         {
-            if (d > 0 && max.x <= o.min.x)
+            if (d > 0 && max.x <= o.min.x + contact_epsilon)
             {
                 T clip = o.min.x - max.x;
                 if (d > clip)
                     d = clip;
             }
-            if (d < 0 && min.x >= o.max.x)
+            if (d < 0 && min.x >= o.max.x - contact_epsilon)
             {
                 T clip = o.max.x - min.x;
                 if (d < clip)
@@ -109,13 +113,13 @@ struct AABB
     {
         if (intersect_x(o) && intersect_z(o))
         {
-            if (d > 0 && max.y <= o.min.y)
+            if (d > 0 && max.y <= o.min.y + contact_epsilon)
             {
                 T clip = o.min.y - max.y;
                 if (d > clip)
                     d = clip;
             }
-            if (d < 0 && min.y >= o.max.y)
+            if (d < 0 && min.y >= o.max.y - contact_epsilon)
             {
                 T clip = o.max.y - min.y;
                 if (d < clip)
@@ -130,13 +134,13 @@ struct AABB
     {
         if (intersect_x(o) && intersect_y(o))
         {
-            if (d > 0 && max.z <= o.min.z)
+            if (d > 0 && max.z <= o.min.z + contact_epsilon)
             {
                 T clip = o.min.z - max.z;
                 if (d > clip)
                     d = clip;
             }
-            if (d < 0 && min.z >= o.max.z)
+            if (d < 0 && min.z >= o.max.z - contact_epsilon)
             {
                 T clip = o.max.z - min.z;
                 if (d < clip)
