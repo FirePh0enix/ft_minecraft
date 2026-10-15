@@ -163,7 +163,7 @@ void Mob::flee_to(const glm::ivec3& to)
     std::vector<glm::vec3> waypoints = m_pathfinding->simplify_path(m_pathfinding->m_path);
     m_path = Path(waypoints);
     m_following_path = true;
-    m_path_index = 0;
+    m_path_index = 1;
 }
 
 bool Mob::verify_if_path_still_valid()

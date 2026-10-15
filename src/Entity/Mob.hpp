@@ -39,7 +39,7 @@ protected:
 
     bool m_following_path = false;
 
-    size_t m_path_index = 0;
+    size_t m_path_index = 1;
 
     float m_turn_speed = 10;
     float m_speed = 1.0f;
