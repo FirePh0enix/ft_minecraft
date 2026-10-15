@@ -21,6 +21,11 @@ public:
     /// Starts an asynchronous task.
     void submit(TaskFn task);
 
+    /// Cancel pending work and join running tasks. Call from the owning thread.
+    void stop();
+    /// Stop old work, then start fresh workers for a new world.
+    void reset();
+
 private:
     std::mutex m_mutex;
     // std::deque<std::function<void(std::stop_token)>> m_tasks;
@@ -34,4 +39,5 @@ private:
     std::vector<std::jthread> m_threads;
 
     void thread_worker(std::stop_token token);
+    void start(size_t num_threads);
 };

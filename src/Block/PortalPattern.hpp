@@ -1,8 +1,8 @@
 #pragma once
 
 #include <cstdint>
-#include <optional>
 #include <initializer_list>
+#include <optional>
 
 namespace PortalPattern
 {
@@ -25,7 +25,7 @@ std::optional<Match> find(int64_t x, int64_t y, int64_t z, uint32_t frame,
                 const bool interior = ax > 0 && ax < 3 && ay > 0 && ay < 4;
                 if (active && !interior)
                     continue;
-                Match origin{x - (along_z ? 0 : ax), y - ay, z - (along_z ? ax : 0), along_z};
+                Match origin{.x = x - (along_z ? 0 : ax), .y = y - ay, .z = z - (along_z ? ax : 0), .along_z = along_z};
                 bool matches = true;
                 for (int dy = 0; dy < 5 && matches; ++dy)
                     for (int dx = 0; dx < 4; ++dx)

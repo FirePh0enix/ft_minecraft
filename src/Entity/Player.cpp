@@ -1261,7 +1261,7 @@ void Player::chat()
         if (ImGui::Button(">"))
         {
             std::string msg = m_chat_buffer;
-            if (msg.starts_with("/"))
+            if (msg.starts_with('/'))
             {
                 m_console.process_command(this, msg.substr(1));
             }
@@ -1287,10 +1287,11 @@ void Player::debug_menu()
     ImGui::SetNextWindowFocus();
     if (ImGui::Begin("Debug"))
     {
+        Dimension& dimension = m_world->get_dimension(m_dimension);
         ImGui::LabelText("", "FPS: %lld", static_cast<long long>(Engine::get().get_fps()));
-        ImGui::LabelText("", "Chunks: %zu", m_world->get_dimension(0).get_chunks().size());
-        ImGui::LabelText("", "Blocks: %zu", m_world->get_dimension(0).count_blocks());
-        ImGui::LabelText("", "Triangles: %zu", m_world->get_dimension(0).count_triangles());
+        ImGui::LabelText("", "Chunks: %zu", dimension.get_chunks().size());
+        ImGui::LabelText("", "Blocks: %zu", dimension.count_blocks());
+        ImGui::LabelText("", "Triangles: %zu", dimension.count_triangles());
         ImGui::LabelText("", "Position: %lf %lf %lf", m_transform.position().x, m_transform.position().y, m_transform.position().z);
         ImGui::LabelText("", "Biome: %s", biome_names[(size_t)m_current_biome % (size_t)Biome::Max]);
     }

@@ -366,13 +366,14 @@ std::shared_ptr<Entity> Dimension::get_entity(EntityId id) const
 std::vector<AABBd> Dimension::get_boxes_that_may_collide(const AABBd& box) const
 {
     std::vector<AABBd> boxes;
-    int64_t size = 3;
-
-    glm::i64vec3 pos = box.center();
-
-    int64_t min_x = pos.x - size, max_x = pos.x + size;
-    int64_t min_y = pos.y - size, max_y = pos.y + size;
-    int64_t min_z = pos.z - size, max_z = pos.z + size;
+    // Blocks are centered on integer coordinates and extend by half a block.
+    // Query the complete supplied bounds, including the movement sweep.
+    const int64_t min_x = int64_t(std::floor(box.min.x + 0.5));
+    const int64_t max_x = int64_t(std::floor(box.max.x + 0.5));
+    const int64_t min_y = int64_t(std::floor(box.min.y + 0.5));
+    const int64_t max_y = int64_t(std::floor(box.max.y + 0.5));
+    const int64_t min_z = int64_t(std::floor(box.min.z + 0.5));
+    const int64_t max_z = int64_t(std::floor(box.max.z + 0.5));
 
     for (int64_t x = min_x; x <= max_x; x++)
     {

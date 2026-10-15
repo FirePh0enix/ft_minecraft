@@ -8,6 +8,11 @@
 
 ThreadPool::ThreadPool(size_t num_threads)
 {
+    start(num_threads);
+}
+
+void ThreadPool::start(size_t num_threads)
+{
     num_threads = std::max<size_t>(num_threads, 1);
     for (size_t i = 0; i < num_threads; i++)
     {
@@ -17,6 +22,11 @@ ThreadPool::ThreadPool(size_t num_threads)
 }
 
 ThreadPool::~ThreadPool()
+{
+    stop();
+}
+
+void ThreadPool::stop()
 {
     {
         std::lock_guard lock(m_mutex);
@@ -30,25 +40,39 @@ ThreadPool::~ThreadPool()
 
     m_cv.notify_all();
 
-    // Join before this object's mutex/condition variable are destroyed.
-    // std::jthread only joins from its destructor, which runs after the other
-    // members below have already been torn down (members are destroyed in
-    // reverse declaration order).
+    // All task owners must remain alive until every worker has joined.
     for (auto& thread : m_threads)
     {
         if (thread.joinable())
             thread.join();
     }
+
+    m_threads.clear();
+    TaskFn task;
+    while (m_tasks.try_dequeue(task))
+        task = {};
+}
+
+void ThreadPool::reset()
+{
+    const size_t num_threads = size();
+    stop();
+    {
+        std::lock_guard lock(m_mutex);
+        m_should_stop = false;
+    }
+    start(num_threads);
 }
 
 void ThreadPool::submit(std::function<void(std::stop_token)> task)
 {
-    // {
-    //     std::lock_guard lock(m_mutex);
-    //     m_tasks.push_back(task);
-    // }
-
-    m_tasks.enqueue(task);
+    {
+        // Synchronize with both shutdown and the worker's wait predicate.
+        std::lock_guard lock(m_mutex);
+        if (m_should_stop)
+            return;
+        m_tasks.enqueue(std::move(task));
+    }
     m_cv.notify_one();
 }
 
