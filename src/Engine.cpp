@@ -79,6 +79,9 @@ std::expected<void, Error> Engine::init()
 
 Engine::~Engine()
 {
+    m_thread_pool.stop();
+    m_mesh_thread_pool.stop();
+    m_server = nullptr;
     Font::deinit_library();
 }
 
@@ -117,6 +120,10 @@ void Engine::tick(float delta)
 
     if (m_switch_to_main_menu)
     {
+        // Jobs capture server, scheduler and dimension pointers. Finish them
+        // before releasing the old world, and discard its queued work.
+        m_thread_pool.reset();
+        m_mesh_thread_pool.reset();
         m_server = nullptr;
         m_menu = std::bind(&Engine::main_menu_gui, this);
         m_switch_to_main_menu = false;
