@@ -380,6 +380,7 @@ void World::tick(float delta)
 void World::tick_dimension(float delta, int dimension)
 {
     ZoneScoped;
+    double stage_begin = Engine::get().time();
 
     for (std::shared_ptr<Entity> entity : m_dims[dimension].get_entities())
     {
@@ -404,35 +405,14 @@ void World::tick_dimension(float delta, int dimension)
     m_dims[dimension].m_entities_to_remove.clear();
     m_dims[dimension].m_entities_to_add.clear();
 
+    Engine::get().finish_update_stage("entity simulation", stage_begin);
     if (!m_proxy)
         m_mob_spawners[dimension]->tick(delta);
 
-    {
-        ZoneScopedN("Mesh flush");
-        std::vector<ChunkPos> rebuild_completed;
-        MeshRebuildResult result;
-        while (m_dims[dimension].m_mesh_queue_lockless.try_dequeue(result))
-        {
-            // A chunk may have been unloaded and another instance loaded at
-            // the same position while this mesh was being generated.
-            auto chunk_iter = m_dims[dimension].m_chunks.find(result.pos);
-            if (chunk_iter == m_dims[dimension].m_chunks.end() || chunk_iter->second != result.chunk)
-                continue;
-            std::shared_ptr<Chunk> chunk = chunk_iter->second;
-            chunk->get_slices()[result.slice_index].opaque_mesh = result.opaque_mesh;
-            chunk->get_slices()[result.slice_index].water_mesh = result.water_mesh;
-            if (result.updates_shadow_mesh)
-                chunk->set_shadow_mesh(result.shadow_mesh);
-            if (m_dims[dimension].m_chunks_rebuild_queue.erase(result.pos) > 0)
-                rebuild_completed.push_back(result.pos);
-        }
-
-        for (const ChunkPos pos : rebuild_completed)
-        {
-            if (m_dims[dimension].m_chunks_rebuild_pending.erase(pos) > 0)
-                m_dims[dimension].queue_rebuild(pos);
-        }
-    }
+    Engine::get().finish_update_stage("mob spawning", stage_begin);
+    m_dims[dimension].flush_meshes();
+    m_dims[dimension].dispatch_meshes();
+    Engine::get().finish_update_stage("mesh publication/destruction", stage_begin);
 
     if (!m_proxy)
     {
@@ -446,11 +426,14 @@ void World::tick_dimension(float delta, int dimension)
         }
     }
 
+    Engine::get().finish_update_stage("modified chunk saves", stage_begin);
+
     if (m_player != nullptr)
     {
         ZoneScopedN("calc visible chunks");
 
         std::shared_ptr<Camera> camera = m_player->get_camera();
+        const glm::dvec3 camera_position = camera->get_global_transform().position();
 
         m_dims[dimension].m_visible_chunks.clear();
         for (const auto& [key, chunk] : m_dims[dimension].m_chunks)
@@ -458,23 +441,36 @@ void World::tick_dimension(float delta, int dimension)
             ZoneScopedN("one chunk");
 
             ChunkPos pos = chunk->pos();
+            // Hidden prefetched terrain must not increase the draw distance.
+            const double dx = std::max(std::abs(double(pos.x * Chunk::width) + 7.5 - camera_position.x) - 8.0, 0.0);
+            const double dz = std::max(std::abs(double(pos.z * Chunk::width) + 7.5 - camera_position.z) - 8.0, 0.0);
+            if (dx*dx + dz*dz >= double(ChunkStreaming::fog_end) * ChunkStreaming::fog_end)
+                continue;
             AABBf aabb = AABBf(-glm::vec3(Chunk::width / 2.0, Chunk::height / 2.0, Chunk::width / 2), glm::vec3(Chunk::width / 2.0, Chunk::height / 2.0, Chunk::width / 2))
-                             .translate(glm::dvec3((double)pos.x * Chunk::width + Chunk::width / 2.0, double(Chunk::height) / 2.0, (double)pos.z * Chunk::width + Chunk::width / 2.0) - camera->get_global_transform().position());
+                             .translate(glm::dvec3((double)pos.x * Chunk::width + Chunk::width / 2.0, double(Chunk::height) / 2.0, (double)pos.z * Chunk::width + Chunk::width / 2.0) - camera_position);
 
             if (!camera->frustum().contains(aabb))
                 continue;
 
+            RenderableChunk *renderable = nullptr;
             for (size_t i = 0; i < Chunk::slice_count; i++)
             {
-                ChunkPos pos = chunk->pos();
+                const auto& slice = chunk->get_slices()[i];
+                if (slice.opaque_mesh == nullptr && slice.water_mesh == nullptr)
+                    continue;
                 AABBf aabb = AABBf(-glm::vec3(Chunk::width / 2.0, Chunk::width / 2.0, Chunk::width / 2), glm::vec3(Chunk::width / 2.0, Chunk::width / 2.0, Chunk::width / 2))
-                                 .translate(glm::dvec3((double)pos.x * Chunk::width + Chunk::width / 2.0, (double)i * Chunk::width + Chunk::width / 2.0, (double)pos.z * Chunk::width + Chunk::width / 2.0) - camera->get_global_transform().position());
+                                 .translate(glm::dvec3((double)pos.x * Chunk::width + Chunk::width / 2.0, (double)i * Chunk::width + Chunk::width / 2.0, (double)pos.z * Chunk::width + Chunk::width / 2.0) - camera_position);
 
-                if (!camera->frustum().contains(aabb) || (chunk->get_slices()[i].opaque_mesh == nullptr && chunk->get_slices()[i].water_mesh == nullptr))
+                if (!camera->frustum().contains(aabb))
                     continue;
 
-                m_dims[dimension].m_visible_chunks[chunk->pos()].chunk = chunk;
-                m_dims[dimension].m_visible_chunks[chunk->pos()].slice_indices.push_back(i);
+                if (renderable == nullptr)
+                {
+                    renderable = &m_dims[dimension].m_visible_chunks[pos];
+                    renderable->chunk = chunk;
+                    renderable->slice_indices.reserve(Chunk::slice_count);
+                }
+                renderable->slice_indices.push_back(i);
             }
         }
     }
@@ -498,6 +494,7 @@ void World::tick_dimension(float delta, int dimension)
         if (chunk->get_shadow_mesh() != nullptr)
             m_dims[dimension].m_sun_visible_chunks.emplace(pos, RenderableChunk{chunk, {}});
     }
+    Engine::get().finish_update_stage("visibility", stage_begin);
 }
 
 BlockState World::get_block_state(int dimension, int64_t x, int64_t y, int64_t z) const

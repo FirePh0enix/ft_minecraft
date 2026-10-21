@@ -47,10 +47,12 @@ fn vertex_main(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
 fn get_view_pos(uv: vec2f, raw_depth: f32) -> vec3f {
     // Convert UV and depth to Normalized Device Coordinates (NDC)
     // WebGPU depth is [0.0, 1.0]
-    let ndc = vec4f(uv.x * 2.0 - 1.0, (1.0 - uv.y) * 2.0 - 1.0, raw_depth, 1.0);
-    let view_pos_clip = uniforms.inverse_camera_proj * ndc;
-    // Undo the perspective divide to recover distances in world-unit scale.
-    return view_pos_clip.xyz / view_pos_clip.w;
+    // Camera uses a symmetric perspective projection. Its inverse has only
+    // these five nonzero entries; avoid a full matrix multiply per sample.
+    let inv = uniforms.inverse_camera_proj;
+    let w = raw_depth * inv[2][3] + inv[3][3];
+    return vec3f((uv.x * 2.0 - 1.0) * inv[0][0],
+                 ((1.0 - uv.y) * 2.0 - 1.0) * inv[1][1], inv[3][2]) / w;
 }
 
 // Reconstruct at texel centers; filtering depth invents surfaces at silhouettes.
@@ -94,7 +96,9 @@ fn ambient_visibility(pixel: vec2i, position: vec3f) -> f32 {
     var occlusion = 0.0;
     for (var i = 0u; i < 64u; i += 1u) {
         let sample_pos = position + basis * ssao.samples[i].xyz * radius;
-        let clip = uniforms.camera_proj * vec4f(sample_pos, 1.0);
+        let proj = uniforms.camera_proj;
+        let clip = vec4f(sample_pos.x * proj[0][0], sample_pos.y * proj[1][1],
+                         sample_pos.z * proj[2][2] + proj[3][2], -sample_pos.z);
         // Reject samples behind the eye or outside WebGPU's [0, W] clip Z.
         if (clip.w <= 0.0 || clip.z <= 0.0 || clip.z >= clip.w) {
             continue;
@@ -109,15 +113,21 @@ fn ambient_visibility(pixel: vec2i, position: vec3f) -> f32 {
         if (raw >= 1.0) {
             continue;
         }
+        // Z alone decides whether this sample can occlude. Most samples on
+        // open surfaces do not: reconstruct XY and evaluate distance only
+        // for actual occluders. A Z gap of two blocks also has zero weight.
+        let inv = uniforms.inverse_camera_proj;
+        let surface_z = inv[3][2] / (raw * inv[2][3] + inv[3][3]);
+        if (surface_z < sample_pos.z + bias || abs(surface_z - position.z) >= radius * 2.0) {
+            continue;
+        }
         let surface_pos = get_view_pos((vec2f(p) + 0.5) / vec2f(size), raw);
         // Nearby in screen space does not imply nearby in the world. Fade
         // distant geometry out so background surfaces cannot cast AO halos.
         // Both values are signed view-space Z. A larger Z is closer to
         // the camera, so it occludes a sample behind it.
         let range_weight = 1.0 - smoothstep(radius * 0.5, radius * 2.0, length(surface_pos - position));
-        if (surface_pos.z >= sample_pos.z + bias) {
-            occlusion += range_weight;
-        }
+        occlusion += range_weight;
     }
     // Rejected samples remain unoccluded in the fixed denominator, preventing
     // stronger shadows near screen edges. The exponent controls AO contrast.
@@ -136,6 +146,6 @@ fn fragment_main(in: VertexOutput) -> @location(0) vec2f {
         // Neutral visibility plus a depth sentinel rejected by upsampling.
         return vec2f(1.0, 0.0);
     }
-    let position = view_position_at(pixel);
+    let position = get_view_pos((vec2f(pixel) + 0.5) / vec2f(size), raw);
     return vec2f(ambient_visibility(pixel, position), -position.z);
 }

@@ -75,6 +75,7 @@ public:
     int64_t get_movement_state() const override { return static_cast<int64_t>(m_movement_sound); }
     void play_one_shot_sound(int64_t sound) override;
 
+    glm::dvec3 streaming_velocity() const { return m_streaming_velocity; }
     float get_speed() const { return m_speed; }
     void set_speed(float speed) { m_speed = speed; }
 
@@ -117,6 +118,7 @@ private:
     std::shared_ptr<Camera> m_camera;
     GameMode m_gamemode = GameMode::Creative;
 
+    glm::dvec3 m_streaming_velocity{0.0};
     float m_speed = 8.0;
     float m_sprint_speed = 16.0;
 

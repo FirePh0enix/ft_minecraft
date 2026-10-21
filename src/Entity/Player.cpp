@@ -518,7 +518,7 @@ void Player::tick(float delta)
         if (head_in_water())
         {
             const glm::vec4 sky_color = glm::vec4(0.0, 0.0, 1.0, 1.0);
-            Renderer::get().set_fog(sky_color, float(16) * 16.0f * 0.3f); // TODO: render distance
+            Renderer::get().set_fog(sky_color, ChunkStreaming::fog_end * 0.3f);
             Renderer::get().set_sky(sky_color);
         }
         else
@@ -526,7 +526,7 @@ void Player::tick(float delta)
             const glm::vec4 sky_color = m_dimension == int(World::underworld)
                                             ? glm::vec4(0.18f, 0.04f, 0.03f, 1.0f)
                                             : glm::vec4(130.0 / 255.0, 200.0 / 255.0, 229.0 / 255.0, 1.0);
-            Renderer::get().set_fog(sky_color, m_dimension == int(World::underworld) ? 72.0f : float(16) * 16.0f - 1.0f);
+            Renderer::get().set_fog(sky_color, m_dimension == int(World::underworld) ? 128.0f : ChunkStreaming::fog_end);
             Renderer::get().set_sky(sky_color);
         }
 
@@ -626,6 +626,9 @@ void Player::tick(float delta)
         if (m_local_player)
             call_rpc("set_movement_state", static_cast<int64_t>(movement_sound));
     }
+
+    // Movement uses blocks per tick; streaming predicts in blocks per second.
+    m_streaming_velocity = delta > 0.0f ? m_velocity / double(delta) : glm::dvec3(0.0);
 
     // Reset velocity after movements.
     m_velocity.x = 0.0;
@@ -1289,6 +1292,16 @@ void Player::debug_menu()
     {
         Dimension& dimension = m_world->get_dimension(m_dimension);
         ImGui::LabelText("", "FPS: %lld", static_cast<long long>(Engine::get().get_fps()));
+        const auto& timings = Renderer::get().cpu_frame_timings();
+        ImGui::LabelText("", "CPU update: %.2f ms | render+submit: %.2f ms", Engine::get().get_update_cpu_ms(), timings.render_ms);
+        ImGui::LabelText("", "Surface acquire: %.2f ms | present: %.2f ms", timings.acquire_ms, timings.present_ms);
+        const auto& worst = Engine::get().worst_frame();
+        ImGui::LabelText("", "Worst frame work / 5s: %.2f ms (budget 40 ms)", worst.total_ms);
+        ImGui::LabelText("", "Worst: update %.2f | acquire %.2f | render %.2f | present %.2f | other %.2f",
+            worst.update_ms, worst.acquire_ms, worst.render_ms, worst.present_ms, worst.other_ms);
+        ImGui::LabelText("", "Update peak: %.*s %.2f ms | task mutex wait %.2f ms",
+            int(worst.update_stage.size()), worst.update_stage.data(), worst.update_stage_ms, worst.submit_wait_ms);
+        ImGui::LabelText("", "Resolution: %u x %u", window_size.width, window_size.height);
         ImGui::LabelText("", "Chunks: %zu", dimension.get_chunks().size());
         ImGui::LabelText("", "Blocks: %zu", dimension.count_blocks());
         ImGui::LabelText("", "Triangles: %zu", dimension.count_triangles());

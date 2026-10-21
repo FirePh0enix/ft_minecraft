@@ -53,7 +53,8 @@ fn linearize_depth(d: f32) -> f32 {
 }
 
 fn simpleFog(d: f32) -> f32 {
-    return max(min(length(d) / uniforms.fog_distance - 0.8, 1.0), 0.0);
+    // fog_distance is the fully opaque horizon, not the width of the fade.
+    return smoothstep(uniforms.fog_distance * 0.8, uniforms.fog_distance, d);
 }
 
 fn get_fog_color(clip_position: vec2f) -> vec3f {
@@ -136,8 +137,10 @@ fn filtered_visibility(pixel: vec2i, center_depth: f32) -> f32 {
 
 @fragment
 fn fragment_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    let color = textureSample(surface, surface_sampler, in.uv);
     let pixel = vec2i(in.position.xy);
+    // Composition is 1:1 with the scene texture. A single exact texel fetch
+    // supplies both color and the cloud mask, without redundant filtering.
+    let color = textureLoad(surface, pixel, 0);
     let raw_depth = textureLoad(depth, pixel, 0);
     if (raw_depth >= 1.0) {
         return color;
@@ -145,14 +148,22 @@ fn fragment_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
     // Opaque clouds write zero scene alpha as an AO exclusion mask. Read the
     // exact pixel so filtering cannot spread the mask across silhouettes.
+    let view_depth = linearize_depth(raw_depth);
+    // Camera-relative radial distance keeps the horizon stable at screen edges.
+    let position_h = uniforms.inv_view_proj * vec4f(in.clip_position, raw_depth, 1.0);
+    let fog_factor = simpleFog(length(position_h.xyz / position_h.w));
     var ao_factor = 1.0;
-    if (textureLoad(surface, pixel, 0).a > 0.0) {
-        ao_factor = filtered_visibility(pixel, linearize_depth(raw_depth));
+    if (color.a > 0.0 && fog_factor < 1.0) {
+        ao_factor = filtered_visibility(pixel, view_depth);
     }
     let lit_color = vec4f(color.rgb * ao_factor, 1.0);
     // Apply AO before fog so distant contact shadows fade with the scene.
-    let fog_factor = simpleFog(linearize_depth(raw_depth));
-    var final_color = mix(lit_color, vec4f(get_fog_color(in.clip_position), 1.0), fog_factor);
+    var final_color = lit_color;
+    // Nearby pixels have no fog; avoid the sky reconstruction and time-of-day
+    // color calculation when the result would be multiplied by zero.
+    if (fog_factor > 0.0) {
+        final_color = mix(lit_color, vec4f(get_fog_color(in.clip_position), 1.0), fog_factor);
+    }
     if (uniforms.underwater == 1) {
         final_color = mix(final_color, vec4f(0.0, 0.0, 1.0, 1.0), 0.5);
     }
