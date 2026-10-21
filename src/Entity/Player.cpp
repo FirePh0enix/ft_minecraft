@@ -526,7 +526,7 @@ void Player::tick(float delta)
             const glm::vec4 sky_color = m_dimension == int(World::underworld)
                                             ? glm::vec4(0.18f, 0.04f, 0.03f, 1.0f)
                                             : glm::vec4(130.0 / 255.0, 200.0 / 255.0, 229.0 / 255.0, 1.0);
-            Renderer::get().set_fog(sky_color, m_dimension == int(World::underworld) ? 128.0f : ChunkStreaming::fog_end);
+            Renderer::get().set_fog(sky_color, m_dimension == int(World::underworld) ? 72.0f : ChunkStreaming::fog_end);
             Renderer::get().set_sky(sky_color);
         }
 
