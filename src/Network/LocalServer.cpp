@@ -58,9 +58,7 @@ void LocalServer::tick()
 {
     ZoneScoped;
 
-    double stage_begin = Engine::get().time();
     m_connection.tick();
-    Engine::get().finish_update_stage("network receive", stage_begin);
 
     std::array<std::vector<BlockPos>, World::max_dimensions> origins;
     const auto add_origin = [&](const std::shared_ptr<Player>& player)
@@ -93,12 +91,9 @@ void LocalServer::tick()
     {
         const auto portal_origins = m_world->portal_generation_origins(dimension);
         origins[dimension].insert(origins[dimension].end(), portal_origins.begin(), portal_origins.end());
-        Engine::get().finish_update_stage("generation: gather origins", stage_begin);
         m_schedulers[dimension]->tick(origins[dimension]);
-        stage_begin = Engine::get().time();
     }
     m_world->tick(1.0 / 60.0);
-    stage_begin = Engine::get().time();
 
     if (m_online)
     {
@@ -135,14 +130,12 @@ void LocalServer::tick()
         }
     }
 
-    Engine::get().finish_update_stage("network send", stage_begin);
     const double now = Engine::get().time();
     if (now >= m_next_player_save)
     {
         save_players();
         m_next_player_save = now + 1.0;
     }
-    Engine::get().finish_update_stage("player save", stage_begin);
 }
 
 void LocalServer::save_players()

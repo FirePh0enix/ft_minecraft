@@ -445,20 +445,6 @@ class Renderer
     friend class Texture;
 
 public:
-    // Main-thread wall time, including any driver stalls inside these calls.
-    // These are not GPU execution timings.
-    struct CpuFrameTimings
-    {
-        double acquire_ms = 0.0;
-        double render_ms = 0.0;
-        double present_ms = 0.0;
-        double last_acquire_ms = 0.0;
-        double last_render_ms = 0.0;
-        double last_present_ms = 0.0;
-        bool valid = false;
-    };
-    const CpuFrameTimings& cpu_frame_timings() const { return m_cpu_frame_timings; }
-
     Renderer();
 
     std::expected<void, Error> init(const Window& window, InitFlags flags);
@@ -541,7 +527,6 @@ public:
     static ALWAYS_INLINE Renderer& get() { return *singleton; }
 
 private:
-    CpuFrameTimings m_cpu_frame_timings;
     wgpu::Instance m_instance = nullptr;
     wgpu::Adapter m_adapter = nullptr;
     wgpu::Device m_device = nullptr;

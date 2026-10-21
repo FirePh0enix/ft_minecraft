@@ -1055,22 +1055,6 @@ std::expected<void, Error> Renderer::init(const Window& window, InitFlags flags)
     m_adapter = request_adapter_sync(m_instance);
     ERR_COND_R(m_adapter == nullptr, "Unable to acquire the adapter", std::unexpected(Error(ErrorKind::BadDriver)));
 
-    WGPUAdapterInfo adapter_info = WGPU_ADAPTER_INFO_INIT;
-    if (wgpuAdapterGetInfo(m_adapter, &adapter_info) == WGPUStatus_Success)
-    {
-        const auto text = [](WGPUStringView value) -> std::string_view
-        {
-            if (!value.data)
-                return {};
-            return value.length == WGPU_STRLEN
-                ? std::string_view(value.data) : std::string_view(value.data, value.length);
-        };
-        info("Graphics adapter: {} | {} | {} (vendor {:04x}, device {:04x})",
-            text(adapter_info.vendor), text(adapter_info.device), text(adapter_info.description),
-            adapter_info.vendorID, adapter_info.deviceID);
-        wgpuAdapterInfoFreeMembers(adapter_info);
-    }
-
     const WGPUFeatureName required_features[] = {
         // (WGPUFeatureName)WGPUNativeFeature_PipelineStatisticsQuery,
         WGPUFeatureName_Depth32FloatStencil8,
@@ -1637,11 +1621,9 @@ LightMatrices getStableLightMatrices(const glm::vec3& lightDir,
 void Renderer::draw_forward(const std::shared_ptr<World>& world)
 {
     ZoneScoped;
-    const double frame_begin = Engine::get().time();
 
     WGPUSurfaceTexture surface_texture = WGPU_SURFACE_TEXTURE_INIT;
     wgpuSurfaceGetCurrentTexture(m_surface, &surface_texture);
-    const double acquired = Engine::get().time();
 
     ERR_COND_VR(surface_texture.texture == nullptr, "Cannot acquire a swapchain image (status = {})", (uint32_t)surface_texture.status);
     // TODO: if status is WGPUSurfaceGetCurrentTextureStatus_Outdated or WGPUSurfaceGetCurrentTextureStatus_Timeout
@@ -1686,7 +1668,6 @@ void Renderer::draw_forward(const std::shared_ptr<World>& world)
     output_color_attach.view = surface_view;
 
     WGPURenderPassDescriptor postprocess_pass_desc = WGPU_RENDER_PASS_DESCRIPTOR_INIT;
-    postprocess_pass_desc.label = WGPU_STRING_VIEW("Composition and UI");
     postprocess_pass_desc.colorAttachments = &output_color_attach;
     postprocess_pass_desc.colorAttachmentCount = 1;
 
@@ -1728,24 +1709,12 @@ void Renderer::draw_forward(const std::shared_ptr<World>& world)
         wgpuQueueSubmit(m_queue, 1, &command_buffer);
     }
 
-    const double submitted = Engine::get().time();
 #ifdef __platform_web
     emscripten_request_animation_frame([](double, void *)
                                        { return true; }, nullptr);
 #else
     wgpuSurfacePresent(m_surface);
 #endif
-
-    const double presented = Engine::get().time();
-    // Smooth the display without waiting for GPU completion or adding queries.
-    const double weight = m_cpu_frame_timings.valid ? 0.1 : 1.0;
-    m_cpu_frame_timings.acquire_ms += weight * ((acquired - frame_begin) * 1000.0 - m_cpu_frame_timings.acquire_ms);
-    m_cpu_frame_timings.render_ms += weight * ((submitted - acquired) * 1000.0 - m_cpu_frame_timings.render_ms);
-    m_cpu_frame_timings.present_ms += weight * ((presented - submitted) * 1000.0 - m_cpu_frame_timings.present_ms);
-    m_cpu_frame_timings.last_acquire_ms = (acquired - frame_begin) * 1000.0;
-    m_cpu_frame_timings.last_render_ms = (submitted - acquired) * 1000.0;
-    m_cpu_frame_timings.last_present_ms = (presented - submitted) * 1000.0;
-    m_cpu_frame_timings.valid = true;
 
     wgpuCommandBufferRelease(command_buffer);
     wgpuTextureViewRelease(surface_view);

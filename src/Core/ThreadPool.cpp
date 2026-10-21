@@ -4,17 +4,7 @@
 #include "Profiler.hpp"
 
 #include <algorithm>
-#include <chrono>
 #include <mutex>
-
-static thread_local double submit_wait_ms = 0.0;
-
-double ThreadPool::take_submit_wait_ms()
-{
-    const double elapsed = submit_wait_ms;
-    submit_wait_ms = 0.0;
-    return elapsed;
-}
 
 ThreadPool::ThreadPool(size_t num_threads)
 {
@@ -78,10 +68,7 @@ void ThreadPool::submit(std::function<void(std::stop_token)> task)
 {
     {
         // Synchronize with both shutdown and the worker's wait predicate.
-        const auto wait_begin = std::chrono::steady_clock::now();
         std::lock_guard lock(m_mutex);
-        submit_wait_ms += std::chrono::duration<double, std::milli>(
-            std::chrono::steady_clock::now() - wait_begin).count();
         if (m_should_stop)
             return;
         m_tasks.enqueue(std::move(task));

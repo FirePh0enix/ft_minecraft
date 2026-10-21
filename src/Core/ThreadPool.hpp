@@ -16,9 +16,6 @@ public:
     ThreadPool(size_t num_threads);
     ~ThreadPool();
 
-    // Only consumes this calling thread's wait time, across all pools.
-    static double take_submit_wait_ms();
-
     size_t size() const { return m_threads.size(); }
 
     /// Starts an asynchronous task.

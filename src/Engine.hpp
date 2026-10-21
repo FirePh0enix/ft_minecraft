@@ -64,19 +64,6 @@ public:
 
     ALWAYS_INLINE int64_t get_fps() const { return m_fps; }
     ALWAYS_INLINE int64_t get_tps() const { return m_tps; }
-    double get_update_cpu_ms() const { return m_update_cpu_ms; }
-
-    struct FrameBreakdown
-    {
-        double total_ms = 0.0, update_ms = 0.0, acquire_ms = 0.0;
-        double render_ms = 0.0, present_ms = 0.0, other_ms = 0.0;
-        std::string_view update_stage = "unclassified";
-        double update_stage_ms = 0.0, submit_wait_ms = 0.0;
-    };
-    const FrameBreakdown& worst_frame() const { return m_worst_frame; }
-
-    // Main-thread update stages only; names must have static lifetime.
-    void finish_update_stage(std::string_view name, double& started);
 
     bool is_save_disabled() const { return m_disable_save; }
 
@@ -131,14 +118,6 @@ private:
     int64_t m_tps = 0;
     int64_t m_current_fps = 0;
     int64_t m_current_tps = 0;
-    double m_update_cpu_ms = 0.0;
-    double m_frame_begin = 0.0;
-    double m_last_update_cpu_ms = 0.0;
-    double m_frame_report_time = 0.0;
-    std::string_view m_update_stage = "unclassified";
-    double m_update_stage_ms = 0.0, m_submit_wait_ms = 0.0;
-    FrameBreakdown m_pending_worst_frame;
-    FrameBreakdown m_worst_frame;
 
     float m_last_second_timer_time = 0.0;
     double m_last_second_frame_time = 0.0;

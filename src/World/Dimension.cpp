@@ -256,7 +256,6 @@ static void add_neighbour_chunk(ChunkPos pos, std::set<ChunkPos>& chunks)
 
 void GenScheduler::tick(std::span<const BlockPos> origins)
 {
-    double stage_begin = Engine::get().time();
     auto active = std::make_shared<Origins>();
     for (const auto origin : origins)
         active->emplace_back(chunk_index(origin.x), chunk_index(origin.z));
@@ -298,7 +297,6 @@ void GenScheduler::tick(std::span<const BlockPos> origins)
         }
     }
 
-    Engine::get().finish_update_stage("generation: publish terrain", stage_begin);
     for (BlockPos origin : origins)
     {
         const ChunkPos middle(chunk_index(origin.x), chunk_index(origin.z));
@@ -312,7 +310,7 @@ void GenScheduler::tick(std::span<const BlockPos> origins)
         }
     }
 
-    Engine::get().finish_update_stage("generation: schedule jobs", stage_begin);
+    double stage_begin = Engine::get().time();
 
     // Remove pregen chunks if too far from the origins.
     std::vector<ChunkPos> pregen_chunks_to_remove;
@@ -343,8 +341,6 @@ void GenScheduler::tick(std::span<const BlockPos> origins)
         if (Engine::get().time() - stage_begin >= 0.002)
             break;
     }
-
-    Engine::get().finish_update_stage("generation: retire terrain", stage_begin);
 
     // Unload chunks if too far from the origins
     std::vector<std::shared_ptr<Chunk>> chunks_to_remove;
@@ -381,8 +377,6 @@ void GenScheduler::tick(std::span<const BlockPos> origins)
     if (!pregen_chunks_to_remove.empty() || !chunks_to_remove.empty())
         m_scheduled_origins.clear();
 
-    Engine::get().finish_update_stage("generation: retire chunks", stage_begin);
-
     std::set<ChunkPos> chunk_modified;
 
     {
@@ -407,7 +401,7 @@ void GenScheduler::tick(std::span<const BlockPos> origins)
         }
     }
 
-    Engine::get().finish_update_stage("generation: publish chunks", stage_begin);
+    stage_begin = Engine::get().time();
     {
         ZoneScopedN("Chunk unload");
         std::shared_ptr<Chunk> chunk;
@@ -431,12 +425,10 @@ void GenScheduler::tick(std::span<const BlockPos> origins)
         }
     }
 
-    Engine::get().finish_update_stage("generation: release unloaded chunks", stage_begin);
     for (ChunkPos pos : chunk_modified)
     {
         m_dimension.queue_rebuild(pos);
     }
-    Engine::get().finish_update_stage("generation: queue meshes", stage_begin);
 }
 
 float GenScheduler::get_generation_progression()
@@ -740,7 +732,6 @@ void Dimension::rebuild(std::stop_token token, std::shared_ptr<Chunk> chunk, con
 
 size_t Dimension::flush_meshes(size_t max_results)
 {
-    ZoneScopedN("Mesh flush");
     MeshRebuildResult result;
     size_t processed = 0;
     const double publish_begin = Engine::get().time();

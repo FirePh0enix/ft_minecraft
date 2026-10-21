@@ -380,7 +380,6 @@ void World::tick(float delta)
 void World::tick_dimension(float delta, int dimension)
 {
     ZoneScoped;
-    double stage_begin = Engine::get().time();
 
     for (std::shared_ptr<Entity> entity : m_dims[dimension].get_entities())
     {
@@ -405,14 +404,11 @@ void World::tick_dimension(float delta, int dimension)
     m_dims[dimension].m_entities_to_remove.clear();
     m_dims[dimension].m_entities_to_add.clear();
 
-    Engine::get().finish_update_stage("entity simulation", stage_begin);
     if (!m_proxy)
         m_mob_spawners[dimension]->tick(delta);
 
-    Engine::get().finish_update_stage("mob spawning", stage_begin);
     m_dims[dimension].flush_meshes();
     m_dims[dimension].dispatch_meshes();
-    Engine::get().finish_update_stage("mesh publication/destruction", stage_begin);
 
     if (!m_proxy)
     {
@@ -426,7 +422,6 @@ void World::tick_dimension(float delta, int dimension)
         }
     }
 
-    Engine::get().finish_update_stage("modified chunk saves", stage_begin);
 
     if (m_player != nullptr)
     {
@@ -494,7 +489,6 @@ void World::tick_dimension(float delta, int dimension)
         if (chunk->get_shadow_mesh() != nullptr)
             m_dims[dimension].m_sun_visible_chunks.emplace(pos, RenderableChunk{chunk, {}});
     }
-    Engine::get().finish_update_stage("visibility", stage_begin);
 }
 
 BlockState World::get_block_state(int dimension, int64_t x, int64_t y, int64_t z) const

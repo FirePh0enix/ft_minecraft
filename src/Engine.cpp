@@ -114,27 +114,9 @@ void Engine::register_recipes()
     m_registry.add_recipe(Recipe::create(ItemStack(Items::crafting_table_block), crafting_table_spruce));
 }
 
-void Engine::finish_update_stage(std::string_view name, double& started)
-{
-    const double now = time();
-    const double elapsed = (now - started) * 1000.0;
-    if (elapsed > m_update_stage_ms)
-    {
-        m_update_stage = name;
-        m_update_stage_ms = elapsed;
-    }
-    started = now;
-}
-
 void Engine::tick(float delta)
 {
     ZoneScoped;
-    const double update_begin = time();
-    m_frame_begin = update_begin;
-    m_update_stage = "unclassified";
-    m_update_stage_ms = 0.0;
-    (void)ThreadPool::take_submit_wait_ms();
-    double stage_begin = update_begin;
 
     if (m_switch_to_main_menu)
     {
@@ -221,8 +203,6 @@ void Engine::tick(float delta)
         }
     }
 
-    finish_update_stage("events/world transition", stage_begin);
-
     m_current_tps++;
     if (m_last_second_timer_time >= 1.0)
     {
@@ -247,13 +227,7 @@ void Engine::tick(float delta)
             m_ticks_since_start_of_day = 0;
     }
 
-    stage_begin = time();
     m_music_player->update(delta);
-    finish_update_stage("music", stage_begin);
-    m_submit_wait_ms = ThreadPool::take_submit_wait_ms();
-    const double elapsed_ms = (time() - update_begin) * 1000.0;
-    m_last_update_cpu_ms = elapsed_ms;
-    m_update_cpu_ms += (m_update_cpu_ms == 0.0 ? 1.0 : 0.1) * (elapsed_ms - m_update_cpu_ms);
 }
 
 void Engine::draw(float delta)
@@ -269,38 +243,6 @@ void Engine::draw(float delta)
     {
         std::shared_ptr<World> world = m_server->get_world();
         m_renderer.draw_forward(world);
-    }
-
-    if (m_menu == nullptr && m_server != nullptr)
-    {
-        const double now = time();
-        const auto& render = m_renderer.cpu_frame_timings();
-        const double total = (now - m_frame_begin) * 1000.0;
-        if (total > m_pending_worst_frame.total_ms)
-        {
-            m_pending_worst_frame = {total, m_last_update_cpu_ms,
-                render.last_acquire_ms, render.last_render_ms, render.last_present_ms,
-                total - m_last_update_cpu_ms - render.last_acquire_ms
-                      - render.last_render_ms - render.last_present_ms,
-                m_update_stage, m_update_stage_ms, m_submit_wait_ms};
-        }
-        if (now - m_frame_report_time >= 5.0)
-        {
-            m_worst_frame = m_pending_worst_frame;
-            if (m_worst_frame.total_ms > 40.0)
-                info("Slowest frame work in 5s: {:.2f} ms (update {:.2f}, acquire {:.2f}, render+submit {:.2f}, present {:.2f}, other {:.2f}); update peak: {} {:.2f} ms; task mutex wait {:.2f} ms",
-                    m_worst_frame.total_ms, m_worst_frame.update_ms, m_worst_frame.acquire_ms,
-                    m_worst_frame.render_ms, m_worst_frame.present_ms, m_worst_frame.other_ms,
-                    m_worst_frame.update_stage, m_worst_frame.update_stage_ms, m_worst_frame.submit_wait_ms);
-            m_pending_worst_frame = {};
-            m_frame_report_time = now;
-        }
-    }
-    else
-    {
-        m_pending_worst_frame = {};
-        m_worst_frame = {};
-        m_frame_report_time = time();
     }
 
     m_current_fps++;
