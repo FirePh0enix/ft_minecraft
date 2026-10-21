@@ -27,14 +27,16 @@ void GenScheduler::update_order(ChunkPos direction)
         for (int64_t x = -radius; x <= radius; ++x)
             for (int64_t z = -radius; z <= radius; ++z)
                 order.emplace_back(x, z);
-        const auto score = [&](ChunkPos p) {
+        const auto score = [&](ChunkPos p)
+        {
             // Keep the immediate neighborhood first; bias farther work toward
             // the next four chunks along the travel direction.
-            const double distance = double(p.x*p.x + p.z*p.z);
+            const double distance = double(p.x * p.x + p.z * p.z);
             return distance <= 4 ? distance - 100.0
-                : distance - 8.0 * (p.x*dx + p.z*dz);
+                                 : distance - 8.0 * (p.x * dx + p.z * dz);
         };
-        std::stable_sort(order.begin(), order.end(), [&](auto a, auto b) { return score(a) < score(b); });
+        std::stable_sort(order.begin(), order.end(), [&](auto a, auto b)
+                         { return score(a) < score(b); });
     };
     fill(m_terrain_order, m_chunk_distance + m_gen_distance);
     fill(m_chunk_order, m_chunk_distance);
@@ -46,7 +48,7 @@ bool GenScheduler::wanted(ChunkPos pos, int64_t radius) const
     if (!origins)
         return true; // Standalone scheduling before the first tick.
     for (const auto origin : *origins)
-        if (std::abs(pos.x-origin.x) <= radius && std::abs(pos.z-origin.z) <= radius)
+        if (std::abs(pos.x - origin.x) <= radius && std::abs(pos.z - origin.z) <= radius)
             return true;
     return false;
 }
@@ -55,7 +57,7 @@ bool GenScheduler::dependencies_ready(ChunkPos pos) const
 {
     for (int64_t x = -m_gen_distance; x <= m_gen_distance; ++x)
         for (int64_t z = -m_gen_distance; z <= m_gen_distance; ++z)
-            if (!m_dimension.m_preloaded_chunks.contains({pos.x+x, pos.z+z}))
+            if (!m_dimension.m_preloaded_chunks.contains({pos.x + x, pos.z + z}))
                 return false;
     return true;
 }
@@ -88,7 +90,7 @@ bool GenScheduler::terrain_pass(ChunkPos middle)
         m_pregen_loading_queue.insert(pos);
 
         Engine::get().get_thread_pool().submit([this, pos](std::stop_token token)
-        {
+                                               {
             if (token.stop_requested())
                 return;
             if (!wanted(pos, m_chunk_distance + m_gen_distance + 1))
@@ -98,8 +100,7 @@ bool GenScheduler::terrain_pass(ChunkPos middle)
             }
             auto chunk = std::make_shared<PreLoadedChunk>();
             chunk->pos = pos;
-            terrain_and_struct_chunk(token, pos, chunk);
-        });
+            terrain_and_struct_chunk(token, pos, chunk); });
     }
     return ready;
 }
@@ -132,7 +133,7 @@ bool GenScheduler::chunk_pass(ChunkPos middle)
         // Allocate/zero the 65,536-block array on a worker, not in a
         // main-thread burst for every chunk in the newly scheduled region.
         Engine::get().get_thread_pool().submit([this, pos, preload_chunk](std::stop_token st)
-        {
+                                               {
             if (st.stop_requested())
                 return;
             if (!wanted(pos, m_chunk_distance + 1))
@@ -141,8 +142,7 @@ bool GenScheduler::chunk_pass(ChunkPos middle)
                 return;
             }
             auto chunk = std::make_shared<Chunk>(&m_dimension, pos.x, pos.z);
-            realize_chunk(st, pos, chunk, preload_chunk);
-        });
+            realize_chunk(st, pos, chunk, preload_chunk); });
         m_remaining_chunks_to_load++;
     }
     return ready;
@@ -263,7 +263,7 @@ void GenScheduler::tick(std::span<const BlockPos> origins)
     if (!active->empty() && (!m_previous_origin || (active->front().x != m_previous_origin->x || active->front().z != m_previous_origin->z)))
     {
         const auto current = active->front();
-        update_order(m_previous_origin ? ChunkPos(current.x-m_previous_origin->x, current.z-m_previous_origin->z) : ChunkPos());
+        update_order(m_previous_origin ? ChunkPos(current.x - m_previous_origin->x, current.z - m_previous_origin->z) : ChunkPos());
         m_previous_origin = current;
     }
     ChunkPos cancelled;
@@ -442,7 +442,7 @@ float GenScheduler::get_generation_progression()
             for (int64_t z = -m_chunk_distance; z <= m_chunk_distance; ++z)
             {
                 ++total;
-                loaded += m_dimension.m_meshed_chunks.contains({origin.x+x, origin.z+z});
+                loaded += m_dimension.m_meshed_chunks.contains({origin.x + x, origin.z + z});
             }
     return float(loaded) / float(total);
 }
@@ -670,7 +670,8 @@ void Dimension::rebuild(std::stop_token token, std::shared_ptr<Chunk> chunk, con
     if (slice_count == 0)
         return;
 
-    const auto fail = [&] {
+    const auto fail = [&]
+    {
         MeshRebuildResult result;
         result.pos = chunk->pos();
         result.chunk = chunk;
@@ -819,12 +820,12 @@ void Dimension::dispatch_meshes()
             const double z = double(pos.z) + 0.5 - cz;
             // Nearby edits remain responsive; missing terrain gets precedence
             // over equally distant seam updates to already visible chunks.
-            const double distance = x*x + z*z;
+            const double distance = x * x + z * z;
             // Always repair the immediate neighborhood first. Otherwise rank
             // against the predicted position, so rear seam updates cannot bury
             // terrain that sprint flight is about to reveal.
             const double priority = distance <= 4.0 ? distance - 10000.0
-                : distance - 2.0 * (x * ahead.x + z * ahead.z);
+                                                    : distance - 2.0 * (x * ahead.x + z * ahead.z);
             candidates.emplace_back(priority + (m_meshed_chunks.contains(pos) ? 16.0 : 0.0), pos);
         }
         ++it;
@@ -882,9 +883,9 @@ void Dimension::place_structure(glm::i64vec3 pos, const std::vector<BlockState>&
         return;
     auto structure = std::make_shared<const StructureGen>(pos, blocks, w, h, l);
     std::lock_guard<std::mutex> lock(m_structures_mutex);
-    for (int64_t x = chunk_index(pos.x); x <= chunk_index(pos.x+w-1); ++x)
-        for (int64_t z = chunk_index(pos.z); z <= chunk_index(pos.z+l-1); ++z)
-            m_structures_by_chunk[{x,z}].push_back(structure);
+    for (int64_t x = chunk_index(pos.x); x <= chunk_index(pos.x + w - 1); ++x)
+        for (int64_t z = chunk_index(pos.z); z <= chunk_index(pos.z + l - 1); ++z)
+            m_structures_by_chunk[{x, z}].push_back(structure);
 }
 
 void Dimension::get_structures_overlap(ChunkPos pos, std::vector<StructureGen>& structures)

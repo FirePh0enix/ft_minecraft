@@ -3,10 +3,10 @@
 #include "Engine.hpp"
 #include "Entity/LivingEntity.hpp"
 #include "Entity/Player.hpp"
-#include "Inventory/Inventory.hpp"
-#include "World/Registry.hpp"
 #include "Entity/ProjectileCollision.hpp"
+#include "Inventory/Inventory.hpp"
 #include "Network/Network.hpp"
+#include "World/Registry.hpp"
 #include "World/World.hpp"
 
 #include <algorithm>

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Item/Item.hpp"
 #include "Core/Math.hpp"
+#include "Item/Item.hpp"
 
 class ArrowItem : public Item
 {

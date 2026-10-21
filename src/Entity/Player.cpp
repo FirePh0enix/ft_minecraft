@@ -458,8 +458,8 @@ void Player::tick(float delta)
     // Keep server-side pickups above, but do not run local input or physics.
     if (!m_local_player)
     {
-        m_animator.play(m_movement_sound == MovementSound::Swimming ? "swim" :
-                        m_movement_sound == MovementSound::Walking ? "walk" : "idle");
+        m_animator.play(m_movement_sound == MovementSound::Swimming ? "swim" : m_movement_sound == MovementSound::Walking ? "walk"
+                                                                                                                          : "idle");
         m_animator.tick(delta);
         m_audio_source->set_position(get_global_transform().position());
         return;

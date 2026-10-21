@@ -29,7 +29,6 @@ public:
     void play_one_shot_sound(int64_t sound) override;
 
 protected:
-
     std::shared_ptr<Entity> m_threat_entity;
 
     float m_attack_range = 1.0f;

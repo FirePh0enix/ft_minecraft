@@ -83,7 +83,6 @@ public:
 
     static Engine& get() { return *singleton; }
 
-
 private:
     static inline Engine *singleton;
 

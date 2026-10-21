@@ -7,8 +7,8 @@
 #include "World/Biome.hpp"
 #include "stdext.hpp"
 
-#include <cstdint>
 #include <bitset>
+#include <cstdint>
 #include <set>
 
 class World;

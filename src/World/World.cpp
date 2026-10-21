@@ -1,32 +1,32 @@
 #include "World/World.hpp"
 
 #include "AABB.hpp"
-#include "Block/PortalPattern.hpp"
 #include "Audio/AudioMixer.hpp"
+#include "Block/PortalPattern.hpp"
 #include "Core/Filesystem.hpp"
 #include "Core/ZLib.hpp"
 #include "Engine.hpp"
 #include "Entity/Entity.hpp"
 #include "Entity/Item.hpp"
 #include "Entity/Player.hpp"
-#include "Network/Network.hpp"
 #include "Network/LocalServer.hpp"
-#include "World/Registry.hpp"
+#include "Network/Network.hpp"
 #include "Profiler.hpp"
 #include "World/Chunk.hpp"
 #include "World/Dimension.hpp"
 #include "World/MobSpawner.hpp"
+#include "World/Registry.hpp"
 #include "World/Settings.hpp"
 
 #include <SDL3/SDL.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstdlib>
 #include <expected>
 #include <format>
 #include <limits>
 #include <memory>
-#include <cmath>
 
 // https://gamedev.stackexchange.com/questions/18436/most-efficient-aabb-vs-ray-collision-algorithms
 static bool ray_intersect_aabb(const Ray& ray, const AABBd& aabb, double& t_min, glm::dvec3& normal)
@@ -281,8 +281,8 @@ bool World::travel_through_portal(EntityId id, std::optional<BlockPos> source_po
         const double scale = target_dimension == int(underworld) ? 1.0 / 8.0 : 8.0;
         const glm::dvec3 source = entity->get_position();
         pending = m_portal_destinations.emplace(id, PortalDestination{
-            target_dimension, {int64_t(std::round(source.x * scale)), 0, int64_t(std::round(source.z * scale))},
-            entity->get_dimension(), *source_portal}).first;
+                                                        target_dimension, {int64_t(std::round(source.x * scale)), 0, int64_t(std::round(source.z * scale))}, entity->get_dimension(), *source_portal})
+                      .first;
     }
     const auto destination = pending->second;
     if (entity->get_dimension() != destination.source_dimension ||
@@ -422,7 +422,6 @@ void World::tick_dimension(float delta, int dimension)
         }
     }
 
-
     if (m_player != nullptr)
     {
         ZoneScopedN("calc visible chunks");
@@ -439,7 +438,7 @@ void World::tick_dimension(float delta, int dimension)
             // Hidden prefetched terrain must not increase the draw distance.
             const double dx = std::max(std::abs(double(pos.x * Chunk::width) + 7.5 - camera_position.x) - 8.0, 0.0);
             const double dz = std::max(std::abs(double(pos.z * Chunk::width) + 7.5 - camera_position.z) - 8.0, 0.0);
-            if (dx*dx + dz*dz >= double(ChunkStreaming::fog_end) * ChunkStreaming::fog_end)
+            if (dx * dx + dz * dz >= double(ChunkStreaming::fog_end) * ChunkStreaming::fog_end)
                 continue;
             AABBf aabb = AABBf(-glm::vec3(Chunk::width / 2.0, Chunk::height / 2.0, Chunk::width / 2), glm::vec3(Chunk::width / 2.0, Chunk::height / 2.0, Chunk::width / 2))
                              .translate(glm::dvec3((double)pos.x * Chunk::width + Chunk::width / 2.0, double(Chunk::height) / 2.0, (double)pos.z * Chunk::width + Chunk::width / 2.0) - camera_position);
@@ -505,12 +504,12 @@ bool World::try_create_portal(int dimension, BlockPos anchor)
     for (const auto frame : {Blocks::oak_log, Blocks::bedrock})
     {
         match = PortalPattern::find(anchor.x, anchor.y, anchor.z, frame.hash,
-            Blocks::portal.hash, false, [&](int64_t x, int64_t y, int64_t z) {
+                                    Blocks::portal.hash, false, [&](int64_t x, int64_t y, int64_t z)
+                                    {
                 if (y < 0 || y >= Chunk::height || !dim.has_chunk(chunk_index(x), chunk_index(z)) ||
                     dim.get_tag({x, y, z}, "water"))
                     return UINT32_MAX;
-                return dim.get_block(x, y, z).id;
-            });
+                return dim.get_block(x, y, z).id; });
         if (match)
             break;
     }
@@ -541,11 +540,12 @@ bool World::is_valid_portal(int dimension, BlockPos pos) const
     const auto& dim = m_dims[dimension];
     for (const auto frame : {Blocks::oak_log, Blocks::bedrock})
         if (PortalPattern::find(pos.x, pos.y, pos.z, frame.hash, Blocks::portal.hash, true,
-            [&](int64_t x, int64_t y, int64_t z) {
-                if (y < 0 || y >= Chunk::height || !dim.has_chunk(chunk_index(x), chunk_index(z)))
-                    return UINT32_MAX;
-                return dim.get_block(x, y, z).id;
-            }))
+                                [&](int64_t x, int64_t y, int64_t z)
+                                {
+                                    if (y < 0 || y >= Chunk::height || !dim.has_chunk(chunk_index(x), chunk_index(z)))
+                                        return UINT32_MAX;
+                                    return dim.get_block(x, y, z).id;
+                                }))
             return true;
     return false;
 }
@@ -643,7 +643,8 @@ bool World::raycast(int dimension, const Ray& ray, float range, RaycastResult& r
         const double lower = std::floor(coordinate);
         const bool on_boundary = std::abs(coordinate - lower) <= 1e-12;
         cell[axis] = int64_t(lower);
-        step[axis] = direction[axis] > 0.0 ? 1 : direction[axis] < 0.0 ? -1 : 0;
+        step[axis] = direction[axis] > 0.0 ? 1 : direction[axis] < 0.0 ? -1
+                                                                       : 0;
         if (on_boundary && step[axis] < 0)
             --cell[axis];
         if (on_boundary && step[axis] != 0)
@@ -676,8 +677,10 @@ bool World::raycast(int dimension, const Ray& ray, float range, RaycastResult& r
         }
 
         int axis = 0;
-        if (next_boundary[1] < next_boundary[axis]) axis = 1;
-        if (next_boundary[2] < next_boundary[axis]) axis = 2;
+        if (next_boundary[1] < next_boundary[axis])
+            axis = 1;
+        if (next_boundary[2] < next_boundary[axis])
+            axis = 2;
         entry_distance = next_boundary[axis];
         if (!std::isfinite(entry_distance))
             break;

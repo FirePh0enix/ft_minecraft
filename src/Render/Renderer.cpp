@@ -362,7 +362,10 @@ std::expected<std::shared_ptr<Mesh>, Error> Mesh::create_from_data(std::span<con
     // every opaque/water slice. Vertex and index bindings use explicit ranges
     // into the same immutable allocation; the vertex formats stay unchanged.
     const std::array<std::span<const std::byte>, 4> data{
-        indices, std::as_bytes(positions), std::as_bytes(normals), uvs,
+        indices,
+        std::as_bytes(positions),
+        std::as_bytes(normals),
+        uvs,
     };
     std::array<size_t, 4> offsets{};
     size_t total_size = 0;
@@ -374,8 +377,8 @@ std::expected<std::shared_ptr<Mesh>, Error> Mesh::create_from_data(std::span<con
         total_size += (data[i].size() + 3) & ~size_t(3);
     }
     TRY_ASSIGN(auto storage, Buffer::create(total_size,
-        WGPUBufferUsage_Index | WGPUBufferUsage_Vertex | WGPUBufferUsage_CopyDst,
-        total_size != 0));
+                                            WGPUBufferUsage_Index | WGPUBufferUsage_Vertex | WGPUBufferUsage_CopyDst,
+                                            total_size != 0));
     if (total_size != 0)
     {
         auto *mapped = static_cast<std::byte *>(wgpuBufferGetMappedRange(storage->handle(), 0, total_size));
@@ -731,7 +734,6 @@ WGPUAdapter request_adapter_sync(WGPUInstance instance)
 
     WGPURequestAdapterOptions adapter_options{};
     adapter_options.featureLevel = WGPUFeatureLevel_Core;
-
 
     WGPURequestAdapterCallbackInfo callback_info{
         .nextInChain = nullptr,
@@ -1261,8 +1263,8 @@ std::expected<void, Error> Renderer::init(const Window& window, InitFlags flags)
     cloud_shader->set_binding("camera", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 1, BindingAccess::Read));
     cloud_shader->create_bind_group_layout();
     m_cloud_mat = Material::create(cloud_shader, MaterialFlagBits::NoNormal | MaterialFlagBits::NoUV,
-                                  WGPUCullMode_Back, WGPUVertexFormat_Float32x2,
-                                  Instance({InstanceAttribute(0, WGPUVertexFormat_Float32x3)}, sizeof(glm::vec3)));
+                                   WGPUCullMode_Back, WGPUVertexFormat_Float32x2,
+                                   Instance({InstanceAttribute(0, WGPUVertexFormat_Float32x3)}, sizeof(glm::vec3)));
     m_cloud_bg = BindGroup::create(cloud_shader);
     m_cloud_bg->set_param("camera", m_fw_camera);
     m_cloud_shadow_bg = BindGroup::create(cloud_shader);

@@ -11,7 +11,7 @@ inline constexpr int64_t load_distance = render_distance + preload_margin;
 inline constexpr double prediction_seconds = 1.0;
 inline constexpr double max_prediction_blocks = 160.0;
 inline constexpr float fog_end = float(render_distance * 16 - 1);
-}
+} // namespace ChunkStreaming
 
 struct WorldSettings
 {
