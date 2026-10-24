@@ -505,9 +505,49 @@ std::shared_ptr<Entity> Dimension::get_entity(EntityId id) const
     return nullptr;
 }
 
+void Dimension::invalidate_entity_targets()
+{
+    m_entity_targets_dirty = true;
+    m_living_entities.clear();
+    m_players.clear();
+}
+
+void Dimension::rebuild_entity_targets() const
+{
+    if (!m_entity_targets_dirty)
+        return;
+    for (const auto& entity : m_entities)
+    {
+        if (auto living = std::dynamic_pointer_cast<LivingEntity>(entity))
+            m_living_entities.push_back(std::move(living));
+        if (auto player = std::dynamic_pointer_cast<Player>(entity))
+            m_players.push_back(std::move(player));
+    }
+    m_entity_targets_dirty = false;
+}
+
+const std::vector<std::shared_ptr<LivingEntity>>& Dimension::get_living_entities() const
+{
+    rebuild_entity_targets();
+    return m_living_entities;
+}
+
+const std::vector<std::shared_ptr<Player>>& Dimension::get_players() const
+{
+    rebuild_entity_targets();
+    return m_players;
+}
+
 std::vector<AABBd> Dimension::get_boxes_that_may_collide(const AABBd& box) const
 {
     std::vector<AABBd> boxes;
+    get_boxes_that_may_collide(box, boxes);
+    return boxes;
+}
+
+void Dimension::get_boxes_that_may_collide(const AABBd& box, std::vector<AABBd>& boxes) const
+{
+    boxes.clear();
     // Blocks are centered on integer coordinates and extend by half a block.
     // Query the complete supplied bounds, including the movement sweep.
     const int64_t min_x = int64_t(std::floor(box.min.x + 0.5));
@@ -531,8 +571,6 @@ std::vector<AABBd> Dimension::get_boxes_that_may_collide(const AABBd& box) const
             }
         }
     }
-
-    return boxes;
 }
 
 std::vector<std::shared_ptr<Entity>> Dimension::cast_box(const AABBd& box) const

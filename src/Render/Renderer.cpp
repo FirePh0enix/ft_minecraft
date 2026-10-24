@@ -1797,24 +1797,37 @@ void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::sha
     // Drawing every slice in the full square light frustum can produce tens of
     // thousands of tiny draw calls. Limit casters to chunks visible to the main
     // camera plus a margin that retains nearby off-screen occluders.
-    constexpr int64_t shadow_caster_margin = 2;
-    std::vector<ChunkPos> shadow_casters;
-    shadow_casters.reserve(visible_chunks.size() * (shadow_caster_margin * 2 + 1) * (shadow_caster_margin * 2 + 1));
-    for (const auto& [pos, renderable] : visible_chunks)
+    const bool same_visible_chunks = m_shadow_source_chunks.size() == visible_chunks.size() &&
+        std::equal(m_shadow_source_chunks.begin(), m_shadow_source_chunks.end(), visible_chunks.begin(),
+                   [](const ChunkPos& cached, const auto& entry)
+                   { return cached.x == entry.first.x && cached.z == entry.first.z; });
+    if (!same_visible_chunks)
     {
-        (void)renderable;
-        for (int64_t x = -shadow_caster_margin; x <= shadow_caster_margin; ++x)
-            for (int64_t z = -shadow_caster_margin; z <= shadow_caster_margin; ++z)
-                shadow_casters.emplace_back(pos.x + x, pos.z + z);
+        ZoneScopedN("rebuild shadow caster candidates");
+        constexpr int64_t shadow_caster_margin = 2;
+        m_shadow_source_chunks.clear();
+        m_shadow_source_chunks.reserve(visible_chunks.size());
+        m_shadow_caster_candidates.clear();
+        m_shadow_caster_candidates.reserve(visible_chunks.size() * (shadow_caster_margin * 2 + 1) * (shadow_caster_margin * 2 + 1));
+        for (const auto& [pos, renderable] : visible_chunks)
+        {
+            (void)renderable;
+            m_shadow_source_chunks.push_back(pos);
+            for (int64_t x = -shadow_caster_margin; x <= shadow_caster_margin; ++x)
+                for (int64_t z = -shadow_caster_margin; z <= shadow_caster_margin; ++z)
+                    m_shadow_caster_candidates.emplace_back(pos.x + x, pos.z + z);
+        }
+        std::sort(m_shadow_caster_candidates.begin(), m_shadow_caster_candidates.end());
+        m_shadow_caster_candidates.erase(
+            std::unique(m_shadow_caster_candidates.begin(), m_shadow_caster_candidates.end(),
+                        [](const ChunkPos& a, const ChunkPos& b)
+                        { return a.x == b.x && a.z == b.z; }),
+            m_shadow_caster_candidates.end());
     }
-    std::sort(shadow_casters.begin(), shadow_casters.end());
-    shadow_casters.erase(std::unique(shadow_casters.begin(), shadow_casters.end(), [](const ChunkPos& a, const ChunkPos& b)
-                                     { return a.x == b.x && a.z == b.z; }),
-                         shadow_casters.end());
 
     const auto is_shadow_caster = [&](const ChunkPos& pos)
     {
-        return std::binary_search(shadow_casters.begin(), shadow_casters.end(), pos);
+        return std::binary_search(m_shadow_caster_candidates.begin(), m_shadow_caster_candidates.end(), pos);
     };
 
     // One fresh mapped staging allocation avoids waiting on last frame's GPU

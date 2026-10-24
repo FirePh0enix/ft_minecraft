@@ -6,6 +6,7 @@
 #include "Entity/ProjectileCollision.hpp"
 #include "Inventory/Inventory.hpp"
 #include "Network/Network.hpp"
+#include "Profiler.hpp"
 #include "World/Registry.hpp"
 #include "World/World.hpp"
 
@@ -34,16 +35,24 @@ void ArrowEntity::orient(glm::vec3 direction)
 
 void ArrowEntity::tick(float delta)
 {
-    if (Engine::get().is_client())
+    ZoneScoped;
+    if (Engine::get().is_client() || !m_active)
         return;
 
+    const auto& dimension = m_world->get_dimension(m_dimension);
     if (m_embedded)
     {
-        const AABBd pickup_box = m_aabb.translate(get_position()).grow(glm::dvec3(0.25));
-        for (const auto& entity : m_world->get_dimension(m_dimension).get_entities())
+        // Expire on the server so all clients receive the same removal.
+        m_embedded_seconds += std::max(0.0, double(delta));
+        if (m_embedded_seconds >= embedded_lifetime_seconds)
         {
-            auto player = std::dynamic_pointer_cast<Player>(entity);
-            if (!player || !player->is_active() || player->is_dead())
+            remove();
+            return;
+        }
+        const AABBd pickup_box = m_aabb.translate(get_position()).grow(glm::dvec3(0.25));
+        for (const auto& player : dimension.get_players())
+        {
+            if (player->get_dimension() != m_dimension || !player->is_active() || player->is_dead())
                 continue;
             if (pickup_box.intersect(player->get_aabb().translate(player->get_position())) &&
                 player->get_inventory_container()->add_item(Items::arrow))
@@ -77,8 +86,10 @@ void ArrowEntity::tick(float delta)
         double nearest = step_length;
         bool hit = false;
         std::shared_ptr<LivingEntity> victim;
-        const auto& dimension = m_world->get_dimension(m_dimension);
-        for (const AABBd& box : dimension.get_boxes_that_may_collide(m_aabb.translate(get_position())))
+        // Include the segment endpoint so crossing a block boundary cannot
+        // miss the block ahead. Keep storage for subsequent segments/ticks.
+        dimension.get_boxes_that_may_collide(m_aabb.translate(get_position()).expand(step), m_collision_boxes);
+        for (const AABBd& box : m_collision_boxes)
         {
             if (auto t = projectile_contact(ray, box.grow(glm::dvec3(0.04)), nearest))
             {
@@ -86,12 +97,10 @@ void ArrowEntity::tick(float delta)
                 hit = true;
             }
         }
-        for (const auto& entity : dimension.get_entities())
+        for (const auto& living : dimension.get_living_entities())
         {
-            if (entity->id() == m_owner || !entity->is_active())
-                continue;
-            auto living = std::dynamic_pointer_cast<LivingEntity>(entity);
-            if (!living || living->is_dead())
+            if (living->id() == m_owner || living->get_dimension() != m_dimension ||
+                !living->is_active() || living->is_dead())
                 continue;
             const AABBd box = living->get_aabb().translate(living->get_global_transform().position()).grow(glm::dvec3(0.04));
             if (auto t = projectile_contact(ray, box, nearest); t && (!hit || *t < nearest))

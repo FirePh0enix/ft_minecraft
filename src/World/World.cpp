@@ -391,6 +391,9 @@ void World::tick_dimension(float delta, int dimension)
             remove_entity(entity->m_dimension, entity);
     }
 
+    if (!m_dims[dimension].m_entities_to_remove.empty() || !m_dims[dimension].m_entities_to_add.empty())
+        m_dims[dimension].invalidate_entity_targets();
+
     for (std::shared_ptr<Entity> entity : m_dims[dimension].m_entities_to_remove)
     {
         auto it = std::find(m_dims[dimension].m_entities.begin(), m_dims[dimension].m_entities.end(), entity);

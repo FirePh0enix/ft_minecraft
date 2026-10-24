@@ -16,6 +16,8 @@
 
 class World;
 class Dimension;
+class LivingEntity;
+class Player;
 
 struct RenderableChunk
 {
@@ -154,7 +156,12 @@ public:
     const std::vector<std::shared_ptr<Entity>>& get_entities() const { return m_entities; }
     const std::vector<std::shared_ptr<Entity>>& get_pending_entities() const { return m_entities_to_add; }
 
+    // Lazily rebuilt after entity membership changes; positions remain live.
+    const std::vector<std::shared_ptr<LivingEntity>>& get_living_entities() const;
+    const std::vector<std::shared_ptr<Player>>& get_players() const;
+
     std::vector<AABBd> get_boxes_that_may_collide(const AABBd& box) const;
+    void get_boxes_that_may_collide(const AABBd& box, std::vector<AABBd>& boxes) const;
     std::vector<std::shared_ptr<Entity>> cast_box(const AABBd& box) const;
 
     BlockState get_block(int64_t x, int64_t y, int64_t z) const;
@@ -216,6 +223,12 @@ private:
     // TODO: move this somewhere else.
     Frustum m_sun_frustum;
     std::map<ChunkPos, RenderableChunk> m_sun_visible_chunks;
+
+    void invalidate_entity_targets();
+    void rebuild_entity_targets() const;
+    mutable bool m_entity_targets_dirty = true;
+    mutable std::vector<std::shared_ptr<LivingEntity>> m_living_entities;
+    mutable std::vector<std::shared_ptr<Player>> m_players;
 
     std::vector<std::shared_ptr<Entity>> m_entities;
     std::vector<std::shared_ptr<Entity>> m_entities_to_add;

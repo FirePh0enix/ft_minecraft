@@ -594,6 +594,10 @@ private:
     std::shared_ptr<BindGroup> m_chunk_shadow_bg;
     std::shared_ptr<Buffer> m_chunk_instances;
     std::shared_ptr<Buffer> m_shadow_instances;
+    // Cache only coordinate candidates. Mesh availability and light-frustum
+    // visibility are still checked each frame, including across portal views.
+    std::vector<ChunkPos> m_shadow_source_chunks;
+    std::vector<ChunkPos> m_shadow_caster_candidates;
 
     // Portal
     std::shared_ptr<Shader> m_portal_shader;
