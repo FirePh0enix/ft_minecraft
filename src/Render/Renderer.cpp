@@ -1965,7 +1965,6 @@ void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::sha
         ZoneScopedN("color pass");
         draw_fullscreen(color_pass_info, m_sky_mat, m_sky_bg, stencil_mask);
         draw_opaque_world(world, color_pass_info, world->get_dimension(dimension).get_visible_chunks(), stencil_mask);
-        draw_water_world(world, color_pass_info, world->get_dimension(dimension).get_visible_chunks(), stencil_mask);
     }
 
     if (!inside_portal)
@@ -1979,6 +1978,10 @@ void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::sha
 
     if (!cloud_positions.empty())
         draw(color_pass_info, m_cube_mesh, m_cloud_mat, m_cloud_bg, m_cloud_instances, cloud_positions.size());
+
+    // Blend water over the completed scene. Drawing it before entities writes
+    // the surface depth first and rejects submerged entity fragments entirely.
+    draw_water_world(world, color_pass_info, world->get_dimension(dimension).get_visible_chunks(), stencil_mask);
 
     {
         ZoneScopedN("debug draw");
