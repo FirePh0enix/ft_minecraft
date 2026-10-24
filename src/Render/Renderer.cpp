@@ -358,23 +358,43 @@ std::expected<std::shared_ptr<Mesh>, Error> Mesh::create_from_data(std::span<con
 {
     const size_t vertex_count = indices.size() / size_of(index_type);
 
-    TRY_ASSIGN(std::shared_ptr<Buffer> index_buffer, Buffer::create(indices.size(), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Index));
-    index_buffer->update(indices);
-
-    TRY_ASSIGN(std::shared_ptr<Buffer> vertex_buffer, Buffer::create(positions.size() * sizeof(glm::vec3), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Vertex));
-    vertex_buffer->update(std::as_bytes(positions));
-
-    TRY_ASSIGN(std::shared_ptr<Buffer> uv_buffer, Buffer::create(uvs.size(), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Vertex));
-    uv_buffer->update(std::as_bytes(uvs));
-
-    std::shared_ptr<Buffer> normal_buffer;
-    if (normals.size() > 0)
+    // One allocation and map/unmap per mesh avoids several driver calls for
+    // every opaque/water slice. Vertex and index bindings use explicit ranges
+    // into the same immutable allocation; the vertex formats stay unchanged.
+    const std::array<std::span<const std::byte>, 4> data{
+        indices,
+        std::as_bytes(positions),
+        std::as_bytes(normals),
+        uvs,
+    };
+    std::array<size_t, 4> offsets{};
+    size_t total_size = 0;
+    for (size_t i = 0; i < data.size(); ++i)
     {
-        TRY_ASSIGN(normal_buffer, Buffer::create(normals.size() * sizeof(glm::vec3), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Vertex));
-        normal_buffer->update(std::as_bytes(normals));
+        offsets[i] = total_size;
+        // Both mapped buffers and vertex-buffer offsets require 4-byte
+        // alignment, including after an odd number of Uint16 indices.
+        total_size += (data[i].size() + 3) & ~size_t(3);
     }
-
-    return std::make_shared<Mesh>(vertex_count, index_type, uv_format, index_buffer, vertex_buffer, normal_buffer, uv_buffer);
+    TRY_ASSIGN(auto storage, Buffer::create(total_size,
+                                            WGPUBufferUsage_Index | WGPUBufferUsage_Vertex | WGPUBufferUsage_CopyDst,
+                                            total_size != 0));
+    if (total_size != 0)
+    {
+        auto *mapped = static_cast<std::byte *>(wgpuBufferGetMappedRange(storage->handle(), 0, total_size));
+        if (mapped == nullptr)
+            return std::unexpected(Error(ErrorKind::OutOfDeviceMemory));
+        for (size_t i = 0; i < data.size(); ++i)
+            if (!data[i].empty())
+                std::memcpy(mapped + offsets[i], data[i].data(), data[i].size());
+        storage->unmap();
+    }
+    auto mesh = std::make_shared<Mesh>(vertex_count, index_type, uv_format, storage, storage, nullptr, storage);
+    for (size_t i = 0; i < data.size(); ++i)
+        mesh->set_buffer(static_cast<Mesh::BufferKind>(i),
+                         i == size_t(Mesh::BufferKind::Normal) && data[i].empty() ? nullptr : storage,
+                         offsets[i], data[i].size());
+    return mesh;
 }
 
 static WGPUShaderModule create_shader_module(const std::shared_ptr<Shader>& shader)
@@ -714,7 +734,6 @@ WGPUAdapter request_adapter_sync(WGPUInstance instance)
 
     WGPURequestAdapterOptions adapter_options{};
     adapter_options.featureLevel = WGPUFeatureLevel_Core;
-
 
     WGPURequestAdapterCallbackInfo callback_info{
         .nextInChain = nullptr,
@@ -1240,6 +1259,17 @@ std::expected<void, Error> Renderer::init(const Window& window, InitFlags flags)
     m_fw_chunk_shadowmap_mat = Material::create(m_fw_chunk_shadowmap_shader, MaterialFlagBits::NoNormal | MaterialFlagBits::NoUV, WGPUCullMode_Back, WGPUVertexFormat_Float32x4, Instance(chunk_attribs, sizeof(glm::vec3)));
     m_fw_water_mat = Material::create(m_fw_water_shader, MaterialFlagBits::Stencil | MaterialFlagBits::Transparency, WGPUCullMode_Back, WGPUVertexFormat_Float32x4, Instance(chunk_attribs, sizeof(glm::vec3)));
 
+    TRY_ASSIGN(auto cloud_shader, Shader::load_from_path("data/shaders/fw/cloud.wgsl"));
+    cloud_shader->set_binding("camera", Binding::UniformBuffer(WGPUShaderStage_Vertex, 0, 1, BindingAccess::Read));
+    cloud_shader->create_bind_group_layout();
+    m_cloud_mat = Material::create(cloud_shader, MaterialFlagBits::NoNormal | MaterialFlagBits::NoUV,
+                                   WGPUCullMode_Back, WGPUVertexFormat_Float32x2,
+                                   Instance({InstanceAttribute(0, WGPUVertexFormat_Float32x3)}, sizeof(glm::vec3)));
+    m_cloud_bg = BindGroup::create(cloud_shader);
+    m_cloud_bg->set_param("camera", m_fw_camera);
+    m_cloud_shadow_bg = BindGroup::create(cloud_shader);
+    m_cloud_shadow_bg->set_param("camera", m_fw_shadowmap_camera);
+
     m_fw_colored_mat = Material::create(m_fw_colored_shader, MaterialFlagBits::NoUV, WGPUCullMode_Back, WGPUVertexFormat_Float32x2);
     m_fw_colored_shadowmap_mat = Material::create(m_fw_colored_shader, MaterialFlagBits::NoUV, WGPUCullMode_Front, WGPUVertexFormat_Float32x2);
 
@@ -1493,25 +1523,6 @@ void Renderer::draw_ui(std::function<void(const RenderPass&)> f)
     wgpuTextureRelease(surface_texture.texture);
 }
 
-std::expected<Cloud, Error> Renderer::create_cloud()
-{
-    Cloud cloud;
-    // The opaque colored material replaces RGB regardless of alpha. Reserve
-    // zero alpha in the scene buffer for clouds that should not receive SSAO.
-    // Postprocessing restores opaque alpha after reading this mask.
-    cloud.uniform.color = Color(1.0, 1.0, 1.0, 0.0);
-    TRY_ASSIGN(cloud.buffer, Buffer::create(sizeof(FwColored), WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform));
-    cloud.bg = BindGroup::create(m_fw_colored_shader);
-    cloud.bg->set_param("model", cloud.buffer);
-    cloud.bg->set_param("camera", m_fw_camera);
-    cloud.bg->set_param("world_env", m_fw_world_env);
-    cloud.bg_shadowmap = BindGroup::create(m_fw_colored_shader);
-    cloud.bg_shadowmap->set_param("model", cloud.buffer);
-    cloud.bg_shadowmap->set_param("camera", m_fw_shadowmap_camera);
-    cloud.bg_shadowmap->set_param("world_env", m_fw_world_env);
-    return cloud;
-}
-
 void Renderer::update_clouds(std::shared_ptr<Camera> camera)
 {
     ZoneScoped;
@@ -1521,6 +1532,10 @@ void Renderer::update_clouds(std::shared_ptr<Camera> camera)
     int64_t cx = int64_t(camera_position.x / 32.0);
     int64_t cz = int64_t(camera_position.z / 32.0);
 
+    if (m_cloud_grid_center && m_cloud_grid_center->x == cx && m_cloud_grid_center->y == cz)
+        return;
+    m_cloud_grid_center = glm::i64vec2(cx, cz);
+
     for (int64_t x = cx - 32; x < cx + 32; x++)
         for (int64_t z = cz - 32; z < cz + 32; z++)
         {
@@ -1528,17 +1543,7 @@ void Renderer::update_clouds(std::shared_ptr<Camera> camera)
                 continue;
 
             double density = m_clouds_noise.sample(glm::dvec2(x, z)) / 2.0 + 0.5;
-            if (density > 0.7)
-            {
-                Cloud cloud = EXPECT(create_cloud());
-                cloud.grid_x = x;
-                cloud.grid_z = z;
-                m_clouds[ChunkPos(x, z)] = cloud;
-            }
-            else
-            {
-                m_clouds[ChunkPos(x, z)].buffer = nullptr;
-            }
+            m_clouds.emplace(ChunkPos(x, z), density > 0.7);
         }
     std::vector<ChunkPos> clouds_to_remove;
     for (const auto& [pos, cloud] : m_clouds)
@@ -1671,41 +1676,25 @@ void Renderer::draw_forward(const std::shared_ptr<World>& world)
     WGPURenderPassEncoder postprocess_pass = wgpuCommandEncoderBeginRenderPass(encoder, &postprocess_pass_desc);
     const RenderPass postprocess_pass_info(postprocess_pass, std::nullopt, {m_surface_format});
     draw_fullscreen(postprocess_pass_info, m_fw_pp_mat, m_fw_pp_bg, 0);
-    wgpuRenderPassEncoderEnd(postprocess_pass);
-    wgpuRenderPassEncoderRelease(postprocess_pass);
 
-    // Finally one last pass for rendering the UI.
-    WGPURenderPassColorAttachment color_load_attach = WGPU_RENDER_PASS_COLOR_ATTACHMENT_INIT;
-    color_load_attach.clearValue = WGPUColor(0.0, 0.0, 0.0, 0.0);
-    color_load_attach.loadOp = WGPULoadOp_Load;
-    color_load_attach.storeOp = WGPUStoreOp_Store;
-    color_load_attach.view = surface_view;
-
-    WGPURenderPassDescriptor ui_pass_desc = WGPU_RENDER_PASS_DESCRIPTOR_INIT;
-    ui_pass_desc.label = WGPU_STRING_VIEW("Color pass");
-    ui_pass_desc.colorAttachmentCount = 1;
-    ui_pass_desc.colorAttachments = &color_load_attach;
-
+    // Both composition and UI target the same surface without depth. Keep
+    // them in one pass so tile GPUs do not store and reload the whole screen.
     if (world->get_player() != nullptr)
     {
         ZoneScopedN("draw ui");
-
-        WGPURenderPassEncoder ui_pass = wgpuCommandEncoderBeginRenderPass(encoder, &ui_pass_desc);
 
         ImGui_ImplWGPU_NewFrame();
         ImGui_ImplSDL3_NewFrame();
         ImGui::NewFrame();
 
-        const RenderPass ui_pass_info(ui_pass, std::nullopt, {m_surface_format});
         for (const std::shared_ptr<Entity>& entity : world->get_dimension(world->get_player()->get_dimension()).get_entities())
-            entity->draw_ui(ui_pass_info);
+            entity->draw_ui(postprocess_pass_info);
 
         ImGui::Render();
-        ImGui_ImplWGPU_RenderDrawData(ImGui::GetDrawData(), ui_pass);
-
-        wgpuRenderPassEncoderEnd(ui_pass);
-        wgpuRenderPassEncoderRelease(ui_pass);
+        ImGui_ImplWGPU_RenderDrawData(ImGui::GetDrawData(), postprocess_pass);
     }
+    wgpuRenderPassEncoderEnd(postprocess_pass);
+    wgpuRenderPassEncoderRelease(postprocess_pass);
 
     // Submit everything to the GPU.
     WGPUCommandBuffer command_buffer;
@@ -1796,7 +1785,7 @@ void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::sha
         m_fw_pp.inverse_camera_proj = glm::inverse(m_fw_pp.camera_proj);
         m_fw_pp.near_plane = active_camera->near_plane();
         m_fw_pp.far_plane = active_camera->far_plane();
-        m_fw_pp.inv_proj_view = active_camera->get_actual_view_proj_matrix();
+        m_fw_pp.inv_proj_view = glm::inverse(active_camera->get_view_proj_matrix());
         m_fw_pp_buffer->update_struct(m_fw_pp);
     }
     const uint32_t stencil_mask = inside_portal ? 2 : 1;
@@ -1808,24 +1797,37 @@ void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::sha
     // Drawing every slice in the full square light frustum can produce tens of
     // thousands of tiny draw calls. Limit casters to chunks visible to the main
     // camera plus a margin that retains nearby off-screen occluders.
-    constexpr int64_t shadow_caster_margin = 2;
-    std::vector<ChunkPos> shadow_casters;
-    shadow_casters.reserve(visible_chunks.size() * (shadow_caster_margin * 2 + 1) * (shadow_caster_margin * 2 + 1));
-    for (const auto& [pos, renderable] : visible_chunks)
+    const bool same_visible_chunks = m_shadow_source_chunks.size() == visible_chunks.size() &&
+        std::equal(m_shadow_source_chunks.begin(), m_shadow_source_chunks.end(), visible_chunks.begin(),
+                   [](const ChunkPos& cached, const auto& entry)
+                   { return cached.x == entry.first.x && cached.z == entry.first.z; });
+    if (!same_visible_chunks)
     {
-        (void)renderable;
-        for (int64_t x = -shadow_caster_margin; x <= shadow_caster_margin; ++x)
-            for (int64_t z = -shadow_caster_margin; z <= shadow_caster_margin; ++z)
-                shadow_casters.emplace_back(pos.x + x, pos.z + z);
+        ZoneScopedN("rebuild shadow caster candidates");
+        constexpr int64_t shadow_caster_margin = 2;
+        m_shadow_source_chunks.clear();
+        m_shadow_source_chunks.reserve(visible_chunks.size());
+        m_shadow_caster_candidates.clear();
+        m_shadow_caster_candidates.reserve(visible_chunks.size() * (shadow_caster_margin * 2 + 1) * (shadow_caster_margin * 2 + 1));
+        for (const auto& [pos, renderable] : visible_chunks)
+        {
+            (void)renderable;
+            m_shadow_source_chunks.push_back(pos);
+            for (int64_t x = -shadow_caster_margin; x <= shadow_caster_margin; ++x)
+                for (int64_t z = -shadow_caster_margin; z <= shadow_caster_margin; ++z)
+                    m_shadow_caster_candidates.emplace_back(pos.x + x, pos.z + z);
+        }
+        std::sort(m_shadow_caster_candidates.begin(), m_shadow_caster_candidates.end());
+        m_shadow_caster_candidates.erase(
+            std::unique(m_shadow_caster_candidates.begin(), m_shadow_caster_candidates.end(),
+                        [](const ChunkPos& a, const ChunkPos& b)
+                        { return a.x == b.x && a.z == b.z; }),
+            m_shadow_caster_candidates.end());
     }
-    std::sort(shadow_casters.begin(), shadow_casters.end());
-    shadow_casters.erase(std::unique(shadow_casters.begin(), shadow_casters.end(), [](const ChunkPos& a, const ChunkPos& b)
-                                     { return a.x == b.x && a.z == b.z; }),
-                         shadow_casters.end());
 
     const auto is_shadow_caster = [&](const ChunkPos& pos)
     {
-        return std::binary_search(shadow_casters.begin(), shadow_casters.end(), pos);
+        return std::binary_search(m_shadow_caster_candidates.begin(), m_shadow_caster_candidates.end(), pos);
     };
 
     // One fresh mapped staging allocation avoids waiting on last frame's GPU
@@ -1868,16 +1870,13 @@ void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::sha
         // GPU copies require an unmapped source. Recorded commands retain the
         // buffer, so releasing this local wrapper after recording is safe.
         staging->unmap();
-        size_t offset = 0;
-        // This traverses the same ordered map used above, keeping each upload
-        // paired with the chunk whose offsets occupy that staging range.
-        constexpr size_t chunk_bytes = Chunk::slice_count * sizeof(glm::vec3);
-        for (const auto& [pos, renderable] : visible_chunks)
+        // One contiguous instance buffer replaces a GPU copy per chunk.
+        if (shadow_offset > 0)
         {
-            (void)pos;
-            wgpuCommandEncoderCopyBufferToBuffer(encoder, staging->handle(), offset,
-                                                 renderable.chunk->get_instance_buffer()->handle(), 0, chunk_bytes);
-            offset += chunk_bytes;
+            if (m_chunk_instances == nullptr || m_chunk_instances->size() < shadow_offset)
+                m_chunk_instances = EXPECT(Buffer::create(shadow_offset * 2, WGPUBufferUsage_Vertex | WGPUBufferUsage_CopyDst));
+            wgpuCommandEncoderCopyBufferToBuffer(encoder, staging->handle(), 0,
+                                                 m_chunk_instances->handle(), 0, shadow_offset);
         }
         const size_t shadow_bytes = selected_casters.size() * sizeof(glm::vec3);
         if (shadow_bytes > 0)
@@ -1888,6 +1887,27 @@ void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::sha
             wgpuCommandEncoderCopyBufferToBuffer(encoder, staging->handle(), shadow_offset,
                                                  m_shadow_instances->handle(), 0, shadow_bytes);
         }
+    }
+
+    // Upload all cloud translations once; both passes reuse the same instances.
+    std::vector<glm::vec3> cloud_positions;
+    if (dimension != int(World::underworld))
+    {
+        const double cloud_time = Engine::get().time();
+        cloud_positions.reserve(m_clouds.size());
+        for (const auto& [pos, present] : m_clouds)
+            if (present)
+                cloud_positions.emplace_back(glm::dvec3(pos.x * 32.0 + cloud_time, 270.0, pos.z * 32.0) - camera_position);
+    }
+    if (!cloud_positions.empty())
+    {
+        const auto bytes = std::as_bytes(std::span(cloud_positions));
+        if (!m_cloud_instances || m_cloud_instances->size() < bytes.size())
+            m_cloud_instances = EXPECT(Buffer::create(bytes.size() * 2, WGPUBufferUsage_Vertex | WGPUBufferUsage_CopyDst));
+        auto staging = EXPECT(Buffer::create(bytes.size(), WGPUBufferUsage_CopySrc, true));
+        std::memcpy(wgpuBufferGetMappedRange(staging->handle(), 0, bytes.size()), bytes.data(), bytes.size());
+        staging->unmap();
+        wgpuCommandEncoderCopyBufferToBuffer(encoder, staging->handle(), 0, m_cloud_instances->handle(), 0, bytes.size());
     }
 
     // Generate a shadowmap by doing a depth-only pass from the point of view of the "sun".
@@ -1911,45 +1931,16 @@ void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::sha
     for (std::shared_ptr<Entity> entity : world->get_dimension(dimension).get_entities())
         entity->draw(shadowmap_pass_info, true);
 
-    for (auto& [pos, cloud] : m_clouds)
-    {
-        if (dimension == int(World::underworld) || cloud.buffer == nullptr)
-            continue;
-
-        glm::vec3 position(glm::dvec3(pos.x, 0.0f, pos.z) * 32.0 + glm::dvec3(0, 270.0, 0) - active_camera->get_global_transform().position() + glm::dvec3(Engine::get().time(), 0, 0));
-        cloud.uniform.model = glm::translate(glm::identity<glm::mat4>(), position) *
-                              glm::scale(glm::identity<glm::mat4>(), glm::vec3(32.0, 8.0, 32.0));
-        cloud.buffer->update_struct(cloud.uniform);
-
-        draw(shadowmap_pass_info, m_cube_mesh, m_fw_colored_mat, cloud.bg_shadowmap);
-    }
+    if (!cloud_positions.empty())
+        draw(shadowmap_pass_info, m_cube_mesh, m_cloud_mat, m_cloud_shadow_bg, m_cloud_instances, cloud_positions.size());
 
     wgpuRenderPassEncoderEnd(shadowmap_pass);
     wgpuRenderPassEncoderRelease(shadowmap_pass);
 
-    // A depth-only pass will optimize the rendering by only processing fragment colors once per pixels. Only opaque objects are preprocessed.
-    WGPURenderPassDepthStencilAttachment depth_attach = WGPU_RENDER_PASS_DEPTH_STENCIL_ATTACHMENT_INIT;
-    depth_attach.depthClearValue = 1.0;
-    depth_attach.depthLoadOp = inside_portal ? WGPULoadOp_Load : WGPULoadOp_Clear;
-    depth_attach.depthStoreOp = WGPUStoreOp_Store;
-    depth_attach.stencilLoadOp = inside_portal ? WGPULoadOp_Load : WGPULoadOp_Clear;
-    depth_attach.stencilStoreOp = WGPUStoreOp_Store;
-    depth_attach.stencilClearValue = 1;
-    depth_attach.view = EXPECT(m_fw_depth_texture->get_view(WGPUTextureViewDimension_2D));
-
-    WGPURenderPassDescriptor depth_prepass_desc = WGPU_RENDER_PASS_DESCRIPTOR_INIT;
-    depth_prepass_desc.label = WGPU_STRING_VIEW("Depth Prepass");
-    depth_prepass_desc.depthStencilAttachment = &depth_attach;
-
-    WGPURenderPassEncoder depth_pass = wgpuCommandEncoderBeginRenderPass(encoder, &depth_prepass_desc);
-    // draw_opaque_world(world, RenderPass(depth_pass, RenderTarget(m_fw_depth_texture->format()), {}), world->get_dimension(dimension).get_visible_chunks(), stencil_mask);
-    wgpuRenderPassEncoderEnd(depth_pass);
-    wgpuRenderPassEncoderRelease(depth_pass);
-
-    // The color pass shade each pixels, the depth prepass prevent overshading for opaque objects.
+    // Clear depth in the color pass: the old depth prepass contained no draws.
     WGPURenderPassDepthStencilAttachment depth_load_attach = WGPU_RENDER_PASS_DEPTH_STENCIL_ATTACHMENT_INIT;
     depth_load_attach.depthClearValue = 1.0;
-    depth_load_attach.depthLoadOp = inside_portal ? WGPULoadOp_Load : WGPULoadOp_Load;
+    depth_load_attach.depthLoadOp = inside_portal ? WGPULoadOp_Load : WGPULoadOp_Clear;
     depth_load_attach.depthStoreOp = WGPUStoreOp_Store;
     depth_load_attach.stencilLoadOp = inside_portal ? WGPULoadOp_Load : WGPULoadOp_Clear;
     depth_load_attach.stencilStoreOp = WGPUStoreOp_Store;
@@ -1986,18 +1977,8 @@ void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::sha
             entity->draw(color_pass_info, false);
     }
 
-    for (auto& [pos, cloud] : m_clouds)
-    {
-        if (dimension == int(World::underworld) || cloud.buffer == nullptr)
-            continue;
-
-        // glm::vec3 position(glm::dvec3(pos.x, 0.0f, pos.z) * 32.0 + glm::dvec3(0, 270.0, 0) - active_camera->get_global_transform().position() + glm::dvec3(Engine::get().time(), 0, 0));
-        // cloud.uniform.model = glm::translate(glm::identity<glm::mat4>(), position) *
-        //                       glm::scale(glm::identity<glm::mat4>(), glm::vec3(32.0, 8.0, 32.0));
-        // cloud.buffer->update_struct(cloud.uniform);
-
-        draw(color_pass_info, m_cube_mesh, m_fw_colored_mat, cloud.bg);
-    }
+    if (!cloud_positions.empty())
+        draw(color_pass_info, m_cube_mesh, m_cloud_mat, m_cloud_bg, m_cloud_instances, cloud_positions.size());
 
     {
         ZoneScopedN("debug draw");
@@ -2014,17 +1995,17 @@ void Renderer::draw(const RenderPass& pass, const std::shared_ptr<Mesh>& mesh, c
 
     wgpuRenderPassEncoderSetPipeline(pass.encoder, material->get_pipeline(pass));
     wgpuRenderPassEncoderSetBindGroup(pass.encoder, 0, bg->get_bind_group(), 0, nullptr);
-    wgpuRenderPassEncoderSetIndexBuffer(pass.encoder, mesh->get_buffer(Mesh::BufferKind::Index)->handle(), mesh->index_type(), 0, mesh->get_buffer(Mesh::BufferKind::Index)->size());
-    wgpuRenderPassEncoderSetVertexBuffer(pass.encoder, 0, mesh->get_buffer(Mesh::BufferKind::Position)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Position)->size());
+    wgpuRenderPassEncoderSetIndexBuffer(pass.encoder, mesh->get_buffer(Mesh::BufferKind::Index)->handle(), mesh->index_type(), mesh->buffer_offset(Mesh::BufferKind::Index), mesh->buffer_size(Mesh::BufferKind::Index));
+    wgpuRenderPassEncoderSetVertexBuffer(pass.encoder, 0, mesh->get_buffer(Mesh::BufferKind::Position)->handle(), mesh->buffer_offset(Mesh::BufferKind::Position), mesh->buffer_size(Mesh::BufferKind::Position));
 
     if (stencil.has_value())
         wgpuRenderPassEncoderSetStencilReference(pass.encoder, stencil.value());
 
     size_t buffer_index = 1;
     if (!material->flags().has_any(MaterialFlagBits::NoNormal))
-        wgpuRenderPassEncoderSetVertexBuffer(pass.encoder, buffer_index++, mesh->get_buffer(Mesh::BufferKind::Normal)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Normal)->size());
+        wgpuRenderPassEncoderSetVertexBuffer(pass.encoder, buffer_index++, mesh->get_buffer(Mesh::BufferKind::Normal)->handle(), mesh->buffer_offset(Mesh::BufferKind::Normal), mesh->buffer_size(Mesh::BufferKind::Normal));
     if (!material->flags().has_any(MaterialFlagBits::NoUV))
-        wgpuRenderPassEncoderSetVertexBuffer(pass.encoder, buffer_index++, mesh->get_buffer(Mesh::BufferKind::UV)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::UV)->size());
+        wgpuRenderPassEncoderSetVertexBuffer(pass.encoder, buffer_index++, mesh->get_buffer(Mesh::BufferKind::UV)->handle(), mesh->buffer_offset(Mesh::BufferKind::UV), mesh->buffer_size(Mesh::BufferKind::UV));
 
     if (instance_buffer != nullptr)
         wgpuRenderPassEncoderSetVertexBuffer(pass.encoder, buffer_index++, instance_buffer->handle(), 0, instance_buffer->size());
@@ -2048,6 +2029,10 @@ void Renderer::draw_opaque_world(const std::shared_ptr<World>& world, const Rend
     wgpuRenderPassEncoderSetBindGroup(encoder, 0, m_chunk_opaque_bg->get_bind_group(), 0, nullptr);
     wgpuRenderPassEncoderSetStencilReference(encoder, stencil);
 
+    if (chunks.empty())
+        return;
+    wgpuRenderPassEncoderSetVertexBuffer(encoder, 3, m_chunk_instances->handle(), 0, m_chunk_instances->size());
+    uint32_t chunk_instance_base = 0;
     for (const auto& [pos, r] : chunks)
     {
         ZoneScopedN("record chunk");
@@ -2064,19 +2049,19 @@ void Renderer::draw_opaque_world(const std::shared_ptr<World>& world, const Rend
                 ZoneScopedN("buffers");
 
                 const std::shared_ptr<Mesh>& mesh = slice.opaque_mesh;
-                wgpuRenderPassEncoderSetIndexBuffer(encoder, mesh->get_buffer(Mesh::BufferKind::Index)->handle(), mesh->index_type(), 0, mesh->get_buffer(Mesh::BufferKind::Index)->size());
-                wgpuRenderPassEncoderSetVertexBuffer(encoder, 0, mesh->get_buffer(Mesh::BufferKind::Position)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Position)->size());
+                wgpuRenderPassEncoderSetIndexBuffer(encoder, mesh->get_buffer(Mesh::BufferKind::Index)->handle(), mesh->index_type(), mesh->buffer_offset(Mesh::BufferKind::Index), mesh->buffer_size(Mesh::BufferKind::Index));
+                wgpuRenderPassEncoderSetVertexBuffer(encoder, 0, mesh->get_buffer(Mesh::BufferKind::Position)->handle(), mesh->buffer_offset(Mesh::BufferKind::Position), mesh->buffer_size(Mesh::BufferKind::Position));
 
                 size_t buffer_index = 1;
                 if (!mat->flags().has_any(MaterialFlagBits::NoNormal))
-                    wgpuRenderPassEncoderSetVertexBuffer(encoder, buffer_index++, mesh->get_buffer(Mesh::BufferKind::Normal)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Normal)->size());
+                    wgpuRenderPassEncoderSetVertexBuffer(encoder, buffer_index++, mesh->get_buffer(Mesh::BufferKind::Normal)->handle(), mesh->buffer_offset(Mesh::BufferKind::Normal), mesh->buffer_size(Mesh::BufferKind::Normal));
                 if (!mat->flags().has_any(MaterialFlagBits::NoUV))
-                    wgpuRenderPassEncoderSetVertexBuffer(encoder, buffer_index++, mesh->get_buffer(Mesh::BufferKind::UV)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::UV)->size());
+                    wgpuRenderPassEncoderSetVertexBuffer(encoder, buffer_index++, mesh->get_buffer(Mesh::BufferKind::UV)->handle(), mesh->buffer_offset(Mesh::BufferKind::UV), mesh->buffer_size(Mesh::BufferKind::UV));
 
-                wgpuRenderPassEncoderSetVertexBuffer(encoder, buffer_index++, r.chunk->get_instance_buffer()->handle(), 0, r.chunk->get_instance_buffer()->size());
-                wgpuRenderPassEncoderDrawIndexed(encoder, mesh->vertex_count(), 1, 0, 0, slice_index);
+                wgpuRenderPassEncoderDrawIndexed(encoder, mesh->vertex_count(), 1, 0, 0, chunk_instance_base + slice_index);
             }
         }
+        chunk_instance_base += Chunk::slice_count;
     }
 }
 
@@ -2096,6 +2081,10 @@ void Renderer::draw_water_world(const std::shared_ptr<World>& world, const Rende
     wgpuRenderPassEncoderSetBindGroup(encoder, 0, m_chunk_water_bg->get_bind_group(), 0, nullptr);
     wgpuRenderPassEncoderSetStencilReference(encoder, stencil);
 
+    if (chunks.empty())
+        return;
+    wgpuRenderPassEncoderSetVertexBuffer(encoder, 3, m_chunk_instances->handle(), 0, m_chunk_instances->size());
+    uint32_t chunk_instance_base = 0;
     for (const auto& [pos, r] : chunks)
     {
         ZoneScopedN("record chunk");
@@ -2111,19 +2100,19 @@ void Renderer::draw_water_world(const std::shared_ptr<World>& world, const Rende
                 ZoneScopedN("buffers");
 
                 const std::shared_ptr<Mesh>& mesh = slice.water_mesh;
-                wgpuRenderPassEncoderSetIndexBuffer(encoder, mesh->get_buffer(Mesh::BufferKind::Index)->handle(), mesh->index_type(), 0, mesh->get_buffer(Mesh::BufferKind::Index)->size());
-                wgpuRenderPassEncoderSetVertexBuffer(encoder, 0, mesh->get_buffer(Mesh::BufferKind::Position)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Position)->size());
+                wgpuRenderPassEncoderSetIndexBuffer(encoder, mesh->get_buffer(Mesh::BufferKind::Index)->handle(), mesh->index_type(), mesh->buffer_offset(Mesh::BufferKind::Index), mesh->buffer_size(Mesh::BufferKind::Index));
+                wgpuRenderPassEncoderSetVertexBuffer(encoder, 0, mesh->get_buffer(Mesh::BufferKind::Position)->handle(), mesh->buffer_offset(Mesh::BufferKind::Position), mesh->buffer_size(Mesh::BufferKind::Position));
 
                 size_t buffer_index = 1;
                 if (!mat->flags().has_any(MaterialFlagBits::NoNormal))
-                    wgpuRenderPassEncoderSetVertexBuffer(encoder, buffer_index++, mesh->get_buffer(Mesh::BufferKind::Normal)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Normal)->size());
+                    wgpuRenderPassEncoderSetVertexBuffer(encoder, buffer_index++, mesh->get_buffer(Mesh::BufferKind::Normal)->handle(), mesh->buffer_offset(Mesh::BufferKind::Normal), mesh->buffer_size(Mesh::BufferKind::Normal));
                 if (!mat->flags().has_any(MaterialFlagBits::NoUV))
-                    wgpuRenderPassEncoderSetVertexBuffer(encoder, buffer_index++, mesh->get_buffer(Mesh::BufferKind::UV)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::UV)->size());
+                    wgpuRenderPassEncoderSetVertexBuffer(encoder, buffer_index++, mesh->get_buffer(Mesh::BufferKind::UV)->handle(), mesh->buffer_offset(Mesh::BufferKind::UV), mesh->buffer_size(Mesh::BufferKind::UV));
 
-                wgpuRenderPassEncoderSetVertexBuffer(encoder, buffer_index++, r.chunk->get_instance_buffer()->handle(), 0, r.chunk->get_instance_buffer()->size());
-                wgpuRenderPassEncoderDrawIndexed(encoder, mesh->vertex_count(), 1, 0, 0, slice_index);
+                wgpuRenderPassEncoderDrawIndexed(encoder, mesh->vertex_count(), 1, 0, 0, chunk_instance_base + slice_index);
             }
         }
+        chunk_instance_base += Chunk::slice_count;
     }
 }
 
@@ -2153,8 +2142,8 @@ void Renderer::draw_shadow_world(const std::shared_ptr<World>& world, const Rend
         ZoneScopedN("record chunk");
         const auto& r = chunks.at(caster_chunks[instance]);
         const auto mesh = r.chunk->get_shadow_mesh();
-        wgpuRenderPassEncoderSetIndexBuffer(encoder, mesh->get_buffer(Mesh::BufferKind::Index)->handle(), mesh->index_type(), 0, mesh->get_buffer(Mesh::BufferKind::Index)->size());
-        wgpuRenderPassEncoderSetVertexBuffer(encoder, 0, mesh->get_buffer(Mesh::BufferKind::Position)->handle(), 0, mesh->get_buffer(Mesh::BufferKind::Position)->size());
+        wgpuRenderPassEncoderSetIndexBuffer(encoder, mesh->get_buffer(Mesh::BufferKind::Index)->handle(), mesh->index_type(), mesh->buffer_offset(Mesh::BufferKind::Index), mesh->buffer_size(Mesh::BufferKind::Index));
+        wgpuRenderPassEncoderSetVertexBuffer(encoder, 0, mesh->get_buffer(Mesh::BufferKind::Position)->handle(), mesh->buffer_offset(Mesh::BufferKind::Position), mesh->buffer_size(Mesh::BufferKind::Position));
         wgpuRenderPassEncoderDrawIndexed(encoder, mesh->vertex_count(), 1, 0, 0, static_cast<uint32_t>(instance));
     }
 }

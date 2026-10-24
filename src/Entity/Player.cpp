@@ -458,8 +458,8 @@ void Player::tick(float delta)
     // Keep server-side pickups above, but do not run local input or physics.
     if (!m_local_player)
     {
-        m_animator.play(m_movement_sound == MovementSound::Swimming ? "swim" :
-                        m_movement_sound == MovementSound::Walking ? "walk" : "idle");
+        m_animator.play(m_movement_sound == MovementSound::Swimming ? "swim" : m_movement_sound == MovementSound::Walking ? "walk"
+                                                                                                                          : "idle");
         m_animator.tick(delta);
         m_audio_source->set_position(get_global_transform().position());
         return;
@@ -518,7 +518,7 @@ void Player::tick(float delta)
         if (head_in_water())
         {
             const glm::vec4 sky_color = glm::vec4(0.0, 0.0, 1.0, 1.0);
-            Renderer::get().set_fog(sky_color, float(16) * 16.0f * 0.3f); // TODO: render distance
+            Renderer::get().set_fog(sky_color, ChunkStreaming::fog_end * 0.3f);
             Renderer::get().set_sky(sky_color);
         }
         else
@@ -526,7 +526,7 @@ void Player::tick(float delta)
             const glm::vec4 sky_color = m_dimension == int(World::underworld)
                                             ? glm::vec4(0.18f, 0.04f, 0.03f, 1.0f)
                                             : glm::vec4(130.0 / 255.0, 200.0 / 255.0, 229.0 / 255.0, 1.0);
-            Renderer::get().set_fog(sky_color, m_dimension == int(World::underworld) ? 72.0f : float(16) * 16.0f - 1.0f);
+            Renderer::get().set_fog(sky_color, m_dimension == int(World::underworld) ? 72.0f : ChunkStreaming::fog_end);
             Renderer::get().set_sky(sky_color);
         }
 
@@ -626,6 +626,9 @@ void Player::tick(float delta)
         if (m_local_player)
             call_rpc("set_movement_state", static_cast<int64_t>(movement_sound));
     }
+
+    // Movement uses blocks per tick; streaming predicts in blocks per second.
+    m_streaming_velocity = delta > 0.0f ? m_velocity / double(delta) : glm::dvec3(0.0);
 
     // Reset velocity after movements.
     m_velocity.x = 0.0;

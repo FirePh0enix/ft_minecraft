@@ -35,7 +35,7 @@ std::filesystem::path Filesystem::current_executable_path()
         DWORD length = GetModuleFileNameW(nullptr, buffer.data(), static_cast<DWORD>(buffer.size()));
         if (length == 0)
             throw std::filesystem::filesystem_error("GetModuleFileNameW",
-                std::error_code(GetLastError(), std::system_category()));
+                                                    std::error_code(GetLastError(), std::system_category()));
         if (length < buffer.size())
             return std::filesystem::path(std::wstring(buffer.data(), length));
         buffer.resize(buffer.size() * 2);
@@ -82,7 +82,7 @@ std::expected<File, Error> Filesystem::open_file(std::string_view path, bool rw)
 {
 #ifdef __platform_windows
     int fd = _wopen(std::filesystem::path(path).c_str(),
-        (rw ? (_O_RDWR | _O_CREAT) : _O_RDONLY) | _O_BINARY, _S_IREAD | _S_IWRITE);
+                    (rw ? (_O_RDWR | _O_CREAT) : _O_RDONLY) | _O_BINARY, _S_IREAD | _S_IWRITE);
 #else
     int fd = open(path.data(), rw ? (O_RDWR | O_CREAT) : O_RDONLY, S_IRUSR | S_IWUSR);
 #endif

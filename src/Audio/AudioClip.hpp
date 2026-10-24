@@ -7,7 +7,7 @@
 class AudioClip
 {
 public:
-    AudioClip(MIX_Mixer &mixer, const std::filesystem::path& path);
+    AudioClip(MIX_Mixer& mixer, const std::filesystem::path& path);
     AudioClip(const AudioClip&) = delete;
     AudioClip& operator=(const AudioClip&) = delete;
 

@@ -7,6 +7,7 @@
 #include "World/Biome.hpp"
 #include "stdext.hpp"
 
+#include <bitset>
 #include <cstdint>
 #include <set>
 
@@ -101,12 +102,20 @@ public:
     const Slice *get_slices() const { return m_slices; }
     Slice *get_slices() { return m_slices; }
 
-    ALWAYS_INLINE std::shared_ptr<Buffer> get_instance_buffer() const { return m_instance_buffer; }
     ALWAYS_INLINE std::shared_ptr<Mesh> get_shadow_mesh() const { return m_shadow_mesh; }
     void set_shadow_mesh(std::shared_ptr<Mesh> mesh) { m_shadow_mesh = std::move(mesh); }
 
     std::expected<std::shared_ptr<Mesh>, Error> build_opaque_mesh(size_t slice_index, const std::map<ChunkPos, std::shared_ptr<Chunk>>& chunks, MeshBuilder *shadow_builder = nullptr);
-    std::expected<std::shared_ptr<Mesh>, Error> build_water_mesh(size_t slice_index, const std::map<ChunkPos, std::shared_ptr<Chunk>>& chunks);
+    MeshBuilder build_opaque_geometry(size_t slice_index, const std::map<ChunkPos, std::shared_ptr<Chunk>>& chunks);
+    struct WaterMask
+    {
+        std::bitset<block_count> blocks;
+        std::bitset<slice_count> slices;
+    };
+    WaterMask build_water_mask() const;
+    std::expected<std::shared_ptr<Mesh>, Error> build_water_mesh(size_t slice_index, const std::map<ChunkPos, WaterMask>& masks);
+
+    MeshBuilder build_water_geometry(size_t slice_index, const std::map<ChunkPos, WaterMask>& masks);
 
     bool is_modified() const { return m_modified; }
     void clear_modified() { m_modified = false; }
@@ -133,7 +142,6 @@ private:
 
     size_t m_block_count = 0;
 
-    std::shared_ptr<Buffer> m_instance_buffer;
     std::shared_ptr<Mesh> m_shadow_mesh;
 
     int64_t m_x = 0;

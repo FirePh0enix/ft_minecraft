@@ -52,6 +52,8 @@ private:
     std::map<ENetPeer *, std::shared_ptr<Player>> m_connected_peers;
     NetworkConnection m_connection;
     uint64_t m_chunk_revision = 0;
+    double m_next_player_save = 0.0;
+    void save_players();
 
     std::vector<ChunkLoadRequest> m_load_requests;
 

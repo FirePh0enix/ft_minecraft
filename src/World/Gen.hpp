@@ -5,6 +5,7 @@
 #include "World/Settings.hpp"
 #include "spline.hpp"
 
+#include <algorithm>
 #include <memory>
 #include <random>
 
@@ -30,12 +31,17 @@ struct PreLoadedChunk;
 class StructurePass
 {
 public:
+    // Maximum horizontal distance, in chunks, reached by structures emitted
+    // from a source chunk. Unknown passes retain the original conservative halo.
+    virtual int dependency_radius() const { return 15; }
     virtual void place(ChunkPos pos, std::shared_ptr<PreLoadedChunk> chunk, Dimension& dim) = 0;
 };
 
 class TreePass final : public StructurePass
 {
 public:
+    // Largest canopy is 14 blocks wide, centered inside its source chunk.
+    int dependency_radius() const override { return 1; }
     void place_small_oak_tree(ChunkPos pos, std::shared_ptr<PreLoadedChunk> chunk, Dimension& dim, std::mt19937& rng, int64_t lx, int64_t lz);
     void place_big_oak_tree(ChunkPos pos, std::shared_ptr<PreLoadedChunk> chunk, Dimension& dim, std::mt19937& rng, int64_t lx, int64_t lz);
 
@@ -50,6 +56,14 @@ public:
     Gen(WorldSettings settings)
         : m_settings(settings), m_noise(settings.seed)
     {
+    }
+
+    int dependency_radius() const
+    {
+        int radius = 0;
+        for (const auto& pass : m_structure_passes)
+            radius = std::max(radius, pass->dependency_radius());
+        return radius;
     }
 
     void add_structure_pass(std::shared_ptr<StructurePass> pass) { m_structure_passes.push_back(pass); }

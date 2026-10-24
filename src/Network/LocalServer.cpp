@@ -13,6 +13,7 @@ LocalServer::LocalServer(std::string_view username, std::string_view world_name,
 
 LocalServer::~LocalServer()
 {
+    save_players();
     m_connection.close();
 }
 
@@ -65,6 +66,20 @@ void LocalServer::tick()
         const glm::dvec3 position = player->get_position();
         origins[player->get_dimension()].push_back(BlockPos(
             int64_t(std::floor(position.x)), int64_t(position.y), int64_t(std::floor(position.z))));
+        // Retain the full neighborhood for turns while warming the destination
+        // ahead of fast flight. Predict horizontally; vertical motion needs no
+        // additional chunk columns.
+        glm::dvec3 ahead = player->streaming_velocity() * ChunkStreaming::prediction_seconds;
+        ahead.y = 0.0;
+        const double distance = glm::length(ahead);
+        if (distance > ChunkStreaming::max_prediction_blocks)
+            ahead *= ChunkStreaming::max_prediction_blocks / distance;
+        if (distance >= Chunk::width)
+        {
+            const glm::dvec3 predicted = position + ahead;
+            origins[player->get_dimension()].push_back(BlockPos(
+                int64_t(std::floor(predicted.x)), int64_t(predicted.y), int64_t(std::floor(predicted.z))));
+        }
     };
     if (m_player)
         add_origin(m_player);
@@ -115,7 +130,20 @@ void LocalServer::tick()
         }
     }
 
-    // If it fails, it fails no need to crash the game.
+    const double now = Engine::get().time();
+    if (now >= m_next_player_save)
+    {
+        save_players();
+        m_next_player_save = now + 1.0;
+    }
+}
+
+void LocalServer::save_players()
+{
+    if (!m_world || Engine::get().is_save_disabled())
+        return;
+    // Keep filesystem writes out of the per-frame path. Exit and disconnect
+    // also save, so normal shutdown does not lose the autosave interval.
     if (m_player != nullptr)
         (void)m_world->save_player(m_player);
     for (const auto& [peer, player] : m_connected_peers)
@@ -500,6 +528,8 @@ void LocalServer::disconnect(void *user, NetworkConnection& conn, const Client& 
         RemoveEntityPacket p(player->id());
         conn.broadcast(NetworkConnection::create_packet(p), client.peer());
 
+        if (!Engine::get().is_save_disabled())
+            (void)self->m_world->save_player(player);
         self->m_world->remove_entity(player->get_dimension(), player);
         self->m_connected_peers.erase(client.peer());
 

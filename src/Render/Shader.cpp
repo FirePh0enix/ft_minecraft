@@ -29,7 +29,8 @@ static std::expected<std::string, Error> preprocess(const std::string& source, s
             // quotes instead of assuming the closing quote ends the line.
             const size_t opening_quote = line.find_first_not_of(" \t", 9);
             const size_t closing_quote = opening_quote == std::string::npos
-                ? std::string::npos : line.find('"', opening_quote + 1);
+                                             ? std::string::npos
+                                             : line.find('"', opening_quote + 1);
             if (opening_quote == std::string::npos || line[opening_quote] != '"' || closing_quote == std::string::npos)
             {
                 error("Malformed shader include: {}", line);
