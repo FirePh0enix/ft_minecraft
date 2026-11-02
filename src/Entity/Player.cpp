@@ -148,6 +148,7 @@ void BetterConsole::give(Player *player, const std::vector<std::string>& args)
         std::println("usage `/give <item> [count]`");
         return;
     }
+    player->sync_inventory();
 }
 
 void BetterConsole::gamemode(Player *player, const std::vector<std::string>& args)
@@ -190,7 +191,7 @@ void Player::bind_methods()
     expose_rpc<Player>("play_one_shot_sound", RpcTarget::Both);
 
     type.add_method("hit", &Player::hit);
-    expose_rpc<Player>("hit", RpcTarget::Both);
+    expose_rpc<Player>("hit", RpcTarget::Server);
 
     type.add_method("interact", &Player::interact);
     expose_rpc<Player>("interact", RpcTarget::Both);
@@ -481,8 +482,9 @@ void Player::tick(float delta)
 
         Transform3D camera_transform = m_camera->get_transform();
 
-        const glm::quat q_pitch = glm::angleAxis(relative.y * mouse_sensibility, glm::vec3(1.0, 0.0, 0.0));
-        camera_transform.rotation() *= q_pitch;
+        constexpr float max_pitch = glm::radians(89.9f);
+        m_camera_pitch = std::clamp(m_camera_pitch + relative.y * mouse_sensibility, -max_pitch, max_pitch);
+        camera_transform.rotation() = glm::angleAxis(m_camera_pitch, glm::vec3(1.0, 0.0, 0.0));
 
         m_camera->get_transform() = camera_transform;
     }
@@ -1079,12 +1081,18 @@ void Player::interact(int64_t slot, glm::dvec3 direction)
     auto item = Engine::get().registry().get_item(stack.item());
     if (!item)
         return;
+    // Block placement is authoritative. Other clients do not own this inventory.
+    const bool block_item = std::dynamic_pointer_cast<ItemBlock>(item) != nullptr;
+    if (block_item && Engine::get().is_client())
+        return;
     item->interact(*m_world, m_dimension, stack, raycast_hit && !result.hit_entity, result, *m_inventory_container);
     m_using_slot = size_t(slot);
     m_using_stack = stack;
     // Draw times belong to this process, not to saved or synchronized inventory.
     // stack.remove_tag("draw_start");
     m_inventory_container->set_stack(1, slot, stack);
+    if (block_item)
+        sync_inventory();
 }
 
 void Player::release(int64_t slot, glm::dvec3 direction)

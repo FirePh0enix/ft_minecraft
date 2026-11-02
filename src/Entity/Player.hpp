@@ -116,6 +116,7 @@ public:
 
 private:
     std::shared_ptr<Camera> m_camera;
+    float m_camera_pitch = 0.0f;
     GameMode m_gamemode = GameMode::Creative;
 
     glm::dvec3 m_streaming_velocity{0.0};

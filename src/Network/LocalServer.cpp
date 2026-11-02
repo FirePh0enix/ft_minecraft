@@ -97,6 +97,15 @@ void LocalServer::tick()
 
     if (m_online)
     {
+        // Coalesce edits and reuse revisioned snapshots, including block tags.
+        for (int dimension = 0; dimension < int(World::max_dimensions); ++dimension)
+        {
+            for (const ChunkPos pos : m_changed_chunks[dimension])
+                if (const auto chunk = m_world->get_dimension(dimension).get_chunk(pos.x, pos.z))
+                    for (const auto& [peer, player] : m_connected_peers)
+                        send_chunk(peer, *chunk);
+            m_changed_chunks[dimension].clear();
+        }
         std::vector<ChunkLoadRequest> deferred_requests;
 
         for (const ChunkLoadRequest& req : m_load_requests)
@@ -161,6 +170,12 @@ void LocalServer::send_message(const std::string& message)
 
     ChatMessage p(msg);
     route_packet(NetworkConnection::create_packet(p));
+}
+
+void LocalServer::queue_chunk_update(int dimension, ChunkPos pos)
+{
+    if (m_online && dimension >= 0 && dimension < int(World::max_dimensions))
+        m_changed_chunks[dimension].insert(pos);
 }
 
 void LocalServer::host()

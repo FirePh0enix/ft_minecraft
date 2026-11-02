@@ -6,6 +6,7 @@
 #include "Core/ZLib.hpp"
 #include "Engine.hpp"
 #include "Entity/Player.hpp"
+#include "Network/LocalServer.hpp"
 #include "Profiler.hpp"
 #include "Variant.hpp"
 #include "World/Chunk.hpp"
@@ -624,7 +625,11 @@ void Dimension::set_block(int64_t x, int64_t y, int64_t z, BlockState state)
     int64_t local_x = local_coords(x);
     int64_t local_z = local_coords(z);
 
+    if (chunk->get_block(local_x, y, local_z) == state)
+        return;
     chunk->set_block(local_x, y, local_z, state);
+    if (auto server = std::dynamic_pointer_cast<LocalServer>(Engine::get().server()))
+        server->queue_chunk_update(id(), ChunkPos(chunk_x, chunk_z));
 }
 
 void Dimension::set_tag(glm::i64vec3 pos, std::string_view name, Variant v)
