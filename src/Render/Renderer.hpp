@@ -159,14 +159,19 @@ public:
     ALWAYS_INLINE WGPUIndexFormat index_type() const { return m_index_type; }
     ALWAYS_INLINE WGPUVertexFormat uv_format() const { return m_uv_format; }
 
-    ALWAYS_INLINE std::shared_ptr<Buffer> get_buffer(BufferKind kind) const
+    ALWAYS_INLINE const std::shared_ptr<Buffer>& get_buffer(BufferKind kind) const
     {
         return m_buffers[(size_t)kind];
     }
 
-    ALWAYS_INLINE void set_buffer(BufferKind kind, const std::shared_ptr<Buffer>& buffer)
+    ALWAYS_INLINE size_t buffer_offset(BufferKind kind) const { return m_offsets[(size_t)kind]; }
+    ALWAYS_INLINE size_t buffer_size(BufferKind kind) const { return m_sizes[(size_t)kind]; }
+
+    ALWAYS_INLINE void set_buffer(BufferKind kind, const std::shared_ptr<Buffer>& buffer, size_t offset = 0, size_t size = std::numeric_limits<size_t>::max())
     {
         m_buffers[(size_t)kind] = buffer;
+        m_offsets[(size_t)kind] = offset;
+        m_sizes[(size_t)kind] = buffer == nullptr ? 0 : (size == std::numeric_limits<size_t>::max() ? buffer->size() - offset : size);
     }
 
 protected:
@@ -174,6 +179,8 @@ protected:
     WGPUIndexFormat m_index_type;
     WGPUVertexFormat m_uv_format;
     std::shared_ptr<Buffer> m_buffers[(size_t)BufferKind::Max];
+    size_t m_offsets[(size_t)BufferKind::Max]{};
+    size_t m_sizes[(size_t)BufferKind::Max]{};
 };
 
 struct RenderTarget
@@ -432,16 +439,6 @@ struct GPU_ATTRIBUTE PostProcessUniforms
     uint32_t underwater;
 };
 
-struct Cloud
-{
-    FwColored uniform;
-    std::shared_ptr<Buffer> buffer;
-    std::shared_ptr<BindGroup> bg;
-    std::shared_ptr<BindGroup> bg_shadowmap;
-    int64_t grid_x;
-    int64_t grid_z;
-};
-
 class Renderer
 {
     friend class Buffer;
@@ -595,7 +592,12 @@ private:
     std::shared_ptr<BindGroup> m_chunk_water_bg;
     std::shared_ptr<BindGroup> m_chunk_semitransparent_bg;
     std::shared_ptr<BindGroup> m_chunk_shadow_bg;
+    std::shared_ptr<Buffer> m_chunk_instances;
     std::shared_ptr<Buffer> m_shadow_instances;
+    // Cache only coordinate candidates. Mesh availability and light-frustum
+    // visibility are still checked each frame, including across portal views.
+    std::vector<ChunkPos> m_shadow_source_chunks;
+    std::vector<ChunkPos> m_shadow_caster_candidates;
 
     // Portal
     std::shared_ptr<Shader> m_portal_shader;
@@ -615,11 +617,14 @@ private:
     std::shared_ptr<BindGroup> m_sky_bg;
 
     // Clouds
-    // std::vector<Cloud> m_clouds;
     SimplexNoise m_clouds_noise;
-    // std::set<ChunkPos> m_clouds_set;
 
-    std::map<ChunkPos, Cloud> m_clouds;
+    std::map<ChunkPos, bool> m_clouds;
+    std::optional<glm::i64vec2> m_cloud_grid_center;
+    std::shared_ptr<Material> m_cloud_mat;
+    std::shared_ptr<BindGroup> m_cloud_bg;
+    std::shared_ptr<BindGroup> m_cloud_shadow_bg;
+    std::shared_ptr<Buffer> m_cloud_instances;
 
     // Post processing
     std::shared_ptr<Shader> m_fw_pp_shader;
@@ -653,5 +658,4 @@ private:
     static inline Renderer *singleton;
 
     void update_clouds(std::shared_ptr<Camera> camera);
-    std::expected<Cloud, Error> create_cloud();
 };

@@ -148,6 +148,7 @@ void BetterConsole::give(Player *player, const std::vector<std::string>& args)
         std::println("usage `/give <item> [count]`");
         return;
     }
+    player->sync_inventory();
 }
 
 void BetterConsole::gamemode(Player *player, const std::vector<std::string>& args)
@@ -190,7 +191,7 @@ void Player::bind_methods()
     expose_rpc<Player>("play_one_shot_sound", RpcTarget::Both);
 
     type.add_method("hit", &Player::hit);
-    expose_rpc<Player>("hit", RpcTarget::Both);
+    expose_rpc<Player>("hit", RpcTarget::Server);
 
     type.add_method("interact", &Player::interact);
     expose_rpc<Player>("interact", RpcTarget::Both);
@@ -458,8 +459,8 @@ void Player::tick(float delta)
     // Keep server-side pickups above, but do not run local input or physics.
     if (!m_local_player)
     {
-        m_animator.play(m_movement_sound == MovementSound::Swimming ? "swim" :
-                        m_movement_sound == MovementSound::Walking ? "walk" : "idle");
+        m_animator.play(m_movement_sound == MovementSound::Swimming ? "swim" : m_movement_sound == MovementSound::Walking ? "walk"
+                                                                                                                          : "idle");
         m_animator.tick(delta);
         m_audio_source->set_position(get_global_transform().position());
         return;
@@ -481,8 +482,9 @@ void Player::tick(float delta)
 
         Transform3D camera_transform = m_camera->get_transform();
 
-        const glm::quat q_pitch = glm::angleAxis(relative.y * mouse_sensibility, glm::vec3(1.0, 0.0, 0.0));
-        camera_transform.rotation() *= q_pitch;
+        constexpr float max_pitch = glm::radians(89.9f);
+        m_camera_pitch = std::clamp(m_camera_pitch + relative.y * mouse_sensibility, -max_pitch, max_pitch);
+        camera_transform.rotation() = glm::angleAxis(m_camera_pitch, glm::vec3(1.0, 0.0, 0.0));
 
         m_camera->get_transform() = camera_transform;
     }
@@ -518,7 +520,7 @@ void Player::tick(float delta)
         if (head_in_water())
         {
             const glm::vec4 sky_color = glm::vec4(0.0, 0.0, 1.0, 1.0);
-            Renderer::get().set_fog(sky_color, float(16) * 16.0f * 0.3f); // TODO: render distance
+            Renderer::get().set_fog(sky_color, ChunkStreaming::fog_end * 0.3f);
             Renderer::get().set_sky(sky_color);
         }
         else
@@ -526,7 +528,7 @@ void Player::tick(float delta)
             const glm::vec4 sky_color = m_dimension == int(World::underworld)
                                             ? glm::vec4(0.18f, 0.04f, 0.03f, 1.0f)
                                             : glm::vec4(130.0 / 255.0, 200.0 / 255.0, 229.0 / 255.0, 1.0);
-            Renderer::get().set_fog(sky_color, m_dimension == int(World::underworld) ? 72.0f : float(16) * 16.0f - 1.0f);
+            Renderer::get().set_fog(sky_color, m_dimension == int(World::underworld) ? 72.0f : ChunkStreaming::fog_end);
             Renderer::get().set_sky(sky_color);
         }
 
@@ -626,6 +628,9 @@ void Player::tick(float delta)
         if (m_local_player)
             call_rpc("set_movement_state", static_cast<int64_t>(movement_sound));
     }
+
+    // Movement uses blocks per tick; streaming predicts in blocks per second.
+    m_streaming_velocity = delta > 0.0f ? m_velocity / double(delta) : glm::dvec3(0.0);
 
     // Reset velocity after movements.
     m_velocity.x = 0.0;
@@ -1076,12 +1081,18 @@ void Player::interact(int64_t slot, glm::dvec3 direction)
     auto item = Engine::get().registry().get_item(stack.item());
     if (!item)
         return;
+    // Block placement is authoritative. Other clients do not own this inventory.
+    const bool block_item = std::dynamic_pointer_cast<ItemBlock>(item) != nullptr;
+    if (block_item && Engine::get().is_client())
+        return;
     item->interact(*m_world, m_dimension, stack, raycast_hit && !result.hit_entity, result, *m_inventory_container);
     m_using_slot = size_t(slot);
     m_using_stack = stack;
     // Draw times belong to this process, not to saved or synchronized inventory.
     // stack.remove_tag("draw_start");
     m_inventory_container->set_stack(1, slot, stack);
+    if (block_item)
+        sync_inventory();
 }
 
 void Player::release(int64_t slot, glm::dvec3 direction)

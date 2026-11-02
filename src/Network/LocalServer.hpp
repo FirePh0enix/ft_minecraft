@@ -35,6 +35,7 @@ public:
     void host();
     void set_gamemode(GameMode gamemode);
     void sync_player_inventory(const Player& player);
+    void queue_chunk_update(int dimension, ChunkPos pos);
 
     void send_chunk(ENetPeer *peer, std::shared_ptr<Chunk> chunk);
     void sync_portal_chunks(int dimension, int64_t x, int64_t z);
@@ -52,8 +53,11 @@ private:
     std::map<ENetPeer *, std::shared_ptr<Player>> m_connected_peers;
     NetworkConnection m_connection;
     uint64_t m_chunk_revision = 0;
+    double m_next_player_save = 0.0;
+    void save_players();
 
     std::vector<ChunkLoadRequest> m_load_requests;
+    std::array<std::set<ChunkPos>, World::max_dimensions> m_changed_chunks;
 
     bool has_connected_player(std::string_view name);
     void update_player_list();

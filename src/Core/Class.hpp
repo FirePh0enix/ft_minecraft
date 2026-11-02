@@ -69,12 +69,12 @@ struct ClassList
 
 #define CLASS(NAME, BASE)                                                                                                                           \
 private:                                                                                                                                            \
-    /* Class IDs travel over the network; build paths must not affect them. */                                                                        \
+    /* Class IDs travel over the network; build paths must not affect them. */                                                                      \
     static constexpr ClassHashCode s_class_hash = fnv32_class_hash(#NAME);                                                                          \
                                                                                                                                                     \
 public:                                                                                                                                             \
     static inline ClassList<BASE::classes.max_capacity() + 1> classes = ClassList<BASE::classes.max_capacity() + 1>(BASE::classes, {s_class_hash}); \
-    static inline Type type{&BASE::type};                                                                                                          \
+    static inline Type type{&BASE::type};                                                                                                           \
                                                                                                                                                     \
     static std::span<const ClassHashCode> get_static_classes()                                                                                      \
     {                                                                                                                                               \

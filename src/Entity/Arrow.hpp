@@ -19,6 +19,9 @@ public:
 private:
     EntityId m_owner;
     bool m_embedded = false;
+    static constexpr double embedded_lifetime_seconds = 60.0;
+    double m_embedded_seconds = 0.0;
+    std::vector<AABBd> m_collision_boxes;
     void remove();
     std::shared_ptr<ModelLegacy> m_model;
 };

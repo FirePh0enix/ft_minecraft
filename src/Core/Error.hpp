@@ -6,9 +6,9 @@
 
 #include <algorithm>
 #include <cerrno>
-#include <cstdlib>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <format>
 #include <sstream>
 #include <utility>
@@ -299,39 +299,39 @@ private:
 void initialize_error_handling(cstring_t filename);
 
 // Statement-only propagation preserves returns from the caller on every compiler.
-#define TRY(...)                                      \
-    do                                                \
-    {                                                 \
-        auto&& result = (__VA_ARGS__);                 \
-        if (!result.has_value())                      \
-            return std::unexpected(result.error());   \
-        (void)result.value();                         \
+#define TRY(...)                                    \
+    do                                              \
+    {                                               \
+        auto&& result = (__VA_ARGS__);              \
+        if (!result.has_value())                    \
+            return std::unexpected(result.error()); \
+        (void)result.value();                       \
     } while (0)
 
 #define ERROR_JOIN_IMPL(A, B) A##B
 #define ERROR_JOIN(A, B) ERROR_JOIN_IMPL(A, B)
 
 // Like a declaration, use assignment macros in a braced scope.
-#define TRY_ASSIGN_IMPL(LHS, RESULT, ...)              \
-    auto&& RESULT = (__VA_ARGS__);                     \
-    if (!RESULT.has_value())                          \
-        return std::unexpected(RESULT.error());       \
+#define TRY_ASSIGN_IMPL(LHS, RESULT, ...)       \
+    auto&& RESULT = (__VA_ARGS__);              \
+    if (!RESULT.has_value())                    \
+        return std::unexpected(RESULT.error()); \
     LHS = RESULT.value()
 #define TRY_ASSIGN(LHS, ...) TRY_ASSIGN_IMPL(LHS, ERROR_JOIN(try_result_, __LINE__), __VA_ARGS__)
 
-#define THROW(EXPR, RET)                              \
-    do                                                \
-    {                                                 \
-        auto&& result = (EXPR);                        \
-        if (!result.has_value())                      \
-            return RET;                               \
-        (void)result.value();                         \
+#define THROW(EXPR, RET)         \
+    do                           \
+    {                            \
+        auto&& result = (EXPR);  \
+        if (!result.has_value()) \
+            return RET;          \
+        (void)result.value();    \
     } while (0)
 
-#define THROW_ASSIGN_IMPL(LHS, EXPR, RET, RESULT)      \
-    auto&& RESULT = (EXPR);                            \
-    if (!RESULT.has_value())                          \
-        return RET;                                   \
+#define THROW_ASSIGN_IMPL(LHS, EXPR, RET, RESULT) \
+    auto&& RESULT = (EXPR);                       \
+    if (!RESULT.has_value())                      \
+        return RET;                               \
     LHS = RESULT.value()
 #define THROW_ASSIGN(LHS, EXPR, RET) THROW_ASSIGN_IMPL(LHS, EXPR, RET, ERROR_JOIN(throw_result_, __LINE__))
 

@@ -31,8 +31,8 @@ void ItemBlock::interact(World& world, int dimension, ItemStack& stack, bool hit
         // Activate from the clicked frame or surface, even when the player is in the opening.
         if (world.try_create_portal(dimension, {result.block_pos.x, result.block_pos.y, result.block_pos.z}) ||
             world.try_create_portal(dimension, {int64_t(pos.x) + int64_t(normal.x),
-                                              int64_t(pos.y) + int64_t(normal.y),
-                                              int64_t(pos.z) + int64_t(normal.z)}))
+                                                int64_t(pos.y) + int64_t(normal.y),
+                                                int64_t(pos.z) + int64_t(normal.z)}))
             stack.set_count(stack.count() - 1);
         return;
     }

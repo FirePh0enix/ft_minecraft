@@ -28,8 +28,6 @@ Chunk::Chunk(Dimension *dim, int64_t x, int64_t z)
     m_blocks = new BlockState[block_count];
     m_biomes = new Biome[16 * 16];
     m_slices = new Slice[slice_count];
-
-    m_instance_buffer = EXPECT(Buffer::create(sizeof(FwChunkUniforms) * slice_count, WGPUBufferUsage_Uniform | WGPUBufferUsage_Vertex | WGPUBufferUsage_CopyDst));
 }
 
 Chunk::~Chunk()
@@ -119,6 +117,16 @@ static uint64_t xorshift(uint64_t seed)
 
 std::expected<std::shared_ptr<Mesh>, Error> Chunk::build_opaque_mesh(size_t slice_index, const std::map<ChunkPos, std::shared_ptr<Chunk>>& chunks, MeshBuilder *shadow_builder)
 {
+    MeshBuilder builder = build_opaque_geometry(slice_index, chunks);
+    if (builder.vertex_count() == 0)
+        return nullptr;
+    if (shadow_builder != nullptr)
+        shadow_builder->append_positions(builder, glm::vec3(0.0f, float(slice_index * width), 0.0f));
+    return builder.build();
+}
+
+MeshBuilder Chunk::build_opaque_geometry(size_t slice_index, const std::map<ChunkPos, std::shared_ptr<Chunk>>& chunks)
+{
     int64_t slice_y_offset = int64_t(slice_index) * width;
     MeshBuilder builder;
 
@@ -135,7 +143,7 @@ std::expected<std::shared_ptr<Mesh>, Error> Chunk::build_opaque_mesh(size_t slic
 
                 std::shared_ptr<Block> block = Engine::get().registry().get_block(m_blocks[index].id);
                 if (block == nullptr)
-                    return nullptr;
+                    return {};
 
                 auto match = [](BlockState *blocks, int64_t x, int64_t y, int64_t z, FaceKind face) -> bool
                 {
@@ -186,17 +194,17 @@ std::expected<std::shared_ptr<Mesh>, Error> Chunk::build_opaque_mesh(size_t slic
         }
     }
 
-    if (builder.vertex_count() == 0)
-        return nullptr;
-
-    if (shadow_builder != nullptr)
-        shadow_builder->append_positions(builder, glm::vec3(0.0f, float(slice_y_offset), 0.0f));
-
-    return builder.build();
+    return builder;
 }
 
 static void add_water_mesh(MeshBuilder& builder, glm::i64vec3 position, NeighborFlags neighbors)
 {
+    constexpr uint8_t all_faces = NeighborFlags::north | NeighborFlags::south |
+                                  NeighborFlags::up | NeighborFlags::down |
+                                  NeighborFlags::west | NeighborFlags::east;
+    if (neighbors.value == all_faces)
+        return;
+
     static std::array<glm::vec3, 6> cube_normals{
         glm::vec3(0, 0, -1),
         glm::vec3(0, 0, 1),
@@ -220,16 +228,15 @@ static void add_water_mesh(MeshBuilder& builder, glm::i64vec3 position, Neighbor
 
     const struct
     {
-        std::string name;
         FaceKind face;
         std::array<glm::vec3, 4> vertices;
     } faces[6]{
-        {.name = "north", .face = FaceKind::North, .vertices = {cube_vertices[4], cube_vertices[5], cube_vertices[1], cube_vertices[0]}},
-        {.name = "south", .face = FaceKind::South, .vertices = {cube_vertices[6], cube_vertices[7], cube_vertices[3], cube_vertices[2]}},
-        {.name = "up", .face = FaceKind::Up, .vertices = {cube_vertices[4], cube_vertices[7], cube_vertices[6], cube_vertices[5]}},
-        {.name = "down", .face = FaceKind::Down, .vertices = {cube_vertices[0], cube_vertices[1], cube_vertices[2], cube_vertices[3]}},
-        {.name = "west", .face = FaceKind::West, .vertices = {cube_vertices[7], cube_vertices[4], cube_vertices[0], cube_vertices[3]}},
-        {.name = "east", .face = FaceKind::East, .vertices = {cube_vertices[5], cube_vertices[6], cube_vertices[2], cube_vertices[1]}},
+        {.face = FaceKind::North, .vertices = {cube_vertices[4], cube_vertices[5], cube_vertices[1], cube_vertices[0]}},
+        {.face = FaceKind::South, .vertices = {cube_vertices[6], cube_vertices[7], cube_vertices[3], cube_vertices[2]}},
+        {.face = FaceKind::Up, .vertices = {cube_vertices[4], cube_vertices[7], cube_vertices[6], cube_vertices[5]}},
+        {.face = FaceKind::Down, .vertices = {cube_vertices[0], cube_vertices[1], cube_vertices[2], cube_vertices[3]}},
+        {.face = FaceKind::West, .vertices = {cube_vertices[7], cube_vertices[4], cube_vertices[0], cube_vertices[3]}},
+        {.face = FaceKind::East, .vertices = {cube_vertices[5], cube_vertices[6], cube_vertices[2], cube_vertices[1]}},
     };
 
     for (const auto& face : faces)
@@ -278,8 +285,46 @@ static void add_water_mesh(MeshBuilder& builder, glm::i64vec3 position, Neighbor
     }
 }
 
-std::expected<std::shared_ptr<Mesh>, Error> Chunk::build_water_mesh(size_t slice_index, const std::map<ChunkPos, std::shared_ptr<Chunk>>& chunks)
+Chunk::WaterMask Chunk::build_water_mask() const
 {
+    WaterMask mask;
+    for (const auto& [index, tags] : m_tags)
+    {
+        if (!tags.contains("water"))
+            continue;
+        mask.blocks.set(index);
+        mask.slices.set((index / width % height) / width);
+    }
+    return mask;
+}
+
+std::expected<std::shared_ptr<Mesh>, Error> Chunk::build_water_mesh(size_t slice_index, const std::map<ChunkPos, WaterMask>& masks)
+{
+    MeshBuilder builder = build_water_geometry(slice_index, masks);
+    if (builder.vertex_count() == 0)
+        return nullptr;
+    return builder.build();
+}
+
+MeshBuilder Chunk::build_water_geometry(size_t slice_index, const std::map<ChunkPos, WaterMask>& masks)
+{
+    const WaterMask& water = masks.at(pos());
+    if (!water.slices.test(slice_index))
+        return {};
+
+    const auto neighbor_mask = [&](int64_t x, int64_t z) -> const WaterMask *
+    {
+        const auto it = masks.find(ChunkPos(x, z));
+        return it == masks.end() ? nullptr : &it->second;
+    };
+    const WaterMask *west = neighbor_mask(m_x - 1, m_z);
+    const WaterMask *east = neighbor_mask(m_x + 1, m_z);
+    const WaterMask *north = neighbor_mask(m_x, m_z - 1);
+    const WaterMask *south = neighbor_mask(m_x, m_z + 1);
+    const auto match = [](const WaterMask *mask, int64_t x, int64_t y, int64_t z)
+    {
+        return mask != nullptr && mask->blocks.test(linearize(x, y, z));
+    };
     int64_t slice_y_offset = int64_t(slice_index) * width;
     MeshBuilder builder;
 
@@ -291,41 +336,25 @@ std::expected<std::shared_ptr<Mesh>, Error> Chunk::build_water_mesh(size_t slice
             {
                 const uint32_t index = linearize(x, y, z);
 
-                if (!get_tag(index, "water").has_value())
+                if (!water.blocks.test(index))
                     continue;
 
                 // TODO: add water gradient
 
-                auto match = [](Chunk *chunk, int64_t x, int64_t y, int64_t z) -> bool
-                {
-                    if (!chunk->get_tag({x, y, z}, "water").has_value())
-                        return false;
-                    return true; };
-                auto match_cross_boundary = [](const std::map<ChunkPos, std::shared_ptr<Chunk>>& chunks, int64_t cx, int64_t cz, int64_t x, int64_t y, int64_t z) -> bool
-                {
-                    auto iter = chunks.find(ChunkPos(cx, cz));
-                    if (iter == chunks.end())
-                        return false;
-                    // Check the actual neighboring chunk; using the current chunk here
-                    // creates missing or extra water faces along chunk boundaries.
-                    if (!iter->second->get_tag({x, y, z}, "water").has_value())
-                        return false;
-                    return true; };
-
                 NeighborFlags flags{0};
-                if ((x > 0 && match(this, x - 1, y, z)) || (x == 0 && match_cross_boundary(chunks, m_x - 1, m_z, 15, y, z)))
+                if ((x > 0 && match(&water, x - 1, y, z)) || (x == 0 && match(west, 15, y, z)))
                     flags.value |= NeighborFlags::east;
-                if ((x < 15 && match(this, x + 1, y, z)) || (x == 15 && match_cross_boundary(chunks, m_x + 1, m_z, 0, y, z)))
+                if ((x < 15 && match(&water, x + 1, y, z)) || (x == 15 && match(east, 0, y, z)))
                     flags.value |= NeighborFlags::west;
 
-                if (y > 0 && match(this, x, y - 1, z))
+                if (y > 0 && match(&water, x, y - 1, z))
                     flags.value |= NeighborFlags::up;
-                if (y < height - 1 && match(this, x, y + 1, z))
+                if (y < height - 1 && match(&water, x, y + 1, z))
                     flags.value |= NeighborFlags::down;
 
-                if ((z > 0 && match(this, x, y, z - 1)) || (z == 0 && match_cross_boundary(chunks, m_x, m_z - 1, x, y, 15)))
+                if ((z > 0 && match(&water, x, y, z - 1)) || (z == 0 && match(north, x, y, 15)))
                     flags.value |= NeighborFlags::south;
-                if ((z < 15 && match(this, x, y, z + 1)) || (z == 15 && match_cross_boundary(chunks, m_x, m_z + 1, x, y, 0)))
+                if ((z < 15 && match(&water, x, y, z + 1)) || (z == 15 && match(south, x, y, 0)))
                     flags.value |= NeighborFlags::north;
 
                 add_water_mesh(builder, {x, y - slice_y_offset, z}, flags);
@@ -333,10 +362,7 @@ std::expected<std::shared_ptr<Mesh>, Error> Chunk::build_water_mesh(size_t slice
         }
     }
 
-    if (builder.vertex_count() == 0)
-        return nullptr;
-
-    return builder.build();
+    return builder;
 }
 
 void Chunk::set_tag(glm::i64vec3 pos, std::string_view name, Variant v, bool dont_modify)

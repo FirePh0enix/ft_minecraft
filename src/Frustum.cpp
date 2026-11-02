@@ -50,26 +50,16 @@ void Frustum::normalize_plane(size_t side)
 
 bool Frustum::contains(const AABBf& aabb) const
 {
-    for (size_t i = 0; i < 6; i++)
+    for (const glm::vec4& plane : m_planes)
     {
-        if (m_planes[i][0] * (aabb.min[0]) + m_planes[i][1] * (aabb.min[1]) + m_planes[i][2] * (aabb.min[2]) + m_planes[i][3] > 0)
-            continue;
-        if (m_planes[i][0] * (aabb.max[0]) + m_planes[i][1] * (aabb.min[1]) + m_planes[i][2] * (aabb.min[2]) + m_planes[i][3] > 0)
-            continue;
-        if (m_planes[i][0] * (aabb.min[0]) + m_planes[i][1] * (aabb.max[1]) + m_planes[i][2] * (aabb.min[2]) + m_planes[i][3] > 0)
-            continue;
-        if (m_planes[i][0] * (aabb.max[0]) + m_planes[i][1] * (aabb.max[1]) + m_planes[i][2] * (aabb.min[2]) + m_planes[i][3] > 0)
-            continue;
-        if (m_planes[i][0] * (aabb.min[0]) + m_planes[i][1] * (aabb.min[1]) + m_planes[i][2] * (aabb.max[2]) + m_planes[i][3] > 0)
-            continue;
-        if (m_planes[i][0] * (aabb.max[0]) + m_planes[i][1] * (aabb.min[1]) + m_planes[i][2] * (aabb.max[2]) + m_planes[i][3] > 0)
-            continue;
-        if (m_planes[i][0] * (aabb.min[0]) + m_planes[i][1] * (aabb.max[1]) + m_planes[i][2] * (aabb.max[2]) + m_planes[i][3] > 0)
-            continue;
-        if (m_planes[i][0] * (aabb.max[0]) + m_planes[i][1] * (aabb.max[1]) + m_planes[i][2] * (aabb.max[2]) + m_planes[i][3] > 0)
-            continue;
-
-        return false;
+        // A plane's maximum dot product over an axis-aligned box is at the
+        // corner farthest along its normal. If that corner is outside, every
+        // corner is outside; this replaces up to eight tests with one.
+        const float x = plane.x >= 0.0f ? aabb.max.x : aabb.min.x;
+        const float y = plane.y >= 0.0f ? aabb.max.y : aabb.min.y;
+        const float z = plane.z >= 0.0f ? aabb.max.z : aabb.min.z;
+        if (!(plane.x * x + plane.y * y + plane.z * z + plane.w > 0.0f))
+            return false;
     }
 
     return true;

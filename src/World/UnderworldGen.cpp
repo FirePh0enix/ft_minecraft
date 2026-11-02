@@ -47,7 +47,8 @@ void UnderworldGen::generate_chunk(std::shared_ptr<Chunk> chunk, std::shared_ptr
     constexpr int horizontal_samples = Chunk::width / spacing + 1;
     constexpr int vertical_samples = (roof_height + 1) / spacing + 1;
     std::array<float, horizontal_samples * horizontal_samples * vertical_samples> density{};
-    const auto index = [](int x, int y, int z) {
+    const auto index = [](int x, int y, int z)
+    {
         return x + horizontal_samples * (z + horizontal_samples * y);
     };
     for (int z = 0; z < horizontal_samples; ++z)
@@ -61,7 +62,7 @@ void UnderworldGen::generate_chunk(std::shared_ptr<Chunk> chunk, std::shared_ptr
             {
                 const float gy = float(y * spacing);
                 const float shape = m_noise.fractal<3>(glm::vec3(float(gx) + 367, gy * 1.3f, float(gz) - 811),
-                    0.026f, 1.0f, 2.0f, 0.5f);
+                                                       0.026f, 1.0f, 2.0f, 0.5f);
                 const float boundary = std::max((bounds.x - gy) / 18.0f, (gy - bounds.y) / 16.0f);
                 const float column = (pillars - 0.38f) * 3.5f + shape * 0.65f;
                 density[index(x, y, z)] = std::max(boundary + shape * 1.6f, column);
@@ -88,12 +89,13 @@ void UnderworldGen::generate_chunk(std::shared_ptr<Chunk> chunk, std::shared_ptr
                     const int iy = y / spacing;
                     const float ty = float(y % spacing) / spacing;
                     const float low = std::lerp(std::lerp(density[index(ix, iy, iz)], density[index(ix + 1, iy, iz)], tx),
-                        std::lerp(density[index(ix, iy, iz + 1)], density[index(ix + 1, iy, iz + 1)], tx), tz);
+                                                std::lerp(density[index(ix, iy, iz + 1)], density[index(ix + 1, iy, iz + 1)], tx), tz);
                     const float high = std::lerp(std::lerp(density[index(ix, iy + 1, iz)], density[index(ix + 1, iy + 1, iz)], tx),
-                        std::lerp(density[index(ix, iy + 1, iz + 1)], density[index(ix + 1, iy + 1, iz + 1)], tx), tz);
+                                                 std::lerp(density[index(ix, iy + 1, iz + 1)], density[index(ix + 1, iy + 1, iz + 1)], tx), tz);
                     if (std::lerp(low, high, ty) > 0.0f)
                         block = BlockState(soil > 0.3f && y < preloaded_chunk->heights[x + z * Chunk::width] + 3
-                            ? Blocks::dirt : Blocks::stone);
+                                               ? Blocks::dirt
+                                               : Blocks::stone);
                 }
                 chunk->get_blocks()[Chunk::linearize(x, y, z)] = block;
             }

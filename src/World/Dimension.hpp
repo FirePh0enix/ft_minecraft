@@ -7,6 +7,7 @@
 #include "Variant.hpp"
 #include "World/Chunk.hpp"
 #include "World/Gen.hpp"
+#include "World/Settings.hpp"
 
 #include "daking/MPSC_queue.hpp"
 
@@ -15,6 +16,8 @@
 
 class World;
 class Dimension;
+class LivingEntity;
+class Player;
 
 struct RenderableChunk
 {
@@ -49,11 +52,13 @@ struct MeshRebuildResult
 {
     ChunkPos pos;
     std::shared_ptr<Chunk> chunk;
-    size_t slice_index;
+    size_t slice_index = 0;
     std::shared_ptr<Mesh> opaque_mesh;
     std::shared_ptr<Mesh> water_mesh;
     std::shared_ptr<Mesh> shadow_mesh;
     bool updates_shadow_mesh = false;
+    bool completes_rebuild = false;
+    bool failed = false;
 };
 
 /// When generating chunks on multiple threads, we need to guarantee that each pass are generated one after the other, otherwise we will cut structures that overlap
@@ -64,7 +69,7 @@ public:
     friend class World;
 
     GenScheduler(Dimension& dimension, std::shared_ptr<Gen> gen)
-        : m_dimension(dimension), m_gen(gen)
+        : m_dimension(dimension), m_gen_distance(gen->dependency_radius()), m_gen(gen)
     {
     }
 
@@ -73,7 +78,7 @@ public:
     }
 
     bool terrain_pass(ChunkPos middle);
-    void chunk_pass(ChunkPos middle);
+    bool chunk_pass(ChunkPos middle);
 
     void unload_chunk(std::stop_token token, std::shared_ptr<Chunk> chunk);
     void queue_unload_chunk(std::shared_ptr<Chunk> chunk);
@@ -87,8 +92,16 @@ public:
 private:
     Dimension& m_dimension;
 
-    int64_t m_chunk_distance = 16;
-    int64_t m_gen_distance = 15;
+    int64_t m_chunk_distance = ChunkStreaming::load_distance;
+    int64_t m_gen_distance;
+    std::vector<ChunkPos> m_terrain_order, m_chunk_order;
+    std::optional<ChunkPos> m_previous_origin;
+    void update_order(ChunkPos direction = {});
+    bool dependencies_ready(ChunkPos pos) const;
+    using Origins = std::vector<ChunkPos>;
+    std::shared_ptr<const Origins> m_active_origins;
+    bool wanted(ChunkPos pos, int64_t radius) const;
+    daking::MPSC_queue<ChunkPos> m_cancelled_terrain, m_cancelled_chunks;
 
     std::shared_ptr<Gen> m_gen;
 
@@ -98,6 +111,11 @@ private:
 
     std::set<ChunkPos> m_pregen_loading_queue;
     std::set<ChunkPos> m_chunks_loading_queue;
+    // Origins whose dependency area and chunk jobs have already been scheduled.
+    // Publishing pending results still happens every tick. Unloading anything
+    // invalidates this cache so revisiting an area schedules it again.
+    std::set<ChunkPos> m_scheduled_origins;
+    uint64_t m_seen_generation_revision = 0;
 
     size_t m_remaining_chunks_to_load = 0;
     size_t m_generation_batch_size = 0;
@@ -138,7 +156,12 @@ public:
     const std::vector<std::shared_ptr<Entity>>& get_entities() const { return m_entities; }
     const std::vector<std::shared_ptr<Entity>>& get_pending_entities() const { return m_entities_to_add; }
 
+    // Lazily rebuilt after entity membership changes; positions remain live.
+    const std::vector<std::shared_ptr<LivingEntity>>& get_living_entities() const;
+    const std::vector<std::shared_ptr<Player>>& get_players() const;
+
     std::vector<AABBd> get_boxes_that_may_collide(const AABBd& box) const;
+    void get_boxes_that_may_collide(const AABBd& box, std::vector<AABBd>& boxes) const;
     std::vector<std::shared_ptr<Entity>> cast_box(const AABBd& box) const;
 
     BlockState get_block(int64_t x, int64_t y, int64_t z) const;
@@ -152,14 +175,28 @@ public:
 
     void rebuild(std::stop_token token, std::shared_ptr<Chunk> chunk, const std::map<ChunkPos, std::shared_ptr<Chunk>>& nchunks, size_t slice_index, size_t slice_count);
     void queue_rebuild(ChunkPos pos, size_t slice_index = 0, size_t slice_count = Chunk::slice_count);
+    size_t flush_meshes(size_t max_results = Chunk::slice_count * 8);
+    void dispatch_meshes();
 
     void remove_preload(ChunkPos pos);
 
     void place_structure(glm::i64vec3 pos, const std::vector<BlockState>& blocks, int64_t w, int64_t h, int64_t l);
     void get_structures_overlap(ChunkPos pos, std::vector<StructureGen>& structures);
 
-    void add_chunk(std::shared_ptr<Chunk> chunk) { m_chunks[chunk->pos()] = chunk; }
-    void remove_chunk(ChunkPos pos) { m_chunks.erase(pos); }
+    void add_chunk(std::shared_ptr<Chunk> chunk)
+    {
+        m_chunks_rebuild_queue.erase(chunk->pos());
+        m_meshed_chunks.erase(chunk->pos());
+        m_chunks[chunk->pos()] = chunk;
+    }
+    void remove_chunk(ChunkPos pos)
+    {
+        if (m_chunks.erase(pos) > 0)
+            ++m_generation_revision;
+        m_mesh_requests.erase(pos);
+        m_chunks_rebuild_queue.erase(pos);
+        m_meshed_chunks.erase(pos);
+    }
 
     size_t count_triangles();
     size_t count_blocks();
@@ -172,22 +209,31 @@ private:
     int m_id;
 
     std::map<ChunkPos, std::shared_ptr<PreLoadedChunk>> m_preloaded_chunks;
+    uint64_t m_generation_revision = 0;
     std::map<ChunkPos, std::shared_ptr<Chunk>> m_chunks;
 
     std::map<ChunkPos, RenderableChunk> m_visible_chunks;
 
     daking::MPSC_queue<MeshRebuildResult> m_mesh_queue_lockless;
     std::set<ChunkPos> m_chunks_rebuild_queue;
-    std::set<ChunkPos> m_chunks_rebuild_pending;
+    // Keep unscheduled work here so arrivals coalesce and priorities can change.
+    std::map<ChunkPos, std::pair<size_t, size_t>> m_mesh_requests;
+    std::set<ChunkPos> m_meshed_chunks;
 
     // TODO: move this somewhere else.
     Frustum m_sun_frustum;
     std::map<ChunkPos, RenderableChunk> m_sun_visible_chunks;
+
+    void invalidate_entity_targets();
+    void rebuild_entity_targets() const;
+    mutable bool m_entity_targets_dirty = true;
+    mutable std::vector<std::shared_ptr<LivingEntity>> m_living_entities;
+    mutable std::vector<std::shared_ptr<Player>> m_players;
 
     std::vector<std::shared_ptr<Entity>> m_entities;
     std::vector<std::shared_ptr<Entity>> m_entities_to_add;
     std::vector<std::shared_ptr<Entity>> m_entities_to_remove;
 
     std::mutex m_structures_mutex;
-    std::vector<StructureGen> m_structures_queue;
+    std::map<ChunkPos, std::vector<std::shared_ptr<const StructureGen>>> m_structures_by_chunk;
 };
