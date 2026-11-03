@@ -40,6 +40,8 @@ public:
 class TreePass final : public StructurePass
 {
 public:
+    explicit TreePass(uint64_t seed) : m_seed(seed) {}
+
     // Largest canopy is 14 blocks wide, centered inside its source chunk.
     int dependency_radius() const override { return 1; }
     void place_small_oak_tree(ChunkPos pos, std::shared_ptr<PreLoadedChunk> chunk, Dimension& dim, std::mt19937& rng, int64_t lx, int64_t lz);
@@ -48,6 +50,9 @@ public:
     void place_spruce_tree(ChunkPos pos, std::shared_ptr<PreLoadedChunk> chunk, Dimension& dim, std::mt19937& rng, int64_t lx, int64_t lz);
 
     virtual void place(ChunkPos pos, std::shared_ptr<PreLoadedChunk> chunk, Dimension& dim) override;
+
+private:
+    uint64_t m_seed;
 };
 
 class Gen

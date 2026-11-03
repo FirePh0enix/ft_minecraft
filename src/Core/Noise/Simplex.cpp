@@ -10,14 +10,20 @@ SimplexNoise::SimplexNoise(uint64_t seed)
     for (size_t i = 0; i < 256; i++)
         m_perms[i] = i;
 
-    std::mt19937 prng{std::random_device{}()};
-    prng.seed(seed);
+    std::seed_seq seed_words{uint32_t(seed), uint32_t(seed >> 32)};
+    std::mt19937 prng(seed_words);
 
     std::shuffle(std::begin(m_perms), std::end(m_perms), prng);
+
+    // Move each seed away from the shared zero crossing at the noise origin.
+    // Bound offsets to preserve float precision for nearby world coordinates.
+    for (int axis = 0; axis < 3; ++axis)
+        m_offset[axis] = float(prng() % 65536) / 256.0f;
 }
 
 float SimplexNoise::sample(glm::vec2 coords) const
 {
+    coords += glm::vec2(m_offset);
     float x = coords.x;
     float y = coords.y;
 
@@ -89,6 +95,7 @@ float SimplexNoise::sample(glm::vec2 coords) const
 
 float SimplexNoise::sample(glm::vec3 coords) const
 {
+    coords += m_offset;
     float x = coords.x;
     float y = coords.y;
     float z = coords.z;

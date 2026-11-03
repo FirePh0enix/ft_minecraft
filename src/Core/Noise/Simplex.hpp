@@ -54,6 +54,7 @@ public:
 
 private:
     uint8_t m_perms[256];
+    glm::vec3 m_offset;
 
     inline uint8_t hash(int32_t i) const
     {

@@ -144,9 +144,11 @@ void TreePass::place_spruce_tree(ChunkPos pos, std::shared_ptr<PreLoadedChunk> c
 
 void TreePass::place(ChunkPos pos, std::shared_ptr<PreLoadedChunk> chunk, Dimension& dim)
 {
-    std::random_device dev;
-    std::mt19937 rng(dev());
-    rng.seed((pos.x * 73856093) ^ (pos.z * 19349663));
+    const uint64_t x = uint64_t(pos.x);
+    const uint64_t z = uint64_t(pos.z);
+    std::seed_seq seed_words{uint32_t(m_seed), uint32_t(m_seed >> 32),
+                             uint32_t(x), uint32_t(x >> 32), uint32_t(z), uint32_t(z >> 32)};
+    std::mt19937 rng(seed_words);
     std::uniform_int_distribution<std::mt19937::result_type> dist016(0, 15);
     int64_t lx = (int64_t)dist016(rng);
     int64_t lz = (int64_t)dist016(rng);
@@ -176,7 +178,7 @@ OverworldGen::OverworldGen(WorldSettings settings)
     std::vector<double> y{0.0f, 0.1f, 0.9f, 1.0f};
     m_continent_spline = tk::spline(x, y);
 
-    m_structure_passes.push_back(std::make_shared<TreePass>());
+    m_structure_passes.push_back(std::make_shared<TreePass>(settings.seed));
 }
 
 void OverworldGen::preload(int64_t cx, int64_t cz, std::shared_ptr<PreLoadedChunk> chunk)
