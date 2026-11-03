@@ -546,10 +546,9 @@ void Player::tick(float delta)
             Biome biome = chunk->get()->get_biomes()[x + z * 16];
             if (biome != m_current_biome)
             {
-                // std::println("{} {} | {} {}", x, z, (uint16_t)m_current_biome, (uint16_t)biome);
                 m_current_biome = biome;
                 auto& clip = Engine::get().music_player().get_biome_music(biome);
-                Engine::get().music_player().crossfade_to(&clip, 2.0f, 1.0f);
+                Engine::get().music_player().crossfade_to(&clip, 0.5f, 0.5f);
             }
         }
     }
