@@ -2,6 +2,8 @@
 
 ## Gameplay
 
+[![Gameplay](https://img.youtube.com/vi/cGg8mxncOXg/0.jpg)](https://youtu.be/cGg8mxncOXg)
+
 ## Table of Contents
 
 1. [Description](#description)
