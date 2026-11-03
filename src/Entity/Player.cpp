@@ -1324,6 +1324,13 @@ void Player::pause_menu()
             Engine::get().window()->set_fullscreen(Engine::get().get_fullscreen());
         }
 
+        float effects_volume = Engine::get().audio_mixer().effects_volume();
+        if (ImGui::SliderFloat("Sound effects", &effects_volume, 0.0f, 1.0f, "%.2f"))
+            Engine::get().audio_mixer().set_effects_volume(effects_volume);
+        float music_volume = Engine::get().music_player().volume();
+        if (ImGui::SliderFloat("Music", &music_volume, 0.0f, 1.0f, "%.2f"))
+            Engine::get().music_player().set_volume(music_volume);
+
         imguitk_center_next_widget("Quit");
         if (ImGui::Button("Quit"))
         {

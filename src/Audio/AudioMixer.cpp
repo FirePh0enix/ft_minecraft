@@ -1,5 +1,6 @@
 #include "AudioMixer.hpp"
 #include "Core/Logger.hpp"
+#include <algorithm>
 
 std::expected<std::shared_ptr<AudioMixer>, Error> AudioMixer::create()
 {
@@ -65,4 +66,23 @@ AudioMixer::~AudioMixer()
         MIX_DestroyMixer(m_mixer);
 
     MIX_Quit();
+}
+
+void AudioMixer::set_effects_volume(float volume)
+{
+    m_effects_volume = std::clamp(volume, 0.0f, 1.0f);
+    for (size_t i = 0; i < m_tracks_pool.size(); ++i)
+        if (m_tracks_pool[i])
+            MIX_SetTrackGain(m_tracks_pool[i], m_effects_gains[i] * m_effects_volume);
+}
+
+void AudioMixer::set_effects_track_gain(MIX_Track *track, float gain)
+{
+    for (size_t i = 0; i < m_tracks_pool.size(); ++i)
+        if (m_tracks_pool[i] == track)
+        {
+            m_effects_gains[i] = gain;
+            MIX_SetTrackGain(track, gain * m_effects_volume);
+            return;
+        }
 }

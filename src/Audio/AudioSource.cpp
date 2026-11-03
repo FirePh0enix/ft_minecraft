@@ -27,7 +27,7 @@ void AudioSource::play_one_shot(AudioClip *clip, float volume)
         return;
     }
 
-    MIX_SetTrackGain(track, volume);
+    m_mixer.set_effects_track_gain(track, volume);
     update_track_position(track, volume);
     MIX_PlayTrack(track, 0);
 }
@@ -80,7 +80,7 @@ void AudioSource::set_volume(float volume)
     if (!m_track)
         return;
 
-    MIX_SetTrackGain(m_track, m_volume);
+    m_mixer.set_effects_track_gain(m_track, m_volume);
 }
 
 void AudioSource::set_position(const glm::vec3& position)
@@ -98,7 +98,7 @@ void AudioSource::update_track_position(MIX_Track *track, float volume)
 
     const glm::vec3 pos = m_position - listener.get_position();
     const float gain = glm::length2(pos) > AUDIO_MAX_DISTANCE * AUDIO_MAX_DISTANCE ? 0.0f : volume;
-    MIX_SetTrackGain(track, gain);
+    m_mixer.set_effects_track_gain(track, gain);
 
     const glm::vec3& forward = listener.get_forward();
     const glm::vec3& up = listener.get_up();
