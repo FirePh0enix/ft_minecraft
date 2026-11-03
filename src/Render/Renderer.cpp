@@ -1796,9 +1796,9 @@ void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::sha
     const auto& shadow_chunks = world->get_dimension(dimension).get_sun_visible_chunks();
     const glm::dvec3 camera_position = active_camera->get_global_transform().position();
 
-    // Drawing every slice in the full square light frustum can produce tens of
-    // thousands of tiny draw calls. Limit casters to chunks visible to the main
-    // camera plus a margin that retains nearby off-screen occluders.
+    // A visible receiver can be shadowed by off-screen terrain toward the sun.
+    // Sweep full chunk columns through the terrain height along the fixed sun
+    // direction; retain a small halo for chunk boundaries and filtered shadows.
     const bool same_visible_chunks = m_shadow_source_chunks.size() == visible_chunks.size() &&
         std::equal(m_shadow_source_chunks.begin(), m_shadow_source_chunks.end(), visible_chunks.begin(),
                    [](const ChunkPos& cached, const auto& entry)
@@ -1807,6 +1807,9 @@ void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::sha
     {
         ZoneScopedN("rebuild shadow caster candidates");
         constexpr int64_t shadow_caster_margin = 2;
+        const int64_t sun_steps = int64_t(std::ceil(
+            double(Chunk::height) / Chunk::width *
+            std::max(std::abs(light_dir.x), std::abs(light_dir.z)) / light_dir.y));
         m_shadow_source_chunks.clear();
         m_shadow_source_chunks.reserve(visible_chunks.size());
         m_shadow_caster_candidates.clear();
@@ -1815,9 +1818,15 @@ void Renderer::draw_dimension_forward(WGPUCommandEncoder encoder, const std::sha
         {
             (void)renderable;
             m_shadow_source_chunks.push_back(pos);
-            for (int64_t x = -shadow_caster_margin; x <= shadow_caster_margin; ++x)
-                for (int64_t z = -shadow_caster_margin; z <= shadow_caster_margin; ++z)
-                    m_shadow_caster_candidates.emplace_back(pos.x + x, pos.z + z);
+            for (int64_t step = 0; step <= sun_steps; ++step)
+            {
+                const double rise = double(step) / std::max(double(sun_steps), 1.0) * Chunk::height;
+                const int64_t sun_x = int64_t(std::floor(rise * light_dir.x / light_dir.y / Chunk::width));
+                const int64_t sun_z = int64_t(std::floor(rise * light_dir.z / light_dir.y / Chunk::width));
+                for (int64_t x = -shadow_caster_margin; x <= shadow_caster_margin; ++x)
+                    for (int64_t z = -shadow_caster_margin; z <= shadow_caster_margin; ++z)
+                        m_shadow_caster_candidates.emplace_back(pos.x + sun_x + x, pos.z + sun_z + z);
+            }
         }
         std::sort(m_shadow_caster_candidates.begin(), m_shadow_caster_candidates.end());
         m_shadow_caster_candidates.erase(
