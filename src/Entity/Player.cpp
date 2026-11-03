@@ -1267,9 +1267,10 @@ void Player::chat()
             ImGui::SetKeyboardFocusHere();
             m_chat_focus_requested = false;
         }
-        ImGui::InputText("##ChatInput", m_chat_buffer, sizeof(m_chat_buffer));
+        const bool submit = ImGui::InputText("##ChatInput", m_chat_buffer, sizeof(m_chat_buffer), ImGuiInputTextFlags_EnterReturnsTrue);
         ImGui::SameLine();
-        if (ImGui::Button(">"))
+        const bool send_clicked = ImGui::Button(">");
+        if ((submit || send_clicked) && m_chat_buffer[0] != 0)
         {
             std::string msg = m_chat_buffer;
             if (msg.starts_with('/'))
@@ -1282,6 +1283,7 @@ void Player::chat()
                 send_message(m_username + ": " + msg);
             }
             m_chat_buffer[0] = 0;
+            m_chat_focus_requested = true;
         }
     }
     ImGui::End();
@@ -1295,8 +1297,7 @@ void Player::debug_menu()
 
     ImGui::SetNextWindowPos(ImVec2(0, 0));
     ImGui::SetNextWindowSize(ImVec2(size_x, size_y));
-    ImGui::SetNextWindowFocus();
-    if (ImGui::Begin("Debug"))
+    if (ImGui::Begin("Debug", nullptr, ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoFocusOnAppearing))
     {
         Dimension& dimension = m_world->get_dimension(m_dimension);
         ImGui::LabelText("", "FPS: %lld", static_cast<long long>(Engine::get().get_fps()));

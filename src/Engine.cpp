@@ -196,7 +196,15 @@ void Engine::tick(float delta)
 
             ImGui_ImplSDL3_ProcessEvent(&event);
             ImGuiIO& imgui_io = ImGui::GetIO();
-            if (imgui_io.WantCaptureMouse || imgui_io.WantCaptureKeyboard)
+            const bool mouse_event = event.type == SDL_EVENT_MOUSE_MOTION ||
+                                     event.type == SDL_EVENT_MOUSE_BUTTON_DOWN ||
+                                     event.type == SDL_EVENT_MOUSE_BUTTON_UP ||
+                                     event.type == SDL_EVENT_MOUSE_WHEEL;
+            const bool keyboard_event = event.type == SDL_EVENT_KEY_DOWN ||
+                                        event.type == SDL_EVENT_KEY_UP ||
+                                        event.type == SDL_EVENT_TEXT_INPUT;
+            if ((mouse_event && imgui_io.WantCaptureMouse) ||
+                (keyboard_event && imgui_io.WantCaptureKeyboard))
                 continue;
 
             Input::process_event(event);
