@@ -9,11 +9,12 @@ fn shadowMap(normal: vec3<f32>, frag_pos_light_space: vec4<f32>) -> f32 {
         return 1.0; 
     }
 
-    // Smooth dynamic slope-scaled bias
-    let cos_theta = clamp(dot(normal, -world_env.light_dir), 0.0, 1.0);
+    // light_dir points toward the sun, matching the diffuse lighting below.
+    let cos_theta = clamp(dot(normal, world_env.light_dir), 0.0, 1.0);
     // getStableLightMatrices doubles the depth range for cloud casters;
     // halve normalized bias to preserve the same world-space offset.
-    let bias = max(0.003 * (1.0 - cos_theta), 0.0005) * 0.5;
+    // Keep the offset small enough to retain shadows close to the feet.
+    let bias = max(0.00075 * (1.0 - cos_theta), 0.000125) * 0.5;
 
     // The comparison sampler uses linear filtering, so one sample performs
     // hardware-filtered 2x2 PCF. A software 3x3 loop would multiply this into

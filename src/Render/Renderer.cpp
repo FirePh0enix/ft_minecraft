@@ -1529,8 +1529,10 @@ void Renderer::update_clouds(std::shared_ptr<Camera> camera)
 
     const glm::dvec3 camera_position = camera->get_global_transform().position();
 
-    int64_t cx = int64_t(camera_position.x / 32.0);
-    int64_t cz = int64_t(camera_position.z / 32.0);
+    // Stream in cloud space so wind cannot carry the entire grid away.
+    const double cloud_time = Engine::get().time();
+    int64_t cx = int64_t(std::floor((camera_position.x - cloud_time) / 32.0));
+    int64_t cz = int64_t(std::floor(camera_position.z / 32.0));
 
     if (m_cloud_grid_center && m_cloud_grid_center->x == cx && m_cloud_grid_center->y == cz)
         return;
