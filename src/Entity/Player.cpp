@@ -78,7 +78,7 @@ void BetterConsole::tp(Player *player, const std::vector<std::string>& args)
     int64_t y = std::stol(args[2]);
     int64_t z = std::stol(args[3]);
 
-    player->set_position(glm::vec3(x, y, z));
+    player->set_position(glm::dvec3(x, y, z));
 }
 
 void BetterConsole::chgdim(Player *player, const std::vector<std::string>& args)
@@ -434,7 +434,7 @@ void Player::tick(float delta)
     {
         size_t amount_added = 0;
 
-        AABB item_box = get_aabb().translate(get_position()).grow(glm::vec3(0.5));
+        AABBd item_box = get_aabb().translate(get_position()).grow(glm::vec3(0.5));
         std::vector<std::shared_ptr<Entity>> entities = m_world->get_dimension(m_dimension).cast_box(item_box);
         for (const std::shared_ptr<Entity>& entity : entities)
         {

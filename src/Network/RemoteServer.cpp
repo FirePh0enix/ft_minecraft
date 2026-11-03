@@ -44,7 +44,7 @@ void RemoteServer::tick()
 
     if (m_world != nullptr)
     {
-        const glm::vec3 player_pos = m_player->get_global_transform().position();
+        const glm::dvec3 player_pos = m_player->get_global_transform().position();
         int64_t player_cx = chunk_index(int64_t(std::floor(player_pos.x)));
         int64_t player_cz = chunk_index(int64_t(std::floor(player_pos.z)));
         for (int64_t cx = -16; cx <= 16; cx++)
