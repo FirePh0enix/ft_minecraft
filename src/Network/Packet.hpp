@@ -155,7 +155,7 @@ struct InitPacket
 {
     uint64_t seed = 0;
     EntityId id;
-    glm::vec3 position;
+    glm::dvec3 position;
 
     int32_t dimension = 0;
 
@@ -175,7 +175,9 @@ inline std::expected<void, Error> deserialize(DataBuffer& buffer, InitPacket& p)
 {
     p.seed = buffer.read<uint64_t>();
     p.id = buffer.read<EntityId>();
-    p.position = glm::vec3(buffer.read<float>(), buffer.read<float>(), buffer.read<float>());
+    p.position.x = buffer.read<double>();
+    p.position.y = buffer.read<double>();
+    p.position.z = buffer.read<double>();
     p.dimension = buffer.read<int32_t>();
     return std::expected<void, Error>();
 }
@@ -246,7 +248,7 @@ inline std::expected<void, Error> deserialize(DataBuffer& buffer, ChatMessage& p
 struct SendPlayerTransformPacket
 {
     EntityId id;
-    glm::vec3 position;
+    glm::dvec3 position;
     glm::quat rotation;
 
     int32_t dimension = 0;
@@ -271,9 +273,9 @@ inline std::expected<void, Error> deserialize(DataBuffer& buffer, SendPlayerTran
     ZoneScoped;
 
     p.id = buffer.read<EntityId>();
-    p.position.x = buffer.read<float>();
-    p.position.y = buffer.read<float>();
-    p.position.z = buffer.read<float>();
+    p.position.x = buffer.read<double>();
+    p.position.y = buffer.read<double>();
+    p.position.z = buffer.read<double>();
     const float rotation_x = buffer.read<float>();
     const float rotation_y = buffer.read<float>();
     const float rotation_z = buffer.read<float>();
@@ -286,7 +288,7 @@ inline std::expected<void, Error> deserialize(DataBuffer& buffer, SendPlayerTran
 
 struct AddEntityPacket
 {
-    glm::vec3 position;
+    glm::dvec3 position;
     glm::quat rotation;
     EntityId id;
     ClassHashCode class_id;
@@ -298,7 +300,7 @@ struct AddEntityPacket
 
 struct AddItemEntityPacket
 {
-    glm::vec3 position;
+    glm::dvec3 position;
     EntityId id;
     uint32_t item_id;
     int32_t dimension;
@@ -317,9 +319,9 @@ inline std::expected<void, Error> serialize(DataBuffer& buffer, const AddItemEnt
 }
 inline std::expected<void, Error> deserialize(DataBuffer& buffer, AddItemEntityPacket& p)
 {
-    p.position.x = buffer.read<float>();
-    p.position.y = buffer.read<float>();
-    p.position.z = buffer.read<float>();
+    p.position.x = buffer.read<double>();
+    p.position.y = buffer.read<double>();
+    p.position.z = buffer.read<double>();
     p.id = buffer.read<EntityId>();
     p.item_id = buffer.read<uint32_t>();
     p.dimension = buffer.read<int32_t>();
@@ -341,9 +343,9 @@ inline std::expected<void, Error> serialize(DataBuffer& buffer, const AddEntityP
 }
 inline std::expected<void, Error> deserialize(DataBuffer& buffer, AddEntityPacket& p)
 {
-    p.position.x = buffer.read<float>();
-    p.position.y = buffer.read<float>();
-    p.position.z = buffer.read<float>();
+    p.position.x = buffer.read<double>();
+    p.position.y = buffer.read<double>();
+    p.position.z = buffer.read<double>();
     const float rotation_x = buffer.read<float>();
     const float rotation_y = buffer.read<float>();
     const float rotation_z = buffer.read<float>();
@@ -376,7 +378,7 @@ inline std::expected<void, Error> deserialize(DataBuffer& buffer, RemoveEntityPa
 struct UpdateEntityPacket
 {
     EntityId id;
-    glm::vec3 position;
+    glm::dvec3 position;
     glm::quat rotation;
 
     int32_t dimension = 0;
@@ -399,9 +401,9 @@ inline std::expected<void, Error> serialize(DataBuffer& buffer, const UpdateEnti
 inline std::expected<void, Error> deserialize(DataBuffer& buffer, UpdateEntityPacket& p)
 {
     p.id = buffer.read<EntityId>();
-    p.position.x = buffer.read<float>();
-    p.position.y = buffer.read<float>();
-    p.position.z = buffer.read<float>();
+    p.position.x = buffer.read<double>();
+    p.position.y = buffer.read<double>();
+    p.position.z = buffer.read<double>();
     const float rotation_x = buffer.read<float>();
     const float rotation_y = buffer.read<float>();
     const float rotation_z = buffer.read<float>();

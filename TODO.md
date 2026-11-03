@@ -21,7 +21,7 @@
     - [x] Ore generation
 - [x] Monsters (like creepers or zombies) should spawn and chase you when you get close.
 - [x] 3D clouds should float across the world. They can either be represented as blocks (purely visual with no interaction) or as shaders.
-- [ ] You should be able to pick up blocks after destroying them (just like in Minecraft) and place them wherever you want.
+- [x] You should be able to pick up blocks after destroying them (just like in Minecraft) and place them wherever you want.
 - [x] Destroyed or placed blocks must be persistent.
 
 ## V.2: Graphic rendering
@@ -30,7 +30,7 @@
 - [x] You may use a sky shader instead of a skybox if desired.
 - [x] Directional lighting
 - [x] Shadows
-- [ ] Screen Space Ambient Occlusion (SSAO)
+- [x] Screen Space Ambient Occlusion (SSAO)
 - [x] Transparent water surfaces
 - [x] Far distance fog for better immersion
 
@@ -43,15 +43,15 @@
 
 ## V.4: Sounds
 
-- [ ] Each biome should have its own unique ambient music, with smooth transitions between them.
+- [x] Each biome should have its own unique ambient music, with smooth transitions between them.
 - [x] Both players and monsters must have sounds for actions like walking, attacking, and swimming.
 - [x] The sound volume should dynamically adjust based on distance from the source.
 
 ## V.5: Multiplayer
 
 - [x] Your server should allow at least four players to join simultaneously.
-- [ ] Players should be visible in the world, performing any actions such as walking, attacking, destroying blocks, and even getting killed by monsters
-    - [ ] Get killed by monsters
+- [x] Players should be visible in the world, performing any actions such as walking, attacking, destroying blocks, and even getting killed by monsters
+    - [x] Get killed by monsters
 - [x] All modifications to the world (block placement, block destruction) must be synchronized across all players and persistent even after reloading.
     - [x] Entity states (like monsters) should also be synchronized
 
@@ -65,4 +65,4 @@
 - [x] A simple gravity system that handles block collisions (excluding water).
 - [x] The ability to swim and dive, with optional slowed movement underwater.
 - [x] Visual rendering adaptations for underwater exploration (color filters, reduced visibility).
-- [ ] Basic animations for walking and attacking, Minecraft-like in simplicity.
+- [x] Basic animations for walking and attacking, Minecraft-like in simplicity.

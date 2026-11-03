@@ -19,6 +19,7 @@ public:
     void crossfade_to(AudioClip *clip, float delay, float duration);
 
     void set_volume(float volume);
+    float volume() const { return m_volume; }
 
     AudioClip& get_biome_music(Biome biome)
     {

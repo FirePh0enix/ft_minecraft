@@ -78,7 +78,7 @@ void BetterConsole::tp(Player *player, const std::vector<std::string>& args)
     int64_t y = std::stol(args[2]);
     int64_t z = std::stol(args[3]);
 
-    player->set_position(glm::vec3(x, y, z));
+    player->set_position(glm::dvec3(x, y, z));
 }
 
 void BetterConsole::chgdim(Player *player, const std::vector<std::string>& args)
@@ -434,7 +434,7 @@ void Player::tick(float delta)
     {
         size_t amount_added = 0;
 
-        AABB item_box = get_aabb().translate(get_position()).grow(glm::vec3(0.5));
+        AABBd item_box = get_aabb().translate(get_position()).grow(glm::vec3(0.5));
         std::vector<std::shared_ptr<Entity>> entities = m_world->get_dimension(m_dimension).cast_box(item_box);
         for (const std::shared_ptr<Entity>& entity : entities)
         {
@@ -472,10 +472,10 @@ void Player::tick(float delta)
 
     if (are_input_available() && m_local_player)
     {
-        constexpr float mouse_sensibility = 0.03f;
+        const float mouse_sensitivity = Engine::get().mouse_sensitivity();
 
         const glm::vec2 relative = Input::get_mouse_relative();
-        const glm::quat q_yaw = glm::angleAxis(relative.x * mouse_sensibility, up);
+        const glm::quat q_yaw = glm::angleAxis(relative.x * mouse_sensitivity, up);
 
         transform.rotation() *= q_yaw;
         m_transform = transform;
@@ -483,7 +483,7 @@ void Player::tick(float delta)
         Transform3D camera_transform = m_camera->get_transform();
 
         constexpr float max_pitch = glm::radians(89.9f);
-        m_camera_pitch = std::clamp(m_camera_pitch + relative.y * mouse_sensibility, -max_pitch, max_pitch);
+        m_camera_pitch = std::clamp(m_camera_pitch + relative.y * mouse_sensitivity, -max_pitch, max_pitch);
         camera_transform.rotation() = glm::angleAxis(m_camera_pitch, glm::vec3(1.0, 0.0, 0.0));
 
         m_camera->get_transform() = camera_transform;
@@ -546,10 +546,9 @@ void Player::tick(float delta)
             Biome biome = chunk->get()->get_biomes()[x + z * 16];
             if (biome != m_current_biome)
             {
-                // std::println("{} {} | {} {}", x, z, (uint16_t)m_current_biome, (uint16_t)biome);
                 m_current_biome = biome;
                 auto& clip = Engine::get().music_player().get_biome_music(biome);
-                Engine::get().music_player().crossfade_to(&clip, 2.0f, 1.0f);
+                Engine::get().music_player().crossfade_to(&clip, 0.5f, 0.5f);
             }
         }
     }
@@ -1267,9 +1266,10 @@ void Player::chat()
             ImGui::SetKeyboardFocusHere();
             m_chat_focus_requested = false;
         }
-        ImGui::InputText("##ChatInput", m_chat_buffer, sizeof(m_chat_buffer));
+        const bool submit = ImGui::InputText("##ChatInput", m_chat_buffer, sizeof(m_chat_buffer), ImGuiInputTextFlags_EnterReturnsTrue);
         ImGui::SameLine();
-        if (ImGui::Button(">"))
+        const bool send_clicked = ImGui::Button(">");
+        if ((submit || send_clicked) && m_chat_buffer[0] != 0)
         {
             std::string msg = m_chat_buffer;
             if (msg.starts_with('/'))
@@ -1282,6 +1282,7 @@ void Player::chat()
                 send_message(m_username + ": " + msg);
             }
             m_chat_buffer[0] = 0;
+            m_chat_focus_requested = true;
         }
     }
     ImGui::End();
@@ -1295,8 +1296,7 @@ void Player::debug_menu()
 
     ImGui::SetNextWindowPos(ImVec2(0, 0));
     ImGui::SetNextWindowSize(ImVec2(size_x, size_y));
-    ImGui::SetNextWindowFocus();
-    if (ImGui::Begin("Debug"))
+    if (ImGui::Begin("Debug", nullptr, ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoFocusOnAppearing))
     {
         Dimension& dimension = m_world->get_dimension(m_dimension);
         ImGui::LabelText("", "FPS: %lld", static_cast<long long>(Engine::get().get_fps()));
@@ -1323,6 +1323,15 @@ void Player::pause_menu()
         {
             Engine::get().window()->set_fullscreen(Engine::get().get_fullscreen());
         }
+
+        float effects_volume = Engine::get().audio_mixer().effects_volume();
+        if (ImGui::SliderFloat("Sound effects", &effects_volume, 0.0f, 1.0f, "%.2f"))
+            Engine::get().audio_mixer().set_effects_volume(effects_volume);
+        float music_volume = Engine::get().music_player().volume();
+        if (ImGui::SliderFloat("Music", &music_volume, 0.0f, 1.0f, "%.2f"))
+            Engine::get().music_player().set_volume(music_volume);
+
+        ImGui::SliderFloat("Mouse sensitivity", &Engine::get().mouse_sensitivity(), 0.001f, 0.1f, "%.3f");
 
         imguitk_center_next_widget("Quit");
         if (ImGui::Button("Quit"))

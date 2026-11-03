@@ -5,14 +5,14 @@
 class Transform3D
 {
 public:
-    Transform3D(glm::vec3 position = glm::vec3(), glm::quat rotation = glm::identity<glm::quat>(), glm::vec3 scale = glm::vec3(1.0))
+    Transform3D(glm::dvec3 position = glm::dvec3(), glm::dquat rotation = glm::identity<glm::dquat>(), glm::dvec3 scale = glm::dvec3(1.0))
         : m_position(position), m_rotation(rotation), m_scale(scale)
     {
     }
 
     Transform3D with_parent(const Transform3D& parent_transform) const
     {
-        Transform3D transform = Transform3D::from_matrix(parent_transform.to_matrix() * to_matrix());
+        Transform3D transform = Transform3D::from_matrix(parent_transform.physics_matrix() * physics_matrix());
         transform.m_rotation = m_rotation * parent_transform.m_rotation;
         return transform;
     }
@@ -107,7 +107,13 @@ private:
     glm::dquat m_rotation;
     glm::dvec3 m_scale;
 
-    static Transform3D from_matrix(glm::mat4 matrix)
+    glm::dmat4 physics_matrix() const
+    {
+        return glm::translate(glm::dmat4(1.0), m_position) * glm::mat4_cast(m_rotation)
+            * glm::scale(glm::dmat4(1.0), m_scale);
+    }
+
+    static Transform3D from_matrix(glm::dmat4 matrix)
     {
         glm::dvec3 position(matrix[3][0], matrix[3][1], matrix[3][2]);
         glm::dquat rotation = glm::quat_cast(matrix);

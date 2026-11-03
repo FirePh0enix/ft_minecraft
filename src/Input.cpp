@@ -10,16 +10,16 @@ void Input::init(const Window& window)
 void Input::load_config()
 {
     Input::add_action("forward");
-    Input::add_action_mapping("forward", ActionMapping(ActionMappingKind::Key, SDLK_W));
+    Input::add_action_mapping("forward", ActionMapping(ActionMappingKind::Scancode, SDL_SCANCODE_W));
 
     Input::add_action("backward");
-    Input::add_action_mapping("backward", ActionMapping(ActionMappingKind::Key, SDLK_S));
+    Input::add_action_mapping("backward", ActionMapping(ActionMappingKind::Scancode, SDL_SCANCODE_S));
 
     Input::add_action("left");
-    Input::add_action_mapping("left", ActionMapping(ActionMappingKind::Key, SDLK_A));
+    Input::add_action_mapping("left", ActionMapping(ActionMappingKind::Scancode, SDL_SCANCODE_A));
 
     Input::add_action("right");
-    Input::add_action_mapping("right", ActionMapping(ActionMappingKind::Key, SDLK_D));
+    Input::add_action_mapping("right", ActionMapping(ActionMappingKind::Scancode, SDL_SCANCODE_D));
 
     Input::add_action("jump");
     Input::add_action_mapping("jump", ActionMapping(ActionMappingKind::Key, SDLK_SPACE));
@@ -148,14 +148,14 @@ glm::vec2 Input::get_vector(std::string_view x_negative, std::string_view x_posi
     return glm::vec2(get_action_value(x_positive) - get_action_value(x_negative), get_action_value(y_positive) - get_action_value(y_negative));
 }
 
-bool Input::is_action_mapping(std::string_view action, uint32_t key)
+bool Input::is_action_mapping(std::string_view action, uint32_t key, ActionMappingKind kind)
 {
     auto iter = s_mappings.find(action);
     if (iter == s_mappings.end()) [[unlikely]]
         return false;
     for (ActionMapping mapping : iter->second)
     {
-        if (mapping.value == key)
+        if (mapping.kind == kind && mapping.value == key)
             return true;
     }
     return false;
@@ -224,11 +224,11 @@ void Input::process_event(SDL_Event event)
     {
         for (const auto& mapping : value)
         {
-            if (event.type == SDL_EVENT_KEY_DOWN && mapping.kind == ActionMappingKind::Key && event.key.key == mapping.value)
+            if (event.type == SDL_EVENT_KEY_DOWN && ((mapping.kind == ActionMappingKind::Key && event.key.key == mapping.value) || (mapping.kind == ActionMappingKind::Scancode && uint32_t(event.key.scancode) == mapping.value)))
             {
                 set_action_value(key, 1.0);
             }
-            else if (event.type == SDL_EVENT_KEY_UP && mapping.kind == ActionMappingKind::Key && event.key.key == mapping.value)
+            else if (event.type == SDL_EVENT_KEY_UP && ((mapping.kind == ActionMappingKind::Key && event.key.key == mapping.value) || (mapping.kind == ActionMappingKind::Scancode && uint32_t(event.key.scancode) == mapping.value)))
             {
                 set_action_value(key, 0.0);
             }

@@ -26,6 +26,9 @@ public:
     bool is_valid() const { return m_valid; }
     AudioListener& get_audio_listener() { return m_audio_listener; }
     MIX_Track *get_available_track();
+    float effects_volume() const { return m_effects_volume; }
+    void set_effects_volume(float volume);
+    void set_effects_track_gain(MIX_Track *track, float gain);
 
     inline const std::array<MIX_Track *, MUSIC_TRACKS_POOL_SIZE>& get_music_tracks_pool() const
     {
@@ -35,6 +38,8 @@ public:
 private:
     MIX_Mixer *m_mixer = nullptr;
     bool m_valid = false;
+    float m_effects_volume = 1.0f;
+    std::array<float, TRACKS_POOL_SIZE> m_effects_gains{};
     AudioListener m_audio_listener;
     std::array<MIX_Track *, TRACKS_POOL_SIZE> m_tracks_pool{};
     std::array<MIX_Track *, MUSIC_TRACKS_POOL_SIZE> m_music_tracks_pool{};
