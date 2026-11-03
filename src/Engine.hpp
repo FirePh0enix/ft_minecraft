@@ -76,6 +76,8 @@ public:
     bool is_server() const { return m_server != nullptr && m_current_target == RpcTarget::Server; }
     bool is_client() const { return m_server != nullptr && m_current_target == RpcTarget::Client; }
 
+    float& mouse_sensitivity() { return m_mouse_sensitivity; }
+
     bool& get_fullscreen() { return m_fullscreen; }
     void set_running(bool b) { m_window->set_running(b); }
 
@@ -126,6 +128,8 @@ private:
     std::shared_ptr<MusicPlayer> m_music_player;
 
     std::vector<std::string> m_saves;
+
+    float m_mouse_sensitivity = 0.03f;
 
     // Menu
     char m_username_buf[32] = "steve";

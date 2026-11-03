@@ -472,10 +472,10 @@ void Player::tick(float delta)
 
     if (are_input_available() && m_local_player)
     {
-        constexpr float mouse_sensibility = 0.03f;
+        const float mouse_sensitivity = Engine::get().mouse_sensitivity();
 
         const glm::vec2 relative = Input::get_mouse_relative();
-        const glm::quat q_yaw = glm::angleAxis(relative.x * mouse_sensibility, up);
+        const glm::quat q_yaw = glm::angleAxis(relative.x * mouse_sensitivity, up);
 
         transform.rotation() *= q_yaw;
         m_transform = transform;
@@ -483,7 +483,7 @@ void Player::tick(float delta)
         Transform3D camera_transform = m_camera->get_transform();
 
         constexpr float max_pitch = glm::radians(89.9f);
-        m_camera_pitch = std::clamp(m_camera_pitch + relative.y * mouse_sensibility, -max_pitch, max_pitch);
+        m_camera_pitch = std::clamp(m_camera_pitch + relative.y * mouse_sensitivity, -max_pitch, max_pitch);
         camera_transform.rotation() = glm::angleAxis(m_camera_pitch, glm::vec3(1.0, 0.0, 0.0));
 
         m_camera->get_transform() = camera_transform;
@@ -1330,6 +1330,8 @@ void Player::pause_menu()
         float music_volume = Engine::get().music_player().volume();
         if (ImGui::SliderFloat("Music", &music_volume, 0.0f, 1.0f, "%.2f"))
             Engine::get().music_player().set_volume(music_volume);
+
+        ImGui::SliderFloat("Mouse sensitivity", &Engine::get().mouse_sensitivity(), 0.001f, 0.1f, "%.3f");
 
         imguitk_center_next_widget("Quit");
         if (ImGui::Button("Quit"))
