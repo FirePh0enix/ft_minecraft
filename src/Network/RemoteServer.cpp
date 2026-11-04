@@ -75,10 +75,39 @@ void RemoteServer::tick()
             const auto& chunk = received.chunk;
             if (m_chunk_revisions[chunk->dimension()][chunk->pos()] != received.revision)
                 continue;
-            m_world->get_dimension(chunk->dimension()).add_chunk(chunk);
+            auto& dimension = m_world->get_dimension(chunk->dimension());
+            auto& modified = chunk_modified[chunk->dimension()];
+            const auto previous = dimension.get_chunk(chunk->x(), chunk->z());
+            if (!previous)
+                add_neighbour_chunk(chunk->pos(), modified);
+            else
+            {
+                // An interior edit cannot change a neighboring chunk's faces.
+                // Check only the four borders instead of rebuilding all five
+                // chunk columns for every authoritative block update.
+                bool west = false, east = false, north = false, south = false;
+                for (int64_t y = 0; y < Chunk::height; ++y)
+                    for (int64_t edge = 0; edge < Chunk::width; ++edge)
+                    {
+                        west |= previous.value()->get_block(0, y, edge) != chunk->get_block(0, y, edge);
+                        east |= previous.value()->get_block(15, y, edge) != chunk->get_block(15, y, edge);
+                        north |= previous.value()->get_block(edge, y, 0) != chunk->get_block(edge, y, 0);
+                        south |= previous.value()->get_block(edge, y, 15) != chunk->get_block(edge, y, 15);
+                    }
+                if (west) modified.insert({chunk->x() - 1, chunk->z()});
+                if (east) modified.insert({chunk->x() + 1, chunk->z()});
+                if (north) modified.insert({chunk->x(), chunk->z() - 1});
+                if (south) modified.insert({chunk->x(), chunk->z() + 1});
+                // Water can be encoded by tags without changing BlockState.
+                // Keep border water culling correct for tag-only updates too.
+                const auto old_water = previous.value()->build_water_mask();
+                const auto new_water = chunk->build_water_mask();
+                if (old_water.blocks != new_water.blocks)
+                    add_neighbour_chunk(chunk->pos(), modified);
+            }
+            dimension.add_chunk(chunk);
             m_requested_chunks[chunk->dimension()].erase(chunk->pos());
             chunk_modified[chunk->dimension()].insert(chunk->pos());
-            add_neighbour_chunk(chunk->pos(), chunk_modified[chunk->dimension()]);
         }
 
         for (int dimension = 0; dimension < int(World::max_dimensions); ++dimension)
@@ -143,8 +172,10 @@ void RemoteServer::queue_receive_chunk(const ChunkDataPacket& p)
     revision = p.revision;
 
     std::shared_ptr<Chunk> chunk = std::make_shared<Chunk>(&m_world->get_dimension(p.dimension), p.x, p.z);
+    // Edits to loaded terrain must not wait behind the initial streaming batch.
+    const bool priority = m_world->get_dimension(p.dimension).has_chunk(p.x, p.z);
     Engine::get().get_thread_pool().submit([this, p, chunk](std::stop_token token)
-                                           { receive_chunk(p, chunk, token); });
+                                           { receive_chunk(p, chunk, token); }, priority);
 }
 
 void RemoteServer::spawn_player()
@@ -300,7 +331,7 @@ void RemoteServer::receive(void *user, NetworkConnection& conn, ENetPacket *pack
         RpcCallPacket p;
         EXPECT(deserialize(buffer, p));
 
-        debug("call `{}` on entity {}", p.name, (uint32_t)p.id);
+        // debug("call `{}` on entity {}", p.name, (uint32_t)p.id);
 
         if (self->m_world == nullptr)
             break;
@@ -335,7 +366,7 @@ void RemoteServer::receive(void *user, NetworkConnection& conn, ENetPacket *pack
         if (self->m_world == nullptr || p.dimension < 0 || p.dimension >= int(World::max_dimensions))
             return;
 
-        std::println("> receiving new chunk {} - {}", p.x, p.z);
+        // std::println("> receiving new chunk {} - {}", p.x, p.z);
 
         self->queue_receive_chunk(p);
     }

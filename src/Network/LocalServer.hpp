@@ -37,7 +37,7 @@ public:
     void sync_player_inventory(const Player& player);
     void queue_chunk_update(int dimension, ChunkPos pos);
 
-    void send_chunk(ENetPeer *peer, std::shared_ptr<Chunk> chunk);
+    void send_chunk(ENetPeer *peer, std::shared_ptr<Chunk> chunk, bool priority = false);
     void sync_portal_chunks(int dimension, int64_t x, int64_t z);
 
 private:

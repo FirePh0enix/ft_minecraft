@@ -19,7 +19,7 @@ public:
     size_t size() const { return m_threads.size(); }
 
     /// Starts an asynchronous task.
-    void submit(TaskFn task);
+    void submit(TaskFn task, bool priority = false);
 
     /// Cancel pending work and join running tasks. Call from the owning thread.
     void stop();
@@ -31,6 +31,7 @@ private:
     // std::deque<std::function<void(std::stop_token)>> m_tasks;
 
     daking::MPSC_queue<TaskFn> m_tasks;
+    daking::MPSC_queue<TaskFn> m_priority_tasks;
 
     std::condition_variable m_cv;
     bool m_should_stop = false;

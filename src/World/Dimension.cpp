@@ -900,8 +900,13 @@ void Dimension::dispatch_meshes()
         }
 
         m_chunks_rebuild_queue.insert(pos);
+        // The pool also contains prefetched terrain jobs. Let nearby changes
+        // bypass that FIFO backlog without adding workers or synchronous work.
+        const double dx = double(pos.x) + 0.5 - cx;
+        const double dz = double(pos.z) + 0.5 - cz;
+        const bool priority = dx * dx + dz * dz <= 4.0;
         Engine::get().get_mesh_thread_pool().submit([this, chunk, nchunks, slice_index, slice_count](std::stop_token token)
-                                                    { rebuild(token, chunk, nchunks, slice_index, slice_count); });
+                                                    { rebuild(token, chunk, nchunks, slice_index, slice_count); }, priority);
     }
 }
 

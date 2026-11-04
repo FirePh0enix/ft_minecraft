@@ -103,7 +103,7 @@ void LocalServer::tick()
             for (const ChunkPos pos : m_changed_chunks[dimension])
                 if (const auto chunk = m_world->get_dimension(dimension).get_chunk(pos.x, pos.z))
                     for (const auto& [peer, player] : m_connected_peers)
-                        send_chunk(peer, *chunk);
+                        send_chunk(peer, *chunk, true);
             m_changed_chunks[dimension].clear();
         }
         std::vector<ChunkLoadRequest> deferred_requests;
@@ -183,7 +183,7 @@ void LocalServer::host()
     EXPECT(m_connection.host(NetworkConnection::default_port));
 }
 
-void LocalServer::send_chunk(ENetPeer *peer, std::shared_ptr<Chunk> chunk)
+void LocalServer::send_chunk(ENetPeer *peer, std::shared_ptr<Chunk> chunk, bool priority)
 {
     ZoneScoped;
 
@@ -206,7 +206,7 @@ void LocalServer::send_chunk(ENetPeer *peer, std::shared_ptr<Chunk> chunk)
             EXPECT(ZLib::deflate(std::span<const std::byte>(blocks), packet.blocks));
             EXPECT(ZLib::deflate(std::as_bytes(std::span(tags)), packet.tags));
             m_connection.send(peer, NetworkConnection::create_packet(packet));
-        });
+        }, priority);
 }
 
 void LocalServer::route_packet(ENetPacket *packet)

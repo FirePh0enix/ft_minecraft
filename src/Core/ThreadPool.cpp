@@ -51,6 +51,8 @@ void ThreadPool::stop()
     TaskFn task;
     while (m_tasks.try_dequeue(task))
         task = {};
+    while (m_priority_tasks.try_dequeue(task))
+        task = {};
 }
 
 void ThreadPool::reset()
@@ -64,14 +66,17 @@ void ThreadPool::reset()
     start(num_threads);
 }
 
-void ThreadPool::submit(std::function<void(std::stop_token)> task)
+void ThreadPool::submit(TaskFn task, bool priority)
 {
     {
         // Synchronize with both shutdown and the worker's wait predicate.
         std::lock_guard lock(m_mutex);
         if (m_should_stop)
             return;
-        m_tasks.enqueue(std::move(task));
+        if (priority)
+            m_priority_tasks.enqueue(std::move(task));
+        else
+            m_tasks.enqueue(std::move(task));
     }
     m_cv.notify_one();
 }
@@ -87,14 +92,14 @@ void ThreadPool::thread_worker(std::stop_token token)
         {
             std::unique_lock lock(m_mutex);
             m_cv.wait(lock, [this, token]
-                      { return !m_tasks.empty() || m_should_stop || token.stop_requested(); });
+                      { return !m_priority_tasks.empty() || !m_tasks.empty() || m_should_stop || token.stop_requested(); });
 
-            if (m_should_stop && m_tasks.empty())
+            if (m_should_stop && m_priority_tasks.empty() && m_tasks.empty())
                 break;
             if (token.stop_requested())
                 break;
 
-            if (!m_tasks.try_dequeue(task))
+            if (!m_priority_tasks.try_dequeue(task) && !m_tasks.try_dequeue(task))
                 continue;
         }
 
