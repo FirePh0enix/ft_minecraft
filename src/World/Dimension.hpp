@@ -11,6 +11,7 @@
 
 #include "daking/MPSC_queue.hpp"
 
+#include <algorithm>
 #include <mutex>
 #include <set>
 
@@ -185,6 +186,15 @@ public:
 
     void add_chunk(std::shared_ptr<Chunk> chunk)
     {
+        const auto previous = m_chunks.find(chunk->pos());
+        if (previous != m_chunks.end() && previous->second != chunk)
+        {
+            // Network snapshots replace block data before their asynchronous
+            // rebuild finishes. Keep drawing the previous GPU meshes until
+            // flush_meshes publishes the replacement, including empty slices.
+            std::copy_n(previous->second->m_slices, Chunk::slice_count, chunk->m_slices);
+            chunk->m_shadow_mesh = previous->second->m_shadow_mesh;
+        }
         m_chunks_rebuild_queue.erase(chunk->pos());
         m_meshed_chunks.erase(chunk->pos());
         m_chunks[chunk->pos()] = chunk;
