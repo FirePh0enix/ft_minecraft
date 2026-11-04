@@ -150,19 +150,14 @@ Press `T` to open chat, enter a command, then press `Enter`.
   - **macOS:** Clang.
   - **Windows:** MSVC only (Visual Studio C++ build tools).
 - **CMake 3.20 or newer** and a compatible build tool.
+- **Ninja** is recommended for fast builds.
 
 ## Installation
 
-- Generate Release build files.
+- Generate Release build files with Ninja and build:
 
 ```bash
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-```
-
-- Build the project:
-
-```bash
-cmake --build build --config Release --parallel
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release && cmake --build build --parallel
 ```
 
 ## Run
